@@ -1,0 +1,22 @@
+{
+  "name": "golang",
+  "version": "1.0.0",
+  "description": "Comprehensive Go development plugin with commands, agents, and hooks for building, testing, and optimizing Go projects",
+  "author": {
+    "name": "Kodflow",
+    "email": "contact@making.codes",
+    "url": "https://github.com/kodflow"
+  },
+  "homepage": "https://github.com/kodflow/.repository/tree/main/plugins/golang",
+  "repository": "https://github.com/kodflow/.repository",
+  "license": "MIT",
+  "keywords": [
+    "golang",
+    "go",
+    "development",
+    "testing",
+    "linting",
+    "build",
+    "performance"
+  ]
+}
