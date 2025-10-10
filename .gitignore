@@ -28,6 +28,7 @@ Thumbs.db
 .env.development
 .env.test
 .env.production
+.devcontainer/.env
 
 # Secrets & credentials
 *.pem
@@ -39,6 +40,7 @@ credentials.json
 .credentials.json
 *.p12
 *.pfx
+.mcp.json
 
 # Go
 *.exe

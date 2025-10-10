@@ -9,6 +9,8 @@ RUN apt-get update \
         ca-certificates \
         gnupg \
         lsb-release \
+        cmake \
+        libpam0g-dev \
     # Add GitHub CLI repository
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
@@ -20,6 +22,9 @@ RUN apt-get update \
     # Add HashiCorp repository
     && curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /etc/apt/keyrings/hashicorp-archive-keyring.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list \
+    # Add 1Password repository
+    && curl -fsSL https://downloads.1password.com/linux/keys/1password.asc | gpg --dearmor -o /etc/apt/keyrings/1password-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | tee /etc/apt/sources.list.d/1password.list \
     # Update with new repositories and install ALL packages in one command
     && apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -37,6 +42,7 @@ RUN apt-get update \
         vault \
         consul \
         nomad \
+        1password-cli \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -56,13 +62,19 @@ WORKDIR /home/vscode
 # Create directories for persistent volumes
 RUN mkdir -p /home/vscode/.cache \
     /home/vscode/.config \
+    /home/vscode/.config/op \
     /home/vscode/.zsh_history_dir \
     /home/vscode/.local/bin \
     /home/vscode/.claude \
-    /home/vscode/.local/share/@anthropic
+    /home/vscode/.local/share/@anthropic \
+    # Set strict permissions for 1Password config directory
+    && chmod 700 /home/vscode/.config/op
+
+# Configure Claude CLI settings
+RUN echo '{\n  "enableAllProjectMcpServers": true,\n  "alwaysThinkingEnabled": true\n}' > /home/vscode/.claude/settings.json
 
 # Install Oh My Zsh and themes in parallel (rarely changes - good for cache)
-RUN rm -rf $HOME/.oh-my-zsh && \
+RUN rm -rf "$HOME/.oh-my-zsh" && \
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
         ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k & \
@@ -84,6 +96,9 @@ RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' $HOME/.zs
         echo 'export HISTFILE=~/.zsh_history_dir/.zsh_history'; \
         echo 'export HISTSIZE=10000'; \
         echo 'export SAVEHIST=10000'; \
+        echo ''; \
+        echo '# Super Claude alias'; \
+        echo 'alias super-claude="claude --dangerously-skip-permissions --mcp /home/vscode/.devcontainer/mcp.json"'; \
     } >> $HOME/.zshrc
 
 # Install npm global packages as root (uses @latest - may change often, so at the end)

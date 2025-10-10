@@ -2,12 +2,21 @@ services:
   devcontainer:
     # Container name will use project name automatically via COMPOSE_PROJECT_NAME
     # which defaults to the parent directory name
-    build:
-      context: .
-      dockerfile: Dockerfile
-      # Build arguments for optimization
-      args:
-        BUILDKIT_INLINE_CACHE: 1
+
+    # Use pre-built image from GitHub Container Registry
+    # To build locally instead, comment out 'image' and uncomment 'build' section
+    image: ghcr.io/kodflow/.repository:latest
+
+    # Uncomment to build locally instead of using pre-built image
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   # Build arguments for optimization
+    #   args:
+    #     BUILDKIT_INLINE_CACHE: 1
+
+    env_file:
+      - .env
     volumes:
       # Mount workspace
       - ..:/workspace:cached
@@ -23,6 +32,10 @@ services:
       - anthropic-cache:/home/vscode/.cache/@anthropic
       - anthropic-data:/home/vscode/.local/share/@anthropic
 
+      # 1Password CLI session persistence (survives rebuilds)
+      - op-config:/home/vscode/.config/op
+      - op-cache:/home/vscode/.op
+
     # Network configuration
     networks:
       - default
@@ -34,6 +47,9 @@ services:
     environment:
       # Claude CLI configuration
       - CLAUDE_CONFIG_DIR=/home/vscode/.claude
+
+      # 1Password configuration
+      - OP_CONFIG_DIR=/home/vscode/.config/op
 
       # Node.js / npm / yarn / pnpm
       - npm_config_cache=/home/vscode/.cache/npm
@@ -78,6 +94,9 @@ volumes:
   anthropic-config:
   anthropic-cache:
   anthropic-data:
+  # 1Password CLI volumes (persist sessions across rebuilds)
+  op-config:
+  op-cache:
 
 networks:
   default:
