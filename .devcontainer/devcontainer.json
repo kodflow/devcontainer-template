@@ -1,0 +1,62 @@
+{
+  "name": "${localWorkspaceFolderBasename} Dev Environment",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "devcontainer",
+  "workspaceFolder": "/workspace",
+  // Configure tool-specific properties
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "/bin/zsh"
+          }
+        },
+        "editor.formatOnSave": true,
+        "files.eol": "\n",
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true,
+        // Prettier config
+        "[javascript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        }
+      },
+      "extensions": [
+        // AI Autocomplete et IntelliSense
+        "visualstudioexptteam.vscodeintellicode", // IntelliCode gratuit de Microsoft
+        // Linters et formatters universels
+        "dbaeumer.vscode-eslint", // ESLint (JavaScript/TypeScript)
+        "esbenp.prettier-vscode", // Prettier (formatter multi-langages)
+        // Linters spécifiques par langage
+        "ms-python.python", // Python avec Pylance (linting intégré)
+        "ms-python.vscode-pylance", // Meilleur IntelliSense pour Python
+        "charliermarsh.ruff", // Ruff - linter Python ultra-rapide
+        "golang.go", // Go avec linting intégré
+        "rust-lang.rust-analyzer", // Rust avec linting intégré
+        // Utilitaires
+        "usernamehw.errorlens", // Affichage inline des erreurs et warnings
+        "vscode-icons-team.vscode-icons", // Icônes pour les fichiers et dossiers
+        "redhat.vscode-yaml", // Support YAML
+        "tamasfe.even-better-toml", // Support TOML
+        "editorconfig.editorconfig", // EditorConfig
+        // Code Quality
+        "codacy-app.codacy" // Codacy - analyse de qualité de code
+      ]
+    }
+  },
+  // Post-start command
+  "postStartCommand": "echo 'DevContainer ready!'",
+  // Forward ports
+  "forwardPorts": [],
+  // Run as user
+  "remoteUser": "vscode",
+  // Shutdown action
+  "shutdownAction": "none"
+}
