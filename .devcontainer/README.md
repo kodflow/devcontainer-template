@@ -18,7 +18,7 @@ GitHub Actions automatically builds and publishes multi-arch images when:
 By default, `docker-compose.yml` is configured to use the pre-built image from GHCR:
 
 ```yaml
-image: ghcr.io/kodflow/.repository:latest
+image: ghcr.io/kodflow/devcontainer:latest
 ```
 
 This provides several benefits:
@@ -35,7 +35,7 @@ If you need to build the image locally (for testing or customization), you can:
 3. Uncomment the `build:` section:
 
 ```yaml
-# image: ghcr.io/kodflow/.repository:latest
+# image: ghcr.io/kodflow/devcontainer:latest
 
 build:
   context: .
@@ -87,7 +87,7 @@ The following image tags are available:
 To manually pull the latest image:
 
 ```bash
-docker pull ghcr.io/kodflow/.repository:latest
+docker pull ghcr.io/kodflow/devcontainer:latest
 ```
 
 ## Workflow File

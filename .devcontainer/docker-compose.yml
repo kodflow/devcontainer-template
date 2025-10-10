@@ -5,7 +5,7 @@ services:
 
     # Use pre-built image from GitHub Container Registry
     # To build locally instead, comment out 'image' and uncomment 'build' section
-    image: ghcr.io/kodflow/.repository:latest
+    image: ghcr.io/kodflow/devcontainer:latest
 
     # Uncomment to build locally instead of using pre-built image
     # build:
