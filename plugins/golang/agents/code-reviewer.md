@@ -171,10 +171,10 @@ func GetUser(id string) (*User, error) {
 //
 // Example:
 //
-//	user, err := GetUser("123")
-//	if err != nil {
-//	    return err
-//	}
+//    user, err := GetUser("123")
+//    if err != nil {
+//        return err
+//    }
 func GetUser(id string) (*User, error) {
 ```
 

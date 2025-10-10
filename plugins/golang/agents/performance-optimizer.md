@@ -507,6 +507,7 @@ Verify improvements in profile.
 When you identify a performance issue, you AUTOMATICALLY refactor:
 
 ### Rule 1: String Concatenation → strings.Builder
+
 ```go
 // Auto-detect and refactor
 var s string
@@ -524,6 +525,7 @@ s := builder.String()
 ```
 
 ### Rule 2: Uninitialized Slices → Pre-allocated
+
 ```go
 // DETECT:
 var results []T
@@ -539,6 +541,7 @@ for ... {
 ```
 
 ### Rule 3: Repeated Map Lookups → Single Lookup
+
 ```go
 // DETECT:
 if _, ok := cache[key]; ok {
@@ -552,6 +555,7 @@ if val, ok := cache[key]; ok {
 ```
 
 ### Rule 4: Interface{} Parameters → Generics
+
 ```go
 // DETECT:
 func Process(items []interface{}) { }
@@ -561,6 +565,7 @@ func Process[T any](items []T) { }
 ```
 
 ### Rule 5: Mutex in Hot Path → Atomic
+
 ```go
 // DETECT:
 func (c *Counter) Increment() {

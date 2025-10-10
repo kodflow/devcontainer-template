@@ -380,26 +380,27 @@ var (
 ```
 
 2. **types.go** - Simple type aliases and small value objects
-```go
-// types.go
-package domain
 
-// UserID is a unique identifier for a user.
-type UserID string
+   ```go
+   // types.go
+   package domain
 
-// OrderID is a unique identifier for an order.
-type OrderID string
+   // UserID is a unique identifier for a user.
+   type UserID string
 
-// Status represents an order status.
-type Status int
+   // OrderID is a unique identifier for an order.
+   type OrderID string
 
-const (
-    StatusPending Status = iota
-    StatusConfirmed
-    StatusShipped
-    StatusDelivered
-)
-```
+   // Status represents an order status.
+   type Status int
+
+   const (
+       StatusPending Status = iota
+       StatusConfirmed
+       StatusShipped
+       StatusDelivered
+   )
+   ```
 
 3. **interfaces.go** - ALL interfaces (mandatory)
 4. **config.go** - ALL constructors (mandatory)

@@ -16,14 +16,14 @@
     },
     {
       "event": "UserPromptSubmit",
-      "pattern": ".*test.*",
-      "message": "💡 Tip: Use /go-test to run tests with coverage, or /go-benchmark for performance testing",
-      "description": "Suggest test commands when user mentions testing"
+      "pattern": ".*(review|check|lint).*",
+      "message": "💡 Tip: Use /review for hyper-strict code review with zero tolerance for substandard code",
+      "description": "Suggest review command when user mentions review or quality checks"
     },
     {
       "event": "SessionStart",
-      "command": "echo '\n🐹 Go Plugin loaded! Available commands:\n  /go-test - Run tests\n  /go-build - Build project\n  /go-lint - Lint code\n  /go-mod - Manage dependencies\n  /go-benchmark - Run benchmarks\n  /go-coverage - Generate coverage report\n'",
-      "description": "Show available Go commands on session start"
+      "command": "echo '\n🐹 Go Plugin loaded!\n\n  📋 Available commands:\n    /review - Hyper-strict code review (ZERO TOLERANCE)\n\n  🤖 Expert Agents:\n    - Go Expert (latest Go 1.23+ features)\n    - DDD Architect (ultra-strict structure enforcer)\n    - Code Reviewer (uncompromising quality standards)\n    - Performance Optimizer (pprof master)\n\n  ⚙️  Other tools managed via Makefile\n'",
+      "description": "Show available Go commands and agents on session start"
     }
   ]
 }
