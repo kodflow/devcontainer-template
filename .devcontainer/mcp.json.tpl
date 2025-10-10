@@ -20,16 +20,6 @@
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "{{ with secret "secret/mcp/github" }}{{ .Data.data.token }}{{ end }}"
       }
-    },
-    "coderabbit": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@bradthebeeble/coderabbitai-mcp"
-      ],
-      "env": {
-        "GITHUB_TOKEN": "{{ with secret "secret/mcp/github" }}{{ .Data.data.token }}{{ end }}"
-      }
     }
   }
 }

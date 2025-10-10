@@ -52,7 +52,7 @@
     }
   },
   // Post-start command
-  "postStartCommand": "echo '🚀 DevContainer ready!'",
+  "postStartCommand": "/workspace/.devcontainer/setup-mcp.sh && echo '🚀 DevContainer ready!'",
   // Forward ports
   "forwardPorts": [],
   // Run as user
