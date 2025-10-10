@@ -14,6 +14,7 @@ Template minimaliste pour démarrer rapidement vos projets avec un environnement
 ## Ce qui n'est PAS inclus
 
 Ce template est **volontairement minimaliste**. Il ne contient pas :
+
 - ❌ Langages de programmation (Go, Node.js, Python, etc.)
 - ❌ CLIs spécifiques (GitHub CLI, Claude CLI, etc.)
 - ❌ Docker-in-Docker
@@ -78,7 +79,7 @@ Ajoutez dans `.devcontainer/devcontainer.json` :
 }
 ```
 
-Voir : https://containers.dev/features
+Voir : <https://containers.dev/features>
 
 **Option 3 : Installation manuelle** (pour les outils utilisateur)
 
@@ -113,9 +114,11 @@ Cela créera un fichier `~/.p10k.zsh` avec votre configuration personnalisée. C
 Les volumes Docker persistent entre les rebuilds :
 
 ### Volumes spécifiques au projet
+
 - `{nom-du-projet}-local-bin` : Binaires locaux installés
 
 ### Volumes partagés
+
 - `vscode-extensions` : Extensions VS Code
 - `vscode-insiders-extensions` : Extensions VS Code Insiders
 - `zsh-history` : Historique Zsh
@@ -125,6 +128,7 @@ Vous pouvez ajouter vos propres volumes dans `.devcontainer/devcontainer.json`.
 ## Commandes utiles
 
 ### Rebuild du container
+
 ```bash
 # Depuis VS Code
 Cmd+Shift+P > "Dev Containers: Rebuild Container"
@@ -136,12 +140,14 @@ docker compose -f .devcontainer/docker-compose.yml up -d
 ```
 
 ### Nettoyer les volumes
+
 ```bash
 # Supprimer tous les volumes (⚠️ perte de données)
 docker compose -f .devcontainer/docker-compose.yml down -v
 ```
 
 ### Voir les logs
+
 ```bash
 docker compose -f .devcontainer/docker-compose.yml logs -f devcontainer
 ```
@@ -149,12 +155,14 @@ docker compose -f .devcontainer/docker-compose.yml logs -f devcontainer
 ## Dépannage
 
 ### Problèmes de permissions
+
 ```bash
 # Depuis le container
 sudo chown -R vscode:vscode $HOME
 ```
 
 ### Rebuild complet
+
 ```bash
 # Supprimer le container et les volumes
 docker compose -f .devcontainer/docker-compose.yml down -v
@@ -167,6 +175,7 @@ code .
 ## Philosophie
 
 Ce template suit le principe **"moins c'est plus"** :
+
 - ✅ Démarrage rapide
 - ✅ Faible consommation de ressources
 - ✅ Facile à personnaliser
