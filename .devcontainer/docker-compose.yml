@@ -3,17 +3,16 @@ services:
     # Container name will use project name automatically via COMPOSE_PROJECT_NAME
     # which defaults to the parent directory name
 
-    # Use pre-built image from GitHub Container Registry
-    # To build locally instead, comment out 'image' and uncomment 'build' section
+    # Use pre-built image from GitHub Container Registry with fallback to local build
+    # Docker Compose will try to pull first, then build if pull fails
     image: ghcr.io/kodflow/devcontainer:latest
 
-    # Uncomment to build locally instead of using pre-built image
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
-    #   # Build arguments for optimization
-    #   args:
-    #     BUILDKIT_INLINE_CACHE: 1
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Build arguments for optimization
+      args:
+        BUILDKIT_INLINE_CACHE: 1
 
     env_file:
       - .env

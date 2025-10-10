@@ -70,9 +70,6 @@ RUN mkdir -p /home/vscode/.cache \
     # Set strict permissions for 1Password config directory
     && chmod 700 /home/vscode/.config/op
 
-# Configure Claude CLI settings
-RUN echo '{\n  "enableAllProjectMcpServers": true,\n  "alwaysThinkingEnabled": true\n}' > /home/vscode/.claude/settings.json
-
 # Install Oh My Zsh and themes in parallel (rarely changes - good for cache)
 RUN rm -rf "$HOME/.oh-my-zsh" && \
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
@@ -98,7 +95,7 @@ RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' "$HOME/.z
         echo 'export SAVEHIST=10000'; \
         echo ''; \
         echo '# Super Claude alias'; \
-        echo 'alias super-claude="claude --dangerously-skip-permissions --mcp /home/vscode/.devcontainer/mcp.json"'; \
+        echo 'alias super-claude="claude --dangerously-skip-permissions --mcp-config /home/vscode/.devcontainer/mcp.json"'; \
     } >> "$HOME/.zshrc"
 
 # Install npm global packages as root (uses @latest - may change often, so at the end)

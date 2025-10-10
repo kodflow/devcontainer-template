@@ -41,6 +41,7 @@ credentials.json
 *.p12
 *.pfx
 .mcp.json
+.devcontainer/mcp.json
 
 # Go
 *.exe
@@ -188,6 +189,7 @@ docker-compose.override.yml
 .github/instructions/codacy.instructions.md
 .cursor/
 .windsurf/
+.codacy/
 
 # Keep empty directories
 !.gitkeep
