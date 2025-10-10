@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
 # Install all system tools in a single layer (rarely changes - good for cache)
+# hadolint ignore=DL3008
 RUN apt-get update \
     # Install base dependencies for adding repositories
     && apt-get install -y --no-install-recommends \

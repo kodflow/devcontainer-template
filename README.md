@@ -25,6 +25,7 @@ Ce template est **volontairement minimaliste**. Il ne contient pas :
 ## Installation rapide
 
 ### Via GitHub
+
 ```bash
 # Utiliser ce repository comme template
 gh repo create mon-projet --template .repository --public
@@ -33,6 +34,7 @@ code .
 ```
 
 ### Localement
+
 ```bash
 # Copier le template
 cp -r .repository mon-projet

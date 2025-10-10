@@ -32,8 +32,7 @@ fi
 # Générer le fichier mcp.json à partir du template
 echo "📝 Génération du fichier mcp.json..."
 mkdir -p "$(dirname "$MCP_OUTPUT")"
-cat "$MCP_TPL" | \
-    sed "s|{{ with secret \"secret/mcp/codacy\" }}{{ .Data.data.token }}{{ end }}|${CODACY_TOKEN}|g" | \
+sed "s|{{ with secret \"secret/mcp/codacy\" }}{{ .Data.data.token }}{{ end }}|${CODACY_TOKEN}|g" "$MCP_TPL" | \
     sed "s|{{ with secret \"secret/mcp/github\" }}{{ .Data.data.token }}{{ end }}|${GITHUB_TOKEN}|g" \
     > "$MCP_OUTPUT"
 
