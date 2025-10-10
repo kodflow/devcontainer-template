@@ -77,16 +77,16 @@ RUN echo '{\n  "enableAllProjectMcpServers": true,\n  "alwaysThinkingEnabled": t
 RUN rm -rf "$HOME/.oh-my-zsh" && \
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
-        ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k & \
+        "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" & \
     git clone --depth=1 https://github.com/dracula/zsh.git \
-        ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/dracula & \
+        "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/dracula" & \
     wait
 
 # Copy p10k configuration (changes rarely)
 COPY --chown=vscode:vscode p10k.sh /home/vscode/.p10k.zsh
 
 # Configure zshrc (changes rarely)
-RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' $HOME/.zshrc && \
+RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' "$HOME/.zshrc" && \
     { \
         echo ''; \
         echo '# To customize prompt, run "p10k configure" or edit ~/.p10k.zsh'; \
@@ -99,7 +99,7 @@ RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' $HOME/.zs
         echo ''; \
         echo '# Super Claude alias'; \
         echo 'alias super-claude="claude --dangerously-skip-permissions --mcp /home/vscode/.devcontainer/mcp.json"'; \
-    } >> $HOME/.zshrc
+    } >> "$HOME/.zshrc"
 
 # Install npm global packages as root (uses @latest - may change often, so at the end)
 USER root

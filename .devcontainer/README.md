@@ -1,38 +1,25 @@
-# Development Container Configuration
+# DevContainer Configuration
 
-This directory contains the configuration for the development container used with this project.
+Ce repository est configuré avec un environnement de développement complet basé sur Docker, incluant des builds multi-architecture automatisés.
 
-## Multi-Architecture Docker Images
+## Quick Start
 
-The Docker images for this development container are automatically built for both `amd64` and `arm64` architectures and published to GitHub Container Registry (GHCR).
+### Utilisation de l'image pré-construite
 
-### Automatic Builds
+Par défaut, le `docker-compose.yml` utilise l'image publiée sur GitHub Container Registry:
 
-GitHub Actions automatically builds and publishes multi-arch images when:
-- Changes are pushed to the `main` branch affecting `.devcontainer/` files
-- Pull requests are created with changes to `.devcontainer/` files
-- Manual workflow dispatch is triggered
-
-### Using Pre-built Images
-
-By default, `docker-compose.yml` is configured to use the pre-built image from GHCR:
-
-```yaml
-image: ghcr.io/kodflow/devcontainer:latest
+```bash
+# L'image sera automatiquement téléchargée au démarrage
+docker-compose up -d
 ```
 
-This provides several benefits:
-- Faster container startup (no build required)
-- Consistent environment across team members
-- Automatic multi-architecture support (works on Apple Silicon and Intel/AMD)
+### Build local (optionnel)
 
-### Building Locally
+Si tu préfères builder localement:
 
-If you need to build the image locally (for testing or customization), you can:
-
-1. Edit `.devcontainer/docker-compose.yml`
-2. Comment out the `image:` line
-3. Uncomment the `build:` section:
+1. Édite `.devcontainer/docker-compose.yml`
+2. Commente la ligne `image:`
+3. Décommente la section `build:`
 
 ```yaml
 # image: ghcr.io/kodflow/devcontainer:latest
@@ -44,56 +31,169 @@ build:
     BUILDKIT_INLINE_CACHE: 1
 ```
 
-## Environment Configuration
+## Configuration 1Password
 
-### 1Password Service Account
+### Setup initial
 
-1. Copy the template file:
+1. Copie le template:
    ```bash
    cp .devcontainer/.env.example .devcontainer/.env
    ```
 
-2. Edit `.devcontainer/.env` and add your 1Password service account token:
+2. Récupère ton service account token depuis [1Password Developer Tools](https://my.1password.com/developer-tools/infrastructure-secrets/)
+
+3. Ajoute-le dans `.devcontainer/.env`:
    ```bash
-   OP_SERVICE_ACCOUNT_TOKEN="your-token-here"
+   OP_SERVICE_ACCOUNT_TOKEN="ops_votre_token_ici"
    ```
 
-3. The `.env` file is git-ignored and will not be committed
+Le fichier `.env` est git-ignoré et ne sera jamais commité.
 
-### Super Claude Alias
+## Alias et outils
 
-The container includes a `super-claude` alias that launches Claude Code with MCP support:
+### Super Claude
+
+L'alias `super-claude` est automatiquement configuré dans le container:
 
 ```bash
 super-claude
 ```
 
-This is equivalent to:
+Équivalent à:
 ```bash
 claude --dangerously-skip-permissions --mcp /home/vscode/.devcontainer/mcp.json
 ```
 
-## Available Tags
+### Outils inclus
 
-The following image tags are available:
+- **Languages**: Node.js 22, Go, Python, Ruby, Rust, Java
+- **CLI Tools**: AWS CLI, GitHub CLI, 1Password CLI
+- **HashiCorp**: Terraform, Vault, Consul, Nomad
+- **Build Tools**: Bazelisk, golangci-lint
+- **Shell**: Zsh avec Oh My Zsh et Powerlevel10k
 
-- `latest` - Latest build from the main branch
-- `main` - Same as latest
-- `main-<sha>` - Specific commit from main branch
-- `pr-<number>` - Pull request builds (not pushed, build-only)
+## GitHub Actions - Build Multi-Architecture
 
-## Manual Image Pull
+### Déclenchement automatique
 
-To manually pull the latest image:
+Le workflow build les images Docker quand:
+- Tu push sur `main` avec des modifications dans `.devcontainer/`
+- Tu modifies le workflow lui-même
+- Tu déclenches manuellement via `workflow_dispatch`
+
+### Images publiées
+
+Les images sont disponibles sur GitHub Container Registry:
 
 ```bash
 docker pull ghcr.io/kodflow/devcontainer:latest
+docker pull ghcr.io/kodflow/devcontainer:main
+docker pull ghcr.io/kodflow/devcontainer:main-<commit-sha>
 ```
 
-## Workflow File
+### Architectures supportées
 
-The build workflow is defined in `.github/workflows/docker-build.yml` and uses:
-- Docker Buildx for multi-architecture builds
-- QEMU for cross-platform emulation
-- GitHub Actions cache for faster builds
-- GitHub Container Registry for image storage
+- **linux/amd64** - Intel/AMD processors
+- **linux/arm64** - Apple Silicon (M1/M2/M3)
+
+## Volumes persistants
+
+Les données suivantes survivent aux rebuilds:
+
+- `~/.zsh_history_dir` - Historique du shell
+- `~/.cache` - Cache des package managers
+- `~/.config` - Configurations
+- `~/.local/bin` - Binaires locaux
+- `~/.claude` - Configuration Claude CLI
+- `~/.config/@anthropic` - Config Anthropic
+- `~/.cache/@anthropic` - Cache Anthropic
+- `~/.local/share/@anthropic` - Données Anthropic
+- `~/.config/op` - Configuration 1Password
+- `~/.op` - Cache 1Password
+
+## Utilisation comme template
+
+Ce repository peut servir de base pour d'autres projets:
+
+1. **Utilise ce repo comme template** sur GitHub
+2. **Les builds s'activeront automatiquement** quand tu modifieras `.devcontainer/`
+3. **Les images seront publiées** sur ton propre GHCR
+
+Le workflow est conçu pour ne builder que si nécessaire grâce aux filtres `paths`.
+
+## Sécurité
+
+### Actions GitHub
+
+Toutes les actions GitHub sont pinées à leur commit SHA complet:
+
+- ✅ Protection contre les supply chain attacks
+- ✅ Immutabilité garantie
+- ✅ Conformité Codacy/Semgrep
+
+### 1Password
+
+- Les tokens ne sont jamais commités (`.env` dans `.gitignore`)
+- Permissions strictes sur `~/.config/op` (700)
+- Service account tokens uniquement (pas de personal tokens)
+
+## Troubleshooting
+
+### L'image ne se télécharge pas
+
+```bash
+# Authentifie-toi sur GHCR
+echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+
+# Puis pull manuellement
+docker pull ghcr.io/kodflow/devcontainer:latest
+```
+
+### Rebuild complet
+
+```bash
+# Arrête et supprime tout
+docker-compose down -v
+
+# Rebuild from scratch
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+### Vérifier les logs du workflow
+
+```bash
+# Via gh CLI
+gh run list --limit 5
+gh run view <run-id> --log
+
+# Ou sur GitHub
+# https://github.com/kodflow/.repository/actions
+```
+
+## Structure du repository
+
+```
+.
+├── .devcontainer/
+│   ├── .env.example          # Template pour variables d'environnement
+│   ├── Dockerfile            # Image Docker multi-stage
+│   ├── docker-compose.yml    # Configuration des services
+│   ├── devcontainer.json     # Config VS Code DevContainer
+│   ├── mcp.json.tpl          # Template MCP pour Claude
+│   ├── p10k.sh               # Config Powerlevel10k
+│   └── README.md             # Cette documentation
+├── .github/
+│   └── workflows/
+│       └── docker-build.yml  # Workflow de build multi-arch
+└── .gitignore                # Fichiers ignorés par git
+```
+
+## Contribuer
+
+1. Fork le repository
+2. Crée une branche feature
+3. Commit tes changements
+4. Push et ouvre une PR
+
+Les builds se déclencheront automatiquement sur ta PR.
