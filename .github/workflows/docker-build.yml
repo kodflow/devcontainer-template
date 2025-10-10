@@ -4,14 +4,21 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '.devcontainer/**'
+      - '.github/workflows/docker-build.yml'
   pull_request:
     branches:
       - main
+    paths:
+      - '.devcontainer/**'
+      - '.github/workflows/docker-build.yml'
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # Convert repository name to lowercase and replace dots with hyphens for valid Docker tag
+  IMAGE_NAME: ${{ github.repository_owner }}/devcontainer
 
 jobs:
   build-and-push:
