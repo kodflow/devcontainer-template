@@ -22,7 +22,7 @@
     },
     {
       "event": "SessionStart",
-      "command": "echo '\n🐹 Go Plugin loaded!\n\n  📋 Available commands:\n    /review - Hyper-strict code review (ZERO TOLERANCE)\n\n  🤖 Expert Agents:\n    - Go Expert (latest Go 1.23+ features)\n    - DDD Architect (ultra-strict structure enforcer)\n    - Code Reviewer (uncompromising quality standards)\n    - Performance Optimizer (pprof master)\n\n  ⚙️  Other tools managed via Makefile\n'",
+      "command": "echo '\n🐹 Go Plugin loaded!\n\n  📋 Available commands:\n    /review - Hyper-strict code review (ZERO TOLERANCE)\n\n  🤖 Expert Agents:\n    - Go Expert (Go 1.23+ features)\n    - DDD Architect (ultra-strict structure enforcer)\n    - Code Reviewer (uncompromising quality standards)\n    - Performance Optimizer (pprof master)\n\n  ⚙️  Other tools managed via Makefile\n'",
       "description": "Show available Go commands and agents on session start"
     }
   ]
