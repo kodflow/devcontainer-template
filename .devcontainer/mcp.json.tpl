@@ -1,5 +1,4 @@
 {
-  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
   "mcpServers": {
     "codacy": {
       "command": "npx",
