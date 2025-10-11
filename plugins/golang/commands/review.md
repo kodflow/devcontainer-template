@@ -239,7 +239,9 @@ svc := property.NewService(property.Config{...})
 
 ### 3.1 PACKAGE DESCRIPTOR (Required)
 
-- [ ] **Target**: Every file should start with Package Descriptor comment block
+- [ ] **Target**: Every **production** `.go` file should start with Package Descriptor comment block
+- [ ] **EXCEPTION**: `*_test.go` files with `package xxx_test` do NOT need Package Descriptor
+- [ ] **Rationale**: Test files are external to the package, not part of its public API
 - [ ] Package Descriptor format (see PACKAGE_DESCRIPTOR.md):
   ```go
   // Package <name> <one-line description>
@@ -749,17 +751,19 @@ go tool cover -func=coverage.out      # 100% coverage required
 
 **For EACH file in the inventory from Phase 0, you MUST verify:**
 
-**Use this command to check EVERY file:**
+**IMPORTANT: Skip `*_test.go` files with `package xxx_test` - they don't need Package Descriptor**
+
+**Use this command to check production files only:**
 ```bash
-# Check if file starts with Package Descriptor
-for file in $(find . -name "*.go" -not -path "*/vendor/*" -type f | sort); do
+# Check if file starts with Package Descriptor (production files only)
+for file in $(find . -name "*.go" -not -path "*/vendor/*" -not -name "*_test.go" -type f | sort); do
   echo "=== Checking: $file ==="
   head -n 30 "$file"
   echo ""
 done
 ```
 
-**For EACH file, verify the Package Descriptor exists and contains:**
+**For EACH production file, verify the Package Descriptor exists and contains:**
 
 1. **✓ Package Descriptor Format:**
    ```go
@@ -785,15 +789,18 @@ done
    - If file imports `otel/trace` → must have `Features: Tracing`
    - If NO telemetry declared → zero telemetry imports allowed
 
-**Create a table showing Package Descriptor status for EVERY file:**
+**Create a table showing Package Descriptor status for production files:**
 
 | File | Package Descriptor | Features Declared | Imports Match | Status |
 |------|-------------------|-------------------|---------------|--------|
 | user.go | ❌ Missing | - | - | FAIL |
 | order.go | ✅ Present | Metrics, Database | ✅ Match | PASS |
+| user_test.go | ⏭️ Skipped | N/A (test file) | N/A | SKIP |
 | ... | ... | ... | ... | ... |
 
-**❌ ANY file missing Package Descriptor → IMMEDIATE REJECTION**
+**❌ ANY production file missing Package Descriptor → IMMEDIATE REJECTION**
+
+**Note**: `*_test.go` files with `package xxx_test` are skipped (black-box tests are external)
 
 ### Phase 3: STRUCTURAL COMPLIANCE (Key)
 

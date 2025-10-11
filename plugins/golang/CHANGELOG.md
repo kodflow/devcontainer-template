@@ -5,6 +5,33 @@ All notable changes to the Go Plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2025-10-11
+
+### Fixed
+
+#### Package Descriptor Exception for Test Files
+- **Excluded `*_test.go` files** from Package Descriptor requirement
+  - Test files with `package xxx_test` are external to the package (black-box testing)
+  - No longer need package-level documentation
+  - Reduces false positives in review process
+
+#### Documentation Updates
+- **commands/review.md**:
+  - Section 3.1: Added explicit exception for `*_test.go` files with `package xxx_test`
+  - Phase 2: Updated command to skip test files (`-not -name "*_test.go"`)
+  - Phase 2: Updated table to show test files as "⏭️ Skipped"
+  - Added rationale: "Test files are external to package, not part of public API"
+
+### Rationale
+
+Test files with `package xxx_test` are:
+- ✅ External to the package (black-box testing)
+- ✅ Not part of the package's public API
+- ✅ Never compiled into the binary
+- ✅ Only exist for testing purposes
+
+Therefore, they should **NOT** require Package Descriptors, which are meant to document package-level responsibilities and features.
+
 ## [2.0.1] - 2025-10-11
 
 ### 🚫 Benchmark Policy (Breaking Process Change)
@@ -149,6 +176,7 @@ All performance claims are **proven with benchmarks**:
 
 ---
 
+[2.0.2]: https://github.com/kodflow/.repository/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/kodflow/.repository/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/kodflow/.repository/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/kodflow/.repository/releases/tag/v1.0.0
