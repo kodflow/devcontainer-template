@@ -9,14 +9,11 @@
       "description": "GitHub MCP server for repository operations, issues, PRs, and code review"
     },
     "codacy": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "-i",
-        "-e", "CODACY_API_TOKEN=${CODACY_API_TOKEN}",
-        "codacy/codacy-analysis-cli:latest"
-      ],
+      "command": "npx",
+      "args": ["-y", "@codacy/codacy-mcp@latest"],
+      "env": {
+        "CODACY_ACCOUNT_TOKEN": "${CODACY_API_TOKEN}"
+      },
       "description": "Codacy MCP server for code quality analysis and security scanning"
     }
   },
