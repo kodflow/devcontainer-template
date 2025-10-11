@@ -55,7 +55,7 @@ Based on requirements, orchestrate agents in order:
 
 1. **DDD Architect** - Architecture and structure validation
 2. **Go Expert** - Implementation with Go 1.25+ features
-3. **Code Reviewer** - Quality validation (ZERO TOLERANCE)
+3. **Code Reviewer** - Quality validation
 4. **Performance Optimizer** - pprof profiling and optimization
 
 ### 3. Iterative Development Loop
@@ -334,9 +334,9 @@ Complete implementation: ${ALL_CODE}
 Test suite: ${ALL_TESTS}
 Metrics: ${METRICS}
 
-Perform ZERO TOLERANCE review:
+Perform thorough review:
 1. All standards enforced
-2. No shortcuts accepted
+2. Best practices followed
 3. Documentation complete
 4. Tests comprehensive
 5. Code is production-ready

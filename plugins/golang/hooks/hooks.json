@@ -17,7 +17,7 @@
     {
       "event": "UserPromptSubmit",
       "pattern": ".*(review|check|lint).*",
-      "message": "💡 Tip: Use /review for hyper-strict code review with zero tolerance for substandard code",
+      "message": "💡 Tip: Use /review for professional Go code review",
       "description": "Suggest review command when user mentions review or quality checks"
     },
     {
@@ -28,7 +28,7 @@
     },
     {
       "event": "SessionStart",
-      "command": "echo '\n🐹 Go Plugin loaded!\n\n  📋 Available commands:\n    /build  - Orchestrated development with task tracking\n    /review - Hyper-strict code review (ZERO TOLERANCE)\n\n  🤖 Expert Agents:\n    - Go Expert (Go 1.25+ features)\n    - DDD Architect (ultra-strict structure enforcer)\n    - Code Reviewer (uncompromising quality standards)\n    - Performance Optimizer (pprof master)\n\n  🔧 Task Management:\n    - Each /build creates a TASK_ID for isolation\n    - Continue with: /build task <TASK_ID> <context>\n    - Track progress in .tasks/<TASK_ID>.json\n\n  ⚙️  Other tools managed via Makefile\n'",
+      "command": "echo '\n🐹 Go Plugin loaded!\n\n  📋 Available commands:\n    /build  - Orchestrated development with task tracking\n    /review - Professional Go code review\n\n  🤖 Expert Agents:\n    - Go Expert (Go 1.25+ features)\n    - DDD Architect (structure enforcement)\n    - Code Reviewer (quality standards)\n    - Performance Optimizer (performance analysis)\n\n  🔧 Task Management:\n    - Each /build creates a TASK_ID for isolation\n    - Continue with: /build task <TASK_ID> <context>\n    - Track progress in .tasks/<TASK_ID>.json\n\n  ⚙️  Other tools managed via Makefile\n'",
       "description": "Show available Go commands and agents on session start"
     }
   ]
