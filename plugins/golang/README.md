@@ -1,6 +1,8 @@
-# Go Plugin - Strict Standards Enforcement
+# Go Plugin v2.0.0 - Advanced Go 1.23-1.25 Patterns
 
 This plugin enforces **UNCOMPROMISING** Go code standards with zero tolerance for substandard code.
+
+**🎉 v2.0.0 NEW**: Complete reference implementation with Go 1.23-1.25 advanced patterns (sync.Pool, sync.Once, sync.Map, iterators, context patterns) + comprehensive benchmarks. [See CHANGELOG](CHANGELOG.md)
 
 ## 📁 Files
 
