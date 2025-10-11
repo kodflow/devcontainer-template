@@ -1,6 +1,8 @@
-Perform a hyper-strict code review on Go code using the Code Reviewer agent.
+# /review - Hyper-strict Go code review with 283+ checkpoints
 
-This command triggers the **UNCOMPROMISING** Go code reviewer with ZERO TOLERANCE for substandard code. The reviewer enforces absolute standards and provides direct, assertive feedback.
+Perform a comprehensive, uncompromising code review on Go code using the Code Reviewer agent.
+
+This command triggers the **UNCOMPROMISING** Go code reviewer with ZERO TOLERANCE for substandard code. The reviewer enforces absolute standards across 283+ checkpoints and provides direct, assertive feedback.
 
 ## COMPREHENSIVE GO BEST PRACTICES CHECKLIST
 
