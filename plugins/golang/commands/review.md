@@ -802,6 +802,76 @@ done
 
 **Note**: `*_test.go` files with `package xxx_test` are skipped (black-box tests are external)
 
+### Phase 2.5: CLEANUP UNNECESSARY PACKAGE DESCRIPTORS ON TEST FILES (REQUIRED)
+
+**For EACH test file, verify it does NOT have a Package Descriptor:**
+
+```bash
+# Check test files for unnecessary Package Descriptors
+for file in $(find . -name "*_test.go" -not -path "*/vendor/*" -type f | sort); do
+  pkg_line=$(head -n 50 "$file" | grep -n "^package " | head -1 | cut -d: -f1)
+  if [ -n "$pkg_line" ]; then
+    # Check if there's a Package Descriptor comment before the package line
+    desc_check=$(head -n $((pkg_line - 1)) "$file" | grep -E "^//\s*Package\s+\w+")
+    if [ -n "$desc_check" ]; then
+      echo "⚠️  FOUND: $file has Package Descriptor (should be removed)"
+      head -n $pkg_line "$file"
+      echo "---"
+    fi
+  fi
+done
+```
+
+**If Package Descriptors found on test files:**
+
+| File | Package Line | Has Package Descriptor | Action Required |
+|------|-------------|------------------------|-----------------|
+| user_test.go | `package user_test` | ❌ YES (WRONG!) | REMOVE Package Descriptor |
+| order_test.go | `package order_test` | ✅ No | OK |
+| ... | ... | ... | ... |
+
+**⚠️ For EACH test file with Package Descriptor, suggest removal:**
+
+```markdown
+## ⚠️ Issue: Unnecessary Package Descriptor on Test File
+
+### File: internal/domain/user_test.go
+
+❌ **Problem**: Test file has Package Descriptor comment block
+
+**Current** (WRONG):
+```go
+// Package valueobjects contains domain value objects for the scraper.
+//
+// Purpose:
+//   ...
+//
+package valueobjects_test
+
+import "testing"
+```
+
+**Required Fix**:
+```go
+package valueobjects_test
+
+import "testing"
+
+// Test files with package xxx_test are external to the package (black-box)
+// They do NOT need Package Descriptors
+```
+
+**Rationale**:
+- Test files with `package xxx_test` are **external** to the package
+- They are **not part of the package's public API**
+- They are **never compiled into the binary**
+- Package Descriptors document package responsibilities, not tests
+
+**Action**: Remove lines 1-X (Package Descriptor comment block)
+```
+
+**✅ Test files should start directly with `package xxx_test` - NO Package Descriptor**
+
 ### Phase 3: STRUCTURAL COMPLIANCE (Key)
 
 **Now check structural requirements across the codebase:**
@@ -1090,7 +1160,8 @@ Result: Main function: ~15 lines, 3 focused sub-functions
 - ⚠️ **CHANGES REQUESTED** - Minor issues, resubmit after fixes
 
 **REJECTION CRITERIA (immediate fail):**
-- Missing Package Descriptor
+- Missing Package Descriptor **on production files**
+- **Package Descriptor on test files** (`*_test.go` with `package xxx_test` must NOT have Package Descriptor)
 - Undeclared features used (e.g., telemetry without Features: Metrics)
 - **Wrong test package** (using `package xxx` instead of `package xxx_test`)
 - **Multiple structs in one file** (must be 1 file per struct)
