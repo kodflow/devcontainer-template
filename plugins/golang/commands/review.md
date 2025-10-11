@@ -6,9 +6,9 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 
 ## COMPREHENSIVE GO BEST PRACTICES CHECKLIST
 
-### 1. ERROR HANDLING (MANDATORY)
+### 1. ERROR HANDLING (Required)
 
-- [ ] NEVER ignore errors with `_` blank identifier
+- [ ] Never ignore errors with `_` blank identifier
 - [ ] Always check and handle ALL error return values
 - [ ] Wrap errors with context using `fmt.Errorf("%w", err)` or `errors.Wrap()`
 - [ ] Return errors instead of panicking (except in init() or unrecoverable situations)
@@ -21,7 +21,7 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 - [ ] Check errors from `Close()`, `Flush()`, `Write()` operations
 - [ ] Return early on errors to avoid deep nesting
 
-### 2. NAMING CONVENTIONS (STRICT COMPLIANCE)
+### 2. NAMING CONVENTIONS (Target COMPLIANCE)
 
 - [ ] Package names: lowercase, single-word, no underscores (e.g., `httputil`, not `http_util`)
 - [ ] Exported names: UpperCamelCase (e.g., `UserRepository`)
@@ -38,19 +38,19 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 
 ### 3. CODE ORGANIZATION & STRUCTURE
 
-- [ ] **MANDATORY**: Every `.go` file MUST have Package Descriptor above `package` declaration
-- [ ] **MANDATORY**: Package Descriptor must include: Purpose, Responsibilities, Features
-- [ ] **STRICT**: Functions MUST be < 35 lines of code (NO EXCEPTIONS)
-- [ ] **STRICT**: Cyclomatic complexity MUST be < 10 (use `gocyclo -over 9 .`)
+- [ ] **Required**: Every `.go` file should have Package Descriptor above `package` declaration
+- [ ] **Required**: Package Descriptor must include: Purpose, Responsibilities, Features
+- [ ] **Target**: Functions should be < 35 lines of code ()
+- [ ] **Target**: Cyclomatic complexity should be < 10 (use `gocyclo -over 9 .`)
 - [ ] Max 3 levels of indentation (use early returns)
 - [ ] One clear responsibility per function (Single Responsibility Principle)
-- [ ] **MANDATORY FILE STRUCTURE**:
-  - **CRITICAL**: ONE FILE PER STRUCT (e.g., `user.go` for User, `user_config.go` for UserConfig)
+- [ ] **Required FILE STRUCTURE**:
+  - **Key**: ONE FILE PER STRUCT (e.g., `user.go` for User, `user_config.go` for UserConfig)
   - `constants.go` contains ALL package constants
   - `errors.go` contains ALL package errors
   - One `interfaces.go` file per package containing ALL interfaces
   - One `interfaces_test.go` for ALL mock helpers and test utilities
-  - Every `xxx.go` file MUST have corresponding `xxx_test.go` in same package
+  - Every `xxx.go` file should have corresponding `xxx_test.go` in same package
   - NO `*_helper.go` files outside of tests (helpers are for tests only)
   - NO mixing of interfaces and implementations in same file
   - NO `models.go` with multiple structs - split into separate files
@@ -75,9 +75,9 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 - [ ] Keep package-level state to absolute minimum
 - [ ] Use cmd/ for application entry points
 
-### 3.1 PACKAGE DESCRIPTOR (MANDATORY)
+### 3.1 PACKAGE DESCRIPTOR (Required)
 
-- [ ] **STRICT**: Every file MUST start with Package Descriptor comment block
+- [ ] **Target**: Every file should start with Package Descriptor comment block
 - [ ] Package Descriptor format (see PACKAGE_DESCRIPTOR.md):
   ```go
   // Package <name> <one-line description>
@@ -95,11 +95,11 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
   // Constraints:
   //   - <Constraint 1>
   ```
-- [ ] **CRITICAL**: Features MUST be explicitly declared
-- [ ] **FORBIDDEN**: Metrics/Tracing/Telemetry WITHOUT explicit Feature declaration
+- [ ] **Key**: Features should be explicitly declared
+- [ ] **Avoid**: Metrics/Tracing/Telemetry WITHOUT explicit Feature declaration
 - [ ] If `Features: Metrics` declared → `otel/metric` imports allowed
 - [ ] If `Features: Tracing` declared → `otel/trace` imports allowed
-- [ ] If NO telemetry in Features → ZERO telemetry imports allowed
+- [ ] If NO telemetry in Features → zero telemetry imports allowed
 - [ ] Verify code matches declared Features (no undeclared features used)
 - [ ] Dependencies section lists all external systems/APIs
 - [ ] Constraints section documents important limitations
@@ -109,7 +109,7 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 - [ ] Keep interfaces small (1-3 methods ideal, max 5)
 - [ ] Accept interfaces, return concrete types
 - [ ] Define interfaces at point of use, not point of implementation
-- [ ] **MANDATORY**: ALL interfaces MUST be in dedicated `interfaces.go` file
+- [ ] **Required**: ALL interfaces should be in dedicated `interfaces.go` file
 - [ ] Use empty interface `interface{}` / `any` sparingly
 - [ ] Zero values must be valid and usable
 - [ ] Make zero-value useful (e.g., `var buf bytes.Buffer` works immediately)
@@ -121,10 +121,10 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 - [ ] Prefer composition over inheritance
 - [ ] Tag struct fields appropriately: `json:"name,omitempty"`
 
-### 4.1 CONSTRUCTORS & CONFIGURATION (MANDATORY)
+### 4.1 CONSTRUCTORS & CONFIGURATION (Required)
 
-- [ ] **STRICT**: Every struct MUST have a constructor function `NewXXXX()`
-- [ ] **STRICT**: Services/Repositories/Handlers MUST have `XXXXConfig` struct
+- [ ] **Target**: Every struct should have a constructor function `NewXXXX()`
+- [ ] **Target**: Services/Repositories/Handlers should have `XXXXConfig` struct
 - [ ] Constructor signature: `func NewXXXX(cfg XXXXConfig) (*XXXX, error)`
 - [ ] Config struct must be a DTO with all dependencies and configuration
 - [ ] Simple entities (User, Product, etc.) can use: `func NewXXXX(params...) *XXXX`
@@ -140,12 +140,12 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
   }
   ```
 - [ ] Alternative: Functional Options pattern for complex cases
-- [ ] Never use struct literals outside of constructors: `svc := &Service{...}` is FORBIDDEN
+- [ ] Never use struct literals outside of constructors: `svc := &Service{...}` is Avoid
 - [ ] Zero-value structs should not be usable without constructor
 
 ### 5. CONCURRENCY & GOROUTINES
 
-- [ ] ALWAYS run with `-race` flag to detect data races
+- [ ] Always run with `-race` flag to detect data races
 - [ ] Never share memory by communicating; communicate by sharing memory (use channels)
 - [ ] Close channels from sender, not receiver
 - [ ] Check if channel is closed: `val, ok := <-ch`
@@ -164,10 +164,10 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 - [ ] Always handle context cancellation: `case <-ctx.Done(): return ctx.Err()`
 - [ ] Set appropriate timeouts: `ctx, cancel := context.WithTimeout(parent, 5*time.Second)`
 
-### 6. MEMORY & PERFORMANCE (CRITICAL OPTIMIZATIONS)
+### 6. MEMORY & PERFORMANCE (Key OPTIMIZATIONS)
 
-#### 6.1 MANDATORY: Constants for ALL Default Values
-- [ ] **CRITICAL**: NO magic numbers - all defaults MUST be named constants
+#### 6.1 Required: Constants for ALL Default Values
+- [ ] **Key**: NO magic numbers - all defaults should be named constants
 - [ ] All timeout values in constants (e.g., `DefaultTimeout = 30 * time.Second`)
 - [ ] All buffer sizes in constants (e.g., `DefaultBufferSize = 100`)
 - [ ] All retry counts in constants (e.g., `DefaultMaxRetries = 3`)
@@ -183,8 +183,8 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
   cfg.Timeout = DefaultTimeout
   ```
 
-#### 6.2 MANDATORY: Bitwise Operations for Flags
-- [ ] **CRITICAL**: Use bitwise flags (uint8) instead of multiple bool fields
+#### 6.2 Required: Bitwise Operations for Flags
+- [ ] **Key**: Use bitwise flags (uint8) instead of multiple bool fields
 - [ ] Declare flag constants using left-shift: `FlagX = 1 << n`
 - [ ] Memory savings: 1 byte vs 8+ bytes for multiple bools
 - [ ] Implement flag methods: `HasFlag()`, `SetFlag()`, `ClearFlag()`
@@ -213,8 +213,8 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
   }
   ```
 
-#### 6.3 MANDATORY: map[T]struct{} for Sets
-- [ ] **CRITICAL**: Use `map[T]struct{}` for set operations, NOT `map[T]bool`
+#### 6.3 Required: map[T]struct{} for Sets
+- [ ] **Key**: Use `map[T]struct{}` for set operations, NOT `map[T]bool`
 - [ ] Memory savings: 0 bytes vs 1 byte per entry
 - [ ] Use for validation sets, deduplication, membership tests
 - [ ] Example:
@@ -237,8 +237,8 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
   }
   ```
 
-#### 6.4 MANDATORY: Struct Field Ordering by Size
-- [ ] **CRITICAL**: Order struct fields by size (largest to smallest)
+#### 6.4 Required: Struct Field Ordering by Size
+- [ ] **Key**: Order struct fields by size (largest to smallest)
 - [ ] Memory savings: 20-50% reduction in struct size
 - [ ] Field size reference (64-bit):
   - Pointers, slices, maps: 8 bytes
@@ -267,8 +267,8 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
   }
   ```
 
-#### 6.5 MANDATORY: chan struct{} for Signals
-- [ ] **CRITICAL**: Use `chan struct{}` for signaling, NOT `chan bool`
+#### 6.5 Required: chan struct{} for Signals
+- [ ] **Key**: Use `chan struct{}` for signaling, NOT `chan bool`
 - [ ] Memory savings: 0 bytes vs 1 byte
 - [ ] Standard Go idiom for signals
 - [ ] Example:
@@ -300,7 +300,7 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 
 ### 7. RESOURCE MANAGEMENT
 
-- [ ] ALWAYS use `defer` for cleanup: `defer file.Close()`
+- [ ] Always use `defer` for cleanup: `defer file.Close()`
 - [ ] Call `defer` immediately after acquiring resource
 - [ ] Check errors from `Close()` in defer: `defer func() { err = f.Close() }()`
 - [ ] Use `context.WithTimeout` for operations with time limits
@@ -313,18 +313,18 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 - [ ] Use `SetDeadline` for network operations
 - [ ] Gracefully shutdown servers with `Shutdown(ctx)`
 
-### 8. TESTING (MANDATORY)
+### 8. TESTING (Required)
 
-- [ ] **CRITICAL**: Test files MUST use `package xxx_test` (black-box testing)
-- [ ] **CRITICAL**: Import package under test: `import "packagename"`
-- [ ] **FORBIDDEN**: Using `package xxx` in test files (white-box)
-- [ ] **FORBIDDEN**: Benchmarks in committed code (ZERO `Benchmark*` functions allowed)
-- [ ] **FORBIDDEN**: Separate benchmark files (`*_bench.go`)
-- [ ] **POLICY**: Benchmarks are TEMPORARY tools for local POC/optimization only
-- [ ] **POLICY**: DELETE all benchmarks before committing
-- [ ] **STRICT**: 100% code coverage required (use `go test -cover -coverprofile=coverage.out`)
-- [ ] **STRICT**: Every `xxx.go` MUST have `xxx_test.go` in same directory
-- [ ] **STRICT**: All mock helpers MUST be in `interfaces_test.go` ONLY
+- [ ] **Key**: Test files should use `package xxx_test` (black-box testing)
+- [ ] **Key**: Import package under test: `import "packagename"`
+- [ ] **Avoid**: Using `package xxx` in test files (white-box)
+- [ ] **Avoid**: Benchmarks in committed code (zero `Benchmark*` functions allowed)
+- [ ] **Avoid**: Separate benchmark files (`*_bench.go`)
+- [ ] **Policy**: Benchmarks are TEMPORARY tools for local POC/optimization only
+- [ ] **Policy**: Delete all benchmarks before committing
+- [ ] **Target**: 100% code coverage required (use `go test -cover -coverprofile=coverage.out`)
+- [ ] **Target**: Every `xxx.go` should have `xxx_test.go` in same directory
+- [ ] **Target**: All mock helpers should be in `interfaces_test.go` ONLY
 - [ ] Test all error paths, not just happy path
 - [ ] Use table-driven tests for multiple scenarios
 - [ ] Test file naming: `xxx_test.go` for black-box, `xxx_integration_test.go` for integration
@@ -348,7 +348,7 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 
 ### 9. DOCUMENTATION
 
-- [ ] Every exported symbol MUST have a doc comment
+- [ ] Every exported symbol should have a doc comment
 - [ ] Doc comments start with symbol name: `// UserRepository manages...`
 - [ ] Use complete sentences with proper punctuation
 - [ ] Package documentation in `doc.go` or package comment
@@ -364,13 +364,13 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 
 ### 10. SECURITY
 
-- [ ] NEVER hardcode credentials or secrets
+- [ ] Never hardcode credentials or secrets
 - [ ] Use environment variables or secret management for sensitive data
 - [ ] Validate ALL user input
-- [ ] Use parameterized queries, NEVER string concatenation for SQL
+- [ ] Use parameterized queries, Never string concatenation for SQL
 - [ ] Sanitize file paths to prevent directory traversal
 - [ ] Validate and limit file upload sizes
-- [ ] Use `crypto/rand`, NEVER `math/rand` for security
+- [ ] Use `crypto/rand`, Never `math/rand` for security
 - [ ] Use constant-time comparison for secrets: `subtle.ConstantTimeCompare()`
 - [ ] Disable directory listing in web servers
 - [ ] Set appropriate CORS headers
@@ -412,8 +412,8 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 ### 13. STANDARD PATTERNS
 
 - [ ] Use `init()` sparingly (only for registration)
-- [ ] **MANDATORY**: Functional options OR Config struct for all constructors
-- [ ] **MANDATORY**: Constructor returns `(*Type, error)` not just `*Type`
+- [ ] **Required**: Functional options OR Config struct for all constructors
+- [ ] **Required**: Constructor returns `(*Type, error)` not just `*Type`
 - [ ] Use factory pattern for complex object creation
 - [ ] Implement `String()` for debug-friendly types
 - [ ] Implement `Error()` for custom error types
@@ -427,15 +427,15 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
   - If not 100% testable: refactor to inject dependencies
   - If > 3 parameters: use config struct or options pattern
 
-### 14. LINTING & QUALITY TOOLS (ALL MUST PASS)
+### 14. LINTING & QUALITY TOOLS (all should PASS)
 
-- [ ] `golangci-lint run` - ZERO warnings allowed
+- [ ] `golangci-lint run` - zero warnings allowed
 - [ ] `go vet ./...` - must pass
 - [ ] `staticcheck ./...` - must pass
 - [ ] `gosec ./...` - security check must pass
 - [ ] `go test -race ./...` - race detector must pass
 - [ ] `go test -cover ./...` - **100% coverage required**
-- [ ] **`gocyclo -over 9 .`** - MUST return zero results
+- [ ] **`gocyclo -over 9 .`** - should return zero results
 - [ ] Codacy grade A required
 - [ ] Code duplication max 3%
 - [ ] **Lines per function**: use `go-loc` or manual check, max 35 lines
@@ -519,22 +519,22 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 
 ## Review Process
 
-### Phase 1: AUTOMATED CHECKS (ALL MUST PASS)
+### Phase 1: AUTOMATED CHECKS (all should PASS)
 
 ```bash
 # Step 1: Complexity & Size Check
-gocyclo -over 9 .                    # MUST return ZERO results
+gocyclo -over 9 .                    # should return zero results
 
 # Step 2: Code Quality
-golangci-lint run                     # ZERO warnings allowed
+golangci-lint run                     # zero warnings allowed
 go vet ./...
 staticcheck ./...
 
 # Step 3: Security
-gosec ./...                           # ZERO vulnerabilities
+gosec ./...                           # zero vulnerabilities
 
 # Step 4: Tests & Coverage
-go test -race ./...                   # Race detector MUST pass
+go test -race ./...                   # Race detector should pass
 go test -cover -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out      # 100% coverage required
 
@@ -544,10 +544,10 @@ go tool cover -func=coverage.out      # 100% coverage required
 
 **❌ If ANY automated check fails → IMMEDIATE REJECTION**
 
-### Phase 2: STRUCTURAL COMPLIANCE (ZERO TOLERANCE)
+### Phase 2: STRUCTURAL COMPLIANCE (Key)
 
 - [ ] **File Structure Check**:
-  - [ ] **CRITICAL**: ONE FILE PER STRUCT (no `models.go` with multiple structs) ✓
+  - [ ] **Key**: ONE FILE PER STRUCT (no `models.go` with multiple structs) ✓
   - [ ] `constants.go` exists with ALL constants ✓
   - [ ] `errors.go` exists with ALL errors ✓
   - [ ] Every `.go` file has corresponding `_test.go` ✓
@@ -563,14 +563,14 @@ go tool cover -func=coverage.out      # 100% coverage required
 
 - [ ] **Function Size Check** (line by line):
   - [ ] Count lines per function: ALL < 35 lines ✓
-  - [ ] Functions > 35 lines → MUST be refactored ✓
+  - [ ] Functions > 35 lines → should be refactored ✓
 
 - [ ] **Performance Optimization Check**:
-  - [ ] **CRITICAL**: NO magic numbers - all defaults in constants ✓
-  - [ ] **CRITICAL**: Bitwise flags (uint8) used instead of multiple bools ✓
-  - [ ] **CRITICAL**: `map[T]struct{}` used for sets (not `map[T]bool`) ✓
-  - [ ] **CRITICAL**: Struct fields ordered by size (largest to smallest) ✓
-  - [ ] **CRITICAL**: `chan struct{}` used for signals (not `chan bool`) ✓
+  - [ ] **Key**: NO magic numbers - all defaults in constants ✓
+  - [ ] **Key**: Bitwise flags (uint8) used instead of multiple bools ✓
+  - [ ] **Key**: `map[T]struct{}` used for sets (not `map[T]bool`) ✓
+  - [ ] **Key**: Struct fields ordered by size (largest to smallest) ✓
+  - [ ] **Key**: `chan struct{}` used for signals (not `chan bool`) ✓
 
 **❌ If structural compliance fails → REJECTION with refactoring required**
 
@@ -685,7 +685,7 @@ Result: Main function: ~15 lines, 3 focused sub-functions
    - Line 67: exported function missing comment
    - Line 112: ineffectual assignment to err
    - Line 145: G104: Errors unhandled
-   ➜ REJECTED: ZERO warnings policy
+   ➜ REJECTED: zero warnings policy
 
 3. **Coverage: 78%**
    ```
@@ -907,19 +907,19 @@ go test -race -cover ./...
 
 **The reviewer DEMANDS:**
 
-### 🔴 ZERO TOLERANCE RULES (Auto-Reject):
-1. **Package Descriptor**: MUST exist on EVERY `.go` file with Purpose, Responsibilities, Features
+### 🔴 Key RULES (Auto-Reject):
+1. **Package Descriptor**: should exist on EVERY `.go` file with Purpose, Responsibilities, Features
 2. **Feature Declaration**: NO metrics/tracing/telemetry WITHOUT explicit `Features:` declaration
-3. **Function size**: ALL functions < 35 lines (NO EXCEPTIONS)
+3. **Function size**: ALL functions < 35 lines ()
 4. **Complexity**: gocyclo < 10 for ALL functions (use `gocyclo -over 9 .`)
 5. **Coverage**: 100% code coverage required
-6. **Constructors**: Every struct MUST have `NewXXXX()` constructor
-7. **Config**: Services/Repos/Handlers MUST have `XXXXConfig` struct
+6. **Constructors**: Every struct should have `NewXXXX()` constructor
+7. **Config**: Services/Repos/Handlers should have `XXXXConfig` struct
 8. **File structure**: 1:1 mapping `.go` ↔ `._test.go`
 9. **Interfaces**: ALL interfaces in dedicated `interfaces.go`
 10. **Mocks**: ALL test helpers in `interfaces_test.go` ONLY
-11. **Errors**: ZERO ignored errors (no `_` for error returns)
-12. **Linting**: ZERO golangci-lint warnings
+11. **Errors**: zero ignored errors (no `_` for error returns)
+12. **Linting**: zero golangci-lint warnings
 
 ### 📐 STRUCTURAL REQUIREMENTS:
 
@@ -935,7 +935,7 @@ package/
 └── NO *_helper.go files    # Helpers only in *_test.go
 ```
 
-**Constructor Pattern (MANDATORY):**
+**Constructor Pattern (Required):**
 ```go
 // Config struct for services
 type ServiceConfig struct {
@@ -955,7 +955,7 @@ func NewService(cfg ServiceConfig) (*Service, error) {
 }
 
 // NO direct struct literals allowed:
-// ❌ svc := &Service{...}        // FORBIDDEN
+// ❌ svc := &Service{...}        // Avoid
 // ✅ svc, err := NewService(cfg)  // REQUIRED
 ```
 
@@ -963,23 +963,23 @@ func NewService(cfg ServiceConfig) (*Service, error) {
 
 ```bash
 # Gate 1: Complexity
-gocyclo -over 9 .              # MUST return ZERO
+gocyclo -over 9 .              # should return zero
 
 # Gate 2: Linting
-golangci-lint run              # MUST have ZERO warnings
+golangci-lint run              # should have zero warnings
 go vet ./...
 staticcheck ./...
 
 # Gate 3: Security
-gosec ./...                    # MUST have ZERO issues
+gosec ./...                    # should have zero issues
 
 # Gate 4: Testing
-go test -race ./...            # MUST pass (no races)
-go test -cover ./...           # MUST be 100%
+go test -race ./...            # should pass (no races)
+go test -cover ./...           # should be 100%
 
 # Gate 5: Coverage report
 go tool cover -func=coverage.out | grep total
-# MUST show: total: (statements) 100.0%
+# should show: total: (statements) 100.0%
 ```
 
 ### 🎯 REFACTORING MANDATE:
@@ -999,7 +999,7 @@ go tool cover -func=coverage.out | grep total
 
 ### ⚡ TESTABILITY REQUIREMENTS:
 
-**Code MUST be designed for testing:**
+**Code should be designed for testing:**
 ```go
 // ❌ NOT TESTABLE:
 func Process() error {
@@ -1050,10 +1050,6 @@ Every submission reviewed against ALL 20 categories:
 
 ---
 
-**NO COMPROMISES. NO EXCEPTIONS. EXCELLENCE IS THE ONLY STANDARD.**
-
-**The code is either:**
-- ✅ **PRODUCTION-READY** (passes ALL 250+ checks)
-- ❌ **REJECTED** (fix issues and re-submit)
-
-**There is no middle ground.**
+**Review outcome:**
+- ✅ **Approved** - Ready for production
+- ❌ **Changes needed** - Address issues and re-submit
