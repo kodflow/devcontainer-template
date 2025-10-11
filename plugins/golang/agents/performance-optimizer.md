@@ -630,7 +630,7 @@ func (c *Counter) Increment() {
 }
 ```
 
-**Performance**: Atomic operations are 10x faster than mutex for simple counters. [See benchmarks](../reference-service/README.md#3-atomic-operations)
+**Performance**: Atomic operations are 10x faster than mutex for simple counters. [See benchmarks](../reference-service/README.md#atomic-operations-lock-free-counters)
 
 ## Performance Standards
 

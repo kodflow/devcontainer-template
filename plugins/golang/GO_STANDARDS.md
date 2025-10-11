@@ -429,5 +429,3 @@ Before submitting code:
 - [ ] strconv instead of fmt.Sprintf for conversions
 
 ---
-
-**Remember: EXCELLENCE IS THE ONLY STANDARD.**

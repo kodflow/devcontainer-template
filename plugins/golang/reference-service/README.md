@@ -4,7 +4,7 @@
 
 This is a **PERFECT REFERENCE IMPLEMENTATION** demonstrating ALL Go best practices:
 
-- ✅ **1 FILE PER STRUCT** (MANDATORY)
+- ✅ **1 FILE PER STRUCT** (Required)
 - ✅ Package Descriptor on EVERY file
 - ✅ Proper package naming: `package taskqueue_test` for tests
 - ✅ Concurrent task processing with goroutines
@@ -25,9 +25,9 @@ This is a **PERFECT REFERENCE IMPLEMENTATION** demonstrating ALL Go best practic
 
 ## 📁 File Structure (1:1 Mapping)
 
-### CRITICAL: 1 File Per Struct
+### Important: 1 File Per Struct
 
-**This service demonstrates the MANDATORY "1 file per struct" rule.**
+**This service demonstrates the Required "1 file per struct" rule.**
 
 ```
 reference-service/
@@ -97,7 +97,7 @@ package taskqueue
 
 ### 2. Black-Box Testing
 
-**CRITICAL**: Test files use `package taskqueue_test`:
+**Important**: Test files use `package taskqueue_test`:
 
 ```go
 // ✅ CORRECT
@@ -316,7 +316,7 @@ func NewWorker(cfg WorkerConfig) (*Worker, error) {
     return &Worker{...}, nil
 }
 
-// ❌ FORBIDDEN: &Worker{...}
+// ❌ Not allowed: &Worker{...}
 // ✅ REQUIRED: NewWorker(cfg)
 ```
 
@@ -427,7 +427,7 @@ var BufferPool = sync.Pool{
 func (e *TaskEncoder) Encode(task *Task) ([]byte, error) {
     buf := BufferPool.Get().(*bytes.Buffer)
     defer func() {
-        buf.Reset()        // CRITICAL: Reset before returning
+        buf.Reset()        // Important: Reset before returning
         BufferPool.Put(buf)
     }()
 
@@ -598,7 +598,7 @@ filtered := FilterByStatus(
 // context_patterns.go - Operation timeout
 func ProcessWithTimeout(ctx context.Context, task *Task, timeout time.Duration) error {
     ctx, cancel := context.WithTimeout(ctx, timeout)
-    defer cancel() // CRITICAL: Always defer cancel
+    defer cancel() // Important: Always defer cancel
 
     resultChan := make(chan error, 1)
     go func() {
@@ -709,7 +709,7 @@ Expected: **ZERO warnings**
 ## 📊 What This Demonstrates
 
 ### File Organization
-- [x] **1 file per struct** (MANDATORY)
+- [x] **1 file per struct** (Required)
 - [x] constants.go for ALL constants
 - [x] errors.go for ALL errors
 - [x] 1:1 mapping between .go and _test.go

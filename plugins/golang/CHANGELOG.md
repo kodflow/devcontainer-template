@@ -21,19 +21,19 @@ This release **REMOVES ALL BENCHMARKS** from the codebase and establishes a **ZE
 ### Changed
 
 #### Benchmark Policy (NEW)
-- ❌ **ZERO benchmarks in committed code** (MANDATORY)
+- ❌ **ZERO benchmarks in committed code** (Required)
 - ✅ Write benchmarks TEMPORARILY for local performance validation
 - ✅ Run benchmarks locally to prove optimizations
 - ✅ DELETE all benchmarks before committing
 - ✅ Document performance improvements in commit messages (e.g., "3x faster via sync.Pool")
 
 #### Documentation Updates
-- **GO_STANDARDS.md**: Added CRITICAL benchmark policy section
-  - FORBIDDEN: Benchmarks in committed code
-  - FORBIDDEN: Separate `*_bench.go` files
+- **GO_STANDARDS.md**: Added Important benchmark policy section
+  - Not allowed: Benchmarks in committed code
+  - Not allowed: Separate `*_bench.go` files
   - POLICY: Benchmarks are temporary POC tools only
 - **commands/review.md**: Added benchmark violation checkpoints
-  - FORBIDDEN: `Benchmark*` functions in commits
+  - Not allowed: `Benchmark*` functions in commits
   - POLICY: DELETE benchmarks before commit
 - **reference-service/README.md**: Updated performance notes
   - Changed "Benchmark Results" to "Performance Results"
@@ -149,5 +149,6 @@ All performance claims are **proven with benchmarks**:
 
 ---
 
+[2.0.1]: https://github.com/kodflow/.repository/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/kodflow/.repository/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/kodflow/.repository/releases/tag/v1.0.0

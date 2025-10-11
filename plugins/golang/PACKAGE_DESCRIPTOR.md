@@ -9,7 +9,7 @@ This descriptor defines:
 - Responsibilities and scope
 - **Explicit feature flags** (metrics, tracing, caching, etc.)
 
-**RULE**: Features like telemetry, metrics, tracing are FORBIDDEN unless explicitly declared with `// Feature: <name>`
+**RULE**: Features like telemetry, metrics, tracing are Not allowed unless explicitly declared with `// Feature: <name>`
 
 ## Format
 
@@ -81,7 +81,7 @@ Features MUST be explicitly declared to be used in the code:
 ### Feature Declaration Rules
 
 **STRICT RULES:**
-1. ❌ **NO implicit features** - If not declared, it's FORBIDDEN
+1. ❌ **NO implicit features** - If not declared, it's Not allowed
 2. ✅ **Explicit only** - Declare with `// Feature: <name>`
 3. 🔍 **Review check** - Reviewer MUST verify features match code
 4. ⚠️ **Violation = REJECT** - Using undeclared feature = immediate rejection
@@ -141,8 +141,8 @@ import (
 package orderservice
 
 import (
-    "go.opentelemetry.io/otel/metric"  // ❌ FORBIDDEN: Metrics not in Features
-    "go.opentelemetry.io/otel/trace"   // ❌ FORBIDDEN: Tracing not in Features
+    "go.opentelemetry.io/otel/metric"  // ❌ Not allowed: Metrics not in Features
+    "go.opentelemetry.io/otel/trace"   // ❌ Not allowed: Tracing not in Features
 )
 ```
 
@@ -420,7 +420,7 @@ Before submitting code, verify:
 4. ✅ Dependencies are accurate
 5. ✅ Constraints are documented
 
-**❌ IMMEDIATE REJECTION if:**
+**❌ Flagged immediately if:**
 - Package Descriptor missing
 - Feature used but not declared
 - Metrics/Tracing added without explicit declaration
@@ -511,4 +511,4 @@ For existing code without Package Descriptors:
 
 ---
 
-**Remember: Package Descriptors are MANDATORY. No exceptions.**
+**Remember: Package Descriptors are Required. No exceptions.**

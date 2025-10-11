@@ -32,7 +32,7 @@ var bufferPool = sync.Pool{
 func process() {
     buf := bufferPool.Get().(*bytes.Buffer)
     defer func() {
-        buf.Reset()  // CRITICAL
+        buf.Reset()  // Important
         bufferPool.Put(buf)
     }()
     // use buf

@@ -210,7 +210,7 @@ product.go      -> type Product struct { }
 
 ❌ WRONG:
 entities.go     -> type User, Order, Product struct { }  // MULTIPLE STRUCTS - UNACCEPTABLE
-models.go       -> Multiple structs - FORBIDDEN
+models.go       -> Multiple structs - Not allowed
 ```
 
 **STRUCT FILE TEMPLATE:**
@@ -278,7 +278,7 @@ service.go      -> service_test.go
 
 ❌ WRONG:
 user.go         -> No test file - UNACCEPTABLE
-multiple files  -> one_test.go - FORBIDDEN
+multiple files  -> one_test.go - Not allowed
 ```
 
 **TEST FILE TEMPLATE:**

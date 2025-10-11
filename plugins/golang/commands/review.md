@@ -542,7 +542,7 @@ go tool cover -func=coverage.out      # 100% coverage required
 # Codacy analysis (via CI/CD or manual check)
 ```
 
-**❌ If ANY automated check fails → IMMEDIATE REJECTION**
+**❌ If ANY automated check fails → Flagged immediately**
 
 ### Phase 2: STRUCTURAL COMPLIANCE (Key)
 
