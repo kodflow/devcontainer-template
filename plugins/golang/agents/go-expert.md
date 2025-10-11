@@ -225,7 +225,7 @@ s = slices.Clip(s)          // Trim excess capacity
 
 ### Advanced Concurrency Primitives
 
-**📖 Complete Reference**: See [reference-service/README.md](../reference-service/README.md#-advanced-go-patterns-go-123-125) for detailed examples and benchmarks.
+**📖 Complete Reference**: See [reference-service/README.md](../reference-service/README.md#-advanced-go-patterns-go-123-125) for detailed examples and performance measurements.
 
 **Quick Overview:**
 
@@ -343,7 +343,8 @@ Modern Go code must:
 - [ ] Write table-driven tests
 - [ ] Use t.Parallel() when safe
 - [ ] Test concurrent code with 50+ goroutines
-- [ ] Benchmark hot paths with b.ReportAllocs()
+- [ ] Write TEMPORARY benchmarks locally for performance validation
+- [ ] DELETE benchmarks before committing (document results in commit messages)
 - [ ] Profile before optimizing (PGO-ready)
 - [ ] Achieve 100% test coverage
 

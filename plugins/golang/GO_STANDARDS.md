@@ -71,21 +71,31 @@ package taskqueue
 **CRITICAL - Test Files (MANDATORY):**
 - Test files MUST use `package xxx_test` (black-box)
 - Import the package under test
-- **Benchmarks MUST be in `_test.go` files** (NOT separate `_bench.go` files)
+- **ZERO benchmarks in committed code** (use temporarily for POC/optimization only)
 - NO `*_helper.go` files outside tests
-- NO `*_bench.go` files (use `_test.go` instead)
+- NO `*_bench.go` files
+- NO `Benchmark*` functions in committed `_test.go` files
 
-**Example - Benchmarks in test files:**
+**CRITICAL - Benchmark Policy:**
+- ❌ **NEVER commit benchmarks** to the repository
+- ✅ Write benchmarks TEMPORARILY for performance optimization work
+- ✅ Run benchmarks locally to validate improvements
+- ✅ Delete benchmarks before committing
+- 📋 Document performance improvements in commit messages (e.g., "3x faster via sync.Pool")
+
+**Example - Temporary benchmarks (DO NOT COMMIT):**
 ```go
-// ✅ CORRECT - user_test.go (includes tests AND benchmarks)
+// ⚠️ TEMPORARY - user_test.go (for local POC only)
 package user_test
 
-func TestUser(t *testing.T) { ... }
+func TestUser(t *testing.T) { ... }  // ✅ Commit this
 
-func BenchmarkUserCreation(b *testing.B) { ... }
-
-// ❌ WRONG - user_bench.go (separate file)
-// DO NOT create separate benchmark files
+// ❌ DELETE before commit - temporary benchmark
+func BenchmarkUserCreation(b *testing.B) {
+    for i := 0; i < b.N; i++ {
+        NewUser("test")
+    }
+}
 ```
 
 ### Constructor Pattern (Mandatory)
@@ -362,21 +372,22 @@ close(done)  // Or: done <- struct{}{}
 2. Undeclared features (telemetry without Features declaration)
 3. **Wrong test package** (using `package xxx` instead of `package xxx_test`)
 4. **Multiple structs in one file** (must be 1 file per struct)
-5. **Separate benchmark files** (`*_bench.go` - use `_test.go` instead)
-6. Function > 35 lines
-7. Cyclomatic complexity > 9
-8. Coverage < 100%
-9. Missing constructor
-10. Missing Config for services
-11. Wrong file structure
-12. Ignored errors (`_`)
-13. golangci-lint warnings
-14. Security vulnerabilities
-15. Direct struct literals
-16. **Magic numbers** (using literals instead of constants)
-17. **Multiple bools as flags** (should use bitwise uint8)
-18. **map[T]bool for sets** (should use map[T]struct{})
-19. **Unordered struct fields** (not ordered by size)
+5. **Committed benchmarks** (ZERO benchmarks in repo - temporary use only)
+6. **Separate benchmark files** (`*_bench.go`)
+7. Function > 35 lines
+8. Cyclomatic complexity > 9
+9. Coverage < 100%
+10. Missing constructor
+11. Missing Config for services
+12. Wrong file structure
+13. Ignored errors (`_`)
+14. golangci-lint warnings
+15. Security vulnerabilities
+16. Direct struct literals
+17. **Magic numbers** (using literals instead of constants)
+18. **Multiple bools as flags** (should use bitwise uint8)
+19. **map[T]bool for sets** (should use map[T]struct{})
+20. **Unordered struct fields** (not ordered by size)
 
 ## ✅ Success Checklist
 

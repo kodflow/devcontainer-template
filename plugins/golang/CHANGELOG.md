@@ -5,6 +5,57 @@ All notable changes to the Go Plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2025-10-11
+
+### 🚫 Benchmark Policy (Breaking Process Change)
+
+This release **REMOVES ALL BENCHMARKS** from the codebase and establishes a **ZERO BENCHMARKS IN COMMITS** policy.
+
+### Removed
+
+- **ALL `Benchmark*` functions** from test files
+  - `sync_pool_test.go`: Removed 11 benchmark functions
+  - `stats_test.go`: Removed 4 benchmark functions
+- Benchmarks are now **TEMPORARY TOOLS ONLY** - written locally for POC/optimization, then **DELETED before commit**
+
+### Changed
+
+#### Benchmark Policy (NEW)
+- ❌ **ZERO benchmarks in committed code** (MANDATORY)
+- ✅ Write benchmarks TEMPORARILY for local performance validation
+- ✅ Run benchmarks locally to prove optimizations
+- ✅ DELETE all benchmarks before committing
+- ✅ Document performance improvements in commit messages (e.g., "3x faster via sync.Pool")
+
+#### Documentation Updates
+- **GO_STANDARDS.md**: Added CRITICAL benchmark policy section
+  - FORBIDDEN: Benchmarks in committed code
+  - FORBIDDEN: Separate `*_bench.go` files
+  - POLICY: Benchmarks are temporary POC tools only
+- **commands/review.md**: Added benchmark violation checkpoints
+  - FORBIDDEN: `Benchmark*` functions in commits
+  - POLICY: DELETE benchmarks before commit
+- **reference-service/README.md**: Updated performance notes
+  - Changed "Benchmark Results" to "Performance Results"
+  - Added note that benchmarks are temporary tools
+- **performance-optimizer agent**: Added NEVER COMMIT BENCHMARKS policy
+
+#### Updated Standards
+- Common violations list now includes "Committed benchmarks" (#5)
+- Review checklist includes benchmark deletion verification
+- Performance optimizer must never commit benchmarks
+
+### Rationale
+
+Benchmarks are **development tools** for proving optimizations during POC work:
+- ✅ Write benchmarks to validate "3x faster" claims
+- ✅ Use benchmarks to compare approaches
+- ✅ Run benchmarks locally to measure improvements
+- ❌ DO NOT commit benchmarks to repository
+- ✅ Document proven improvements in commit messages
+
+**Result**: Cleaner codebase, no benchmark maintenance burden, proven performance claims documented in commits.
+
 ## [2.0.0] - 2025-10-11
 
 ### 🎉 Major Release: Go 1.23-1.25 Advanced Patterns

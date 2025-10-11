@@ -483,9 +483,11 @@ For **PERFECT EXAMPLES** of all these patterns, see:
 - ✅ 100% test coverage with race detection
 - ✅ All functions < 35 lines, complexity < 10
 - ✅ Perfect file structure (1 file per struct)
-- ✅ Comprehensive benchmarks
+- ✅ Performance validated (benchmarks used temporarily during development)
 
 **Use this as the GOLD STANDARD when reviewing code.**
+
+**Note**: Reference-service does NOT include committed benchmarks. Performance claims were validated with temporary benchmarks during development, then documented in commit messages.
 
 ### Quick Reference Links:
 

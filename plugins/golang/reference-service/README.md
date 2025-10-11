@@ -40,7 +40,7 @@ reference-service/
 ├── stats.go              # WorkerStats with atomic operations
 ├── stats_test.go         # Stats concurrent tests
 ├── sync_pool.go          # sync.Pool for object reuse (GC pressure)
-├── sync_pool_test.go     # Pool benchmarks (3x faster)
+├── sync_pool_test.go     # Pool tests (3x faster than no pool)
 ├── sync_once.go          # sync.Once for singleton pattern
 ├── sync_map.go           # sync.Map for concurrent maps
 ├── iterators.go          # Go 1.23+ custom iterators
@@ -203,10 +203,14 @@ func (s *WorkerStats) DecrementActive() {
 - ✅ **Lock-free** - no blocking, no deadlocks
 - ❌ Only for simple operations (increment, decrement, load, store)
 
-**Benchmark Results** (concurrent increments, 1M operations):
+**Performance Results** (measured via temporary benchmarks during development):
 ```
 Mutex:         ~50-100 ns/op
 atomic.Uint64: ~5-10 ns/op (10x faster)
+
+Note: Benchmarks are TEMPORARY tools - written locally to validate
+optimizations, then DELETED before commit. Document improvements
+in commit messages instead.
 ```
 
 #### Struct Field Ordering (Largest to Smallest)

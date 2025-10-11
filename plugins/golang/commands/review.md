@@ -316,14 +316,16 @@ This command triggers the **UNCOMPROMISING** Go code reviewer with ZERO TOLERANC
 - [ ] **CRITICAL**: Test files MUST use `package xxx_test` (black-box testing)
 - [ ] **CRITICAL**: Import package under test: `import "packagename"`
 - [ ] **FORBIDDEN**: Using `package xxx` in test files (white-box)
-- [ ] **FORBIDDEN**: Separate benchmark files (`*_bench.go` - use `_test.go` instead)
-- [ ] **STRICT**: Benchmarks MUST be in `_test.go` files alongside tests
+- [ ] **FORBIDDEN**: Benchmarks in committed code (ZERO `Benchmark*` functions allowed)
+- [ ] **FORBIDDEN**: Separate benchmark files (`*_bench.go`)
+- [ ] **POLICY**: Benchmarks are TEMPORARY tools for local POC/optimization only
+- [ ] **POLICY**: DELETE all benchmarks before committing
 - [ ] **STRICT**: 100% code coverage required (use `go test -cover -coverprofile=coverage.out`)
 - [ ] **STRICT**: Every `xxx.go` MUST have `xxx_test.go` in same directory
 - [ ] **STRICT**: All mock helpers MUST be in `interfaces_test.go` ONLY
 - [ ] Test all error paths, not just happy path
 - [ ] Use table-driven tests for multiple scenarios
-- [ ] Test file naming: `xxx_test.go` for white-box, `xxx_integration_test.go` for integration
+- [ ] Test file naming: `xxx_test.go` for black-box, `xxx_integration_test.go` for integration
 - [ ] Use `t.Helper()` for test helper functions
 - [ ] Use subtests: `t.Run("scenario", func(t *testing.T) {...})`
 - [ ] Use `t.Parallel()` for tests that can run concurrently
@@ -333,7 +335,6 @@ This command triggers the **UNCOMPROMISING** Go code reviewer with ZERO TOLERANC
 - [ ] Clean up test resources: `t.Cleanup(func() {...})`
 - [ ] Use `-race` flag: `go test -race ./...`
 - [ ] Use `-cover` flag: `go test -cover ./...`
-- [ ] Write benchmarks for performance-critical code
 - [ ] Use example tests for documentation: `func ExampleFunction() {...}`
 - [ ] Test timeout behavior with `context.WithTimeout`
 - [ ] Test concurrent access with `go test -race -count=100`
