@@ -1,6 +1,6 @@
 {
   "name": "golang",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Advanced Go development plugin with Go 1.23-1.25 patterns, comprehensive reference implementation, and strict standards enforcement",
   "author": {
     "name": "Kodflow",
