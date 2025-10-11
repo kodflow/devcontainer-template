@@ -193,3 +193,5 @@ docker-compose.override.yml
 
 # Keep empty directories
 !.gitkeep
+/.env
+.env
