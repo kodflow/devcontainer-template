@@ -1,6 +1,9 @@
 {
   "name": "kodflow-dev-plugins",
-  "owner": "kodflow",
+  "owner": {
+    "name": "kodflow",
+    "url": "https://github.com/kodflow"
+  },
   "description": "Collection of development plugins with strict standards and best practices enforcement",
   "version": "1.0.0",
   "repository": "https://github.com/kodflow/.repository",
@@ -10,7 +13,7 @@
       "name": "go-development-tools",
       "description": "Expert agents for Go development: DDD Architect (ultra-strict structure), Code Reviewer (zero tolerance), Performance Optimizer (pprof master), and Go Expert (1.25+ features)",
       "version": "1.0.0",
-      "source": "https://github.com/kodflow/.repository/tree/main/plugins/golang",
+      "source": "./plugins/golang",
       "tags": ["go", "golang", "ddd", "code-review", "performance", "architecture"]
     }
   ]
