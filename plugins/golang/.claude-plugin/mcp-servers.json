@@ -1,0 +1,35 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      },
+      "description": "GitHub MCP server for repository operations, issues, PRs, and code review"
+    },
+    "codacy": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-e", "CODACY_API_TOKEN=${CODACY_API_TOKEN}",
+        "codacy/codacy-analysis-cli:latest"
+      ],
+      "description": "Codacy MCP server for code quality analysis and security scanning"
+    }
+  },
+  "requiredEnvVars": [
+    {
+      "name": "GITHUB_TOKEN",
+      "description": "GitHub Personal Access Token for API access",
+      "url": "https://github.com/settings/tokens"
+    },
+    {
+      "name": "CODACY_API_TOKEN",
+      "description": "Codacy API Token for quality analysis",
+      "url": "https://app.codacy.com/account/apiTokens"
+    }
+  ]
+}

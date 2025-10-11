@@ -17,6 +17,19 @@
     "testing",
     "linting",
     "build",
-    "performance"
-  ]
+    "performance",
+    "ddd",
+    "code-review",
+    "mcp"
+  ],
+  "mcpServers": {
+    "github": {
+      "required": false,
+      "description": "GitHub integration for repository operations and code review"
+    },
+    "codacy": {
+      "required": false,
+      "description": "Codacy integration for code quality analysis"
+    }
+  }
 }
