@@ -1,19 +1,3 @@
-// Package taskqueue_test constants validation tests
-//
-// Purpose:
-//   Tests for package constants and default values.
-//
-// Responsibilities:
-//   - Verify constant values
-//   - Verify bitwise flag values
-//   - Ensure no magic numbers
-//
-// Features:
-//   - None (Test code only)
-//
-// Constraints:
-//   - Test all constants
-//
 package taskqueue_test
 
 import (

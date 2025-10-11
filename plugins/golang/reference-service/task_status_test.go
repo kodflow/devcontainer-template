@@ -1,20 +1,3 @@
-// Package taskqueue_test task status validation tests
-//
-// Purpose:
-//   Tests for TaskStatus validation and state transitions.
-//
-// Responsibilities:
-//   - Test status validation
-//   - Test state transition rules
-//   - Test all valid/invalid status combinations
-//
-// Features:
-//   - None (Test code only)
-//
-// Constraints:
-//   - Test all state combinations
-//   - Test invalid states
-//
 package taskqueue_test
 
 import (

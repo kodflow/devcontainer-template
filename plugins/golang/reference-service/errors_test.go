@@ -1,18 +1,3 @@
-// Package taskqueue_test error constants tests
-//
-// Purpose:
-//   Tests for error sentinel values and messages.
-//
-// Responsibilities:
-//   - Verify error constant values
-//   - Verify error messages
-//
-// Features:
-//   - None (Test code only)
-//
-// Constraints:
-//   - Test all error constants
-//
 package taskqueue_test
 
 import (

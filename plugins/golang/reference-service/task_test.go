@@ -1,20 +1,3 @@
-// Package taskqueue_test task entity tests
-//
-// Purpose:
-//   Tests for Task entity and state transition logic.
-//
-// Responsibilities:
-//   - Test task state transitions
-//   - Test CanTransition business rules
-//   - Test all state combinations
-//
-// Features:
-//   - None (Test code only)
-//
-// Constraints:
-//   - Test all valid and invalid transitions
-//   - Test edge cases
-//
 package taskqueue_test
 
 import (

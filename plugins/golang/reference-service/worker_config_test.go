@@ -1,18 +1,3 @@
-// Package taskqueue_test worker configuration tests
-//
-// Purpose:
-//   Tests for WorkerConfig struct validation.
-//
-// Responsibilities:
-//   - Test config field assignments
-//   - Test struct field ordering
-//
-// Features:
-//   - None (Test code only)
-//
-// Constraints:
-//   - Test all fields
-//
 package taskqueue_test
 
 import (

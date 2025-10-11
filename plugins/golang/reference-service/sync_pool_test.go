@@ -1,19 +1,3 @@
-// Package taskqueue_test sync.Pool tests and benchmarks
-//
-// Purpose:
-//   Tests and benchmarks for sync.Pool usage.
-//
-// Responsibilities:
-//   - Verify pool correctness
-//   - Benchmark pool performance vs allocations
-//   - Demonstrate pool effectiveness
-//
-// Features:
-//   - None (Test code only)
-//
-// Constraints:
-//   - Must show significant performance improvement
-//
 package taskqueue_test
 
 import (

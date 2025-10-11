@@ -1,20 +1,3 @@
-// Package taskqueue_test statistics tests with concurrent access
-//
-// Purpose:
-//   Tests for atomic statistics tracking.
-//
-// Responsibilities:
-//   - Verify atomic operations correctness
-//   - Test concurrent access safety
-//   - Validate counter accuracy under load
-//
-// Features:
-//   - None (Test code only)
-//
-// Constraints:
-//   - Must pass with -race flag
-//   - Test high concurrency scenarios
-//
 package taskqueue_test
 
 import (

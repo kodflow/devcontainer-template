@@ -1,18 +1,3 @@
-// Package taskqueue_test task result tests
-//
-// Purpose:
-//   Tests for TaskResult struct creation and validation.
-//
-// Responsibilities:
-//   - Test TaskResult field assignments
-//   - Test zero values
-//
-// Features:
-//   - None (Test code only)
-//
-// Constraints:
-//   - Test all fields
-//
 package taskqueue_test
 
 import (

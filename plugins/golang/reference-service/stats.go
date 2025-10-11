@@ -163,19 +163,6 @@ func (s *WorkerStats) Stop() {
 	s.running.Store(false)
 }
 
-// Snapshot captures current statistics atomically.
-// Returns a consistent view of all counters at a single point in time.
-type StatsSnapshot struct {
-	TasksSubmitted   uint64        // Total submitted
-	TasksProcessed   uint64        // Total processed
-	TasksFailed      uint64        // Total failed
-	TasksRetried     uint64        // Total retried
-	ActiveWorkers    uint32        // Currently active
-	AverageTime      time.Duration // Average processing time
-	SuccessRate      float64       // Success rate percentage
-	TotalProcessTime time.Duration // Total processing time
-}
-
 // GetSnapshot returns a consistent snapshot of all statistics.
 // All values are read atomically but may not represent a single instant.
 func (s *WorkerStats) GetSnapshot() StatsSnapshot {

@@ -35,19 +35,6 @@ import (
 	"time"
 )
 
-// WorkerConfig contains worker pool configuration
-type WorkerConfig struct {
-	Repository      TaskRepository
-	Executor        TaskExecutor
-	Publisher       MessagePublisher
-	Logger          *slog.Logger
-	Stats           *WorkerStats
-	WorkerCount     int
-	BufferSize      int
-	ShutdownTimeout time.Duration
-	ProcessTimeout  time.Duration
-}
-
 // Worker manages concurrent task processing
 type Worker struct {
 	repo            TaskRepository

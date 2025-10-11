@@ -1,20 +1,17 @@
 // Package taskqueue provides concurrent task processing with worker pools.
 //
 // Purpose:
-//   Demonstrates sync.Pool for object reuse and GC pressure reduction.
+//   Task encoding with pooled buffers.
 //
 // Responsibilities:
-//   - Reuse buffer objects to reduce allocations
-//   - Reduce garbage collector pressure
-//   - Demonstrate pool best practices
+//   - JSON encoding with buffer reuse
+//   - Pool management for various object types
 //
 // Features:
-//   - None (No telemetry, pure performance optimization)
+//   - None
 //
 // Constraints:
 //   - Pool objects must be reset before reuse
-//   - Pool can be cleared by GC at any time
-//   - Not safe for objects with finalizers
 //
 package taskqueue
 
@@ -23,7 +20,6 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
-	"sync/atomic"
 )
 
 // BufferPool manages reusable byte buffers.
@@ -113,35 +109,6 @@ func ReleaseRequest(req *CreateTaskRequest) {
 	RequestPool.Put(req)
 }
 
-// BatchProcessor processes tasks in batches using pooled buffers.
-// Demonstrates high-throughput processing with minimal allocations.
-type BatchProcessor struct {
-	encoder *TaskEncoder
-}
-
-// NewBatchProcessor creates a batch processor.
-func NewBatchProcessor() *BatchProcessor {
-	return &BatchProcessor{
-		encoder: NewTaskEncoder(),
-	}
-}
-
-// ProcessBatch encodes multiple tasks efficiently.
-// Reuses same buffer for all tasks in batch.
-func (b *BatchProcessor) ProcessBatch(tasks []*Task) ([][]byte, error) {
-	results := make([][]byte, 0, len(tasks))
-
-	for _, task := range tasks {
-		encoded, err := b.encoder.Encode(task)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, encoded)
-	}
-
-	return results, nil
-}
-
 // ResultPool manages TaskResult objects for high-throughput scenarios.
 // Pre-allocates result objects to reduce GC pressure.
 var ResultPool = sync.Pool{
@@ -204,69 +171,4 @@ func FormatTaskSummary(task *Task) string {
 	sb.WriteString(string(task.Status))
 
 	return sb.String()
-}
-
-// PoolStats tracks pool usage statistics.
-// Demonstrates monitoring pool effectiveness.
-type PoolStats struct {
-	Gets  atomic.Uint64 // Total Get() calls
-	Puts  atomic.Uint64 // Total Put() calls
-	News  atomic.Uint64 // Total new allocations
-	Hits  atomic.Uint64 // Get() returned existing object
-	Ratio float64       // Hit ratio (hits/gets)
-}
-
-// TrackedPool wraps sync.Pool with statistics.
-// Use in development to verify pool is effective.
-type TrackedPool struct {
-	pool  sync.Pool
-	stats PoolStats
-}
-
-// NewTrackedPool creates a pool with statistics tracking.
-func NewTrackedPool(newFunc func() interface{}) *TrackedPool {
-	tp := &TrackedPool{}
-	tp.pool.New = func() interface{} {
-		tp.stats.News.Add(1)
-		return newFunc()
-	}
-	return tp
-}
-
-// Get retrieves object from pool with tracking.
-func (tp *TrackedPool) Get() interface{} {
-	tp.stats.Gets.Add(1)
-	obj := tp.pool.Get()
-
-	// If object came from pool (not newly created), count as hit
-	if tp.stats.Puts.Load() > 0 {
-		tp.stats.Hits.Add(1)
-	}
-
-	return obj
-}
-
-// Put returns object to pool with tracking.
-func (tp *TrackedPool) Put(obj interface{}) {
-	tp.stats.Puts.Add(1)
-	tp.pool.Put(obj)
-}
-
-// GetStats returns current pool statistics.
-func (tp *TrackedPool) GetStats() PoolStats {
-	stats := PoolStats{
-		Gets: atomic.Uint64{},
-		Puts: atomic.Uint64{},
-		News: atomic.Uint64{},
-		Hits: atomic.Uint64{},
-	}
-
-	gets := tp.stats.Gets.Load()
-	hits := tp.stats.Hits.Load()
-
-	if gets > 0 {
-		stats.Ratio = float64(hits) / float64(gets) * 100
-	}
-
-	return stats
 }

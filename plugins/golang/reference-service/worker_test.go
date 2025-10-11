@@ -1,23 +1,3 @@
-// Package taskqueue_test worker tests with full coverage
-//
-// Purpose:
-//   Demonstrates comprehensive testing including concurrency, error cases,
-//   edge cases, and race condition detection. Uses black-box testing.
-//
-// Responsibilities:
-//   - Test all worker functionality
-//   - Test concurrent operations
-//   - Test error handling and edge cases
-//   - Achieve 100% code coverage
-//
-// Features:
-//   - None (Test code only)
-//
-// Constraints:
-//   - Must use package taskqueue_test (black-box)
-//   - All tests must be table-driven where applicable
-//   - Must test concurrent access
-//
 package taskqueue_test
 
 import (

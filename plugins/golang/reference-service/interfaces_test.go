@@ -1,22 +1,3 @@
-// Package taskqueue_test provides test helpers and mocks
-//
-// Purpose:
-//   Centralizes ALL mock implementations and test helpers for black-box testing.
-//   Demonstrates proper test package naming (package xxx_test).
-//
-// Responsibilities:
-//   - Mock implementations for all interfaces
-//   - Test data builders and fixtures
-//   - Helper functions for test setup
-//
-// Features:
-//   - None (Test utilities only)
-//
-// Constraints:
-//   - ALL test helpers must call t.Helper()
-//   - Mocks must implement full interface contract
-//   - Use package taskqueue_test for black-box testing
-//
 package taskqueue_test
 
 import (
