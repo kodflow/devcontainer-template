@@ -519,7 +519,44 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 
 ## Review Process
 
+### MANDATORY: Before ANY manual review, you MUST complete these phases in order
+
+### Phase 0: FILE INVENTORY (REQUIRED FIRST STEP)
+
+**You MUST start every review by listing ALL Go files to review:**
+
+```bash
+# List ALL .go files (excluding vendor, tests for now)
+find . -name "*.go" -not -path "*/vendor/*" -not -name "*_test.go" -type f | sort
+```
+
+**Output the complete list to the user with counts:**
+```
+Found X .go files to review:
+1. ./internal/domain/user.go
+2. ./internal/domain/order.go
+3. ./internal/infrastructure/repository.go
+...
+X. ./cmd/server/main.go
+```
+
+**Then list ALL test files:**
+```bash
+# List ALL test files
+find . -name "*_test.go" -not -path "*/vendor/*" -type f | sort
+```
+
+**Create a review checklist:**
+- [ ] File 1/X reviewed
+- [ ] File 2/X reviewed
+- [ ] File 3/X reviewed
+...
+
+**You MUST review EVERY file in this list. NO EXCEPTIONS.**
+
 ### Phase 1: AUTOMATED CHECKS (all should PASS)
+
+**Run these commands BEFORE any manual review:**
 
 ```bash
 # Step 1: Complexity & Size Check
@@ -544,7 +581,61 @@ go tool cover -func=coverage.out      # 100% coverage required
 
 **❌ If ANY automated check fails → Flagged immediately**
 
-### Phase 2: STRUCTURAL COMPLIANCE (Key)
+**Output the results of EVERY command to the user. Do NOT skip this step.**
+
+### Phase 2: FILE-BY-FILE PACKAGE DESCRIPTOR CHECK (REQUIRED)
+
+**For EACH file in the inventory from Phase 0, you MUST verify:**
+
+**Use this command to check EVERY file:**
+```bash
+# Check if file starts with Package Descriptor
+for file in $(find . -name "*.go" -not -path "*/vendor/*" -type f | sort); do
+  echo "=== Checking: $file ==="
+  head -n 30 "$file"
+  echo ""
+done
+```
+
+**For EACH file, verify the Package Descriptor exists and contains:**
+
+1. **✓ Package Descriptor Format:**
+   ```go
+   // Package <name> <one-line description>
+   //
+   // Purpose:
+   //   <What this package does>
+   //
+   // Responsibilities:
+   //   - <Responsibility 1>
+   //
+   // Features:
+   //   - <Feature 1>  (e.g., Metrics, Tracing, Database)
+   //
+   // Constraints:
+   //   - <Constraint 1>
+   //
+   package <name>
+   ```
+
+2. **✓ Feature Declaration Compliance:**
+   - If file imports `otel/metric` → must have `Features: Metrics`
+   - If file imports `otel/trace` → must have `Features: Tracing`
+   - If NO telemetry declared → zero telemetry imports allowed
+
+**Create a table showing Package Descriptor status for EVERY file:**
+
+| File | Package Descriptor | Features Declared | Imports Match | Status |
+|------|-------------------|-------------------|---------------|--------|
+| user.go | ❌ Missing | - | - | FAIL |
+| order.go | ✅ Present | Metrics, Database | ✅ Match | PASS |
+| ... | ... | ... | ... | ... |
+
+**❌ ANY file missing Package Descriptor → IMMEDIATE REJECTION**
+
+### Phase 3: STRUCTURAL COMPLIANCE (Key)
+
+**Now check structural requirements across the codebase:**
 
 - [ ] **File Structure Check**:
   - [ ] **Key**: ONE FILE PER STRUCT (no `models.go` with multiple structs) ✓
@@ -574,33 +665,214 @@ go tool cover -func=coverage.out      # 100% coverage required
 
 **❌ If structural compliance fails → REJECTION with refactoring required**
 
-### Phase 3: MANUAL CODE REVIEW
+### Phase 4: MANUAL CODE REVIEW (FILE-BY-FILE REQUIRED)
 
-Review ALL 20 categories in the checklist:
+**YOU MUST REVIEW EACH FILE INDIVIDUALLY AGAINST ALL CHECKPOINTS**
 
-1. Error Handling (12 points)
-2. Naming Conventions (12 points)
-3. Code Organization (22 points) ⬆️ +8 for 1-file-per-struct
-4. Types & Interfaces (14 points)
-5. Constructors & Config (11 points)
-6. Concurrency (18 points)
-7. Memory & Performance (45 points) ⬆️ +30 for performance optimizations
-8. Resource Management (12 points)
-9. Testing (22 points)
-10. Documentation (12 points)
-11. Security (18 points)
-12. Dependencies (10 points)
-13. Code Style (10 points)
-14. Standard Patterns (14 points)
-15. Linting & Quality (11 points)
-16. HTTP & Web (12 points)
-17. Database (10 points)
-18. JSON (8 points)
-19. Logging (7 points)
-20. Configuration (7 points)
-21. Build & Deployment (8 points)
+**For EACH file from Phase 0 inventory, you MUST:**
 
-**Total: 283+ checkpoints to verify** ⬆️ (+33 new performance rules)
+1. **Read the entire file** using the Read tool
+2. **Apply ALL 20 checkpoint categories** (283+ points total)
+3. **Document violations for THIS specific file**
+4. **Move to next file** - repeat until ALL files reviewed
+
+**Review format for EACH file:**
+
+```markdown
+## File X/Total: path/to/file.go
+
+### ✓ Checkpoints Applied:
+- [x] 1. Error Handling (12 points)
+- [x] 2. Naming Conventions (12 points)
+- [x] 3. Code Organization (22 points)
+- [x] 4. Types & Interfaces (14 points)
+- [x] 5. Constructors & Config (11 points)
+- [x] 6. Concurrency (18 points)
+- [x] 7. Memory & Performance (45 points)
+- [x] 8. Resource Management (12 points)
+- [x] 9. Testing (22 points)
+- [x] 10. Documentation (12 points)
+- [x] 11. Security (18 points)
+- [x] 12. Dependencies (10 points)
+- [x] 13. Code Style (10 points)
+- [x] 14. Standard Patterns (14 points)
+- [x] 15. Linting & Quality (11 points)
+- [x] 16. HTTP & Web (12 points) - N/A if no HTTP
+- [x] 17. Database (10 points) - N/A if no DB
+- [x] 18. JSON (8 points) - N/A if no JSON
+- [x] 19. Logging (7 points)
+- [x] 20. Configuration (7 points)
+
+### Issues Found:
+- ❌ Line 45: [Category] Description of violation
+- ❌ Line 67: [Category] Description of violation
+- ✅ No issues in [Category]
+
+### Status: PASS / FAIL
+```
+
+**IMPORTANT: You CANNOT skip files. If you have 50 files, you must review all 50 files.**
+
+**The 20 checkpoint categories to verify for EACH file:**
+
+1. **Error Handling** (12 points)
+   - Never ignore errors with `_`
+   - Always wrap errors with context
+   - Use `errors.Is()` and `errors.As()`
+   - Check errors from `Close()`, `Flush()`, `Write()`
+   - Return early on errors
+   - No panic for expected errors
+   - Error messages lowercase
+   - Defer with error checking
+
+2. **Naming Conventions** (12 points)
+   - Package: lowercase, single-word, no underscores
+   - Interfaces: `-er` suffix
+   - No stutter
+   - Acronyms uppercase
+   - Receiver names: 1-2 char
+   - Boolean: `is/has/can/should` prefix
+   - Consistent receiver names
+
+3. **Code Organization** (22 points)
+   - Package Descriptor present
+   - Features declared
+   - Functions < 35 lines
+   - Complexity < 10
+   - Max 3 indentation levels
+   - One file per struct
+   - Constants in constants.go
+   - Errors in errors.go
+   - Interfaces in interfaces.go
+
+4. **Types & Interfaces** (14 points)
+   - Small interfaces (1-5 methods)
+   - Accept interfaces, return concrete
+   - Zero values valid
+   - Pointer receivers for mutation
+   - Consistent receivers
+   - Proper struct tags
+
+5. **Constructors & Config** (11 points)
+   - Every struct has `NewXXXX()`
+   - Services have `XXXXConfig`
+   - Constructor validates
+   - Returns `(*Type, error)`
+   - No struct literals outside constructors
+
+6. **Concurrency** (18 points)
+   - Context as first param
+   - No goroutine leaks
+   - Close channels from sender
+   - Use `sync.WaitGroup`
+   - Protect shared state
+   - Handle context cancellation
+   - Buffered channels for capacity
+
+7. **Memory & Performance** (45 points)
+   - NO magic numbers (constants required)
+   - Bitwise flags instead of multiple bools
+   - `map[T]struct{}` for sets
+   - Struct fields ordered by size
+   - `chan struct{}` for signals
+   - Pre-allocate slices
+   - Use `strings.Builder`
+   - Use `strconv` not `fmt.Sprintf`
+
+8. **Resource Management** (12 points)
+   - Always use `defer` for cleanup
+   - Check errors in defer
+   - Cancel contexts
+   - Close response bodies
+   - Set timeouts
+
+9. **Testing** (22 points)
+   - Test files use `package xxx_test`
+   - 100% coverage
+   - Table-driven tests
+   - Test all error paths
+   - Mock external dependencies
+   - Test edge cases
+
+10. **Documentation** (12 points)
+    - Every exported symbol has godoc
+    - Doc starts with symbol name
+    - Complete sentences
+    - Document thread-safety
+    - Document panics
+
+11. **Security** (18 points)
+    - No hardcoded secrets
+    - Validate ALL input
+    - Parameterized queries
+    - `crypto/rand` not `math/rand`
+    - Sanitize file paths
+    - Rate limiting
+
+12. **Dependencies** (10 points)
+    - `go.mod` present
+    - Pin versions
+    - Run `go mod tidy`
+    - Minimize dependencies
+
+13. **Code Style** (10 points)
+    - `gofmt` applied
+    - Imports organized
+    - No unused imports
+    - No trailing whitespace
+
+14. **Standard Patterns** (14 points)
+    - Fail fast
+    - Return early
+    - Max 3 parameters or use config
+    - Implement `String()` for types
+
+15. **Linting & Quality** (11 points)
+    - `golangci-lint` passes
+    - `go vet` passes
+    - `staticcheck` passes
+    - `gosec` passes
+    - `gocyclo < 10`
+
+16. **HTTP & Web** (12 points) - if applicable
+    - Set timeouts
+    - Use context
+    - Return appropriate status codes
+    - Close request body
+
+17. **Database** (10 points) - if applicable
+    - Prepared statements
+    - Use transactions
+    - Handle `sql.ErrNoRows`
+    - Close rows
+
+18. **JSON** (8 points) - if applicable
+    - Use struct tags
+    - Handle unmarshal errors
+    - Use `omitempty`
+    - Validate required fields
+
+19. **Logging** (7 points)
+    - Structured logging
+    - Appropriate levels
+    - Include context
+    - No sensitive data
+
+20. **Configuration** (7 points)
+    - Environment variables
+    - Sensible defaults
+    - Validate on startup
+    - Document options
+
+**Total: 283+ checkpoints to verify PER FILE** ⬆️ (+33 new performance rules)
+
+**You MUST go through EVERY file in the inventory. Progress tracking required:**
+
+```
+Progress: 15/50 files reviewed
+Remaining: 35 files
+Status: In Progress
+```
 
 ### Phase 4: TESTABILITY VERIFICATION
 
