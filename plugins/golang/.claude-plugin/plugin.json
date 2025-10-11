@@ -1,7 +1,7 @@
 {
   "name": "golang",
-  "version": "2.0.4",
-  "description": "Advanced Go development plugin with Go 1.23-1.25 patterns, comprehensive reference implementation, and strict standards enforcement",
+  "version": "3.0.0",
+  "description": "Advanced Go development plugin with 100% test coverage reference implementation, complete Go 1.25 features, 165 comprehensive tests, and strict quality standards",
   "author": {
     "name": "Kodflow",
     "email": "contact@making.codes",

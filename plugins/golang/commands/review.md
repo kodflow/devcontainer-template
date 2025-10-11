@@ -284,6 +284,29 @@ svc := property.NewService(property.Config{...})
 - [ ] Use type aliases for clarity: `type UserID string`
 - [ ] Prefer composition over inheritance
 - [ ] Tag struct fields appropriately: `json:"name,omitempty"`
+- [ ] **Go 1.25+**: Use `reflect.TypeAssert[T]` for zero-allocation type assertions
+- [ ] Example TypeAssert (Go 1.25+):
+  ```go
+  // ❌ OLD WAY - type assertion with interface{} boxing
+  func ProcessValue(val interface{}) error {
+      if user, ok := val.(*User); ok {  // allocates, boxes value
+          return processUser(user)
+      }
+      return errors.New("not a user")
+  }
+
+  // ✅ NEW WAY (Go 1.25+) - zero-allocation typed extraction
+  import "reflect"
+
+  func ProcessValue(val any) error {
+      if user, ok := reflect.TypeAssert[*User](val); ok {  // no boxing, no allocation
+          return processUser(user)
+      }
+      return errors.New("not a user")
+  }
+  ```
+- [ ] **Use Case**: Hot paths with reflection, type switches on interfaces
+- [ ] **Performance**: Zero allocations vs 1-2 allocations per assertion
 
 ### 4.1 CONSTRUCTORS & CONFIGURATION (Required)
 
@@ -313,7 +336,26 @@ svc := property.NewService(property.Config{...})
 - [ ] Never share memory by communicating; communicate by sharing memory (use channels)
 - [ ] Close channels from sender, not receiver
 - [ ] Check if channel is closed: `val, ok := <-ch`
+- [ ] **Go 1.25+**: Use `sync.WaitGroup.Go()` for safer goroutine spawning (eliminates Add/Done footguns)
 - [ ] Use `sync.WaitGroup` to wait for goroutines
+- [ ] Example WaitGroup.Go() (Go 1.25+):
+  ```go
+  // ❌ OLD WAY (Go < 1.25) - error-prone, can forget Add() or Done()
+  var wg sync.WaitGroup
+  wg.Add(1)
+  go func() {
+      defer wg.Done()
+      process(job)
+  }()
+  wg.Wait()
+
+  // ✅ NEW WAY (Go 1.25+) - safer, automatic Add/Done
+  var wg sync.WaitGroup
+  wg.Go(func() {
+      process(job)  // Add/Done handled automatically
+  })
+  wg.Wait()
+  ```
 - [ ] Use `context.Context` for cancellation and timeouts
 - [ ] Pass context as first parameter: `func Process(ctx context.Context, ...)`
 - [ ] Don't leak goroutines - always provide exit mechanism
@@ -329,6 +371,8 @@ svc := property.NewService(property.Config{...})
 - [ ] Set appropriate timeouts: `ctx, cancel := context.WithTimeout(parent, 5*time.Second)`
 
 ### 6. MEMORY & PERFORMANCE (Key OPTIMIZATIONS)
+
+**REFERENCE IMPLEMENTATION**: See `/plugins/golang/reference-service/` for complete examples of all optimization patterns below.
 
 #### 6.1 Required: Constants for ALL Default Values
 - [ ] **Key**: NO magic numbers - all defaults should be named constants
@@ -446,7 +490,273 @@ svc := property.NewService(property.Config{...})
   close(done)  // or: done <- struct{}{}
   ```
 
-#### 6.6 General Performance
+#### 6.6 Required: Beware of Slice Aliasing
+- [ ] **Key**: Sub-slices share underlying array with parent
+- [ ] Creating slice from slice shares memory (not independent copy)
+- [ ] Use `append([]T(nil), slice...)` for independent copy
+- [ ] Use `copy()` when you need true copy
+- [ ] Example:
+  ```go
+  // ❌ WRONG - shares memory, modifying b changes a
+  a := []int{1, 2, 3, 4}
+  b := a[:2]  // shares underlying array
+  b[1] = 9
+  fmt.Println(a)  // [1 9 3 4] 😱 - unexpected change!
+
+  // ✅ CORRECT - independent copy
+  a := []int{1, 2, 3, 4}
+  b := append([]int(nil), a[:2]...)  // creates new backing array
+  b[1] = 9
+  fmt.Println(a)  // [1 2 3 4] ✅ - original unchanged
+
+  // ✅ ALSO CORRECT - explicit copy
+  a := []int{1, 2, 3, 4}
+  b := make([]int, 2)
+  copy(b, a[:2])
+  b[1] = 9
+  fmt.Println(a)  // [1 2 3 4] ✅ - original unchanged
+  ```
+- [ ] **Common pitfall**: Returning sub-slice can leak large arrays
+  ```go
+  // ❌ BAD - keeps entire 1MB in memory
+  func extractHeader(data []byte) []byte {
+      return data[:100]  // small slice, but references large array
+  }
+
+  // ✅ GOOD - copy frees original array
+  func extractHeader(data []byte) []byte {
+      header := make([]byte, 100)
+      copy(header, data[:100])
+      return header  // original data can be GC'd
+  }
+  ```
+
+#### 6.7 Required: Avoid Interface Boxing Allocations
+- [ ] **Key**: Converting concrete types to `interface{}` causes heap allocations
+- [ ] **Key**: Interface values box concrete values, forcing heap allocation
+- [ ] Use generics (Go 1.18+) to avoid boxing when possible
+- [ ] Be aware: every `interface{}` assignment may allocate
+- [ ] Example:
+  ```go
+  // ❌ WRONG - boxes int, allocates on heap every time
+  var x interface{} = 42  // int → interface{} boxing
+  values := []interface{}{1, 2, 3}  // 3 allocations
+
+  // ✅ CORRECT - use generics to avoid boxing
+  func Process[T any](val T) {
+      // No boxing, T stays concrete
+  }
+
+  func Sum[T int | int64 | float64](values []T) T {
+      // No boxing, works with concrete types
+  }
+  ```
+- [ ] **Common pitfall**: fmt.Printf causes boxing
+  ```go
+  // ❌ ALLOCATES - boxes all arguments
+  fmt.Printf("value: %v, count: %d", val, count)
+
+  // ✅ BETTER - use typed formatting
+  strconv.Itoa(count)  // no boxing
+  fmt.Sprintf("%s", stringVal)  // no boxing for strings
+  ```
+- [ ] **Performance impact**: Each interface{} boxing = 1 allocation
+  ```go
+  // ❌ BAD - 1000 allocations in hot path
+  for i := 0; i < 1000; i++ {
+      processAny(i)  // boxes int to interface{}
+  }
+
+  // ✅ GOOD - zero allocations
+  func processInt(n int) { }  // concrete type, no boxing
+  for i := 0; i < 1000; i++ {
+      processInt(i)  // no allocation
+  }
+  ```
+
+#### 6.8 Required: Avoid Slice/Map Range Copy Allocations
+- [ ] **Key**: `for _, v := range` copies values on each iteration
+- [ ] **Key**: Large structs copied every iteration wastes memory
+- [ ] Use index-based iteration for large values
+- [ ] Use pointers in maps/slices when values are large
+- [ ] Example:
+  ```go
+  type LargeStruct struct {
+      Data [1024]byte  // 1KB struct
+  }
+
+  // ❌ WRONG - copies 1KB on every iteration
+  users := map[string]LargeStruct{ ... }
+  for _, user := range users {  // COPIES entire 1KB struct
+      process(user)  // expensive copy
+  }
+
+  // ✅ CORRECT - use index to get pointer
+  for id := range users {
+      process(&users[id])  // no copy, just pointer
+  }
+
+  // ✅ ALSO CORRECT - use pointers in map
+  users := map[string]*LargeStruct{ ... }
+  for _, user := range users {  // only copies 8-byte pointer
+      process(user)  // no struct copy
+  }
+  ```
+- [ ] **Slice range copies**:
+  ```go
+  type Config struct {
+      Settings [512]byte  // 512 bytes
+  }
+
+  configs := []Config{ ... }
+
+  // ❌ WRONG - copies 512 bytes per iteration
+  for _, cfg := range configs {
+      apply(cfg)  // expensive copy
+  }
+
+  // ✅ CORRECT - use index
+  for i := range configs {
+      apply(&configs[i])  // no copy
+  }
+  ```
+- [ ] **Rule of thumb**: If struct > 64 bytes, use pointers or index-based iteration
+
+#### 6.9 Required: Return by Value When Possible
+- [ ] **Key**: Returning pointers unnecessarily causes heap allocations
+- [ ] **Key**: Small structs (< 64 bytes) should be returned by value
+- [ ] Avoid returning pointers to escape analysis triggers
+- [ ] Use value returns for immutable, small structs
+- [ ] Example:
+  ```go
+  type Point struct {
+      X, Y int  // 16 bytes total
+  }
+
+  // ❌ WRONG - pointer escapes to heap, allocates unnecessarily
+  func NewPoint(x, y int) *Point {
+      return &Point{X: x, Y: y}  // heap allocation
+  }
+
+  // ✅ CORRECT - return by value, stack allocation
+  func NewPoint(x, y int) Point {
+      return Point{X: x, Y: y}  // stack allocation, no GC pressure
+  }
+  ```
+- [ ] **When to use pointers**: Large structs (> 64 bytes) or mutable objects
+  ```go
+  type LargeConfig struct {
+      Settings [1024]byte  // 1KB - too large for value return
+  }
+
+  // ✅ CORRECT - large struct, use pointer
+  func NewLargeConfig() *LargeConfig {
+      return &LargeConfig{}  // justified heap allocation
+  }
+  ```
+- [ ] **Rule of thumb**: If struct <= 64 bytes AND immutable → return by value
+
+#### 6.10 Required: Avoid Closure Variable Capture
+- [ ] **Key**: Loop variables captured by closures escape to heap
+- [ ] **Key**: Captured variables in goroutines cause allocations + race conditions
+- [ ] Pass loop variables as function parameters
+- [ ] Never capture loop variables directly in goroutines
+- [ ] Example:
+  ```go
+  // ❌ WRONG - loop variable 'i' escapes to heap, shared by all goroutines
+  for i := 0; i < 10; i++ {
+      go func() {
+          fmt.Println(i)  // captures 'i', causes heap allocation
+          // BUG: All goroutines see final value of i (10)
+      }()
+  }
+
+  // ✅ CORRECT - pass as parameter, no escape, no allocation
+  for i := 0; i < 10; i++ {
+      go func(n int) {
+          fmt.Println(n)  // uses parameter, stack allocation
+      }(i)  // pass current value
+  }
+
+  // ✅ ALSO CORRECT - shadow variable (Go 1.22+)
+  for i := 0; i < 10; i++ {
+      i := i  // creates new variable per iteration
+      go func() {
+          fmt.Println(i)  // captures iteration-specific i
+      }()
+  }
+  ```
+- [ ] **Common pitfall**: Capturing range variables
+  ```go
+  users := []User{{ID: 1}, {ID: 2}, {ID: 3}}
+
+  // ❌ WRONG - 'user' variable reused, all goroutines see last value
+  for _, user := range users {
+      go func() {
+          process(user)  // captures loop variable, heap escape
+      }()
+  }
+
+  // ✅ CORRECT - pass as parameter
+  for _, user := range users {
+      go func(u User) {
+          process(u)  // no capture, no allocation
+      }(user)
+  }
+  ```
+- [ ] **Performance impact**: Each captured variable = 1 heap allocation + potential race
+
+#### 6.11 Required: Avoid Hidden String/[]byte Conversions
+- [ ] **Key**: `string(byteSlice)` and `[]byte(string)` always allocate
+- [ ] **Key**: These conversions copy data to heap every time
+- [ ] Avoid conversions in hot paths
+- [ ] Use `strings.Builder` or `bytes.Buffer` to minimize conversions
+- [ ] Example:
+  ```go
+  // ❌ WRONG - allocates on every conversion
+  data := []byte("hello world")
+  for i := 0; i < 1000; i++ {
+      s := string(data)  // allocates new string (1000 allocations)
+      process(s)
+  }
+
+  // ✅ CORRECT - convert once outside loop
+  data := []byte("hello world")
+  s := string(data)  // single allocation
+  for i := 0; i < 1000; i++ {
+      process(s)  // reuse string
+  }
+  ```
+- [ ] **HTTP Response Bodies**: Avoid double conversion
+  ```go
+  // ❌ WRONG - reads bytes, converts to string, converts back
+  body, _ := io.ReadAll(resp.Body)
+  s := string(body)              // allocation 1
+  processString(s)
+  b := []byte(s)                 // allocation 2
+
+  // ✅ CORRECT - stay in []byte when possible
+  body, _ := io.ReadAll(resp.Body)
+  processBytes(body)  // no conversion needed
+  ```
+- [ ] **Builder pattern**: Minimize conversions when building strings
+  ```go
+  // ❌ WRONG - multiple string/[]byte conversions
+  var result string
+  for _, chunk := range chunks {
+      result += string(chunk)  // N allocations
+  }
+
+  // ✅ CORRECT - use strings.Builder
+  var b strings.Builder
+  for _, chunk := range chunks {
+      b.Write(chunk)  // writes []byte directly
+  }
+  result := b.String()  // single final conversion
+  ```
+- [ ] **Performance impact**: Each conversion = 1 allocation + data copy
+
+#### 6.12 General Performance
 - [ ] Pre-allocate slices with known capacity: `make([]T, 0, capacity)`
 - [ ] Reuse buffers with `sync.Pool` for high-frequency allocations
 - [ ] Avoid string concatenation in loops; use `strings.Builder`
@@ -476,6 +786,25 @@ svc := property.NewService(property.Config{...})
 - [ ] Set `MaxOpenConns` and `MaxIdleConns` for `sql.DB`
 - [ ] Use `SetDeadline` for network operations
 - [ ] Gracefully shutdown servers with `Shutdown(ctx)`
+- [ ] **Go 1.25+**: Use `trace.FlightRecorder` for production debugging (rolling buffer)
+- [ ] Example FlightRecorder (Go 1.25+):
+  ```go
+  // ✅ NEW (Go 1.25+) - capture last N seconds before error
+  import "runtime/trace"
+
+  rec := trace.NewFlightRecorder(trace.FlightRecorderConfig{
+      Duration: 8 * time.Second,  // keep last 8 seconds
+  })
+  defer rec.Stop()
+
+  // When error occurs, snapshot the trace
+  if err := criticalOperation(); err != nil {
+      snapshot := rec.Snapshot()  // captures last 8 seconds
+      saveTraceForAnalysis(snapshot)  // analyze what went wrong
+      return err
+  }
+  ```
+- [ ] **Use Case**: Production debugging without full trace overhead
 
 ### 8. TESTING (Required)
 
@@ -504,6 +833,27 @@ svc := property.NewService(property.Config{...})
 - [ ] Use example tests for documentation: `func ExampleFunction() {...}`
 - [ ] Test timeout behavior with `context.WithTimeout`
 - [ ] Test concurrent access with `go test -race -count=100`
+- [ ] **Go 1.25+**: Use `testing/synctest` for virtual time in concurrency tests (eliminates time.Sleep)
+- [ ] Example synctest (Go 1.25+):
+  ```go
+  // ❌ OLD WAY - flaky, slow tests with time.Sleep
+  func TestWorker_Timeout(t *testing.T) {
+      worker := NewWorker()
+      go worker.Start()
+      time.Sleep(100 * time.Millisecond)  // ❌ flaky timing
+      worker.Stop()
+  }
+
+  // ✅ NEW WAY (Go 1.25+) - deterministic virtual time
+  func TestWorker_Timeout(t *testing.T) {
+      synctest.Run(func() {
+          worker := NewWorker()
+          go worker.Start()
+          synctest.Wait()  // advances virtual time instantly
+          worker.Stop()
+      })
+  }
+  ```
 - [ ] **Code must be designed for 100% testability**:
   - All dependencies injected via constructor
   - All external calls through interfaces
@@ -619,6 +969,19 @@ svc := property.NewService(property.Config{...})
 - [ ] Implement health check endpoints
 - [ ] Use structured logging (slog, zap, zerolog)
 - [ ] Return JSON errors consistently: `{"error": "message"}`
+- [ ] **Go 1.25+**: Use `net.JoinHostPort()` for IPv6-safe host:port construction
+- [ ] Example JoinHostPort (Go 1.25+):
+  ```go
+  // ❌ WRONG - breaks with IPv6 addresses
+  addr := host + ":" + port  // "::1:8080" is invalid!
+
+  // ✅ CORRECT (Go 1.25+) - handles IPv4 and IPv6
+  import "net"
+  addr := net.JoinHostPort(host, port)
+  // IPv4: "127.0.0.1:8080"
+  // IPv6: "[::1]:8080" ✅ properly bracketed
+  ```
+- [ ] **Critical**: Prevents 3 AM IPv6 outages
 
 ### 16. DATABASE OPERATIONS
 
@@ -643,6 +1006,19 @@ svc := property.NewService(property.Config{...})
 - [ ] Implement `MarshalJSON` and `UnmarshalJSON` for custom types
 - [ ] Use `json.RawMessage` for delayed parsing
 - [ ] Validate required fields after unmarshal
+- [ ] **Go 1.25+**: Consider `encoding/json/v2` for better performance (drop-in replacement)
+- [ ] Example JSON v2 (Go 1.25+):
+  ```go
+  // ❌ OLD - slower for complex payloads
+  import "encoding/json"
+  err := json.Unmarshal(data, &result)
+
+  // ✅ NEW (Go 1.25+) - faster decoding, same API
+  import jsonv2 "encoding/json/v2"
+  err := jsonv2.Unmarshal(data, &result)
+  // Performance: 10-30% faster for real-world payloads
+  ```
+- [ ] **Migration**: Enable with `-tags=jsonv2` experiment flag, test thoroughly
 
 ### 18. LOGGING
 
@@ -674,6 +1050,320 @@ svc := property.NewService(property.Config{...})
 - [ ] Use `.dockerignore` to exclude unnecessary files
 - [ ] Generate SBOMs for dependencies
 - [ ] Sign releases for authenticity
+
+### 21. DATA TRANSFER OBJECTS (DTOs) & API LAYER
+
+#### 21.1 Required: Separate DTOs from Domain Models
+- [ ] **Key**: NEVER expose domain models directly in API responses
+- [ ] **Key**: Create purpose-built DTOs for each API operation
+- [ ] DTOs hide sensitive fields (passwords, internal IDs, soft delete timestamps)
+- [ ] DTOs provide API contract stability (domain can evolve independently)
+- [ ] Example:
+  ```go
+  // ❌ WRONG - exposing domain model directly
+  func GetUser(c *gin.Context) {
+      user := getUserFromDB()  // *models.User with PasswordHash, DeletedAt
+      c.JSON(200, user)  // 🚨 EXPOSES SENSITIVE FIELDS!
+  }
+
+  // ✅ CORRECT - use DTO to control what's exposed
+  func GetUser(c *gin.Context) {
+      user := getUserFromDB()
+      dto := ToUserResponse(user)  // only public fields
+      c.JSON(200, dto)
+  }
+  ```
+
+#### 21.2 Required: Multiple DTOs per Entity
+- [ ] **Key**: Create separate DTOs for different operations
+- [ ] Input DTOs: `UserCreate`, `UserUpdate` (with validation tags)
+- [ ] Output DTOs: `UserResponse`, `UserListResponse` (public fields only)
+- [ ] Use pointers for optional fields in update DTOs
+- [ ] Example:
+  ```go
+  // UserResponse - for GET requests (public data)
+  type UserResponse struct {
+      ID        uint      `json:"id"`
+      Email     string    `json:"email"`
+      FullName  string    `json:"fullName"`  // derived field
+      CreatedAt time.Time `json:"createdAt"`
+      // NO PasswordHash, NO DeletedAt, NO internal fields
+  }
+
+  // UserCreate - for POST requests (validation)
+  type UserCreate struct {
+      Email     string `json:"email" binding:"required,email"`
+      Password  string `json:"password" binding:"required,min=8"`
+      FirstName string `json:"firstName" binding:"required"`
+      LastName  string `json:"lastName" binding:"required"`
+  }
+
+  // UserUpdate - for PATCH requests (optional fields)
+  type UserUpdate struct {
+      Email     *string `json:"email" binding:"omitempty,email"`
+      FirstName *string `json:"firstName"`
+      LastName  *string `json:"lastName"`
+      // Pointers allow distinguishing between "not provided" and "set to empty"
+  }
+  ```
+
+#### 21.3 Required: Mapper Functions (DTO Conversion)
+- [ ] **Key**: Create conversion functions between Models and DTOs
+- [ ] Name pattern: `ToXXXResponse()`, `ToXXXList()`, `(dto).ToModel()`
+- [ ] Keep mappers simple and focused
+- [ ] Handle data transformation (e.g., combine FirstName + LastName)
+- [ ] Example:
+  ```go
+  // ToUserResponse converts domain model to API DTO
+  func ToUserResponse(user models.User) UserResponse {
+      return UserResponse{
+          ID:        user.ID,
+          Email:     user.Email,
+          FullName:  user.FirstName + " " + user.LastName,  // transformation
+          CreatedAt: user.CreatedAt,
+      }
+  }
+
+  // ToUserResponseList converts slice of models to DTOs
+  func ToUserResponseList(users []models.User) []UserResponse {
+      dtos := make([]UserResponse, len(users))
+      for i, user := range users {
+          dtos[i] = ToUserResponse(user)
+      }
+      return dtos
+  }
+
+  // ToUser converts input DTO to domain model
+  func (uc UserCreate) ToUser() models.User {
+      return models.User{
+          Email:     uc.Email,
+          FirstName: uc.FirstName,
+          LastName:  uc.LastName,
+          // Note: Password hashing happens in service layer
+      }
+  }
+  ```
+
+#### 21.4 Required: Validation Tags for Input DTOs
+- [ ] **Key**: Use `binding` tags for request validation
+- [ ] Common tags: `required`, `email`, `min`, `max`, `len`, `oneof`
+- [ ] Validate in HTTP handler before service layer
+- [ ] Return 400 Bad Request for validation errors
+- [ ] Example:
+  ```go
+  type UserCreate struct {
+      Email     string `json:"email" binding:"required,email"`
+      Password  string `json:"password" binding:"required,min=8,max=72"`
+      FirstName string `json:"firstName" binding:"required,min=1,max=50"`
+      LastName  string `json:"lastName" binding:"required,min=1,max=50"`
+      Age       int    `json:"age" binding:"required,min=18,max=150"`
+      Role      string `json:"role" binding:"required,oneof=user admin moderator"`
+  }
+
+  // In handler (Gin example)
+  func CreateUser(c *gin.Context) {
+      var dto UserCreate
+      if err := c.ShouldBindJSON(&dto); err != nil {
+          c.JSON(400, gin.H{"error": err.Error()})  // validation failed
+          return
+      }
+
+      // validation passed, proceed with business logic
+      user, err := userService.Create(dto.ToUser(), dto.Password)
+      // ...
+  }
+  ```
+
+#### 21.5 Required: Security via DTOs
+- [ ] **Key**: DTOs are your security boundary - only expose safe fields
+- [ ] NEVER include: `PasswordHash`, `PasswordSalt`, `Token`, `DeletedAt`, `Version`
+- [ ] NEVER include: Internal IDs, audit fields, system metadata
+- [ ] Use `json:"-"` to exclude fields from JSON serialization
+- [ ] Example:
+  ```go
+  // ❌ WRONG - domain model exposed (security risk)
+  type User struct {
+      ID           uint       `json:"id"`
+      Email        string     `json:"email"`
+      PasswordHash string     `json:"passwordHash"`  // 🚨 EXPOSED!
+      IsAdmin      bool       `json:"isAdmin"`       // 🚨 EXPOSED!
+      DeletedAt    *time.Time `json:"deletedAt"`     // 🚨 EXPOSED!
+  }
+
+  // ✅ CORRECT - DTO with only public fields
+  type UserResponse struct {
+      ID        uint      `json:"id"`
+      Email     string    `json:"email"`
+      FullName  string    `json:"fullName"`
+      CreatedAt time.Time `json:"createdAt"`
+      // PasswordHash NOT included
+      // IsAdmin NOT included (unless user is admin viewing another admin)
+  }
+
+  // ✅ ALSO CORRECT - conditional fields based on permissions
+  type UserResponse struct {
+      ID        uint       `json:"id"`
+      Email     string     `json:"email"`
+      FullName  string     `json:"fullName"`
+      IsAdmin   *bool      `json:"isAdmin,omitempty"`  // only if current user is admin
+      CreatedAt time.Time  `json:"createdAt"`
+  }
+  ```
+
+#### 21.6 Required: API Versioning with DTOs
+- [ ] **Key**: Use different DTO structs for different API versions
+- [ ] Allows API evolution without breaking existing clients
+- [ ] Version DTOs in separate packages: `dto/v1`, `dto/v2`
+- [ ] Example:
+  ```go
+  // dto/v1/user.go
+  type UserResponseV1 struct {
+      ID       uint   `json:"id"`
+      FullName string `json:"fullName"`  // V1: combined name
+  }
+
+  // dto/v2/user.go
+  type UserResponseV2 struct {
+      ID   uint `json:"userId"`  // V2: renamed field
+      Name Name `json:"name"`    // V2: structured name
+  }
+
+  type Name struct {
+      First string `json:"first"`
+      Last  string `json:"last"`
+  }
+
+  // Separate mappers for each version
+  func ToUserResponseV1(user models.User) v1.UserResponseV1 {
+      return v1.UserResponseV1{
+          ID:       user.ID,
+          FullName: user.FirstName + " " + user.LastName,
+      }
+  }
+
+  func ToUserResponseV2(user models.User) v2.UserResponseV2 {
+      return v2.UserResponseV2{
+          ID: user.ID,
+          Name: v2.Name{
+              First: user.FirstName,
+              Last:  user.LastName,
+          },
+      }
+  }
+  ```
+
+#### 21.7 Required: Aggregated DTOs
+- [ ] **Key**: DTOs can combine data from multiple domain models
+- [ ] Useful for dashboard views, summary pages, complex responses
+- [ ] Keep aggregation logic in service layer, not in mappers
+- [ ] Example:
+  ```go
+  // DashboardResponse combines multiple domain models
+  type DashboardResponse struct {
+      User         UserResponse   `json:"user"`
+      RecentOrders []OrderSummary `json:"recentOrders"`
+      Stats        UserStats      `json:"stats"`
+  }
+
+  type OrderSummary struct {
+      ID          string    `json:"id"`
+      Amount      float64   `json:"amount"`
+      Status      string    `json:"status"`
+      PurchasedAt time.Time `json:"purchasedAt"`
+  }
+
+  type UserStats struct {
+      TotalOrders     int     `json:"totalOrders"`
+      TotalSpent      float64 `json:"totalSpent"`
+      AverageOrderVal float64 `json:"averageOrderValue"`
+  }
+
+  // Service builds aggregated DTO
+  func (s *DashboardService) GetDashboard(ctx context.Context, userID uint) (DashboardResponse, error) {
+      user, err := s.userRepo.FindByID(ctx, userID)
+      if err != nil {
+          return DashboardResponse{}, err
+      }
+
+      orders, err := s.orderRepo.FindRecentByUserID(ctx, userID, 10)
+      if err != nil {
+          return DashboardResponse{}, err
+      }
+
+      stats, err := s.statsRepo.GetUserStats(ctx, userID)
+      if err != nil {
+          return DashboardResponse{}, err
+      }
+
+      return DashboardResponse{
+          User:         ToUserResponse(user),
+          RecentOrders: ToOrderSummaryList(orders),
+          Stats:        ToUserStats(stats),
+      }, nil
+  }
+  ```
+
+#### 21.8 Required: DTO Package Structure
+- [ ] **Key**: DTOs should be in dedicated package(s)
+- [ ] Structure options:
+  - `internal/dto/` - all DTOs in one package
+  - `internal/api/dto/` - DTOs specific to HTTP API
+  - `internal/api/v1/dto/` - versioned DTOs
+- [ ] Example structure:
+  ```
+  internal/
+  ├── domain/
+  │   ├── user.go           # Domain models
+  │   └── order.go
+  ├── dto/
+  │   ├── user.go           # User DTOs
+  │   ├── order.go          # Order DTOs
+  │   └── mapper.go         # Conversion functions
+  └── api/
+      └── handlers/
+          ├── user_handler.go    # Uses DTOs from dto package
+          └── order_handler.go
+  ```
+
+#### 21.9 Required: Error DTOs
+- [ ] **Key**: Return consistent error format across API
+- [ ] Include: error message, error code, request ID, timestamp
+- [ ] NEVER expose stack traces or internal errors to clients
+- [ ] Example:
+  ```go
+  // ErrorResponse is the standard error DTO
+  type ErrorResponse struct {
+      Error     string    `json:"error"`
+      Code      string    `json:"code"`
+      RequestID string    `json:"requestId,omitempty"`
+      Timestamp time.Time `json:"timestamp"`
+  }
+
+  // ValidationErrorResponse for validation failures
+  type ValidationErrorResponse struct {
+      Error     string            `json:"error"`
+      Code      string            `json:"code"`
+      Fields    map[string]string `json:"fields"`  // field -> error message
+      RequestID string            `json:"requestId,omitempty"`
+      Timestamp time.Time         `json:"timestamp"`
+  }
+
+  // Usage in handler
+  func CreateUser(c *gin.Context) {
+      var dto UserCreate
+      if err := c.ShouldBindJSON(&dto); err != nil {
+          c.JSON(400, ValidationErrorResponse{
+              Error:     "Validation failed",
+              Code:      "VALIDATION_ERROR",
+              Fields:    parseValidationErrors(err),
+              RequestID: c.GetString("RequestID"),
+              Timestamp: time.Now(),
+          })
+          return
+      }
+      // ...
+  }
+  ```
 
 ## Usage
 
@@ -1038,6 +1728,7 @@ If you find test files that combine tests for multiple production files (e.g., `
 - [x] 18. JSON (8 points) - N/A if no JSON
 - [x] 19. Logging (7 points)
 - [x] 20. Configuration (7 points)
+- [x] 21. DTOs & API Layer (30 points)
 
 ### Issues Found:
 - ❌ Line 45: [Category] Description of violation
@@ -1200,7 +1891,16 @@ If you find test files that combine tests for multiple production files (e.g., `
     - Validate on startup
     - Document options
 
-**Total: 283+ checkpoints to verify PER FILE** ⬆️ (+33 new performance rules)
+21. **DTOs & API Layer** (30 points) - if applicable
+    - Separate DTOs from domain models
+    - Multiple DTOs per entity (Create/Update/Response)
+    - Mapper functions (ToXXX/FromXXX)
+    - Validation tags on input DTOs
+    - Security via DTOs (no sensitive fields)
+    - API versioning support
+    - Consistent error DTOs
+
+**Total: 313+ checkpoints to verify PER FILE** ⬆️ (+63 new rules: 33 performance + 30 DTO)
 
 **You MUST go through EVERY file in the inventory. Progress tracking required:**
 
@@ -1630,9 +2330,9 @@ func Process(deps Dependencies) error {
 }
 ```
 
-### 📋 283+ CHECKPOINT REVIEW:
+### 📋 313+ CHECKPOINT REVIEW:
 
-Every submission reviewed against ALL 20 categories:
+Every submission reviewed against ALL 21 categories:
 - Error Handling (12 points)
 - Naming Conventions (12 points)
 - Code Organization & Structure (22 points) ⬆️ +8 for 1-file-per-struct
@@ -1654,8 +2354,9 @@ Every submission reviewed against ALL 20 categories:
 - Logging (7 points)
 - Configuration (7 points)
 - Build & Deployment (8 points)
+- **DTOs & API Layer (30 points)** ⬆️ +30 for DTO patterns
 
-**Total: 283+ explicit checkpoints** ⬆️ (+33 new performance rules)
+**Total: 313+ explicit checkpoints** ⬆️ (+63 new rules: 33 performance + 30 DTO)
 
 ---
 
