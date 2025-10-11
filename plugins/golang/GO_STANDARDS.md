@@ -1,9 +1,9 @@
 # Go Code Standards - Quick Reference
 
-## 🔴 ZERO TOLERANCE RULES
+## Core Rules
 
-### Package Descriptor (MANDATORY)
-Every `.go` file MUST start with:
+### Package Descriptor (Required)
+Every `.go` file must start with:
 ```go
 // Package <name> <one-line description>
 //
@@ -22,20 +22,20 @@ Every `.go` file MUST start with:
 package <name>
 ```
 
-**CRITICAL RULES:**
-- ❌ NO metrics/tracing WITHOUT `Features: Metrics/Tracing` declaration
-- ✅ Features MUST be explicitly declared to be used
-- 🔍 See PACKAGE_DESCRIPTOR.md for full spec
+**Key RULES:**
+- - No metrics/tracing WITHOUT `Features: Metrics/Tracing` declaration
+- - Features must be explicitly declared to be used
+- See PACKAGE_DESCRIPTOR.md for full spec
 
-### Metrics (Auto-Reject if violated)
-- ✅ Package Descriptor: MANDATORY on ALL files
-- ✅ Feature Declaration: NO telemetry without explicit declaration
-- ✅ Functions: < 35 lines (NO EXCEPTIONS)
-- ✅ Cyclomatic complexity: < 10 (`gocyclo -over 9 .` must return ZERO)
-- ✅ Test coverage: 100% required
-- ✅ golangci-lint: ZERO warnings
-- ✅ gosec: ZERO security issues
-- ✅ Code duplication: < 3%
+### Metrics (Key metrics)
+- - Package Descriptor: Required on ALL files
+- - Feature Declaration: NO telemetry without explicit declaration
+- - Functions: < 35 lines (strict)
+- - Cyclomatic complexity: < 10 (`gocyclo -over 9 .` should return zero)
+- - Test coverage: 100% required
+- - golangci-lint: Zero warnings
+- - gosec: Zero security issues
+- - Code duplication: < 3%
 
 ### File Structure (Mandatory)
 ```
@@ -50,37 +50,37 @@ package/
 └── service_test.go       # Tests (package xxx_test)
 ```
 
-**CRITICAL - One File Per Struct (MANDATORY):**
-- Each struct MUST have its own dedicated file
+**Key - One File Per Struct (Required):**
+- Each struct must have its own dedicated file
 - Example: `user.go` for User, `user_config.go` for UserConfig
 - constants.go for ALL constants
 - errors.go for ALL error definitions
 - Better organization, easier navigation, cleaner Git conflicts
 
-**CRITICAL - Test Package Naming:**
+**Key - Test Package Naming:**
 ```go
-// ✅ CORRECT - Black-box testing
+// - After - Black-box testing
 package taskqueue_test
 
 import "taskqueue"
 
-// ❌ WRONG - Do NOT use same package
+//  Before - Do NOT use same package
 package taskqueue
 ```
 
-**CRITICAL - Test Files (MANDATORY):**
-- Test files MUST use `package xxx_test` (black-box)
+**Key - Test Files (Required):**
+- Test files must use `package xxx_test` (black-box)
 - Import the package under test
-- **ZERO benchmarks in committed code** (use temporarily for POC/optimization only)
+- **Zero benchmarks in committed code** (use temporarily for POC/optimization only)
 - NO `*_helper.go` files outside tests
 - NO `*_bench.go` files
 - NO `Benchmark*` functions in committed `_test.go` files
 
-**CRITICAL - Benchmark Policy:**
-- ❌ **NEVER commit benchmarks** to the repository
-- ✅ Write benchmarks TEMPORARILY for performance optimization work
-- ✅ Run benchmarks locally to validate improvements
-- ✅ Delete benchmarks before committing
+**Key - Benchmark Policy:**
+-  **Never commit benchmarks** to the repository
+- - Write benchmarks TEMPORARILY for performance optimization work
+- - Run benchmarks locally to validate improvements
+- - Delete benchmarks before committing
 - 📋 Document performance improvements in commit messages (e.g., "3x faster via sync.Pool")
 
 **Example - Temporary benchmarks (DO NOT COMMIT):**
@@ -88,9 +88,9 @@ package taskqueue
 // ⚠️ TEMPORARY - user_test.go (for local POC only)
 package user_test
 
-func TestUser(t *testing.T) { ... }  // ✅ Commit this
+func TestUser(t *testing.T) { ... }  // - Commit this
 
-// ❌ DELETE before commit - temporary benchmark
+//  DELETE before commit - temporary benchmark
 func BenchmarkUserCreation(b *testing.B) {
     for i := 0; i < b.N; i++ {
         NewUser("test")
@@ -100,7 +100,7 @@ func BenchmarkUserCreation(b *testing.B) {
 
 ### Constructor Pattern (Mandatory)
 ```go
-// Every struct MUST have:
+// Every struct must have:
 type ServiceConfig struct {
     Dep1 Interface1  // dependencies
     Dep2 Interface2
@@ -114,8 +114,8 @@ func NewService(cfg ServiceConfig) (*Service, error) {
     return &Service{...}, nil
 }
 
-// ❌ FORBIDDEN: svc := &Service{...}
-// ✅ REQUIRED: svc, err := NewService(cfg)
+//  Avoid: svc := &Service{...}
+// - Required: svc, err := NewService(cfg)
 ```
 
 ### Refactoring Rules
@@ -152,7 +152,7 @@ go tool cover -func=coverage.out | grep total  # Must be 100%
 ## 📋 Key Best Practices
 
 ### Error Handling
-- NEVER ignore errors: `_` for errors is FORBIDDEN
+- Never ignore errors: `_` for errors is Avoid
 - Always wrap errors: `fmt.Errorf("context: %w", err)`
 - Use `errors.Is()` and `errors.As()`, not `==`
 
@@ -163,27 +163,27 @@ go tool cover -func=coverage.out | grep total  # Must be 100%
 - No stutter: `user.Repository`, not `user.UserRepository`
 
 ### Concurrency
-- ALWAYS run with `-race` flag
+- Always run with `-race` flag
 - Close channels from sender only
 - Use context for cancellation: `ctx context.Context` as first param
 - Never leak goroutines - provide exit mechanism
 
-## ⚡ Performance Optimization (MANDATORY)
+## ⚡ Performance Optimization (Required)
 
 ### 1. Constants for ALL Default Values
 **RULE**: NO magic numbers. ALL default values in constants.
 
 ```go
-// ❌ WRONG - Magic numbers
+//  Before - Magic numbers
 func NewService(cfg Config) (*Service, error) {
     if cfg.Timeout == 0 {
-        cfg.Timeout = 30 * time.Second  // ❌ Magic number
+        cfg.Timeout = 30 * time.Second  //  Magic number
     }
-    buffer := make(chan Task, 100)  // ❌ Magic number
+    buffer := make(chan Task, 100)  //  Magic number
     return &Service{...}, nil
 }
 
-// ✅ CORRECT - Named constants
+// - After - Named constants
 const (
     DefaultTimeout    = 30 * time.Second
     DefaultBufferSize = 100
@@ -191,9 +191,9 @@ const (
 
 func NewService(cfg Config) (*Service, error) {
     if cfg.Timeout == 0 {
-        cfg.Timeout = DefaultTimeout  // ✅ Named constant
+        cfg.Timeout = DefaultTimeout  // - Named constant
     }
-    buffer := make(chan Task, DefaultBufferSize)  // ✅ Named constant
+    buffer := make(chan Task, DefaultBufferSize)  // - Named constant
     return &Service{...}, nil
 }
 ```
@@ -204,14 +204,14 @@ func NewService(cfg Config) (*Service, error) {
 **Memory savings**: 1 byte vs 8+ bytes
 
 ```go
-// ❌ WRONG - Multiple bools (uses ~4-8 bytes)
+//  Before - Multiple bools (uses ~4-8 bytes)
 type Task struct {
     IsUrgent    bool  // 1 byte + padding
     IsRetryable bool  // 1 byte + padding
     LogMetrics  bool  // 1 byte + padding
 }
 
-// ✅ CORRECT - Bitwise flags (uses 1 byte)
+// - After - Bitwise flags (uses 1 byte)
 type Task struct {
     Flags uint8  // 1 byte total
 }
@@ -250,7 +250,7 @@ if task.HasFlag(TaskFlagUrgent) {
 **Memory savings**: 0 bytes vs 1 byte per entry
 
 ```go
-// ❌ WRONG - map[string]bool (uses 1 byte per entry)
+//  Before - map[string]bool (uses 1 byte per entry)
 var validStatuses = map[string]bool{
     "pending":    true,  // +1 byte per entry
     "processing": true,
@@ -261,7 +261,7 @@ func IsValid(status string) bool {
     return validStatuses[status]
 }
 
-// ✅ CORRECT - map[string]struct{} (uses 0 bytes per entry)
+// - After - map[string]struct{} (uses 0 bytes per entry)
 var validStatuses = map[string]struct{}{
     "pending":    {},  // 0 bytes per entry
     "processing": {},
@@ -273,7 +273,7 @@ func IsValid(status string) bool {
     return exists
 }
 
-// ✅ Also good for deduplication
+// - Also good for deduplication
 func RemoveDuplicates(items []string) []string {
     seen := make(map[string]struct{}, len(items))
     result := make([]string, 0, len(items))
@@ -303,7 +303,7 @@ func RemoveDuplicates(items []string) []string {
 - int8, uint8, bool: 1 byte
 
 ```go
-// ❌ WRONG - Random ordering (~56 bytes with padding)
+//  Before - Random ordering (~56 bytes with padding)
 type User struct {
     ID        string    // 16 bytes
     Active    bool      // 1 byte + 7 padding
@@ -312,7 +312,7 @@ type User struct {
     Email     string    // 16 bytes
 }
 
-// ✅ CORRECT - Ordered by size (~48 bytes)
+// - After - Ordered by size (~48 bytes)
 type User struct {
     // 24-byte fields first
     CreatedAt time.Time // 24 bytes
@@ -329,7 +329,7 @@ type User struct {
 }
 // Total: 48 bytes (17% smaller!)
 
-// ✅ Real example - Optimal ordering
+// - Real example - Optimal ordering
 type WorkerConfig struct {
     // 8-byte aligned (pointers/interfaces) first
     Repository TaskRepository   // 8 bytes
@@ -351,28 +351,28 @@ type WorkerConfig struct {
 **RULE**: Use `chan struct{}` for signaling, not `chan bool`.
 
 ```go
-// ❌ WRONG
+//  Before
 done := make(chan bool)
 done <- true
 
-// ✅ CORRECT
+// - After
 done := make(chan struct{})
 close(done)  // Or: done <- struct{}{}
 ```
 
 ### Documentation
-- Every exported symbol MUST have godoc
+- Every exported symbol must have godoc
 - Start with symbol name: `// UserRepository manages...`
 - Document thread-safety guarantees
 - Document panics if method can panic
 
-## 🚫 Common Violations (Auto-Reject)
+## 🚫 Common Violations (Key issues)
 
 1. Missing Package Descriptor
 2. Undeclared features (telemetry without Features declaration)
 3. **Wrong test package** (using `package xxx` instead of `package xxx_test`)
 4. **Multiple structs in one file** (must be 1 file per struct)
-5. **Committed benchmarks** (ZERO benchmarks in repo - temporary use only)
+5. **Committed benchmarks** (Zero benchmarks in repo - temporary use only)
 6. **Separate benchmark files** (`*_bench.go`)
 7. Function > 35 lines
 8. Cyclomatic complexity > 9
@@ -389,7 +389,7 @@ close(done)  // Or: done <- struct{}{}
 19. **map[T]bool for sets** (should use map[T]struct{})
 20. **Unordered struct fields** (not ordered by size)
 
-## ✅ Success Checklist
+## - Success Checklist
 
 Before submitting code:
 

@@ -1,14 +1,14 @@
-# Go Plugin v2.0.0 - Advanced Go 1.23-1.25 Patterns
+# Go Plugin v2.0.1 - Advanced Go 1.23-1.25 Patterns
 
-This plugin enforces **UNCOMPROMISING** Go code standards with zero tolerance for substandard code.
+This plugin provides Go code standards enforcement with modern language features and performance patterns.
 
-**🎉 v2.0.0 NEW**: Complete reference implementation with Go 1.23-1.25 advanced patterns (sync.Pool, sync.Once, sync.Map, iterators, context patterns) + comprehensive benchmarks. [See CHANGELOG](CHANGELOG.md)
+**v2.0.1**: Complete reference implementation with Go 1.23-1.25 advanced patterns (sync.Pool, sync.Once, sync.Map, iterators, context patterns). [See CHANGELOG](CHANGELOG.md)
 
 ## 📁 Files
 
 ### Core Documentation
-- **`commands/review.md`** - Main review command with 270+ checkpoints
-- **`PACKAGE_DESCRIPTOR.md`** - Package descriptor specification (MANDATORY)
+- **`commands/review.md`** - Professional Go code review
+- **`PACKAGE_DESCRIPTOR.md`** - Package descriptor specification (Required)
 - **`GO_STANDARDS.md`** - Quick reference guide
 
 ### Reference Implementation
@@ -26,10 +26,10 @@ This plugin enforces **UNCOMPROMISING** Go code standards with zero tolerance fo
 
 **👉 [See reference-service/README.md](reference-service/README.md) for detailed documentation of all patterns**
 
-## 🔴 Key Rules (Zero Tolerance)
+## Key Rules
 
 ### 1. Package Descriptor (NEW!)
-**EVERY `.go` file MUST start with:**
+**Every `.go` file must start with:**
 ```go
 // Package <name> <description>
 //
@@ -48,17 +48,17 @@ This plugin enforces **UNCOMPROMISING** Go code standards with zero tolerance fo
 package <name>
 ```
 
-**CRITICAL:**
-- ❌ NO metrics/tracing without `Features: Metrics/Tracing`
-- ❌ Using telemetry without declaration = IMMEDIATE REJECTION
-- ✅ Features must be explicitly declared to be used
+**Key points:**
+- - No metrics/tracing without `Features: Metrics/Tracing`
+- - Using telemetry without declaration = flagged
+- - Features must be explicitly declared to be used
 
 ### 2. Code Metrics
-- Functions: < 35 lines (NO EXCEPTIONS)
+- Functions: < 35 lines (strict)
 - Complexity: < 10 (`gocyclo -over 9 .`)
 - Coverage: 100% required
 
-### 3. File Structure (MANDATORY: 1 File Per Struct)
+### 3. File Structure (Required: 1 File Per Struct)
 ```
 package/
 ├── constants.go           # ALL constants
@@ -73,19 +73,19 @@ package/
 └── service.go            # Main service orchestration
 ```
 
-**CRITICAL**: Each struct MUST have its own dedicated file
-- ❌ NO `models.go` with multiple structs
-- ✅ ONE file per struct (e.g., `user.go` for User struct)
-- ✅ Better organization, clearer ownership, fewer Git conflicts
+**Key point**: Each struct must have its own dedicated file
+- No `models.go` with multiple structs
+- One file per struct (e.g., `user.go` for User struct)
+- Better organization, clearer ownership, fewer Git conflicts
 
-**CRITICAL**: Test files MUST use `package xxx_test`:
+**Key point**: Test files must use `package xxx_test`:
 ```go
-// ✅ CORRECT
+// - CORRECT
 package taskqueue_test
 
 import "taskqueue"
 
-// ❌ WRONG
+// - WRONG
 package taskqueue  // Do NOT use same package
 ```
 
@@ -101,11 +101,11 @@ func NewService(cfg ServiceConfig) (*Service, error) {
     return &Service{...}, nil
 }
 
-// ❌ FORBIDDEN: &Service{...}
-// ✅ REQUIRED: NewService(cfg)
+// Avoid: &Service{...}
+// Use: NewService(cfg)
 ```
 
-## 🎯 Available Features
+## Available Features
 
 Declare in Package Descriptor `Features:` section:
 
@@ -168,7 +168,7 @@ go tool cover -func=coverage.out | grep total  # Must be 100%
 //
 package userservice
 
-// ✅ NO telemetry imports - CLEAN
+// - NO telemetry imports - CLEAN
 ```
 
 ### Example: Service WITH Telemetry
@@ -184,35 +184,35 @@ package userservice
 //   - Metrics collection
 //
 // Features:
-//   - Metrics        // ✅ Explicitly declared
-//   - Tracing        // ✅ Explicitly declared
+//   - Metrics        // - Explicitly declared
+//   - Tracing        // - Explicitly declared
 //   - Database
 //
 package userservice
 
 import (
-    "go.opentelemetry.io/otel/metric"  // ✅ OK - Metrics declared
-    "go.opentelemetry.io/otel/trace"   // ✅ OK - Tracing declared
+    "go.opentelemetry.io/otel/metric"  // - OK - Metrics declared
+    "go.opentelemetry.io/otel/trace"   // - OK - Tracing declared
 )
 ```
 
-## ❌ Common Violations
+## Common Violations
 
-1. **Missing Package Descriptor** → REJECTION
-2. **Undeclared telemetry usage** → REJECTION
-3. Function > 35 lines → REJECTION
-4. Complexity > 9 → REJECTION
-5. Coverage < 100% → REJECTION
-6. Missing constructor → REJECTION
-7. Wrong file structure → REJECTION
-8. Ignored errors → REJECTION
+1. Missing Package Descriptor
+2. Undeclared telemetry usage
+3. Function > 35 lines
+4. Complexity > 9
+5. Coverage < 100%
+6. Missing constructor
+7. Wrong file structure
+8. Ignored errors
 
-## ✅ Success Checklist
+## Success Checklist
 
 Before submitting:
-- [ ] Package Descriptor on EVERY .go file
+- [ ] Package Descriptor on every .go file
 - [ ] Features explicitly declared
-- [ ] NO telemetry without declaration
+- [ ] No telemetry without declaration
 - [ ] All functions < 35 lines
 - [ ] All functions complexity < 10
 - [ ] 100% test coverage
@@ -249,7 +249,7 @@ See `reference-service/` directory for COMPLETE, PRODUCTION-READY example:
 - Race detection (`go test -race`)
 
 **Design:**
-- **1 file per struct** (MANDATORY)
+- **1 file per struct** (Required)
 - Constructor with Config struct
 - Dependency injection via interfaces
 - Builder pattern for test data
@@ -293,17 +293,17 @@ gocyclo -over 9 .
 ```
 
 Expected:
-- ✅ 100% coverage
-- ✅ Zero race conditions
-- ✅ Zero complexity violations
+- - 100% coverage
+- - Zero race conditions
+- - Zero complexity violations
 
-## 🔍 Review Process
+## Review Process
 
 1. **Automated Checks** - Tools run first
 2. **Package Descriptor** - Verify declaration vs usage
 3. **Structural Compliance** - File structure check
-4. **270+ Manual Checks** - Comprehensive review
-5. **Testability** - 100% coverage verification
+4. **Manual Checks** - Comprehensive review
+5. **Testability** - Coverage verification
 6. **Verdict** - Approved or Rejected with fixes
 
 ## 🎓 Learning Resources
@@ -313,8 +313,3 @@ Expected:
 - Check GO_STANDARDS.md for quick ref
 - Review commands/review.md for full checklist
 
----
-
-**Remember: EXCELLENCE IS THE ONLY STANDARD.**
-
-**NO COMPROMISES. NO EXCEPTIONS.**

@@ -1,8 +1,8 @@
-# /review - Hyper-strict Go code review with 283+ checkpoints
+# /review - Professional Go code review
 
-Perform a comprehensive, uncompromising code review on Go code using the Code Reviewer agent.
+Reviews Go code for production readiness, focusing on correctness, maintainability, and performance.
 
-This command triggers the **UNCOMPROMISING** Go code reviewer with ZERO TOLERANCE for substandard code. The reviewer enforces absolute standards across 283+ checkpoints and provides direct, assertive feedback.
+Checks code structure, error handling, testing, and Go best practices. Provides clear feedback on what needs fixing and why.
 
 ## COMPREHENSIVE GO BEST PRACTICES CHECKLIST
 
