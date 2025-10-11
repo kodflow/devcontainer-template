@@ -21,8 +21,14 @@
       "description": "Suggest review command when user mentions review or quality checks"
     },
     {
+      "event": "UserPromptSubmit",
+      "pattern": ".*(build|create|implement|add|develop|code).*",
+      "message": "💡 Tip: Use /build to orchestrate agents with task tracking and iterative validation until success",
+      "description": "Suggest build command when user mentions development tasks"
+    },
+    {
       "event": "SessionStart",
-      "command": "echo '\n🐹 Go Plugin loaded!\n\n  📋 Available commands:\n    /review - Hyper-strict code review (ZERO TOLERANCE)\n\n  🤖 Expert Agents:\n    - Go Expert (Go 1.25+ features)\n    - DDD Architect (ultra-strict structure enforcer)\n    - Code Reviewer (uncompromising quality standards)\n    - Performance Optimizer (pprof master)\n\n  ⚙️  Other tools managed via Makefile\n'",
+      "command": "echo '\n🐹 Go Plugin loaded!\n\n  📋 Available commands:\n    /build  - Orchestrated development with task tracking\n    /review - Hyper-strict code review (ZERO TOLERANCE)\n\n  🤖 Expert Agents:\n    - Go Expert (Go 1.25+ features)\n    - DDD Architect (ultra-strict structure enforcer)\n    - Code Reviewer (uncompromising quality standards)\n    - Performance Optimizer (pprof master)\n\n  🔧 Task Management:\n    - Each /build creates a TASK_ID for isolation\n    - Continue with: /build task <TASK_ID> <context>\n    - Track progress in .tasks/<TASK_ID>.json\n\n  ⚙️  Other tools managed via Makefile\n'",
       "description": "Show available Go commands and agents on session start"
     }
   ]

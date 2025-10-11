@@ -168,6 +168,9 @@ temp/
 *.tmp
 *.temp
 
+# Task tracking (local only)
+.tasks/
+
 # Data directories
 data/
 !data/.gitkeep
