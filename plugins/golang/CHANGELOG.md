@@ -5,6 +5,64 @@ All notable changes to the Go Plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.4] - 2025-10-11
+
+### Fixed
+
+#### 1:1 Test File Mapping Compliance Achieved ✅
+
+**Test Files - Complete 1:1 Mapping (100% Compliant)**
+- **Created 21 new test files** ❌→✅
+  - All production files now have corresponding test files
+  - Perfect 1:1 mapping: 31 production files ↔ 31 test files
+  - Files created: batch_processor_test.go, pool_stats_test.go, tracked_pool_test.go, task_encoder_test.go, stats_snapshot_test.go, task_cache_test.go, status_index_test.go, session_store_test.go, session_test.go, worker_registry_test.go, worker_info_test.go, route_cache_test.go, resettable_once_test.go, global_registry_test.go, config_loader_test.go, connection_test.go, connection_pool_test.go, metrics_collector_test.go, service_registry_test.go, context_patterns_test.go, iterators_test.go
+
+**Deleted Old Multi-Component Test Files**
+- **Removed sync_pool_test.go** ❌→✅
+  - Tests were split into separate files matching the 1:1 rule
+  - Each component (BatchProcessor, TrackedPool, TaskEncoder, PoolStats) now has its own test file
+
+### Changed
+
+#### File Structure
+- **Before**: 31 production files, 10 test files (missing 21 test files)
+- **After**: 31 production files, 31 test files (100% compliance: 1:1 mapping)
+- **Result**: Every production .go file has a corresponding _test.go file
+
+#### Test Coverage
+- Comprehensive tests for all sync.Map components (TaskCache, StatusIndex, SessionStore, WorkerRegistry, RouteCache)
+- Comprehensive tests for all sync.Once components (GlobalRegistry, ConfigLoader, ConnectionPool, MetricsCollector, ServiceRegistry, ResettableOnce)
+- Comprehensive tests for sync.Pool components (TaskEncoder, BatchProcessor, TrackedPool, PoolStats)
+- Comprehensive tests for advanced patterns (context_patterns.go, iterators.go)
+- All tests use `package xxx_test` (black-box testing)
+- All tests use `t.Parallel()` for concurrent execution
+
+#### Review Command Enhancement
+- **Added Phase 2.6: 1:1 TEST FILE MAPPING** check
+  - Command to detect missing test files
+  - Table format showing test file status
+  - Template for creating missing test files
+- **Updated Phase 3: File Structure Check**
+  - Emphasized 1:1 test file mapping requirement
+- **Updated rejection criteria**
+  - Missing test files now cause immediate rejection
+
+### Rationale
+
+**Before v2.0.4** - Reference-service was PARTIALLY COMPLIANT:
+- ✅ 100% of test files compliant (no Package Descriptors)
+- ✅ No duplicate types
+- ✅ 100% file structure compliance (1 file per struct)
+- ❌ Only 32% test file coverage (10 test files for 31 production files)
+
+**After v2.0.4** - Reference-service is FULLY COMPLIANT:
+- ✅ 100% of test files compliant (no Package Descriptors)
+- ✅ No duplicate types
+- ✅ 100% file structure compliance (1 file per struct)
+- ✅ 100% test file coverage (31 test files for 31 production files)
+
+The reference-service now properly demonstrates complete test coverage with 1:1 file mapping, ensuring every production file has its own dedicated test file.
+
 ## [2.0.3] - 2025-10-11
 
 ### Fixed

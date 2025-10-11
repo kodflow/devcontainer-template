@@ -872,6 +872,103 @@ import "testing"
 
 **✅ Test files should start directly with `package xxx_test` - NO Package Descriptor**
 
+### Phase 2.6: 1:1 TEST FILE MAPPING (REQUIRED)
+
+**For EACH production file, verify it has a corresponding test file:**
+
+```bash
+# Check for production files missing test files
+for file in $(find . -name "*.go" -not -path "*/vendor/*" -not -name "*_test.go" -type f | sort); do
+  testfile="${file%.go}_test.go"
+  if [ ! -f "$testfile" ]; then
+    echo "❌ MISSING: $testfile (for $file)"
+  fi
+done
+```
+
+**If missing test files found:**
+
+| Production File | Test File Exists? | Status |
+|----------------|-------------------|---------|
+| user.go | ✅ user_test.go | PASS |
+| order.go | ❌ NO | FAIL - Create order_test.go |
+| batch_processor.go | ❌ NO | FAIL - Create batch_processor_test.go |
+| ... | ... | ... |
+
+**⚠️ For EACH production file without a test file, require test file creation:**
+
+```markdown
+## ❌ Issue: Missing Test File
+
+### File: internal/domain/batch_processor.go
+
+❌ **Problem**: Production file has no corresponding test file
+
+**Required**:
+- Create `batch_processor_test.go` in same directory
+- Use `package xxx_test` (black-box testing)
+- Test all public functions and methods
+- Achieve 100% coverage
+- Test all error paths and edge cases
+
+**Test file template**:
+```go
+package domain_test
+
+import (
+    "testing"
+
+    "yourapp/internal/domain"
+)
+
+func TestBatchProcessor_Method(t *testing.T) {
+    t.Parallel()
+
+    // Test implementation
+}
+```
+
+**Rationale**:
+- Every production file MUST have a corresponding test file
+- 1:1 mapping ensures complete test coverage
+- Makes it easy to find tests for any production code
+- Prevents untested code from being committed
+```
+
+**✅ EVERY production .go file must have a corresponding _test.go file**
+
+**⚠️ IMPORTANT: Remove test files that test multiple production files**
+
+If you find test files that combine tests for multiple production files (e.g., `sync_pool_test.go` testing both `batch_processor.go` AND `tracked_pool.go`), they MUST be split:
+
+```markdown
+## ❌ Issue: Multi-Component Test File
+
+### File: sync_pool_test.go
+
+❌ **Problem**: Test file tests multiple production files
+
+**Current Structure** (WRONG):
+- `sync_pool_test.go` contains:
+  - Tests for `batch_processor.go`
+  - Tests for `tracked_pool.go`
+  - Tests for `task_encoder.go`
+
+**Required Refactoring**:
+1. **Split** tests into separate files:
+   - Create `batch_processor_test.go` with BatchProcessor tests
+   - Create `tracked_pool_test.go` with TrackedPool tests
+   - Create `task_encoder_test.go` with TaskEncoder tests
+2. **Delete** `sync_pool_test.go` after splitting
+
+**Rationale**:
+- 1:1 mapping means ONE test file per ONE production file
+- Makes it easy to find tests for specific production code
+- Follows the "1 file per struct" rule for tests too
+```
+
+**✅ Test file structure must mirror production file structure exactly (1:1 mapping)**
+
 ### Phase 3: STRUCTURAL COMPLIANCE (Key)
 
 **Now check structural requirements across the codebase:**
@@ -880,7 +977,7 @@ import "testing"
   - [ ] **Key**: ONE FILE PER STRUCT (no `models.go` with multiple structs) ✓
   - [ ] `constants.go` exists with ALL constants ✓
   - [ ] `errors.go` exists with ALL errors ✓
-  - [ ] Every `.go` file has corresponding `_test.go` ✓
+  - [ ] **Key**: Every `.go` file has corresponding `_test.go` (1:1 mapping required) ✓
   - [ ] Package has `interfaces.go` file ✓
   - [ ] Package has `interfaces_test.go` for mocks ✓
   - [ ] NO `*_helper.go` files (except in tests) ✓
