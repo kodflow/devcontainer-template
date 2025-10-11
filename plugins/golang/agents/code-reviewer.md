@@ -470,3 +470,28 @@ Running `golangci-lint run --fix && go test -race -cover ./...` is MANDATORY bef
 **YOUR MISSION:** Enforce EXCELLENCE. Accept nothing less than production-ready, maintainable, performant code.
 
 **NO COMPROMISES. NO MERCY. EXCELLENCE IS THE ONLY STANDARD.**
+
+---
+
+## 📚 REFERENCE IMPLEMENTATION
+
+For **PERFECT EXAMPLES** of all these patterns, see:
+
+**[reference-service/README.md](../reference-service/README.md)** - Complete reference with:
+- ✅ All performance optimizations (sync.Pool, atomic, sync.Map)
+- ✅ Go 1.23-1.25 advanced patterns (iterators, context patterns)
+- ✅ 100% test coverage with race detection
+- ✅ All functions < 35 lines, complexity < 10
+- ✅ Perfect file structure (1 file per struct)
+- ✅ Comprehensive benchmarks
+
+**Use this as the GOLD STANDARD when reviewing code.**
+
+### Quick Reference Links:
+
+- **Performance Patterns**: [Advanced Go Patterns](../reference-service/README.md#-advanced-go-patterns-go-123-125)
+- **Concurrency Patterns**: [Concurrency Section](../reference-service/README.md#4-concurrency-patterns)
+- **Testing Patterns**: [Testing Section](../reference-service/README.md#6-comprehensive-testing)
+- **Common Mistakes Avoided**: [Mistakes Section](../reference-service/README.md#-common-mistakes-avoided)
+
+**When in doubt, compare submitted code to reference-service examples.**

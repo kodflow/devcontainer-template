@@ -223,6 +223,42 @@ s = append(s, items...)     // Efficient append
 s = slices.Clip(s)          // Trim excess capacity
 ```
 
+### Advanced Concurrency Primitives
+
+**📖 Complete Reference**: See [reference-service/README.md](../reference-service/README.md#-advanced-go-patterns-go-123-125) for detailed examples and benchmarks.
+
+**Quick Overview:**
+
+- **sync.Pool**: Object reuse for 3x performance improvement
+  - Reduces GC pressure by 95%
+  - Perfect for buffer/struct reuse in hot paths
+  - Example: JSON encoding performance boost
+
+- **sync.Once**: Thread-safe singleton initialization
+  - Function called exactly once, guaranteed
+  - Zero lock contention after first call
+  - Perfect for lazy initialization
+
+- **sync.Map**: Lock-free concurrent maps
+  - 10-100x faster than RWMutex for write-once, read-many
+  - Optimal for stable keyset patterns
+  - LoadOrStore for atomic get-or-create
+
+- **Atomic Operations**: Lock-free counters
+  - 10x faster than mutex for simple operations
+  - Zero allocations
+  - Must ensure 8-byte alignment for 64-bit atomics
+
+**⚡ Performance Comparison Table:**
+
+| Pattern | sync.Pool | sync.Once | sync.Map | atomic.Uint64 |
+|---------|-----------|-----------|----------|---------------|
+| Use Case | Object reuse | Singleton | Concurrent map | Counters |
+| vs Alternative | 3x faster | N/A | 10-100x faster | 10x faster |
+| Alloc Reduction | 75% fewer | N/A | Zero contention | Zero allocs |
+
+**📚 Full implementation examples with tests:** [reference-service/](../reference-service/)
+
 ## Testing Excellence
 
 **Modern Testing:**
@@ -277,19 +313,47 @@ func FuzzParse(f *testing.F) {
 
 Modern Go code must:
 
+### Language Features
 - [ ] Use latest Go version features appropriately
-- [ ] Leverage iterators for custom collections (Go 1.25+)
+- [ ] Leverage iterators for custom collections (Go 1.23+)
 - [ ] Use slog for structured logging
 - [ ] Handle errors with %w wrapping
 - [ ] Pass context.Context as first parameter
 - [ ] Use generics where they improve code clarity
+
+### Performance Optimizations
 - [ ] Pre-allocate slices and maps when size known
+- [ ] Use sync.Pool for object reuse in hot paths (3x faster)
+- [ ] Use atomic operations for simple counters (10x faster than mutex)
+- [ ] Use sync.Map for write-once, read-many maps (10-100x faster)
+- [ ] Order struct fields by size (largest first, 20-50% savings)
+- [ ] Use map[T]struct{} for sets (0 bytes vs 1 byte per entry)
+- [ ] Use bitwise flags instead of multiple bools (8x smaller)
+
+### Concurrency Safety
+- [ ] Check ctx.Done() in long-running loops
+- [ ] Use sync.Once for singleton initialization
 - [ ] Close resources with defer
-- [ ] Avoid naked returns
 - [ ] Use errgroup for parallel error handling
-- [ ] Profile before optimizing (PGO-ready)
+- [ ] Ensure 64-bit atomics are 8-byte aligned (first in struct)
+- [ ] Always Reset() pooled objects before Put()
+- [ ] Run with race detector: `go test -race`
+
+### Testing Quality
 - [ ] Write table-driven tests
-- [ ] Run with race detector in tests
+- [ ] Use t.Parallel() when safe
+- [ ] Test concurrent code with 50+ goroutines
+- [ ] Benchmark hot paths with b.ReportAllocs()
+- [ ] Profile before optimizing (PGO-ready)
+- [ ] Achieve 100% test coverage
+
+### Code Organization
+- [ ] Avoid naked returns
+- [ ] Constants for all magic numbers
+- [ ] Package descriptor on every file
+- [ ] Functions < 35 lines, complexity < 10
+- [ ] 1 file per struct (not models.go)
+- [ ] Black-box testing (package xxx_test)
 
 ## Staying Current
 
