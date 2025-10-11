@@ -407,7 +407,7 @@ func add(a, b int) int {
     return a + b
 }
 
-// Force inline with //go:inline (Go 1.23+)
+// Force inline with //go:inline (Go 1.25+)
 //go:inline
 func fastPath(x int) int {
     return x * 2
