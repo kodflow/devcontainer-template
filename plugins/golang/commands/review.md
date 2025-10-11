@@ -316,6 +316,8 @@ This command triggers the **UNCOMPROMISING** Go code reviewer with ZERO TOLERANC
 - [ ] **CRITICAL**: Test files MUST use `package xxx_test` (black-box testing)
 - [ ] **CRITICAL**: Import package under test: `import "packagename"`
 - [ ] **FORBIDDEN**: Using `package xxx` in test files (white-box)
+- [ ] **FORBIDDEN**: Separate benchmark files (`*_bench.go` - use `_test.go` instead)
+- [ ] **STRICT**: Benchmarks MUST be in `_test.go` files alongside tests
 - [ ] **STRICT**: 100% code coverage required (use `go test -cover -coverprofile=coverage.out`)
 - [ ] **STRICT**: Every `xxx.go` MUST have `xxx_test.go` in same directory
 - [ ] **STRICT**: All mock helpers MUST be in `interfaces_test.go` ONLY

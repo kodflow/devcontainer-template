@@ -68,10 +68,25 @@ import "taskqueue"
 package taskqueue
 ```
 
-**Rules:**
+**CRITICAL - Test Files (MANDATORY):**
 - Test files MUST use `package xxx_test` (black-box)
 - Import the package under test
+- **Benchmarks MUST be in `_test.go` files** (NOT separate `_bench.go` files)
 - NO `*_helper.go` files outside tests
+- NO `*_bench.go` files (use `_test.go` instead)
+
+**Example - Benchmarks in test files:**
+```go
+// ✅ CORRECT - user_test.go (includes tests AND benchmarks)
+package user_test
+
+func TestUser(t *testing.T) { ... }
+
+func BenchmarkUserCreation(b *testing.B) { ... }
+
+// ❌ WRONG - user_bench.go (separate file)
+// DO NOT create separate benchmark files
+```
 
 ### Constructor Pattern (Mandatory)
 ```go
@@ -347,20 +362,21 @@ close(done)  // Or: done <- struct{}{}
 2. Undeclared features (telemetry without Features declaration)
 3. **Wrong test package** (using `package xxx` instead of `package xxx_test`)
 4. **Multiple structs in one file** (must be 1 file per struct)
-5. Function > 35 lines
-6. Cyclomatic complexity > 9
-7. Coverage < 100%
-8. Missing constructor
-9. Missing Config for services
-10. Wrong file structure
-11. Ignored errors (`_`)
-12. golangci-lint warnings
-13. Security vulnerabilities
-14. Direct struct literals
-15. **Magic numbers** (using literals instead of constants)
-16. **Multiple bools as flags** (should use bitwise uint8)
-17. **map[T]bool for sets** (should use map[T]struct{})
-18. **Unordered struct fields** (not ordered by size)
+5. **Separate benchmark files** (`*_bench.go` - use `_test.go` instead)
+6. Function > 35 lines
+7. Cyclomatic complexity > 9
+8. Coverage < 100%
+9. Missing constructor
+10. Missing Config for services
+11. Wrong file structure
+12. Ignored errors (`_`)
+13. golangci-lint warnings
+14. Security vulnerabilities
+15. Direct struct literals
+16. **Magic numbers** (using literals instead of constants)
+17. **Multiple bools as flags** (should use bitwise uint8)
+18. **map[T]bool for sets** (should use map[T]struct{})
+19. **Unordered struct fields** (not ordered by size)
 
 ## ✅ Success Checklist
 
