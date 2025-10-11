@@ -23,6 +23,8 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 
 ### 2. NAMING CONVENTIONS (Target COMPLIANCE)
 
+#### 2.1 Basic Naming Rules
+
 - [ ] Package names: lowercase, single-word, no underscores (e.g., `httputil`, not `http_util`)
 - [ ] Exported names: UpperCamelCase (e.g., `UserRepository`)
 - [ ] Unexported names: lowerCamelCase (e.g., `userCache`)
@@ -35,6 +37,166 @@ Checks code structure, error handling, testing, and Go best practices. Provides 
 - [ ] Avoid generic names: prefer `userCount` over `count`, `userList` over `list`
 - [ ] Constants: MixedCaps or ALL_CAPS for exported constants
 - [ ] Test functions: `TestFunctionName_scenario` pattern
+
+#### 2.2 Package & File Naming Consistency (REQUIRED)
+
+**ANTI-PATTERNS TO FLAG AND FIX:**
+
+- [ ] **NO `Impl` suffix** - `PropertyServiceImpl` → `Service` (package already says "property")
+- [ ] **NO `Implementation` suffix** - `UserRepositoryImplementation` → `Repository`
+- [ ] **NO `Manager` generic suffix** - `DataManager` → be specific: `DataStore`, `DataCache`, `DataValidator`
+- [ ] **NO `Helper` suffix** - `StringHelper` → use specific names: `StringFormatter`, `StringValidator`
+- [ ] **NO `Utils` or `Utilities`** - Create focused packages: `validation`, `formatting`, `conversion`
+- [ ] **NO redundant prefixes** - In package `user`: `UserService` → `Service`, `UserRepository` → `Repository`
+
+**FILE NAMING RULES:**
+
+```go
+// ❌ WRONG - Suffixes and redundant names
+internal/domain/services/
+├── property_service_impl.go     // Bad: Impl suffix
+├── user_service_implementation.go // Bad: Implementation suffix
+├── order_manager.go              // Bad: Generic Manager
+└── helper_utils.go               // Bad: Helper + Utils
+
+// ✅ CORRECT - Clean, package-contextual names
+internal/domain/property/
+├── service.go           // Package says "property", file says "service"
+├── repository.go        // Clean, no redundancy
+├── validator.go         // Specific purpose
+└── statistics.go        // What it does, not "helper"
+
+internal/domain/user/
+├── service.go
+├── repository.go
+└── authenticator.go     // Specific, not "Manager"
+```
+
+**STRUCT NAMING IN CONTEXT:**
+
+```go
+// ❌ WRONG - Verbose and redundant
+package services
+
+type PropertyServiceImpl struct { }          // Bad: Impl suffix
+func NewPropertyServiceImpl() { }            // Bad: Verbose
+
+type UserServiceImplementation struct { }    // Bad: Implementation
+type OrderManagerService struct { }          // Bad: Redundant
+
+// ✅ CORRECT - Package provides context
+package property
+
+type Service struct { }      // Clean: property.Service
+func NewService() { }        // Clean: property.NewService()
+
+type Repository struct { }   // Clean: property.Repository
+
+// ✅ ALSO CORRECT - If you must keep "services" package
+package services
+
+type PropertyService struct { }   // OK: services.PropertyService (no Impl!)
+func NewPropertyService() { }     // OK: Clear, no suffix
+
+type UserService struct { }       // OK: Not "UserServiceImpl"
+```
+
+**WHEN TO SUGGEST RENAMING:**
+
+During review, if you find these patterns, **SUGGEST RENAMING**:
+
+1. **File with `*_impl.go` suffix**:
+   ```
+   ❌ Found: property_service_impl.go
+   ✅ Suggest:
+      Option 1: Rename to service.go in property/ package
+      Option 2: Rename to property.go in services/ package (remove _impl)
+   ```
+
+2. **Struct with `Impl` or `Implementation` suffix**:
+   ```
+   ❌ Found: type PropertyServiceImpl struct
+   ✅ Suggest:
+      Option 1: type Service struct (in property package)
+      Option 2: type PropertyService struct (remove Impl suffix)
+   ```
+
+3. **Generic `Manager`, `Helper`, `Utils` names**:
+   ```
+   ❌ Found: type DataManager struct
+   ✅ Suggest: Be specific about what it manages:
+      - DataStore (if it stores data)
+      - DataCache (if it caches data)
+      - DataValidator (if it validates data)
+      - DataTransformer (if it transforms data)
+   ```
+
+4. **Redundant package/type names**:
+   ```
+   ❌ Found: package user with type UserService
+   ✅ Suggest: type Service struct (package already says "user")
+
+   ❌ Found: package services with type ServiceManager
+   ✅ Suggest: type Manager struct OR better: specific name
+   ```
+
+**NAMING CONSISTENCY CHECKLIST:**
+
+- [ ] No `Impl` or `Implementation` suffixes anywhere
+- [ ] No `Manager`, `Helper`, `Utils` unless truly necessary
+- [ ] File names match struct names (lowercase): `service.go` → `type Service`
+- [ ] Package name provides context, type name stays concise
+- [ ] Related files in same package: `service.go`, `repository.go`, `validator.go`
+- [ ] No stutter: avoid `user.UserService`, prefer `user.Service`
+
+**EXAMPLE REFACTORING SUGGESTIONS:**
+
+```markdown
+## Naming Issues Found
+
+### File: internal/domain/services/property_service_impl.go
+
+❌ **Issue**: File and struct use anti-pattern suffix `Impl`
+
+**Current**:
+- File: `property_service_impl.go`
+- Struct: `PropertyServiceImpl`
+- Constructor: `NewPropertyServiceImpl(cfg PropertyServiceImplConfig)`
+
+**Suggested Refactoring** (Option 1 - BEST):
+1. Create package: `internal/domain/property/`
+2. Rename file: `service.go`
+3. Rename struct: `Service`
+4. Rename config: `Config`
+5. Update constructor: `NewService(cfg Config) *Service`
+
+**Result**:
+```go
+// internal/domain/property/service.go
+package property
+
+type Service struct { ... }
+type Config struct { ... }
+func NewService(cfg Config) *Service { ... }
+
+// Usage:
+import "yourapp/internal/domain/property"
+svc := property.NewService(property.Config{...})
+```
+
+**Suggested Refactoring** (Option 2 - If keeping services/ package):
+1. Keep in `internal/domain/services/`
+2. Rename file: `property.go`
+3. Rename struct: `PropertyService` (remove Impl)
+4. Rename config: `PropertyConfig`
+5. Update constructor: `NewPropertyService(cfg PropertyConfig)`
+
+**Rationale**:
+- Go convention: No `Impl` suffixes (this is Java/C# pattern)
+- Cleaner imports: `property.Service` vs `services.PropertyServiceImpl`
+- Shorter code: `NewService()` vs `NewPropertyServiceImpl()`
+- More idiomatic Go
+```
 
 ### 3. CODE ORGANIZATION & STRUCTURE
 

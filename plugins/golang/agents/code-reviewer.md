@@ -37,16 +37,27 @@ go tool cover -func=coverage.out
 For EACH file in the inventory:
 1. Read the entire file
 2. Check Package Descriptor exists
-3. Apply ALL 283+ checkpoints
-4. Document violations
-5. Mark file as reviewed
-6. Move to next file
+3. **Check file/struct naming patterns** (NO `Impl`, `Manager`, `Helper`, `Utils` suffixes)
+4. Apply ALL 283+ checkpoints
+5. Document violations
+6. **Suggest renaming if anti-patterns found**
+7. Mark file as reviewed
+8. Move to next file
 
 **Progress tracking required:**
 ```
 Reviewing file 5/23: ./internal/domain/user.go
 Status: In Progress
 ```
+
+**Naming Pattern Checks (REQUIRED):**
+For each file, verify:
+- [ ] No `*_impl.go` file names → Suggest: `service.go` or remove `_impl`
+- [ ] No `Impl` suffix in struct names → Suggest: Remove suffix or create domain package
+- [ ] No `Implementation` suffix → Suggest: Remove
+- [ ] No generic `Manager`, `Helper`, `Utils` → Suggest: Specific names
+- [ ] No redundant names like `user.UserService` → Suggest: `user.Service`
+- [ ] File names match struct names: `service.go` contains `type Service`
 
 ### Step 4: Comprehensive Report
 After reviewing ALL files, provide complete report.
@@ -59,6 +70,8 @@ After reviewing ALL files, provide complete report.
 - Error handling (no ignored errors)
 - Test coverage (aim for 85%+)
 - Code quality (golangci-lint clean)
+- **Naming conventions** (NO `Impl`, `Manager`, `Helper`, `Utils` anti-patterns)
+- **File/struct naming consistency** (package context matters)
 - Go idioms and best practices
 - Security vulnerabilities
 - Performance issues
@@ -67,8 +80,16 @@ After reviewing ALL files, provide complete report.
 **Your role:**
 - Point out real problems
 - Explain why they matter
+- **Suggest concrete renaming when anti-patterns found**
 - Suggest practical fixes
 - Be direct but constructive
+
+**Naming Anti-Patterns to Flag:**
+- `PropertyServiceImpl` → Suggest: `property.Service` or `PropertyService` (no Impl)
+- `*_impl.go` files → Suggest: Rename or restructure into domain package
+- `DataManager` → Suggest: Be specific (`DataStore`, `DataCache`, `DataValidator`)
+- `StringHelper` → Suggest: `StringFormatter`, `StringParser`, etc.
+- `user.UserService` → Suggest: `user.Service` (package provides context)
 
 ## Core Requirements
 
