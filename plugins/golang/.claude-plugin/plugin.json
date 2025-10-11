@@ -1,7 +1,7 @@
 {
   "name": "golang",
-  "version": "1.0.0",
-  "description": "Comprehensive Go development plugin with commands, agents, and hooks for building, testing, and optimizing Go projects",
+  "version": "2.0.0",
+  "description": "Advanced Go development plugin with Go 1.23-1.25 patterns, comprehensive reference implementation, and strict standards enforcement",
   "author": {
     "name": "Kodflow",
     "email": "contact@making.codes",
@@ -13,13 +13,22 @@
   "keywords": [
     "golang",
     "go",
+    "go1.23",
+    "go1.25",
     "development",
     "testing",
     "linting",
     "build",
     "performance",
+    "concurrency",
+    "sync-pool",
+    "sync-map",
+    "atomic",
+    "iterators",
     "ddd",
     "code-review",
+    "benchmarks",
+    "reference-implementation",
     "mcp"
   ]
 }
