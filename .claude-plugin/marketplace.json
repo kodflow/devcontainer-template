@@ -1,0 +1,42 @@
+{
+  "name": "Kodflow Development Plugins",
+  "description": "Collection of development plugins with strict standards and best practices enforcement",
+  "version": "1.0.0",
+  "author": "kodflow",
+  "repository": "https://github.com/kodflow/.repository",
+  "plugins": [
+    {
+      "id": "golang",
+      "name": "Go Development Tools",
+      "description": "Expert agents for Go development: DDD Architect (ultra-strict structure), Code Reviewer (zero tolerance), Performance Optimizer (pprof master), and Go Expert (1.25+ features)",
+      "version": "1.0.0",
+      "path": "plugins/golang",
+      "tags": ["go", "golang", "ddd", "code-review", "performance", "architecture"],
+      "keywords": ["golang", "go", "development", "testing", "linting", "ddd", "performance", "pprof"],
+      "commands": [
+        {
+          "name": "/review",
+          "description": "Hyper-strict code review with zero tolerance for substandard code"
+        }
+      ],
+      "agents": [
+        {
+          "name": "Go Expert",
+          "description": "Expert on latest Go 1.25+ features and best practices"
+        },
+        {
+          "name": "DDD Architect",
+          "description": "Ultra-strict DDD structure enforcer with 100% coverage requirement"
+        },
+        {
+          "name": "Code Reviewer",
+          "description": "Uncompromising quality standards with direct, assertive feedback"
+        },
+        {
+          "name": "Performance Optimizer",
+          "description": "pprof master for data-driven performance optimization"
+        }
+      ]
+    }
+  ]
+}
