@@ -5,7 +5,8 @@ services:
 
     # Use pre-built image from GitHub Container Registry with fallback to local build
     # Docker Compose will try to pull first, then build if pull fails
-    image: ghcr.io/kodflow/devcontainer:latest
+    # Image name uses COMPOSE_PROJECT_NAME (automatically set to parent directory name)
+    image: ghcr.io/kodflow/${COMPOSE_PROJECT_NAME}:devcontainer
 
     build:
       context: .
@@ -24,6 +25,9 @@ services:
       - package-cache:/home/vscode/.cache
       - config-dir:/home/vscode/.config
       - local-bin:/home/vscode/.local/bin
+
+      # npm global packages persistence (survives rebuilds)
+      - npm-global:/home/vscode/.local/share/npm-global
 
       # Claude CLI session persistence (survives rebuilds)
       - claude-config:/home/vscode/.claude
@@ -77,8 +81,8 @@ services:
       - MAVEN_OPTS=-Dmaven.repo.local=/home/vscode/.cache/maven
       - GRADLE_USER_HOME=/home/vscode/.cache/gradle
 
-      # PATH - Add all bin directories
-      - PATH=/home/vscode/.local/bin:/home/vscode/.cache/go/bin:/home/vscode/.cache/cargo/bin:/home/vscode/.cache/gems/bin:/home/vscode/.cache/pnpm:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+      # PATH - Add all bin directories (npm-global first for user packages)
+      - PATH=/home/vscode/.local/share/npm-global/bin:/home/vscode/.local/bin:/home/vscode/.cache/go/bin:/home/vscode/.cache/cargo/bin:/home/vscode/.cache/gems/bin:/home/vscode/.cache/pnpm:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
 
     # User
     user: vscode
@@ -88,6 +92,8 @@ volumes:
   package-cache:
   config-dir:
   local-bin:
+  # npm global packages volume
+  npm-global:
   # Claude CLI volumes (persist sessions across rebuilds)
   claude-config:
   anthropic-config:

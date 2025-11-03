@@ -83,6 +83,10 @@ RUN rm -rf "$HOME/.oh-my-zsh" && \
 # Copy p10k configuration (changes rarely)
 COPY --chown=vscode:vscode p10k.sh /home/vscode/.p10k.zsh
 
+# Configure npm for local global packages (no sudo needed)
+RUN mkdir -p /home/vscode/.local/share/npm-global && \
+    npm config set prefix '/home/vscode/.local/share/npm-global'
+
 # Configure zshrc (changes rarely)
 RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' "$HOME/.zshrc" && \
     { \
@@ -95,14 +99,15 @@ RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' "$HOME/.z
         echo 'export HISTSIZE=10000'; \
         echo 'export SAVEHIST=10000'; \
         echo ''; \
+        echo '# npm global packages path'; \
+        echo 'export PATH="/home/vscode/.local/share/npm-global/bin:$PATH"'; \
+        echo ''; \
         echo '# Super Claude alias'; \
         echo 'alias super-claude="claude --dangerously-skip-permissions --mcp-config /home/vscode/.devcontainer/mcp.json"'; \
     } >> "$HOME/.zshrc"
 
-# Install npm global packages as root (uses @latest - may change often, so at the end)
-USER root
+# Install npm global packages as vscode user (no root needed)
 RUN npm install -g @anthropic-ai/claude-code@latest @bazel/bazelisk
-USER vscode
 
 # Set working directory
 WORKDIR /workspace

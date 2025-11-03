@@ -5,28 +5,39 @@ VAULT_ID="ypahjj334ixtiyjkytu5hij2im"
 MCP_TPL="/workspace/.devcontainer/mcp.json.tpl"
 MCP_OUTPUT="/home/vscode/.devcontainer/mcp.json"
 
-echo "🔐 Récupération des secrets depuis 1Password..."
+# Initialiser les tokens
+CODACY_TOKEN=""
+GITHUB_TOKEN=""
 
-# Vérifier que op est installé
-if ! command -v op &> /dev/null; then
-    echo "❌ 1Password CLI n'est pas installé"
-    exit 1
+# Essayer 1Password si OP_SERVICE_ACCOUNT_TOKEN est défini
+if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ] && command -v op &> /dev/null; then
+    echo "🔐 Récupération des secrets depuis 1Password..."
+
+    echo "  → Récupération du token Codacy..."
+    CODACY_TOKEN=$(op item get "mcp-codacy" --vault "$VAULT_ID" --fields credential --reveal 2>/dev/null || echo "")
+
+    echo "  → Récupération du token GitHub..."
+    GITHUB_TOKEN=$(op item get "mcp-github" --vault "$VAULT_ID" --fields credential --reveal 2>/dev/null || echo "")
 fi
 
-# Récupérer les tokens depuis 1Password
-echo "  → Récupération du token Codacy..."
-CODACY_TOKEN=$(op item get "mcp-codacy" --vault "$VAULT_ID" --fields credential --reveal 2>/dev/null || echo "")
+# Utiliser les variables d'environnement en fallback
+if [ -z "$CODACY_TOKEN" ] && [ -n "$CODACY_API_TOKEN" ]; then
+    echo "📌 Utilisation du token Codacy depuis CODACY_API_TOKEN"
+    CODACY_TOKEN="$CODACY_API_TOKEN"
+fi
 
-echo "  → Récupération du token GitHub..."
-GITHUB_TOKEN=$(op item get "mcp-github" --vault "$VAULT_ID" --fields credential --reveal 2>/dev/null || echo "")
+if [ -z "$GITHUB_TOKEN" ] && [ -n "$GITHUB_API_TOKEN" ]; then
+    echo "📌 Utilisation du token GitHub depuis GITHUB_API_TOKEN"
+    GITHUB_TOKEN="$GITHUB_API_TOKEN"
+fi
 
-# Vérifier que les tokens ont été récupérés
+# Afficher les avertissements seulement si aucun token n'a été trouvé
 if [ -z "$CODACY_TOKEN" ]; then
-    echo "⚠️  Token Codacy non trouvé dans 1Password"
+    echo "⚠️  Token Codacy non disponible"
 fi
 
 if [ -z "$GITHUB_TOKEN" ]; then
-    echo "⚠️  Token GitHub non trouvé dans 1Password"
+    echo "⚠️  Token GitHub non disponible"
 fi
 
 # Générer le fichier mcp.json à partir du template

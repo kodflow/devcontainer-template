@@ -1,4 +1,4 @@
-name: Build and Push Multi-Arch Docker Images
+name: Build and Push DevContainer Image
 
 on:
   push:
@@ -6,19 +6,19 @@ on:
       - main
     paths:
       - '.devcontainer/**'
-      - '.github/workflows/docker-build.yml'
+      - '.github/workflows/devcontainer.yml'
   pull_request:
     branches:
       - main
     paths:
       - '.devcontainer/**'
-      - '.github/workflows/docker-build.yml'
+      - '.github/workflows/devcontainer.yml'
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  # Convert repository name to lowercase and replace dots with hyphens for valid Docker tag
-  IMAGE_NAME: ${{ github.repository_owner }}/devcontainer
+  # Use repository name dynamically (owner/repo-name)
+  IMAGE_NAME: ${{ github.repository_owner }}/${{ github.event.repository.name }}
 
 jobs:
   build-and-push:
@@ -54,6 +54,7 @@ jobs:
             type=ref,event=branch
             type=ref,event=pr
             type=sha,prefix={{branch}}-
+            type=raw,value=devcontainer,enable={{is_default_branch}}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
