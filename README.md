@@ -8,8 +8,11 @@ Template minimaliste pour démarrer rapidement vos projets avec un environnement
 - **User vscode** (UID/GID 1000:1000) avec sudo
 - **Zsh + Oh My Zsh + Powerlevel10k** pré-installé et configuré
 - **Outils essentiels** : git, curl, wget, jq, yq, build-essential
+- **MCP (Model Context Protocol)** : Configuration et scripts d'initialisation inclus
+- **Script d'initialisation** : Configuration automatique à la création du container
 - **Persistance** via volumes Docker
 - **Aucune feature externe** : tout est dans le Dockerfile
+- **GitHub Actions** : Workflow de build automatisé pour le devcontainer
 
 ## Ce qui n'est PAS inclus
 
@@ -153,6 +156,36 @@ docker compose -f .devcontainer/docker-compose.yml down -v
 ```bash
 docker compose -f .devcontainer/docker-compose.yml logs -f devcontainer
 ```
+
+## Configuration MCP (Model Context Protocol)
+
+Le template inclut une configuration MCP pour faciliter l'intégration avec des outils d'IA.
+
+### Script de configuration
+
+Le script `.devcontainer/setup-mcp.sh` est exécuté automatiquement au démarrage du container et permet de :
+
+- Configurer les serveurs MCP
+- Initialiser les variables d'environnement nécessaires
+- Préparer l'environnement pour l'utilisation des outils MCP
+
+### Variables d'environnement
+
+Copiez `.devcontainer/.env.example` vers `.devcontainer/.env` et configurez vos variables :
+
+```bash
+cp .devcontainer/.env.example .devcontainer/.env
+```
+
+Éditez `.devcontainer/.env` selon vos besoins pour ajouter vos clés API et configurations.
+
+### Script d'initialisation
+
+Le script `.devcontainer/init.sh` s'exécute automatiquement à la création du container via le `postCreateCommand` et permet de :
+
+- Effectuer des configurations post-création
+- Installer des dépendances supplémentaires
+- Personnaliser l'environnement de développement
 
 ## Dépannage
 
