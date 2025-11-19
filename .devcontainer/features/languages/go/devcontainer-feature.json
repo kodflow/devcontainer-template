@@ -1,0 +1,14 @@
+{
+  "id": "go",
+  "version": "1.0.0",
+  "name": "Go Development Environment",
+  "description": "Installs Go via GVM, with common development tools",
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "latest",
+      "description": "Go version to install"
+    }
+  },
+  "installsAfter": []
+}
