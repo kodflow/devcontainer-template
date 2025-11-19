@@ -28,9 +28,26 @@ sudo apt-get update && sudo apt-get install -y \
     gnupg \
     lsb-release
 
+# Detect architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64)
+        AWS_ARCH="x86_64"
+        ;;
+    aarch64|arm64)
+        AWS_ARCH="aarch64"
+        ;;
+    *)
+        echo -e "${RED}Unsupported architecture for AWS CLI: $ARCH${NC}"
+        exit 1
+        ;;
+esac
+
+echo -e "${YELLOW}Detected architecture: $ARCH (AWS arch: $AWS_ARCH)${NC}"
+
 # Install AWS CLI v2
 echo -e "${YELLOW}Installing AWS CLI v2...${NC}"
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+curl "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -o "awscliv2.zip"
 unzip -q awscliv2.zip
 sudo ./aws/install
 rm -rf aws awscliv2.zip

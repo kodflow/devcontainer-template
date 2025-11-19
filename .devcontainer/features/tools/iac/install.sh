@@ -28,6 +28,26 @@ export PATH="$HOME/.pulumi/bin:$PATH"
 PULUMI_VERSION=$(pulumi version)
 echo -e "${GREEN}✓ Pulumi ${PULUMI_VERSION} installed${NC}"
 
+# Detect architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64)
+        K8S_ARCH="amd64"
+        ;;
+    aarch64|arm64)
+        K8S_ARCH="arm64"
+        ;;
+    armv7l)
+        K8S_ARCH="arm"
+        ;;
+    *)
+        echo -e "${RED}Unsupported architecture: $ARCH${NC}"
+        exit 1
+        ;;
+esac
+
+echo -e "${YELLOW}Detected architecture: $ARCH (K8s arch: $K8S_ARCH)${NC}"
+
 # Install Ansible
 echo -e "${YELLOW}Installing Ansible...${NC}"
 sudo apt-get install -y software-properties-common
@@ -40,7 +60,7 @@ echo -e "${GREEN}✓ ${ANSIBLE_VERSION} installed${NC}"
 # Install kubectl (if not already installed)
 if ! command -v kubectl &> /dev/null; then
     echo -e "${YELLOW}Installing kubectl...${NC}"
-    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${K8S_ARCH}/kubectl"
     sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
     rm kubectl
     KUBECTL_VERSION=$(kubectl version --client --short 2>&1 | grep -i "client version" || echo "kubectl installed")
@@ -58,10 +78,22 @@ echo -e "${GREEN}✓ Helm ${HELM_VERSION} installed${NC}"
 # Install k9s (Kubernetes CLI)
 echo -e "${YELLOW}Installing k9s...${NC}"
 K9S_VERSION=$(curl -s https://api.github.com/repos/derailed/k9s/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-wget https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_amd64.tar.gz
-tar -xzf k9s_Linux_amd64.tar.gz
+# k9s uses different naming convention - capitalize first letter
+case "$K8S_ARCH" in
+    amd64)
+        K9S_ARCH="amd64"
+        ;;
+    arm64)
+        K9S_ARCH="arm64"
+        ;;
+    arm)
+        K9S_ARCH="arm"
+        ;;
+esac
+wget https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${K9S_ARCH}.tar.gz
+tar -xzf k9s_Linux_${K9S_ARCH}.tar.gz
 sudo mv k9s /usr/local/bin/
-rm k9s_Linux_amd64.tar.gz README.md LICENSE
+rm k9s_Linux_${K9S_ARCH}.tar.gz README.md LICENSE
 echo -e "${GREEN}✓ k9s ${K9S_VERSION} installed${NC}"
 
 # Create cache directories

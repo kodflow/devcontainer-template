@@ -130,7 +130,19 @@ echo -e "${GREEN}✓ air installed${NC}"
 # KTN-Linter (Kodflow custom linter)
 echo -e "${YELLOW}Installing KTN-Linter...${NC}"
 KTN_VERSION="v1.3.39"
-KTN_URL="https://github.com/kodflow/ktn-linter/releases/download/${KTN_VERSION}/ktn-linter-linux-amd64"
+# Map Go arch to KTN-Linter naming convention
+case "$GO_ARCH" in
+    amd64)
+        KTN_ARCH="amd64"
+        ;;
+    arm64)
+        KTN_ARCH="arm64"
+        ;;
+    armv6l)
+        KTN_ARCH="arm"
+        ;;
+esac
+KTN_URL="https://github.com/kodflow/ktn-linter/releases/download/${KTN_VERSION}/ktn-linter-linux-${KTN_ARCH}"
 curl -fsSL --retry 3 --retry-delay 5 -o /tmp/ktn-linter "$KTN_URL"
 chmod +x /tmp/ktn-linter
 sudo mv /tmp/ktn-linter /usr/local/bin/ktn-linter
