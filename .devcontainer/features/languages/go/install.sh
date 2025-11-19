@@ -44,8 +44,28 @@ fi
 
 echo -e "${YELLOW}Installing Go ${GO_VERSION}...${NC}"
 
+# Detect architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64)
+        GO_ARCH="amd64"
+        ;;
+    aarch64|arm64)
+        GO_ARCH="arm64"
+        ;;
+    armv7l)
+        GO_ARCH="armv6l"
+        ;;
+    *)
+        echo -e "${RED}Unsupported architecture: $ARCH${NC}"
+        exit 1
+        ;;
+esac
+
+echo -e "${YELLOW}Detected architecture: $ARCH (Go arch: $GO_ARCH)${NC}"
+
 # Install Go binary directly (GVM can be tricky for latest versions)
-GO_ARCHIVE="${GO_VERSION}.linux-amd64.tar.gz"
+GO_ARCHIVE="${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
 curl -OL "https://go.dev/dl/${GO_ARCHIVE}"
 sudo rm -rf /usr/local/go
 sudo tar -C /usr/local -xzf "$GO_ARCHIVE"
