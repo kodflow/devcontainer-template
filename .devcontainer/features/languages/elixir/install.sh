@@ -70,7 +70,7 @@ asdf global erlang $ERLANG_VERSION
 ERLANG_VERSION_CHECK=$(erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().' -noshell)
 echo -e "${GREEN}✓ Erlang/OTP ${ERLANG_VERSION_CHECK} installed${NC}"
 
-# Install Elixir (latest stable that works with Phoenix)
+# Install Elixir (latest stable)
 echo -e "${YELLOW}Installing Elixir via asdf...${NC}"
 ELIXIR_VERSION="1.17.3-otp-27"
 asdf install elixir $ELIXIR_VERSION
@@ -89,33 +89,9 @@ echo -e "${YELLOW}Installing Rebar3...${NC}"
 mix local.rebar --force
 echo -e "${GREEN}✓ Rebar3 installed${NC}"
 
-# Install Phoenix (web framework)
-echo -e "${YELLOW}Installing Phoenix...${NC}"
-mix archive.install hex phx_new --force
-PHOENIX_VERSION=$(mix phx.new --version)
-echo -e "${GREEN}✓ Phoenix ${PHOENIX_VERSION} installed${NC}"
-
 # Create cache directories
 mkdir -p "$MIX_HOME"
 mkdir -p "$HEX_HOME"
-
-# Add asdf to shell profile
-echo -e "${YELLOW}Configuring shell environment...${NC}"
-SHELL_PROFILE="/home/vscode/.kodflow-env.sh"
-sudo mkdir -p "$(dirname "$SHELL_PROFILE")"
-sudo touch "$SHELL_PROFILE"
-sudo chown vscode:vscode "$SHELL_PROFILE"
-
-if ! grep -q "asdf.sh" "$SHELL_PROFILE" 2>/dev/null; then
-    cat >> "$SHELL_PROFILE" << 'EOF'
-
-# asdf version manager
-export ASDF_DATA_DIR="${ASDF_DATA_DIR:-/home/vscode/.cache/asdf}"
-if [ -f "$ASDF_DATA_DIR/asdf.sh" ]; then
-  source "$ASDF_DATA_DIR/asdf.sh"
-fi
-EOF
-fi
 
 echo ""
 echo -e "${GREEN}=========================================${NC}"
@@ -123,15 +99,14 @@ echo -e "${GREEN}Elixir environment installed successfully!${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "Installed components:"
-echo "  - Erlang/OTP $ERLANG_VERSION"
-echo "  - Elixir $ELIXIR_VERSION"
+echo "  - asdf (version manager)"
+echo "  - Erlang/OTP ${ERLANG_VERSION}"
+echo "  - ${ELIXIR_VERSION_CHECK}"
 echo "  - Hex (package manager)"
 echo "  - Rebar3 (build tool)"
-echo "  - Phoenix $PHOENIX_VERSION"
 echo ""
 echo "Cache directories:"
 echo "  - asdf: $ASDF_DATA_DIR"
 echo "  - Mix: $MIX_HOME"
 echo "  - Hex: $HEX_HOME"
 echo ""
-echo "Note: asdf is configured in ~/.kodflow-env.sh"

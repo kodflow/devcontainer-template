@@ -1,9 +1,146 @@
 #!/bin/bash
 set -e
 
-# Load utility functions
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../../utils.sh"
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Logging functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $*"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $*"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $*"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $*"
+}
+
+# Retry function with exponential backoff
+retry_exponential() {
+    local max_attempts=$1
+    local initial_delay=$2
+    shift 2
+    local attempt=1
+    local delay=$initial_delay
+    local exit_code=0
+
+    while [ $attempt -le $max_attempts ]; do
+        if "$@"; then
+            if [ $attempt -gt 1 ]; then
+                log_success "Command succeeded on attempt $attempt"
+            fi
+            return 0
+        fi
+
+        exit_code=$?
+
+        if [ $attempt -lt $max_attempts ]; then
+            log_warning "Command failed, retrying in ${delay}s... (attempt $attempt/$max_attempts)"
+            sleep "$delay"
+            delay=$((delay * 2))
+        else
+            log_error "Command failed after $max_attempts attempts"
+        fi
+
+        ((attempt++))
+    done
+
+    return $exit_code
+}
+
+# apt-get with retry and lock handling
+apt_get_retry() {
+    local max_attempts=5
+    local attempt=1
+    local delay=10
+
+    while [ $attempt -le $max_attempts ]; do
+        # Wait for apt locks to be released
+        local lock_wait=0
+        while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+              sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || \
+              sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+            if [ $lock_wait -eq 0 ]; then
+                log_warning "Waiting for apt locks to be released..."
+            fi
+            sleep 2
+            lock_wait=$((lock_wait + 2))
+
+            if [ $lock_wait -ge 60 ]; then
+                log_warning "Forcing apt lock release after 60s wait"
+                sudo rm -f /var/lib/dpkg/lock-frontend
+                sudo rm -f /var/lib/apt/lists/lock
+                sudo rm -f /var/cache/apt/archives/lock
+                sudo dpkg --configure -a || true
+                break
+            fi
+        done
+
+        # Try apt-get command
+        if sudo apt-get "$@"; then
+            if [ $attempt -gt 1 ]; then
+                log_success "apt-get succeeded on attempt $attempt"
+            fi
+            return 0
+        fi
+
+        exit_code=$?
+
+        if [ $attempt -lt $max_attempts ]; then
+            log_warning "apt-get failed, running update and retrying in ${delay}s... (attempt $attempt/$max_attempts)"
+            sudo apt-get update --fix-missing || true
+            sudo dpkg --configure -a || true
+            sleep "$delay"
+        else
+            log_error "apt-get failed after $max_attempts attempts"
+        fi
+
+        ((attempt++))
+    done
+
+    return $exit_code
+}
+
+# Download with retry and resume support
+download_retry() {
+    local url=$1
+    local output=$2
+    shift 2
+
+    log_info "Downloading: $url"
+
+    retry_exponential 5 3 curl -fsSL \
+        --connect-timeout 30 \
+        --max-time 300 \
+        --retry 3 \
+        --retry-delay 5 \
+        --retry-max-time 60 \
+        -C - \
+        -o "$output" \
+        "$url"
+}
+
+# Safe directory creation
+mkdir_safe() {
+    local dir=$1
+    if [ ! -d "$dir" ]; then
+        mkdir -p "$dir" 2>/dev/null || sudo mkdir -p "$dir"
+
+        if [ "$(whoami)" = "vscode" ]; then
+            sudo chown -R vscode:vscode "$dir" 2>/dev/null || true
+        fi
+    fi
+}
 
 echo "========================================="
 echo "Installing Bazel Build System"

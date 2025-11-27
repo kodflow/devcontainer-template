@@ -2,9 +2,152 @@
 # Don't exit on error - we want to use our retry logic
 set +e
 
-# Load utility functions
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../../utils.sh"
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Logging functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $*"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $*"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $*"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $*"
+}
+
+# Retry function
+retry() {
+    local max_attempts=$1
+    local delay=$2
+    shift 2
+    local attempt=1
+    local exit_code=0
+
+    while [ $attempt -le $max_attempts ]; do
+        if "$@"; then
+            if [ $attempt -gt 1 ]; then
+                log_success "Command succeeded on attempt $attempt"
+            fi
+            return 0
+        fi
+
+        exit_code=$?
+
+        if [ $attempt -lt $max_attempts ]; then
+            log_warning "Command failed (exit code: $exit_code), retrying in ${delay}s... (attempt $attempt/$max_attempts)"
+            sleep "$delay"
+        else
+            log_error "Command failed after $max_attempts attempts"
+        fi
+
+        ((attempt++))
+    done
+
+    return $exit_code
+}
+
+# apt-get with retry and lock handling
+apt_get_retry() {
+    local max_attempts=5
+    local attempt=1
+    local delay=10
+
+    while [ $attempt -le $max_attempts ]; do
+        # Wait for apt locks to be released
+        local lock_wait=0
+        while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+              sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || \
+              sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+            if [ $lock_wait -eq 0 ]; then
+                log_warning "Waiting for apt locks to be released..."
+            fi
+            sleep 2
+            lock_wait=$((lock_wait + 2))
+
+            if [ $lock_wait -ge 60 ]; then
+                log_warning "Forcing apt lock release after 60s wait"
+                sudo rm -f /var/lib/dpkg/lock-frontend
+                sudo rm -f /var/lib/apt/lists/lock
+                sudo rm -f /var/cache/apt/archives/lock
+                sudo dpkg --configure -a || true
+                break
+            fi
+        done
+
+        # Try apt-get command
+        if sudo apt-get "$@"; then
+            if [ $attempt -gt 1 ]; then
+                log_success "apt-get succeeded on attempt $attempt"
+            fi
+            return 0
+        fi
+
+        exit_code=$?
+
+        if [ $attempt -lt $max_attempts ]; then
+            log_warning "apt-get failed, running update and retrying in ${delay}s... (attempt $attempt/$max_attempts)"
+            sudo apt-get update --fix-missing || true
+            sudo dpkg --configure -a || true
+            sleep "$delay"
+        else
+            log_error "apt-get failed after $max_attempts attempts"
+        fi
+
+        ((attempt++))
+    done
+
+    return $exit_code
+}
+
+# Download and pipe to shell with retry
+download_and_pipe() {
+    local url=$1
+    shift
+    local shell_cmd=("$@")
+
+    log_info "Downloading and executing: $url"
+
+    local temp_file
+    temp_file=$(mktemp)
+
+    if retry 3 5 curl -fsSL --connect-timeout 30 --max-time 300 -o "$temp_file" "$url"; then
+        "${shell_cmd[@]}" < "$temp_file"
+        local exit_code=$?
+        rm -f "$temp_file"
+        return $exit_code
+    else
+        rm -f "$temp_file"
+        return 1
+    fi
+}
+
+# Check if command exists
+command_exists() {
+    command -v "$1" &> /dev/null
+}
+
+# Safe directory creation
+mkdir_safe() {
+    local dir=$1
+    if [ ! -d "$dir" ]; then
+        mkdir -p "$dir" 2>/dev/null || sudo mkdir -p "$dir"
+
+        if [ "$(whoami)" = "vscode" ]; then
+            sudo chown -R vscode:vscode "$dir" 2>/dev/null || true
+        fi
+    fi
+}
 
 echo "========================================="
 echo "Installing Node.js Development Environment"
@@ -13,8 +156,6 @@ echo "========================================="
 # Environment variables
 export NVM_DIR="${NVM_DIR:-/home/vscode/.cache/nvm}"
 export NODE_VERSION="${NODE_VERSION:-lts/*}"
-export PNPM_HOME="${PNPM_HOME:-/home/vscode/.cache/pnpm}"
-export YARN_CACHE_FOLDER="${YARN_CACHE_FOLDER:-/home/vscode/.cache/yarn}"
 export npm_config_cache="${npm_config_cache:-/home/vscode/.cache/npm}"
 
 # Install dependencies with retry
@@ -54,82 +195,42 @@ NPM_INSTALLED=$(npm --version)
 log_success "Node.js ${NODE_INSTALLED} installed"
 log_success "npm ${NPM_INSTALLED} installed"
 
-# Install Yarn (latest stable)
-log_info "Installing Yarn..."
-retry 3 5 npm install --no-audit --no-fund -g yarn || {
-    log_warning "Failed to install Yarn, but continuing..."
-}
-if command_exists yarn; then
-    YARN_VERSION=$(yarn --version)
-    log_success "Yarn ${YARN_VERSION} installed"
-fi
-
-# Install pnpm (latest)
-log_info "Installing pnpm..."
-download_and_pipe "https://get.pnpm.io/install.sh" sh - || {
-    log_warning "Failed to install pnpm, but continuing..."
-}
-export PATH="$PNPM_HOME:$PATH"
-if command_exists pnpm; then
-    PNPM_VERSION=$(pnpm --version)
-    log_success "pnpm ${PNPM_VERSION} installed"
-fi
-
-# Install global npm packages
-log_info "Installing global packages..."
-
-# Define packages to install
-declare -a PACKAGES=(
-    "typescript"
-    "ts-node"
-    "eslint"
-    "prettier"
-    "vite"
-    "npm-check-updates"
-    "nodemon"
-    "pm2"
-)
-
-# Install each package with retry
-for package in "${PACKAGES[@]}"; do
-    log_info "Installing ${package}..."
-    if retry 3 5 npm install --no-audit --no-fund -g "$package"; then
-        log_success "${package} installed"
-    else
-        log_warning "Failed to install ${package}, but continuing..."
-    fi
-done
-
-# Display installed versions
-if command_exists tsc; then
-    TS_VERSION=$(tsc --version)
-    log_success "TypeScript ${TS_VERSION}"
-fi
-if command_exists eslint; then
-    ESLINT_VERSION=$(eslint --version)
-    log_success "${ESLINT_VERSION}"
-fi
-if command_exists prettier; then
-    PRETTIER_VERSION=$(prettier --version)
-    log_success "Prettier ${PRETTIER_VERSION}"
-fi
-if command_exists vite; then
-    VITE_VERSION=$(vite --version)
-    log_success "Vite ${VITE_VERSION}"
-fi
-if command_exists nodemon; then
-    NODEMON_VERSION=$(nodemon --version)
-    log_success "nodemon ${NODEMON_VERSION}"
-fi
-if command_exists pm2; then
-    PM2_VERSION=$(pm2 --version)
-    log_success "PM2 ${PM2_VERSION}"
-fi
-
-# Create cache directories
+# Create cache directory
 mkdir_safe "$npm_config_cache"
-mkdir_safe "$YARN_CACHE_FOLDER"
-mkdir_safe "$PNPM_HOME"
+
+# Create global symlinks for node, npm, and npx
+# This ensures they're available for subsequent devcontainer features
+log_info "Creating global symlinks..."
+NVM_NODE_DIR=$(nvm which current | xargs dirname)
+if [ -n "$NVM_NODE_DIR" ] && [ -d "$NVM_NODE_DIR" ]; then
+    # Create symlinks in /usr/local/bin (which is in default PATH)
+    sudo ln -sf "$NVM_NODE_DIR/node" /usr/local/bin/node
+    sudo ln -sf "$NVM_NODE_DIR/npm" /usr/local/bin/npm
+    sudo ln -sf "$NVM_NODE_DIR/npx" /usr/local/bin/npx
+
+    # Verify symlinks were created
+    if [ -L /usr/local/bin/node ] && [ -L /usr/local/bin/npm ]; then
+        log_success "Global symlinks created in /usr/local/bin"
+    else
+        log_warning "Failed to create global symlinks, but NVM is still available"
+    fi
+else
+    log_warning "Could not determine NVM node directory, skipping symlink creation"
+fi
+
+# Add NVM to zshrc for interactive shells
+ZSHRC="/home/vscode/.zshrc"
+if [ -f "$ZSHRC" ]; then
+    if ! grep -q "NVM_DIR" "$ZSHRC"; then
+        log_info "Adding NVM to .zshrc..."
+        cat >> "$ZSHRC" <<'EOF'
+
+# NVM (Node Version Manager)
+export NVM_DIR="${NVM_DIR:-/home/vscode/.cache/nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+EOF
+    fi
+fi
 
 echo ""
 echo -e "${GREEN}=========================================${NC}"
@@ -142,42 +243,13 @@ echo "Installed components:"
 echo "  - NVM (Node Version Manager)"
 echo "  - Node.js ${NODE_INSTALLED}"
 echo "  - npm ${NPM_INSTALLED}"
-if command_exists yarn; then
-    echo "  - Yarn ${YARN_VERSION:-$(yarn --version 2>/dev/null)}"
-fi
-if command_exists pnpm; then
-    echo "  - pnpm ${PNPM_VERSION:-$(pnpm --version 2>/dev/null)}"
-fi
-if command_exists tsc; then
-    echo "  - TypeScript"
-fi
-if command_exists ts-node; then
-    echo "  - ts-node"
-fi
-if command_exists eslint; then
-    echo "  - ESLint"
-fi
-if command_exists prettier; then
-    echo "  - Prettier"
-fi
-if command_exists vite; then
-    echo "  - Vite"
-fi
-if command_exists ncu; then
-    echo "  - npm-check-updates"
-fi
-if command_exists nodemon; then
-    echo "  - nodemon"
-fi
-if command_exists pm2; then
-    echo "  - PM2"
-fi
 echo ""
-echo "Cache directories:"
-echo "  - NVM: $NVM_DIR"
+echo "Global availability:"
+echo "  - node, npm, npx available in /usr/local/bin"
+echo "  - NVM loaded in interactive shells"
+echo ""
+echo "Cache directory:"
 echo "  - npm: $npm_config_cache"
-echo "  - Yarn: $YARN_CACHE_FOLDER"
-echo "  - pnpm: $PNPM_HOME"
 echo ""
 
 # Exit successfully

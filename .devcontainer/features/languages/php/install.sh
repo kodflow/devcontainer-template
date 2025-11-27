@@ -15,7 +15,6 @@ NC='\033[0m'
 export PHP_VERSION="${PHP_VERSION:-8.3}"
 export COMPOSER_HOME="${COMPOSER_HOME:-/home/vscode/.cache/composer}"
 export COMPOSER_CACHE_DIR="${COMPOSER_CACHE_DIR:-/home/vscode/.cache/composer/cache}"
-export SYMFONY_CLI_HOME="${SYMFONY_CLI_HOME:-/home/vscode/.cache/symfony}"
 
 # Install dependencies
 echo -e "${YELLOW}Installing dependencies...${NC}"
@@ -63,46 +62,15 @@ if [ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]; then
     exit 1
 fi
 
-php composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
+sudo php composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
 rm composer-setup.php
 
 COMPOSER_VERSION=$(composer --version)
 echo -e "${GREEN}✓ ${COMPOSER_VERSION} installed${NC}"
 
-# Install Symfony CLI
-echo -e "${YELLOW}Installing Symfony CLI...${NC}"
-curl -sS https://get.symfony.com/cli/installer | bash
-sudo mv /home/vscode/.symfony5/bin/symfony /usr/local/bin/symfony
-SYMFONY_VERSION=$(symfony version)
-echo -e "${GREEN}✓ Symfony CLI ${SYMFONY_VERSION} installed${NC}"
-
-# Install PHP development tools via Composer
-echo -e "${YELLOW}Installing PHP development tools...${NC}"
-
-# PHP_CodeSniffer
-composer global require "squizlabs/php_codesniffer=*"
-echo -e "${GREEN}✓ PHP_CodeSniffer installed${NC}"
-
-# PHP CS Fixer
-composer global require friendsofphp/php-cs-fixer
-echo -e "${GREEN}✓ PHP CS Fixer installed${NC}"
-
-# PHPStan
-composer global require phpstan/phpstan
-echo -e "${GREEN}✓ PHPStan installed${NC}"
-
-# Psalm
-composer global require vimeo/psalm
-echo -e "${GREEN}✓ Psalm installed${NC}"
-
-# PHPUnit
-composer global require phpunit/phpunit
-echo -e "${GREEN}✓ PHPUnit installed${NC}"
-
 # Create cache directories
 mkdir -p "$COMPOSER_HOME"
 mkdir -p "$COMPOSER_CACHE_DIR"
-mkdir -p "$SYMFONY_CLI_HOME"
 
 echo ""
 echo -e "${GREEN}=========================================${NC}"
@@ -112,14 +80,7 @@ echo ""
 echo "Installed components:"
 echo "  - ${PHP_INSTALLED}"
 echo "  - ${COMPOSER_VERSION}"
-echo "  - Symfony CLI ${SYMFONY_VERSION}"
-echo "  - PHP_CodeSniffer"
-echo "  - PHP CS Fixer"
-echo "  - PHPStan"
-echo "  - Psalm"
-echo "  - PHPUnit"
 echo ""
 echo "Cache directories:"
 echo "  - Composer: $COMPOSER_HOME"
-echo "  - Composer cache: $COMPOSER_CACHE_DIR"
-echo "  - Symfony: $SYMFONY_CLI_HOME"
+echo ""

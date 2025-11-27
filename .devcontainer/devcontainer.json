@@ -7,8 +7,12 @@
   // Features - additional tools and runtimes
   // Languages are in ./features/languages/, Tools are in ./features/tools/
   "features": {
+    // ========== FIXES ==========
+    // GPG and repository cleanup (MUST run first before any apt operations)
+    "./features/tools/gpg-fix": {},
+
     // ========== LANGUAGES ==========
-    // Node.js (must be first - required by claude-cli)
+    // Node.js (must be first after gpg-fix - required by claude-cli)
     "./features/languages/nodejs": {
       "version": "lts/*",
       "installYarn": true,

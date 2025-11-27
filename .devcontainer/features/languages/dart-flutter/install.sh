@@ -22,17 +22,29 @@ sudo apt-get update && sudo apt-get install -y \
     git \
     unzip \
     xz-utils \
-    zip \
-    libglu1-mesa \
-    clang \
-    cmake \
-    ninja-build \
-    pkg-config \
-    libgtk-3-dev
+    zip
 
 # Install Flutter (includes Dart)
 echo -e "${YELLOW}Installing Flutter...${NC}"
-git clone https://github.com/flutter/flutter.git -b stable "$FLUTTER_ROOT"
+
+# Clone with retry
+MAX_RETRIES=3
+RETRY_COUNT=0
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if git clone https://github.com/flutter/flutter.git -b stable "$FLUTTER_ROOT"; then
+        break
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+        echo -e "${YELLOW}Git clone failed, retrying (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)...${NC}"
+        rm -rf "$FLUTTER_ROOT"
+        sleep 5
+    else
+        echo -e "${RED}Failed to clone Flutter repository after $MAX_RETRIES attempts${NC}"
+        exit 1
+    fi
+done
 
 # Setup Flutter
 export PATH="$FLUTTER_ROOT/bin:$PATH"
@@ -45,19 +57,6 @@ DART_VERSION=$(dart --version 2>&1)
 echo -e "${GREEN}✓ ${FLUTTER_VERSION} installed${NC}"
 echo -e "${GREEN}✓ ${DART_VERSION} installed${NC}"
 
-# Enable Flutter platforms
-echo -e "${YELLOW}Enabling Flutter platforms...${NC}"
-flutter config --enable-web
-flutter config --enable-linux-desktop
-echo -e "${GREEN}✓ Flutter platforms enabled${NC}"
-
-# Install development tools
-echo -e "${YELLOW}Installing development tools...${NC}"
-
-# Dart formatter and analyzer (included with SDK)
-echo -e "${GREEN}✓ dart format (built-in)${NC}"
-echo -e "${GREEN}✓ dart analyze (built-in)${NC}"
-
 # Create cache directories
 mkdir -p "$PUB_CACHE"
 
@@ -69,11 +68,9 @@ echo ""
 echo "Installed components:"
 echo "  - ${FLUTTER_VERSION}"
 echo "  - ${DART_VERSION}"
-echo "  - Flutter Web support"
-echo "  - Flutter Linux Desktop support"
-echo "  - dart format"
-echo "  - dart analyze"
+echo "  - Pub (package manager)"
 echo ""
 echo "Cache directories:"
 echo "  - Flutter: $FLUTTER_ROOT"
 echo "  - Pub cache: $PUB_CACHE"
+echo ""

@@ -48,12 +48,6 @@ sdk install gradle
 GRADLE_VERSION=$(gradle -version | grep "Gradle" | head -n 1)
 echo -e "${GREEN}✓ ${GRADLE_VERSION} installed${NC}"
 
-# Install Spring Boot CLI
-echo -e "${YELLOW}Installing Spring Boot CLI...${NC}"
-sdk install springboot
-SPRING_VERSION=$(spring --version)
-echo -e "${GREEN}✓ Spring Boot CLI ${SPRING_VERSION} installed${NC}"
-
 # Create cache directories
 mkdir -p /home/vscode/.cache/maven
 mkdir -p /home/vscode/.cache/gradle
@@ -68,9 +62,9 @@ echo "  - SDKMAN (SDK Manager)"
 echo "  - ${JAVA_VERSION}"
 echo "  - ${MAVEN_VERSION}"
 echo "  - ${GRADLE_VERSION}"
-echo "  - Spring Boot CLI ${SPRING_VERSION}"
 echo ""
 echo "Cache directories:"
 echo "  - SDKMAN: $SDKMAN_DIR"
 echo "  - Maven: /home/vscode/.cache/maven"
 echo "  - Gradle: $GRADLE_USER_HOME"
+echo ""
