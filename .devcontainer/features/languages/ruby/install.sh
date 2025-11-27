@@ -12,24 +12,23 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Environment variables
-export RBENV_ROOT="${RBENV_ROOT:-/home/vscode/.cache/rbenv}"
+export RBENV_ROOT="${RBENV_ROOT:-$HOME/.cache/rbenv}"
 export RUBY_VERSION="${RUBY_VERSION:-3.3}"
-export GEM_HOME="${GEM_HOME:-/home/vscode/.cache/gems}"
-export BUNDLE_PATH="${BUNDLE_PATH:-/home/vscode/.cache/bundle}"
+export GEM_HOME="${GEM_HOME:-$HOME/.cache/gems}"
+export BUNDLE_PATH="${BUNDLE_PATH:-$HOME/.cache/bundle}"
 
 # Install dependencies
 echo -e "${YELLOW}Installing dependencies...${NC}"
 sudo apt-get update && sudo apt-get install -y \
-    git \
     curl \
+    git \
+    build-essential \
     libssl-dev \
     libreadline-dev \
     zlib1g-dev \
     autoconf \
     bison \
-    build-essential \
     libyaml-dev \
-    libreadline-dev \
     libncurses5-dev \
     libffi-dev \
     libgdbm-dev
@@ -56,42 +55,14 @@ echo -e "${GREEN}✓ ${RUBY_INSTALLED} installed${NC}"
 echo -e "${YELLOW}Updating RubyGems...${NC}"
 gem update --system
 GEM_VERSION=$(gem --version)
-echo -e "${GREEN}✓ RubyGems ${GEM_VERSION}${NC}"
+echo -e "${GREEN}✓ RubyGems ${GEM_VERSION} installed${NC}"
 
 # Install Bundler
 echo -e "${YELLOW}Installing Bundler...${NC}"
 gem install bundler
+rbenv rehash
 BUNDLER_VERSION=$(bundler --version)
-echo -e "${GREEN}✓ ${BUNDLER_VERSION}${NC}"
-
-# Install Rails
-echo -e "${YELLOW}Installing Rails...${NC}"
-gem install rails
-RAILS_VERSION=$(rails --version)
-echo -e "${GREEN}✓ ${RAILS_VERSION}${NC}"
-
-# Install development tools
-echo -e "${YELLOW}Installing development tools...${NC}"
-
-# Rubocop (linter)
-gem install rubocop
-echo -e "${GREEN}✓ rubocop installed${NC}"
-
-# Rubocop-rails
-gem install rubocop-rails
-echo -e "${GREEN}✓ rubocop-rails installed${NC}"
-
-# Solargraph (language server)
-gem install solargraph
-echo -e "${GREEN}✓ solargraph installed${NC}"
-
-# Pry (debugger)
-gem install pry
-echo -e "${GREEN}✓ pry installed${NC}"
-
-# RSpec (testing framework)
-gem install rspec
-echo -e "${GREEN}✓ rspec installed${NC}"
+echo -e "${GREEN}✓ ${BUNDLER_VERSION} installed${NC}"
 
 # Create cache directories
 mkdir -p "$GEM_HOME"
@@ -107,14 +78,9 @@ echo "  - rbenv (Ruby Version Manager)"
 echo "  - ${RUBY_INSTALLED}"
 echo "  - RubyGems ${GEM_VERSION}"
 echo "  - ${BUNDLER_VERSION}"
-echo "  - ${RAILS_VERSION}"
-echo "  - rubocop (linter)"
-echo "  - rubocop-rails"
-echo "  - solargraph (language server)"
-echo "  - pry (debugger)"
-echo "  - rspec (testing framework)"
 echo ""
 echo "Cache directories:"
 echo "  - rbenv: $RBENV_ROOT"
 echo "  - gems: $GEM_HOME"
 echo "  - bundler: $BUNDLE_PATH"
+echo ""

@@ -11,22 +11,11 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Environment variables
-export PULUMI_HOME="${PULUMI_HOME:-/home/vscode/.cache/pulumi}"
-
 # Install dependencies
 echo -e "${YELLOW}Installing dependencies...${NC}"
 sudo apt-get update && sudo apt-get install -y \
     curl \
     wget
-
-# Install Pulumi
-echo -e "${YELLOW}Installing Pulumi...${NC}"
-curl -fsSL https://get.pulumi.com | sh
-export PATH="$HOME/.pulumi/bin:$PATH"
-
-PULUMI_VERSION=$(pulumi version)
-echo -e "${GREEN}✓ Pulumi ${PULUMI_VERSION} installed${NC}"
 
 # Detect architecture
 ARCH=$(uname -m)
@@ -75,29 +64,7 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 HELM_VERSION=$(helm version --short)
 echo -e "${GREEN}✓ Helm ${HELM_VERSION} installed${NC}"
 
-# Install k9s (Kubernetes CLI)
-echo -e "${YELLOW}Installing k9s...${NC}"
-K9S_VERSION=$(curl -s https://api.github.com/repos/derailed/k9s/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-# k9s uses different naming convention - capitalize first letter
-case "$K8S_ARCH" in
-    amd64)
-        K9S_ARCH="amd64"
-        ;;
-    arm64)
-        K9S_ARCH="arm64"
-        ;;
-    arm)
-        K9S_ARCH="arm"
-        ;;
-esac
-wget https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${K9S_ARCH}.tar.gz
-tar -xzf k9s_Linux_${K9S_ARCH}.tar.gz
-sudo mv k9s /usr/local/bin/
-rm k9s_Linux_${K9S_ARCH}.tar.gz README.md LICENSE
-echo -e "${GREEN}✓ k9s ${K9S_VERSION} installed${NC}"
-
 # Create cache directories
-mkdir -p "$PULUMI_HOME"
 mkdir -p /home/vscode/.kube
 mkdir -p /home/vscode/.cache/helm
 
@@ -107,20 +74,16 @@ echo -e "${GREEN}IaC tools installed successfully!${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "Installed components:"
-echo "  - Pulumi ${PULUMI_VERSION}"
 echo "  - ${ANSIBLE_VERSION}"
 echo "  - kubectl"
 echo "  - Helm ${HELM_VERSION}"
-echo "  - k9s ${K9S_VERSION}"
 echo ""
 echo "Configuration directories:"
-echo "  - Pulumi: $PULUMI_HOME"
 echo "  - Kubernetes: /home/vscode/.kube"
 echo "  - Helm: /home/vscode/.cache/helm"
 echo ""
 echo "Quick start:"
-echo "  - Pulumi: pulumi new"
 echo "  - Ansible: ansible-playbook playbook.yml"
 echo "  - kubectl: kubectl get pods"
 echo "  - Helm: helm install myapp ./mychart"
-echo "  - k9s: k9s"
+echo ""

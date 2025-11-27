@@ -82,78 +82,6 @@ mkdir -p "$GOPATH/src"
 mkdir -p "$GOCACHE"
 mkdir -p "$GOMODCACHE"
 
-# Install Go development tools
-echo -e "${YELLOW}Installing Go development tools...${NC}"
-
-# gopls (Go language server)
-go install golang.org/x/tools/gopls@latest
-echo -e "${GREEN}✓ gopls installed${NC}"
-
-# golangci-lint (linter aggregator)
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$GOPATH/bin"
-echo -e "${GREEN}✓ golangci-lint installed${NC}"
-
-# gofumpt (stricter gofmt)
-go install mvdan.cc/gofumpt@latest
-echo -e "${GREEN}✓ gofumpt installed${NC}"
-
-# goimports (import management)
-go install golang.org/x/tools/cmd/goimports@latest
-echo -e "${GREEN}✓ goimports installed${NC}"
-
-# delve (debugger)
-go install github.com/go-delve/delve/cmd/dlv@latest
-echo -e "${GREEN}✓ delve installed${NC}"
-
-# gotests (test generator)
-go install github.com/cweill/gotests/gotests@latest
-echo -e "${GREEN}✓ gotests installed${NC}"
-
-# gomodifytags (struct tag editor)
-go install github.com/fatih/gomodifytags@latest
-echo -e "${GREEN}✓ gomodifytags installed${NC}"
-
-# impl (interface implementation generator)
-go install github.com/josharian/impl@latest
-echo -e "${GREEN}✓ impl installed${NC}"
-
-# staticcheck (static analysis)
-go install honnef.co/go/tools/cmd/staticcheck@latest
-echo -e "${GREEN}✓ staticcheck installed${NC}"
-
-# air (live reload)
-go install github.com/air-verse/air@latest
-echo -e "${GREEN}✓ air installed${NC}"
-
-# Detect architecture for KTN-Linter
-ARCH=$(uname -m)
-case "$ARCH" in
-    x86_64)
-        KTN_ARCH="amd64"
-        ;;
-    aarch64|arm64)
-        KTN_ARCH="arm64"
-        ;;
-    armv7l)
-        KTN_ARCH="arm"
-        ;;
-    *)
-        echo -e "${YELLOW}⚠ Unsupported architecture for KTN-Linter: $ARCH${NC}"
-        KTN_ARCH=""
-        ;;
-esac
-
-# KTN-Linter (Kodflow custom linter)
-if [ -n "$KTN_ARCH" ]; then
-    echo -e "${YELLOW}Installing KTN-Linter...${NC}"
-    KTN_VERSION="v1.3.39"
-    KTN_URL="https://github.com/kodflow/ktn-linter/releases/download/${KTN_VERSION}/ktn-linter-linux-${KTN_ARCH}"
-    curl -fsSL --retry 3 --retry-delay 5 -o /tmp/ktn-linter "$KTN_URL"
-    chmod +x /tmp/ktn-linter
-    sudo mv /tmp/ktn-linter /usr/local/bin/ktn-linter
-    echo -e "${GREEN}✓ KTN-Linter ${KTN_VERSION} installed${NC}"
-fi
-
 echo ""
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}Go environment installed successfully!${NC}"
@@ -161,22 +89,9 @@ echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "Installed components:"
 echo "  - ${GO_INSTALLED}"
-echo "  - gopls (language server)"
-echo "  - golangci-lint (linter)"
-echo "  - gofumpt (formatter)"
-echo "  - goimports (import tool)"
-echo "  - delve (debugger)"
-echo "  - gotests (test generator)"
-echo "  - gomodifytags (tag editor)"
-echo "  - impl (interface generator)"
-echo "  - staticcheck (static analyzer)"
-echo "  - air (live reload)"
-if [ -n "$KTN_ARCH" ]; then
-    echo "  - ktn-linter ${KTN_VERSION:-v1.3.39} (Kodflow custom linter)"
-fi
+echo "  - Go Modules (package manager)"
 echo ""
-echo "Environment variables:"
-echo "  - GOROOT: $GOROOT"
+echo "Cache directories:"
 echo "  - GOPATH: $GOPATH"
 echo "  - GOCACHE: $GOCACHE"
 echo "  - GOMODCACHE: $GOMODCACHE"

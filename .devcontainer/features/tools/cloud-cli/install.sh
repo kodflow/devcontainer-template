@@ -57,16 +57,18 @@ echo -e "${GREEN}✓ ${AWS_VERSION} installed${NC}"
 
 # Install Google Cloud SDK
 echo -e "${YELLOW}Installing Google Cloud SDK...${NC}"
-echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
 sudo apt-get update && sudo apt-get install -y google-cloud-cli
 
 GCLOUD_VERSION=$(gcloud version --format="value(core.version)")
 echo -e "${GREEN}✓ Google Cloud SDK ${GCLOUD_VERSION} installed${NC}"
 
 # Install Google Cloud components
+# When gcloud is installed via apt-get, the component manager is disabled
+# Components must be installed via apt-get instead
 echo -e "${YELLOW}Installing Google Cloud components...${NC}"
-gcloud components install kubectl gke-gcloud-auth-plugin --quiet
+sudo apt-get install -y kubectl google-cloud-cli-gke-gcloud-auth-plugin
 echo -e "${GREEN}✓ kubectl and gke-gcloud-auth-plugin installed${NC}"
 
 # Install Azure CLI

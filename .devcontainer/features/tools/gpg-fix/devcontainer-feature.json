@@ -1,0 +1,7 @@
+{
+  "id": "gpg-fix",
+  "version": "1.0.0",
+  "name": "GPG Fix",
+  "description": "Fixes GPG and repository issues before external features run",
+  "options": {}
+}
