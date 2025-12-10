@@ -16,7 +16,7 @@ ARG VARIANT=base
 # =============================================================================
 # STAGE: Base - System dependencies and tools
 # =============================================================================
-FROM ${BASE_IMAGE} AS base
+FROM ${BASE_IMAGE} AS lang-base
 
 ARG TARGETARCH
 ARG BUILDKIT_INLINE_CACHE=1
@@ -110,7 +110,7 @@ WORKDIR /workspace
 # =============================================================================
 # STAGE: Go
 # =============================================================================
-FROM base AS lang-go
+FROM lang-base AS lang-go
 ARG TARGETARCH
 ARG GO_VERSION=latest
 
@@ -130,7 +130,7 @@ ENV GOROOT=/usr/local/go \
 # =============================================================================
 # STAGE: Node.js
 # =============================================================================
-FROM base AS lang-nodejs
+FROM lang-base AS lang-nodejs
 ARG NODE_VERSION=lts
 
 USER vscode
@@ -157,7 +157,7 @@ ENV PATH=/home/vscode/.local/share/npm-global/bin:/home/vscode/.local/bin:/home/
 # =============================================================================
 # STAGE: Python
 # =============================================================================
-FROM base AS lang-python
+FROM lang-base AS lang-python
 ARG PYTHON_VERSION=3.12
 
 USER vscode
@@ -178,7 +178,7 @@ ENV PATH=/home/vscode/.cache/pyenv/shims:/home/vscode/.cache/pyenv/bin:$PATH
 # =============================================================================
 # STAGE: Rust
 # =============================================================================
-FROM base AS lang-rust
+FROM lang-base AS lang-rust
 
 USER vscode
 ENV CARGO_HOME=/home/vscode/.cache/cargo \
@@ -194,7 +194,7 @@ ENV PATH=/home/vscode/.cache/cargo/bin:$PATH
 # =============================================================================
 # STAGE: Ruby
 # =============================================================================
-FROM base AS lang-ruby
+FROM lang-base AS lang-ruby
 ARG RUBY_VERSION=3.3
 
 USER vscode
@@ -212,7 +212,7 @@ ENV PATH=/home/vscode/.cache/rbenv/shims:/home/vscode/.cache/rbenv/bin:/home/vsc
 # =============================================================================
 # STAGE: Java
 # =============================================================================
-FROM base AS lang-java
+FROM lang-base AS lang-java
 
 USER vscode
 ENV SDKMAN_DIR=/home/vscode/.cache/sdkman \
@@ -227,7 +227,7 @@ ENV PATH=/home/vscode/.cache/sdkman/candidates/java/current/bin:/home/vscode/.ca
 # =============================================================================
 # STAGE: PHP
 # =============================================================================
-FROM base AS lang-php
+FROM lang-base AS lang-php
 
 USER root
 RUN add-apt-repository --yes ppa:ondrej/php && \
@@ -246,7 +246,7 @@ ENV PATH=/home/vscode/.cache/composer/vendor/bin:$PATH
 # =============================================================================
 # STAGE: Dart/Flutter
 # =============================================================================
-FROM base AS lang-dart
+FROM lang-base AS lang-dart
 
 USER vscode
 ENV PUB_CACHE=/home/vscode/.cache/pub-cache \
@@ -261,7 +261,7 @@ ENV PATH=/home/vscode/.cache/flutter/bin:/home/vscode/.cache/pub-cache/bin:$PATH
 # =============================================================================
 # STAGE: Elixir
 # =============================================================================
-FROM base AS lang-elixir
+FROM lang-base AS lang-elixir
 
 USER root
 RUN wget -qO- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | gpg --dearmor -o /usr/share/keyrings/erlang.gpg && \
@@ -280,7 +280,7 @@ ENV PATH=/home/vscode/.cache/mix/escripts:$PATH
 # =============================================================================
 # STAGE: C/C++
 # =============================================================================
-FROM base AS lang-cpp
+FROM lang-base AS lang-cpp
 
 USER root
 RUN apt-get update && \
@@ -295,7 +295,7 @@ ENV CCACHE_DIR=/home/vscode/.cache/ccache \
 # =============================================================================
 # STAGE: Full (all languages)
 # =============================================================================
-FROM base AS lang-full
+FROM lang-base AS lang-full
 ARG TARGETARCH
 
 # Go
