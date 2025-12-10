@@ -1,0 +1,174 @@
+name: Build Docker Images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.devcontainer/images/**'
+      - '.github/workflows/docker-images.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.devcontainer/images/**'
+      - '.github/workflows/docker-images.yml'
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Image variant to build (or "all")'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - base
+          - go
+          - nodejs
+          - python
+          - rust
+          - ruby
+          - java
+          - php
+          - dart
+          - elixir
+          - cpp
+          - full
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Build matrix of all variants
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - base
+          - go
+          - nodejs
+          - python
+          - rust
+          - ruby
+          - java
+          - php
+          - dart
+          - elixir
+          - cpp
+          - full
+        include:
+          - variant: base
+            description: "Base image with tools only"
+          - variant: go
+            description: "Go development environment"
+          - variant: nodejs
+            description: "Node.js development environment"
+          - variant: python
+            description: "Python development environment"
+          - variant: rust
+            description: "Rust development environment"
+          - variant: ruby
+            description: "Ruby development environment"
+          - variant: java
+            description: "Java development environment"
+          - variant: php
+            description: "PHP development environment"
+          - variant: dart
+            description: "Dart/Flutter development environment"
+          - variant: elixir
+            description: "Elixir development environment"
+          - variant: cpp
+            description: "C/C++ development environment"
+          - variant: full
+            description: "Full environment with all languages"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ matrix.variant }}
+            type=raw,value=${{ matrix.variant }}-{{sha}}
+            type=raw,value=${{ matrix.variant }}-latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .devcontainer/images
+          file: .devcontainer/images/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.description=${{ matrix.description }}
+          build-args: |
+            VARIANT=${{ matrix.variant }}
+            BUILDKIT_INLINE_CACHE=1
+          cache-from: type=gha,scope=${{ matrix.variant }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.variant }}
+
+      - name: Test image
+        if: matrix.variant != 'full'
+        run: |
+          docker buildx build \
+            --load \
+            --platform linux/amd64 \
+            --build-arg VARIANT=${{ matrix.variant }} \
+            -t test-${{ matrix.variant }} \
+            .devcontainer/images
+
+          # Basic smoke test
+          docker run --rm test-${{ matrix.variant }} /bin/bash -c "
+            echo '=== Testing ${{ matrix.variant }} image ==='
+
+            # Test base tools
+            terraform --version || echo 'terraform not found'
+            aws --version || echo 'aws not found'
+            gcloud --version || echo 'gcloud not found'
+            kubectl version --client || echo 'kubectl not found'
+            helm version --short || echo 'helm not found'
+            ansible --version | head -1 || echo 'ansible not found'
+            bazel --version || echo 'bazel not found'
+
+            echo '=== Base tools OK ==='
+          "
+
+  # Summary job
+  summary:
+    needs: build
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check build results
+        run: |
+          if [ "${{ needs.build.result }}" == "success" ]; then
+            echo "All images built successfully!"
+          else
+            echo "Some images failed to build"
+            exit 1
+          fi
