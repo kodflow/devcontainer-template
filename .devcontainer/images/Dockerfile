@@ -132,17 +132,20 @@ ENV NVM_DIR=/home/vscode/.cache/nvm \
     YARN_CACHE_FOLDER=/home/vscode/.cache/yarn \
     PNPM_HOME=/home/vscode/.cache/pnpm
 
-RUN mkdir -p $NVM_DIR && \
+RUN mkdir -p $NVM_DIR ~/.local/share/npm-global && \
     curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash && \
     . "$NVM_DIR/nvm.sh" && \
     nvm install ${NODE_VERSION} && \
     nvm use ${NODE_VERSION} && \
     nvm alias default ${NODE_VERSION} && \
     npm install -g yarn pnpm npm@latest && \
-    mkdir -p ~/.local/share/npm-global && \
-    npm config set prefix ~/.local/share/npm-global
+    npm config set prefix ~/.local/share/npm-global && \
+    # Create symlinks in .local/bin for node binaries
+    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/node" ~/.local/bin/node && \
+    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npm" ~/.local/bin/npm && \
+    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npx" ~/.local/bin/npx
 
-ENV PATH=/home/vscode/.local/share/npm-global/bin:/home/vscode/.cache/nvm/versions/node/$(ls /home/vscode/.cache/nvm/versions/node 2>/dev/null | head -1)/bin:/home/vscode/.cache/pnpm:$PATH
+ENV PATH=/home/vscode/.local/share/npm-global/bin:/home/vscode/.local/bin:/home/vscode/.cache/pnpm:$PATH
 
 # =============================================================================
 # STAGE: Python
@@ -315,10 +318,14 @@ USER vscode
 
 # Node.js (via nvm)
 ENV NVM_DIR=/home/vscode/.cache/nvm
-RUN mkdir -p $NVM_DIR && \
+RUN mkdir -p $NVM_DIR ~/.local/share/npm-global && \
     curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash && \
     . "$NVM_DIR/nvm.sh" && nvm install lts/* && nvm alias default lts/* && \
-    npm install -g yarn pnpm npm@latest
+    npm install -g yarn pnpm npm@latest && \
+    npm config set prefix ~/.local/share/npm-global && \
+    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/node" ~/.local/bin/node && \
+    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npm" ~/.local/bin/npm && \
+    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npx" ~/.local/bin/npx
 
 # Python (via pyenv)
 ENV PYENV_ROOT=/home/vscode/.cache/pyenv
