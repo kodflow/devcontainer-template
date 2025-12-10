@@ -6,16 +6,16 @@
 !docker-compose.yml
 !devcontainer.json
 
-# Include all kodflow scripts
-!kodflow/
-!kodflow/**
+# Include all hooks (lifecycle scripts and shared configs)
+!hooks/
+!hooks/**
 
 # Include all features
 !features/
 !features/**
 
-# Exclude sensitive files even if in kodflow/
-kodflow/.env
-kodflow/mcp.json
+# Exclude sensitive files even if in hooks/
+hooks/shared/.env
+hooks/shared/mcp.json
 .env
 mcp.json

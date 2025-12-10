@@ -1,11 +1,16 @@
 #!/bin/bash
-# Initialize .env file before devcontainer build
-# This script runs on the host machine before Docker Compose
+# ============================================================================
+# initialize.sh - Runs on HOST machine BEFORE container build
+# ============================================================================
+# This script runs on the host machine before Docker Compose starts.
+# Use it for: .env setup, project name configuration, feature validation.
+# ============================================================================
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEVCONTAINER_DIR="$(dirname "$SCRIPT_DIR")"
+HOOKS_DIR="$(dirname "$SCRIPT_DIR")"
+DEVCONTAINER_DIR="$(dirname "$HOOKS_DIR")"
 ENV_FILE="$DEVCONTAINER_DIR/.env"
 
 # Extract project name from git remote URL
@@ -21,13 +26,13 @@ if [ -z "$REPO_NAME" ]; then
     REPO_NAME="devcontainer"
 fi
 
-echo "🔧 Initializing devcontainer environment..."
-echo "📦 Project name: $REPO_NAME"
+echo "Initializing devcontainer environment..."
+echo "Project name: $REPO_NAME"
 
 # If .env doesn't exist, create it from .env.example
 if [ ! -f "$ENV_FILE" ]; then
-    echo "📝 Creating .env from .env.example..."
-    cp "$SCRIPT_DIR/.env.example" "$ENV_FILE"
+    echo "Creating .env from .env.example..."
+    cp "$HOOKS_DIR/shared/.env.example" "$ENV_FILE"
 fi
 
 # Update or add COMPOSE_PROJECT_NAME in .env
@@ -40,18 +45,18 @@ if grep -q "^COMPOSE_PROJECT_NAME=" "$ENV_FILE"; then
         # Linux
         sed -i "s|^COMPOSE_PROJECT_NAME=.*|COMPOSE_PROJECT_NAME=$REPO_NAME|" "$ENV_FILE"
     fi
-    echo "✅ Updated COMPOSE_PROJECT_NAME=$REPO_NAME in .env"
+    echo "Updated COMPOSE_PROJECT_NAME=$REPO_NAME in .env"
 else
     # Add at the beginning of the file
     echo "COMPOSE_PROJECT_NAME=$REPO_NAME" | cat - "$ENV_FILE" > "$ENV_FILE.tmp" && mv "$ENV_FILE.tmp" "$ENV_FILE"
-    echo "✅ Added COMPOSE_PROJECT_NAME=$REPO_NAME to .env"
+    echo "Added COMPOSE_PROJECT_NAME=$REPO_NAME to .env"
 fi
 
 # ============================================================================
-# Validate and fix devcontainer features
+# Validate devcontainer features
 # ============================================================================
 echo ""
-echo "🔍 Validating devcontainer features..."
+echo "Validating devcontainer features..."
 
 FEATURES_DIR="$DEVCONTAINER_DIR/features"
 ERRORS=0
@@ -67,51 +72,46 @@ for category in "$FEATURES_DIR"/*; do
 
         # Check devcontainer-feature.json
         if [ ! -f "$feature/devcontainer-feature.json" ]; then
-            echo "❌ $feature_name: Missing devcontainer-feature.json"
-            ((ERRORS++))
+            echo "ERROR: $feature_name: Missing devcontainer-feature.json"
+            ERRORS=$((ERRORS + 1))
             continue
         fi
 
         # Check install.sh
         if [ ! -f "$feature/install.sh" ]; then
-            echo "❌ $feature_name: Missing install.sh"
-            ((ERRORS++))
+            echo "ERROR: $feature_name: Missing install.sh"
+            ERRORS=$((ERRORS + 1))
             continue
         fi
 
         # Fix permissions if needed
         if [ ! -x "$feature/install.sh" ]; then
             chmod +x "$feature/install.sh"
-            ((FIXED++))
+            FIXED=$((FIXED + 1))
         fi
     done
 done
 
 if [ $ERRORS -gt 0 ]; then
     echo ""
-    echo "❌ Found $ERRORS critical error(s) in features!"
-    echo "   Please fix missing files before building the devcontainer."
+    echo "ERROR: Found $ERRORS critical error(s) in features!"
+    echo "Please fix missing files before building the devcontainer."
     exit 1
 fi
 
 if [ $FIXED -gt 0 ]; then
-    echo "✅ Fixed permissions on $FIXED install.sh file(s)"
+    echo "Fixed permissions on $FIXED install.sh file(s)"
 fi
 
-echo "✅ All features validated successfully"
+echo "All features validated successfully"
 
 # ============================================================================
-# Clean up stale Docker resources (optional)
+# Clean up existing containers to prevent race conditions during rebuild
 # ============================================================================
-if [ -n "${DEVCONTAINER_CLEANUP:-}" ]; then
-    echo ""
-    echo "🧹 Cleaning up stale devcontainer resources..."
-
-    # Stop and remove containers for this project
-    docker compose -f "$DEVCONTAINER_DIR/docker-compose.yml" down 2>/dev/null || true
-
-    echo "✅ Cleanup complete"
-fi
+echo ""
+echo "Cleaning up existing devcontainer instances..."
+docker compose -f "$DEVCONTAINER_DIR/docker-compose.yml" --project-name "$REPO_NAME" down --remove-orphans --timeout 0 2>/dev/null || true
+echo "Cleanup complete"
 
 echo ""
-echo "✨ Environment initialization complete!"
+echo "Environment initialization complete!"

@@ -1,11 +1,16 @@
 #!/bin/bash
-# Post-create script - runs once after container is created
-# Features are already installed during image build
+# ============================================================================
+# postCreate.sh - Runs ONCE after container is assigned to user
+# ============================================================================
+# This script runs once after the dev container is assigned to a user.
+# Use it for: User-specific setup, environment variables, shell config.
+# Has access to user-specific secrets and permissions.
+# ============================================================================
+
 set -e
 
-# Load utility functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/utils.sh"
+source "$SCRIPT_DIR/../shared/utils.sh"
 
 echo ""
 echo -e "${CYAN}=========================================${NC}"
@@ -92,9 +97,6 @@ export PATH="/home/vscode/.local/bin:$PATH"
 export VCPKG_ROOT="/home/vscode/.cache/vcpkg"
 export PATH="$VCPKG_ROOT:$PATH"
 
-# Pulumi
-export PATH="/home/vscode/.cache/pulumi/bin:$PATH"
-
 # Carbon
 export CARBON_PATH="/home/vscode/.cache/carbon"
 export PATH="$CARBON_PATH/bin:$PATH"
@@ -104,9 +106,6 @@ export BAZEL_USER_ROOT="/home/vscode/.cache/bazel"
 
 # Aliases
 alias super-claude="claude --dangerously-skip-permissions --mcp-config /workspace/.devcontainer/mcp.json"
-alias k="kubectl"
-alias tf="terraform"
-alias g="git"
 
 # Kubernetes auto-completion (if kubectl is installed)
 if command -v kubectl &> /dev/null; then
@@ -120,29 +119,80 @@ fi
 
 # Terraform auto-completion (if terraform is installed)
 if command -v terraform &> /dev/null; then
-    complete -o nospace -C /usr/bin/terraform terraform 2>/dev/null || true
+    complete -o nospace -C "$(which terraform)" terraform 2>/dev/null || true
+fi
+
+# Vault auto-completion (if vault is installed)
+if command -v vault &> /dev/null; then
+    complete -o nospace -C "$(which vault)" vault 2>/dev/null || true
+fi
+
+# Consul auto-completion (if consul is installed)
+if command -v consul &> /dev/null; then
+    complete -o nospace -C "$(which consul)" consul 2>/dev/null || true
+fi
+
+# Nomad auto-completion (if nomad is installed)
+if command -v nomad &> /dev/null; then
+    complete -o nospace -C "$(which nomad)" nomad 2>/dev/null || true
+fi
+
+# Packer auto-completion (if packer is installed)
+if command -v packer &> /dev/null; then
+    complete -o nospace -C "$(which packer)" packer 2>/dev/null || true
+fi
+
+# Docker auto-completion (if docker is installed)
+if command -v docker &> /dev/null; then
+    source <(docker completion zsh) 2>/dev/null || true
+fi
+
+# AWS CLI auto-completion (if aws is installed)
+if command -v aws_completer &> /dev/null; then
+    complete -C aws_completer aws 2>/dev/null || true
+fi
+
+# Google Cloud SDK auto-completion (if gcloud is installed)
+if [ -f "/usr/share/google-cloud-sdk/completion.zsh.inc" ]; then
+    source "/usr/share/google-cloud-sdk/completion.zsh.inc" 2>/dev/null || true
+fi
+
+# Go auto-completion
+if command -v go &> /dev/null; then
+    source <(go env GOROOT)/misc/zsh/go 2>/dev/null || true
+fi
+
+# Cargo/Rust auto-completion (if rustup is installed)
+if command -v rustup &> /dev/null; then
+    source <(rustup completions zsh) 2>/dev/null || true
+    source <(rustup completions zsh cargo) 2>/dev/null || true
+fi
+
+# npm auto-completion (if npm is installed)
+if command -v npm &> /dev/null; then
+    source <(npm completion) 2>/dev/null || true
+fi
+
+# pnpm auto-completion (if pnpm is installed)
+if command -v pnpm &> /dev/null; then
+    source <(pnpm completion zsh) 2>/dev/null || true
+fi
+
+# gh (GitHub CLI) auto-completion (if gh is installed)
+if command -v gh &> /dev/null; then
+    source <(gh completion -s zsh) 2>/dev/null || true
 fi
 ENVEOF
 
 log_success "Environment script created at ~/.kodflow-env.sh"
-
-# The environment is already loaded by ~/.zshrc (configured in Dockerfile)
-# No need to modify shell rc files
 
 # Mark as initialized
 touch /home/vscode/.kodflow-initialized
 
 echo ""
 echo -e "${CYAN}=========================================${NC}"
-echo -e "${CYAN}Setup Complete${NC}"
+echo -e "${CYAN}   postCreate Complete${NC}"
 echo -e "${CYAN}=========================================${NC}"
-echo ""
-log_success "Kodflow DevContainer is ready!"
-echo ""
-echo "💡 Useful commands:"
-echo -e "   ${GREEN}super-claude${NC}  - Claude CLI with MCP config"
-echo -e "   ${GREEN}k${NC}             - kubectl"
-echo -e "   ${GREEN}tf${NC}            - terraform"
 echo ""
 
 exit 0

@@ -2,7 +2,7 @@
   "id": "iac",
   "version": "1.0.0",
   "name": "Infrastructure as Code Tools",
-  "description": "Installs Ansible, Pulumi, and other IaC tools",
+  "description": "Installs Ansible, kubectl, Helm and other IaC tools",
   "options": {},
   "installsAfter": []
 }

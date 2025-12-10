@@ -50,19 +50,24 @@ RUN mkdir -p \
     /home/vscode/.cache/@anthropic \
     /home/vscode/.local/share/@anthropic
 
-# Install Oh My Zsh if not exists, then install Powerlevel10k theme
+# Install Oh My Zsh if not exists, then install Powerlevel10k theme and plugins
 RUN if [ ! -d "$HOME/.oh-my-zsh" ]; then \
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; \
     fi && \
     rm -rf "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
-        "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
+        "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" && \
+    git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions.git \
+        "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions" && \
+    git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git \
+        "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting"
 
 # Copy p10k configuration
-COPY --chown=vscode:vscode kodflow/p10k.sh /home/vscode/.p10k.zsh
+COPY --chown=vscode:vscode hooks/shared/.p10k.zsh /home/vscode/.p10k.zsh
 
 # Configure zshrc
 RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' "$HOME/.zshrc" && \
+    sed -i 's/^plugins=.*/plugins=(git docker aws gcloud kubectl helm terraform npm yarn rust golang zsh-autosuggestions zsh-syntax-highlighting)/' "$HOME/.zshrc" && \
     { \
         echo ''; \
         echo '# To customize prompt, run "p10k configure" or edit ~/.p10k.zsh'; \

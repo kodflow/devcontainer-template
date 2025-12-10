@@ -1,4 +1,3 @@
-
 {
   "name": "${localWorkspaceFolderBasename} Dev Environment",
   "dockerComposeFile": "docker-compose.yml",
@@ -7,12 +6,11 @@
   // Features - additional tools and runtimes
   // Languages are in ./features/languages/, Tools are in ./features/tools/
   "features": {
-    // ========== FIXES ==========
-    // GPG and repository cleanup (MUST run first before any apt operations)
-    "./features/tools/gpg-fix": {},
-
+    // ========== SYSTEM ==========
+    // GPG and repository initialization (MUST run first before any apt operations)
+    "./features/tools/gpg": {},
     // ========== LANGUAGES ==========
-    // Node.js (must be first after gpg-fix - required by claude-cli)
+    // Node.js (must be first after gpg - required by claude-cli)
     "./features/languages/nodejs": {
       "version": "lts/*",
       "installYarn": true,
@@ -29,14 +27,12 @@
     "./features/languages/python": {},
     "./features/languages/ruby": {},
     "./features/languages/rust": {},
-
     // ========== TOOLS ==========
     "./features/tools/bazel": {},
     "./features/tools/claude-cli": {},
     "./features/tools/cloud-cli": {},
     "./features/tools/hashicorp": {},
     "./features/tools/iac": {},
-
     // ========== EXTERNAL ==========
     // Docker support
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
@@ -45,8 +41,6 @@
       "dockerDashComposeVersion": "v2"
     }
   },
-  // Initialize command runs on host BEFORE container build
-  "initializeCommand": "bash ${localWorkspaceFolder}/.devcontainer/kodflow/init.sh",
   // Configure tool-specific properties
   "customizations": {
     "vscode": {
@@ -71,10 +65,20 @@
       ]
     }
   },
-  // Post-create command (runs once after container creation)
-  "postCreateCommand": "/workspace/.devcontainer/kodflow/postCreate.sh",
-  // Post-start command (runs every time container starts)
-  "postStartCommand": "chmod +x /workspace/.devcontainer/kodflow/*.sh 2>/dev/null || true && /workspace/.devcontainer/kodflow/setup-mcp.sh && echo '🚀 DevContainer ready!'",
+  // ========== LIFECYCLE COMMANDS ==========
+  // Order: initializeCommand → onCreateCommand → updateContentCommand → postCreateCommand → postStartCommand → postAttachCommand
+  // Runs on HOST before container build (env setup, validation)
+  "initializeCommand": "bash ${localWorkspaceFolder}/.devcontainer/hooks/lifecycle/initialize.sh",
+  // Runs inside container after first start (initial setup)
+  "onCreateCommand": "chmod +x /workspace/.devcontainer/hooks/lifecycle/*.sh && /workspace/.devcontainer/hooks/lifecycle/onCreate.sh",
+  // Runs for cache/content refresh (prebuilds)
+  "updateContentCommand": "/workspace/.devcontainer/hooks/lifecycle/updateContent.sh",
+  // Runs once after container assigned to user (user-specific setup)
+  "postCreateCommand": "/workspace/.devcontainer/hooks/lifecycle/postCreate.sh",
+  // Runs every time container starts (MCP setup, services)
+  "postStartCommand": "/workspace/.devcontainer/hooks/lifecycle/postStart.sh",
+  // Runs when IDE connects (welcome message)
+  "postAttachCommand": "/workspace/.devcontainer/hooks/lifecycle/postAttach.sh",
   // Forward ports
   "forwardPorts": [],
   // Run as user
