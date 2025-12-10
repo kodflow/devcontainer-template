@@ -83,10 +83,15 @@ RUN mkdir -p .cache .config .local/bin .local/share .zsh_history_dir \
     .config/{aws,gcloud,azure,kube} \
     .claude .config/@anthropic .cache/@anthropic .local/share/@anthropic
 
-# Oh My Zsh + Powerlevel10k
-RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
+# Oh My Zsh + Powerlevel10k (skip if already installed in base image)
+RUN if [ ! -d "$HOME/.oh-my-zsh" ]; then \
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; \
+    fi && \
+    rm -rf ~/.oh-my-zsh/custom/themes/powerlevel10k && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.oh-my-zsh/custom/themes/powerlevel10k && \
+    rm -rf ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions && \
     git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions.git ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions && \
+    rm -rf ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting && \
     git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
 
 RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc && \
