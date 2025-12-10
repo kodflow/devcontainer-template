@@ -9,7 +9,9 @@
 #   Multi-arch:   docker buildx build --platform linux/amd64,linux/arm64 ...
 # =============================================================================
 
+# Global ARGs (must be before first FROM to be available for FROM instructions)
 ARG BASE_IMAGE=mcr.microsoft.com/devcontainers/base:ubuntu-24.04
+ARG VARIANT=base
 
 # =============================================================================
 # STAGE: Base - System dependencies and tools
@@ -387,7 +389,8 @@ ENV GOROOT=/usr/local/go \
 # =============================================================================
 # FINAL STAGE: Select variant
 # =============================================================================
-ARG VARIANT=base
+# Re-declare ARG to use in FROM (value comes from build command or global default)
+ARG VARIANT
 FROM lang-${VARIANT} AS final
 
 LABEL org.opencontainers.image.source="https://github.com/kodflow/.repository" \
