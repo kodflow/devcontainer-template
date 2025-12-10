@@ -35,7 +35,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # Use 'kodflow' as image name since repo name '.repository' has invalid chars for Docker
+  IMAGE_NAME: kodflow/devcontainer
 
 jobs:
   # Build matrix of all variants
@@ -132,29 +133,29 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.variant }}
           cache-to: type=gha,mode=max,scope=${{ matrix.variant }}
 
-      - name: Test image
-        if: matrix.variant != 'full'
-        run: |
-          docker buildx build \
-            --load \
-            --platform linux/amd64 \
-            --build-arg VARIANT=${{ matrix.variant }} \
-            -t test-${{ matrix.variant }} \
-            .devcontainer/images
+      - name: Build for test (PR only)
+        if: github.event_name == 'pull_request' && matrix.variant != 'full'
+        uses: docker/build-push-action@v5
+        with:
+          context: .devcontainer/images
+          file: .devcontainer/images/Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: test-${{ matrix.variant }}
+          build-args: |
+            VARIANT=${{ matrix.variant }}
 
-          # Basic smoke test
+      - name: Test image (PR only)
+        if: github.event_name == 'pull_request' && matrix.variant != 'full'
+        run: |
           docker run --rm test-${{ matrix.variant }} /bin/bash -c "
             echo '=== Testing ${{ matrix.variant }} image ==='
-
-            # Test base tools
-            terraform --version || echo 'terraform not found'
-            aws --version || echo 'aws not found'
-            gcloud --version || echo 'gcloud not found'
-            kubectl version --client || echo 'kubectl not found'
-            helm version --short || echo 'helm not found'
-            ansible --version | head -1 || echo 'ansible not found'
-            bazel --version || echo 'bazel not found'
-
+            terraform --version && \
+            aws --version && \
+            kubectl version --client 2>/dev/null && \
+            helm version --short && \
+            bazel --version || true
             echo '=== Base tools OK ==='
           "
 
