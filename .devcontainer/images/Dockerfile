@@ -104,6 +104,9 @@ RUN if [ ! -d "$HOME/.oh-my-zsh" ]; then \
     rm -rf ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting && \
     git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
 
+# Copy p10k configuration
+COPY --chown=vscode:vscode .p10k.zsh /home/vscode/.p10k.zsh
+
 # Configure zsh
 RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc && \
     sed -i 's/^plugins=.*/plugins=(git docker aws gcloud kubectl helm terraform zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc && \
