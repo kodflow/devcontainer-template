@@ -49,19 +49,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant:
-          - base
-          - go
-          - nodejs
-          - python
-          - rust
-          - ruby
-          - java
-          - php
-          - dart
-          - elixir
-          - cpp
-          - full
+        variant: ${{ github.event_name == 'workflow_dispatch' && inputs.variant != 'all' && fromJSON(format('["{0}"]', inputs.variant)) || fromJSON('["base", "go", "nodejs", "python", "rust", "ruby", "java", "php", "dart", "elixir", "cpp", "full"]') }}
         include:
           - variant: base
             description: "Base image with tools only"

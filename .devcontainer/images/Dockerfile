@@ -87,7 +87,7 @@ WORKDIR /home/vscode
 
 RUN mkdir -p .cache .config .local/bin .local/share .zsh_history_dir \
     .cache/{terraform,helm,aws,bazel,npm,yarn,pnpm,pip,poetry,go,go-build,cargo,rustup,gems,bundle,maven,gradle,composer,pub-cache,flutter,mix,hex,ccache} \
-    .config/{aws,gcloud,azure,kube} \
+    .config/{aws,gcloud,azure} .kube \
     .claude .config/@anthropic .cache/@anthropic .local/share/@anthropic
 
 # Oh My Zsh + Powerlevel10k (skip if already installed in base image)
@@ -107,7 +107,7 @@ RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc 
 
 ENV TF_PLUGIN_CACHE_DIR=/home/vscode/.cache/terraform \
     HELM_CACHE_HOME=/home/vscode/.cache/helm \
-    KUBECONFIG=/home/vscode/.config/kube/config \
+    KUBECONFIG=/home/vscode/.kube/config \
     BAZEL_USER_ROOT=/home/vscode/.cache/bazel \
     CLAUDE_CONFIG_DIR=/home/vscode/.claude \
     PATH=/home/vscode/.local/bin:/home/vscode/.local/share/npm-global/bin:$PATH
@@ -320,8 +320,9 @@ RUN add-apt-repository --yes ppa:ondrej/php && \
 
 # C/C++
 RUN /usr/local/bin/apt-retry-update && \
-    apt-get install -y clang clang-format clang-tidy lldb gdb valgrind ccache && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y clang clang-format clang-tidy lldb gdb valgrind ccache python3-pip && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip3 install --break-system-packages conan
 
 # Erlang/Elixir (Ubuntu 24.04's official packages)
 RUN /usr/local/bin/apt-retry-update && apt-get install -y erlang elixir && \
