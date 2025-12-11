@@ -134,7 +134,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.variant }}
 
       - name: Build for test (PR only)
-        if: github.event_name == 'pull_request' && matrix.variant != 'full'
+        if: github.event_name == 'pull_request' && !contains(fromJSON('["full", "rust", "java", "dart"]'), matrix.variant)
         uses: docker/build-push-action@v5
         with:
           context: .devcontainer/images
@@ -147,7 +147,7 @@ jobs:
             VARIANT=${{ matrix.variant }}
 
       - name: Test image (PR only)
-        if: github.event_name == 'pull_request' && matrix.variant != 'full'
+        if: github.event_name == 'pull_request' && !contains(fromJSON('["full", "rust", "java", "dart"]'), matrix.variant)
         run: |
           docker run --rm test-${{ matrix.variant }} /bin/bash -c "
             echo '=== Testing ${{ matrix.variant }} image ==='
