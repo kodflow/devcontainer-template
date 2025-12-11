@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1.4
+# hadolint global ignore=DL3008
 # =============================================================================
 # Kodflow Base Development Image
 # =============================================================================
@@ -10,6 +11,7 @@
 # =============================================================================
 
 ARG BASE_IMAGE=mcr.microsoft.com/devcontainers/base:ubuntu-24.04
+# hadolint ignore=DL3006
 FROM ${BASE_IMAGE}
 
 ARG TARGETARCH
@@ -26,7 +28,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        curl wget ca-certificates gnupg gnupg2 lsb-release \
+        curl ca-certificates gnupg gnupg2 lsb-release \
         build-essential g++ gcc make cmake pkg-config \
         git jq yq zsh unzip zip tar xz-utils file \
         libssl-dev libpam0g-dev software-properties-common apt-transport-https \
@@ -38,9 +40,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # =============================================================================
 # HashiCorp Tools (Terraform, Vault, Consul, Nomad, Packer)
 # =============================================================================
-RUN wget -qO- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list && \
-    apt-get update && apt-get install -y terraform vault consul nomad packer terraform-ls && \
+    apt-get update && apt-get install -y --no-install-recommends terraform vault consul nomad packer terraform-ls && \
     rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
@@ -54,7 +56,7 @@ RUN ARCH_AWS=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") &
 # Google Cloud SDK
 RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
     echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-sdk.list && \
-    apt-get update && apt-get install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin && \
+    apt-get update && apt-get install -y --no-install-recommends google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin && \
     rm -rf /var/lib/apt/lists/*
 
 # Azure CLI
@@ -72,7 +74,7 @@ RUN ARCH_K8S=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
 # Ansible
 # =============================================================================
 RUN add-apt-repository --yes --update ppa:ansible/ansible && \
-    apt-get install -y ansible && rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends ansible && rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
 # Bazelisk (Bazel version manager)
@@ -110,7 +112,7 @@ COPY --chown=vscode:vscode .p10k.zsh /home/vscode/.p10k.zsh
 # Configure zsh
 RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc && \
     sed -i 's/^plugins=.*/plugins=(git docker aws gcloud kubectl helm terraform zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc && \
-    echo '\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\nexport HISTFILE=~/.zsh_history_dir/.zsh_history\nexport HISTSIZE=50000\nexport SAVEHIST=50000\n[[ -f ~/.kodflow-env.sh ]] && source ~/.kodflow-env.sh' >> ~/.zshrc
+    printf '\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\nexport HISTFILE=~/.zsh_history_dir/.zsh_history\nexport HISTSIZE=50000\nexport SAVEHIST=50000\n[[ -f ~/.kodflow-env.sh ]] && source ~/.kodflow-env.sh\n' >> ~/.zshrc
 
 # =============================================================================
 # Node.js + Claude Code
