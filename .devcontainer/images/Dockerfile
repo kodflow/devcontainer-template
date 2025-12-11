@@ -25,6 +25,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 
+# Create apt retry wrapper (handles transient mirror sync issues)
+RUN echo '#!/bin/bash\nfor i in 1 2 3 4 5; do\n  apt-get update && exit 0\n  echo "apt-get update attempt $i failed, retrying in 30s..."\n  sleep 30\n  rm -rf /var/lib/apt/lists/*\ndone\nexit 1' > /usr/local/bin/apt-retry-update && \
+    chmod +x /usr/local/bin/apt-retry-update
+
 # System packages
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -235,7 +239,7 @@ FROM lang-base AS lang-php
 
 USER root
 RUN add-apt-repository --yes ppa:ondrej/php && \
-    apt-get update && \
+    /usr/local/bin/apt-retry-update && \
     apt-get install -y php php-cli php-fpm php-json php-common php-mysql php-zip php-gd php-mbstring php-curl php-xml php-pear php-bcmath && \
     rm -rf /var/lib/apt/lists/*
 
@@ -269,7 +273,7 @@ FROM lang-base AS lang-elixir
 
 USER root
 # Use Ubuntu 24.04's official packages (Erlang 26 + Elixir 1.15)
-RUN apt-get update && apt-get install -y erlang elixir && \
+RUN /usr/local/bin/apt-retry-update && apt-get install -y erlang elixir && \
     rm -rf /var/lib/apt/lists/*
 
 USER vscode
@@ -286,7 +290,7 @@ ENV PATH=/home/vscode/.cache/mix/escripts:$PATH
 FROM lang-base AS lang-cpp
 
 USER root
-RUN apt-get update && \
+RUN /usr/local/bin/apt-retry-update && \
     apt-get install -y clang clang-format clang-tidy lldb gdb valgrind ccache python3-pip && \
     rm -rf /var/lib/apt/lists/* && \
     pip3 install --break-system-packages conan
@@ -310,17 +314,17 @@ RUN GO_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
 
 # PHP
 RUN add-apt-repository --yes ppa:ondrej/php && \
-    apt-get update && \
+    /usr/local/bin/apt-retry-update && \
     apt-get install -y php php-cli php-fpm php-json php-common php-mysql php-zip php-gd php-mbstring php-curl php-xml php-pear php-bcmath && \
     rm -rf /var/lib/apt/lists/*
 
 # C/C++
-RUN apt-get update && \
+RUN /usr/local/bin/apt-retry-update && \
     apt-get install -y clang clang-format clang-tidy lldb gdb valgrind ccache && \
     rm -rf /var/lib/apt/lists/*
 
 # Erlang/Elixir (Ubuntu 24.04's official packages)
-RUN apt-get update && apt-get install -y erlang elixir && \
+RUN /usr/local/bin/apt-retry-update && apt-get install -y erlang elixir && \
     rm -rf /var/lib/apt/lists/*
 
 USER vscode
