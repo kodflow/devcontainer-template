@@ -254,8 +254,8 @@ ENV PUB_CACHE=/home/vscode/.cache/pub-cache \
     FLUTTER_ROOT=/home/vscode/.cache/flutter
 
 RUN git clone --depth=1 https://github.com/flutter/flutter.git -b stable $FLUTTER_ROOT && \
-    $FLUTTER_ROOT/bin/flutter precache && \
-    $FLUTTER_ROOT/bin/flutter config --no-analytics
+    $FLUTTER_ROOT/bin/flutter --disable-analytics && \
+    $FLUTTER_ROOT/bin/flutter precache
 
 ENV PATH=/home/vscode/.cache/flutter/bin:/home/vscode/.cache/pub-cache/bin:$PATH
 
@@ -362,8 +362,8 @@ RUN curl -fsSL https://getcomposer.org/installer | php -- --install-dir=/home/vs
 # Flutter
 ENV FLUTTER_ROOT=/home/vscode/.cache/flutter
 RUN git clone --depth=1 https://github.com/flutter/flutter.git -b stable $FLUTTER_ROOT && \
-    $FLUTTER_ROOT/bin/flutter precache --no-analytics && \
-    $FLUTTER_ROOT/bin/flutter config --no-analytics
+    $FLUTTER_ROOT/bin/flutter --disable-analytics && \
+    $FLUTTER_ROOT/bin/flutter precache
 
 # Elixir tools
 ENV MIX_HOME=/home/vscode/.cache/mix \
