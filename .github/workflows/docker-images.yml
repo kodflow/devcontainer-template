@@ -106,6 +106,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Free up disk space (for large images)
+        if: contains(fromJSON('["full", "rust", "java", "dart"]'), matrix.variant)
+        run: |
+          echo "Cleaning up disk space..."
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          docker system prune -af --volumes
+          df -h
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
