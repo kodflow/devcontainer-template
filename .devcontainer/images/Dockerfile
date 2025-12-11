@@ -131,7 +131,7 @@ ENV GOROOT=/usr/local/go \
 # STAGE: Node.js
 # =============================================================================
 FROM lang-base AS lang-nodejs
-ARG NODE_VERSION=lts
+ARG NODE_VERSION=lts/*
 
 USER vscode
 ENV NVM_DIR=/home/vscode/.cache/nvm \
@@ -142,9 +142,9 @@ ENV NVM_DIR=/home/vscode/.cache/nvm \
 RUN mkdir -p $NVM_DIR ~/.local/share/npm-global && \
     curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash && \
     . "$NVM_DIR/nvm.sh" && \
-    nvm install ${NODE_VERSION} && \
-    nvm use ${NODE_VERSION} && \
-    nvm alias default ${NODE_VERSION} && \
+    nvm install "${NODE_VERSION}" && \
+    nvm use "${NODE_VERSION}" && \
+    nvm alias default "${NODE_VERSION}" && \
     npm install -g yarn pnpm npm@latest && \
     npm config set prefix ~/.local/share/npm-global && \
     # Create symlinks in .local/bin for node binaries
@@ -171,7 +171,8 @@ RUN curl -fsSL https://pyenv.run | bash && \
     echo 'eval "$(pyenv init -)"' >> ~/.bashrc && \
     $PYENV_ROOT/bin/pyenv install ${PYTHON_VERSION} && \
     $PYENV_ROOT/bin/pyenv global ${PYTHON_VERSION} && \
-    $PYENV_ROOT/versions/${PYTHON_VERSION}/bin/pip install --upgrade pip poetry pipenv
+    PYTHON_FULL_VERSION=$(ls $PYENV_ROOT/versions | grep "^${PYTHON_VERSION}" | head -1) && \
+    $PYENV_ROOT/versions/${PYTHON_FULL_VERSION}/bin/pip install --upgrade pip poetry pipenv
 
 ENV PATH=/home/vscode/.cache/pyenv/shims:/home/vscode/.cache/pyenv/bin:$PATH
 
@@ -195,7 +196,7 @@ ENV PATH=/home/vscode/.cache/cargo/bin:$PATH
 # STAGE: Ruby
 # =============================================================================
 FROM lang-base AS lang-ruby
-ARG RUBY_VERSION=3.3
+ARG RUBY_VERSION=3.3.10
 
 USER vscode
 ENV RBENV_ROOT=/home/vscode/.cache/rbenv \
@@ -264,9 +265,8 @@ ENV PATH=/home/vscode/.cache/flutter/bin:/home/vscode/.cache/pub-cache/bin:$PATH
 FROM lang-base AS lang-elixir
 
 USER root
-RUN wget -qO- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | gpg --dearmor -o /usr/share/keyrings/erlang.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/erlang.gpg] https://packages.erlang-solutions.com/ubuntu $(lsb_release -cs) contrib" > /etc/apt/sources.list.d/erlang.list && \
-    apt-get update && apt-get install -y erlang elixir && \
+# Use Ubuntu 24.04's official packages (Erlang 26 + Elixir 1.15)
+RUN apt-get update && apt-get install -y erlang elixir && \
     rm -rf /var/lib/apt/lists/*
 
 USER vscode
@@ -316,10 +316,8 @@ RUN apt-get update && \
     apt-get install -y clang clang-format clang-tidy lldb gdb valgrind ccache && \
     rm -rf /var/lib/apt/lists/*
 
-# Erlang/Elixir
-RUN wget -qO- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | gpg --dearmor -o /usr/share/keyrings/erlang.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/erlang.gpg] https://packages.erlang-solutions.com/ubuntu $(lsb_release -cs) contrib" > /etc/apt/sources.list.d/erlang.list && \
-    apt-get update && apt-get install -y erlang elixir && \
+# Erlang/Elixir (Ubuntu 24.04's official packages)
+RUN apt-get update && apt-get install -y erlang elixir && \
     rm -rf /var/lib/apt/lists/*
 
 USER vscode
@@ -351,7 +349,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no
 ENV RBENV_ROOT=/home/vscode/.cache/rbenv
 RUN git clone --depth=1 https://github.com/rbenv/rbenv.git $RBENV_ROOT && \
     git clone --depth=1 https://github.com/rbenv/ruby-build.git $RBENV_ROOT/plugins/ruby-build && \
-    $RBENV_ROOT/bin/rbenv install 3.3 && $RBENV_ROOT/bin/rbenv global 3.3
+    $RBENV_ROOT/bin/rbenv install 3.3.10 && $RBENV_ROOT/bin/rbenv global 3.3.10
 
 # Java (via SDKMAN)
 ENV SDKMAN_DIR=/home/vscode/.cache/sdkman
