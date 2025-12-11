@@ -284,8 +284,9 @@ FROM lang-base AS lang-cpp
 
 USER root
 RUN apt-get update && \
-    apt-get install -y clang clang-format clang-tidy lldb gdb valgrind ccache conan && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y clang clang-format clang-tidy lldb gdb valgrind ccache python3-pip && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip3 install --break-system-packages conan
 
 USER vscode
 ENV CCACHE_DIR=/home/vscode/.cache/ccache \
