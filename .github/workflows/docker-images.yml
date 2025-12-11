@@ -32,6 +32,12 @@ on:
           - elixir
           - cpp
           - full
+          - basic
+
+# Cancel in-progress runs when a new run is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
@@ -49,10 +55,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: ${{ github.event_name == 'workflow_dispatch' && inputs.variant != 'all' && fromJSON(format('["{0}"]', inputs.variant)) || fromJSON('["base", "go", "nodejs", "python", "rust", "ruby", "java", "php", "dart", "elixir", "cpp", "full"]') }}
+        variant: ${{ github.event_name == 'workflow_dispatch' && inputs.variant != 'all' && fromJSON(format('["{0}"]', inputs.variant)) || fromJSON('["base", "basic", "go", "nodejs", "python", "rust", "ruby", "java", "php", "dart", "elixir", "cpp", "full"]') }}
         include:
           - variant: base
-            description: "Base image with tools only"
+            description: "Base image with tools only (no languages)"
+          - variant: basic
+            description: "Basic image with tools + Node.js (for Claude Code)"
           - variant: go
             description: "Go development environment"
           - variant: nodejs

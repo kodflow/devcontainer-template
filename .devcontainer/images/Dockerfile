@@ -115,6 +115,30 @@ ENV TF_PLUGIN_CACHE_DIR=/home/vscode/.cache/terraform \
 WORKDIR /workspace
 
 # =============================================================================
+# STAGE: Basic (tools + Node.js for Claude Code)
+# =============================================================================
+FROM lang-base AS lang-basic
+ARG NODE_VERSION=lts/*
+
+USER vscode
+ENV NVM_DIR=/home/vscode/.cache/nvm \
+    npm_config_cache=/home/vscode/.cache/npm
+
+RUN mkdir -p $NVM_DIR ~/.local/share/npm-global && \
+    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash && \
+    . "$NVM_DIR/nvm.sh" && \
+    nvm install "${NODE_VERSION}" && \
+    nvm use "${NODE_VERSION}" && \
+    nvm alias default "${NODE_VERSION}" && \
+    npm install -g npm@latest && \
+    npm config set prefix ~/.local/share/npm-global && \
+    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/node" ~/.local/bin/node && \
+    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npm" ~/.local/bin/npm && \
+    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npx" ~/.local/bin/npx
+
+ENV PATH=/home/vscode/.local/share/npm-global/bin:/home/vscode/.local/bin:$PATH
+
+# =============================================================================
 # STAGE: Go
 # =============================================================================
 FROM lang-base AS lang-go
