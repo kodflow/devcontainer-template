@@ -1,4 +1,4 @@
-name: Build Docker Images
+name: Build Docker Image
 
 on:
   push:
@@ -12,27 +12,6 @@ on:
       - '.devcontainer/images/**'
       - '.github/workflows/docker-images.yml'
   workflow_dispatch:
-    inputs:
-      variant:
-        description: 'Image variant to build (or "all")'
-        required: false
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - base
-          - go
-          - nodejs
-          - python
-          - rust
-          - ruby
-          - java
-          - php
-          - dart
-          - elixir
-          - cpp
-          - full
-          - basic
 
 # Cancel in-progress runs when a new run is triggered
 concurrency:
@@ -41,48 +20,14 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  # Use 'kodflow' as image name since repo name '.repository' has invalid chars for Docker
   IMAGE_NAME: kodflow/devcontainer
 
 jobs:
-  # Build matrix of all variants
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: ${{ github.event_name == 'workflow_dispatch' && inputs.variant != 'all' && fromJSON(format('["{0}"]', inputs.variant)) || fromJSON('["base", "basic", "go", "nodejs", "python", "rust", "ruby", "java", "php", "dart", "elixir", "cpp", "full"]') }}
-        include:
-          - variant: base
-            description: "Base image with tools only (no languages)"
-          - variant: basic
-            description: "Basic image with tools + Node.js (for Claude Code)"
-          - variant: go
-            description: "Go development environment"
-          - variant: nodejs
-            description: "Node.js development environment"
-          - variant: python
-            description: "Python development environment"
-          - variant: rust
-            description: "Rust development environment"
-          - variant: ruby
-            description: "Ruby development environment"
-          - variant: java
-            description: "Java development environment"
-          - variant: php
-            description: "PHP development environment"
-          - variant: dart
-            description: "Dart/Flutter development environment"
-          - variant: elixir
-            description: "Elixir development environment"
-          - variant: cpp
-            description: "C/C++ development environment"
-          - variant: full
-            description: "Full environment with all languages"
 
     steps:
       - name: Checkout repository
@@ -102,26 +47,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Free up disk space (for large images)
-        if: contains(fromJSON('["full", "rust", "java", "dart"]'), matrix.variant)
-        run: |
-          echo "Cleaning up disk space..."
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          docker system prune -af --volumes
-          df -h
-
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ matrix.variant }}
-            type=raw,value=${{ matrix.variant }}-{{sha}}
-            type=raw,value=${{ matrix.variant }}-latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=
+            type=ref,event=pr
 
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -131,17 +65,13 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
-          labels: |
-            ${{ steps.meta.outputs.labels }}
-            org.opencontainers.image.description=${{ matrix.description }}
-          build-args: |
-            VARIANT=${{ matrix.variant }}
-            BUILDKIT_INLINE_CACHE=1
-          cache-from: type=gha,scope=${{ matrix.variant }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.variant }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: BUILDKIT_INLINE_CACHE=1
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Build for test (PR only)
-        if: github.event_name == 'pull_request' && !contains(fromJSON('["full", "rust", "java", "dart"]'), matrix.variant)
+        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v5
         with:
           context: .devcontainer/images
@@ -149,34 +79,19 @@ jobs:
           platforms: linux/amd64
           load: true
           push: false
-          tags: test-${{ matrix.variant }}
-          build-args: |
-            VARIANT=${{ matrix.variant }}
+          tags: test-image
 
       - name: Test image (PR only)
-        if: github.event_name == 'pull_request' && !contains(fromJSON('["full", "rust", "java", "dart"]'), matrix.variant)
+        if: github.event_name == 'pull_request'
         run: |
-          docker run --rm test-${{ matrix.variant }} /bin/bash -c "
-            echo '=== Testing ${{ matrix.variant }} image ==='
+          docker run --rm test-image /bin/bash -c "
+            echo '=== Testing Kodflow Base Image ==='
             terraform --version && \
             aws --version && \
             kubectl version --client 2>/dev/null && \
             helm version --short && \
-            bazel --version || true
-            echo '=== Base tools OK ==='
+            bazel --version && \
+            node --version && \
+            npm --version
+            echo '=== All tools OK ==='
           "
-
-  # Summary job
-  summary:
-    needs: build
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Check build results
-        run: |
-          if [ "${{ needs.build.result }}" == "success" ]; then
-            echo "All images built successfully!"
-          else
-            echo "Some images failed to build"
-            exit 1
-          fi
