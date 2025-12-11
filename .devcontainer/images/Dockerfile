@@ -110,7 +110,7 @@ RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc 
     echo '\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\nexport HISTFILE=~/.zsh_history_dir/.zsh_history\nexport HISTSIZE=50000\nexport SAVEHIST=50000\n[[ -f ~/.kodflow-env.sh ]] && source ~/.kodflow-env.sh' >> ~/.zshrc
 
 # =============================================================================
-# Node.js (required for Claude Code)
+# Node.js + Claude Code
 # =============================================================================
 ENV NVM_DIR=/home/vscode/.cache/nvm \
     npm_config_cache=/home/vscode/.cache/npm
@@ -121,11 +121,12 @@ RUN mkdir -p $NVM_DIR ~/.local/share/npm-global && \
     nvm install lts/* && \
     nvm use lts/* && \
     nvm alias default lts/* && \
-    npm install -g npm@latest && \
+    npm install -g npm@latest @anthropic-ai/claude-code && \
     npm config set prefix ~/.local/share/npm-global && \
     ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/node" ~/.local/bin/node && \
     ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npm" ~/.local/bin/npm && \
-    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npx" ~/.local/bin/npx
+    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npx" ~/.local/bin/npx && \
+    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/claude" ~/.local/bin/claude
 
 # =============================================================================
 # Environment Variables
@@ -143,5 +144,5 @@ WORKDIR /workspace
 # Labels
 # =============================================================================
 LABEL org.opencontainers.image.source="https://github.com/kodflow/.repository" \
-      org.opencontainers.image.description="Kodflow Base Development Image - Tools + Node.js for Claude Code" \
+      org.opencontainers.image.description="Kodflow Base Development Image - All tools + Claude Code included" \
       org.opencontainers.image.licenses="MIT"

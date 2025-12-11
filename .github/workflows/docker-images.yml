@@ -92,6 +92,7 @@ jobs:
             helm version --short && \
             bazel --version && \
             node --version && \
-            npm --version
+            npm --version && \
+            claude --version
             echo '=== All tools OK ==='
           "
