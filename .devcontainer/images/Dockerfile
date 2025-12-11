@@ -56,8 +56,11 @@ RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dea
     apt-get update && apt-get install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin && \
     rm -rf /var/lib/apt/lists/*
 
-# Azure CLI
-RUN curl -fsSL https://aka.ms/InstallAzureCLIDeb | bash
+# Azure CLI (with retry logic for transient mirror sync issues)
+RUN for i in 1 2 3 4 5; do \
+        curl -fsSL https://aka.ms/InstallAzureCLIDeb | bash && break || \
+        (echo "Attempt $i failed, retrying in 30s..." && sleep 30); \
+    done
 
 # kubectl + Helm
 RUN ARCH_K8S=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
