@@ -1,8 +1,0 @@
-{
-  "id": "claude-cli",
-  "version": "1.0.0",
-  "name": "Claude CLI",
-  "description": "Installs Claude Code CLI for AI-powered development assistance",
-  "options": {},
-  "installsAfter": ["./features/languages/nodejs"]
-}

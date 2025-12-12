@@ -1,7 +1,0 @@
-{
-  "id": "gpg",
-  "version": "1.0.0",
-  "name": "GPG",
-  "description": "Initializes GPG and fixes repository issues before external features run",
-  "options": {}
-}
