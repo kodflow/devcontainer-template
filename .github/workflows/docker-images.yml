@@ -86,7 +86,7 @@ jobs:
         run: |
           docker run --rm test-image /bin/bash -c "
             echo '=== Testing Kodflow Base Image ==='
-            terraform --version && \
+            TF_PLUGIN_CACHE_DIR= terraform --version && \
             aws --version && \
             kubectl version --client 2>/dev/null && \
             helm version --short && \
