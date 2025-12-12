@@ -1,8 +1,0 @@
-{
-  "id": "hashicorp",
-  "version": "1.0.0",
-  "name": "HashiCorp Tools Suite",
-  "description": "Installs Terraform, Packer, Vault, and other HashiCorp tools",
-  "options": {},
-  "installsAfter": []
-}
