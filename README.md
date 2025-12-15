@@ -31,7 +31,7 @@ Ce template est **volontairement minimaliste**. Il ne contient pas :
 
 ```bash
 # Utiliser ce repository comme template
-gh repo create mon-projet --template .repository --public
+gh repo create mon-projet --template kodflow/devcontainer-template --public
 cd mon-projet
 code .
 ```
@@ -40,7 +40,7 @@ code .
 
 ```bash
 # Copier le template
-cp -r .repository mon-projet
+cp -r devcontainer-template mon-projet
 cd mon-projet
 rm -rf .git
 git init
@@ -161,31 +161,34 @@ docker compose -f .devcontainer/docker-compose.yml logs -f devcontainer
 
 Le template inclut une configuration MCP pour faciliter l'intégration avec des outils d'IA.
 
-### Script de configuration
+### Configuration automatique
 
-Le script `.devcontainer/setup-mcp.sh` est exécuté automatiquement au démarrage du container et permet de :
+La configuration MCP est gérée automatiquement par le hook `postStart.sh` qui s'exécute à chaque démarrage du container :
 
-- Configurer les serveurs MCP
-- Initialiser les variables d'environnement nécessaires
-- Préparer l'environnement pour l'utilisation des outils MCP
+- Génère `mcp.json` à partir du template `.devcontainer/hooks/shared/mcp.json.tpl`
+- Récupère les secrets depuis 1Password (si configuré) ou les variables d'environnement
+- Configure Claude CLI avec les paramètres MCP
 
 ### Variables d'environnement
 
-Copiez `.devcontainer/.env.example` vers `.devcontainer/.env` et configurez vos variables :
+Copiez `.devcontainer/hooks/shared/.env.example` vers `.devcontainer/.env` et configurez vos variables :
 
 ```bash
-cp .devcontainer/.env.example .devcontainer/.env
+cp .devcontainer/hooks/shared/.env.example .devcontainer/.env
 ```
 
 Éditez `.devcontainer/.env` selon vos besoins pour ajouter vos clés API et configurations.
 
-### Script d'initialisation
+### Hooks de lifecycle
 
-Le script `.devcontainer/init.sh` s'exécute automatiquement à la création du container via le `postCreateCommand` et permet de :
+Les scripts dans `.devcontainer/hooks/lifecycle/` s'exécutent automatiquement aux différentes étapes du cycle de vie du container :
 
-- Effectuer des configurations post-création
-- Installer des dépendances supplémentaires
-- Personnaliser l'environnement de développement
+- `initialize.sh` - Avant la création du container (sur l'hôte)
+- `onCreate.sh` - À la création du container
+- `updateContent.sh` - Après la mise à jour du contenu
+- `postCreate.sh` - Après la création (configuration initiale)
+- `postStart.sh` - À chaque démarrage (configuration MCP)
+- `postAttach.sh` - À chaque attachement au container
 
 ## Dépannage
 

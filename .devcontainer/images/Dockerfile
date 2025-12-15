@@ -7,7 +7,7 @@
 # Languages are added via devcontainer features at runtime
 #
 # Build:
-#   docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/kodflow/devcontainer:latest .
+#   docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/kodflow/devcontainer-template:latest .
 # =============================================================================
 
 ARG BASE_IMAGE=mcr.microsoft.com/devcontainers/base:ubuntu-24.04
@@ -162,6 +162,6 @@ WORKDIR /workspace
 # =============================================================================
 # Labels
 # =============================================================================
-LABEL org.opencontainers.image.source="https://github.com/kodflow/.repository" \
+LABEL org.opencontainers.image.source="https://github.com/kodflow/devcontainer-template" \
       org.opencontainers.image.description="Kodflow Base Development Image - All tools + Claude Code included" \
       org.opencontainers.image.licenses="MIT"
