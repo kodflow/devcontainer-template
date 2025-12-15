@@ -65,10 +65,15 @@ RUN curl -fsSL https://aka.ms/InstallAzureCLIDeb | bash
 # =============================================================================
 # Kubernetes Tools (kubectl, Helm)
 # =============================================================================
+ARG KUBECTL_VERSION=1.32.0
+ARG HELM_VERSION=3.16.3
+
 RUN ARCH_K8S=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
-    curl -fsSL "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH_K8S}/kubectl" -o /usr/local/bin/kubectl && \
+    curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${ARCH_K8S}/kubectl" -o /usr/local/bin/kubectl && \
     chmod +x /usr/local/bin/kubectl && \
-    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${ARCH_K8S}.tar.gz" | tar xz -C /tmp && \
+    mv /tmp/linux-${ARCH_K8S}/helm /usr/local/bin/helm && \
+    rm -rf /tmp/linux-${ARCH_K8S}
 
 # =============================================================================
 # Ansible
@@ -132,6 +137,15 @@ RUN mkdir -p $NVM_DIR ~/.local/share/npm-global && \
     ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npm" ~/.local/bin/npm && \
     ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npx" ~/.local/bin/npx && \
     ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/claude" ~/.local/bin/claude
+
+# =============================================================================
+# Status Line (Claude Code status bar)
+# https://github.com/kodflow/status-line
+# =============================================================================
+ARG STATUS_LINE_VERSION=0.3.3
+RUN ARCH_SL=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+    curl -fsSL "https://github.com/kodflow/status-line/releases/download/v${STATUS_LINE_VERSION}/status-line-linux-${ARCH_SL}" -o ~/.local/bin/status-line && \
+    chmod +x ~/.local/bin/status-line
 
 # =============================================================================
 # Environment Variables
