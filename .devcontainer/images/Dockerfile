@@ -136,7 +136,7 @@ COPY --chown=vscode:vscode .p10k.zsh /home/vscode/.p10k.zsh
 
 # Configure zsh
 RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc && \
-    sed -i 's/^plugins=.*/plugins=(git docker gh aws gcloud kubectl helm terraform zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc && \
+    sed -i 's/^plugins=.*/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc && \
     printf '\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\nexport HISTFILE=~/.zsh_history_dir/.zsh_history\nexport HISTSIZE=50000\nexport SAVEHIST=50000\n[[ -f ~/.kodflow-env.sh ]] && source ~/.kodflow-env.sh\n' >> ~/.zshrc
 
 # =============================================================================
