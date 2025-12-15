@@ -18,6 +18,8 @@ Thumbs.db
 **/.env
 mcp.json
 **/mcp.json
+.mcp.json
+**/.mcp.json
 
 # ============================================
 # Language-specific modules & dependencies

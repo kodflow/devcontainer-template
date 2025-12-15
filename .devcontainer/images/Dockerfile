@@ -34,7 +34,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libssl-dev libpam0g-dev software-properties-common apt-transport-https \
         libffi-dev libbz2-dev libreadline-dev libsqlite3-dev \
         libncurses5-dev libncursesw5-dev liblzma-dev zlib1g-dev \
-        libgdbm-dev libyaml-dev && \
+        libgdbm-dev libyaml-dev \
+        taskwarrior && \
     apt-get clean
 
 # =============================================================================

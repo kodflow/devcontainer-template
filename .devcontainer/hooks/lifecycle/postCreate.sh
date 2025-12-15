@@ -107,7 +107,7 @@ export BAZEL_USER_ROOT="/home/vscode/.cache/bazel"
 # Aliases
 # super-claude: runs claude with MCP config if available, otherwise without
 super-claude() {
-    local mcp_config="/workspace/.claude/mcp.json"
+    local mcp_config="/workspace/.mcp.json"
     if [ -f "$mcp_config" ] && jq empty "$mcp_config" 2>/dev/null; then
         claude --dangerously-skip-permissions --mcp-config "$mcp_config" "$@"
     else
