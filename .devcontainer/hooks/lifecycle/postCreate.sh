@@ -105,7 +105,16 @@ export PATH="$CARBON_PATH/bin:$PATH"
 export BAZEL_USER_ROOT="/home/vscode/.cache/bazel"
 
 # Aliases
-alias super-claude="claude --dangerously-skip-permissions --mcp-config /workspace/.devcontainer/mcp.json"
+# super-claude: runs claude with MCP config if available, otherwise without
+super-claude() {
+    local mcp_config="/workspace/.claude/mcp.json"
+    if [ -f "$mcp_config" ] && jq empty "$mcp_config" 2>/dev/null; then
+        claude --dangerously-skip-permissions --mcp-config "$mcp_config" "$@"
+    else
+        echo "⚠️  MCP config not found or invalid, starting without MCP..."
+        claude --dangerously-skip-permissions "$@"
+    fi
+}
 
 # Kubernetes auto-completion (if kubectl is installed)
 if command -v kubectl &> /dev/null; then
