@@ -67,23 +67,38 @@ if [ ! -f "$TARGET/CLAUDE.md" ]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. Installer statusline (binaire)
+# 7. Installer status-line (binaire officiel)
 # ─────────────────────────────────────────────────────────────────────────────
-echo "→ Installing statusline..."
+echo "→ Installing status-line..."
 mkdir -p "$HOME/.local/bin"
 
-cat > "$HOME/.local/bin/kodflow-status" << 'EOF'
-#!/bin/bash
-# Git: branch + changes
-if git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
-    B=$(git branch --show-current 2>/dev/null || git rev-parse --short HEAD)
-    C=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-    [ "$C" -gt 0 ] && echo "$B*$C" || echo "$B"
-fi
-EOF
+# Détecter OS
+case "$(uname -s)" in
+    Linux*)  STATUS_OS="linux" ;;
+    Darwin*) STATUS_OS="darwin" ;;
+    MINGW*|MSYS*|CYGWIN*) STATUS_OS="windows" ;;
+    *)       STATUS_OS="linux" ;;
+esac
 
-chmod +x "$HOME/.local/bin/kodflow-status"
-echo "  ✓ kodflow-status"
+# Détecter architecture
+case "$(uname -m)" in
+    x86_64|amd64) STATUS_ARCH="amd64" ;;
+    aarch64|arm64) STATUS_ARCH="arm64" ;;
+    *)            STATUS_ARCH="amd64" ;;
+esac
+
+# Extension pour Windows
+STATUS_EXT=""
+[ "$STATUS_OS" = "windows" ] && STATUS_EXT=".exe"
+
+# Télécharger depuis les releases officielles
+STATUS_URL="https://github.com/kodflow/status-line/releases/latest/download/status-line-${STATUS_OS}-${STATUS_ARCH}${STATUS_EXT}"
+if curl -sL "$STATUS_URL" -o "$HOME/.local/bin/status-line${STATUS_EXT}" 2>/dev/null; then
+    chmod +x "$HOME/.local/bin/status-line${STATUS_EXT}"
+    echo "  ✓ status-line (${STATUS_OS}/${STATUS_ARCH})"
+else
+    echo "  ⚠ status-line download failed (optional)"
+fi
 
 # Ajouter au PATH si nécessaire
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
