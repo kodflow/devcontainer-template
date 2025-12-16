@@ -8,6 +8,7 @@ $ARGUMENTS
 
 Installe les outils de développement utilisés par les hooks Claude Code.
 Les hooks fonctionnent même sans ces outils (silencieusement ignorés), mais avec eux tu bénéficies de :
+
 - **Format automatique** à chaque édition
 - **Tri des imports** automatique
 - **Linting** avec auto-fix

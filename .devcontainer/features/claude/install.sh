@@ -87,7 +87,9 @@ echo "  ✓ kodflow-status"
 
 # Ajouter au PATH si nécessaire
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    # shellcheck disable=SC2016 # $HOME doit être résolu à l'exécution du shell, pas maintenant
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc" 2>/dev/null || true
+    # shellcheck disable=SC2016 # $HOME doit être résolu à l'exécution du shell, pas maintenant
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc" 2>/dev/null || true
 fi
 
