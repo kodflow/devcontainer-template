@@ -19,7 +19,7 @@ log_info "postStart: Container starting..."
 # ============================================================================
 VAULT_ID="ypahjj334ixtiyjkytu5hij2im"
 MCP_TPL="/workspace/.devcontainer/hooks/shared/mcp.json.tpl"
-MCP_OUTPUT="/workspace/.claude/mcp.json"
+MCP_OUTPUT="/workspace/.mcp.json"
 
 # Initialize tokens
 CODACY_TOKEN=""
@@ -50,13 +50,20 @@ fi
 
 # Generate mcp.json from template
 if [ -f "$MCP_TPL" ]; then
-    log_info "Generating .claude/mcp.json from template..."
-    mkdir -p /workspace/.claude
+    log_info "Generating .mcp.json from template..."
     sed "s|{{ with secret \"secret/mcp/codacy\" }}{{ .Data.data.token }}{{ end }}|${CODACY_TOKEN}|g" "$MCP_TPL" | \
         sed "s|{{ with secret \"secret/mcp/github\" }}{{ .Data.data.token }}{{ end }}|${GITHUB_TOKEN}|g" \
         > "$MCP_OUTPUT"
     log_success "mcp.json generated successfully"
 fi
+
+# ============================================================================
+# Git Credential Cleanup (remove macOS-specific helpers)
+# ============================================================================
+log_info "Cleaning git credential helpers..."
+git config --global --unset-all credential.https://github.com.helper 2>/dev/null || true
+git config --global --unset-all credential.https://gist.github.com.helper 2>/dev/null || true
+log_success "Git credential helpers cleaned"
 
 # ============================================================================
 # Claude CLI Configuration

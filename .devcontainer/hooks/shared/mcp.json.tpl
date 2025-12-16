@@ -19,6 +19,14 @@
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "{{ with secret "secret/mcp/github" }}{{ .Data.data.token }}{{ end }}"
       }
+    },
+    "taskwarrior": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-server-taskwarrior"
+      ],
+      "env": {}
     }
   }
 }

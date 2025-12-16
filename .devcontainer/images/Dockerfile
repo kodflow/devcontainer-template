@@ -34,7 +34,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libssl-dev libpam0g-dev software-properties-common apt-transport-https \
         libffi-dev libbz2-dev libreadline-dev libsqlite3-dev \
         libncurses5-dev libncursesw5-dev liblzma-dev zlib1g-dev \
-        libgdbm-dev libyaml-dev && \
+        libgdbm-dev libyaml-dev \
+        taskwarrior && \
     apt-get clean
 
 # =============================================================================
@@ -61,6 +62,13 @@ RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dea
 
 # Azure CLI
 RUN curl -fsSL https://aka.ms/InstallAzureCLIDeb | bash
+
+# GitHub CLI (gh)
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list && \
+    apt-get update && apt-get install -y --no-install-recommends gh && \
+    rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
 # Kubernetes Tools (kubectl, Helm)
@@ -128,7 +136,7 @@ COPY --chown=vscode:vscode .p10k.zsh /home/vscode/.p10k.zsh
 
 # Configure zsh
 RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc && \
-    sed -i 's/^plugins=.*/plugins=(git docker aws gcloud kubectl helm terraform zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc && \
+    sed -i 's/^plugins=.*/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc && \
     printf '\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\nexport HISTFILE=~/.zsh_history_dir/.zsh_history\nexport HISTSIZE=50000\nexport SAVEHIST=50000\n[[ -f ~/.kodflow-env.sh ]] && source ~/.kodflow-env.sh\n' >> ~/.zshrc
 
 # =============================================================================
