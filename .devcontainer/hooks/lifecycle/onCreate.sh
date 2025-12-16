@@ -25,4 +25,27 @@ for dir in "${CACHE_DIRS[@]}"; do
     mkdir_safe "$dir"
 done
 
+# Inject Claude configuration from devcontainer if not present in project
+CLAUDE_FEATURE_DIR="/workspace/.devcontainer/features/claude"
+
+if [ -d "$CLAUDE_FEATURE_DIR/.claude" ]; then
+    if [ ! -d "/workspace/.claude" ]; then
+        log_info "Injecting Claude configuration from devcontainer..."
+        cp -r "$CLAUDE_FEATURE_DIR/.claude" /workspace/.claude
+        log_success "Claude configuration injected to /workspace/.claude"
+    else
+        log_info "Project has its own .claude/, skipping injection"
+    fi
+fi
+
+if [ -f "$CLAUDE_FEATURE_DIR/CLAUDE.md" ]; then
+    if [ ! -f "/workspace/CLAUDE.md" ]; then
+        log_info "Injecting CLAUDE.md from devcontainer..."
+        cp "$CLAUDE_FEATURE_DIR/CLAUDE.md" /workspace/CLAUDE.md
+        log_success "CLAUDE.md injected to /workspace/"
+    else
+        log_info "Project has its own CLAUDE.md, skipping injection"
+    fi
+fi
+
 log_success "onCreate: Initial container setup complete"
