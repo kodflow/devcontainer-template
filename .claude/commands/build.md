@@ -19,6 +19,7 @@ $ARGUMENTS
 | `--context` | Génère CLAUDE.md + update versions |
 | `--project <desc>` | Crée projet Taskwarrior |
 | `--for <project> --task <desc>` | Ajoute tâche |
+| `--for <project> --task <id>` | Met à jour tâche |
 | `--list` | Liste projets |
 | `--for <project> --list` | Liste tâches |
 
@@ -28,8 +29,8 @@ $ARGUMENTS
 
 ### Questions
 
-1. **Langage** → Voir `.devcontainer/features/languages/`
-2. **Architecture** → Voir `.devcontainer/features/architectures/`
+1. **Langage** → Options dans `.devcontainer/features/languages/`
+2. **Architecture** → Options dans `.devcontainer/features/architectures/`
 3. **Plateformes** (multiSelect) → Linux, macOS, Windows, iOS, Android, Web, Embedded
 4. **CPU** (multiSelect) → amd64, arm64, arm, riscv64, wasm32
 
@@ -47,9 +48,9 @@ $ARGUMENTS
 - **Langages** : `.devcontainer/features/languages/<lang>/RULES.md`
 - **Architectures** : `.devcontainer/features/architectures/<arch>.md`
 
-### Actions
+### Actions après wizard
 
-1. Créer structure selon architecture choisie
+1. Créer structure selon architecture (voir fichier `.md` correspondant)
 2. Créer `/src/PROJECT.md` avec config
 3. Créer fichiers de base (go.mod, package.json, etc.)
 4. Chaîner → `/build --context`
@@ -61,15 +62,6 @@ $ARGUMENTS
 1. **Update versions** depuis sources officielles (JAMAIS downgrade)
 2. **Générer CLAUDE.md** dans chaque dossier (entonnoir)
 
-### Sources versions
-
-| Langage | URL |
-|---------|-----|
-| Go | https://go.dev/VERSION?m=text |
-| Python | https://endoflife.date/api/python.json |
-| Node.js | https://nodejs.org/dist/index.json |
-| Rust | https://static.rust-lang.org/dist/channel-rust-stable.toml |
-
 ### Règles CLAUDE.md
 
 - Profondeur 1 : ~30 lignes
@@ -79,35 +71,109 @@ $ARGUMENTS
 
 ---
 
-## --project / --task
+## --project : Créer un projet
 
-### Taskwarrior UDAs
+1. Analyse la description pour comprendre le scope
+2. Pose des questions si infos manquantes (`AskUserQuestion`)
+3. Explore le codebase si pertinent
+4. Recherche web pour best practices si nécessaire
+5. Crée le projet et génère automatiquement les tâches :
+
+```bash
+task add "<tache>" project:<nom_projet> +claude \
+  model:<haiku|sonnet|opus> \
+  parallel:<yes|no> \
+  phase:<N> \
+  [depends:<IDs>]
+
+task <ID> annotate "Action: <détails>"
+task <ID> annotate "Fichiers: <paths>"
+task <ID> annotate "Critères: <done_when>"
+```
+
+---
+
+## --for <project> --task : Créer une tâche
+
+1. Analyse la description
+2. Détermine automatiquement :
+   - `model` : selon complexité
+   - `parallel` : selon dépendances
+   - `phase` : selon ordre logique
+   - `depends` : IDs des tâches prérequises
+
+```bash
+task add "<description>" project:<project> +claude \
+  model:<auto> parallel:<auto> phase:<auto> [depends:<auto>]
+```
+
+---
+
+## Auto-détection du modèle
+
+| Critères | Modèle | Exemples |
+|----------|--------|----------|
+| Tâche simple, mécanique | `haiku` | Formatting, linting, renommage, typos |
+| Tâche standard, logique claire | `sonnet` | CRUD, refactoring, tests unitaires, features simples |
+| Tâche complexe, réflexion | `opus` | Architecture, debugging complexe, sécurité, design patterns |
+
+---
+
+## Auto-détection parallélisation
+
+| Critères | Parallel | Exemples |
+|----------|----------|----------|
+| Fichiers différents, indépendant | `yes` | Créer 3 composants distincts |
+| Même fichier, dépendance logique | `no` | Créer interface puis implémentation |
+| Ordre requis | `no` | Setup DB avant migrations |
+
+---
+
+## Auto-détection phase
+
+- **Phase 1** : Tâches sans prérequis (setup, config)
+- **Phase 2** : Tâches dépendant de phase 1
+- **Phase N** : Tâches dépendant de phase N-1
+- **Même phase** si parallélisables ensemble
+
+Exemple :
+```
+Phase 1: [Setup DB] [Setup Auth]        ← parallel: yes
+Phase 2: [Create User Model]            ← depends: DB
+Phase 3: [Create User API] [User Tests] ← parallel: yes, depends: Model
+```
+
+---
+
+## Taskwarrior UDAs (auto-config)
 
 ```bash
 task config uda.model.type string
 task config uda.model.values opus,sonnet,haiku
+task config uda.model.default sonnet
 task config uda.parallel.type string
 task config uda.parallel.values yes,no
+task config uda.parallel.default no
 task config uda.phase.type numeric
+task config uda.phase.default 1
 ```
-
-### Auto-détection
-
-| Complexité | model |
-|------------|-------|
-| Simple (format, lint) | haiku |
-| Standard (CRUD, tests) | sonnet |
-| Complexe (archi, sécu) | opus |
-
-| Dépendance | parallel |
-|------------|----------|
-| Fichiers différents | yes |
-| Même fichier/séquentiel | no |
 
 ---
 
-## Output
+## --list / --for <project> --list
 
+```bash
+task projects                              # Liste projets
+task project:<project> +claude list        # Tâches du projet
+task project:<project> +claude +BLOCKED    # Tâches bloquées
+task project:<project> summary             # Résumé
+```
+
+---
+
+## Outputs
+
+### Init projet
 ```
 ## Projet initialisé
 
@@ -119,4 +185,66 @@ task config uda.phase.type numeric
 | CPU | amd64, arm64 |
 
 → /build --context
+```
+
+### Création projet
+```
+## Projet créé : auth-system
+
+| # | Phase | Tâche | Modèle | // | Dépend |
+|---|-------|-------|--------|----|--------|
+| 1 | 1 | Setup database schema | sonnet | yes | - |
+| 2 | 1 | Setup JWT config | haiku | yes | - |
+| 3 | 2 | Create User model | sonnet | no | 1 |
+| 4 | 2 | Create Auth service | opus | no | 1,2 |
+| 5 | 3 | Create login endpoint | sonnet | yes | 3,4 |
+| 6 | 3 | Create register endpoint | sonnet | yes | 3,4 |
+| 7 | 4 | Write unit tests | sonnet | yes | 5,6 |
+
+Exécuter : `/run auth-system`
+```
+
+### Création tâche
+```
+## Tâche ajoutée : #8
+
+- Projet : auth-system
+- Tâche : Add password reset
+- Modèle : sonnet
+- Phase : 3
+- Parallel : yes
+- Dépend de : 4
+```
+
+### Liste projets
+```
+## Projets
+
+| Projet | Tâches | Complétées | % |
+|--------|--------|------------|---|
+| auth-system | 7 | 3 | 43% |
+| billing | 12 | 12 | 100% |
+```
+
+### Liste tâches
+```
+## Tâches : auth-system
+
+### Prêtes (Phase 3)
+| ID | Tâche | Modèle | // |
+|----|-------|--------|----|
+| 5 | Create login endpoint | sonnet | yes |
+| 6 | Create register endpoint | sonnet | yes |
+
+### Bloquées
+| ID | Tâche | Bloquée par |
+|----|-------|-------------|
+| 7 | Write unit tests | 5, 6 |
+
+### Complétées
+| ID | Tâche |
+|----|-------|
+| 1 | Setup database schema |
+| 2 | Setup JWT config |
+| 3 | Create User model |
 ```
