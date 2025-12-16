@@ -6,46 +6,50 @@
 - Zsh + Powerlevel10k
 - Docker + DevContainer
 
-## Commandes
-
-```bash
-super-claude              # Claude avec MCP
-```
-
 ## Slash Commands
 
-| Commande | Description |
-|----------|-------------|
-| `/build` | Planifie les tâches (Taskwarrior) |
-| `/build --list` | Liste les tâches du projet |
-| `/run` | Exécute toutes les tâches |
-| `/run --list` | Liste les tâches |
-| `/run <ID>` | Exécute une tâche spécifique |
+### /build - Planification
+
+| Commande | Action |
+|----------|--------|
+| `/build --project <desc>` | Crée un projet avec tâches auto-générées |
+| `/build --for <project> --task <desc>` | Ajoute une tâche au projet |
+| `/build --for <project> --task <id>` | Met à jour une tâche |
+| `/build --list` | Liste tous les projets |
+| `/build --for <project> --list` | Liste les tâches du projet |
+
+### /run - Exécution
+
+| Commande | Action |
+|----------|--------|
+| `/run <project>` | Exécute toutes les tâches du projet |
+| `/run --for <project> --task <id>` | Exécute une tâche spécifique |
 
 ## Taskwarrior
 
-### UDAs
+### UDAs (auto-détectés)
 
-| Attribut | Valeurs |
-|----------|---------|
-| `model` | opus, sonnet, haiku |
-| `parallel` | yes, no |
-| `phase` | 1, 2, 3... |
+| Attribut | Valeurs | Auto-détection |
+|----------|---------|----------------|
+| `model` | haiku, sonnet, opus | Complexité de la tâche |
+| `parallel` | yes, no | Dépendances entre tâches |
+| `phase` | 1, 2, 3... | Ordre d'exécution |
 
 ### Workflow
 
 ```
-/build "description"  →  Questions + Analyse + Plan
-/run                  →  Exécution phase par phase
+/build --project "Implémenter auth OAuth"
+    ↓
+Analyse + Questions + Plan auto
+    ↓
+/build --list  (voir les projets)
+/build --for auth-oauth --list  (voir les tâches)
+    ↓
+/run auth-oauth  (exécute tout)
 ```
 
-### Tags
+### Tags Taskwarrior
 
 - `+claude` : Tâches gérées par Claude
 - `+BLOCKED` : En attente de dépendances
 - `+ACTIVE` : En cours d'exécution
-
-## Ne pas faire
-
-- Ne pas modifier `.devcontainer/images/Dockerfile` sans rebuild CI
-- Ne pas commit de tokens (`.mcp.json` ignoré)

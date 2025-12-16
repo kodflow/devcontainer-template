@@ -1,46 +1,108 @@
-# Build - Task Planning Agent
+# Build - Project & Task Planner
 
 $ARGUMENTS
 
 ---
 
-## Mode
+## Parsing des arguments
 
-**Si `--list`** : Affiche les tâches existantes du projet
-```bash
-task project:$(basename $PWD) +claude list
-task project:$(basename $PWD) +claude +BLOCKED blocked
-task project:$(basename $PWD) summary
-```
-
-**Sinon** : Planifie les tâches selon la description fournie (ou analyse globale si vide)
+| Pattern | Action |
+|---------|--------|
+| `--project <desc>` | Crée un nouveau projet |
+| `--for <project> --task <desc>` | Crée une tâche dans le projet |
+| `--for <project> --task <id>` | Met à jour une tâche existante |
+| `--list` | Liste tous les projets |
+| `--for <project> --list` | Liste les tâches du projet |
 
 ---
 
-## Instructions de planification
+## Actions
 
-### 1. Clarification
+### `--project <description>` : Créer un projet
 
-Si la demande est ambiguë ou incomplète, utilise `AskUserQuestion` pour :
-- Clarifier le scope
-- Valider les choix techniques
-- Confirmer les priorités
-
-### 2. Exploration
-
-1. **Analyse le projet** :
-   - Structure (`Glob`)
-   - Code existant (`Read`, `Grep`)
-   - Documentation (`README.md`, `CLAUDE.md`)
-
-2. **Recherche web** si nécessaire :
-   - Documentation officielle
-   - Best practices
-
-### 3. Initialisation Taskwarrior (si première utilisation)
+1. **Analyse la description** pour comprendre le scope
+2. **Pose des questions** si infos manquantes (`AskUserQuestion`)
+3. **Explore le codebase** si pertinent
+4. **Recherche web** pour best practices si nécessaire
+5. **Crée le projet** et génère automatiquement les tâches :
 
 ```bash
-# UDAs Claude Code
+# Créer les tâches avec métadonnées
+task add "<tache>" project:<nom_projet> +claude \
+  model:<haiku|sonnet|opus> \
+  parallel:<yes|no> \
+  phase:<N> \
+  [depends:<IDs>]
+
+# Ajouter les détails
+task <ID> annotate "Action: <détails>"
+task <ID> annotate "Fichiers: <paths>"
+task <ID> annotate "Critères: <done_when>"
+```
+
+### `--for <project> --task <description>` : Créer une tâche
+
+1. **Analyse la description**
+2. **Détermine automatiquement** :
+   - `model` : haiku (simple), sonnet (standard), opus (complexe)
+   - `parallel` : yes si indépendant, no si séquentiel
+   - `phase` : selon les dépendances
+   - `depends` : IDs des tâches prérequises
+
+```bash
+task add "<description>" project:<project> +claude \
+  model:<auto> parallel:<auto> phase:<auto> [depends:<auto>]
+```
+
+### `--for <project> --task <id>` : Mettre à jour
+
+```bash
+task <id> modify <champs_modifies>
+task <id> annotate "<nouvelle_info>"
+```
+
+### `--list` : Lister les projets
+
+```bash
+task projects
+```
+
+### `--for <project> --list` : Lister les tâches
+
+```bash
+task project:<project> +claude list
+task project:<project> +claude +BLOCKED blocked
+task project:<project> summary
+```
+
+---
+
+## Auto-détection du modèle
+
+| Critères | Modèle |
+|----------|--------|
+| Formatting, linting, renommage simple | `haiku` |
+| CRUD, refactoring, tests unitaires | `sonnet` |
+| Architecture, debugging complexe, sécurité | `opus` |
+
+## Auto-détection parallélisation
+
+| Critères | Parallel |
+|----------|----------|
+| Fichiers différents, pas de dépendance | `yes` |
+| Même fichier, dépendance logique | `no` |
+
+## Auto-détection phase
+
+- Phase 1 : Tâches sans prérequis
+- Phase N : Tâches dépendant de tâches phase N-1
+- Même phase si parallélisables ensemble
+
+---
+
+## Initialisation UDA (auto si première utilisation)
+
+```bash
 task config uda.model.type string
 task config uda.model.values opus,sonnet,haiku
 task config uda.model.default sonnet
@@ -51,42 +113,52 @@ task config uda.phase.type numeric
 task config uda.phase.default 1
 ```
 
-### 4. Création des tâches
-
-Pour chaque tâche :
-```bash
-task add "<description>" project:$(basename $PWD) +claude model:<haiku|sonnet|opus> parallel:<yes|no> phase:<N> [depends:<IDs>]
-task <ID> annotate "Action: <détails>"
-task <ID> annotate "Fichiers: <paths>"
-```
-
-### 5. Choix du modèle
-
-| Modèle | Quand |
-|--------|-------|
-| `haiku` | Simple, répétitif, formatting |
-| `sonnet` | Standard, refactoring, tests |
-| `opus` | Complexe, architecture, debug |
-
-### 6. Dépendances et parallélisation
-
-- `depends:X,Y` = Bloqué par X et Y
-- `parallel:yes` + même `phase:N` = Parallélisables ensemble
-- Phase 1 → Phase 2 → Phase 3 (séquentiel entre phases)
-
 ---
 
 ## Output
 
+### Création projet
 ```
-## Plan : <titre>
+## Projet créé : <nom>
 
 | # | Phase | Tâche | Modèle | // | Dépend |
 |---|-------|-------|--------|----|--------|
-| 1 | 1     | ...   | haiku  | no | -      |
-| 2 | 1     | ...   | sonnet | yes| -      |
-| 3 | 2     | ...   | opus   | no | 1,2    |
+| 1 | 1 | ... | haiku | yes | - |
+| 2 | 1 | ... | sonnet | yes | - |
+| 3 | 2 | ... | opus | no | 1,2 |
 
-### Commandes exécutées
-<task add ...>
+Exécuter : `/run <nom>`
+```
+
+### Création tâche
+```
+## Tâche ajoutée : #<ID>
+
+- Projet : <nom>
+- Modèle : <model>
+- Phase : <N>
+- Parallel : <yes|no>
+- Dépend de : <IDs>
+```
+
+### Liste projets
+```
+## Projets
+
+| Projet | Tâches | Complétées | % |
+|--------|--------|------------|---|
+```
+
+### Liste tâches
+```
+## Tâches : <projet>
+
+### Prêtes
+| ID | Phase | Tâche | Modèle | // |
+
+### Bloquées
+| ID | Tâche | Bloquée par |
+
+### Complétées
+| ID | Tâche |
 ```
