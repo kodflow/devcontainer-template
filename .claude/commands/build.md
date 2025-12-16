@@ -49,61 +49,79 @@ Options: (basées sur .devcontainer/features/languages/*)
 - "Scala"
 ```
 
-#### 2. Architecture du projet
+#### 2. Architecture du projet (DÉPEND DU LANGAGE)
+
+**Les options varient selon le langage choisi :**
+
+| Langage | Architectures disponibles |
+|---------|---------------------------|
+| **Go** | Clean, Hexagonal, DDD, Microservices, Modular Monolith, Flat/CLI, Package/Library |
+| **Python** | MVC (Django), Layered, Clean, Hexagonal, DDD, Microservices, Serverless, Flat/Scripts, Package/Library |
+| **Node.js/TS** | MVC, MVVM, Layered, Clean, Hexagonal, DDD, Microservices, Serverless, Event-Driven, Package/Library |
+| **Rust** | Clean, Hexagonal, Microservices, Flat/CLI, Package/Library, Embedded |
+| **Java** | MVC, Layered, Clean, Hexagonal, Onion, DDD (all), Microservices, Modular Monolith, Event-Driven |
+| **C++** | Layered, Clean, Flat/CLI, Package/Library, Embedded |
+| **PHP** | MVC (Laravel/Symfony), Layered, Clean, Hexagonal, DDD, Microservices |
+| **Ruby** | MVC (Rails), Clean, Hexagonal, DDD, Modular Monolith |
+| **Dart/Flutter** | MVVM, Clean, BLoC Pattern, Package/Library |
+| **Elixir** | Phoenix (MVC), Hexagonal, Event-Driven, Umbrella (Modular) |
+| **Scala** | Layered, Clean, Hexagonal, DDD, Microservices, Event-Driven (Akka) |
+
 ```
-Question: "Quelle architecture logicielle ?"
-Options:
-
-Architectures classiques:
-- "MVC" → Model-View-Controller (web apps, APIs simples)
-- "MVP" → Model-View-Presenter (desktop, mobile)
-- "MVVM" → Model-View-ViewModel (frontend reactif, mobile)
-
-Architectures en couches:
-- "Layered/N-Tier" → Presentation, Business, Data (apps traditionnelles)
-- "Clean Architecture" → Entities, Use Cases, Adapters, Frameworks (Uncle Bob)
-- "Hexagonal/Ports & Adapters" → Domain isolé, ports entrants/sortants (Alistair Cockburn)
-- "Onion Architecture" → Domain au centre, couches concentriques
-
-Domain-Driven Design:
-- "DDD Tactical" → Entities, Value Objects, Aggregates, Repositories
-- "DDD Strategic (Bounded Contexts)" → Contextes délimités, ubiquitous language
-- "DDD + CQRS" → Command Query Responsibility Segregation
-- "DDD + Event Sourcing" → États via événements
-
-Architectures distribuées:
-- "Microservices" → Services indépendants, déployables séparément
-- "Modular Monolith" → Monolithe avec modules bien définis
-- "Event-Driven" → Communication par événements/messages
-- "Serverless/FaaS" → Functions as a Service
-
-Architectures simples:
-- "Flat/Scripts" → Scripts simples, CLI tools
-- "Package/Library" → Bibliothèque réutilisable
+Question: "Quelle architecture ?" (adapté au langage)
+Options: <voir tableau ci-dessus>
 ```
 
-#### 3. Plateformes cibles (multiSelect: true)
+#### 3. Plateformes cibles (DÉPEND DU LANGAGE, multiSelect)
+
+**Les options et présélections varient selon le langage :**
+
+| Langage | Plateformes disponibles | Présélectionnées |
+|---------|------------------------|------------------|
+| **Go** | Linux, macOS, Windows, Web/WASM | Linux, macOS |
+| **Python** | Linux, macOS, Windows | Linux, macOS |
+| **Node.js/TS** | Linux, macOS, Windows, Web | Linux, macOS |
+| **Rust** | Linux, macOS, Windows, Web/WASM, Embedded/IoT | Linux, macOS |
+| **Java** | Linux, macOS, Windows, Android | Linux, macOS |
+| **C++** | Linux, macOS, Windows, Embedded/IoT | Linux, macOS |
+| **PHP** | Linux, macOS, Windows | Linux |
+| **Ruby** | Linux, macOS, Windows | Linux, macOS |
+| **Dart/Flutter** | Linux, macOS, Windows, Web, iOS, Android | iOS, Android |
+| **Elixir** | Linux, macOS | Linux |
+| **Scala** | Linux, macOS, Windows | Linux, macOS |
+
 ```
-Question: "Quelles plateformes cibles ?" (plusieurs choix possibles)
-Options:
-- [x] "Linux" (présélectionné)
-- [x] "macOS" (présélectionné)
-- [ ] "Windows"
-- [ ] "Web/WASM"
-- [ ] "iOS"
-- [ ] "Android"
-- [ ] "Embedded/IoT"
+Question: "Quelles plateformes ?" (adapté au langage)
+Options: <voir tableau ci-dessus>
 ```
 
-#### 4. Architectures CPU (multiSelect: true)
+#### 4. Architectures CPU (DÉPEND DU LANGAGE + PLATEFORMES, multiSelect)
+
+**Les options varient selon langage et plateformes choisies :**
+
+| Langage | Architectures CPU disponibles | Présélectionnées |
+|---------|------------------------------|------------------|
+| **Go** | amd64, arm64, arm, riscv64, wasm32 | amd64, arm64 |
+| **Python** | amd64, arm64 | amd64, arm64 |
+| **Node.js/TS** | amd64, arm64 | amd64, arm64 |
+| **Rust** | amd64, arm64, arm, riscv64, wasm32, thumbv* | amd64, arm64 |
+| **Java** | amd64, arm64 (JVM abstrait) | amd64, arm64 |
+| **C++** | amd64, arm64, arm, riscv64, tous | amd64, arm64 |
+| **PHP** | amd64, arm64 | amd64 |
+| **Ruby** | amd64, arm64 | amd64, arm64 |
+| **Dart/Flutter** | amd64, arm64 (+ mobile: arm64) | arm64 (mobile) |
+| **Elixir** | amd64, arm64 (BEAM abstrait) | amd64 |
+| **Scala** | amd64, arm64 (JVM abstrait) | amd64, arm64 |
+
+**Règles supplémentaires :**
+- Si **iOS** sélectionné → arm64 obligatoire
+- Si **Android** sélectionné → arm64, arm disponibles
+- Si **Embedded/IoT** sélectionné → arm, riscv64, thumbv* disponibles
+- Si **Web/WASM** sélectionné → wasm32 ajouté automatiquement
+
 ```
-Question: "Quelles architectures CPU ?" (plusieurs choix possibles)
-Options:
-- [x] "amd64 (x86_64)" (présélectionné)
-- [x] "arm64 (aarch64)" (présélectionné)
-- [ ] "arm (32-bit)"
-- [ ] "riscv64"
-- [ ] "wasm32"
+Question: "Quelles architectures CPU ?" (adapté au contexte)
+Options: <voir tableau + règles ci-dessus>
 ```
 
 ### Actions après les questions
