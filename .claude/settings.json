@@ -2,19 +2,16 @@
   "model": "opus",
   "alwaysThinkingEnabled": true,
   "cleanupPeriodDays": 30,
-
   "statusLine": {
     "type": "command",
     "command": "status-line"
   },
-
   "env": {
     "BASH_DEFAULT_TIMEOUT_MS": "60000",
     "MAX_THINKING_TOKENS": "10000",
     "MCP_TIMEOUT": "30000",
     "MAX_MCP_OUTPUT_TOKENS": "25000"
   },
-
   "permissions": {
     "allow": [
       "Bash(npm:*)",
@@ -76,83 +73,51 @@
       "Glob(**/*)",
       "Grep(**/*)"
     ],
-    "deny": [
-      "Bash(sudo:*)",
-      "Bash(su:*)",
-      "Bash(chmod 777:*)",
-      "Bash(rm -rf /:*)",
-      "Bash(rm -rf /*:*)",
-      "Bash(dd:*)",
-      "Bash(mkfs:*)",
-      "Bash(fdisk:*)",
-      "Bash(shutdown:*)",
-      "Bash(reboot:*)",
-      "Bash(init:*)",
-      "Bash(systemctl:*)",
-      "Bash(passwd:*)",
-      "Bash(useradd:*)",
-      "Bash(userdel:*)",
-      "Bash(visudo:*)",
-      "Read(.env)",
-      "Read(.env.local)",
-      "Read(.env.production)",
-      "Read(**/*.pem)",
-      "Read(**/*.key)",
-      "Read(**/*secret*)",
-      "Read(**/*credential*)",
-      "Read(~/.ssh/*)",
-      "Read(~/.aws/credentials)",
-      "Read(~/.gnupg/*)",
-      "Write(.env)",
-      "Write(.env.local)",
-      "Write(.env.production)",
-      "Write(.git/config)",
-      "Write(.git/hooks/*)",
-      "Write(**/*.pem)",
-      "Write(**/*.key)"
-    ],
+    "deny": [],
     "additionalDirectories": []
   },
-
   "enableAllProjectMcpServers": true,
-
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "FILE=\"$CLAUDE_FILE_PATH\"; if echo \"$FILE\" | grep -qE '\\.(env|pem|key|secret)$'; then echo 'Blocked: sensitive file' >&2; exit 2; fi"
+            "command": "/workspace/.claude/scripts/pre-validate.sh \"$CLAUDE_FILE_PATH\"",
+            "timeout": 5
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Write",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "FILE=\"$CLAUDE_FILE_PATH\"; if echo \"$FILE\" | grep -qE '\\.(js|jsx|ts|tsx|json|css|scss|md|yaml|yml)$' && command -v prettier >/dev/null 2>&1; then prettier --write \"$FILE\" 2>/dev/null || true; fi"
+            "command": "/workspace/.claude/scripts/post-edit.sh \"$CLAUDE_FILE_PATH\"",
+            "timeout": 30
           }
         ]
       },
       {
-        "matcher": "Write",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "FILE=\"$CLAUDE_FILE_PATH\"; if echo \"$FILE\" | grep -qE 'Dockerfile' && command -v hadolint >/dev/null 2>&1; then hadolint \"$FILE\" 2>/dev/null || true; fi"
+            "command": "/workspace/.claude/scripts/security.sh \"$CLAUDE_FILE_PATH\"",
+            "timeout": 15
           }
         ]
       },
       {
-        "matcher": "Write",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "FILE=\"$CLAUDE_FILE_PATH\"; if echo \"$FILE\" | grep -qE '\\.sh$' && command -v shellcheck >/dev/null 2>&1; then shellcheck \"$FILE\" 2>/dev/null || true; fi"
+            "command": "/workspace/.claude/scripts/test.sh \"$CLAUDE_FILE_PATH\"",
+            "timeout": 60
           }
         ]
       }
@@ -163,7 +128,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v notify-send >/dev/null 2>&1 && notify-send 'Claude Code' 'Task completed' 2>/dev/null || true"
+            "command": "command -v notify-send >/dev/null 2>&1 && notify-send 'Claude Code' 'Task completed' 2>/dev/null || true",
+            "timeout": 5
           }
         ]
       }

@@ -26,6 +26,33 @@
 | `/run <project>` | Exécute tout le projet |
 | `/run --for <project> --task <id>` | Exécute une tâche |
 
+## Hooks
+
+### Scripts disponibles (`.claude/scripts/`)
+
+| Script | Fonction | Langages |
+|--------|----------|----------|
+| `format.sh` | Auto-format | JS/TS, Python, Go, Rust, JSON, YAML, Terraform |
+| `lint.sh` | Linting + fix | JS/TS, Python, Go, Rust, Shell, Dockerfile |
+| `imports.sh` | Tri imports | JS/TS, Python, Go, Rust, Java |
+| `typecheck.sh` | Type check | TypeScript, Python, Go, Rust |
+| `security.sh` | Détection secrets | Tous |
+| `test.sh` | Tests auto | JS/TS, Python, Go, Rust |
+| `pre-validate.sh` | Protection fichiers | Tous |
+| `post-edit.sh` | Format + Imports + Lint | Tous |
+
+### Configuration active
+
+```
+PreToolUse (Write|Edit):
+  → pre-validate.sh (protection fichiers sensibles)
+
+PostToolUse (Write|Edit):
+  → post-edit.sh (format + imports + lint)
+  → security.sh (détection secrets)
+  → test.sh (si fichier test)
+```
+
 ## Contexte (CLAUDE.md)
 
 ### Principe : Entonnoir
@@ -33,10 +60,8 @@
 ```
 /CLAUDE.md              → Vue d'ensemble (commité)
 /src/CLAUDE.md          → Détails src (ignoré)
-/src/components/CLAUDE.md → Plus de détails (ignoré)
+/src/components/        → Plus de détails (ignoré)
 ```
-
-Plus on descend, plus c'est détaillé.
 
 ### Règles
 
@@ -47,13 +72,13 @@ Plus on descend, plus c'est détaillé.
 
 ## Taskwarrior
 
-### UDAs (auto-détectés)
+### UDAs
 
-| Attribut | Valeurs | Auto-détection |
-|----------|---------|----------------|
-| `model` | haiku, sonnet, opus | Complexité |
-| `parallel` | yes, no | Dépendances |
-| `phase` | 1, 2, 3... | Ordre |
+| Attribut | Valeurs |
+|----------|---------|
+| `model` | haiku, sonnet, opus |
+| `parallel` | yes, no |
+| `phase` | 1, 2, 3... |
 
 ### Workflow
 
