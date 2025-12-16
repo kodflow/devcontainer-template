@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Always pull latest base image on rebuild
+      pull: true
       # Build arguments for optimization
       args:
         BUILDKIT_INLINE_CACHE: 1

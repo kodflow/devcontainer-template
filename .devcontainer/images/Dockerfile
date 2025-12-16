@@ -145,14 +145,13 @@ RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc 
 ENV NVM_DIR=/home/vscode/.cache/nvm \
     npm_config_cache=/home/vscode/.cache/npm
 
-RUN mkdir -p $NVM_DIR ~/.local/share/npm-global && \
+RUN mkdir -p $NVM_DIR && \
     curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash && \
     . "$NVM_DIR/nvm.sh" && \
     nvm install lts/* && \
     nvm use lts/* && \
     nvm alias default lts/* && \
     npm install -g npm@latest @anthropic-ai/claude-code && \
-    npm config set prefix ~/.local/share/npm-global && \
     ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/node" ~/.local/bin/node && \
     ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npm" ~/.local/bin/npm && \
     ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npx" ~/.local/bin/npx && \
@@ -175,7 +174,7 @@ ENV TF_PLUGIN_CACHE_DIR=/home/vscode/.cache/terraform \
     KUBECONFIG=/home/vscode/.kube/config \
     BAZEL_USER_ROOT=/home/vscode/.cache/bazel \
     CLAUDE_CONFIG_DIR=/home/vscode/.claude \
-    PATH=/home/vscode/.local/bin:/home/vscode/.local/share/npm-global/bin:$PATH
+    PATH=/home/vscode/.local/bin:$PATH
 
 WORKDIR /workspace
 
