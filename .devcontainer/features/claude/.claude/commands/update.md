@@ -1,6 +1,6 @@
 # Update - Mise à jour depuis la Marketplace
 
-Mettre à jour les commandes et scripts depuis GitHub.
+Mettre à jour les commandes, scripts et binaires depuis GitHub.
 
 ---
 
@@ -30,6 +30,35 @@ echo "✓ scripts"
 curl -sL "$BASE/.claude/settings.json" -o ".claude/settings.json" 2>/dev/null
 echo "✓ settings.json"
 
+# Status-line binary
+echo ""
+echo "Installing status-line..."
+mkdir -p "$HOME/.local/bin"
+
+case "$(uname -s)" in
+    Linux*)  STATUS_OS="linux" ;;
+    Darwin*) STATUS_OS="darwin" ;;
+    MINGW*|MSYS*|CYGWIN*) STATUS_OS="windows" ;;
+    *) STATUS_OS="linux" ;;
+esac
+
+case "$(uname -m)" in
+    x86_64|amd64) STATUS_ARCH="amd64" ;;
+    aarch64|arm64) STATUS_ARCH="arm64" ;;
+    *) STATUS_ARCH="amd64" ;;
+esac
+
+STATUS_EXT=""
+[ "$STATUS_OS" = "windows" ] && STATUS_EXT=".exe"
+
+STATUS_URL="https://github.com/kodflow/status-line/releases/latest/download/status-line-${STATUS_OS}-${STATUS_ARCH}${STATUS_EXT}"
+if curl -sL "$STATUS_URL" -o "$HOME/.local/bin/status-line${STATUS_EXT}" 2>/dev/null; then
+    chmod +x "$HOME/.local/bin/status-line${STATUS_EXT}"
+    echo "✓ status-line"
+else
+    echo "⚠ status-line (download failed)"
+fi
+
 echo ""
 echo "Done! Restart claude to reload."
 ```
@@ -48,6 +77,9 @@ Updating from Kodflow Marketplace...
 ✓ /update
 ✓ scripts
 ✓ settings.json
+
+Installing status-line...
+✓ status-line
 
 Done! Restart claude to reload.
 ```
