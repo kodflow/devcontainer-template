@@ -70,6 +70,18 @@ Generates CLAUDE.md in all subdirectories + fetches latest language versions.
 - Security-first approach
 - Full test coverage
 
+## SAFEGUARDS (ABSOLUTE - NO BYPASS)
+
+**NEVER without EXPLICIT user approval:**
+- Delete files in `.claude/` directory
+- Delete files in `.devcontainer/` directory
+- Modify `.claude/commands/*.md` destructively (removing features/logic)
+- Remove hooks from `.devcontainer/hooks/`
+
+**When simplifying/refactoring:**
+- Move content to separate files, NEVER delete logic
+- Ask before removing any feature, even if it seems redundant
+
 ## Hooks (Auto-applied)
 
 | Hook | Action |
