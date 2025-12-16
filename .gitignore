@@ -10,6 +10,13 @@ ehthumbs.db
 Thumbs.db
 
 # ============================================
+# Claude Context Files (auto-generated)
+# ============================================
+# Ignore all CLAUDE.md except root
+**/CLAUDE.md
+!CLAUDE.md
+
+# ============================================
 # Environment & Secrets (CRITICAL)
 # ============================================
 .env
@@ -18,6 +25,8 @@ Thumbs.db
 **/.env
 mcp.json
 **/mcp.json
+.mcp.json
+**/.mcp.json
 
 # ============================================
 # Language-specific modules & dependencies

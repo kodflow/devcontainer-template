@@ -1,226 +1,143 @@
-# DevContainer Minimal Template
+# Kodflow DevContainer Template
 
-Template minimaliste pour démarrer rapidement vos projets avec un environnement DevContainer propre et léger.
+Template DevContainer complet pour le développement avec Claude Code et tous les outils DevOps/Cloud essentiels.
 
-## Fonctionnalités
+## Outils inclus
 
-- **Ubuntu 24.04 LTS** comme base
-- **User vscode** (UID/GID 1000:1000) avec sudo
-- **Zsh + Oh My Zsh + Powerlevel10k** pré-installé et configuré
-- **Outils essentiels** : git, curl, wget, jq, yq, build-essential
-- **MCP (Model Context Protocol)** : Configuration et scripts d'initialisation inclus
-- **Script d'initialisation** : Configuration automatique à la création du container
-- **Persistance** via volumes Docker
-- **Aucune feature externe** : tout est dans le Dockerfile
-- **GitHub Actions** : Workflow de build automatisé pour le devcontainer
+### Base
+- **Ubuntu 24.04 LTS**
+- **Zsh + Oh My Zsh + Powerlevel10k**
+- **Git, jq, yq, curl, build-essential**
 
-## Ce qui n'est PAS inclus
+### Cloud & DevOps
+| Outil | Description |
+|-------|-------------|
+| **AWS CLI v2** | Amazon Web Services |
+| **gcloud** | Google Cloud SDK |
+| **az** | Azure CLI |
+| **terraform** | Infrastructure as Code |
+| **vault, consul, nomad, packer** | HashiCorp Suite |
+| **kubectl, helm** | Kubernetes |
+| **ansible** | Configuration Management |
 
-Ce template est **volontairement minimaliste**. Il ne contient pas :
+### Development
+| Outil | Description |
+|-------|-------------|
+| **gh** | GitHub CLI |
+| **claude** | Claude Code CLI |
+| **op** | 1Password CLI |
+| **bazel** | Build System |
+| **task** | Taskwarrior |
+| **status-line** | Claude Code status bar |
 
-- ❌ Langages de programmation (Go, Node.js, Python, etc.)
-- ❌ CLIs spécifiques (GitHub CLI, Claude CLI, etc.)
-- ❌ Docker-in-Docker
-- ❌ Bases de données
+### Langages
+Les langages sont ajoutés via **DevContainer Features** selon vos besoins :
 
-**Pourquoi ?** Pour garder l'image légère et vous laisser installer uniquement ce dont vous avez besoin.
+```json
+"features": {
+  "ghcr.io/devcontainers/features/go:1": {},
+  "ghcr.io/devcontainers/features/python:1": {},
+  "ghcr.io/devcontainers/features/rust:1": {}
+}
+```
 
-## Installation rapide
+Voir : https://containers.dev/features
 
-### Via GitHub
+## Installation
+
+### Nouveau projet
 
 ```bash
-# Utiliser ce repository comme template
 gh repo create mon-projet --template kodflow/devcontainer-template --public
 cd mon-projet
 code .
 ```
 
-### Localement
+### Projet existant
+
+Copiez le dossier `.devcontainer/` dans votre projet.
+
+## Configuration MCP
+
+Le template inclut des serveurs MCP pré-configurés pour Claude Code.
+
+### Serveurs MCP inclus
+
+| Serveur | Description |
+|---------|-------------|
+| **github** | Intégration GitHub |
+| **codacy** | Analyse de code |
+| **taskwarrior** | Gestion de tâches |
+
+### Configuration des tokens
+
+**Option 1 : Variables d'environnement**
 
 ```bash
-# Copier le template
-cp -r devcontainer-template mon-projet
-cd mon-projet
-rm -rf .git
-git init
-code .
+export GITHUB_API_TOKEN="ghp_xxx"
+export CODACY_API_TOKEN="xxx"
 ```
 
-Acceptez l'ouverture dans le DevContainer lorsque VS Code vous le propose.
+**Option 2 : 1Password**
 
-## Personnalisation
+Configurez `OP_SERVICE_ACCOUNT_TOKEN` et les items correspondants dans votre vault.
 
-### Ajouter des langages/outils
+### Fichiers MCP
 
-**Option 1 : Dans le Dockerfile** (recommandé pour les outils systèmes)
+| Fichier | Description |
+|---------|-------------|
+| `.mcp.json` | Config MCP projet (ignoré par git) |
+| `.devcontainer/hooks/shared/mcp.json.tpl` | Template MCP |
 
-Éditez `.devcontainer/Dockerfile` :
+## Structure
 
-```dockerfile
-# Ajouter des packages apt
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    && apt-get clean
-
-# Installer Node.js
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-    && apt-get install -y nodejs
+```
+.devcontainer/
+├── devcontainer.json          # Configuration DevContainer
+├── docker-compose.yml         # Services Docker
+├── Dockerfile                 # Extends l'image de base
+├── hooks/
+│   ├── lifecycle/
+│   │   ├── initialize.sh      # Avant création (hôte)
+│   │   ├── onCreate.sh        # Création container
+│   │   ├── postCreate.sh      # Config initiale
+│   │   ├── postStart.sh       # Chaque démarrage (MCP)
+│   │   └── postAttach.sh      # Attachement IDE
+│   └── shared/
+│       ├── mcp.json.tpl       # Template MCP
+│       └── utils.sh           # Fonctions utilitaires
+└── images/
+    └── Dockerfile             # Image de base GHCR
 ```
 
-**Option 2 : Avec les DevContainer Features** (pour les langages standards)
+## Commandes
 
-Ajoutez dans `.devcontainer/devcontainer.json` :
-
-```json
-"features": {
-  "ghcr.io/devcontainers/features/go:1": {
-    "version": "latest"
-  },
-  "ghcr.io/devcontainers/features/node:1": {
-    "version": "lts"
-  }
-}
-```
-
-Voir : <https://containers.dev/features>
-
-**Option 3 : Installation manuelle** (pour les outils utilisateur)
-
-Installez après l'ouverture du container :
+### Rebuild container
 
 ```bash
-# Exemple
-curl -sSL https://example.com/install.sh | sh
-```
-
-### Ajouter des extensions VS Code
-
-Éditez `.devcontainer/devcontainer.json` dans `customizations.vscode.extensions`.
-
-### Variables d'environnement
-
-Créez un fichier `.env` à la racine pour vos variables d'environnement.
-
-### Personnaliser Powerlevel10k
-
-Pour configurer le prompt Powerlevel10k :
-
-```bash
-# Lancer l'assistant de configuration interactif
-p10k configure
-```
-
-Cela créera un fichier `~/.p10k.zsh` avec votre configuration personnalisée. Ce fichier sera automatiquement chargé au démarrage du shell.
-
-## Structure des volumes
-
-Les volumes Docker persistent entre les rebuilds :
-
-### Volumes spécifiques au projet
-
-- `{nom-du-projet}-local-bin` : Binaires locaux installés
-
-### Volumes partagés
-
-- `vscode-extensions` : Extensions VS Code
-- `vscode-insiders-extensions` : Extensions VS Code Insiders
-- `zsh-history` : Historique Zsh
-
-Vous pouvez ajouter vos propres volumes dans `.devcontainer/devcontainer.json`.
-
-## Commandes utiles
-
-### Rebuild du container
-
-```bash
-# Depuis VS Code
+# VS Code
 Cmd+Shift+P > "Dev Containers: Rebuild Container"
-
-# Ou depuis le terminal
-docker compose -f .devcontainer/docker-compose.yml down
-docker compose -f .devcontainer/docker-compose.yml build --no-cache
-docker compose -f .devcontainer/docker-compose.yml up -d
 ```
 
-### Nettoyer les volumes
+### Claude avec MCP
 
 ```bash
-# Supprimer tous les volumes (⚠️ perte de données)
+# Alias configuré automatiquement
+super-claude
+```
+
+### Nettoyer
+
+```bash
 docker compose -f .devcontainer/docker-compose.yml down -v
 ```
 
-### Voir les logs
+## Volumes persistants
 
-```bash
-docker compose -f .devcontainer/docker-compose.yml logs -f devcontainer
-```
-
-## Configuration MCP (Model Context Protocol)
-
-Le template inclut une configuration MCP pour faciliter l'intégration avec des outils d'IA.
-
-### Configuration automatique
-
-La configuration MCP est gérée automatiquement par le hook `postStart.sh` qui s'exécute à chaque démarrage du container :
-
-- Génère `mcp.json` à partir du template `.devcontainer/hooks/shared/mcp.json.tpl`
-- Récupère les secrets depuis 1Password (si configuré) ou les variables d'environnement
-- Configure Claude CLI avec les paramètres MCP
-
-### Variables d'environnement
-
-Copiez `.devcontainer/hooks/shared/.env.example` vers `.devcontainer/.env` et configurez vos variables :
-
-```bash
-cp .devcontainer/hooks/shared/.env.example .devcontainer/.env
-```
-
-Éditez `.devcontainer/.env` selon vos besoins pour ajouter vos clés API et configurations.
-
-### Hooks de lifecycle
-
-Les scripts dans `.devcontainer/hooks/lifecycle/` s'exécutent automatiquement aux différentes étapes du cycle de vie du container :
-
-- `initialize.sh` - Avant la création du container (sur l'hôte)
-- `onCreate.sh` - À la création du container
-- `updateContent.sh` - Après la mise à jour du contenu
-- `postCreate.sh` - Après la création (configuration initiale)
-- `postStart.sh` - À chaque démarrage (configuration MCP)
-- `postAttach.sh` - À chaque attachement au container
-
-## Dépannage
-
-### Problèmes de permissions
-
-```bash
-# Depuis le container
-sudo chown -R vscode:vscode $HOME
-```
-
-### Rebuild complet
-
-```bash
-# Supprimer le container et les volumes
-docker compose -f .devcontainer/docker-compose.yml down -v
-docker system prune -a
-
-# Rouvrir dans VS Code
-code .
-```
-
-## Philosophie
-
-Ce template suit le principe **"moins c'est plus"** :
-
-- ✅ Démarrage rapide
-- ✅ Faible consommation de ressources
-- ✅ Facile à personnaliser
-- ✅ Pas de dépendances inutiles
-
-Ajoutez seulement ce dont vous avez besoin, quand vous en avez besoin.
+- `{projet}-local-bin` : Binaires locaux
+- `vscode-extensions` : Extensions VS Code
+- `zsh-history` : Historique shell
 
 ## License
 
-Libre d'utilisation pour vos projets personnels et professionnels.
+MIT
