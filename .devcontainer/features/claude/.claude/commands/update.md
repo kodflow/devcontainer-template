@@ -59,6 +59,52 @@ else
     echo "⚠ status-line (download failed)"
 fi
 
+# Taskwarrior
+echo ""
+echo "Installing taskwarrior..."
+if ! command -v task &>/dev/null; then
+    case "$STATUS_OS" in
+        linux)
+            if command -v apt-get &>/dev/null; then
+                sudo apt-get update -qq && sudo apt-get install -y -qq taskwarrior 2>/dev/null && echo "✓ taskwarrior (apt)"
+            elif command -v apk &>/dev/null; then
+                sudo apk add --no-cache task 2>/dev/null && echo "✓ taskwarrior (apk)"
+            else
+                echo "⚠ taskwarrior (install manually)"
+            fi
+            ;;
+        darwin)
+            if command -v brew &>/dev/null; then
+                brew install task 2>/dev/null && echo "✓ taskwarrior (brew)"
+            else
+                echo "⚠ taskwarrior (install homebrew first)"
+            fi
+            ;;
+        *)
+            echo "⚠ taskwarrior (install manually)"
+            ;;
+    esac
+else
+    echo "✓ taskwarrior (already installed)"
+fi
+
+# MCP config (merge with existing)
+echo ""
+echo "Configuring MCP..."
+MCP_REMOTE=$(curl -sL "$BASE/.mcp.json" 2>/dev/null)
+if [ -n "$MCP_REMOTE" ]; then
+    if [ -f ".mcp.json" ]; then
+        # Merge: keep existing servers, add missing ones
+        echo "$MCP_REMOTE" | jq -s '.[0].mcpServers * .[1].mcpServers | {mcpServers: .}' .mcp.json - > .mcp.json.tmp 2>/dev/null && mv .mcp.json.tmp .mcp.json
+        echo "✓ .mcp.json (merged)"
+    else
+        echo "$MCP_REMOTE" > .mcp.json
+        echo "✓ .mcp.json (created)"
+    fi
+else
+    echo "⚠ .mcp.json (download failed)"
+fi
+
 echo ""
 echo "Done! Restart claude to reload."
 ```
@@ -80,6 +126,12 @@ Updating from Kodflow Marketplace...
 
 Installing status-line...
 ✓ status-line
+
+Installing taskwarrior...
+✓ taskwarrior (already installed)
+
+Configuring MCP...
+✓ .mcp.json (merged)
 
 Done! Restart claude to reload.
 ```
