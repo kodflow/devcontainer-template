@@ -15,6 +15,13 @@ BASE="https://raw.githubusercontent.com/$REPO/main/.devcontainer/features/claude
 
 echo "Updating from Kodflow Marketplace..."
 
+# Check if .claude existed before (for gitignore logic)
+CLAUDE_EXISTED=false
+[ -d ".claude" ] && CLAUDE_EXISTED=true
+
+# Create directories
+mkdir -p ".claude/commands" ".claude/scripts"
+
 # Commands
 for cmd in build run commit secret install update; do
     curl -sL "$BASE/.claude/commands/$cmd.md" -o ".claude/commands/$cmd.md" 2>/dev/null && echo "✓ /$cmd"
@@ -105,6 +112,24 @@ else
     echo "⚠ .mcp.json (download failed)"
 fi
 
+# Add .claude to .gitignore if it was newly created
+if [ "$CLAUDE_EXISTED" = false ]; then
+    echo ""
+    echo "Configuring .gitignore..."
+    if [ -f ".gitignore" ]; then
+        if ! grep -q "^\.claude$" .gitignore 2>/dev/null; then
+            echo "" >> .gitignore
+            echo "# Claude Code (auto-added by /update)" >> .gitignore
+            echo ".claude" >> .gitignore
+            echo "✓ .gitignore (added .claude)"
+        fi
+    else
+        echo "# Claude Code" > .gitignore
+        echo ".claude" >> .gitignore
+        echo "✓ .gitignore (created)"
+    fi
+fi
+
 echo ""
 echo "Done! Restart claude to reload."
 ```
@@ -132,6 +157,9 @@ Installing taskwarrior...
 
 Configuring MCP...
 ✓ .mcp.json (merged)
+
+Configuring .gitignore...
+✓ .gitignore (added .claude)
 
 Done! Restart claude to reload.
 ```
