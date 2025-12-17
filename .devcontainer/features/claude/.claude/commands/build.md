@@ -4,6 +4,25 @@ $ARGUMENTS
 
 ---
 
+## Ressources distantes
+
+Toutes les ressources sont accessibles depuis GitHub si non présentes localement :
+
+```
+REPO="kodflow/devcontainer-template"
+BASE="https://raw.githubusercontent.com/$REPO/main/.devcontainer/features"
+```
+
+| Ressource | Local | Distant |
+|-----------|-------|---------|
+| Langages | `.devcontainer/features/languages/` | `$BASE/languages/` |
+| Architectures | `.devcontainer/features/architectures/` | `$BASE/architectures/` |
+| RULES.md | `languages/<lang>/RULES.md` | `$BASE/languages/<lang>/RULES.md` |
+
+**Priorité** : Local > Distant (fallback automatique)
+
+---
+
 ## Détection
 
 - **SI `/src` n'existe PAS** → Assistant d'initialisation
@@ -27,10 +46,20 @@ $ARGUMENTS
 
 ## Init Wizard
 
+### Langages disponibles
+
+Récupérer la liste depuis GitHub si non présent localement :
+
+```bash
+# Liste des langages disponibles
+curl -sL "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/features/languages" | \
+  jq -r '.[].name' 2>/dev/null || echo "go node python rust"
+```
+
 ### Questions
 
-1. **Langage** → Options dans `.devcontainer/features/languages/`
-2. **Architecture** → Options dans `.devcontainer/features/architectures/`
+1. **Langage** → Liste dynamique (local ou distant)
+2. **Architecture** → sliceable-monolith, mvc, mvvm, clean, hexagonal
 3. **Plateformes** (multiSelect) → Linux, macOS, Windows, iOS, Android, Web, Embedded
 4. **CPU** (multiSelect) → amd64, arm64, arm, riscv64, wasm32
 
@@ -43,10 +72,19 @@ $ARGUMENTS
 | Dart/Flutter | **MVVM** | iOS, Android |
 | C++ | **Clean** | Linux, macOS |
 
-### Documentation
+### Récupération RULES.md
 
-- **Langages** : `.devcontainer/features/languages/<lang>/RULES.md`
-- **Architectures** : `.devcontainer/features/architectures/<arch>.md`
+```bash
+LANG="go"  # exemple
+LOCAL=".devcontainer/features/languages/$LANG/RULES.md"
+REMOTE="https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/features/languages/$LANG/RULES.md"
+
+if [ -f "$LOCAL" ]; then
+    cat "$LOCAL"
+else
+    curl -sL "$REMOTE"
+fi
+```
 
 ### Actions après wizard
 
