@@ -23,6 +23,41 @@ BASE="https://raw.githubusercontent.com/$REPO/main/.devcontainer/features"
 
 ---
 
+## Prérequis (auto-check)
+
+Avant toute action, vérifier et configurer automatiquement :
+
+```bash
+# 1. Vérifier taskwarrior
+if ! command -v task &>/dev/null; then
+    echo "⚠ Taskwarrior non installé. Exécuter /update d'abord."
+    exit 1
+fi
+
+# 2. Configurer UDAs si absents
+if ! task _get rc.uda.model.type &>/dev/null 2>&1; then
+    echo "Configuring taskwarrior UDAs..."
+    task config uda.model.type string
+    task config uda.model.values opus,sonnet,haiku
+    task config uda.model.default sonnet
+    task config uda.parallel.type string
+    task config uda.parallel.values yes,no
+    task config uda.parallel.default no
+    task config uda.phase.type numeric
+    task config uda.phase.default 1
+    echo "✓ UDAs configured"
+fi
+
+# 3. Vérifier MCP taskwarrior
+if [ -f ".mcp.json" ]; then
+    if ! grep -q "taskwarrior" .mcp.json 2>/dev/null; then
+        echo "⚠ MCP taskwarrior manquant. Exécuter /update."
+    fi
+fi
+```
+
+---
+
 ## Détection
 
 - **SI `/src` n'existe PAS** → Assistant d'initialisation
