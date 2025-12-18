@@ -1,4 +1,4 @@
-# Ruby >= 3.3.0
+# Ruby >= 3.4.0
 > Release Notes: https://www.ruby-lang.org/en/news/
 
 ## Structure

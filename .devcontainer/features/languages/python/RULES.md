@@ -1,4 +1,4 @@
-# Python >= 3.13.0
+# Python >= 3.14.0
 > Release Notes: https://docs.python.org/3/whatsnew/
 
 ## Structure

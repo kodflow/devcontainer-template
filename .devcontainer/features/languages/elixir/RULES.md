@@ -1,4 +1,4 @@
-# Elixir >= 1.17.0 | OTP >= 27
+# Elixir >= 1.19.0 | OTP >= 27
 > Release Notes: https://github.com/elixir-lang/elixir/releases
 
 ## Structure

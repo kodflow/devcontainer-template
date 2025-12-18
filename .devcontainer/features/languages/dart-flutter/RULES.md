@@ -1,4 +1,4 @@
-# Dart >= 3.5.0 | Flutter >= 3.24.0
+# Dart >= 3.10.0 | Flutter >= 3.38.0
 > Release Notes: https://dart.dev/get-dart | https://docs.flutter.dev/release/release-notes
 
 ## Structure
