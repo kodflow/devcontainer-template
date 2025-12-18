@@ -1,6 +1,6 @@
 # Update - Mise à jour depuis la Marketplace
 
-Mettre à jour les commandes, scripts et binaires depuis GitHub.
+Mettre à jour les commandes, scripts, binaires et Taskwarrior depuis GitHub.
 
 ---
 
@@ -20,18 +20,35 @@ CLAUDE_EXISTED=false
 [ -d ".claude" ] && CLAUDE_EXISTED=true
 
 # Create directories
-mkdir -p ".claude/commands" ".claude/scripts"
+mkdir -p ".claude/commands" ".claude/scripts" ".claude/sessions"
 
 # Commands
 for cmd in build commit secret install update feature fix; do
     curl -sL "$BASE/.claude/commands/$cmd.md" -o ".claude/commands/$cmd.md" 2>/dev/null && echo "✓ /$cmd"
 done
 
-# Scripts
-for s in format imports lint post-edit pre-validate security test typecheck; do
+# Scripts (including Taskwarrior hooks)
+for s in format imports lint post-edit pre-validate security test typecheck task-validate task-log task-init task-subtasks; do
     curl -sL "$BASE/.claude/scripts/$s.sh" -o ".claude/scripts/$s.sh" 2>/dev/null && chmod +x ".claude/scripts/$s.sh"
 done
 echo "✓ scripts"
+
+# Taskwarrior installation
+echo ""
+echo "Installing Taskwarrior..."
+if ! command -v task &>/dev/null; then
+    if command -v apt-get &>/dev/null; then
+        sudo apt-get update -qq && sudo apt-get install -y -qq taskwarrior && echo "✓ taskwarrior"
+    elif command -v apk &>/dev/null; then
+        sudo apk add --no-cache task && echo "✓ taskwarrior"
+    elif command -v brew &>/dev/null; then
+        brew install task && echo "✓ taskwarrior"
+    else
+        echo "⚠ taskwarrior (manual install required)"
+    fi
+else
+    echo "✓ taskwarrior (already installed)"
+fi
 
 # Settings
 curl -sL "$BASE/.claude/settings.json" -o ".claude/settings.json" 2>/dev/null
@@ -66,21 +83,27 @@ else
     echo "⚠ status-line (download failed)"
 fi
 
-# MCP config (merge with existing)
+# MCP config (merge with existing + add Taskwarrior)
 echo ""
 echo "Configuring MCP..."
 MCP_REMOTE=$(curl -sL "$BASE/.mcp.json" 2>/dev/null)
+
+# Add Taskwarrior MCP server
+TASKWARRIOR_MCP='{"taskwarrior":{"command":"npx","args":["-y","mcp-server-taskwarrior"]}}'
+
 if [ -n "$MCP_REMOTE" ]; then
     if [ -f ".mcp.json" ]; then
-        # Merge: keep existing servers, add missing ones
-        echo "$MCP_REMOTE" | jq -s '.[0].mcpServers * .[1].mcpServers | {mcpServers: .}' .mcp.json - > .mcp.json.tmp 2>/dev/null && mv .mcp.json.tmp .mcp.json
-        echo "✓ .mcp.json (merged)"
+        # Merge: keep existing servers, add missing ones + taskwarrior
+        echo "$MCP_REMOTE" | jq -s --argjson tw "$TASKWARRIOR_MCP" '.[0].mcpServers * .[1].mcpServers * $tw | {mcpServers: .}' .mcp.json - > .mcp.json.tmp 2>/dev/null && mv .mcp.json.tmp .mcp.json
+        echo "✓ .mcp.json (merged + taskwarrior)"
     else
-        echo "$MCP_REMOTE" > .mcp.json
-        echo "✓ .mcp.json (created)"
+        echo "$MCP_REMOTE" | jq --argjson tw "$TASKWARRIOR_MCP" '.mcpServers += $tw' > .mcp.json
+        echo "✓ .mcp.json (created + taskwarrior)"
     fi
 else
-    echo "⚠ .mcp.json (download failed)"
+    # Fallback: create with just taskwarrior
+    echo "{\"mcpServers\":$TASKWARRIOR_MCP}" > .mcp.json
+    echo "✓ .mcp.json (taskwarrior only)"
 fi
 
 # Add .claude to .gitignore if it was newly created
@@ -119,16 +142,39 @@ Updating from Kodflow Marketplace...
 ✓ /feature
 ✓ /fix
 ✓ scripts
+
+Installing Taskwarrior...
+✓ taskwarrior
+
 ✓ settings.json
 
 Installing status-line...
 ✓ status-line
 
 Configuring MCP...
-✓ .mcp.json (merged)
+✓ .mcp.json (merged + taskwarrior)
 
 Configuring .gitignore...
 ✓ .gitignore (added .claude)
 
 Done! Restart claude to reload.
+```
+
+## Taskwarrior Integration
+
+Après mise à jour, les commandes `/feature` et `/fix` utilisent Taskwarrior pour :
+- **Suivi obligatoire** : Chaque Write/Edit est bloqué sans tâche active
+- **4 phases** : Planning → Implementation → Testing → PR
+- **Event sourcing** : Chaque action loggée en annotation JSON
+- **Récupération crash** : Reprise via `--continue`
+
+```bash
+# Voir les projets Claude
+task +claude list
+
+# Voir les événements d'un projet
+task project:<name> annotations
+
+# Exporter en JSON
+task project:<name> export
 ```
