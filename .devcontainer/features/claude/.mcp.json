@@ -1,3 +1,8 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "taskwarrior": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-taskwarrior"]
+    }
+  }
 }
