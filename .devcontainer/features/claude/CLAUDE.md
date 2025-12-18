@@ -36,31 +36,29 @@ Each RULES.md contains:
 ```
 Generates CLAUDE.md in all subdirectories + fetches latest language versions.
 
-### 2. Task Planning
+### 2. Feature Development
 ```
-/build --project "Feature description"
-/build --for <project> --task "Task description"
-/build --list
+/feature <description>
 ```
+Creates `feat/<description>` branch, **mandatory planning mode**, CI check, PR creation (no auto-merge).
 
-### 3. Task Execution
+### 3. Bug Fixes
 ```
-/run <project>
-/run --for <project> --task <id>
+/fix <description>
 ```
+Creates `fix/<description>` branch, **mandatory planning mode**, CI check, PR creation (no auto-merge).
 
 **Flow:**
 ```
-/build --context → /build --project "..." → /run <project>
+/build --context → /feature "..." ou /fix "..."
 ```
 
-## Taskwarrior UDAs
+## Branch Conventions
 
-| Attribute | Values | Usage |
-|-----------|--------|-------|
-| `model` | haiku, sonnet, opus | Task complexity |
-| `parallel` | yes, no | Can run concurrently |
-| `phase` | 1, 2, 3... | Execution order |
+| Type | Branch | Commit prefix |
+|------|--------|---------------|
+| Feature | `feat/<desc>` | `feat(scope): message` |
+| Bugfix | `fix/<desc>` | `fix(scope): message` |
 
 ## Code Quality
 
