@@ -23,7 +23,7 @@ CLAUDE_EXISTED=false
 mkdir -p ".claude/commands" ".claude/scripts"
 
 # Commands
-for cmd in build run commit secret install update; do
+for cmd in build commit secret install update feature fix; do
     curl -sL "$BASE/.claude/commands/$cmd.md" -o ".claude/commands/$cmd.md" 2>/dev/null && echo "✓ /$cmd"
 done
 
@@ -64,35 +64,6 @@ if curl -sL "$STATUS_URL" -o "$HOME/.local/bin/status-line${STATUS_EXT}" 2>/dev/
     echo "✓ status-line"
 else
     echo "⚠ status-line (download failed)"
-fi
-
-# Taskwarrior
-echo ""
-echo "Installing taskwarrior..."
-if ! command -v task &>/dev/null; then
-    case "$STATUS_OS" in
-        linux)
-            if command -v apt-get &>/dev/null; then
-                sudo apt-get update -qq && sudo apt-get install -y -qq taskwarrior 2>/dev/null && echo "✓ taskwarrior (apt)"
-            elif command -v apk &>/dev/null; then
-                sudo apk add --no-cache task 2>/dev/null && echo "✓ taskwarrior (apk)"
-            else
-                echo "⚠ taskwarrior (install manually)"
-            fi
-            ;;
-        darwin)
-            if command -v brew &>/dev/null; then
-                brew install task 2>/dev/null && echo "✓ taskwarrior (brew)"
-            else
-                echo "⚠ taskwarrior (install homebrew first)"
-            fi
-            ;;
-        *)
-            echo "⚠ taskwarrior (install manually)"
-            ;;
-    esac
-else
-    echo "✓ taskwarrior (already installed)"
 fi
 
 # MCP config (merge with existing)
@@ -141,19 +112,17 @@ echo "Done! Restart claude to reload."
 ```
 Updating from Kodflow Marketplace...
 ✓ /build
-✓ /run
 ✓ /commit
 ✓ /secret
 ✓ /install
 ✓ /update
+✓ /feature
+✓ /fix
 ✓ scripts
 ✓ settings.json
 
 Installing status-line...
 ✓ status-line
-
-Installing taskwarrior...
-✓ taskwarrior (already installed)
 
 Configuring MCP...
 ✓ .mcp.json (merged)
