@@ -82,6 +82,11 @@ mkdir -p "$GOPATH/src"
 mkdir -p "$GOCACHE"
 mkdir -p "$GOMODCACHE"
 
+# Install ktn-linter (latest version)
+echo -e "${YELLOW}Installing ktn-linter...${NC}"
+curl -sSL https://raw.githubusercontent.com/kodflow/ktn-linter/main/install.sh | bash
+echo -e "${GREEN}✓ ktn-linter installed${NC}"
+
 echo ""
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}Go environment installed successfully!${NC}"
@@ -90,6 +95,7 @@ echo ""
 echo "Installed components:"
 echo "  - ${GO_INSTALLED}"
 echo "  - Go Modules (package manager)"
+echo "  - ktn-linter (Go linter)"
 echo ""
 echo "Cache directories:"
 echo "  - GOPATH: $GOPATH"
