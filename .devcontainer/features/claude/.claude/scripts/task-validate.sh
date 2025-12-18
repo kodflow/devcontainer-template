@@ -5,6 +5,13 @@
 
 set -euo pipefail
 
+# Vérifier que Taskwarrior est installé
+if ! command -v task &>/dev/null; then
+    echo "⚠️  Taskwarrior non installé - validation désactivée"
+    echo "→ Pour activer le suivi obligatoire: /update"
+    exit 0  # Autoriser quand même (dégradé graceful)
+fi
+
 # Lire l'input JSON de Claude
 INPUT=$(cat)
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')

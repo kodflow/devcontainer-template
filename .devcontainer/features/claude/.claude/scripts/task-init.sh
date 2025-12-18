@@ -4,6 +4,21 @@
 
 set -euo pipefail
 
+# Vérifier que Taskwarrior est installé
+if ! command -v task &>/dev/null; then
+    echo "❌ Taskwarrior non installé !"
+    echo ""
+    echo "Installation requise pour /feature et /fix :"
+    echo ""
+    echo "  Ubuntu/Debian : sudo apt-get install taskwarrior"
+    echo "  Alpine        : sudo apk add task"
+    echo "  macOS         : brew install task"
+    echo "  Arch          : sudo pacman -S task"
+    echo ""
+    echo "Ou exécutez: /update"
+    exit 1
+fi
+
 TYPE="$1"        # feature ou fix
 DESC="$2"        # Description
 
