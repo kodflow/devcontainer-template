@@ -121,10 +121,10 @@ echo "✓ Branche créée : $BRANCH"
 
 **Après validation du plan :**
 ```bash
-# Marquer Phase 1 comme terminée
+# Marquer Phase 1 comme terminée (TOUJOURS utiliser UUID, jamais ID)
 SESSION_FILE=$(ls -t /workspace/.claude/sessions/*.json | head -1)
-TASK1_ID=$(jq -r '.phases["1"].id' "$SESSION_FILE")
-task "$TASK1_ID" done
+TASK1_UUID=$(jq -r '.phases["1"].uuid' "$SESSION_FILE")
+task uuid:"$TASK1_UUID" done
 
 # Créer les sous-tâches depuis le plan
 PROJECT=$(jq -r '.project' "$SESSION_FILE")
@@ -166,9 +166,9 @@ task uuid:"$TASK_UUID" annotate "commit:{\"sha\":\"$(git rev-parse HEAD)\",\"msg
 
 **Fin de Phase 2 :**
 ```bash
-# Marquer Phase 2 comme terminée
-TASK2_ID=$(jq -r '.phases["2"].id' "$SESSION_FILE")
-task "$TASK2_ID" done
+# Marquer Phase 2 comme terminée (TOUJOURS utiliser UUID, jamais ID)
+TASK2_UUID=$(jq -r '.phases["2"].uuid' "$SESSION_FILE")
+task uuid:"$TASK2_UUID" done
 
 # Passer à Phase 3
 TASK3_UUID=$(jq -r '.phases["3"].uuid' "$SESSION_FILE")
