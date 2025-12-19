@@ -82,15 +82,8 @@ mkdir -p "$GOPATH/src"
 mkdir -p "$GOCACHE"
 mkdir -p "$GOMODCACHE"
 
-# Install ktn-linter (latest version) - direct download from GitHub releases
-echo -e "${YELLOW}Installing ktn-linter...${NC}"
-KTN_OS="linux"
-KTN_ARCH="$GO_ARCH"
-KTN_VERSION=$(curl -s https://api.github.com/repos/kodflow/ktn-linter/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
-KTN_URL="https://github.com/kodflow/ktn-linter/releases/download/${KTN_VERSION}/ktn-linter-${KTN_OS}-${KTN_ARCH}"
-curl -fsSL -o "$GOPATH/bin/ktn-linter" "$KTN_URL"
-chmod +x "$GOPATH/bin/ktn-linter"
-echo -e "${GREEN}✓ ktn-linter ${KTN_VERSION} installed${NC}"
+# ktn-linter - Moved to postCreate.sh for automatic updates
+# Installed by: .devcontainer/hooks/shared/update-tools.sh
 
 echo ""
 echo -e "${GREEN}=========================================${NC}"
@@ -100,7 +93,8 @@ echo ""
 echo "Installed components:"
 echo "  - ${GO_INSTALLED}"
 echo "  - Go Modules (package manager)"
-echo "  - ktn-linter (Go linter)"
+echo ""
+echo "Note: ktn-linter is installed via postCreate.sh for automatic updates"
 echo ""
 echo "Cache directories:"
 echo "  - GOPATH: $GOPATH"

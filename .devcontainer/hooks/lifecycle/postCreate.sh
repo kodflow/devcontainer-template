@@ -18,6 +18,14 @@ echo -e "${CYAN}   Kodflow DevContainer Setup${NC}"
 echo -e "${CYAN}=========================================${NC}"
 echo ""
 
+# =============================================================================
+# Update tools to latest versions (ALWAYS runs, even if already initialized)
+# =============================================================================
+if [ -f "$SCRIPT_DIR/../shared/update-tools.sh" ]; then
+    chmod +x "$SCRIPT_DIR/../shared/update-tools.sh"
+    "$SCRIPT_DIR/../shared/update-tools.sh"
+fi
+
 # Check if already initialized
 if [ -f /home/vscode/.kodflow-initialized ]; then
     log_success "Kodflow already initialized"
