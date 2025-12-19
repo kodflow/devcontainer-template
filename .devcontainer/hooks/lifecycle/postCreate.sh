@@ -18,13 +18,8 @@ echo -e "${CYAN}   Kodflow DevContainer Setup${NC}"
 echo -e "${CYAN}=========================================${NC}"
 echo ""
 
-# =============================================================================
-# Update tools to latest versions (ALWAYS runs, even if already initialized)
-# =============================================================================
-if [ -f "$SCRIPT_DIR/../shared/update-tools.sh" ]; then
-    chmod +x "$SCRIPT_DIR/../shared/update-tools.sh"
-    "$SCRIPT_DIR/../shared/update-tools.sh"
-fi
+# Note: Tools (status-line, ktn-linter) are now baked into the Docker image
+# No longer need to update on each rebuild
 
 # Check if already initialized
 if [ -f /home/vscode/.kodflow-initialized ]; then
