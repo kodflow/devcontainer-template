@@ -23,14 +23,40 @@ log_error()   { echo -e "${RED}✗${NC} $1"; }
 mkdir -p "$HOME/.local/bin"
 
 # =============================================================================
-# Detect architecture
+# Detect architecture (fail fast for unsupported)
 # =============================================================================
 detect_arch() {
     case "$(uname -m)" in
         x86_64|amd64)  echo "amd64" ;;
         aarch64|arm64) echo "arm64" ;;
-        *)             echo "amd64" ;;
+        *)
+            log_error "Unsupported architecture: $(uname -m)"
+            log_error "Supported architectures: x86_64, amd64, aarch64, arm64"
+            exit 1
+            ;;
     esac
+}
+
+# =============================================================================
+# Download with retry logic
+# =============================================================================
+download_with_retry() {
+    local url="$1"
+    local output="$2"
+    local max_attempts=3
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if curl -fsSL "$url" -o "$output" 2>/dev/null; then
+            return 0
+        fi
+        if [ $attempt -lt $max_attempts ]; then
+            log_warning "Attempt $attempt/$max_attempts failed, retrying..."
+            sleep $((attempt * 2))
+        fi
+        attempt=$((attempt + 1))
+    done
+    return 1
 }
 
 ARCH=$(detect_arch)
@@ -48,7 +74,7 @@ echo ""
 # =============================================================================
 log_info "Updating status-line..."
 STATUS_URL="https://github.com/kodflow/status-line/releases/latest/download/status-line-${OS}-${ARCH}"
-if curl -fsSL "$STATUS_URL" -o "$HOME/.local/bin/status-line" 2>/dev/null; then
+if download_with_retry "$STATUS_URL" "$HOME/.local/bin/status-line"; then
     chmod +x "$HOME/.local/bin/status-line"
     VERSION=$("$HOME/.local/bin/status-line" --version 2>/dev/null || echo "installed")
     log_success "status-line ($VERSION)"
@@ -69,7 +95,7 @@ if command -v go &>/dev/null; then
     mkdir -p "$KTN_BIN"
 
     KTN_URL="https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-${OS}-${ARCH}"
-    if curl -fsSL "$KTN_URL" -o "$KTN_BIN/ktn-linter" 2>/dev/null; then
+    if download_with_retry "$KTN_URL" "$KTN_BIN/ktn-linter"; then
         chmod +x "$KTN_BIN/ktn-linter"
         VERSION=$("$KTN_BIN/ktn-linter" --version 2>/dev/null || echo "installed")
         log_success "ktn-linter ($VERSION)"
