@@ -158,10 +158,30 @@ RUN mkdir -p $NVM_DIR && \
     ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/claude" ~/.local/bin/claude
 
 # =============================================================================
-# Status Line - Moved to postCreate.sh for automatic updates
-# https://github.com/kodflow/status-line
-# Installed by: .devcontainer/hooks/shared/update-tools.sh
+# Claude Configuration (baked into image)
 # =============================================================================
+COPY --chown=vscode:vscode .claude/ /home/vscode/.claude/
+RUN chmod -R 755 /home/vscode/.claude/scripts/ && \
+    mkdir -p /home/vscode/.claude/sessions
+
+# =============================================================================
+# MCP Template (secrets injected at runtime via postStart.sh)
+# =============================================================================
+USER root
+RUN mkdir -p /etc/mcp
+COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
+USER vscode
+
+# =============================================================================
+# Status Line & ktn-linter (downloaded during build)
+# =============================================================================
+RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+    curl -fsSL "https://github.com/kodflow/status-line/releases/latest/download/status-line-linux-${ARCH}" \
+      -o /home/vscode/.local/bin/status-line && \
+    chmod +x /home/vscode/.local/bin/status-line && \
+    curl -fsSL "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${ARCH}" \
+      -o /home/vscode/.local/bin/ktn-linter && \
+    chmod +x /home/vscode/.local/bin/ktn-linter
 
 # =============================================================================
 # Environment Variables
