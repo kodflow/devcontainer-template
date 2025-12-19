@@ -1,13 +1,9 @@
 services:
   devcontainer:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      # Always pull latest base image on rebuild
-      pull: true
-      # Build arguments for optimization
-      args:
-        BUILDKIT_INLINE_CACHE: 1
+    # Use pre-built image from GitHub Container Registry
+    image: ghcr.io/kodflow/devcontainer-template:latest
+    # Always pull latest image on container creation/rebuild
+    pull_policy: always
 
     env_file:
       - .env
