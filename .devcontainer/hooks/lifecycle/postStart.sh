@@ -15,11 +15,51 @@ source "$SCRIPT_DIR/../shared/utils.sh"
 log_info "postStart: Container starting..."
 
 # ============================================================================
+# 1Password CLI Setup
+# ============================================================================
+# Fix op config directory permissions (created by Docker as root)
+OP_CONFIG_DIR="/home/vscode/.config/op"
+if [ -d "$OP_CONFIG_DIR" ]; then
+    if [ "$(stat -c '%U' "$OP_CONFIG_DIR" 2>/dev/null)" != "vscode" ]; then
+        log_info "Fixing 1Password config directory permissions..."
+        sudo chown -R vscode:vscode "$OP_CONFIG_DIR" 2>/dev/null || true
+    fi
+    chmod 700 "$OP_CONFIG_DIR" 2>/dev/null || true
+fi
+
+# Reload .env file to get updated tokens
+ENV_FILE="/workspace/.devcontainer/.env"
+if [ -f "$ENV_FILE" ]; then
+    log_info "Reloading environment from .env..."
+    set -a
+    source "$ENV_FILE"
+    set +a
+fi
+
+# ============================================================================
 # MCP Configuration Setup
 # ============================================================================
 VAULT_ID="ypahjj334ixtiyjkytu5hij2im"
 MCP_TPL="/workspace/.devcontainer/hooks/shared/mcp.json.tpl"
 MCP_OUTPUT="/workspace/.mcp.json"
+
+# Helper function to get 1Password field (tries multiple field names)
+# Usage: get_1password_field <item_name> <vault_id>
+get_1password_field() {
+    local item="$1"
+    local vault="$2"
+    local fields=("credential" "password" "identifiant" "mot de passe")
+
+    for field in "${fields[@]}"; do
+        local value
+        value=$(op item get "$item" --vault "$vault" --fields "$field" --reveal 2>/dev/null || echo "")
+        if [ -n "$value" ]; then
+            echo "$value"
+            return 0
+        fi
+    done
+    echo ""
+}
 
 # Initialize tokens
 CODACY_TOKEN=""
@@ -29,8 +69,8 @@ GITHUB_TOKEN=""
 if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ] && command -v op &> /dev/null; then
     log_info "Retrieving secrets from 1Password..."
 
-    CODACY_TOKEN=$(op item get "mcp-codacy" --vault "$VAULT_ID" --fields credential --reveal 2>/dev/null || echo "")
-    GITHUB_TOKEN=$(op item get "mcp-github" --vault "$VAULT_ID" --fields credential --reveal 2>/dev/null || echo "")
+    CODACY_TOKEN=$(get_1password_field "mcp-codacy" "$VAULT_ID")
+    GITHUB_TOKEN=$(get_1password_field "mcp-github" "$VAULT_ID")
 fi
 
 # Use environment variables as fallback
