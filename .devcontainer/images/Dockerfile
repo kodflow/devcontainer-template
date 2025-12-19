@@ -158,13 +158,10 @@ RUN mkdir -p $NVM_DIR && \
     ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/claude" ~/.local/bin/claude
 
 # =============================================================================
-# Status Line (Claude Code status bar)
+# Status Line - Moved to postCreate.sh for automatic updates
 # https://github.com/kodflow/status-line
+# Installed by: .devcontainer/hooks/shared/update-tools.sh
 # =============================================================================
-ARG STATUS_LINE_VERSION=0.3.3
-RUN ARCH_SL=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
-    curl -fsSL "https://github.com/kodflow/status-line/releases/download/v${STATUS_LINE_VERSION}/status-line-linux-${ARCH_SL}" -o ~/.local/bin/status-line && \
-    chmod +x ~/.local/bin/status-line
 
 # =============================================================================
 # Environment Variables
