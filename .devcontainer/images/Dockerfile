@@ -160,9 +160,13 @@ RUN mkdir -p $NVM_DIR && \
 # =============================================================================
 # Claude Configuration (baked into image)
 # =============================================================================
-COPY --chown=vscode:vscode .claude/ /home/vscode/.claude/
-RUN chmod -R 755 /home/vscode/.claude/scripts/ && \
-    mkdir -p /home/vscode/.claude/sessions
+# Store in /opt/kodflow/ as backup (volumes will overwrite /home/vscode/.claude/)
+USER root
+RUN mkdir -p /opt/kodflow
+COPY --chown=vscode:vscode .claude/ /opt/kodflow/.claude/
+RUN chmod -R 755 /opt/kodflow/.claude/scripts/ && \
+    mkdir -p /opt/kodflow/.claude/sessions
+USER vscode
 
 # =============================================================================
 # MCP Template (secrets injected at runtime via postStart.sh)
@@ -175,13 +179,17 @@ USER vscode
 # =============================================================================
 # Status Line & ktn-linter (downloaded during build)
 # =============================================================================
+# Store in /opt/kodflow/bin/ as backup (volumes will overwrite ~/.local/bin/)
+USER root
+RUN mkdir -p /opt/kodflow/bin && chown vscode:vscode /opt/kodflow/bin
+USER vscode
 RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     curl -fsSL "https://github.com/kodflow/status-line/releases/latest/download/status-line-linux-${ARCH}" \
-      -o /home/vscode/.local/bin/status-line && \
-    chmod +x /home/vscode/.local/bin/status-line && \
+      -o /opt/kodflow/bin/status-line && \
+    chmod +x /opt/kodflow/bin/status-line && \
     curl -fsSL "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${ARCH}" \
-      -o /home/vscode/.local/bin/ktn-linter && \
-    chmod +x /home/vscode/.local/bin/ktn-linter
+      -o /opt/kodflow/bin/ktn-linter && \
+    chmod +x /opt/kodflow/bin/ktn-linter
 
 # =============================================================================
 # Environment Variables

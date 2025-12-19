@@ -1,9 +1,12 @@
 services:
   devcontainer:
     # Use pre-built image from GitHub Container Registry
-    image: ghcr.io/kodflow/devcontainer-template:latest
-    # Always pull latest image on container creation/rebuild
     pull_policy: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Always pull latest base image on rebuild
+      pull: true
 
     env_file:
       - .env
@@ -41,6 +44,9 @@ services:
 
     # Environment variables for package managers cache
     environment:
+      # Home directory (required for many tools including Claude CLI)
+      - HOME=/home/vscode
+
       # Claude CLI configuration
       - CLAUDE_CONFIG_DIR=/home/vscode/.claude
 

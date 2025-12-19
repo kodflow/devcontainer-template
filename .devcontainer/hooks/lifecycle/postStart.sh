@@ -15,6 +15,77 @@ source "$SCRIPT_DIR/../shared/utils.sh"
 log_info "postStart: Container starting..."
 
 # ============================================================================
+# Restore baked-in files from /opt/kodflow/ (volumes overwrite image content)
+# ============================================================================
+KODFLOW_BACKUP="/opt/kodflow"
+
+# Restore Claude commands, scripts, and settings
+if [ -d "$KODFLOW_BACKUP/.claude" ]; then
+    log_info "Restoring Claude configuration from image..."
+
+    # Restore commands (always overwrite with latest from image)
+    if [ -d "$KODFLOW_BACKUP/.claude/commands" ]; then
+        mkdir -p "$HOME/.claude/commands"
+        cp -r "$KODFLOW_BACKUP/.claude/commands/"* "$HOME/.claude/commands/" 2>/dev/null || true
+        log_success "Claude commands restored"
+    fi
+
+    # Restore scripts (always overwrite with latest from image)
+    if [ -d "$KODFLOW_BACKUP/.claude/scripts" ]; then
+        mkdir -p "$HOME/.claude/scripts"
+        cp -r "$KODFLOW_BACKUP/.claude/scripts/"* "$HOME/.claude/scripts/" 2>/dev/null || true
+        chmod -R 755 "$HOME/.claude/scripts/"
+        log_success "Claude scripts restored"
+    fi
+
+    # Restore settings.json only if user hasn't customized it significantly
+    # (keep user's credentials and session data, merge with image settings)
+    if [ -f "$KODFLOW_BACKUP/.claude/settings.json" ]; then
+        if [ ! -f "$HOME/.claude/settings.json" ] || \
+           [ "$(jq -r 'keys | length' "$HOME/.claude/settings.json" 2>/dev/null)" -lt 5 ]; then
+            cp "$KODFLOW_BACKUP/.claude/settings.json" "$HOME/.claude/settings.json"
+            log_success "Claude settings.json restored"
+        else
+            log_info "Claude settings.json exists with customizations, skipping"
+        fi
+    fi
+
+    mkdir -p "$HOME/.claude/sessions"
+fi
+
+# Restore binaries (status-line, ktn-linter)
+if [ -d "$KODFLOW_BACKUP/bin" ]; then
+    log_info "Restoring binaries from image..."
+    mkdir -p "$HOME/.local/bin"
+
+    for binary in status-line ktn-linter; do
+        if [ -f "$KODFLOW_BACKUP/bin/$binary" ]; then
+            cp "$KODFLOW_BACKUP/bin/$binary" "$HOME/.local/bin/$binary"
+            chmod +x "$HOME/.local/bin/$binary"
+        fi
+    done
+    log_success "Binaries restored (status-line, ktn-linter)"
+fi
+
+# Restore NVM symlinks (node, npm, npx, claude)
+NVM_DIR="${NVM_DIR:-$HOME/.cache/nvm}"
+if [ -d "$NVM_DIR/versions/node" ]; then
+    NODE_VERSION=$(ls "$NVM_DIR/versions/node" 2>/dev/null | head -1)
+    if [ -n "$NODE_VERSION" ]; then
+        log_info "Restoring Node.js symlinks for $NODE_VERSION..."
+        mkdir -p "$HOME/.local/bin"
+        NODE_BIN="$NVM_DIR/versions/node/$NODE_VERSION/bin"
+
+        for cmd in node npm npx claude; do
+            if [ -f "$NODE_BIN/$cmd" ]; then
+                ln -sf "$NODE_BIN/$cmd" "$HOME/.local/bin/$cmd"
+            fi
+        done
+        log_success "Node.js symlinks restored"
+    fi
+fi
+
+# ============================================================================
 # 1Password CLI Setup
 # ============================================================================
 # Fix op config directory permissions (created by Docker as root)
