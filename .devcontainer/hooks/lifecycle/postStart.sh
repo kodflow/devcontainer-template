@@ -57,7 +57,7 @@ fi
 # Download latest binaries from GitHub (bypass Docker cache issues)
 # ============================================================================
 download_latest_binary() {
-    local repo="$1"
+    local full_repo="$1"  # Format: owner/repo (e.g., kodflow/status-line)
     local binary="$2"
     local target="$HOME/.local/bin/$binary"
 
@@ -71,7 +71,7 @@ download_latest_binary() {
 
     # Get latest version from GitHub API
     local latest_version
-    latest_version=$(curl -fsSL "https://api.github.com/repos/kodflow/$repo/releases/latest" 2>/dev/null | jq -r '.tag_name // empty')
+    latest_version=$(curl -fsSL "https://api.github.com/repos/$full_repo/releases/latest" 2>/dev/null | jq -r '.tag_name // empty')
 
     if [ -z "$latest_version" ]; then
         log_warning "Failed to get latest version for $binary"
@@ -91,7 +91,7 @@ download_latest_binary() {
     # Download if version differs or binary missing
     if [ "$current_version" != "$latest_version" ]; then
         log_info "Updating $binary: ${current_version:-none} -> $latest_version"
-        local url="https://github.com/kodflow/$repo/releases/latest/download/$binary-linux-$arch"
+        local url="https://github.com/$full_repo/releases/latest/download/$binary-linux-$arch"
 
         if curl -fsSL "$url" -o "$target.tmp" 2>/dev/null; then
             mv "$target.tmp" "$target"
@@ -109,8 +109,8 @@ download_latest_binary() {
 
 mkdir -p "$HOME/.local/bin"
 log_info "Checking for latest binaries..."
-download_latest_binary "status-line" "status-line"
-download_latest_binary "ktn-linter" "ktn-linter"
+download_latest_binary "kodflow/status-line" "status-line"
+download_latest_binary "kodflow/ktn-linter" "ktn-linter"
 
 # Restore NVM symlinks (node, npm, npx, claude)
 NVM_DIR="${NVM_DIR:-$HOME/.cache/nvm}"
