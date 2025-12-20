@@ -82,8 +82,19 @@ mkdir -p "$GOPATH/src"
 mkdir -p "$GOCACHE"
 mkdir -p "$GOMODCACHE"
 
-# ktn-linter - Moved to postCreate.sh for automatic updates
-# Installed by: .devcontainer/hooks/shared/update-tools.sh
+# ─────────────────────────────────────────────────────────────────────────────
+# Install ktn-linter (Go-specific linter)
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing ktn-linter...${NC}"
+mkdir -p "$HOME/.local/bin"
+
+KTN_URL="https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}"
+if curl -fsSL --connect-timeout 10 --max-time 60 "$KTN_URL" -o "$HOME/.local/bin/ktn-linter" 2>/dev/null; then
+    chmod +x "$HOME/.local/bin/ktn-linter"
+    echo -e "${GREEN}✓ ktn-linter installed${NC}"
+else
+    echo -e "${YELLOW}⚠ ktn-linter download failed (optional)${NC}"
+fi
 
 echo ""
 echo -e "${GREEN}=========================================${NC}"
@@ -93,8 +104,7 @@ echo ""
 echo "Installed components:"
 echo "  - ${GO_INSTALLED}"
 echo "  - Go Modules (package manager)"
-echo ""
-echo "Note: ktn-linter is installed via postCreate.sh for automatic updates"
+echo "  - ktn-linter (Go linter)"
 echo ""
 echo "Cache directories:"
 echo "  - GOPATH: $GOPATH"
