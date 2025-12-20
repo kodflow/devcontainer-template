@@ -106,6 +106,13 @@ fi
 echo "All features validated successfully"
 
 # ============================================================================
+# Pull latest Docker image (bypass Docker cache on rebuild)
+# ============================================================================
+echo ""
+echo "Pulling latest devcontainer image..."
+docker pull ghcr.io/kodflow/devcontainer-template:latest 2>/dev/null || echo "Warning: Could not pull latest image, using cached version"
+
+# ============================================================================
 # Clean up existing containers to prevent race conditions during rebuild
 # ============================================================================
 echo ""
