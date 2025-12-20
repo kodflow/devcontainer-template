@@ -71,7 +71,7 @@ download_latest_binary() {
 
     # Get latest version from GitHub API
     local latest_version
-    latest_version=$(curl -fsSL "https://api.github.com/repos/$full_repo/releases/latest" 2>/dev/null | jq -r '.tag_name // empty')
+    latest_version=$(curl -fsSL --connect-timeout 5 --max-time 15 "https://api.github.com/repos/$full_repo/releases/latest" 2>/dev/null | jq -r '.tag_name // empty')
 
     if [ -z "$latest_version" ]; then
         log_warning "Failed to get latest version for $binary"
@@ -93,7 +93,7 @@ download_latest_binary() {
         log_info "Updating $binary: ${current_version:-none} -> $latest_version"
         local url="https://github.com/$full_repo/releases/latest/download/$binary-linux-$arch"
 
-        if curl -fsSL "$url" -o "$target.tmp" 2>/dev/null; then
+        if curl -fsSL --connect-timeout 10 --max-time 60 "$url" -o "$target.tmp" 2>/dev/null; then
             mv "$target.tmp" "$target"
             chmod +x "$target"
             log_success "$binary updated to $latest_version"
