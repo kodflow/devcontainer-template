@@ -53,19 +53,64 @@ if [ -d "$KODFLOW_BACKUP/.claude" ]; then
     mkdir -p "$HOME/.claude/sessions"
 fi
 
-# Restore binaries (status-line, ktn-linter)
-if [ -d "$KODFLOW_BACKUP/bin" ]; then
-    log_info "Restoring binaries from image..."
-    mkdir -p "$HOME/.local/bin"
+# ============================================================================
+# Download latest binaries from GitHub (bypass Docker cache issues)
+# ============================================================================
+download_latest_binary() {
+    local full_repo="$1"  # Format: owner/repo (e.g., kodflow/status-line)
+    local binary="$2"
+    local target="$HOME/.local/bin/$binary"
 
-    for binary in status-line ktn-linter; do
-        if [ -f "$KODFLOW_BACKUP/bin/$binary" ]; then
-            cp "$KODFLOW_BACKUP/bin/$binary" "$HOME/.local/bin/$binary"
-            chmod +x "$HOME/.local/bin/$binary"
+    # Detect architecture
+    local arch
+    arch=$(uname -m)
+    case "$arch" in
+        x86_64)  arch="amd64" ;;
+        aarch64) arch="arm64" ;;
+    esac
+
+    # Get latest version from GitHub API
+    local latest_version
+    latest_version=$(curl -fsSL "https://api.github.com/repos/$full_repo/releases/latest" 2>/dev/null | jq -r '.tag_name // empty')
+
+    if [ -z "$latest_version" ]; then
+        log_warning "Failed to get latest version for $binary"
+        return 1
+    fi
+
+    # Check current version (if binary exists)
+    local current_version=""
+    if [ -x "$target" ]; then
+        # Try --version first, fallback to parsing help output
+        current_version=$("$target" --version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        if [ -z "$current_version" ]; then
+            current_version=$("$target" 2>&1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
         fi
-    done
-    log_success "Binaries restored (status-line, ktn-linter)"
-fi
+    fi
+
+    # Download if version differs or binary missing
+    if [ "$current_version" != "$latest_version" ]; then
+        log_info "Updating $binary: ${current_version:-none} -> $latest_version"
+        local url="https://github.com/$full_repo/releases/latest/download/$binary-linux-$arch"
+
+        if curl -fsSL "$url" -o "$target.tmp" 2>/dev/null; then
+            mv "$target.tmp" "$target"
+            chmod +x "$target"
+            log_success "$binary updated to $latest_version"
+        else
+            rm -f "$target.tmp"
+            log_warning "Failed to download $binary"
+            return 1
+        fi
+    else
+        log_info "$binary already at $latest_version"
+    fi
+}
+
+mkdir -p "$HOME/.local/bin"
+log_info "Checking for latest binaries..."
+download_latest_binary "kodflow/status-line" "status-line"
+download_latest_binary "kodflow/ktn-linter" "ktn-linter"
 
 # Restore NVM symlinks (node, npm, npx, claude)
 NVM_DIR="${NVM_DIR:-$HOME/.cache/nvm}"
