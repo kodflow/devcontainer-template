@@ -1,7 +1,6 @@
 services:
   devcontainer:
-    # Use pre-built image from GitHub Container Registry
-    pull_policy: always
+    # Build from Dockerfile (uses GHCR base image)
     build:
       context: .
       dockerfile: Dockerfile
