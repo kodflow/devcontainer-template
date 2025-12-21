@@ -84,7 +84,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/workspace/.claude/scripts/task-validate.sh",
+            "command": "/home/vscode/.claude/scripts/task-validate.sh",
             "timeout": 10
           }
         ]
@@ -94,7 +94,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/workspace/.claude/scripts/pre-validate.sh \"$CLAUDE_FILE_PATH\"",
+            "command": "/home/vscode/.claude/scripts/pre-validate.sh \"$CLAUDE_FILE_PATH\"",
             "timeout": 60
           }
         ]
@@ -106,7 +106,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/workspace/.claude/scripts/task-log.sh",
+            "command": "/home/vscode/.claude/scripts/task-log.sh",
             "timeout": 10
           }
         ]
@@ -116,7 +116,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/workspace/.claude/scripts/post-edit.sh \"$CLAUDE_FILE_PATH\"",
+            "command": "/home/vscode/.claude/scripts/post-edit.sh \"$CLAUDE_FILE_PATH\"",
             "timeout": 60
           }
         ]
@@ -126,7 +126,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/workspace/.claude/scripts/security.sh \"$CLAUDE_FILE_PATH\"",
+            "command": "/home/vscode/.claude/scripts/security.sh \"$CLAUDE_FILE_PATH\"",
             "timeout": 60
           }
         ]
@@ -136,7 +136,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/workspace/.claude/scripts/test.sh \"$CLAUDE_FILE_PATH\"",
+            "command": "/home/vscode/.claude/scripts/test.sh \"$CLAUDE_FILE_PATH\"",
             "timeout": 60
           }
         ]
