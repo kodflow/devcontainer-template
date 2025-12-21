@@ -24,6 +24,33 @@ Workflow complet pour développer une nouvelle fonctionnalité avec **suivi Task
 | `<description>` | Nouvelle feature avec ce nom |
 | `--continue` | Reprendre la feature en cours (via session) |
 | `--status` | Afficher le statut de la branche courante |
+| `--help` | Affiche l'aide de la commande |
+
+---
+
+## --help
+
+Quand `--help` est passe, afficher :
+
+```
+═══════════════════════════════════════════════
+  /feature - Developpement de fonctionnalites
+═══════════════════════════════════════════════
+
+Usage: /feature <description> [options]
+
+Options:
+  <description>     Nouvelle feature avec ce nom
+  --continue        Reprendre la feature en cours
+  --status          Afficher le statut de la branche
+  --help            Affiche cette aide
+
+Exemples:
+  /feature add-auth         Cree feat/add-auth
+  /feature --continue       Reprend la derniere session
+  /feature --status         Affiche l'etat de la PR
+═══════════════════════════════════════════════
+```
 
 ---
 

@@ -1,6 +1,50 @@
 # Update - Mise à jour depuis la Marketplace
 
+$ARGUMENTS
+
+---
+
+## Description
+
 Mettre à jour les commandes, scripts, binaires et Taskwarrior depuis GitHub.
+
+---
+
+## Arguments
+
+| Pattern | Action |
+|---------|--------|
+| (vide) | Met a jour depuis le repository Kodflow |
+| `--help` | Affiche l'aide de la commande |
+
+---
+
+## --help
+
+Quand `--help` est passe, afficher :
+
+```
+═══════════════════════════════════════════════
+  /update - Mise a jour depuis la Marketplace
+═══════════════════════════════════════════════
+
+Usage: /update [options]
+
+Options:
+  (vide)          Met a jour tout depuis GitHub
+  --help          Affiche cette aide
+
+Elements mis a jour:
+  - Commandes (/build, /commit, /feature, etc.)
+  - Scripts (format, lint, security...)
+  - Binaires (status-line, ktn-linter)
+  - Configuration MCP
+  - Taskwarrior
+
+Exemples:
+  /update         Telecharge les dernieres versions
+═══════════════════════════════════════════════
+```
 
 ---
 

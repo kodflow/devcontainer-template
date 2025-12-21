@@ -158,6 +158,13 @@ RUN mkdir -p $NVM_DIR && \
     ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/claude" ~/.local/bin/claude
 
 # =============================================================================
+# CodeRabbit CLI (AI Code Reviews)
+# =============================================================================
+RUN curl -fsSL https://cli.coderabbit.ai/install.sh | sh && \
+    ln -sf /home/vscode/.coderabbit/bin/coderabbit ~/.local/bin/coderabbit && \
+    ln -sf /home/vscode/.coderabbit/bin/coderabbit ~/.local/bin/cr
+
+# =============================================================================
 # Claude Configuration (baked into image)
 # =============================================================================
 # Store in /opt/kodflow/ as backup (volumes will overwrite /home/vscode/.claude/)

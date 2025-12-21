@@ -25,8 +25,41 @@ Les hooks fonctionnent même sans ces outils (silencieusement ignorés), mais av
 | `<lang>` | Installe les outils pour un langage spécifique |
 | `security` | Installe uniquement les outils de sécurité |
 | `list` | Liste les outils par catégorie |
+| `--help` | Affiche l'aide de la commande |
 
 **Langages supportés** : `js`, `ts`, `python`, `go`, `rust`, `shell`, `java`, `php`, `ruby`, `c`, `lua`, `sql`, `terraform`, `docker`, `elixir`, `dart`, `kotlin`, `swift`, `zig`, `nim`, `toml`, `protobuf`
+
+---
+
+## --help
+
+Quand `--help` est passe, afficher :
+
+```
+═══════════════════════════════════════════════
+  /install - Development Tools Installer
+═══════════════════════════════════════════════
+
+Usage: /install [lang|option]
+
+Options:
+  (vide) ou all     Installe tous les outils
+  <lang>            Installe pour un langage (js, python, go...)
+  security          Outils de securite uniquement
+  list              Liste les outils disponibles
+  --help            Affiche cette aide
+
+Langages: js, ts, python, go, rust, shell, java, php,
+          ruby, c, lua, sql, terraform, docker, elixir,
+          dart, kotlin, swift, zig, nim, toml, protobuf
+
+Exemples:
+  /install              Installe tout
+  /install python       Outils Python (ruff, black, mypy...)
+  /install security     Outils securite (trivy, gitleaks...)
+  /install list         Liste tous les outils
+═══════════════════════════════════════════════
+```
 
 ---
 

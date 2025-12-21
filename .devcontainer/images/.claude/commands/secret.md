@@ -76,6 +76,39 @@ VAULT_ID="ypahjj334ixtiyjkytu5hij2im"
 | `add <name> [value]`    | Ajoute un nouveau secret           |
 | `update <name> [value]` | Met a jour un secret existant      |
 | `remove <name>`         | Supprime un secret                 |
+| `--help`                | Affiche l'aide de la commande      |
+
+---
+
+## --help
+
+Quand `--help` est passe, afficher :
+
+```
+═══════════════════════════════════════════════
+  /secret - 1Password Secret Management
+═══════════════════════════════════════════════
+
+Usage: /secret [action] [name] [value]
+
+Actions:
+  (vide) ou list        Liste les secrets disponibles
+  get <name>            Recupere un secret
+  add <name> [value]    Ajoute un secret
+  update <name> [value] Met a jour un secret
+  remove <name>         Supprime un secret
+  --help                Affiche cette aide
+
+Prerequis:
+  OP_SERVICE_ACCOUNT_TOKEN doit etre configure
+
+Exemples:
+  /secret                   Liste tous les secrets
+  /secret get mcp-github    Recupere le token GitHub
+  /secret add my-key        Ajoute un nouveau secret
+  /secret remove old-key    Supprime un secret
+═══════════════════════════════════════════════
+```
 
 ---
 

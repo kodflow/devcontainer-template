@@ -17,6 +17,29 @@ Génère le contexte du projet pour optimiser les interactions avec Claude :
 | Pattern | Action |
 |---------|--------|
 | `--context` | Génère CLAUDE.md + update versions |
+| `--help` | Affiche l'aide de la commande |
+
+---
+
+## --help
+
+Quand `--help` est passe, afficher :
+
+```
+═══════════════════════════════════════════════
+  /build - Context Generator
+═══════════════════════════════════════════════
+
+Usage: /build [options]
+
+Options:
+  --context       Genere CLAUDE.md + update versions
+  --help          Affiche cette aide
+
+Exemples:
+  /build --context        Genere le contexte complet
+═══════════════════════════════════════════════
+```
 
 ---
 
