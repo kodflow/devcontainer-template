@@ -1,4 +1,4 @@
-# Node.js >= 24.0.0
+# Node.js >= 25.0.0
 > Release Notes: https://nodejs.org/en/blog/release
 
 ## Structure
