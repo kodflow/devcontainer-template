@@ -24,6 +24,33 @@ Workflow complet pour corriger un bug avec **suivi Taskwarrior obligatoire** :
 | `<description>` | Nouveau fix avec ce nom |
 | `--continue` | Reprendre le fix en cours (via session) |
 | `--status` | Afficher le statut de la branche courante |
+| `--help` | Affiche l'aide de la commande |
+
+---
+
+## --help
+
+Quand `--help` est passe, afficher :
+
+```
+═══════════════════════════════════════════════
+  /fix - Correction de bugs
+═══════════════════════════════════════════════
+
+Usage: /fix <description> [options]
+
+Options:
+  <description>     Nouveau fix avec ce nom
+  --continue        Reprendre le fix en cours
+  --status          Afficher le statut de la branche
+  --help            Affiche cette aide
+
+Exemples:
+  /fix login-error          Cree fix/login-error
+  /fix --continue           Reprend la derniere session
+  /fix --status             Affiche l'etat de la PR
+═══════════════════════════════════════════════
+```
 
 ---
 

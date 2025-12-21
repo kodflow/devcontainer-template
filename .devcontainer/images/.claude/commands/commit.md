@@ -59,6 +59,36 @@ Retourne : `owner repo`
 | `--no-pr`         | Skip la creation de PR                         |
 | `--amend`         | Amend le dernier commit (meme branche)         |
 | `--rename <nom>`  | Renomme la branche avant push/PR               |
+| `--help`          | Affiche l'aide de la commande                  |
+
+---
+
+## --help
+
+Quand `--help` est passe, afficher :
+
+```
+═══════════════════════════════════════════════
+  /commit - Git Workflow Automation
+═══════════════════════════════════════════════
+
+Usage: /commit [options]
+
+Options:
+  (vide)            Workflow complet : branch, commit, push, PR
+  --branch <nom>    Force le nom de branche
+  --no-pr           Skip la creation de PR
+  --amend           Amend le dernier commit
+  --rename <nom>    Renomme la branche avant push/PR
+  --help            Affiche cette aide
+
+Exemples:
+  /commit                   Commit + PR automatique
+  /commit --no-pr           Commit sans creer de PR
+  /commit --amend           Amend le dernier commit
+  /commit --branch feat/x   Force le nom de branche
+═══════════════════════════════════════════════
+```
 
 ---
 
