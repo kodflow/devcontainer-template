@@ -19,8 +19,9 @@ services:
       - package-cache:/home/vscode/.cache
       - npm-global:/home/vscode/.local/share/npm-global
 
-      # Claude sessions only (commands/scripts come from image)
-      - claude-sessions:/home/vscode/.claude/sessions
+      # Claude config persistence (credentials, settings, sessions)
+      # Commands/scripts are restored from image on each start
+      - claude-config:/home/vscode/.claude
 
       # 1Password CLI session persistence
       - op-config:/home/vscode/.config/op
@@ -129,7 +130,7 @@ volumes:
   zsh-history:
   package-cache:
   npm-global:
-  claude-sessions:
+  claude-config:
   op-config:
   op-cache:
 

@@ -15,6 +15,39 @@ source "$SCRIPT_DIR/../shared/utils.sh"
 log_info "postStart: Container starting..."
 
 # ============================================================================
+# Restore Claude commands/scripts from image defaults
+# ============================================================================
+# Volume mounts overwrite image content, so we restore from /etc/claude-defaults/
+CLAUDE_DEFAULTS="/etc/claude-defaults"
+
+if [ -d "$CLAUDE_DEFAULTS" ]; then
+    log_info "Restoring Claude configuration from image defaults..."
+    
+    # Ensure base directory exists
+    mkdir -p "$HOME/.claude"
+    
+    # Restore commands (always overwrite with latest from image)
+    if [ -d "$CLAUDE_DEFAULTS/commands" ]; then
+        mkdir -p "$HOME/.claude/commands"
+        cp -r "$CLAUDE_DEFAULTS/commands/"* "$HOME/.claude/commands/" 2>/dev/null || true
+    fi
+    
+    # Restore scripts (always overwrite with latest from image)
+    if [ -d "$CLAUDE_DEFAULTS/scripts" ]; then
+        mkdir -p "$HOME/.claude/scripts"
+        cp -r "$CLAUDE_DEFAULTS/scripts/"* "$HOME/.claude/scripts/" 2>/dev/null || true
+        chmod -R 755 "$HOME/.claude/scripts/"
+    fi
+    
+    # Restore settings.json only if it does not exist
+    if [ -f "$CLAUDE_DEFAULTS/settings.json" ] && [ \! -f "$HOME/.claude/settings.json" ]; then
+        cp "$CLAUDE_DEFAULTS/settings.json" "$HOME/.claude/settings.json"
+    fi
+    
+    log_success "Claude configuration restored"
+fi
+
+# ============================================================================
 # Ensure Claude sessions directory exists (volume mount point)
 # ============================================================================
 mkdir -p "$HOME/.claude/sessions"
