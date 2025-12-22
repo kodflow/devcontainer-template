@@ -53,6 +53,23 @@ if [ -d "$KODFLOW_BACKUP/.claude" ]; then
     mkdir -p "$HOME/.claude/sessions"
 fi
 
+# Restore Oh My Zsh if missing or incomplete (base image may have empty/broken oh-my-zsh)
+if [ -d "$KODFLOW_BACKUP/.oh-my-zsh" ]; then
+    # Check if oh-my-zsh is missing or incomplete (missing oh-my-zsh.sh is the key indicator)
+    if [ ! -f "$HOME/.oh-my-zsh/oh-my-zsh.sh" ]; then
+        log_info "Restoring Oh My Zsh from image (missing or incomplete)..."
+        rm -rf "$HOME/.oh-my-zsh"
+        cp -r "$KODFLOW_BACKUP/.oh-my-zsh" "$HOME/.oh-my-zsh"
+        log_success "Oh My Zsh restored"
+    fi
+
+    # Restore p10k config if missing
+    if [ -f "$KODFLOW_BACKUP/.p10k.zsh" ] && [ ! -f "$HOME/.p10k.zsh" ]; then
+        cp "$KODFLOW_BACKUP/.p10k.zsh" "$HOME/.p10k.zsh"
+        log_success "Powerlevel10k config restored"
+    fi
+fi
+
 # Restore NVM symlinks (node, npm, npx, claude)
 NVM_DIR="${NVM_DIR:-$HOME/.cache/nvm}"
 if [ -d "$NVM_DIR/versions/node" ]; then

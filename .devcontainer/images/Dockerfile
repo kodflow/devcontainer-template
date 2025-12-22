@@ -120,15 +120,11 @@ RUN mkdir -p .cache .config .local/bin .local/share .zsh_history_dir \
     .config/{aws,gcloud,azure} .kube \
     .claude .config/@anthropic .cache/@anthropic .local/share/@anthropic
 
-# Oh My Zsh + Powerlevel10k (skip if already installed in base image)
-RUN if [ ! -d "$HOME/.oh-my-zsh" ]; then \
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; \
-    fi && \
-    rm -rf ~/.oh-my-zsh/custom/themes/powerlevel10k && \
+# Oh My Zsh + Powerlevel10k (force fresh install to ensure completeness)
+RUN rm -rf ~/.oh-my-zsh && \
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.oh-my-zsh/custom/themes/powerlevel10k && \
-    rm -rf ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions && \
     git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions.git ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions && \
-    rm -rf ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting && \
     git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
 
 # Copy p10k configuration
@@ -173,6 +169,16 @@ RUN mkdir -p /opt/kodflow
 COPY --chown=vscode:vscode .claude/ /opt/kodflow/.claude/
 RUN chmod -R 755 /opt/kodflow/.claude/scripts/ && \
     mkdir -p /opt/kodflow/.claude/sessions
+USER vscode
+
+# =============================================================================
+# Oh My Zsh Backup (for restoration after rebuild)
+# =============================================================================
+# Base image may have incomplete oh-my-zsh, backup our complete installation
+USER root
+RUN cp -r /home/vscode/.oh-my-zsh /opt/kodflow/.oh-my-zsh && \
+    cp /home/vscode/.p10k.zsh /opt/kodflow/.p10k.zsh && \
+    chown -R vscode:vscode /opt/kodflow/.oh-my-zsh /opt/kodflow/.p10k.zsh
 USER vscode
 
 # =============================================================================
