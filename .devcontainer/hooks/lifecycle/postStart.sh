@@ -70,6 +70,18 @@ if [ -d "$KODFLOW_BACKUP/.oh-my-zsh" ]; then
     fi
 fi
 
+# Restore Kodflow binaries (ktn-linter, status-line) if missing
+if [ -d "$KODFLOW_BACKUP/bin" ]; then
+    mkdir -p "$HOME/.local/bin"
+    for binary in ktn-linter status-line; do
+        if [ -f "$KODFLOW_BACKUP/bin/$binary" ] && [ ! -f "$HOME/.local/bin/$binary" ]; then
+            cp "$KODFLOW_BACKUP/bin/$binary" "$HOME/.local/bin/$binary"
+            chmod +x "$HOME/.local/bin/$binary"
+            log_success "$binary restored"
+        fi
+    done
+fi
+
 # Restore NVM symlinks (node, npm, npx, claude)
 NVM_DIR="${NVM_DIR:-$HOME/.cache/nvm}"
 if [ -d "$NVM_DIR/versions/node" ]; then
