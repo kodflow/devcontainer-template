@@ -15,79 +15,19 @@ source "$SCRIPT_DIR/../shared/utils.sh"
 log_info "postStart: Container starting..."
 
 # ============================================================================
-# Restore baked-in files from /opt/kodflow/ (volumes overwrite image content)
+# Ensure Claude sessions directory exists (volume mount point)
 # ============================================================================
-KODFLOW_BACKUP="/opt/kodflow"
+mkdir -p "$HOME/.claude/sessions"
 
-# Restore Claude commands, scripts, and settings
-if [ -d "$KODFLOW_BACKUP/.claude" ]; then
-    log_info "Restoring Claude configuration from image..."
-
-    # Restore commands (always overwrite with latest from image)
-    if [ -d "$KODFLOW_BACKUP/.claude/commands" ]; then
-        mkdir -p "$HOME/.claude/commands"
-        cp -r "$KODFLOW_BACKUP/.claude/commands/"* "$HOME/.claude/commands/" 2>/dev/null || true
-        log_success "Claude commands restored"
-    fi
-
-    # Restore scripts (always overwrite with latest from image)
-    if [ -d "$KODFLOW_BACKUP/.claude/scripts" ]; then
-        mkdir -p "$HOME/.claude/scripts"
-        cp -r "$KODFLOW_BACKUP/.claude/scripts/"* "$HOME/.claude/scripts/" 2>/dev/null || true
-        chmod -R 755 "$HOME/.claude/scripts/"
-        log_success "Claude scripts restored"
-    fi
-
-    # Restore settings.json only if user hasn't customized it significantly
-    # (keep user's credentials and session data, merge with image settings)
-    if [ -f "$KODFLOW_BACKUP/.claude/settings.json" ]; then
-        if [ ! -f "$HOME/.claude/settings.json" ] || \
-           [ "$(jq -r 'keys | length' "$HOME/.claude/settings.json" 2>/dev/null)" -lt 5 ]; then
-            cp "$KODFLOW_BACKUP/.claude/settings.json" "$HOME/.claude/settings.json"
-            log_success "Claude settings.json restored"
-        else
-            log_info "Claude settings.json exists with customizations, skipping"
-        fi
-    fi
-
-    mkdir -p "$HOME/.claude/sessions"
-fi
-
-# Restore Oh My Zsh if missing or incomplete (base image may have empty/broken oh-my-zsh)
-if [ -d "$KODFLOW_BACKUP/.oh-my-zsh" ]; then
-    # Check if oh-my-zsh is missing or incomplete (missing oh-my-zsh.sh is the key indicator)
-    if [ ! -f "$HOME/.oh-my-zsh/oh-my-zsh.sh" ]; then
-        log_info "Restoring Oh My Zsh from image (missing or incomplete)..."
-        rm -rf "$HOME/.oh-my-zsh"
-        cp -r "$KODFLOW_BACKUP/.oh-my-zsh" "$HOME/.oh-my-zsh"
-        log_success "Oh My Zsh restored"
-    fi
-
-    # Restore p10k config if missing
-    if [ -f "$KODFLOW_BACKUP/.p10k.zsh" ] && [ ! -f "$HOME/.p10k.zsh" ]; then
-        cp "$KODFLOW_BACKUP/.p10k.zsh" "$HOME/.p10k.zsh"
-        log_success "Powerlevel10k config restored"
-    fi
-fi
-
-# Restore Kodflow binaries (ktn-linter, status-line) if missing
-if [ -d "$KODFLOW_BACKUP/bin" ]; then
-    mkdir -p "$HOME/.local/bin"
-    for binary in ktn-linter status-line; do
-        if [ -f "$KODFLOW_BACKUP/bin/$binary" ] && [ ! -f "$HOME/.local/bin/$binary" ]; then
-            cp "$KODFLOW_BACKUP/bin/$binary" "$HOME/.local/bin/$binary"
-            chmod +x "$HOME/.local/bin/$binary"
-            log_success "$binary restored"
-        fi
-    done
-fi
-
+# ============================================================================
 # Restore NVM symlinks (node, npm, npx, claude)
+# ============================================================================
+# NVM is in package-cache volume, so we need to recreate symlinks to ~/.local/bin
 NVM_DIR="${NVM_DIR:-$HOME/.cache/nvm}"
 if [ -d "$NVM_DIR/versions/node" ]; then
     NODE_VERSION=$(ls "$NVM_DIR/versions/node" 2>/dev/null | head -1)
     if [ -n "$NODE_VERSION" ]; then
-        log_info "Restoring Node.js symlinks for $NODE_VERSION..."
+        log_info "Setting up Node.js symlinks for $NODE_VERSION..."
         mkdir -p "$HOME/.local/bin"
         NODE_BIN="$NVM_DIR/versions/node/$NODE_VERSION/bin"
 
@@ -96,7 +36,7 @@ if [ -d "$NVM_DIR/versions/node" ]; then
                 ln -sf "$NODE_BIN/$cmd" "$HOME/.local/bin/$cmd"
             fi
         done
-        log_success "Node.js symlinks restored"
+        log_success "Node.js symlinks configured"
     fi
 fi
 
