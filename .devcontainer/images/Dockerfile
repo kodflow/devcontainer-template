@@ -161,11 +161,22 @@ RUN curl -fsSL https://cli.coderabbit.ai/install.sh | sh && \
     ln -sf /home/vscode/.coderabbit/bin/coderabbit ~/.local/bin/cr
 
 # =============================================================================
-# Claude Configuration (installed directly - no backup needed)
+# Claude Configuration (backup to /etc/claude-defaults/ for volume restoration)
 # =============================================================================
 COPY --chown=vscode:vscode .claude/ /home/vscode/.claude/
 RUN chmod -R 755 /home/vscode/.claude/scripts/ && \
     mkdir -p /home/vscode/.claude/sessions
+
+# =============================================================================
+# Claude Defaults Backup (for volume restoration)
+# =============================================================================
+USER root
+RUN mkdir -p /etc/claude-defaults
+COPY --chown=root:root .claude/commands/ /etc/claude-defaults/commands/
+COPY --chown=root:root .claude/scripts/ /etc/claude-defaults/scripts/
+COPY --chown=root:root .claude/settings.json /etc/claude-defaults/settings.json
+RUN chmod -R 755 /etc/claude-defaults/
+USER vscode
 
 # =============================================================================
 # MCP Template (secrets injected at runtime via postStart.sh)
