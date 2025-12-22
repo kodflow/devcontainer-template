@@ -161,25 +161,11 @@ RUN curl -fsSL https://cli.coderabbit.ai/install.sh | sh && \
     ln -sf /home/vscode/.coderabbit/bin/coderabbit ~/.local/bin/cr
 
 # =============================================================================
-# Claude Configuration (baked into image)
+# Claude Configuration (installed directly - no backup needed)
 # =============================================================================
-# Store in /opt/kodflow/ as backup (volumes will overwrite /home/vscode/.claude/)
-USER root
-RUN mkdir -p /opt/kodflow
-COPY --chown=vscode:vscode .claude/ /opt/kodflow/.claude/
-RUN chmod -R 755 /opt/kodflow/.claude/scripts/ && \
-    mkdir -p /opt/kodflow/.claude/sessions
-USER vscode
-
-# =============================================================================
-# Oh My Zsh Backup (for restoration after rebuild)
-# =============================================================================
-# Base image may have incomplete oh-my-zsh, backup our complete installation
-USER root
-RUN cp -r /home/vscode/.oh-my-zsh /opt/kodflow/.oh-my-zsh && \
-    cp /home/vscode/.p10k.zsh /opt/kodflow/.p10k.zsh && \
-    chown -R vscode:vscode /opt/kodflow/.oh-my-zsh /opt/kodflow/.p10k.zsh
-USER vscode
+COPY --chown=vscode:vscode .claude/ /home/vscode/.claude/
+RUN chmod -R 755 /home/vscode/.claude/scripts/ && \
+    mkdir -p /home/vscode/.claude/sessions
 
 # =============================================================================
 # MCP Template (secrets injected at runtime via postStart.sh)
@@ -190,19 +176,15 @@ COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
 USER vscode
 
 # =============================================================================
-# Status Line & ktn-linter (downloaded during build)
+# Status Line & ktn-linter (installed directly to ~/.local/bin/)
 # =============================================================================
-# Store in /opt/kodflow/bin/ as backup (volumes will overwrite ~/.local/bin/)
-USER root
-RUN mkdir -p /opt/kodflow/bin && chown vscode:vscode /opt/kodflow/bin
-USER vscode
 RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     curl -fsSL "https://github.com/kodflow/status-line/releases/latest/download/status-line-linux-${ARCH}" \
-      -o /opt/kodflow/bin/status-line && \
-    chmod +x /opt/kodflow/bin/status-line && \
+      -o ~/.local/bin/status-line && \
+    chmod +x ~/.local/bin/status-line && \
     curl -fsSL "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${ARCH}" \
-      -o /opt/kodflow/bin/ktn-linter && \
-    chmod +x /opt/kodflow/bin/ktn-linter
+      -o ~/.local/bin/ktn-linter && \
+    chmod +x ~/.local/bin/ktn-linter
 
 # =============================================================================
 # Environment Variables
