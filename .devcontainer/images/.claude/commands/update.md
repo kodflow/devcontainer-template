@@ -1,4 +1,4 @@
-# Update - Mise à jour depuis la Marketplace
+# Update - Project & DevContainer Updates
 
 $ARGUMENTS
 
@@ -6,7 +6,7 @@ $ARGUMENTS
 
 ## Description
 
-Mettre à jour les commandes, scripts, binaires et Taskwarrior depuis GitHub.
+Met à jour les versions et dépendances du projet, ou remplace le devcontainer depuis le template.
 
 ---
 
@@ -14,211 +14,604 @@ Mettre à jour les commandes, scripts, binaires et Taskwarrior depuis GitHub.
 
 | Pattern | Action |
 |---------|--------|
-| (vide) | Met a jour depuis le repository Kodflow |
-| `--help` | Affiche l'aide de la commande |
+| (vide) | Analyse et met à jour toutes les versions/dépendances |
+| `--devcontainer` | Remplace .devcontainer depuis le template Kodflow |
+| `--dry-run` | Affiche les changements sans les appliquer |
+| `--help` | Affiche l'aide |
 
 ---
 
 ## --help
 
-Quand `--help` est passe, afficher :
+Quand `--help` est passé, afficher :
 
 ```
 ═══════════════════════════════════════════════
-  /update - Mise a jour depuis la Marketplace
+  /update - Mise à jour du projet
 ═══════════════════════════════════════════════
 
 Usage: /update [options]
 
 Options:
-  (vide)          Met a jour tout depuis GitHub
-  --help          Affiche cette aide
+  (vide)            Met à jour versions et dépendances
+  --devcontainer    Remplace .devcontainer depuis template
+  --dry-run         Prévisualise sans appliquer
+  --help            Affiche cette aide
 
-Elements mis a jour:
-  - Commandes (/build, /commit, /feature, etc.)
-  - Scripts (format, lint, security...)
-  - Binaires (status-line, ktn-linter)
-  - Configuration MCP
-  - Taskwarrior
+Éléments mis à jour (mode par défaut):
+  - GitHub Actions (uses: avec hash)
+  - Dockerfile (ARG versions)
+  - package.json, go.mod, Cargo.toml, etc.
+
+Mode --devcontainer:
+  - Télécharge kodflow/devcontainer-template
+  - Remplace tous les fichiers .devcontainer
+  - Préserve les fichiers .gitignore (.env, etc.)
 
 Exemples:
-  /update         Telecharge les dernieres versions
+  /update                   Met à jour le projet
+  /update --dry-run         Prévisualise les mises à jour
+  /update --devcontainer    Met à jour le devcontainer
 ═══════════════════════════════════════════════
 ```
 
 ---
 
-## Action
+## Action: Mode par défaut (versions/dépendances)
 
-Exécuter ce script bash :
+Exécuter ce script bash pour mettre à jour les versions :
 
 ```bash
 #!/bin/bash
-REPO="kodflow/devcontainer-template"
-BASE="https://raw.githubusercontent.com/$REPO/main/.devcontainer/features/claude"
+set -e
 
-echo "Updating from Kodflow Marketplace..."
+DRY_RUN="${DRY_RUN:-false}"
+UPDATES_COUNT=0
 
-# Check if .claude existed before (for gitignore logic)
-CLAUDE_EXISTED=false
-[ -d ".claude" ] && CLAUDE_EXISTED=true
-
-# Create directories
-mkdir -p ".claude/commands" ".claude/scripts" ".claude/sessions"
-
-# Commands
-for cmd in build commit secret install update feature fix; do
-    curl -sL "$BASE/.claude/commands/$cmd.md" -o ".claude/commands/$cmd.md" 2>/dev/null && echo "✓ /$cmd"
-done
-
-# Scripts (including Taskwarrior hooks)
-for s in format imports lint post-edit pre-validate security test typecheck task-validate task-log task-init task-subtasks; do
-    curl -sL "$BASE/.claude/scripts/$s.sh" -o ".claude/scripts/$s.sh" 2>/dev/null && chmod +x ".claude/scripts/$s.sh"
-done
-echo "✓ scripts"
-
-# Taskwarrior installation
+echo "═══════════════════════════════════════════════"
+echo "  /update - Mise à jour des versions"
+echo "═══════════════════════════════════════════════"
 echo ""
-echo "Installing Taskwarrior..."
-if ! command -v task &>/dev/null; then
-    if command -v apt-get &>/dev/null; then
-        sudo apt-get update -qq && sudo apt-get install -y -qq taskwarrior && echo "✓ taskwarrior"
-    elif command -v apk &>/dev/null; then
-        sudo apk add --no-cache task && echo "✓ taskwarrior"
-    elif command -v brew &>/dev/null; then
-        brew install task && echo "✓ taskwarrior"
-    else
-        echo "⚠ taskwarrior (manual install required)"
+
+# =============================================================================
+# Helper: Get latest GitHub Action version with hash
+# =============================================================================
+get_action_latest() {
+    local OWNER="$1"
+    local REPO="$2"
+    local CURRENT_HASH="$3"
+    
+    # Get latest release tag
+    local TAG=$(curl -sL "https://api.github.com/repos/$OWNER/$REPO/releases/latest" 2>/dev/null | jq -r '.tag_name // empty')
+    
+    if [ -z "$TAG" ]; then
+        # Fallback: get latest tag
+        TAG=$(curl -sL "https://api.github.com/repos/$OWNER/$REPO/tags" 2>/dev/null | jq -r '.[0].name // empty')
     fi
-else
-    echo "✓ taskwarrior (already installed)"
-fi
-
-# Settings
-curl -sL "$BASE/.claude/settings.json" -o ".claude/settings.json" 2>/dev/null
-echo "✓ settings.json"
-
-# Status-line binary
-echo ""
-echo "Installing status-line..."
-mkdir -p "$HOME/.local/bin"
-
-case "$(uname -s)" in
-    Linux*)  STATUS_OS="linux" ;;
-    Darwin*) STATUS_OS="darwin" ;;
-    MINGW*|MSYS*|CYGWIN*) STATUS_OS="windows" ;;
-    *) STATUS_OS="linux" ;;
-esac
-
-case "$(uname -m)" in
-    x86_64|amd64) STATUS_ARCH="amd64" ;;
-    aarch64|arm64) STATUS_ARCH="arm64" ;;
-    *) STATUS_ARCH="amd64" ;;
-esac
-
-STATUS_EXT=""
-[ "$STATUS_OS" = "windows" ] && STATUS_EXT=".exe"
-
-STATUS_URL="https://github.com/kodflow/status-line/releases/latest/download/status-line-${STATUS_OS}-${STATUS_ARCH}${STATUS_EXT}"
-if curl -sL "$STATUS_URL" -o "$HOME/.local/bin/status-line${STATUS_EXT}" 2>/dev/null; then
-    chmod +x "$HOME/.local/bin/status-line${STATUS_EXT}"
-    echo "✓ status-line"
-else
-    echo "⚠ status-line (download failed)"
-fi
-
-# MCP config (merge with existing + add Taskwarrior)
-echo ""
-echo "Configuring MCP..."
-MCP_REMOTE=$(curl -sL "$BASE/.mcp.json" 2>/dev/null)
-
-# Add Taskwarrior MCP server
-TASKWARRIOR_MCP='{"taskwarrior":{"command":"npx","args":["-y","mcp-server-taskwarrior"]}}'
-
-if [ -n "$MCP_REMOTE" ]; then
-    if [ -f ".mcp.json" ]; then
-        # Merge: keep existing servers, add missing ones + taskwarrior
-        echo "$MCP_REMOTE" | jq -s --argjson tw "$TASKWARRIOR_MCP" '.[0].mcpServers * .[1].mcpServers * $tw | {mcpServers: .}' .mcp.json - > .mcp.json.tmp 2>/dev/null && mv .mcp.json.tmp .mcp.json
-        echo "✓ .mcp.json (merged + taskwarrior)"
-    else
-        echo "$MCP_REMOTE" | jq --argjson tw "$TASKWARRIOR_MCP" '.mcpServers += $tw' > .mcp.json
-        echo "✓ .mcp.json (created + taskwarrior)"
+    
+    if [ -z "$TAG" ]; then
+        return 1
     fi
-else
-    # Fallback: create with just taskwarrior
-    echo "{\"mcpServers\":$TASKWARRIOR_MCP}" > .mcp.json
-    echo "✓ .mcp.json (taskwarrior only)"
-fi
+    
+    # Get commit SHA for the tag (handle annotated vs lightweight)
+    local REF_DATA=$(curl -sL "https://api.github.com/repos/$OWNER/$REPO/git/ref/tags/$TAG" 2>/dev/null)
+    local OBJ_TYPE=$(echo "$REF_DATA" | jq -r '.object.type // empty')
+    local SHA=""
+    
+    if [ "$OBJ_TYPE" = "tag" ]; then
+        # Annotated tag - need to dereference
+        local TAG_URL=$(echo "$REF_DATA" | jq -r '.object.url')
+        SHA=$(curl -sL "$TAG_URL" 2>/dev/null | jq -r '.object.sha // empty')
+    else
+        # Lightweight tag
+        SHA=$(echo "$REF_DATA" | jq -r '.object.sha // empty')
+    fi
+    
+    if [ -z "$SHA" ]; then
+        return 1
+    fi
+    
+    # Check if update needed
+    if [ "${SHA:0:40}" != "${CURRENT_HASH:0:40}" ]; then
+        echo "$SHA $TAG"
+        return 0
+    fi
+    
+    return 1
+}
 
-# Add .claude to .gitignore if it was newly created
-if [ "$CLAUDE_EXISTED" = false ]; then
+# =============================================================================
+# Update GitHub Actions
+# =============================================================================
+update_github_actions() {
+    echo "GitHub Actions:"
+    
+    local WORKFLOW_FILES=$(find .github/workflows -name "*.yml" -o -name "*.yaml" 2>/dev/null)
+    
+    if [ -z "$WORKFLOW_FILES" ]; then
+        echo "  (aucun workflow trouvé)"
+        echo ""
+        return
+    fi
+    
+    local FOUND_UPDATES=false
+    
+    for WF in $WORKFLOW_FILES; do
+        # Extract all uses: lines with hash format
+        while IFS= read -r LINE; do
+            # Parse: uses: owner/repo@hash # vX
+            if [[ "$LINE" =~ uses:[[:space:]]*([^/]+)/([^@]+)@([a-f0-9]+) ]]; then
+                local OWNER="${BASH_REMATCH[1]}"
+                local REPO="${BASH_REMATCH[2]}"
+                local CURRENT_HASH="${BASH_REMATCH[3]}"
+                
+                # Get current version comment
+                local CURRENT_VER=""
+                if [[ "$LINE" =~ \#[[:space:]]*(v[0-9.]+) ]]; then
+                    CURRENT_VER="${BASH_REMATCH[1]}"
+                fi
+                
+                # Get latest
+                local LATEST=$(get_action_latest "$OWNER" "$REPO" "$CURRENT_HASH")
+                
+                if [ -n "$LATEST" ]; then
+                    local NEW_HASH=$(echo "$LATEST" | cut -d' ' -f1)
+                    local NEW_TAG=$(echo "$LATEST" | cut -d' ' -f2)
+                    
+                    FOUND_UPDATES=true
+                    echo "  $WF:"
+                    echo "    $OWNER/$REPO: $CURRENT_VER → $NEW_TAG"
+                    
+                    if [ "$DRY_RUN" != "true" ]; then
+                        # Replace in file
+                        sed -i "s|$OWNER/$REPO@$CURRENT_HASH|$OWNER/$REPO@$NEW_HASH # $NEW_TAG|g" "$WF"
+                        ((UPDATES_COUNT++))
+                    fi
+                fi
+            fi
+        done < <(grep -E "uses:[[:space:]]*[^/]+/[^@]+@[a-f0-9]+" "$WF" 2>/dev/null || true)
+    done
+    
+    if [ "$FOUND_UPDATES" = false ]; then
+        echo "  (toutes les actions sont à jour)"
+    fi
     echo ""
-    echo "Configuring .gitignore..."
-    if [ -f ".gitignore" ]; then
-        if ! grep -q "^\.claude$" .gitignore 2>/dev/null; then
-            echo "" >> .gitignore
-            echo "# Claude Code (auto-added by /update)" >> .gitignore
-            echo ".claude" >> .gitignore
-            echo "✓ .gitignore (added .claude)"
+}
+
+# =============================================================================
+# Update Dockerfile ARG versions
+# =============================================================================
+update_dockerfile_versions() {
+    echo "Dockerfile ARG versions:"
+    
+    local DOCKERFILES=$(find . -name "Dockerfile" -not -path "./.git/*" 2>/dev/null)
+    
+    if [ -z "$DOCKERFILES" ]; then
+        echo "  (aucun Dockerfile trouvé)"
+        echo ""
+        return
+    fi
+    
+    local FOUND_UPDATES=false
+    
+    for DF in $DOCKERFILES; do
+        # Check for KUBECTL_VERSION
+        if grep -q "ARG KUBECTL_VERSION=" "$DF" 2>/dev/null; then
+            local CURRENT=$(grep "ARG KUBECTL_VERSION=" "$DF" | sed 's/.*=//')
+            local LATEST=$(curl -sL "https://dl.k8s.io/release/stable.txt" 2>/dev/null | tr -d 'v')
+            
+            if [ -n "$LATEST" ] && [ "$CURRENT" != "$LATEST" ]; then
+                FOUND_UPDATES=true
+                echo "  $DF:"
+                echo "    KUBECTL_VERSION: $CURRENT → $LATEST"
+                
+                if [ "$DRY_RUN" != "true" ]; then
+                    sed -i "s/ARG KUBECTL_VERSION=.*/ARG KUBECTL_VERSION=$LATEST/" "$DF"
+                    ((UPDATES_COUNT++))
+                fi
+            fi
+        fi
+        
+        # Check for HELM_VERSION
+        if grep -q "ARG HELM_VERSION=" "$DF" 2>/dev/null; then
+            local CURRENT=$(grep "ARG HELM_VERSION=" "$DF" | sed 's/.*=//')
+            local LATEST=$(curl -sL "https://api.github.com/repos/helm/helm/releases/latest" 2>/dev/null | jq -r '.tag_name' | tr -d 'v')
+            
+            if [ -n "$LATEST" ] && [ "$CURRENT" != "$LATEST" ]; then
+                FOUND_UPDATES=true
+                echo "  $DF:"
+                echo "    HELM_VERSION: $CURRENT → $LATEST"
+                
+                if [ "$DRY_RUN" != "true" ]; then
+                    sed -i "s/ARG HELM_VERSION=.*/ARG HELM_VERSION=$LATEST/" "$DF"
+                    ((UPDATES_COUNT++))
+                fi
+            fi
+        fi
+    done
+    
+    if [ "$FOUND_UPDATES" = false ]; then
+        echo "  (toutes les versions sont à jour)"
+    fi
+    echo ""
+}
+
+# =============================================================================
+# Update package.json dependencies
+# =============================================================================
+update_package_json() {
+    echo "Node.js (package.json):"
+    
+    if [ ! -f "package.json" ]; then
+        echo "  (aucun package.json trouvé)"
+        echo ""
+        return
+    fi
+    
+    if [ "$DRY_RUN" = "true" ]; then
+        local OUTDATED=$(npm outdated --json 2>/dev/null || echo "{}")
+        if [ "$OUTDATED" != "{}" ] && [ -n "$OUTDATED" ]; then
+            echo "$OUTDATED" | jq -r 'to_entries[] | "    \(.key): \(.value.current) → \(.value.latest)"' 2>/dev/null || echo "  (à jour)"
+        else
+            echo "  (toutes les dépendances sont à jour)"
         fi
     else
-        echo "# Claude Code" > .gitignore
-        echo ".claude" >> .gitignore
-        echo "✓ .gitignore (created)"
+        echo "  Mise à jour des dépendances..."
+        npm update --save 2>/dev/null && echo "  ✓ Dépendances mises à jour" || echo "  ⚠ Erreur npm update"
+        ((UPDATES_COUNT++))
     fi
+    echo ""
+}
+
+# =============================================================================
+# Update go.mod dependencies
+# =============================================================================
+update_go_mod() {
+    echo "Go (go.mod):"
+    
+    if [ ! -f "go.mod" ]; then
+        echo "  (aucun go.mod trouvé)"
+        echo ""
+        return
+    fi
+    
+    if [ "$DRY_RUN" = "true" ]; then
+        go list -m -u all 2>/dev/null | grep '\[' | head -10 | while read -r LINE; do
+            echo "    $LINE"
+        done || echo "  (à jour)"
+    else
+        echo "  Mise à jour des dépendances..."
+        go get -u ./... 2>/dev/null && go mod tidy 2>/dev/null && echo "  ✓ Dépendances mises à jour" || echo "  ⚠ Erreur go get"
+        ((UPDATES_COUNT++))
+    fi
+    echo ""
+}
+
+# =============================================================================
+# Update Cargo.toml dependencies
+# =============================================================================
+update_cargo_toml() {
+    echo "Rust (Cargo.toml):"
+    
+    if [ ! -f "Cargo.toml" ]; then
+        echo "  (aucun Cargo.toml trouvé)"
+        echo ""
+        return
+    fi
+    
+    if [ "$DRY_RUN" = "true" ]; then
+        cargo outdated 2>/dev/null | head -15 || echo "  (à jour ou cargo-outdated non installé)"
+    else
+        echo "  Mise à jour des dépendances..."
+        cargo update 2>/dev/null && echo "  ✓ Dépendances mises à jour" || echo "  ⚠ Erreur cargo update"
+        ((UPDATES_COUNT++))
+    fi
+    echo ""
+}
+
+# =============================================================================
+# Update requirements.txt
+# =============================================================================
+update_requirements_txt() {
+    echo "Python (requirements.txt):"
+    
+    if [ ! -f "requirements.txt" ]; then
+        echo "  (aucun requirements.txt trouvé)"
+        echo ""
+        return
+    fi
+    
+    if [ "$DRY_RUN" = "true" ]; then
+        pip list --outdated 2>/dev/null | head -10 || echo "  (à jour)"
+    else
+        echo "  Mise à jour des dépendances..."
+        pip install --upgrade -r requirements.txt 2>/dev/null && echo "  ✓ Dépendances mises à jour" || echo "  ⚠ Erreur pip"
+        ((UPDATES_COUNT++))
+    fi
+    echo ""
+}
+
+# =============================================================================
+# Update Gemfile
+# =============================================================================
+update_gemfile() {
+    echo "Ruby (Gemfile):"
+    
+    if [ ! -f "Gemfile" ]; then
+        echo "  (aucun Gemfile trouvé)"
+        echo ""
+        return
+    fi
+    
+    if [ "$DRY_RUN" = "true" ]; then
+        bundle outdated 2>/dev/null | head -10 || echo "  (à jour)"
+    else
+        echo "  Mise à jour des dépendances..."
+        bundle update 2>/dev/null && echo "  ✓ Dépendances mises à jour" || echo "  ⚠ Erreur bundle"
+        ((UPDATES_COUNT++))
+    fi
+    echo ""
+}
+
+# =============================================================================
+# Main
+# =============================================================================
+update_github_actions
+update_dockerfile_versions
+update_package_json
+update_go_mod
+update_cargo_toml
+update_requirements_txt
+update_gemfile
+
+echo "═══════════════════════════════════════════════"
+if [ "$DRY_RUN" = "true" ]; then
+    echo "  Mode dry-run: aucun changement appliqué"
+else
+    echo "  ✓ $UPDATES_COUNT mises à jour appliquées"
+fi
+echo "═══════════════════════════════════════════════"
+```
+
+---
+
+## Action: --devcontainer
+
+Exécuter ce script bash pour mettre à jour le devcontainer :
+
+```bash
+#!/bin/bash
+set -e
+
+DRY_RUN="${DRY_RUN:-false}"
+REPO="kodflow/devcontainer-template"
+BRANCH="main"
+BACKUP_DIR="/tmp/devcontainer-backup-$$"
+TEMP_DIR="/tmp/devcontainer-download-$$"
+
+echo "═══════════════════════════════════════════════"
+echo "  /update --devcontainer"
+echo "═══════════════════════════════════════════════"
+echo ""
+
+# =============================================================================
+# Check if .devcontainer exists
+# =============================================================================
+if [ ! -d ".devcontainer" ]; then
+    echo "Erreur: .devcontainer/ n'existe pas"
+    echo "Utilisez /install pour créer un nouveau devcontainer"
+    exit 1
+fi
+
+# =============================================================================
+# Identify protected files (gitignored + hardcoded)
+# =============================================================================
+echo "Identification des fichiers protégés..."
+
+PROTECTED_FILES=""
+
+# Git-ignored files in .devcontainer
+if command -v git &>/dev/null && [ -d ".git" ]; then
+    PROTECTED_FILES=$(git ls-files --ignored --exclude-standard .devcontainer/ 2>/dev/null || true)
+fi
+
+# Add hardcoded protected patterns
+HARDCODED_PROTECTED=".devcontainer/.env .devcontainer/.env.local .devcontainer/hooks/shared/.env"
+for F in $HARDCODED_PROTECTED; do
+    if [ -f "$F" ]; then
+        PROTECTED_FILES="$PROTECTED_FILES $F"
+    fi
+done
+
+# Also protect .mcp.json at root
+if [ -f ".mcp.json" ]; then
+    PROTECTED_FILES="$PROTECTED_FILES .mcp.json"
 fi
 
 echo ""
-echo "Done! Restart claude to reload."
+echo "Fichiers protégés (préservés):"
+if [ -n "$PROTECTED_FILES" ]; then
+    for F in $PROTECTED_FILES; do
+        echo "  ✓ $F"
+    done
+else
+    echo "  (aucun)"
+fi
+echo ""
+
+# =============================================================================
+# Dry run: show what would happen
+# =============================================================================
+if [ "$DRY_RUN" = "true" ]; then
+    echo "Mode dry-run: prévisualisation"
+    echo ""
+    echo "Actions prévues:"
+    echo "  1. Télécharger $REPO (branche $BRANCH)"
+    echo "  2. Sauvegarder les fichiers protégés"
+    echo "  3. Remplacer .devcontainer/"
+    echo "  4. Restaurer les fichiers protégés"
+    echo "  5. Valider la configuration"
+    echo ""
+    echo "═══════════════════════════════════════════════"
+    echo "  Dry-run terminé. Aucun changement."
+    echo "═══════════════════════════════════════════════"
+    exit 0
+fi
+
+# =============================================================================
+# Backup protected files
+# =============================================================================
+echo "Sauvegarde des fichiers protégés..."
+mkdir -p "$BACKUP_DIR"
+
+for F in $PROTECTED_FILES; do
+    if [ -f "$F" ]; then
+        mkdir -p "$BACKUP_DIR/$(dirname "$F")"
+        cp "$F" "$BACKUP_DIR/$F"
+        echo "  ✓ $F sauvegardé"
+    fi
+done
+echo ""
+
+# =============================================================================
+# Download template
+# =============================================================================
+echo "Téléchargement de $REPO..."
+mkdir -p "$TEMP_DIR"
+
+curl -sL "https://github.com/$REPO/archive/refs/heads/$BRANCH.tar.gz" | tar xz -C "$TEMP_DIR"
+
+if [ ! -d "$TEMP_DIR/devcontainer-template-$BRANCH/.devcontainer" ]; then
+    echo "Erreur: Template non trouvé dans l'archive"
+    rm -rf "$TEMP_DIR" "$BACKUP_DIR"
+    exit 1
+fi
+
+echo "  ✓ Template téléchargé"
+echo ""
+
+# =============================================================================
+# Replace .devcontainer
+# =============================================================================
+echo "Remplacement de .devcontainer/..."
+
+# Remove old .devcontainer
+rm -rf .devcontainer
+
+# Move new .devcontainer
+mv "$TEMP_DIR/devcontainer-template-$BRANCH/.devcontainer" .devcontainer
+
+echo "  ✓ .devcontainer/ remplacé"
+echo ""
+
+# =============================================================================
+# Restore protected files
+# =============================================================================
+echo "Restauration des fichiers protégés..."
+
+for F in $PROTECTED_FILES; do
+    if [ -f "$BACKUP_DIR/$F" ]; then
+        mkdir -p "$(dirname "$F")"
+        cp "$BACKUP_DIR/$F" "$F"
+        echo "  ✓ $F restauré"
+    fi
+done
+echo ""
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+rm -rf "$TEMP_DIR" "$BACKUP_DIR"
+
+# =============================================================================
+# Validate
+# =============================================================================
+echo "Validation de la configuration..."
+
+if command -v docker &>/dev/null; then
+    if docker compose -f .devcontainer/docker-compose.yml config --quiet 2>/dev/null; then
+        echo "  ✓ docker-compose.yml valide"
+    else
+        echo "  ⚠ Attention: docker-compose.yml peut nécessiter des ajustements"
+    fi
+else
+    echo "  (docker non disponible, validation ignorée)"
+fi
+echo ""
+
+# =============================================================================
+# Summary
+# =============================================================================
+echo "═══════════════════════════════════════════════"
+echo "  ✓ DevContainer mis à jour"
+echo ""
+echo "  Prochaine étape:"
+echo "    Ctrl+Shift+P → 'Rebuild Container'"
+echo "═══════════════════════════════════════════════"
 ```
 
 ---
 
 ## Output
 
+### Mode par défaut
 ```
-Updating from Kodflow Marketplace...
-✓ /build
-✓ /commit
-✓ /secret
-✓ /install
-✓ /update
-✓ /feature
-✓ /fix
-✓ scripts
+═══════════════════════════════════════════════
+  /update - Mise à jour des versions
+═══════════════════════════════════════════════
 
-Installing Taskwarrior...
-✓ taskwarrior
+GitHub Actions:
+  .github/workflows/docker-images.yml:
+    actions/checkout: v4 → v4.2.2
+    docker/build-push-action: v5 → v5.2.0
 
-✓ settings.json
+Dockerfile ARG versions:
+  .devcontainer/images/Dockerfile:
+    KUBECTL_VERSION: 1.32.0 → 1.33.0
+    HELM_VERSION: 3.16.3 → 3.17.0
 
-Installing status-line...
-✓ status-line
+Node.js (package.json):
+  (aucun package.json trouvé)
 
-Configuring MCP...
-✓ .mcp.json (merged + taskwarrior)
+Go (go.mod):
+  (aucun go.mod trouvé)
 
-Configuring .gitignore...
-✓ .gitignore (added .claude)
-
-Done! Restart claude to reload.
+═══════════════════════════════════════════════
+  ✓ 4 mises à jour appliquées
+═══════════════════════════════════════════════
 ```
 
-## Taskwarrior Integration
+### Mode --devcontainer
+```
+═══════════════════════════════════════════════
+  /update --devcontainer
+═══════════════════════════════════════════════
 
-Après mise à jour, les commandes `/feature` et `/fix` utilisent Taskwarrior pour :
-- **Suivi obligatoire** : Chaque Write/Edit est bloqué sans tâche active
-- **4 phases** : Planning → Implementation → Testing → PR
-- **Event sourcing** : Chaque action loggée en annotation JSON
-- **Récupération crash** : Reprise via `--continue`
+Identification des fichiers protégés...
 
-```bash
-# Voir les projets Claude
-task +claude list
+Fichiers protégés (préservés):
+  ✓ .devcontainer/.env
+  ✓ .devcontainer/hooks/shared/.env
 
-# Voir les événements d'un projet
-task project:<name> annotations
+Sauvegarde des fichiers protégés...
+  ✓ .devcontainer/.env sauvegardé
 
-# Exporter en JSON
-task project:<name> export
+Téléchargement de kodflow/devcontainer-template...
+  ✓ Template téléchargé
+
+Remplacement de .devcontainer/...
+  ✓ .devcontainer/ remplacé
+
+Restauration des fichiers protégés...
+  ✓ .devcontainer/.env restauré
+
+Validation de la configuration...
+  ✓ docker-compose.yml valide
+
+═══════════════════════════════════════════════
+  ✓ DevContainer mis à jour
+
+  Prochaine étape:
+    Ctrl+Shift+P → 'Rebuild Container'
+═══════════════════════════════════════════════
 ```
