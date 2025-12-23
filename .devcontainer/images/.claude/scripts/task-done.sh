@@ -24,10 +24,31 @@ if ! task uuid:"$TASK_UUID" info &>/dev/null; then
     exit 1
 fi
 
+# Récupérer les infos de la task AVANT de la terminer
+TASK_DATA=$(task uuid:"$TASK_UUID" export 2>/dev/null | jq -r '.[0]')
+PROJECT=$(echo "$TASK_DATA" | jq -r '.project // ""')
+EPIC_NUM=$(echo "$TASK_DATA" | jq -r '.epic // ""')
+
 # Marquer comme terminée
 task uuid:"$TASK_UUID" done 2>/dev/null || true
 
-# Mettre à jour la session si elle existe
+# === Auto-close Epic dans Taskwarrior ===
+# Si la task a un epic, vérifier si toutes les tasks de l'epic sont terminées
+if [[ -n "$PROJECT" && -n "$EPIC_NUM" ]]; then
+    # Compter les tasks non terminées pour cet epic (excluant l'epic lui-même)
+    REMAINING=$(task project:"$PROJECT" epic:"$EPIC_NUM" +task status:pending count 2>/dev/null || echo "0")
+
+    if [[ "$REMAINING" == "0" ]]; then
+        # Trouver et fermer l'epic parent
+        EPIC_UUID=$(task project:"$PROJECT" epic:"$EPIC_NUM" +epic status:pending _uuids 2>/dev/null | head -1)
+        if [[ -n "$EPIC_UUID" ]]; then
+            task uuid:"$EPIC_UUID" done 2>/dev/null || true
+            echo "✓ Epic $EPIC_NUM auto-fermé (toutes les tasks terminées)"
+        fi
+    fi
+fi
+
+# === Mise à jour session JSON (fallback) ===
 SESSION_DIR="$HOME/.claude/sessions"
 SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1)
 
@@ -38,20 +59,14 @@ if [[ -f "$SESSION_FILE" ]]; then
         (.epics[]?.tasks[]? | select(.uuid == $uuid)).status = "DONE"
     ' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$SESSION_FILE"
 
-    # Vérifier si toutes les tasks de l'epic sont DONE
-    EPIC_NUM=$(task uuid:"$TASK_UUID" export 2>/dev/null | jq -r '.[0].epic // 1')
-    ALL_DONE=$(jq --arg epic "$EPIC_NUM" '
-        .epics[] | select(.id == ($epic | tonumber)) |
-        .tasks | all(.status == "DONE")
-    ' "$SESSION_FILE" 2>/dev/null || echo "false")
-
-    if [[ "$ALL_DONE" == "true" ]]; then
-        # Marquer l'epic comme DONE
+    # Mettre à jour le status de l'epic dans la session si fermé
+    if [[ -n "$EPIC_NUM" ]]; then
         TMP_FILE=$(mktemp)
         jq --arg epic "$EPIC_NUM" '
-            (.epics[] | select(.id == ($epic | tonumber))).status = "DONE"
+            if .epics then
+                (.epics[] | select(.id == ($epic | tonumber))).status = "DONE"
+            else . end
         ' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$SESSION_FILE"
-        echo "✓ Epic $EPIC_NUM terminé !"
     fi
 fi
 

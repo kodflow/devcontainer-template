@@ -24,7 +24,8 @@ if [[ -z "$PROJECT" || -z "$EPIC_NUM" || -z "$EPIC_UUID" || -z "$TASK_NAME" ]]; 
 fi
 
 # Créer la task
-OUTPUT=$(task add project:"$PROJECT" "$TASK_NAME" +task epic:"$EPIC_NUM" parent:"$EPIC_UUID" parallel:"$PARALLEL" 2>&1)
+# Note: "parent" est un mot réservé dans Taskwarrior, on utilise "epic_uuid" à la place
+OUTPUT=$(task add project:"$PROJECT" "$TASK_NAME" +task epic:"$EPIC_NUM" epic_uuid:"$EPIC_UUID" parallel:"$PARALLEL" 2>&1)
 TASK_ID=$(echo "$OUTPUT" | grep -oP 'Created task \K\d+' || echo "")
 
 if [[ -z "$TASK_ID" ]]; then

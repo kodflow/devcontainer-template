@@ -46,14 +46,18 @@ if [[ -f "$SESSION_DIR/$PROJECT.json" ]]; then
     exit 1
 fi
 
-# Configurer les UDAs pour le nouveau système epic/task
-echo "Configuration des UDAs Taskwarrior..."
+# Configurer Taskwarrior pour usage non-interactif
+echo "Configuration de Taskwarrior..."
 
-# Epic et parent pour hiérarchie
+# Désactiver les confirmations interactives (IMPORTANT pour Claude)
+task config confirmation off 2>/dev/null || true
+
+# Configurer les UDAs pour le système epic/task
+# Note: "parent" est un mot réservé, on utilise "epic_uuid" à la place
 task config uda.epic.type numeric 2>/dev/null || true
 task config uda.epic.label Epic 2>/dev/null || true
-task config uda.parent.type string 2>/dev/null || true
-task config uda.parent.label Parent 2>/dev/null || true
+task config uda.epic_uuid.type string 2>/dev/null || true
+task config uda.epic_uuid.label "Epic UUID" 2>/dev/null || true
 
 # Parallélisation
 task config uda.parallel.type string 2>/dev/null || true
@@ -67,7 +71,7 @@ task config uda.branch.label Branch 2>/dev/null || true
 task config uda.pr_number.type numeric 2>/dev/null || true
 task config uda.pr_number.label PR 2>/dev/null || true
 
-echo "✓ UDAs configurés"
+echo "✓ Taskwarrior configuré"
 
 # Créer le fichier de session (PLAN MODE par défaut)
 SESSION_FILE="$SESSION_DIR/$PROJECT.json"
