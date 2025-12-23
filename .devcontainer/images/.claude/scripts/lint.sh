@@ -46,8 +46,9 @@ case "$EXT" in
 
     # Rust - clippy is the standard linter
     rs)
+        [[ -f "$HOME/.cache/cargo/env" ]] && source "$HOME/.cache/cargo/env"
         if command -v cargo &>/dev/null; then
-            (cd "$DIR" && cargo clippy --fix --allow-dirty --allow-staged 2>/dev/null) || true
+            (cd "$DIR" && cargo clippy --fix --allow-dirty --allow-staged -- -D warnings 2>/dev/null) || true
         fi
         ;;
 
