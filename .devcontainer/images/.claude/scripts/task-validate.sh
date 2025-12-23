@@ -1,117 +1,69 @@
 #!/bin/bash
-# task-validate.sh - PreToolUse hook pour valider le workflow
-#
-# PLAN MODE: Autorise Read/Glob/Grep/WebSearch, BLOQUE Write/Edit
-# BYPASS MODE: Autorise Write/Edit SI une task est WIP
-#
+# PreToolUse hook - Valide qu'une tâche est active
+# UNIQUEMENT pour Write|Edit - Bash est autorisé sans tâche
 # Exit 0 = autorisé, Exit 2 = bloqué
 
-set -e
+set -euo pipefail
 
 # Vérifier que Taskwarrior est installé
 if ! command -v task &>/dev/null; then
-    exit 0  # Dégradé graceful si pas de Taskwarrior
+    echo "⚠️  Taskwarrior non installé - validation désactivée"
+    echo "→ Pour activer le suivi obligatoire: /update"
+    exit 0  # Autoriser quand même (dégradé graceful)
 fi
 
 # Lire l'input JSON de Claude
 INPUT=$(cat)
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // "N/A"')
 
-# Trouver la session active
+# Trouver la session active (cherche dans .claude/sessions/)
 SESSION_DIR="$HOME/.claude/sessions"
 SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1)
 
-# Si pas de session
+# Si pas de session, BLOQUER Write/Edit
 if [[ ! -f "$SESSION_FILE" ]]; then
-    echo "❌ BLOQUÉ: Aucun projet actif."
+    echo "❌ BLOQUÉ: Aucune tâche Taskwarrior active."
     echo ""
     echo "→ Utilisez /feature <description> ou /fix <description>"
+    echo "  pour démarrer un workflow avec suivi obligatoire."
     exit 2
 fi
 
-# Lire le mode et les infos de session
-MODE=$(jq -r '.mode // "plan"' "$SESSION_FILE")
+TASK_UUID=$(jq -r '.current_task_uuid // empty' "$SESSION_FILE")
 PROJECT=$(jq -r '.project // "unknown"' "$SESSION_FILE")
-CURRENT_TASK=$(jq -r '.current_task // empty' "$SESSION_FILE")
 
-# ============================================================
-# PLAN MODE - Recherche uniquement, pas d'édition
-# ============================================================
-if [[ "$MODE" == "plan" ]]; then
-    # Autoriser les fichiers de plan
-    if [[ "$FILE_PATH" == *"/plans/"* || "$FILE_PATH" == *"CLAUDE.md"* ]]; then
-        echo "✓ Mode PLAN: Édition plan autorisée"
-        exit 0
-    fi
-
-    # Bloquer Write/Edit sur le code
-    if [[ "$TOOL" == "Write" || "$TOOL" == "Edit" ]]; then
-        echo "❌ BLOQUÉ: Mode PLAN actif - pas d'édition de code"
-        echo ""
-        echo "  Vous êtes en phase d'analyse. Pour éditer du code:"
-        echo "  1. Terminez le plan (définition epics/tasks)"
-        echo "  2. Validez avec l'utilisateur"
-        echo "  3. Passez en BYPASS MODE"
-        echo ""
-        echo "  Projet: $PROJECT"
-        exit 2
-    fi
-
-    # Autoriser tout le reste (Read, Glob, Grep, etc.)
-    exit 0
+if [[ -z "$TASK_UUID" ]]; then
+    echo "❌ BLOQUÉ: Session corrompue - aucune tâche courante"
+    exit 2
 fi
 
-# ============================================================
-# BYPASS MODE - Exécution avec task WIP obligatoire
-# ============================================================
-if [[ "$MODE" == "bypass" ]]; then
-    # Vérifier qu'une task est en cours
-    if [[ -z "$CURRENT_TASK" ]]; then
-        echo "❌ BLOQUÉ: Aucune task en cours (WIP)"
-        echo ""
-        echo "  En BYPASS MODE, vous devez:"
-        echo "  1. Démarrer une task: task-start.sh <uuid>"
-        echo "  2. Effectuer les modifications"
-        echo "  3. Terminer la task: task-done.sh <uuid>"
-        exit 2
-    fi
+# Vérifier que la tâche existe et est active
+TASK_STATUS=$(task uuid:"$TASK_UUID" export 2>/dev/null | jq -r '.[0].status // "unknown"')
 
-    # Trouver l'UUID de la task courante
-    TASK_UUID=$(jq -r --arg tid "$CURRENT_TASK" '
-        .epics[]?.tasks[]? | select(.id == $tid) | .uuid
-    ' "$SESSION_FILE" 2>/dev/null || echo "")
-
-    if [[ -z "$TASK_UUID" ]]; then
-        echo "⚠️  Task ID invalide: $CURRENT_TASK"
-        exit 0  # Autoriser quand même (graceful)
-    fi
-
-    # Vérifier le status de la task
-    TASK_STATUS=$(jq -r --arg tid "$CURRENT_TASK" '
-        .epics[]?.tasks[]? | select(.id == $tid) | .status
-    ' "$SESSION_FILE" 2>/dev/null || echo "TODO")
-
-    if [[ "$TASK_STATUS" != "WIP" ]]; then
-        echo "❌ BLOQUÉ: Task '$CURRENT_TASK' n'est pas WIP (status: $TASK_STATUS)"
-        echo ""
-        echo "  Démarrez la task avec: task-start.sh $TASK_UUID"
-        exit 2
-    fi
-
-    # Log l'action (pré-événement)
-    TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    task uuid:"$TASK_UUID" annotate "pre:{\"ts\":\"$TIMESTAMP\",\"tool\":\"$TOOL\",\"file\":\"$FILE_PATH\"}" 2>/dev/null || true
-
-    # Afficher confirmation
-    TASK_NAME=$(jq -r --arg tid "$CURRENT_TASK" '
-        .epics[]?.tasks[]? | select(.id == $tid) | .name
-    ' "$SESSION_FILE" 2>/dev/null || echo "Unknown")
-
-    echo "✓ Projet: $PROJECT"
-    echo "✓ Task WIP: $TASK_NAME"
-    exit 0
+if [[ "$TASK_STATUS" != "pending" ]]; then
+    echo "❌ BLOQUÉ: Tâche terminée ou inexistante (status: $TASK_STATUS)"
+    echo "→ Utilisez /feature --continue pour reprendre"
+    exit 2
 fi
 
-# Mode inconnu - autoriser par défaut
+# Vérifier que la tâche n'est pas bloquée par des dépendances
+BLOCKED=$(task uuid:"$TASK_UUID" +BLOCKED count 2>/dev/null || echo "0")
+if [[ "$BLOCKED" -gt 0 ]]; then
+    DEPS=$(task uuid:"$TASK_UUID" depends 2>/dev/null | head -1)
+    echo "❌ BLOQUÉ: Cette tâche dépend de tâches non terminées"
+    echo "→ Dépendances: $DEPS"
+    echo "→ Terminez d'abord les tâches précédentes"
+    exit 2
+fi
+
+# Log l'action à venir (pré-événement)
+TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // "N/A"')
+
+task uuid:"$TASK_UUID" annotate "pre:{\"ts\":\"$TIMESTAMP\",\"tool\":\"$TOOL\",\"file\":\"$FILE_PATH\"}" 2>/dev/null
+
+# Afficher confirmation
+TASK_DESC=$(task uuid:"$TASK_UUID" export 2>/dev/null | jq -r '.[0].description // "Unknown"')
+echo "✓ Projet: $PROJECT"
+echo "✓ Tâche: $TASK_DESC"
 exit 0
