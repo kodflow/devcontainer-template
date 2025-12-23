@@ -47,6 +47,39 @@ rustup toolchain install stable
 rustup default stable
 echo -e "${GREEN}✓ Stable toolchain installed${NC}"
 
+# Install essential components
+echo -e "${YELLOW}Installing rustup components...${NC}"
+rustup component add rust-analyzer clippy rustfmt
+echo -e "${GREEN}✓ rust-analyzer installed${NC}"
+echo -e "${GREEN}✓ clippy installed${NC}"
+echo -e "${GREEN}✓ rustfmt installed${NC}"
+
+# Install essential cargo tools
+echo -e "${YELLOW}Installing cargo tools...${NC}"
+cargo install --locked cargo-watch cargo-nextest cargo-audit cargo-expand cargo-outdated 2>/dev/null || {
+    echo -e "${YELLOW}⚠ Some cargo tools failed to install (may require manual installation)${NC}"
+}
+echo -e "${GREEN}✓ cargo tools installed${NC}"
+
+# Install MCP server for rust-analyzer integration
+echo -e "${YELLOW}Installing rust-analyzer-mcp...${NC}"
+cargo install --locked rust-analyzer-mcp 2>/dev/null || {
+    echo -e "${YELLOW}⚠ rust-analyzer-mcp failed to install (MCP integration unavailable)${NC}"
+}
+echo -e "${GREEN}✓ rust-analyzer-mcp installed${NC}"
+
+# Setup shell integration
+echo -e "${YELLOW}Configuring shell integration...${NC}"
+CARGO_ENV_LINE='[[ -f "$HOME/.cache/cargo/env" ]] && source "$HOME/.cache/cargo/env"'
+for rc_file in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    if [[ -f "$rc_file" ]] && ! grep -q "cargo/env" "$rc_file"; then
+        echo "" >> "$rc_file"
+        echo "# Rust/Cargo environment" >> "$rc_file"
+        echo "$CARGO_ENV_LINE" >> "$rc_file"
+    fi
+done
+echo -e "${GREEN}✓ Shell integration configured${NC}"
+
 echo ""
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}Rust environment installed successfully!${NC}"
@@ -56,6 +89,11 @@ echo "Installed components:"
 echo "  - rustup (Rust toolchain manager)"
 echo "  - ${RUST_VERSION}"
 echo "  - ${CARGO_VERSION}"
+echo "  - rust-analyzer (LSP)"
+echo "  - clippy (linter)"
+echo "  - rustfmt (formatter)"
+echo "  - cargo-watch, cargo-nextest, cargo-audit, etc."
+echo "  - rust-analyzer-mcp (MCP server)"
 echo ""
 echo "Cache directories:"
 echo "  - CARGO_HOME: $CARGO_HOME"

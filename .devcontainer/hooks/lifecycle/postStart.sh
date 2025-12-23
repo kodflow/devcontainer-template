@@ -53,6 +53,30 @@ fi
 mkdir -p "$HOME/.claude/sessions"
 
 # ============================================================================
+# Initialize /workspace/.claude structure with symlinks
+# ============================================================================
+log_info "Setting up /workspace/.claude structure..."
+mkdir -p /workspace/.claude/sessions /workspace/.claude/hooks /workspace/.claude/plans
+
+# Create symlinks to user-level Claude config (if not already symlinks)
+if [ ! -L "/workspace/.claude/scripts" ]; then
+    rm -rf /workspace/.claude/scripts 2>/dev/null || true
+    ln -sf "$HOME/.claude/scripts" /workspace/.claude/scripts
+fi
+
+if [ ! -L "/workspace/.claude/commands" ]; then
+    rm -rf /workspace/.claude/commands 2>/dev/null || true
+    ln -sf "$HOME/.claude/commands" /workspace/.claude/commands
+fi
+
+# Copy settings.json if it doesn't exist (not a symlink, actual copy)
+if [ ! -f "/workspace/.claude/settings.json" ] || [ "$(cat /workspace/.claude/settings.json 2>/dev/null)" = "404: Not Found" ]; then
+    cp "$HOME/.claude/settings.json" /workspace/.claude/settings.json 2>/dev/null || true
+fi
+
+log_success "Workspace Claude structure initialized"
+
+# ============================================================================
 # Restore NVM symlinks (node, npm, npx, claude)
 # ============================================================================
 # NVM is in package-cache volume, so we need to recreate symlinks to ~/.local/bin

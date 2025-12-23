@@ -2,7 +2,17 @@
 # PostToolUse hook - Log l'action complétée
 # Fonctionne pour Write, Edit, et Bash
 
-set -euo pipefail
+set -e
+
+# Sortie gracieuse si jq non disponible
+if ! command -v jq &>/dev/null; then
+    exit 0
+fi
+
+# Sortie gracieuse si task non disponible
+if ! command -v task &>/dev/null; then
+    exit 0
+fi
 
 INPUT=$(cat)
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')
