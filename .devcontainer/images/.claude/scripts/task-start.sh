@@ -45,6 +45,7 @@ if [[ -f "$SESSION_FILE" ]]; then
     jq --arg uuid "$TASK_UUID" --arg epic "$EPIC_NUM" --arg tid "$TASK_ID" '
         .mode = "bypass" |
         .current_task = $tid |
+        .current_task_uuid = $uuid |
         .current_epic = ($epic | tonumber) |
         (.epics[]?.tasks[]? | select(.uuid == $uuid)).status = "WIP"
     ' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$SESSION_FILE"
