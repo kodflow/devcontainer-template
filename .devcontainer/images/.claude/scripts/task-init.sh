@@ -50,26 +50,27 @@ fi
 echo "Configuration de Taskwarrior..."
 
 # Désactiver les confirmations interactives (IMPORTANT pour Claude)
-task config confirmation off 2>/dev/null || true
+# Utiliser rc.confirmation=off pour éviter les prompts "Are you sure?"
+task rc.confirmation=off config confirmation off >/dev/null 2>&1 || true
 
 # Configurer les UDAs pour le système epic/task
 # Note: "parent" est un mot réservé, on utilise "epic_uuid" à la place
-task config uda.epic.type numeric 2>/dev/null || true
-task config uda.epic.label Epic 2>/dev/null || true
-task config uda.epic_uuid.type string 2>/dev/null || true
-task config uda.epic_uuid.label "Epic UUID" 2>/dev/null || true
+task rc.confirmation=off config uda.epic.type numeric >/dev/null 2>&1 || true
+task rc.confirmation=off config uda.epic.label Epic >/dev/null 2>&1 || true
+task rc.confirmation=off config uda.epic_uuid.type string >/dev/null 2>&1 || true
+task rc.confirmation=off config uda.epic_uuid.label "Epic UUID" >/dev/null 2>&1 || true
 
 # Parallélisation
-task config uda.parallel.type string 2>/dev/null || true
-task config uda.parallel.label Parallel 2>/dev/null || true
-task config uda.parallel.values yes,no 2>/dev/null || true
-task config uda.parallel.default no 2>/dev/null || true
+task rc.confirmation=off config uda.parallel.type string >/dev/null 2>&1 || true
+task rc.confirmation=off config uda.parallel.label Parallel >/dev/null 2>&1 || true
+task rc.confirmation=off config uda.parallel.values yes,no >/dev/null 2>&1 || true
+task rc.confirmation=off config uda.parallel.default no >/dev/null 2>&1 || true
 
 # Branch et PR
-task config uda.branch.type string 2>/dev/null || true
-task config uda.branch.label Branch 2>/dev/null || true
-task config uda.pr_number.type numeric 2>/dev/null || true
-task config uda.pr_number.label PR 2>/dev/null || true
+task rc.confirmation=off config uda.branch.type string >/dev/null 2>&1 || true
+task rc.confirmation=off config uda.branch.label Branch >/dev/null 2>&1 || true
+task rc.confirmation=off config uda.pr_number.type numeric >/dev/null 2>&1 || true
+task rc.confirmation=off config uda.pr_number.label PR >/dev/null 2>&1 || true
 
 echo "✓ Taskwarrior configuré"
 

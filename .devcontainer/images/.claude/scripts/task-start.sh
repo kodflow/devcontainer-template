@@ -19,39 +19,40 @@ if [[ -z "$TASK_UUID" ]]; then
 fi
 
 # Vérifier que la task existe
-if ! task uuid:"$TASK_UUID" info &>/dev/null; then
+if ! task rc.confirmation=off uuid:"$TASK_UUID" info >/dev/null 2>&1; then
     echo "❌ Task non trouvée: $TASK_UUID"
     exit 1
 fi
 
-# Démarrer la task
-task uuid:"$TASK_UUID" start 2>/dev/null || true
+# Récupérer les infos de la task
+TASK_DATA=$(task rc.confirmation=off uuid:"$TASK_UUID" export 2>/dev/null | jq -r '.[0]')
+TASK_DESC=$(echo "$TASK_DATA" | jq -r '.description // "Unknown"')
+EPIC_NUM=$(echo "$TASK_DATA" | jq -r '.epic // 1')
+
+# Démarrer la task dans Taskwarrior
+task rc.confirmation=off uuid:"$TASK_UUID" start >/dev/null 2>&1 || true
 
 # Mettre à jour la session si elle existe
 SESSION_DIR="$HOME/.claude/sessions"
 SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1)
 
 if [[ -f "$SESSION_FILE" ]]; then
-    # Extraire l'epic de la task
-    EPIC_NUM=$(task uuid:"$TASK_UUID" export 2>/dev/null | jq -r '.[0].epic // 1')
-
-    # Trouver l'ID de la task dans la session
-    TASK_ID=$(jq -r --arg uuid "$TASK_UUID" '
-        .epics[]?.tasks[]? | select(.uuid == $uuid) | .id
-    ' "$SESSION_FILE" 2>/dev/null || echo "")
-
-    # Mettre à jour la session
+    # Mettre à jour la session avec l'UUID et le status
     TMP_FILE=$(mktemp)
-    jq --arg uuid "$TASK_UUID" --arg epic "$EPIC_NUM" --arg tid "$TASK_ID" '
+    jq --arg uuid "$TASK_UUID" --arg epic "$EPIC_NUM" '
         .mode = "bypass" |
-        .current_task = $tid |
         .current_task_uuid = $uuid |
         .current_epic = ($epic | tonumber) |
-        (.epics[]?.tasks[]? | select(.uuid == $uuid)).status = "WIP"
+        (.epics[].tasks[] | select(.uuid == $uuid)).status = "WIP"
+    ' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$SESSION_FILE"
+
+    # Mettre à jour l'epic en WIP si pas déjà
+    TMP_FILE=$(mktemp)
+    jq --arg epic "$EPIC_NUM" '
+        (.epics[] | select(.id == ($epic | tonumber) and .status == "TODO")).status = "WIP"
     ' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$SESSION_FILE"
 fi
 
 # Afficher info
-TASK_DESC=$(task uuid:"$TASK_UUID" export 2>/dev/null | jq -r '.[0].description // "Unknown"')
 echo "▶ Task démarrée: $TASK_DESC"
 echo "  UUID: $TASK_UUID"

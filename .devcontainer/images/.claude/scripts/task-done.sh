@@ -19,36 +19,21 @@ if [[ -z "$TASK_UUID" ]]; then
 fi
 
 # Vérifier que la task existe
-if ! task uuid:"$TASK_UUID" info &>/dev/null; then
+if ! task rc.confirmation=off uuid:"$TASK_UUID" info >/dev/null 2>&1; then
     echo "❌ Task non trouvée: $TASK_UUID"
     exit 1
 fi
 
 # Récupérer les infos de la task AVANT de la terminer
-TASK_DATA=$(task uuid:"$TASK_UUID" export 2>/dev/null | jq -r '.[0]')
+TASK_DATA=$(task rc.confirmation=off uuid:"$TASK_UUID" export 2>/dev/null | jq -r '.[0]')
 PROJECT=$(echo "$TASK_DATA" | jq -r '.project // ""')
 EPIC_NUM=$(echo "$TASK_DATA" | jq -r '.epic // ""')
+TASK_DESC=$(echo "$TASK_DATA" | jq -r '.description // "Unknown"')
 
-# Marquer comme terminée
-task uuid:"$TASK_UUID" done 2>/dev/null || true
+# Marquer comme terminée dans Taskwarrior
+task rc.confirmation=off uuid:"$TASK_UUID" done >/dev/null 2>&1 || true
 
-# === Auto-close Epic dans Taskwarrior ===
-# Si la task a un epic, vérifier si toutes les tasks de l'epic sont terminées
-if [[ -n "$PROJECT" && -n "$EPIC_NUM" ]]; then
-    # Compter les tasks non terminées pour cet epic (excluant l'epic lui-même)
-    REMAINING=$(task project:"$PROJECT" epic:"$EPIC_NUM" +task status:pending count 2>/dev/null || echo "0")
-
-    if [[ "$REMAINING" == "0" ]]; then
-        # Trouver et fermer l'epic parent
-        EPIC_UUID=$(task project:"$PROJECT" epic:"$EPIC_NUM" +epic status:pending _uuids 2>/dev/null | head -1)
-        if [[ -n "$EPIC_UUID" ]]; then
-            task uuid:"$EPIC_UUID" done 2>/dev/null || true
-            echo "✓ Epic $EPIC_NUM auto-fermé (toutes les tasks terminées)"
-        fi
-    fi
-fi
-
-# === Mise à jour session JSON (fallback) ===
+# === Mise à jour session JSON ===
 SESSION_DIR="$HOME/.claude/sessions"
 SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1)
 
@@ -56,20 +41,37 @@ if [[ -f "$SESSION_FILE" ]]; then
     # Mettre à jour le status de la task dans la session
     TMP_FILE=$(mktemp)
     jq --arg uuid "$TASK_UUID" '
-        (.epics[]?.tasks[]? | select(.uuid == $uuid)).status = "DONE"
+        (.epics[].tasks[] | select(.uuid == $uuid)).status = "DONE"
     ' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$SESSION_FILE"
+fi
 
-    # Mettre à jour le status de l'epic dans la session si fermé
-    if [[ -n "$EPIC_NUM" ]]; then
-        TMP_FILE=$(mktemp)
-        jq --arg epic "$EPIC_NUM" '
-            if .epics then
-                (.epics[] | select(.id == ($epic | tonumber))).status = "DONE"
-            else . end
-        ' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$SESSION_FILE"
+# === Auto-close Epic dans Taskwarrior ===
+# Si la task a un epic, vérifier si toutes les tasks de l'epic sont terminées
+EPIC_CLOSED=false
+if [[ -n "$PROJECT" && -n "$EPIC_NUM" ]]; then
+    # Compter les tasks non terminées pour cet epic (excluant l'epic lui-même)
+    REMAINING=$(task rc.confirmation=off project:"$PROJECT" epic:"$EPIC_NUM" +task status:pending count 2>/dev/null || echo "0")
+
+    if [[ "$REMAINING" == "0" ]]; then
+        # Trouver et fermer l'epic parent dans Taskwarrior
+        EPIC_UUID=$(task rc.confirmation=off project:"$PROJECT" epic:"$EPIC_NUM" +epic status:pending _uuids 2>/dev/null | head -1)
+        if [[ -n "$EPIC_UUID" ]]; then
+            task rc.confirmation=off uuid:"$EPIC_UUID" done >/dev/null 2>&1 || true
+            EPIC_CLOSED=true
+
+            # Mettre à jour le status de l'epic dans la session
+            if [[ -f "$SESSION_FILE" ]]; then
+                TMP_FILE=$(mktemp)
+                jq --arg epic "$EPIC_NUM" '
+                    (.epics[] | select(.id == ($epic | tonumber))).status = "DONE"
+                ' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$SESSION_FILE"
+            fi
+        fi
     fi
 fi
 
-# Afficher info
-TASK_DESC=$(task uuid:"$TASK_UUID" export 2>/dev/null | jq -r '.[0].description // "Unknown"' || echo "Completed")
+# Afficher résultat
 echo "✓ Task terminée: $TASK_DESC"
+if [[ "$EPIC_CLOSED" == "true" ]]; then
+    echo "✓ Epic $EPIC_NUM auto-fermé (toutes les tasks terminées)"
+fi
