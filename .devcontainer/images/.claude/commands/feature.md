@@ -7,13 +7,13 @@ $ARGUMENTS
 ## Description
 
 Workflow complet pour développer une nouvelle fonctionnalité avec **suivi Taskwarrior obligatoire** :
-1. **Initialisation Taskwarrior** → Création projet avec 4 phases
-2. **Plan obligatoire** → Explorer et planifier avant de coder
-3. **Branche dédiée** → `feat/<description>`
+1. **PLAN MODE** → Analyse, recherche, définition des epics/tasks
+2. **Validation utilisateur** → Approbation du plan avant exécution
+3. **BYPASS MODE** → Exécution des tasks une par une
 4. **CI validation** → Vérifier que la pipeline passe
 5. **PR sans merge** → Créer la PR, merge manuel requis
 
-**Chaque action Write/Edit est tracée** et bloquée si aucune tâche Taskwarrior n'est active.
+**Chaque action Write/Edit est tracée** et bloquée si aucune task Taskwarrior n'est en WIP.
 
 ---
 
@@ -30,7 +30,7 @@ Workflow complet pour développer une nouvelle fonctionnalité avec **suivi Task
 
 ## --help
 
-Quand `--help` est passe, afficher :
+Quand `--help` est passé, afficher :
 
 ```
 ═══════════════════════════════════════════════
@@ -56,152 +56,162 @@ Exemples:
 
 ## Workflow complet
 
-### Étape 0 : Initialisation Taskwarrior (OBLIGATOIRE)
+### Étape 0 : Initialisation (OBLIGATOIRE)
 
-**AVANT toute action**, initialiser le projet Taskwarrior :
+**AVANT toute action**, initialiser le projet et la branche :
 
 ```bash
 # Exécuter le script d'initialisation
-/workspace/.claude/scripts/task-init.sh "feat" "<description>"
-```
+/home/vscode/.claude/scripts/task-init.sh "feature" "<description>"
 
-Cela crée :
-- **4 phases bloquantes** dans Taskwarrior :
-  1. Planning (active)
-  2. Implementation (bloquée → dépend de Phase 1)
-  3. Testing (bloquée → dépend de Phase 2)
-  4. PR (bloquée → dépend de Phase 3)
-- **Session persistante** : `.claude/sessions/<project>.json`
-- **UDAs configurés** : phase, model, parallel, branch
+# Déterminer la branche principale
+MAIN_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+
+# Sync avec remote et créer la branche
+git fetch origin
+BRANCH="feat/$(echo "$DESCRIPTION" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')"
+git checkout -b "$BRANCH" "origin/$MAIN_BRANCH"
+```
 
 **Output attendu :**
 ```
 ═══════════════════════════════════════════════
-  ✓ Projet créé: <project-name>
+  ✓ Projet initialisé: <project-name>
 ═══════════════════════════════════════════════
 
-  Phases:
-    1. Planning       [EN COURS]
-    2. Implementation [BLOQUÉE]
-    3. Testing        [BLOQUÉE]
-    4. PR             [BLOQUÉE]
+  Mode: PLAN (analyse et définition des epics/tasks)
+
+  Phases PLAN MODE:
+    1. Analyse de la demande
+    2. Recherche documentation
+    3. Analyse projet existant
+    4. Affûtage (boucle si nécessaire)
+    5. Définition épics/tasks → VALIDATION
+    6. Écriture Taskwarrior
+
+  Après validation → BYPASS MODE (exécution)
 
   Branch: feat/<project-name>
-  Session: /workspace/.claude/sessions/<project-name>.json
+  Session: $HOME/.claude/sessions/<project-name>.json
 ═══════════════════════════════════════════════
 ```
 
 ---
 
-### Étape 1 : Initialisation Git
+### Étape 1 : PLAN MODE (6 phases obligatoires)
 
-```bash
-# Déterminer la branche principale
-MAIN_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+**Mode actif** : PLAN (pas d'édition de code autorisée)
 
-# Sync avec remote
-git fetch origin
+#### Phase 1 : Analyse de la demande
+- Comprendre ce que l'utilisateur veut
+- Identifier les contraintes et exigences
 
-# Créer la branche feature
-BRANCH="feat/$(echo "$DESCRIPTION" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')"
-git checkout -b "$BRANCH" "origin/$MAIN_BRANCH"
+#### Phase 2 : Recherche documentation
+- WebSearch pour APIs/libs externes
+- Lire docs existantes du projet
 
-echo "✓ Branche créée : $BRANCH"
+#### Phase 3 : Analyse projet existant
+- Glob/Grep pour trouver code existant
+- Read fichiers pertinents
+- Comprendre patterns/architecture
+
+#### Phase 4 : Affûtage
+- Croiser infos (demande + docs + existant)
+- Si manque info → retour Phase 2
+- Identifier tous les fichiers à modifier
+
+#### Phase 5 : Définition épics/tasks → VALIDATION USER
+
+**Output attendu :**
+```
+Epic 1: <nom>
+  ├─ Task 1.1: <description> [parallel:no]
+  ├─ Task 1.2: <description> [parallel:yes]
+  └─ Task 1.3: <description> [parallel:yes]
+Epic 2: <nom>
+  ├─ Task 2.1: <description> [parallel:no]
+  └─ Task 2.2: <description> [parallel:no]
 ```
 
----
-
-### Étape 2 : Mode Plan (Phase 1 - OBLIGATOIRE)
-
-**Tâche Taskwarrior active** : `Phase 1: Planning - Explorer et planifier`
-
-**AVANT toute implémentation**, utiliser `EnterPlanMode` :
-
-1. Explorer le codebase pour comprendre l'existant
-2. Identifier les fichiers à modifier
-3. Créer un plan détaillé dans `/home/vscode/.claude/plans/`
-4. Attendre validation utilisateur
-5. `ExitPlanMode` pour commencer l'implémentation
-
-**Format du plan :**
-```markdown
-# Plan : <feature-name>
-
-## Fichiers à modifier
-- path/to/file1.ts : description
-- path/to/file2.ts : description
-
-## Étapes d'implémentation
-1. Étape 1
-2. Étape 2
-...
-
-## Tests à ajouter
-- Test 1
-- Test 2
+**Chaque task doit avoir un contexte JSON :**
+```json
+{
+  "files": ["src/auth.ts", "src/types.ts"],
+  "action": "create|modify|delete|refactor",
+  "deps": ["bcrypt", "jsonwebtoken"],
+  "description": "Description détaillée de la task",
+  "tests": ["src/__tests__/auth.test.ts"]
+}
 ```
 
-**Après validation du plan :**
-```bash
-# Marquer Phase 1 comme terminée (TOUJOURS utiliser UUID, jamais ID)
-SESSION_FILE=$(ls -t /workspace/.claude/sessions/*.json | head -1)
-TASK1_UUID=$(jq -r '.phases["1"].uuid' "$SESSION_FILE")
-task uuid:"$TASK1_UUID" done
+Puis `AskUserQuestion: "Valider ce plan ?"`
 
-# Créer les sous-tâches depuis le plan
+#### Phase 6 : Écriture Taskwarrior
+
+Après validation utilisateur :
+
+```bash
+SESSION_FILE=$(ls -t $HOME/.claude/sessions/*.json | head -1)
 PROJECT=$(jq -r '.project' "$SESSION_FILE")
-/workspace/.claude/scripts/task-subtasks.sh "$PROJECT" "$PLAN_FILE"
 
-# Mettre à jour la session pour Phase 2
-TASK2_UUID=$(jq -r '.phases["2"].uuid' "$SESSION_FILE")
-jq ".current_phase = 2 | .current_task_uuid = \"$TASK2_UUID\"" "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
-task uuid:"$TASK2_UUID" start
+# Créer les epics
+EPIC1_UUID=$(/home/vscode/.claude/scripts/task-epic.sh "$PROJECT" 1 "Setup infrastructure")
+EPIC2_UUID=$(/home/vscode/.claude/scripts/task-epic.sh "$PROJECT" 2 "Implementation")
+
+# Créer les tasks dans chaque epic
+/home/vscode/.claude/scripts/task-add.sh "$PROJECT" 1 "$EPIC1_UUID" "Créer dossier structure" "no" '{"files":["src/"],"action":"create"}'
+/home/vscode/.claude/scripts/task-add.sh "$PROJECT" 2 "$EPIC2_UUID" "Implémenter AuthService" "no" '{"files":["src/services/auth.ts"],"action":"create"}'
+
+# Le mode passe automatiquement en bypass quand on démarre une task
 ```
 
 ---
 
-### Étape 3 : Implémentation (Phase 2)
+### Étape 2 : BYPASS MODE (exécution)
 
-**Tâche Taskwarrior active** : `Phase 2: Implementation`
+**Mode actif** : BYPASS (édition autorisée SI task WIP)
 
-Suivre le plan validé. **Chaque Write/Edit est automatiquement tracé** via les hooks.
-
-Pour chaque modification significative :
+#### Workflow par task
 
 ```bash
-# Commit conventionnel
+# 1. Démarrer la task (TODO → WIP)
+/home/vscode/.claude/scripts/task-start.sh <uuid>
+
+# 2. Exécuter la task
+# - Lire le contexte JSON (files, action, description)
+# - Effectuer les modifications requises
+# - Chaque Write/Edit est automatiquement tracé
+
+# 3. Commit conventionnel
 git add <files>
 git commit -m "feat(<scope>): <description>"
-
-# Push régulier
 git push -u origin "$BRANCH"
 
-# Logger le commit dans Taskwarrior
-TASK_UUID=$(jq -r '.current_task_uuid' "$SESSION_FILE")
-task uuid:"$TASK_UUID" annotate "commit:{\"sha\":\"$(git rev-parse HEAD)\",\"msg\":\"feat(<scope>): <description>\"}"
+# 4. Terminer la task (WIP → DONE)
+/home/vscode/.claude/scripts/task-done.sh <uuid>
+
+# 5. Passer à la task suivante
 ```
 
-**Conventional Commits :**
-- `feat(scope): message` - Nouvelle fonctionnalité
-- `test(scope): message` - Ajout de tests
-- `docs(scope): message` - Documentation
-- `refactor(scope): message` - Refactoring sans changement fonctionnel
+#### Exécution parallèle (automatique)
 
-**Fin de Phase 2 :**
-```bash
-# Marquer Phase 2 comme terminée (TOUJOURS utiliser UUID, jamais ID)
-TASK2_UUID=$(jq -r '.phases["2"].uuid' "$SESSION_FILE")
-task uuid:"$TASK2_UUID" done
+Si plusieurs tasks consécutives ont `parallel:yes` :
+- Démarrer TOUTES en WIP simultanément
+- Lancer multiples Tool calls en parallèle
+- Attendre que TOUTES soient DONE avant continuer
 
-# Passer à Phase 3
-TASK3_UUID=$(jq -r '.phases["3"].uuid' "$SESSION_FILE")
-jq ".current_phase = 3 | .current_task_uuid = \"$TASK3_UUID\"" "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
-task uuid:"$TASK3_UUID" start
+**Exemple :**
+```
+Task 2.1 [parallel:no]  → exécuter seul
+Task 2.2 [parallel:yes] ┐
+Task 2.3 [parallel:yes] ├→ exécuter en parallèle
+Task 2.4 [parallel:yes] ┘
+Task 2.5 [parallel:no]  → attendre 2.2-2.4, puis exécuter
 ```
 
 ---
 
-### Étape 4 : Sync avec main (si nécessaire)
+### Étape 3 : Sync avec main (si nécessaire)
 
 Si des commits ont été ajoutés sur main pendant le développement :
 
@@ -219,7 +229,7 @@ git push --force-with-lease
 
 ---
 
-### Étape 5 : Vérification CI
+### Étape 4 : Vérification CI
 
 #### Détection du provider Git
 
@@ -242,26 +252,10 @@ mcp__github__get_pull_request_status (si GitHub)
 mcp__gitlab__get_merge_request (si GitLab)
 ```
 
-**2. Token dans l'environnement :**
-| Provider | Variables à chercher |
-|----------|---------------------|
-| GitHub | `GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_PERSONAL_ACCESS_TOKEN` |
-| GitLab | `GITLAB_TOKEN`, `GITLAB_PRIVATE_TOKEN`, `CI_JOB_TOKEN` |
-| Bitbucket | `BITBUCKET_TOKEN`, `BITBUCKET_ACCESS_TOKEN` |
-
-**3. CLI disponible :**
+**2. CLI disponible :**
 ```bash
 gh pr checks "$BRANCH"        # GitHub
 glab mr view "$BRANCH"        # GitLab
-```
-
-**4. Curl direct :**
-```bash
-# GitHub
-curl -s "https://api.github.com/repos/$OWNER/$REPO/commits/$SHA/status"
-
-# GitLab
-curl -s "https://gitlab.com/api/v4/projects/$PROJECT_ID/pipelines?ref=$BRANCH"
 ```
 
 #### En cas d'échec CI
@@ -272,17 +266,9 @@ curl -s "https://gitlab.com/api/v4/projects/$PROJECT_ID/pipelines?ref=$BRANCH"
 4. Commit + push
 5. Réessayer (max 3 tentatives)
 
-```
-Tentative 1/3 : Analyse de l'erreur...
-→ Erreur : test_login failed
-→ Fix : correction du mock
-→ Commit + push
-→ Vérification CI...
-```
-
 ---
 
-### Étape 6 : Création PR
+### Étape 5 : Création PR
 
 **Via MCP (priorité) :**
 ```
@@ -319,10 +305,11 @@ glab mr create --title "feat: $DESCRIPTION" --description "..."
 
 | Action | Status |
 |--------|--------|
-| Merge automatique | ❌ **INTERDIT** |
-| Push sur main/master | ❌ **INTERDIT** |
-| Skip le mode /plan | ❌ **INTERDIT** |
-| Force push sans --force-with-lease | ❌ **INTERDIT** |
+| Merge automatique | **INTERDIT** |
+| Push sur main/master | **INTERDIT** |
+| Skip PLAN MODE | **INTERDIT** |
+| Write/Edit sans task WIP | **BLOQUÉ** |
+| Force push sans --force-with-lease | **INTERDIT** |
 
 ### Message de fin
 
@@ -347,10 +334,9 @@ glab mr create --title "feat: $DESCRIPTION" --description "..."
 Reprendre une feature en cours via la session Taskwarrior :
 
 ```bash
-SESSION_DIR="/workspace/.claude/sessions"
+SESSION_DIR="$HOME/.claude/sessions"
 
 # Trouver la session la plus récente (ou spécifier un projet)
-# Usage: /feature --continue [project_name]
 if [[ -n "$1" ]]; then
     SESSION_FILE="$SESSION_DIR/$1.json"
 else
@@ -365,25 +351,22 @@ fi
 
 PROJECT=$(jq -r '.project' "$SESSION_FILE")
 BRANCH=$(jq -r '.branch' "$SESSION_FILE")
-CURRENT_PHASE=$(jq -r '.current_phase' "$SESSION_FILE")
-CURRENT_UUID=$(jq -r '.current_task_uuid' "$SESSION_FILE")
-ACTIONS=$(jq -r '.actions' "$SESSION_FILE")
-LAST_ACTION=$(jq -r '.last_action // "N/A"' "$SESSION_FILE")
+MODE=$(jq -r '.mode' "$SESSION_FILE")
+CURRENT_EPIC=$(jq -r '.current_epic // "N/A"' "$SESSION_FILE")
+CURRENT_TASK=$(jq -r '.current_task // "N/A"' "$SESSION_FILE")
 
 echo "═══════════════════════════════════════════════"
 echo "  Reprise: $PROJECT"
 echo "═══════════════════════════════════════════════"
 echo ""
-echo "  Phase courante: $CURRENT_PHASE"
-echo "  Actions effectuées: $ACTIONS"
-echo "  Dernière action: $LAST_ACTION"
+echo "  Mode: $MODE"
+echo "  Epic courant: $CURRENT_EPIC"
+echo "  Task courante: $CURRENT_TASK"
 echo ""
 
-# Afficher les derniers événements depuis Taskwarrior
-echo "  Derniers événements:"
-task uuid:"$CURRENT_UUID" annotations 2>/dev/null | grep -E "^[0-9]" | tail -5 | while read -r LINE; do
-    echo "    $LINE"
-done
+# Afficher les epics et leur statut
+echo "  Epics:"
+jq -r '.epics[] | "    \(.id). \(.name) [\(.status)]"' "$SESSION_FILE" 2>/dev/null
 
 echo ""
 echo "═══════════════════════════════════════════════"
@@ -396,27 +379,6 @@ if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
     echo "→ Branche attendue: $BRANCH"
     echo "→ Exécuter: git checkout $BRANCH"
 fi
-
-# Relancer la tâche
-task uuid:"$CURRENT_UUID" start 2>/dev/null || true
-```
-
-**Récupération après crash :**
-
-Le système permet de reprendre grâce à :
-1. **Session persistante** : `.claude/sessions/<project>.json`
-2. **Annotations Taskwarrior** : Chaque action loggée avec timestamp
-3. **Double source de vérité** : Comparaison session ↔ annotations
-
-```bash
-# Voir l'état d'un projet
-task project:<name> all
-
-# Voir les événements d'une tâche
-task uuid:<uuid> annotations
-
-# Exporter les événements en JSON
-task project:<name> export | jq '.[].annotations'
 ```
 
 ---
@@ -431,7 +393,9 @@ Afficher le statut de la feature :
 | Élément | Status |
 |---------|--------|
 | Branche | feat/<description> |
-| Commits | 5 ahead of main |
+| Mode | PLAN / BYPASS |
+| Epics | 2/3 terminés |
+| Tasks | 5/8 terminées |
 | PR | #42 (open) |
 | CI | ✓ Passed |
 | Merge | En attente (manuel) |
@@ -449,8 +413,26 @@ Afficher le statut de la feature :
 
 ✓ Branche créée : feat/add-user-authentication
 ✓ Base : origin/main (abc1234)
+✓ Mode : PLAN
 
-→ Passage en mode /plan obligatoire...
+→ Commencez par analyser la demande...
+```
+
+### Après validation du plan
+```
+═══════════════════════════════════════════════
+  ✓ Plan validé - Passage en BYPASS MODE
+═══════════════════════════════════════════════
+
+  Epics créés: 3
+  Tasks créées: 8
+
+  Prochaine task:
+    Epic 1: Setup infrastructure
+    Task 1.1: Créer structure dossiers
+
+  → Démarrer avec: task-start.sh <uuid>
+═══════════════════════════════════════════════
 ```
 
 ### Après CI success
@@ -465,26 +447,4 @@ Afficher le statut de la feature :
 
   ⚠️  MERGE MANUEL REQUIS
 ═══════════════════════════════════════════════
-```
-
-### Après CI fail (avec retry)
-```
-═══════════════════════════════════════════════
-  CI Failed - Tentative 1/3
-═══════════════════════════════════════════════
-
-Erreur détectée :
-  Job : test
-  Message : FAIL src/auth/login.test.ts
-
-Analyse :
-  → Mock manquant pour userService
-
-Correction appliquée :
-  → Ajout du mock dans login.test.ts
-
-Commit : fix(test): add missing userService mock
-Push : origin/feat/add-user-authentication
-
-→ Relance CI...
 ```

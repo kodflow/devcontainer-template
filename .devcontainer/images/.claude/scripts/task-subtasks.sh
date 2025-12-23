@@ -7,7 +7,7 @@ set -euo pipefail
 PROJECT="$1"
 PLAN_FILE="$2"
 
-SESSION_DIR="/workspace/.claude/sessions"
+SESSION_DIR="$HOME/.claude/sessions"
 SESSION_FILE="$SESSION_DIR/$PROJECT.json"
 
 if [[ ! -f "$SESSION_FILE" ]]; then

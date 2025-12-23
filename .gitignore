@@ -20,6 +20,8 @@ Thumbs.db
 !/CLAUDE.md
 # Except the template (committed)
 !.devcontainer/features/claude/CLAUDE.md
+# Except devcontainer images workflow doc (committed)
+!.devcontainer/images/CLAUDE.md
 
 # ============================================
 # Environment & Secrets (CRITICAL)

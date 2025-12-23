@@ -7,13 +7,13 @@ $ARGUMENTS
 ## Description
 
 Workflow complet pour corriger un bug avec **suivi Taskwarrior obligatoire** :
-1. **Initialisation Taskwarrior** → Création projet avec 4 phases
-2. **Plan obligatoire** → Analyser et planifier la correction
-3. **Branche dédiée** → `fix/<description>`
+1. **PLAN MODE** → Analyse, reproduction, identification de la cause racine
+2. **Validation utilisateur** → Approbation du plan avant correction
+3. **BYPASS MODE** → Exécution des tasks de correction
 4. **CI validation** → Vérifier que la pipeline passe
 5. **PR sans merge** → Créer la PR, merge manuel requis
 
-**Chaque action Write/Edit est tracée** et bloquée si aucune tâche Taskwarrior n'est active.
+**Chaque action Write/Edit est tracée** et bloquée si aucune task Taskwarrior n'est en WIP.
 
 ---
 
@@ -30,7 +30,7 @@ Workflow complet pour corriger un bug avec **suivi Taskwarrior obligatoire** :
 
 ## --help
 
-Quand `--help` est passe, afficher :
+Quand `--help` est passé, afficher :
 
 ```
 ═══════════════════════════════════════════════
@@ -56,156 +56,156 @@ Exemples:
 
 ## Workflow complet
 
-### Étape 0 : Initialisation Taskwarrior (OBLIGATOIRE)
+### Étape 0 : Initialisation (OBLIGATOIRE)
 
-**AVANT toute action**, initialiser le projet Taskwarrior :
+**AVANT toute action**, initialiser le projet et la branche :
 
 ```bash
 # Exécuter le script d'initialisation
-/workspace/.claude/scripts/task-init.sh "fix" "<description>"
-```
+/home/vscode/.claude/scripts/task-init.sh "fix" "<description>"
 
-Cela crée :
-- **4 phases bloquantes** dans Taskwarrior :
-  1. Planning (active)
-  2. Implementation (bloquée → dépend de Phase 1)
-  3. Testing (bloquée → dépend de Phase 2)
-  4. PR (bloquée → dépend de Phase 3)
-- **Session persistante** : `.claude/sessions/<project>.json`
-- **UDAs configurés** : phase, model, parallel, branch
+# Déterminer la branche principale
+MAIN_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+
+# Sync avec remote et créer la branche
+git fetch origin
+BRANCH="fix/$(echo "$DESCRIPTION" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')"
+git checkout -b "$BRANCH" "origin/$MAIN_BRANCH"
+```
 
 **Output attendu :**
 ```
 ═══════════════════════════════════════════════
-  ✓ Projet créé: <project-name>
+  ✓ Projet initialisé: <project-name>
 ═══════════════════════════════════════════════
 
-  Phases:
-    1. Planning       [EN COURS]
-    2. Implementation [BLOQUÉE]
-    3. Testing        [BLOQUÉE]
-    4. PR             [BLOQUÉE]
+  Mode: PLAN (analyse et définition des epics/tasks)
+
+  Phases PLAN MODE:
+    1. Analyse de la demande
+    2. Recherche documentation
+    3. Analyse projet existant
+    4. Affûtage (boucle si nécessaire)
+    5. Définition épics/tasks → VALIDATION
+    6. Écriture Taskwarrior
+
+  Après validation → BYPASS MODE (exécution)
 
   Branch: fix/<project-name>
-  Session: /workspace/.claude/sessions/<project-name>.json
+  Session: $HOME/.claude/sessions/<project-name>.json
 ═══════════════════════════════════════════════
 ```
 
 ---
 
-### Étape 1 : Initialisation Git
+### Étape 1 : PLAN MODE (6 phases obligatoires)
 
-```bash
-# Déterminer la branche principale
-MAIN_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+**Mode actif** : PLAN (pas d'édition de code autorisée)
 
-# Sync avec remote
-git fetch origin
+#### Phase 1 : Analyse de la demande
+- Comprendre le bug reporté
+- Identifier les étapes de reproduction
 
-# Créer la branche fix
-BRANCH="fix/$(echo "$DESCRIPTION" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')"
-git checkout -b "$BRANCH" "origin/$MAIN_BRANCH"
+#### Phase 2 : Recherche documentation
+- Rechercher des bugs similaires (issues, forums)
+- Lire docs pertinentes
 
-echo "✓ Branche créée : $BRANCH"
+#### Phase 3 : Analyse projet existant
+- Reproduire le bug
+- Identifier le fichier et la ligne problématique
+- Comprendre le flux de données
+
+#### Phase 4 : Affûtage
+- Identifier la cause racine
+- Si manque info → retour Phase 2
+- Définir la correction minimale
+
+#### Phase 5 : Définition épics/tasks → VALIDATION USER
+
+**Output attendu :**
 ```
-
----
-
-### Étape 2 : Mode Plan (Phase 1 - OBLIGATOIRE)
-
-**Tâche Taskwarrior active** : `Phase 1: Planning - Explorer et planifier`
-
-**AVANT toute correction**, utiliser `EnterPlanMode` :
-
-1. Reproduire et comprendre le bug
-2. Identifier la cause racine
-3. Créer un plan de correction dans `/home/vscode/.claude/plans/`
-4. Attendre validation utilisateur
-5. `ExitPlanMode` pour commencer la correction
-
-**Format du plan :**
-```markdown
-# Plan : fix-<bug-name>
-
 ## Bug identifié
 - Description du comportement actuel
 - Comportement attendu
-- Étapes de reproduction
+- Cause racine: path/to/file.ts:42
 
-## Cause racine
-- Fichier : path/to/file.ts
-- Ligne(s) : 42-45
-- Problème : description
+## Plan de correction
 
-## Correction proposée
-1. Modifier X dans Y
-2. Ajouter test pour Z
-
-## Tests de non-régression
-- Test 1
-- Test 2
+Epic 1: Investigation
+  ├─ Task 1.1: Créer test de reproduction [parallel:no]
+  └─ Task 1.2: Identifier les dépendances [parallel:no]
+Epic 2: Correction
+  ├─ Task 2.1: Corriger le bug [parallel:no]
+  └─ Task 2.2: Ajouter tests de non-régression [parallel:no]
 ```
 
-**Après validation du plan :**
+**Chaque task doit avoir un contexte JSON :**
+```json
+{
+  "files": ["src/auth.ts"],
+  "action": "modify",
+  "description": "Corriger la validation du token",
+  "tests": ["src/__tests__/auth.test.ts"]
+}
+```
+
+Puis `AskUserQuestion: "Valider ce plan de correction ?"`
+
+#### Phase 6 : Écriture Taskwarrior
+
+Après validation utilisateur :
+
 ```bash
-# Marquer Phase 1 comme terminée (TOUJOURS utiliser UUID, jamais ID)
-SESSION_FILE=$(ls -t /workspace/.claude/sessions/*.json | head -1)
-TASK1_UUID=$(jq -r '.phases["1"].uuid' "$SESSION_FILE")
-task uuid:"$TASK1_UUID" done
-
-# Créer les sous-tâches depuis le plan
+SESSION_FILE=$(ls -t $HOME/.claude/sessions/*.json | head -1)
 PROJECT=$(jq -r '.project' "$SESSION_FILE")
-/workspace/.claude/scripts/task-subtasks.sh "$PROJECT" "$PLAN_FILE"
 
-# Mettre à jour la session pour Phase 2
-TASK2_UUID=$(jq -r '.phases["2"].uuid' "$SESSION_FILE")
-jq ".current_phase = 2 | .current_task_uuid = \"$TASK2_UUID\"" "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
-task uuid:"$TASK2_UUID" start
+# Créer les epics
+EPIC1_UUID=$(/home/vscode/.claude/scripts/task-epic.sh "$PROJECT" 1 "Investigation")
+EPIC2_UUID=$(/home/vscode/.claude/scripts/task-epic.sh "$PROJECT" 2 "Correction")
+
+# Créer les tasks
+/home/vscode/.claude/scripts/task-add.sh "$PROJECT" 1 "$EPIC1_UUID" "Test de reproduction" "no" '{"files":["src/__tests__/bug.test.ts"],"action":"create"}'
+/home/vscode/.claude/scripts/task-add.sh "$PROJECT" 2 "$EPIC2_UUID" "Corriger le bug" "no" '{"files":["src/auth.ts"],"action":"modify"}'
+
+# Le mode passe automatiquement en bypass quand on démarre une task
 ```
 
 ---
 
-### Étape 3 : Implémentation (Phase 2)
+### Étape 2 : BYPASS MODE (exécution)
 
-**Tâche Taskwarrior active** : `Phase 2: Implementation`
+**Mode actif** : BYPASS (édition autorisée SI task WIP)
 
-Suivre le plan validé. **Chaque Write/Edit est automatiquement tracé** via les hooks.
-
-Pour chaque modification :
+#### Workflow par task
 
 ```bash
-# Commit conventionnel
+# 1. Démarrer la task (TODO → WIP)
+/home/vscode/.claude/scripts/task-start.sh <uuid>
+
+# 2. Exécuter la task
+# - Lire le contexte JSON (files, action, description)
+# - Effectuer les modifications requises
+# - Chaque Write/Edit est automatiquement tracé
+
+# 3. Commit conventionnel
 git add <files>
 git commit -m "fix(<scope>): <description>"
-
-# Push régulier
 git push -u origin "$BRANCH"
 
-# Logger le commit dans Taskwarrior
-TASK_UUID=$(jq -r '.current_task_uuid' "$SESSION_FILE")
-task uuid:"$TASK_UUID" annotate "commit:{\"sha\":\"$(git rev-parse HEAD)\",\"msg\":\"fix(<scope>): <description>\"}"
+# 4. Terminer la task (WIP → DONE)
+/home/vscode/.claude/scripts/task-done.sh <uuid>
+
+# 5. Passer à la task suivante
 ```
 
-**Conventional Commits :**
+**Conventional Commits pour fix :**
 - `fix(scope): message` - Correction du bug
 - `test(scope): message` - Test de non-régression
 - `docs(scope): message` - Documentation du fix
 
-**Fin de Phase 2 :**
-```bash
-# Marquer Phase 2 comme terminée (TOUJOURS utiliser UUID, jamais ID)
-TASK2_UUID=$(jq -r '.phases["2"].uuid' "$SESSION_FILE")
-task uuid:"$TASK2_UUID" done
-
-# Passer à Phase 3
-TASK3_UUID=$(jq -r '.phases["3"].uuid' "$SESSION_FILE")
-jq ".current_phase = 3 | .current_task_uuid = \"$TASK3_UUID\"" "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
-task uuid:"$TASK3_UUID" start
-```
-
 ---
 
-### Étape 4 : Sync avec main (si nécessaire)
+### Étape 3 : Sync avec main (si nécessaire)
 
 Si des commits ont été ajoutés sur main pendant le développement :
 
@@ -223,7 +223,7 @@ git push --force-with-lease
 
 ---
 
-### Étape 5 : Vérification CI
+### Étape 4 : Vérification CI
 
 #### Détection du provider Git
 
@@ -246,26 +246,10 @@ mcp__github__get_pull_request_status (si GitHub)
 mcp__gitlab__get_merge_request (si GitLab)
 ```
 
-**2. Token dans l'environnement :**
-| Provider | Variables à chercher |
-|----------|---------------------|
-| GitHub | `GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_PERSONAL_ACCESS_TOKEN` |
-| GitLab | `GITLAB_TOKEN`, `GITLAB_PRIVATE_TOKEN`, `CI_JOB_TOKEN` |
-| Bitbucket | `BITBUCKET_TOKEN`, `BITBUCKET_ACCESS_TOKEN` |
-
-**3. CLI disponible :**
+**2. CLI disponible :**
 ```bash
 gh pr checks "$BRANCH"        # GitHub
 glab mr view "$BRANCH"        # GitLab
-```
-
-**4. Curl direct :**
-```bash
-# GitHub
-curl -s "https://api.github.com/repos/$OWNER/$REPO/commits/$SHA/status"
-
-# GitLab
-curl -s "https://gitlab.com/api/v4/projects/$PROJECT_ID/pipelines?ref=$BRANCH"
 ```
 
 #### En cas d'échec CI
@@ -278,7 +262,7 @@ curl -s "https://gitlab.com/api/v4/projects/$PROJECT_ID/pipelines?ref=$BRANCH"
 
 ---
 
-### Étape 6 : Création PR
+### Étape 5 : Création PR
 
 **Via MCP (priorité) :**
 ```
@@ -320,10 +304,11 @@ glab mr create --title "fix: $DESCRIPTION" --description "..."
 
 | Action | Status |
 |--------|--------|
-| Merge automatique | ❌ **INTERDIT** |
-| Push sur main/master | ❌ **INTERDIT** |
-| Skip le mode /plan | ❌ **INTERDIT** |
-| Force push sans --force-with-lease | ❌ **INTERDIT** |
+| Merge automatique | **INTERDIT** |
+| Push sur main/master | **INTERDIT** |
+| Skip PLAN MODE | **INTERDIT** |
+| Write/Edit sans task WIP | **BLOQUÉ** |
+| Force push sans --force-with-lease | **INTERDIT** |
 
 ### Message de fin
 
@@ -348,10 +333,9 @@ glab mr create --title "fix: $DESCRIPTION" --description "..."
 Reprendre un fix en cours via la session Taskwarrior :
 
 ```bash
-SESSION_DIR="/workspace/.claude/sessions"
+SESSION_DIR="$HOME/.claude/sessions"
 
 # Trouver la session la plus récente (ou spécifier un projet)
-# Usage: /fix --continue [project_name]
 if [[ -n "$1" ]]; then
     SESSION_FILE="$SESSION_DIR/$1.json"
 else
@@ -366,25 +350,22 @@ fi
 
 PROJECT=$(jq -r '.project' "$SESSION_FILE")
 BRANCH=$(jq -r '.branch' "$SESSION_FILE")
-CURRENT_PHASE=$(jq -r '.current_phase' "$SESSION_FILE")
-CURRENT_UUID=$(jq -r '.current_task_uuid' "$SESSION_FILE")
-ACTIONS=$(jq -r '.actions' "$SESSION_FILE")
-LAST_ACTION=$(jq -r '.last_action // "N/A"' "$SESSION_FILE")
+MODE=$(jq -r '.mode' "$SESSION_FILE")
+CURRENT_EPIC=$(jq -r '.current_epic // "N/A"' "$SESSION_FILE")
+CURRENT_TASK=$(jq -r '.current_task // "N/A"' "$SESSION_FILE")
 
 echo "═══════════════════════════════════════════════"
 echo "  Reprise: $PROJECT"
 echo "═══════════════════════════════════════════════"
 echo ""
-echo "  Phase courante: $CURRENT_PHASE"
-echo "  Actions effectuées: $ACTIONS"
-echo "  Dernière action: $LAST_ACTION"
+echo "  Mode: $MODE"
+echo "  Epic courant: $CURRENT_EPIC"
+echo "  Task courante: $CURRENT_TASK"
 echo ""
 
-# Afficher les derniers événements depuis Taskwarrior
-echo "  Derniers événements:"
-task uuid:"$CURRENT_UUID" annotations 2>/dev/null | grep -E "^[0-9]" | tail -5 | while read -r LINE; do
-    echo "    $LINE"
-done
+# Afficher les epics et leur statut
+echo "  Epics:"
+jq -r '.epics[] | "    \(.id). \(.name) [\(.status)]"' "$SESSION_FILE" 2>/dev/null
 
 echo ""
 echo "═══════════════════════════════════════════════"
@@ -397,27 +378,6 @@ if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
     echo "→ Branche attendue: $BRANCH"
     echo "→ Exécuter: git checkout $BRANCH"
 fi
-
-# Relancer la tâche
-task uuid:"$CURRENT_UUID" start 2>/dev/null || true
-```
-
-**Récupération après crash :**
-
-Le système permet de reprendre grâce à :
-1. **Session persistante** : `.claude/sessions/<project>.json`
-2. **Annotations Taskwarrior** : Chaque action loggée avec timestamp
-3. **Double source de vérité** : Comparaison session ↔ annotations
-
-```bash
-# Voir l'état d'un projet
-task project:<name> all
-
-# Voir les événements d'une tâche
-task uuid:<uuid> annotations
-
-# Exporter les événements en JSON
-task project:<name> export | jq '.[].annotations'
 ```
 
 ---
@@ -432,7 +392,9 @@ Afficher le statut du fix :
 | Élément | Status |
 |---------|--------|
 | Branche | fix/<description> |
-| Commits | 2 ahead of main |
+| Mode | PLAN / BYPASS |
+| Epics | 1/2 terminés |
+| Tasks | 2/4 terminées |
 | PR | #43 (open) |
 | CI | ✓ Passed |
 | Merge | En attente (manuel) |
@@ -450,8 +412,26 @@ Afficher le statut du fix :
 
 ✓ Branche créée : fix/login-button-not-responding
 ✓ Base : origin/main (abc1234)
+✓ Mode : PLAN
 
-→ Passage en mode /plan obligatoire...
+→ Commencez par analyser le bug...
+```
+
+### Après validation du plan
+```
+═══════════════════════════════════════════════
+  ✓ Plan validé - Passage en BYPASS MODE
+═══════════════════════════════════════════════
+
+  Epics créés: 2
+  Tasks créées: 4
+
+  Prochaine task:
+    Epic 1: Investigation
+    Task 1.1: Test de reproduction
+
+  → Démarrer avec: task-start.sh <uuid>
+═══════════════════════════════════════════════
 ```
 
 ### Après CI success

@@ -19,7 +19,7 @@ TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')
 EXIT_CODE=$(echo "$INPUT" | jq -r '.tool_response.exit_code // 0')
 
 # Trouver la session active
-SESSION_DIR="/workspace/.claude/sessions"
+SESSION_DIR="$HOME/.claude/sessions"
 SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1)
 
 # Si pas de session, log quand même pour Bash (autorisé sans tâche)
