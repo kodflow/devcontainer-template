@@ -147,6 +147,32 @@ if [ -f "$MCP_TPL" ]; then
         -e "s|{{GITHUB_TOKEN}}|${GITHUB_TOKEN}|g" \
         "$MCP_TPL" > "$MCP_OUTPUT"
     log_success "mcp.json generated successfully"
+
+    # =========================================================================
+    # Add optional MCPs based on installed features
+    # =========================================================================
+    # Helper function to add a conditional MCP server
+    add_optional_mcp() {
+        local name="$1"
+        local binary="$2"
+        local output="$3"
+
+        if [ -x "$binary" ]; then
+            log_info "Adding $name MCP (binary found at $binary)"
+            jq --arg name "$name" --arg bin "$binary" \
+               '.mcpServers[$name] = {"command": $bin, "args": [], "env": {}}' \
+               "$output" > "$output.tmp" && mv "$output.tmp" "$output"
+        else
+            log_info "Skipping $name MCP (binary not found)"
+        fi
+    }
+
+    # Rust: rust-analyzer-mcp (only if Rust feature is installed)
+    add_optional_mcp "rust-analyzer" "$HOME/.cache/cargo/bin/rust-analyzer-mcp" "$MCP_OUTPUT"
+
+    # Future conditional MCPs can be added here:
+    # add_optional_mcp "gopls" "$HOME/.cache/go/bin/gopls-mcp" "$MCP_OUTPUT"
+    # add_optional_mcp "pyright" "$HOME/.cache/pyenv/shims/pyright-mcp" "$MCP_OUTPUT"
 else
     log_warning "MCP template not found at $MCP_TPL"
 fi
