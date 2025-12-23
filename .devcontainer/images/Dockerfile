@@ -141,8 +141,8 @@ RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc 
 # Using official installer: https://claude.ai/install.sh
 # This avoids requiring Node.js/npm in the base image.
 # If you need Node.js for your project, enable the "nodejs" feature.
-RUN curl -fsSL https://claude.ai/install.sh | bash && \
-    ln -sf ~/.claude/local/bin/claude ~/.local/bin/claude
+# Note: The official installer creates the symlink at ~/.local/bin/claude automatically.
+RUN curl -fsSL https://claude.ai/install.sh | bash
 
 # =============================================================================
 # CodeRabbit CLI (AI Code Reviews)
