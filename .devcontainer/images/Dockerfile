@@ -3,8 +3,8 @@
 # =============================================================================
 # Kodflow Base Development Image
 # =============================================================================
-# Single base image with all tools + Node.js (for Claude Code)
-# Languages are added via devcontainer features at runtime
+# Single base image with all tools + Claude Code (standalone)
+# Languages (including Node.js) are added via devcontainer features at runtime
 #
 # Build:
 #   docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/kodflow/devcontainer-template:latest .
@@ -116,7 +116,7 @@ WORKDIR /home/vscode
 
 # Create cache and config directories
 RUN mkdir -p .cache .config .local/bin .local/share .zsh_history_dir \
-    .cache/{terraform,helm,aws,bazel,npm,yarn,pnpm,nvm} \
+    .cache/{terraform,helm,aws,bazel} \
     .config/{aws,gcloud,azure} .kube \
     .claude .config/@anthropic .cache/@anthropic .local/share/@anthropic
 
@@ -136,22 +136,13 @@ RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc 
     printf '\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\nexport HISTFILE=~/.zsh_history_dir/.zsh_history\nexport HISTSIZE=50000\nexport SAVEHIST=50000\n[[ -f ~/.kodflow-env.sh ]] && source ~/.kodflow-env.sh\n' >> ~/.zshrc
 
 # =============================================================================
-# Node.js + Claude Code
+# Claude Code (standalone installation - no Node.js required)
 # =============================================================================
-ENV NVM_DIR=/home/vscode/.cache/nvm \
-    npm_config_cache=/home/vscode/.cache/npm
-
-RUN mkdir -p $NVM_DIR && \
-    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash && \
-    . "$NVM_DIR/nvm.sh" && \
-    nvm install lts/* && \
-    nvm use lts/* && \
-    nvm alias default lts/* && \
-    npm install -g npm@latest @anthropic-ai/claude-code && \
-    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/node" ~/.local/bin/node && \
-    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npm" ~/.local/bin/npm && \
-    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/npx" ~/.local/bin/npx && \
-    ln -sf "$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | head -1)/bin/claude" ~/.local/bin/claude
+# Using official installer: https://claude.ai/install.sh
+# This avoids requiring Node.js/npm in the base image.
+# If you need Node.js for your project, enable the "nodejs" feature.
+RUN curl -fsSL https://claude.ai/install.sh | bash && \
+    ln -sf ~/.claude/local/bin/claude ~/.local/bin/claude
 
 # =============================================================================
 # CodeRabbit CLI (AI Code Reviews)
