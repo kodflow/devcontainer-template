@@ -18,6 +18,11 @@
       "command": "npx",
       "args": ["-y", "mcp-server-taskwarrior"],
       "env": {}
+    },
+    "rust-analyzer": {
+      "command": "/home/vscode/.cache/cargo/bin/rust-analyzer-mcp",
+      "args": [],
+      "env": {}
     }
   }
 }
