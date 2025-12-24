@@ -6,6 +6,11 @@ on:
   pull_request:
     types: [synchronize]  # Triggered on new commits to PR
 
+# Required permissions for GITHUB_TOKEN
+permissions:
+  pull-requests: write
+  issues: write
+
 jobs:
   resolve:
     runs-on: ubuntu-latest
