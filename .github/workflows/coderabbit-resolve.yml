@@ -1,0 +1,50 @@
+# Auto-resolve CodeRabbit comments after each push
+# This mimics Copilot's behavior of auto-resolving suggestions
+name: CodeRabbit Auto-Resolve
+
+on:
+  pull_request:
+    types: [synchronize]  # Triggered on new commits to PR
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    # Only run if PR is not from a bot and not a draft
+    if: |
+      !contains(github.actor, '[bot]') &&
+      github.event.pull_request.draft == false
+
+    steps:
+      - name: Wait for CodeRabbit review
+        # Give CodeRabbit time to post its review before resolving
+        run: sleep 30
+
+      - name: Auto-resolve CodeRabbit comments
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+
+            // Check if CodeRabbit has any comments on this PR
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const hasCodeRabbitComments = comments.data.some(
+              c => c.user.login === 'coderabbitai[bot]'
+            );
+
+            if (hasCodeRabbitComments) {
+              console.log('CodeRabbit comments found, resolving...');
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: '@coderabbitai resolve'
+              });
+              console.log('Resolve command sent');
+            } else {
+              console.log('No CodeRabbit comments found, skipping');
+            }
