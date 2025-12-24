@@ -4,7 +4,7 @@ name: CodeRabbit Full Review
 
 on:
   pull_request:
-    types: [synchronize]  # Triggered on new commits to PR
+    types: [opened, synchronize, ready_for_review]  # PR created, new commits, or marked ready
 
 # Required permissions for GITHUB_TOKEN
 permissions:
