@@ -124,6 +124,7 @@ get_1password_field() {
 # Initialize tokens from environment variables (fallback)
 CODACY_TOKEN="${CODACY_API_TOKEN:-}"
 GITHUB_TOKEN="${GITHUB_API_TOKEN:-}"
+CODERABBIT_TOKEN="${CODERABBIT_API_KEY:-}"
 
 # Try 1Password if OP_SERVICE_ACCOUNT_TOKEN is defined
 if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ] && command -v op &> /dev/null; then
@@ -131,14 +132,17 @@ if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ] && command -v op &> /dev/null; then
 
     OP_CODACY=$(get_1password_field "mcp-codacy" "$VAULT_ID")
     OP_GITHUB=$(get_1password_field "mcp-github" "$VAULT_ID")
+    OP_CODERABBIT=$(get_1password_field "coderabbit" "$VAULT_ID")
 
     [ -n "$OP_CODACY" ] && CODACY_TOKEN="$OP_CODACY"
     [ -n "$OP_GITHUB" ] && GITHUB_TOKEN="$OP_GITHUB"
+    [ -n "$OP_CODERABBIT" ] && CODERABBIT_TOKEN="$OP_CODERABBIT"
 fi
 
 # Show warnings if tokens are missing
 [ -z "$CODACY_TOKEN" ] && log_warning "Codacy token not available"
 [ -z "$GITHUB_TOKEN" ] && log_warning "GitHub token not available"
+[ -z "$CODERABBIT_TOKEN" ] && log_warning "CodeRabbit token not available"
 
 # Generate mcp.json from template (baked in Docker image)
 if [ -f "$MCP_TPL" ]; then
@@ -184,6 +188,23 @@ log_info "Cleaning git credential helpers..."
 git config --global --unset-all credential.https://github.com.helper 2>/dev/null || true
 git config --global --unset-all credential.https://gist.github.com.helper 2>/dev/null || true
 log_success "Git credential helpers cleaned"
+
+# ============================================================================
+# Export dynamic environment variables (appended to ~/.kodflow-env.sh)
+# ============================================================================
+# Note: ~/.kodflow-env.sh is created by postCreate.sh with static content
+# We only append dynamic variables here (secrets from 1Password)
+KODFLOW_ENV="$HOME/.kodflow-env.sh"
+
+# Export CodeRabbit API key if available (append to existing file)
+if [ -n "$CODERABBIT_TOKEN" ]; then
+    # Remove any existing CODERABBIT_API_KEY line to avoid duplicates
+    if [ -f "$KODFLOW_ENV" ]; then
+        sed -i '/^export CODERABBIT_API_KEY=/d' "$KODFLOW_ENV"
+    fi
+    echo "export CODERABBIT_API_KEY=\"$CODERABBIT_TOKEN\"" >> "$KODFLOW_ENV"
+    log_success "CODERABBIT_API_KEY exported to $KODFLOW_ENV"
+fi
 
 # ============================================================================
 # Final message
