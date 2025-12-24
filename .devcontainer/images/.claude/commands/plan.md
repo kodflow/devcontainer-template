@@ -425,6 +425,7 @@ Afficher l'état complet du plan :
 Abandonner le plan et nettoyer **localement** :
 
 **Pré-conditions :**
+
 - ❌ INTERDIT si `state=applying` (exécution en cours)
 - ✅ Confirmation utilisateur obligatoire
 
@@ -458,6 +459,7 @@ task project:"$PROJECT" rc.confirmation=off modify status:deleted
 ```
 
 **Ce qui n'est PAS fait (local only) :**
+
 - ❌ Pas de `git push origin --delete` (branche remote intacte)
 - ❌ Pas de suppression définitive des tasks (archivées)
 
