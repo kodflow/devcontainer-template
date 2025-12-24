@@ -54,6 +54,73 @@ mkdir -p "$HOME/.claude/sessions" "$HOME/.claude/plans"
 log_success "Claude directories initialized"
 
 # ============================================================================
+# GNOME Keyring Setup (for credential storage - libsecret/Secret Service API)
+# ============================================================================
+# Required by: CodeRabbit CLI, GitHub CLI, VS Code, Claude Code
+# Works on all platforms: Mac, Windows, Linux, WSL (container is always Linux)
+setup_gnome_keyring() {
+    # Check if gnome-keyring-daemon is available
+    if ! command -v gnome-keyring-daemon &> /dev/null; then
+        log_warning "gnome-keyring-daemon not found - credential storage may fail"
+        return 1
+    fi
+
+    # Check if already running
+    if pgrep -u "$(id -u)" gnome-keyring-daemon &> /dev/null; then
+        log_info "gnome-keyring-daemon already running"
+        return 0
+    fi
+
+    # Start D-Bus session if not available
+    if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+        log_info "Starting D-Bus session bus..."
+        if command -v dbus-launch &> /dev/null; then
+            eval "$(dbus-launch --sh-syntax)"
+            export DBUS_SESSION_BUS_ADDRESS
+        else
+            log_warning "dbus-launch not found - using fallback"
+            export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+        fi
+    fi
+
+    # Start gnome-keyring-daemon with secrets component
+    log_info "Starting gnome-keyring-daemon..."
+    # Use --unlock with empty password for headless operation
+    eval "$(echo '' | gnome-keyring-daemon --unlock --components=secrets 2>/dev/null)" || {
+        log_warning "gnome-keyring-daemon failed to start with unlock, trying without..."
+        eval "$(gnome-keyring-daemon --start --components=secrets 2>/dev/null)" || {
+            log_warning "gnome-keyring-daemon failed to start"
+            return 1
+        }
+    }
+
+    log_success "gnome-keyring-daemon started successfully"
+    return 0
+}
+
+# Run keyring setup and export env vars for shell sessions
+if setup_gnome_keyring; then
+    KODFLOW_ENV="$HOME/.kodflow-env.sh"
+    if [ -f "$KODFLOW_ENV" ]; then
+        # Remove existing entries to avoid duplicates
+        sed -i '/^export DBUS_SESSION_BUS_ADDRESS=/d' "$KODFLOW_ENV"
+        sed -i '/^export GNOME_KEYRING_CONTROL=/d' "$KODFLOW_ENV"
+        sed -i '/^export SSH_AUTH_SOCK=/d' "$KODFLOW_ENV"
+    fi
+    # Export D-Bus and keyring variables for all shells
+    if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+        echo "export DBUS_SESSION_BUS_ADDRESS=\"$DBUS_SESSION_BUS_ADDRESS\"" >> "$KODFLOW_ENV"
+    fi
+    if [ -n "${GNOME_KEYRING_CONTROL:-}" ]; then
+        echo "export GNOME_KEYRING_CONTROL=\"$GNOME_KEYRING_CONTROL\"" >> "$KODFLOW_ENV"
+    fi
+    if [ -n "${SSH_AUTH_SOCK:-}" ]; then
+        echo "export SSH_AUTH_SOCK=\"$SSH_AUTH_SOCK\"" >> "$KODFLOW_ENV"
+    fi
+    log_success "Keyring environment variables exported to $KODFLOW_ENV"
+fi
+
+# ============================================================================
 # Restore NVM symlinks (node, npm, npx, claude)
 # ============================================================================
 # NVM is in package-cache volume, so we need to recreate symlinks to ~/.local/bin
