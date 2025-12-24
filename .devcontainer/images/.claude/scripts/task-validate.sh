@@ -5,16 +5,72 @@
 
 set -euo pipefail
 
+# Lire l'input JSON de Claude
+INPUT=$(cat)
+TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // "N/A"')
+
+# === MODE CHECK ===
+# Vérifier le mode courant (PLAN vs BYPASS)
+STATE_FILE="${CLAUDE_STATE_FILE:-/workspace/.claude/state.json}"
+
+if [[ -f "$STATE_FILE" ]]; then
+    MODE=$(jq -r '.mode // "plan"' "$STATE_FILE" 2>/dev/null || echo "plan")
+
+    # En PLAN MODE, bloquer Write/Edit sauf sur fichiers autorisés
+    if [[ "$MODE" == "plan" ]]; then
+        # Liste des chemins autorisés en PLAN MODE
+        ALLOWED_PATTERNS=(
+            ".claude/plans/"
+            ".claude/sessions/"
+            "/plans/"
+            "*.md"
+        )
+
+        IS_ALLOWED=false
+        for pattern in "${ALLOWED_PATTERNS[@]}"; do
+            if [[ "$FILE_PATH" == *"$pattern"* ]] || [[ "$FILE_PATH" == $pattern ]]; then
+                IS_ALLOWED=true
+                break
+            fi
+        done
+
+        if [[ "$IS_ALLOWED" == "false" ]]; then
+            echo "═══════════════════════════════════════════════"
+            echo "  🚫 BLOQUÉ - MODE PLAN ACTIF"
+            echo "═══════════════════════════════════════════════"
+            echo ""
+            echo "  Fichier: $FILE_PATH"
+            echo "  Outil: $TOOL"
+            echo ""
+            echo "  En PLAN MODE, seuls ces chemins sont autorisés:"
+            echo "    - .claude/plans/*"
+            echo "    - .claude/sessions/*"
+            echo "    - *.md (documentation)"
+            echo ""
+            echo "  Pour passer en BYPASS MODE:"
+            echo "    1. Faites valider votre plan"
+            echo "    2. Créez les tasks Taskwarrior"
+            echo "    3. Démarrez une task avec task-start.sh"
+            echo ""
+            echo "═══════════════════════════════════════════════"
+            exit 2
+        fi
+
+        # En PLAN MODE avec fichier autorisé, pas besoin de vérifier Taskwarrior
+        echo "✓ PLAN MODE: Écriture autorisée sur $FILE_PATH"
+        exit 0
+    fi
+fi
+
+# === BYPASS MODE - Vérification Taskwarrior ===
+
 # Vérifier que Taskwarrior est installé
 if ! command -v task &>/dev/null; then
     echo "⚠️  Taskwarrior non installé - validation désactivée"
     echo "→ Pour activer le suivi obligatoire: /update"
     exit 0  # Autoriser quand même (dégradé graceful)
 fi
-
-# Lire l'input JSON de Claude
-INPUT=$(cat)
-TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')
 
 # Trouver la session active (cherche dans .claude/sessions/)
 SESSION_DIR="$HOME/.claude/sessions"
@@ -58,7 +114,6 @@ fi
 
 # Log l'action à venir (pré-événement)
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // "N/A"')
 
 task uuid:"$TASK_UUID" annotate "pre:{\"ts\":\"$TIMESTAMP\",\"tool\":\"$TOOL\",\"file\":\"$FILE_PATH\"}" 2>/dev/null
 

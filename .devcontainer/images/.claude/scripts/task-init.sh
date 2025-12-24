@@ -74,21 +74,24 @@ task rc.confirmation=off config uda.pr_number.label PR >/dev/null 2>&1 || true
 
 echo "✓ Taskwarrior configuré"
 
-# Créer le fichier de session (PLAN MODE par défaut)
+# Créer le fichier state.json (machine d'état formelle, PLAN MODE par défaut)
 SESSION_FILE="$SESSION_DIR/$PROJECT.json"
 cat > "$SESSION_FILE" << EOF
 {
+    "schemaVersion": 1,
+    "mode": "plan",
     "project": "$PROJECT",
     "branch": "$BRANCH",
     "type": "$TYPE",
-    "mode": "plan",
-    "plan_phase": 1,
+    "currentTask": null,
+    "currentEpic": null,
+    "lockedPaths": [],
+    "allowedWrites": ["/plans/**", "*.md", ".claude/**"],
+    "planPhase": 1,
     "epics": [],
-    "current_epic": null,
-    "current_task": null,
     "actions": 0,
-    "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-    "last_action": null
+    "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "lastAction": null
 }
 EOF
 

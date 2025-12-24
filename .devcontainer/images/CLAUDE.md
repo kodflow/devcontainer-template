@@ -95,19 +95,41 @@ project:"feat-xxx"              # Conteneur global
 
 ---
 
-## FORMAT CONTEXTE JSON (ctx)
+## FORMAT CONTEXTE JSON (ctx) - v2
 
-Chaque task a un contexte JSON annoté :
+Chaque task a un contexte JSON annoté (schéma v2) :
 
 ```json
 {
+  "schemaVersion": 2,
   "files": ["src/auth.ts", "src/types.ts"],
-  "action": "create|modify|delete|refactor",
+  "action": "create|modify|delete|refactor|test|document",
+  "locks": ["src/auth.ts", "src/types/*.ts"],
   "deps": ["bcrypt", "jsonwebtoken"],
   "description": "Description détaillée de la task",
-  "tests": ["src/__tests__/auth.test.ts"]
+  "tests": ["src/__tests__/auth.test.ts"],
+  "acceptance_criteria": [
+    "tests passent",
+    "lint ok",
+    "no breaking change"
+  ],
+  "commands": ["go test ./...", "npm run lint"],
+  "risk": "low|medium|high",
+  "rollback": "git revert HEAD"
 }
 ```
+
+**Champs obligatoires:** `schemaVersion`, `files`, `action`
+
+**Nouveaux champs v2:**
+
+- `locks`: Chemins verrouillés (empêche parallel tasks sur mêmes fichiers)
+- `acceptance_criteria`: Critères mesurables de succès
+- `commands`: Commandes de validation
+- `risk`: Niveau de risque (low/medium/high)
+- `rollback`: Instructions de rollback
+
+**External ID:** Chaque task a un ID lisible (ex: T1.2) stocké dans les annotations.
 
 ---
 
