@@ -136,7 +136,8 @@ super-claude() {
     echo "  MCP Servers Configuration"
     echo "═══════════════════════════════════════════════"
 
-    for server in $servers; do
+    while IFS= read -r server; do
+        [ -z "$server" ] && continue
         local cmd
         cmd=$(jq -r ".mcpServers[\"$server\"].command // empty" "$mcp_config")
 
@@ -152,7 +153,7 @@ super-claude() {
             echo "  ✓ $server"
             valid_count=$((valid_count + 1))
         fi
-    done
+    done <<< "$servers"
 
     echo "═══════════════════════════════════════════════"
 
