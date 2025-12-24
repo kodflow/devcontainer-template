@@ -24,8 +24,9 @@ reviews:
   in_progress_fortune: false
   changed_files_summary: false
   suggested_reviewers: false
+  labeling: false
 
-  # Désactiver le prompt AI agents (instructions déjà définies dans CLAUDE.md)
+  # Désactiver le prompt AI agents (redondant avec Claude Code)
   enable_prompt_for_ai_agents: false
 
   # Fichiers exclus des reviews (simplifiés - CodeRabbit a des defaults)
@@ -56,7 +57,7 @@ reviews:
         Workflows CI/CD sécurisés. Permissions minimales.
         Vérifier les actions tierces et leurs versions.
 
-  # Mode review : Auto à la création de PR, incrémental manuel via /review
+  # Mode review : Auto initial + Incrémental manuel via /review
   auto_review:
     enabled: true
     auto_incremental_review: false
