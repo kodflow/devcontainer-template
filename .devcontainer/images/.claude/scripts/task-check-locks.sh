@@ -31,7 +31,7 @@ else
     echo "  Task WIP: $CURRENT_TASK"
     echo ""
     echo "  Chemins verrouillés:"
-    echo "$CURRENT_LOCKS" | sed 's/^/    - /'
+    while IFS= read -r lock_line; do echo "    - $lock_line"; done <<< "$CURRENT_LOCKS"
 fi
 
 echo ""
@@ -53,7 +53,7 @@ if [[ -n "$TASK_UUID" ]]; then
         echo "  ✓ Peut démarrer sans conflit"
     else
         echo "  Locks demandés:"
-        echo "$TASK_LOCKS" | sed 's/^/    - /'
+        while IFS= read -r lock_line; do echo "    - $lock_line"; done <<< "$TASK_LOCKS"
         echo ""
 
         # Vérifier les conflits

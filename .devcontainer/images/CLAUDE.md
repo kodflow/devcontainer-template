@@ -122,6 +122,7 @@ Chaque task a un contexte JSON annoté (schéma v2) :
 **Champs obligatoires:** `schemaVersion`, `files`, `action`
 
 **Nouveaux champs v2:**
+
 - `locks`: Chemins verrouillés (empêche parallel tasks sur mêmes fichiers)
 - `acceptance_criteria`: Critères mesurables de succès
 - `commands`: Commandes de validation

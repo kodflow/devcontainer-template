@@ -73,7 +73,7 @@ if [[ -f "$SESSION_FILE" ]]; then
             echo "  démarrer celle-ci."
             echo ""
             echo "  Locks actuels:"
-            echo "$CURRENT_LOCKS" | sed 's/^/    /'
+            while IFS= read -r lock_line; do echo "    $lock_line"; done <<< "$CURRENT_LOCKS"
             echo ""
             echo "═══════════════════════════════════════════════"
             exit 1
