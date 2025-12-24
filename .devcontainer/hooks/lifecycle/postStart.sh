@@ -22,29 +22,33 @@ CLAUDE_DEFAULTS="/etc/claude-defaults"
 
 if [ -d "$CLAUDE_DEFAULTS" ]; then
     log_info "Restoring Claude configuration from image defaults..."
-    
+
     # Ensure base directory exists
     mkdir -p "$HOME/.claude"
-    
-    # Restore commands (always overwrite with latest from image)
+
+    # CLEAN commands and scripts to avoid legacy pollution
+    # Only these directories are managed by the image - sessions/plans are user data
+    rm -rf "$HOME/.claude/commands" "$HOME/.claude/scripts"
+
+    # Restore commands (fresh copy from image)
     if [ -d "$CLAUDE_DEFAULTS/commands" ]; then
         mkdir -p "$HOME/.claude/commands"
         cp -r "$CLAUDE_DEFAULTS/commands/"* "$HOME/.claude/commands/" 2>/dev/null || true
     fi
-    
-    # Restore scripts (always overwrite with latest from image)
+
+    # Restore scripts (fresh copy from image)
     if [ -d "$CLAUDE_DEFAULTS/scripts" ]; then
         mkdir -p "$HOME/.claude/scripts"
         cp -r "$CLAUDE_DEFAULTS/scripts/"* "$HOME/.claude/scripts/" 2>/dev/null || true
         chmod -R 755 "$HOME/.claude/scripts/"
     fi
-    
-    # Restore settings.json only if it does not exist
-    if [ -f "$CLAUDE_DEFAULTS/settings.json" ] && [ \! -f "$HOME/.claude/settings.json" ]; then
+
+    # Restore settings.json only if it does not exist (user customizations preserved)
+    if [ -f "$CLAUDE_DEFAULTS/settings.json" ] && [ ! -f "$HOME/.claude/settings.json" ]; then
         cp "$CLAUDE_DEFAULTS/settings.json" "$HOME/.claude/settings.json"
     fi
-    
-    log_success "Claude configuration restored"
+
+    log_success "Claude configuration restored (clean)"
 fi
 
 # ============================================================================
