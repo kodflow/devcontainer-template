@@ -154,7 +154,10 @@ echo "Installing Node.js Development Environment"
 echo "========================================="
 
 # Environment variables
-export NVM_DIR="${NVM_DIR:-/home/vscode/.cache/nvm}"
+# NVM installed in system location (not volume) - Microsoft best practice
+# See: https://github.com/microsoft/vscode-dev-containers/blob/main/script-library/docs/node.md
+export NVM_DIR="/usr/local/share/nvm"
+export NVM_SYMLINK_CURRENT=true
 export NODE_VERSION="${NODE_VERSION:-lts/*}"
 export npm_config_cache="${npm_config_cache:-/home/vscode/.cache/npm}"
 
@@ -226,7 +229,10 @@ if [ -f "$ZSHRC" ]; then
         cat >> "$ZSHRC" <<'EOF'
 
 # NVM (Node Version Manager)
-export NVM_DIR="${NVM_DIR:-/home/vscode/.cache/nvm}"
+# NVM installed in system location (not volume) - Microsoft best practice
+# See: https://github.com/microsoft/vscode-dev-containers/blob/main/script-library/docs/node.md
+export NVM_DIR="/usr/local/share/nvm"
+export NVM_SYMLINK_CURRENT=true
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 EOF
     fi

@@ -120,40 +120,6 @@ if setup_gnome_keyring; then
     log_success "Keyring environment variables exported to $KODFLOW_ENV"
 fi
 
-# ============================================================================
-# Restore NVM symlinks (node, npm, npx, claude)
-# ============================================================================
-# NVM is in package-cache volume, so we need to recreate symlinks to ~/.local/bin
-NVM_DIR="${NVM_DIR:-$HOME/.cache/nvm}"
-if [ -d "$NVM_DIR/versions/node" ]; then
-    NODE_VERSION=$(ls "$NVM_DIR/versions/node" 2>/dev/null | head -1)
-    if [ -n "$NODE_VERSION" ]; then
-        log_info "Setting up Node.js symlinks for $NODE_VERSION..."
-        mkdir -p "$HOME/.local/bin"
-        NODE_BIN="$NVM_DIR/versions/node/$NODE_VERSION/bin"
-
-        for cmd in node npm npx claude; do
-            if [ -f "$NODE_BIN/$cmd" ]; then
-                ln -sf "$NODE_BIN/$cmd" "$HOME/.local/bin/$cmd"
-            fi
-        done
-        log_success "Node.js symlinks configured"
-    fi
-fi
-
-# ============================================================================
-# 1Password CLI Setup
-# ============================================================================
-# Fix op config directory permissions (created by Docker as root)
-OP_CONFIG_DIR="/home/vscode/.config/op"
-if [ -d "$OP_CONFIG_DIR" ]; then
-    if [ "$(stat -c '%U' "$OP_CONFIG_DIR" 2>/dev/null)" != "vscode" ]; then
-        log_info "Fixing 1Password config directory permissions..."
-        sudo chown -R vscode:vscode "$OP_CONFIG_DIR" 2>/dev/null || true
-    fi
-    chmod 700 "$OP_CONFIG_DIR" 2>/dev/null || true
-fi
-
 # Reload .env file to get updated tokens
 ENV_FILE="/workspace/.devcontainer/.env"
 if [ -f "$ENV_FILE" ]; then

@@ -36,7 +36,8 @@ cat > /home/vscode/.kodflow-env.sh << 'ENVEOF'
 # This file is sourced by ~/.zshrc and ~/.bashrc
 
 # NVM (Node.js Version Manager)
-export NVM_DIR="/home/vscode/.cache/nvm"
+# NVM installed in system location (not volume) - Microsoft best practice
+export NVM_DIR="/usr/local/share/nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
