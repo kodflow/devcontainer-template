@@ -221,6 +221,14 @@ else
     log_warning "Could not determine NVM node directory, skipping symlink creation"
 fi
 
+# Ensure vscode user can update NVM files (especially the 'current' symlink)
+# This is required because NVM_SYMLINK_CURRENT=true needs write access
+log_info "Setting NVM directory ownership for vscode user..."
+if [ -d "$NVM_DIR" ]; then
+    sudo chown -R vscode:vscode "$NVM_DIR" 2>/dev/null || true
+    log_success "NVM directory ownership set to vscode"
+fi
+
 # Add NVM to zshrc for interactive shells
 ZSHRC="/home/vscode/.zshrc"
 if [ -f "$ZSHRC" ]; then
