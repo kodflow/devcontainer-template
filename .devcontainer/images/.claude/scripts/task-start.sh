@@ -96,14 +96,15 @@ if [[ -f "$SESSION_FILE" ]]; then
         LOCKS_JSON=$(echo "$TASK_LOCKS" | jq -R -s 'split("\n") | map(select(length > 0))')
     fi
 
-    # Mettre à jour state.json avec les nouveaux noms de champs
+    # Mettre à jour state.json (schéma v2: utilise .state au lieu de .mode)
     TMP_FILE=$(mktemp)
     jq --arg uuid "$TASK_UUID" --arg epic "$EPIC_NUM" --argjson locks "$LOCKS_JSON" '
-        .mode = "bypass" |
+        # Transition: planned -> applying (si pas déjà)
+        (if .state == "planned" then .state = "applying" else . end) |
         .currentTask = $uuid |
+        .current_task_uuid = $uuid |
         .currentEpic = ($epic | tonumber) |
         .lockedPaths = (.lockedPaths + $locks | unique) |
-        .lastAction = (now | todate) |
         (.epics[].tasks[] | select(.uuid == $uuid)).status = "WIP"
     ' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$SESSION_FILE"
 

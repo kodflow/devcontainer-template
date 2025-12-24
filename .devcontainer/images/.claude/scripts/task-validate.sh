@@ -10,15 +10,34 @@ INPUT=$(cat)
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // "N/A"')
 
-# === MODE CHECK ===
-# Vérifier le mode courant (PLAN vs BYPASS)
+# === STATE CHECK (schéma v2) ===
+# Vérifier l'état courant via .state (planning/planned/applying/applied)
 STATE_FILE="${CLAUDE_STATE_FILE:-/workspace/.claude/state.json}"
 
 if [[ -f "$STATE_FILE" ]]; then
-    MODE=$(jq -r '.mode // "plan"' "$STATE_FILE" 2>/dev/null || echo "plan")
+    # Schéma v2: utilise .state au lieu de .mode
+    STATE=$(jq -r '.state // "planning"' "$STATE_FILE" 2>/dev/null || echo "planning")
+    SCHEMA_VERSION=$(jq -r '.schemaVersion // 1' "$STATE_FILE" 2>/dev/null || echo "1")
 
-    # En PLAN MODE, bloquer Write/Edit sauf sur fichiers autorisés
-    if [[ "$MODE" == "plan" ]]; then
+    # Valider schéma v2 si déclaré
+    if [[ "$SCHEMA_VERSION" == "2" ]]; then
+        # Vérifier les invariants obligatoires
+        TYPE=$(jq -r '.type // ""' "$STATE_FILE" 2>/dev/null)
+        PROJECT=$(jq -r '.project // ""' "$STATE_FILE" 2>/dev/null)
+
+        if [[ -z "$TYPE" || -z "$PROJECT" ]]; then
+            echo "❌ Session invalide: type ou project manquant"
+            exit 2
+        fi
+
+        if [[ ! "$TYPE" =~ ^(feature|fix)$ ]]; then
+            echo "❌ Session invalide: type doit être 'feature' ou 'fix'"
+            exit 2
+        fi
+    fi
+
+    # En état planning, bloquer Write/Edit sauf sur fichiers autorisés
+    if [[ "$STATE" == "planning" ]]; then
         # Liste des chemins autorisés en PLAN MODE
         ALLOWED_PATTERNS=(
             ".claude/plans/"
@@ -37,28 +56,28 @@ if [[ -f "$STATE_FILE" ]]; then
 
         if [[ "$IS_ALLOWED" == "false" ]]; then
             echo "═══════════════════════════════════════════════"
-            echo "  🚫 BLOQUÉ - MODE PLAN ACTIF"
+            echo "  🚫 BLOQUÉ - state=planning"
             echo "═══════════════════════════════════════════════"
             echo ""
             echo "  Fichier: $FILE_PATH"
             echo "  Outil: $TOOL"
             echo ""
-            echo "  En PLAN MODE, seuls ces chemins sont autorisés:"
+            echo "  En état 'planning', seuls ces chemins sont autorisés:"
             echo "    - .claude/plans/*"
             echo "    - .claude/sessions/*"
             echo "    - *.md (documentation)"
             echo ""
-            echo "  Pour passer en BYPASS MODE:"
-            echo "    1. Faites valider votre plan"
-            echo "    2. Créez les tasks Taskwarrior"
-            echo "    3. Démarrez une task avec task-start.sh"
+            echo "  Pour passer en état 'applying':"
+            echo "    1. Validez le plan avec l'utilisateur"
+            echo "    2. Écrivez les tasks dans Taskwarrior"
+            echo "    3. state=planned → /apply → state=applying"
             echo ""
             echo "═══════════════════════════════════════════════"
             exit 2
         fi
 
-        # En PLAN MODE avec fichier autorisé, pas besoin de vérifier Taskwarrior
-        echo "✓ PLAN MODE: Écriture autorisée sur $FILE_PATH"
+        # En état planning avec fichier autorisé
+        echo "✓ state=planning: Écriture autorisée sur $FILE_PATH"
         exit 0
     fi
 fi
@@ -85,11 +104,22 @@ if [[ ! -f "$SESSION_FILE" ]]; then
     exit 2
 fi
 
-TASK_UUID=$(jq -r '.current_task_uuid // empty' "$SESSION_FILE")
+# Schéma v2: currentTask (avec fallback sur current_task_uuid pour compatibilité)
+TASK_UUID=$(jq -r '.currentTask // .current_task_uuid // empty' "$SESSION_FILE")
 PROJECT=$(jq -r '.project // "unknown"' "$SESSION_FILE")
+SESSION_STATE=$(jq -r '.state // "planning"' "$SESSION_FILE")
+
+# Vérifier que l'état permet l'exécution
+if [[ "$SESSION_STATE" != "applying" ]]; then
+    echo "❌ BLOQUÉ: État invalide ($SESSION_STATE)"
+    echo "→ L'état doit être 'applying' pour modifier des fichiers"
+    echo "→ Utilisez /apply pour démarrer l'exécution"
+    exit 2
+fi
 
 if [[ -z "$TASK_UUID" ]]; then
-    echo "❌ BLOQUÉ: Session corrompue - aucune tâche courante"
+    echo "❌ BLOQUÉ: Aucune tâche active (currentTask=null)"
+    echo "→ Démarrez une task avec task-start.sh <uuid>"
     exit 2
 fi
 

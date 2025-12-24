@@ -74,44 +74,44 @@ task rc.confirmation=off config uda.pr_number.label PR >/dev/null 2>&1 || true
 
 echo "✓ Taskwarrior configuré"
 
-# Créer le fichier state.json (machine d'état formelle, PLAN MODE par défaut)
+# Créer le fichier state.json (machine d'état formelle, schéma v2)
 SESSION_FILE="$SESSION_DIR/$PROJECT.json"
 cat > "$SESSION_FILE" << EOF
 {
-    "schemaVersion": 1,
-    "mode": "plan",
+    "schemaVersion": 2,
+    "state": "planning",
+    "type": "$TYPE",
     "project": "$PROJECT",
     "branch": "$BRANCH",
-    "type": "$TYPE",
     "currentTask": null,
     "currentEpic": null,
     "lockedPaths": [],
-    "allowedWrites": ["/plans/**", "*.md", ".claude/**"],
-    "planPhase": 1,
     "epics": [],
-    "actions": 0,
-    "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-    "lastAction": null
+    "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF
+
+# Créer symlink pour compatibilité avec hooks (workspace)
+mkdir -p /workspace/.claude
+ln -sf "$SESSION_FILE" /workspace/.claude/state.json
 
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "  ✓ Projet initialisé: $PROJECT"
 echo "═══════════════════════════════════════════════"
 echo ""
-echo "  Mode: PLAN (analyse et définition des epics/tasks)"
+echo "  State   : planning"
+echo "  Type    : $TYPE"
+echo "  Branch  : $BRANCH"
+echo "  Session : $SESSION_FILE"
 echo ""
-echo "  Phases PLAN MODE:"
+echo "  Phases:"
 echo "    1. Analyse de la demande"
 echo "    2. Recherche documentation"
 echo "    3. Analyse projet existant"
-echo "    4. Affûtage (boucle si nécessaire)"
+echo "    4. Affûtage"
 echo "    5. Définition épics/tasks → VALIDATION"
-echo "    6. Écriture Taskwarrior"
+echo "    6. Écriture Taskwarrior → state=planned"
 echo ""
-echo "  Après validation → BYPASS MODE (exécution)"
-echo ""
-echo "  Branch: $BRANCH"
-echo "  Session: $SESSION_FILE"
+echo "  Workflow: /plan → /apply"
 echo "═══════════════════════════════════════════════"
