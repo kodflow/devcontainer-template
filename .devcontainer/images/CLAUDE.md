@@ -164,3 +164,51 @@ Chaque task a un contexte JSON annoté :
          ▼
       PR créée
 ```
+
+---
+
+## SERVEURS MCP (Model Context Protocol)
+
+### Vérification obligatoire au démarrage
+
+**TOUJOURS** vérifier `/workspace/.mcp.json` au début de chaque session :
+
+```bash
+# Lire la config MCP
+cat /workspace/.mcp.json 2>/dev/null | jq -r '.mcpServers | keys[]'
+```
+
+### Priorité d'utilisation
+
+| Action | Priorité 1 (MCP) | Fallback (CLI) |
+|--------|------------------|----------------|
+| GitHub PR | `mcp__github__create_pull_request` | `gh pr create` |
+| GitHub Issues | `mcp__github__create_issue` | `gh issue create` |
+| Merge PR | `mcp__github__merge_pull_request` | `gh pr merge` |
+
+**RÈGLE ABSOLUE :** Si un outil MCP est disponible, l'utiliser EN PRIORITÉ.
+
+### Ne JAMAIS demander ce qui est déjà configuré
+
+Si `.mcp.json` contient un serveur (ex: `github`), **NE PAS** :
+- ❌ Demander un token GitHub à l'utilisateur
+- ❌ Suggérer `gh auth login`
+- ❌ Utiliser le CLI en fallback si MCP disponible
+
+**TOUJOURS** :
+- ✅ Utiliser directement les outils `mcp__<server>__*`
+- ✅ En cas d'échec MCP, informer l'utilisateur du problème
+- ✅ Extraire le token de `.mcp.json` si CLI fallback nécessaire
+
+### Diagnostic des erreurs MCP
+
+Si les outils MCP ne sont pas disponibles alors que `.mcp.json` existe :
+
+1. **Vérifier le démarrage** : `super-claude` affiche les serveurs actifs
+2. **Vérifier Node.js** : Les serveurs MCP utilisent `npx`, Node.js doit être installé
+3. **Logs d'erreur** : Les échecs de démarrage sont affichés au lancement
+
+```bash
+# Tester un serveur manuellement
+GITHUB_PERSONAL_ACCESS_TOKEN="..." npx -y @modelcontextprotocol/server-github
+```

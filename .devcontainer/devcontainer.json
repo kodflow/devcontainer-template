@@ -6,7 +6,7 @@
   // Features - additional languages (tools are already in base image)
   "features": {
     // ========== LANGUAGES (optional) ==========
-    // Uncomment languages you need - base image already has Node.js
+    // Uncomment languages you need - Node.js NOT in base image, enable feature if needed for MCP
     // "./features/languages/carbon": {},
     // "./features/languages/cpp": {},
     // "./features/languages/dart-flutter": {},
