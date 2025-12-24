@@ -133,6 +133,61 @@ Chaque task a un contexte JSON annoté (schéma v2) :
 
 ---
 
+## SESSION JSON - Schéma v2
+
+### Convention de nommage
+
+| Élément | Convention |
+|---------|------------|
+| Dossier | `~/.claude/sessions/` |
+| Fichier | `<project>.json` où `project` = slug de la branche sans préfixe |
+| Exemple | Branche `feat/auth-system` → `auth-system.json` |
+
+### Structure session (schemaVersion: 2)
+
+```json
+{
+  "schemaVersion": 2,
+  "state": "planning|planned|applying|applied",
+  "type": "feature|fix",
+  "project": "<slug>",
+  "branch": "feat/<slug>|fix/<slug>",
+  "currentTask": null,
+  "currentEpic": null,
+  "lockedPaths": [],
+  "epics": [...],
+  "createdAt": "<ISO8601>"
+}
+```
+
+### Machine d'états
+
+```
+planning ──→ planned ──→ applying ──→ applied
+    │            │
+    └────────────┘ (itératif via /plan)
+```
+
+| State | Description | Transitions autorisées |
+|-------|-------------|------------------------|
+| `planning` | Analyse en cours | → `planned` |
+| `planned` | Plan validé, prêt pour /apply | → `applying`, → `planning` |
+| `applying` | Exécution en cours | → `applied` |
+| `applied` | Terminé (PR créée) | FIN |
+
+### Invariants obligatoires
+
+- `schemaVersion` = 2 (obligatoire)
+- `state` ∈ {planning, planned, applying, applied}
+- `type` ∈ {feature, fix}
+- `branch` cohérente avec `type` (préfixe `feat/` ou `fix/`)
+- `project` non vide, slug-safe (a-z, 0-9, -)
+- `epics[].id` monotone croissant
+- `tasks[].externalId` unique, format `T<epic>.<num>`
+- `tasks[].parallel` obligatoire (yes|no)
+
+---
+
 ## HOOKS ACTIFS
 
 | Hook | Déclencheur | Action |
