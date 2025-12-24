@@ -2,15 +2,15 @@
 
 ## Project Structure (MANDATORY)
 
-```
+```text
 /workspace
-├── src/                    # ALL source code (mandatory)
-│   ├── components/
-│   ├── services/
-│   └── ...
-├── tests/                  # Unit tests (optional, not for Go)
-├── docs/                   # Documentation
-└── CLAUDE.md
++-- src/                    # ALL source code (mandatory)
+|   +-- components/
+|   +-- services/
+|   +-- ...
++-- tests/                  # Unit tests (optional, not for Go)
++-- docs/                   # Documentation
++-- CLAUDE.md
 ```
 
 **Rules:**
