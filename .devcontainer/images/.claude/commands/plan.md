@@ -204,14 +204,15 @@ CURRENT_BRANCH=$(git branch --show-current)
 MAIN_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
 SESSION_FILE=$(ls -t $HOME/.claude/sessions/*.json 2>/dev/null | head -1)
 
-# CAS 1 : Sur main → Créer nouvelle branche (AUTOMATIQUE)
+# CAS 1 : Sur main → Créer nouvelle branche (AUTOMATIQUE, LOCAL)
 if [[ "$CURRENT_BRANCH" == "$MAIN_BRANCH" || "$CURRENT_BRANCH" == "master" ]]; then
     TYPE="${HAS_FIX:+fix}" || "feature"
     PREFIX="${TYPE:0:4}"
     BRANCH="$PREFIX/$(echo "$DESCRIPTION" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')"
 
-    git fetch origin
-    git checkout -b "$BRANCH" "origin/$MAIN_BRANCH"
+    # LOCAL ONLY: Création depuis refs/heads/main (pas de fetch)
+    # Note: La branche est créée depuis le main local, point.
+    git checkout -b "$BRANCH" "$MAIN_BRANCH"
 
     /home/vscode/.claude/scripts/task-init.sh "$TYPE" "<description>"
 fi
@@ -419,38 +420,60 @@ Afficher l'état complet du plan :
 
 ---
 
-## --destroy
+## --destroy (safe, local only)
 
-Abandonner le plan et nettoyer :
+Abandonner le plan et nettoyer **localement** :
+
+**Pré-conditions :**
+- ❌ INTERDIT si `state=applying` (exécution en cours)
+- ✅ Confirmation utilisateur obligatoire
 
 ```bash
 SESSION_FILE=$(ls -t $HOME/.claude/sessions/*.json | head -1)
 PROJECT=$(jq -r '.project' "$SESSION_FILE")
 BRANCH=$(jq -r '.branch' "$SESSION_FILE")
-MAIN_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+STATE=$(jq -r '.state' "$SESSION_FILE")
+MAIN_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+
+# Bloquer si applying
+if [[ "$STATE" == "applying" ]]; then
+    echo "❌ Impossible de détruire un plan en cours d'exécution"
+    echo "→ Terminez d'abord les tasks en cours ou attendez /apply"
+    exit 1
+fi
 
 # Demander confirmation
-AskUserQuestion: "Supprimer le plan et la branche $BRANCH ?"
+AskUserQuestion: "Abandonner le plan et supprimer la branche locale $BRANCH ?"
+```
 
-# Nettoyer
+**Actions (après confirmation) :**
+```bash
+# Nettoyer LOCALEMENT (jamais de push)
 git checkout "$MAIN_BRANCH"
 git branch -D "$BRANCH"
-git push origin --delete "$BRANCH" 2>/dev/null || true
 rm "$SESSION_FILE"
 
-# Archiver les tasks Taskwarrior
-task project:"$PROJECT" delete
+# Archiver tasks Taskwarrior (pas delete, juste status:deleted)
+task project:"$PROJECT" rc.confirmation=off modify status:deleted
 ```
+
+**Ce qui n'est PAS fait (local only) :**
+- ❌ Pas de `git push origin --delete` (branche remote intacte)
+- ❌ Pas de suppression définitive des tasks (archivées)
 
 **Output :**
 ```
 ═══════════════════════════════════════════════
-  ✓ Plan détruit
+  ✓ Plan abandonné (local)
 ═══════════════════════════════════════════════
 
-  Branche supprimée : <branch>
-  Session supprimée : <file>
-  Tasks archivées
+  Branche locale supprimée : <branch>
+  Session supprimée        : <file>
+  Tasks archivées          : <count>
+
+  Note: La branche remote n'est pas supprimée.
+  Pour la supprimer manuellement:
+    git push origin --delete <branch>
 
 ═══════════════════════════════════════════════
 ```
