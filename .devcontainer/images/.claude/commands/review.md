@@ -19,6 +19,7 @@ Effectue une revue de code automatisee avec CodeRabbit CLI. Detecte les bugs, vu
 | `--committed` | Review des changements commites (vs base branch) |
 | `--all` | Review complete du projet |
 | `--fix` | Applique les corrections suggerees |
+| `--pr` | Declenche une full review CodeRabbit sur la PR GitHub |
 | `--help` | Affiche l'aide de la commande |
 
 ---
@@ -40,6 +41,7 @@ Options:
   --committed     Review des changements commites (vs base)
   --all           Review complete du projet
   --fix           Applique les corrections suggerees
+  --pr            Full review CodeRabbit sur la PR GitHub
   --help          Affiche cette aide
 
 Exemples:
@@ -47,6 +49,7 @@ Exemples:
   /review --staged        Review avant commit
   /review --committed     Review de la branche actuelle
   /review --fix           Review et applique les corrections
+  /review --pr            Full review sur la PR courante
 ═══════════════════════════════════════════════
 ```
 
@@ -247,11 +250,69 @@ Message : [erreur de coderabbit]
 
 ---
 
+## --pr : Full Review sur PR GitHub
+
+Quand `--pr` est passe :
+
+### 1. Detection de la PR
+
+```bash
+# Obtenir le numero de PR via gh CLI
+gh pr view --json number,url,state
+```
+
+Si pas de PR associee a la branche :
+```
+## Erreur
+
+Aucune PR trouvee pour la branche actuelle.
+→ Creer une PR avec: gh pr create
+→ Ou utiliser /review sans --pr pour une review locale
+```
+
+### 2. Poster le commentaire CodeRabbit
+
+Utiliser l'outil MCP GitHub (prioritaire) ou gh CLI :
+
+**Via MCP (prioritaire)** :
+```
+mcp__github__add_issue_comment({
+  owner: "<org>",
+  repo: "<repo>",
+  issue_number: <pr_number>,
+  body: "@coderabbitai full review"
+})
+```
+
+**Via gh CLI (fallback)** :
+```bash
+gh pr comment <pr_number> --body "@coderabbitai full review"
+```
+
+### 3. Confirmation
+
+```
+═══════════════════════════════════════════════
+  ✓ Full Review CodeRabbit declenchee
+═══════════════════════════════════════════════
+
+PR : #<number> - <title>
+URL : <pr_url>
+
+→ CodeRabbit va analyser tous les fichiers de la PR
+→ Les commentaires apparaitront sur la PR GitHub
+→ Utilisez /fix --pr pour corriger les retours un par un
+═══════════════════════════════════════════════
+```
+
+---
+
 ## Integration avec autres commandes
 
 | Workflow | Commandes |
 |----------|-----------|
 | Avant commit | `/review --staged` puis `/commit` |
 | Apres dev | `/review` puis `/review --fix` puis `/commit` |
-| PR review | `/review --committed` |
+| PR review locale | `/review --committed` |
+| PR review GitHub | `/review --pr` puis `/fix --pr` |
 | Audit complet | `/review --all` |

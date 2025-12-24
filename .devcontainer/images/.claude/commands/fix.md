@@ -24,6 +24,7 @@ Workflow complet pour corriger un bug avec **suivi Taskwarrior obligatoire** :
 | `<description>` | Nouveau fix avec ce nom |
 | `--continue` | Reprendre le fix en cours (via session) |
 | `--status` | Afficher le statut de la branche courante |
+| `--pr` | Corriger les retours CodeRabbit de la PR (un par un) |
 | `--help` | Affiche l'aide de la commande |
 
 ---
@@ -43,12 +44,14 @@ Options:
   <description>     Nouveau fix avec ce nom
   --continue        Reprendre le fix en cours
   --status          Afficher le statut de la branche
+  --pr              Corriger les retours CodeRabbit (un par un)
   --help            Affiche cette aide
 
 Exemples:
   /fix login-error          Cree fix/login-error
   /fix --continue           Reprend la derniere session
   /fix --status             Affiche l'etat de la PR
+  /fix --pr                 Corrige les commentaires CodeRabbit
 ═══════════════════════════════════════════════
 ```
 
@@ -378,6 +381,220 @@ if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
     echo "→ Branche attendue: $BRANCH"
     echo "→ Exécuter: git checkout $BRANCH"
 fi
+```
+
+---
+
+## --pr : Correction des retours CodeRabbit
+
+Workflow pour corriger les commentaires CodeRabbit sur une PR GitHub, **un par un** avec un commit par correction.
+
+### Principe
+
+```
+1 commentaire CodeRabbit = 1 fix = 1 commit = 1 resolution
+```
+
+L'objectif est de traiter chaque retour de manière atomique pour :
+- Tracer précisément chaque correction
+- Permettre un rollback ciblé si nécessaire
+- Faciliter la revue humaine
+
+### Workflow détaillé
+
+#### Étape 1 : Détection de la PR
+
+```bash
+# Obtenir les infos de la PR
+gh pr view --json number,url,title,headRefName
+```
+
+Si pas de PR :
+```
+## Erreur
+
+Aucune PR trouvée pour la branche actuelle.
+→ Créer une PR avec: gh pr create
+→ Ou demander une review avec: /review --pr
+```
+
+#### Étape 2 : Récupération des commentaires CodeRabbit
+
+**Via MCP GitHub (prioritaire)** :
+```
+mcp__github__get_pull_request_comments({
+  owner: "<org>",
+  repo: "<repo>",
+  pull_number: <pr_number>
+})
+```
+
+**Via gh CLI (fallback)** :
+```bash
+gh api repos/<owner>/<repo>/pulls/<pr_number>/comments
+```
+
+**Filtrer les commentaires CodeRabbit** :
+- `user.login` contient "coderabbit" ou "coderabbitai"
+- Exclure les commentaires déjà résolus (outdated)
+- Exclure les commentaires de type "summary" ou "praise"
+
+#### Étape 3 : Affichage des retours à traiter
+
+```
+═══════════════════════════════════════════════
+  CodeRabbit - Retours à corriger
+═══════════════════════════════════════════════
+
+PR : #<number> - <title>
+
+Commentaires trouvés : <total>
+
+  1. [<severity>] <file>:<line>
+     → <résumé du commentaire>
+
+  2. [<severity>] <file>:<line>
+     → <résumé du commentaire>
+
+  ...
+
+═══════════════════════════════════════════════
+```
+
+Puis demander : "Commencer les corrections ? (oui/non/sélectionner)"
+
+#### Étape 4 : Correction itérative (pour chaque commentaire)
+
+**4.1 Afficher le commentaire complet :**
+```
+═══════════════════════════════════════════════
+  Commentaire 1/<total>
+═══════════════════════════════════════════════
+
+Fichier : <file>
+Ligne : <line>
+Sévérité : <severity>
+
+Commentaire CodeRabbit :
+<contenu complet du commentaire>
+
+Code actuel :
+```<lang>
+<extrait du code concerné>
+```
+
+Suggestion :
+```<lang>
+<code suggéré si présent>
+```
+═══════════════════════════════════════════════
+```
+
+**4.2 Appliquer la correction :**
+- Lire le fichier concerné
+- Appliquer la modification suggérée
+- Respecter le style existant
+
+**4.3 Commit atomique :**
+```bash
+git add <file>
+git commit -m "fix(<scope>): apply CodeRabbit suggestion
+
+<description courte de la correction>
+
+Resolves CodeRabbit comment: <comment_id>"
+```
+
+**4.4 Résoudre le commentaire sur GitHub :**
+
+**Via MCP GitHub (prioritaire)** :
+```
+mcp__github__add_issue_comment({
+  owner: "<org>",
+  repo: "<repo>",
+  issue_number: <pr_number>,
+  body: "@coderabbitai resolve <comment_id>"
+})
+```
+
+**Alternative - Réponse au commentaire :**
+```bash
+gh api repos/<owner>/<repo>/pulls/comments/<comment_id>/replies \
+  -f body="Fixed in commit <sha>. @coderabbitai resolve"
+```
+
+**4.5 Confirmation :**
+```
+═══════════════════════════════════════════════
+  ✓ Commentaire 1/<total> corrigé
+═══════════════════════════════════════════════
+
+  Fichier : <file>
+  Commit : <sha_court>
+  Status : Résolu
+
+  → Passage au commentaire suivant...
+═══════════════════════════════════════════════
+```
+
+**4.6 Passer au commentaire suivant** ou terminer si c'était le dernier.
+
+#### Étape 5 : Push et résumé final
+
+```bash
+git push origin <branch>
+```
+
+```
+═══════════════════════════════════════════════
+  ✓ Corrections CodeRabbit terminées
+═══════════════════════════════════════════════
+
+PR : #<number>
+Commentaires traités : <n>/<total>
+Commits créés : <n>
+
+Résumé des corrections :
+  ✓ <file1>:<line> - <description>
+  ✓ <file2>:<line> - <description>
+  ...
+
+→ Les commentaires ont été marqués comme résolus
+→ CodeRabbit refera une review automatique
+═══════════════════════════════════════════════
+```
+
+### Gestion des cas particuliers
+
+**Commentaire non applicable :**
+Si le commentaire n'est pas pertinent ou déjà corrigé :
+```
+AskUserQuestion: "Ce commentaire semble déjà traité ou non applicable. Ignorer et résoudre ?"
+```
+
+Si oui, résoudre avec :
+```
+@coderabbitai resolve - Already addressed / Not applicable
+```
+
+**Erreur lors de la correction :**
+```
+## Erreur lors de la correction
+
+Commentaire : <file>:<line>
+Erreur : <message d'erreur>
+
+Options :
+  1. Réessayer
+  2. Ignorer ce commentaire
+  3. Arrêter les corrections
+```
+
+**Conflit potentiel :**
+Si le fichier a changé depuis le commentaire :
+```
+⚠ Le fichier a été modifié depuis le commentaire
+→ Vérifier manuellement si la correction est toujours applicable
 ```
 
 ---
