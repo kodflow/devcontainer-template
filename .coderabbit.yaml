@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CodeRabbit Configuration - Optimisée pour économie de quota
+# Projet: kodflow/devcontainer-template
+# ══════════════════════════════════════════════════════════════════════════════
+
+language: "fr-FR"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Reviews - Configuration économique
+# ──────────────────────────────────────────────────────────────────────────────
+reviews:
+  profile: "chill"
+  high_level_summary: true
+  high_level_summary_placeholder: "@coderabbitai summary"
+  collapse_walkthrough: true
+
+  # Désactivation des features consommatrices de tokens
+  commit_status: false
+  review_status: false
+  poem: false
+  sequence_diagrams: false
+  in_progress_fortune: false
+  changed_files_summary: false
+  suggested_reviewers: false
+
+  # Désactiver le prompt AI agents (instructions déjà définies dans CLAUDE.md)
+  enable_prompt_for_ai_agents: false
+
+  # Fichiers exclus des reviews (simplifiés - CodeRabbit a des defaults)
+  path_filters:
+    - "!**/*.md"
+    - "!**/.gitignore"
+    - "!**/LICENSE*"
+    - "!**/*.lock"
+    - "!**/.devcontainer/images/.claude/**"
+
+  # Instructions de review par type de fichier
+  path_instructions:
+    - path: "**/*.sh"
+      instructions: |
+        Shell robuste : quoting strict, errexit/pipefail si bash, shellcheck compliant.
+        Pas de secrets en clair. Scripts idempotents.
+        Vérifier la compatibilité POSIX si possible.
+    - path: "**/*.{yml,yaml}"
+      instructions: |
+        YAML lisible, éviter duplications, attention secrets/vars, structure stable.
+        Vérifier la syntaxe et l'indentation.
+    - path: "**/*.json"
+      instructions: |
+        JSON valide, structure cohérente avec les schémas DevContainer.
+        Pas de secrets en clair.
+    - path: "**/.github/workflows/**"
+      instructions: |
+        Workflows CI/CD sécurisés. Permissions minimales.
+        Vérifier les actions tierces et leurs versions.
+
+  # Mode review : Auto à la création de PR, incrémental manuel via /review
+  auto_review:
+    enabled: true
+    auto_incremental_review: false
+    drafts: false
+    base_branches:
+      - "main"
+    # Ignorer les PRs des bots
+    ignore_usernames:
+      - "dependabot[bot]"
+      - "renovate[bot]"
+      - "github-actions[bot]"
+
+  # Outils de linting adaptés au projet
+  tools:
+    shellcheck:
+      enabled: true
+    yamllint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    hadolint:
+      enabled: false
+    semgrep:
+      enabled: false
+
+  # Génération automatique désactivée
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Chat
+# ──────────────────────────────────────────────────────────────────────────────
+chat:
+  auto_reply: true
+  art: false
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Knowledge Base
+# ──────────────────────────────────────────────────────────────────────────────
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "**/CLAUDE.md"
