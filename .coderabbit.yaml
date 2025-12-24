@@ -56,9 +56,9 @@ reviews:
         Workflows CI/CD sécurisés. Permissions minimales.
         Vérifier les actions tierces et leurs versions.
 
-  # Mode review : Tout via workflow (resolve + full review)
+  # Mode review : Auto à la création de PR, incrémental manuel via /review
   auto_review:
-    enabled: false
+    enabled: true
     auto_incremental_review: false
     drafts: false
     base_branches:
