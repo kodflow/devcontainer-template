@@ -256,6 +256,22 @@ mcp__github__list_pull_requests:
 - Pas sur main/master
 - PR existe et est ouverte
 - Pas de conflits
+- **Toutes les tasks Taskwarrior sont DONE** (si session existe)
+
+**Validation des tasks :**
+```bash
+SESSION_FILE="$HOME/.claude/sessions/${BRANCH#*/}.json"
+if [[ -f "$SESSION_FILE" ]]; then
+    PROJECT=$(jq -r '.project' "$SESSION_FILE")
+    PENDING=$(task project:"$PROJECT" status:pending count 2>/dev/null || echo "0")
+    if [[ "$PENDING" -gt 0 ]]; then
+        echo "❌ BLOQUÉ: $PENDING task(s) non terminée(s)"
+        task project:"$PROJECT" status:pending
+        echo "→ Terminez toutes les tasks avant le merge"
+        exit 1
+    fi
+fi
+```
 
 ### 4. Sync avec main (REBASE)
 
@@ -307,10 +323,21 @@ mcp__github__merge_pull_request:
 ### 7. Cleanup
 
 ```bash
+# Nettoyer les branches
 git push origin --delete "$BRANCH"
 git branch -D "$BRANCH"
 git checkout "$MAIN_BRANCH"
 git pull origin "$MAIN_BRANCH"
+
+# Nettoyer la session Taskwarrior (si existe)
+SESSION_FILE="$HOME/.claude/sessions/${BRANCH#*/}.json"
+if [[ -f "$SESSION_FILE" ]]; then
+    PROJECT=$(jq -r '.project' "$SESSION_FILE")
+    # Archiver les tasks (pas delete, status:deleted)
+    yes | task project:"$PROJECT" modify status:deleted 2>/dev/null || true
+    # Supprimer le fichier de session
+    rm -f "$SESSION_FILE"
+fi
 ```
 
 ### Output --merge
@@ -331,6 +358,7 @@ git pull origin "$MAIN_BRANCH"
     ✓ Local branch deleted
     ✓ Switched to main
     ✓ Pulled latest (now at abc1234)
+    ✓ Session archived
 
 ═══════════════════════════════════════════════
 ```
