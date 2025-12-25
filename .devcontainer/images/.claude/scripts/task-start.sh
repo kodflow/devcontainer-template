@@ -29,9 +29,26 @@ TASK_DATA=$(task rc.confirmation=off uuid:"$TASK_UUID" export 2>/dev/null | jq -
 TASK_DESC=$(echo "$TASK_DATA" | jq -r '.description // "Unknown"')
 EPIC_NUM=$(echo "$TASK_DATA" | jq -r '.epic // 1')
 
-# Mettre à jour la session si elle existe
-SESSION_DIR="$HOME/.claude/sessions"
-SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1)
+# === Trouver la session active (déterministe) ===
+SESSION_FILE=""
+
+# Priorité 1: Pointeur explicite
+if [[ -f "/workspace/.claude/active-session" ]]; then
+    SESSION_FILE=$(cat /workspace/.claude/active-session 2>/dev/null || true)
+fi
+
+# Priorité 2: Symlink state.json
+if [[ -z "$SESSION_FILE" || ! -f "$SESSION_FILE" ]]; then
+    if [[ -f "/workspace/.claude/state.json" ]]; then
+        SESSION_FILE=$(readlink -f /workspace/.claude/state.json 2>/dev/null || echo "/workspace/.claude/state.json")
+    fi
+fi
+
+# Priorité 3: Dernière session (fallback)
+if [[ -z "$SESSION_FILE" || ! -f "$SESSION_FILE" ]]; then
+    SESSION_DIR="$HOME/.claude/sessions"
+    SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1 || true)
+fi
 
 # === Vérification des locks AVANT démarrage ===
 if [[ -f "$SESSION_FILE" ]]; then
@@ -96,15 +113,14 @@ if [[ -f "$SESSION_FILE" ]]; then
         LOCKS_JSON=$(echo "$TASK_LOCKS" | jq -R -s 'split("\n") | map(select(length > 0))')
     fi
 
-    # Mettre à jour state.json (schéma v2: utilise .state au lieu de .mode)
+    # Mettre à jour state.json (schéma v3: utilise .state)
     TMP_FILE=$(mktemp)
     jq --arg uuid "$TASK_UUID" --arg epic "$EPIC_NUM" --argjson locks "$LOCKS_JSON" '
         # Transition: planned -> applying (si pas déjà)
         (if .state == "planned" then .state = "applying" else . end) |
         .currentTask = $uuid |
-        .current_task_uuid = $uuid |
         .currentEpic = ($epic | tonumber) |
-        .lockedPaths = (.lockedPaths + $locks | unique) |
+        .lockedPaths = ((.lockedPaths // []) + $locks | unique) |
         (.epics[].tasks[] | select(.uuid == $uuid)).status = "WIP"
     ' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$SESSION_FILE"
 

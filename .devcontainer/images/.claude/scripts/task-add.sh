@@ -42,9 +42,26 @@ if [[ -z "$TASK_UUID" ]]; then
     exit 1
 fi
 
-# Calculer l'external_id (format: T<epic>.<task_num>)
-SESSION_DIR="$HOME/.claude/sessions"
-SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1)
+# === Trouver la session active (déterministe) ===
+SESSION_FILE=""
+
+# Priorité 1: Pointeur explicite
+if [[ -f "/workspace/.claude/active-session" ]]; then
+    SESSION_FILE=$(cat /workspace/.claude/active-session 2>/dev/null || true)
+fi
+
+# Priorité 2: Symlink state.json
+if [[ -z "$SESSION_FILE" || ! -f "$SESSION_FILE" ]]; then
+    if [[ -f "/workspace/.claude/state.json" ]]; then
+        SESSION_FILE=$(readlink -f /workspace/.claude/state.json 2>/dev/null || echo "/workspace/.claude/state.json")
+    fi
+fi
+
+# Priorité 3: Dernière session (fallback)
+if [[ -z "$SESSION_FILE" || ! -f "$SESSION_FILE" ]]; then
+    SESSION_DIR="$HOME/.claude/sessions"
+    SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1 || true)
+fi
 
 TASK_NUM=1
 if [[ -f "$SESSION_FILE" ]]; then

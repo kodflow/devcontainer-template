@@ -33,9 +33,26 @@ TASK_DESC=$(echo "$TASK_DATA" | jq -r '.description // "Unknown"')
 # Marquer comme terminée dans Taskwarrior
 task rc.confirmation=off uuid:"$TASK_UUID" done >/dev/null 2>&1 || true
 
-# === Mise à jour session JSON ===
-SESSION_DIR="$HOME/.claude/sessions"
-SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1)
+# === Trouver la session active (déterministe) ===
+SESSION_FILE=""
+
+# Priorité 1: Pointeur explicite
+if [[ -f "/workspace/.claude/active-session" ]]; then
+    SESSION_FILE=$(cat /workspace/.claude/active-session 2>/dev/null || true)
+fi
+
+# Priorité 2: Symlink state.json
+if [[ -z "$SESSION_FILE" || ! -f "$SESSION_FILE" ]]; then
+    if [[ -f "/workspace/.claude/state.json" ]]; then
+        SESSION_FILE=$(readlink -f /workspace/.claude/state.json 2>/dev/null || echo "/workspace/.claude/state.json")
+    fi
+fi
+
+# Priorité 3: Dernière session (fallback)
+if [[ -z "$SESSION_FILE" || ! -f "$SESSION_FILE" ]]; then
+    SESSION_DIR="$HOME/.claude/sessions"
+    SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1 || true)
+fi
 
 if [[ -f "$SESSION_FILE" ]]; then
     # Récupérer les locks de la task terminée pour les retirer
@@ -50,12 +67,13 @@ if [[ -f "$SESSION_FILE" ]]; then
     fi
 
     # Mettre à jour state.json: status DONE, reset currentTask, retirer locks
+    # Note: (.actions // 0) pour éviter erreur si champ absent
     TMP_FILE=$(mktemp)
     jq --arg uuid "$TASK_UUID" --argjson locksToRemove "$LOCKS_TO_REMOVE" '
         .currentTask = null |
         .lockedPaths = (.lockedPaths - $locksToRemove) |
         .lastAction = (now | todate) |
-        .actions = (.actions + 1) |
+        .actions = ((.actions // 0) + 1) |
         (.epics[].tasks[] | select(.uuid == $uuid)).status = "DONE"
     ' "$SESSION_FILE" > "$TMP_FILE" 2>/dev/null && mv "$TMP_FILE" "$SESSION_FILE"
 fi

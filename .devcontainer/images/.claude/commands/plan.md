@@ -88,28 +88,27 @@ Taskwarrior  = Ressources déclarées (comme les resources TF)
   "project": "<project-name>",
   "branch": "feat/<name>|fix/<name>",
   "currentPhase": 1,
-  "completedPhases": [
-    {
-      "phase": 1,
-      "startedAt": "2024-01-01T10:00:00Z",
-      "completedAt": "2024-01-01T10:05:00Z",
-      "status": "completed",
-      "artifacts": {}
-    }
-  ],
+  "completedPhases": [],
   "validated": false,
+  "validatedAt": null,
+  "validationToken": null,
+  "validationHistory": [],
   "rejectionHistory": [],
-  "createdAt": "2024-01-01T00:00:00Z",
-  "epics": []
+  "actions": [],
+  "epics": [],
+  "createdAt": "2024-01-01T00:00:00Z"
 }
 ```
 
-**Nouveaux champs v3 :**
+**Champs v3 :**
 
 - `currentPhase` : Phase en cours (1-6)
-- `completedPhases` : Historique des phases complétées
-- `validated` : Validation utilisateur obtenue (obligatoire avant phase 6)
+- `completedPhases` : Historique des phases complétées avec timestamps
+- `validated` : Validation utilisateur obtenue
+- `validationToken` : Hash unique de validation (traçabilité)
+- `validationHistory` : Historique de toutes les validations/rejets
 - `rejectionHistory` : Historique des refus avec feedback
+- `actions` : Tableau d'événements horodatés (audit trail)
 
 ### États possibles
 
@@ -122,79 +121,41 @@ Taskwarrior  = Ressources déclarées (comme les resources TF)
 
 ---
 
-## Comportement automatique
+## Scripts de transition (OBLIGATOIRES)
 
-### Détection du contexte
+**IMPORTANT** : Les transitions de phase sont gérées par des scripts atomiques.
+Ne JAMAIS utiliser de commandes jq directes pour modifier la session.
+
+### session-transition.sh
 
 ```bash
-CURRENT_BRANCH=$(git branch --show-current)
-MAIN_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
-SESSION_FILE=$(ls -t $HOME/.claude/sessions/*.json 2>/dev/null | head -1)
+# Compléter une phase
+/home/vscode/.claude/scripts/session-transition.sh --complete-phase 1
+
+# Voir l'état
+/home/vscode/.claude/scripts/session-transition.sh --status
+
+# Reset à une phase antérieure (si manque info)
+/home/vscode/.claude/scripts/session-transition.sh --to-phase 2
+
+# Reset complet (refus utilisateur)
+/home/vscode/.claude/scripts/session-transition.sh --reset "feedback utilisateur"
+
+# Finaliser planning → state=planned
+/home/vscode/.claude/scripts/session-transition.sh --finalize
 ```
 
-### Arbre de décision
+### session-validate.sh
 
-```
-/plan <desc>
-     │
-     ├── Sur main/master ?
-     │   └── OUI → Créer branche + nouveau plan
-     │
-     ├── Session existante (état planning|planned) ?
-     │   └── OUI → Mettre à jour le plan existant
-     │
-     └── Sur branche feat/fix sans session ?
-         └── Créer session pour branche existante
-```
+```bash
+# Approuver le plan (génère token de validation)
+/home/vscode/.claude/scripts/session-validate.sh --approve
 
-| Contexte | Action | Résultat |
-|----------|--------|----------|
-| Sur `main`, pas de session | Créer branche + plan | Nouveau projet |
-| Sur `main`, session existe | Reprendre le plan | Continue session |
-| Sur `feat/*`, session existe | Affiner le plan | Update epics/tasks |
-| Sur `feat/*`, pas de session | Créer session | Adopte la branche |
+# Rejeter le plan (reset complet phase 1)
+/home/vscode/.claude/scripts/session-validate.sh --reject "raison du refus"
 
-### Mise à jour du plan (itératif)
-
-Quand `/plan` est appelé avec un plan existant :
-
-1. **Charger l'état actuel** depuis la session
-2. **Comparer** avec les nouvelles instructions
-3. **Mettre à jour** les epics/tasks :
-   - Ajouter les nouvelles tasks
-   - Modifier les tasks existantes (si pas DONE)
-   - Marquer obsolètes (ne pas supprimer)
-4. **Re-valider** avec l'utilisateur
-
-**Output mise à jour :**
-```
-═══════════════════════════════════════════════
-  /plan - Mise à jour du plan
-═══════════════════════════════════════════════
-
-  Plan existant détecté : <project>
-  State : planning
-
-─────────────────────────────────────────────
-  Changements proposés
-─────────────────────────────────────────────
-
-  Epic 1: Setup (inchangé)
-    ├─ T1.1 [DONE] Create structure
-    └─ T1.2 [TODO] Configure deps
-
-  Epic 2: Implementation (modifié)
-    ├─ T2.1 [TODO] AuthService (modifié)
-    ├─ T2.2 [NEW]  Add validation    ← NOUVEAU
-    └─ T2.3 [TODO] Write tests
-
-─────────────────────────────────────────────
-
-  + 1 nouvelle task
-  ~ 1 task modifiée
-  = 3 tasks inchangées
-
-═══════════════════════════════════════════════
+# Voir état validation
+/home/vscode/.claude/scripts/session-validate.sh --status
 ```
 
 ---
@@ -214,9 +175,7 @@ if [[ "$CURRENT_BRANCH" == "$MAIN_BRANCH" || "$CURRENT_BRANCH" == "master" ]]; t
     PREFIX="${TYPE:0:4}"
     BRANCH="$PREFIX/$(echo "$DESCRIPTION" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')"
 
-    # LOCAL ONLY: Création depuis refs/heads/main (pas de fetch)
     git checkout -b "$BRANCH" "$MAIN_BRANCH"
-
     /home/vscode/.claude/scripts/task-init.sh "$TYPE" "<description>"
 fi
 
@@ -224,7 +183,6 @@ fi
 if [[ -f "$SESSION_FILE" ]]; then
     STATE=$(jq -r '.state' "$SESSION_FILE")
     if [[ "$STATE" == "planning" || "$STATE" == "planned" ]]; then
-        # Mode mise à jour
         echo "Plan existant détecté, mise à jour..."
     fi
 fi
@@ -236,59 +194,31 @@ if [[ ! -f "$SESSION_FILE" && "$CURRENT_BRANCH" != "$MAIN_BRANCH" ]]; then
 fi
 ```
 
-**Output nouveau plan :**
-```
-═══════════════════════════════════════════════
-  /plan <description>
-═══════════════════════════════════════════════
-
-  Type    : feature
-  Branch  : feat/<description>  ← créée automatiquement
-  State   : planning
-  Phase   : 1/6
-  Session : ~/.claude/sessions/<project>.json
-
-─────────────────────────────────────────────
-  Phases de planification (OBLIGATOIRES)
-─────────────────────────────────────────────
-
-  [ ] 1. Analyse de la demande
-  [ ] 2. Recherche documentation
-  [ ] 3. Analyse projet existant
-  [ ] 4. Affûtage
-  [ ] 5. Définition épics/tasks → VALIDATION
-  [ ] 6. Écriture Taskwarrior
-
-  → Commencer Phase 1...
-
-═══════════════════════════════════════════════
-```
-
 ---
 
 ### Étape 1 : PLAN MODE (6 phases OBLIGATOIRES)
 
 **INTERDIT en PLAN MODE :**
 - ❌ Write/Edit sur fichiers code
-- ❌ Bash modifiant l'état du projet
+- ❌ Bash modifiant l'état du projet (voir bash-validate.sh)
 - ❌ Sauter des phases (hook phase-validate.sh)
 - ❌ Écrire dans Taskwarrior sans validation
+- ❌ Commandes jq directes sur la session
 - ✅ Write/Edit sur `/plans/` uniquement
+- ✅ Scripts session-*.sh
 
 #### Phase 1 : Analyse de la demande
 
 **Objectif :** Comprendre ce que l'utilisateur veut
 
 **Actions :**
-
 - Lire et reformuler la demande
 - Identifier contraintes et exigences
 - Pour un fix : identifier les étapes de reproduction
 
 **Fin de phase :**
 ```bash
-# Marquer phase 1 complétée
-jq '.completedPhases += [{"phase":1,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"completed"}] | .currentPhase = 2' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+/home/vscode/.claude/scripts/session-transition.sh --complete-phase 1
 ```
 
 #### Phase 2 : Recherche documentation
@@ -302,7 +232,7 @@ jq '.completedPhases += [{"phase":1,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%S
 
 **Fin de phase :**
 ```bash
-jq '.completedPhases += [{"phase":2,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"completed"}] | .currentPhase = 3' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+/home/vscode/.claude/scripts/session-transition.sh --complete-phase 2
 ```
 
 #### Phase 3 : Analyse projet existant
@@ -317,7 +247,7 @@ jq '.completedPhases += [{"phase":2,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%S
 
 **Fin de phase :**
 ```bash
-jq '.completedPhases += [{"phase":3,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"completed"}] | .currentPhase = 4' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+/home/vscode/.claude/scripts/session-transition.sh --complete-phase 3
 ```
 
 #### Phase 4 : Affûtage
@@ -326,13 +256,16 @@ jq '.completedPhases += [{"phase":3,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%S
 
 **Actions :**
 - Croiser infos (demande + docs + existant)
-- Si manque info → **retour Phase 2** (pas de saut)
+- Si manque info → **retour Phase 2** :
+  ```bash
+  /home/vscode/.claude/scripts/session-transition.sh --to-phase 2
+  ```
 - Identifier tous les fichiers à modifier
 - Pour un fix : identifier la cause racine
 
 **Fin de phase :**
 ```bash
-jq '.completedPhases += [{"phase":4,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"completed"}] | .currentPhase = 5' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+/home/vscode/.claude/scripts/session-transition.sh --complete-phase 4
 ```
 
 #### Phase 5 : Définition épics/tasks → VALIDATION OBLIGATOIRE
@@ -365,27 +298,21 @@ Epic 2: <nom>
 ═══════════════════════════════════════════════
 ```
 
-Puis **OBLIGATOIRE** :
+**VALIDATION UTILISATEUR (OBLIGATOIRE) :**
+
 ```
 AskUserQuestion: "Valider ce plan ?"
 ```
 
-**Si REFUS utilisateur → RESET COMPLET Phase 1 :**
-
+**Si OUI (approuvé) :**
 ```bash
-# Stocker le feedback du refus
-FEEDBACK="<raison du refus>"
-jq --arg fb "$FEEDBACK" '
-  .rejectionHistory += [{
-    "at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
-    "feedback": $fb,
-    "previousPhases": .completedPhases
-  }] |
-  .completedPhases = [] |
-  .currentPhase = 1 |
-  .validated = false |
-  .epics = []
-' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+/home/vscode/.claude/scripts/session-validate.sh --approve
+/home/vscode/.claude/scripts/session-transition.sh --complete-phase 5
+```
+
+**Si NON (rejeté) → RESET COMPLET Phase 1 :**
+```bash
+/home/vscode/.claude/scripts/session-validate.sh --reject "raison du refus"
 ```
 
 ```
@@ -401,19 +328,14 @@ jq --arg fb "$FEEDBACK" '
 ═══════════════════════════════════════════════
 ```
 
-**Si OUI → Marquer validated et continuer :**
-```bash
-jq '.completedPhases += [{"phase":5,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"completed"}] | .currentPhase = 6 | .validated = true' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
-```
-
 #### Phase 6 : Écriture Taskwarrior
 
-**PRÉ-CONDITION :** `validated = true` (vérifié par hook phase-validate.sh)
+**PRÉ-CONDITION :** `validated = true` (vérifié par session-transition.sh --finalize)
 
 Après validation utilisateur :
 
 ```bash
-SESSION_FILE=$(ls -t $HOME/.claude/sessions/*.json | head -1)
+SESSION_FILE=$(cat /workspace/.claude/active-session)
 PROJECT=$(jq -r '.project' "$SESSION_FILE")
 
 # Créer les epics
@@ -423,8 +345,8 @@ PROJECT=$(jq -r '.project' "$SESSION_FILE")
 # Créer les tasks
 /home/vscode/.claude/scripts/task-add.sh "$PROJECT" 1 "<uuid>" "Task name" "no" '{"files":["..."],"action":"..."}'
 
-# Mettre à jour l'état
-jq '.completedPhases += [{"phase":6,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"completed"}] | .state = "planned"' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+# Finaliser planning → state=planned
+/home/vscode/.claude/scripts/session-transition.sh --finalize
 ```
 
 **Output final :**
@@ -468,6 +390,11 @@ Identique au workflow standard mais avec :
 
 Afficher l'état complet du plan :
 
+```bash
+/home/vscode/.claude/scripts/session-transition.sh --status
+/home/vscode/.claude/scripts/session-validate.sh --status
+```
+
 ```
 ═══════════════════════════════════════════════
   État du plan
@@ -491,10 +418,11 @@ Afficher l'état complet du plan :
   [ ] 6. Écriture Taskwarrior
 
 ─────────────────────────────────────────────
-  Epics
+  Validation
 ─────────────────────────────────────────────
 
-  (aucun - en cours de planification)
+  Validated : false
+  Token     : none
 
 ═══════════════════════════════════════════════
 ```
@@ -511,7 +439,7 @@ Abandonner le plan et nettoyer **localement** :
 - ✅ Confirmation utilisateur obligatoire
 
 ```bash
-SESSION_FILE=$(ls -t $HOME/.claude/sessions/*.json | head -1)
+SESSION_FILE=$(cat /workspace/.claude/active-session)
 PROJECT=$(jq -r '.project' "$SESSION_FILE")
 BRANCH=$(jq -r '.branch' "$SESSION_FILE")
 STATE=$(jq -r '.state' "$SESSION_FILE")
@@ -520,7 +448,6 @@ MAIN_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^re
 # Bloquer si applying
 if [[ "$STATE" == "applying" ]]; then
     echo "❌ Impossible de détruire un plan en cours d'exécution"
-    echo "→ Terminez d'abord les tasks en cours ou attendez /apply"
     exit 1
 fi
 
@@ -530,19 +457,16 @@ AskUserQuestion: "Abandonner le plan et supprimer la branche locale $BRANCH ?"
 
 **Actions (après confirmation) :**
 ```bash
-# Nettoyer LOCALEMENT (jamais de push)
+# Nettoyer LOCALEMENT
 git checkout "$MAIN_BRANCH"
 git branch -D "$BRANCH"
 rm "$SESSION_FILE"
+rm -f /workspace/.claude/active-session
+rm -f /workspace/.claude/state.json
 
-# Archiver tasks Taskwarrior (pas delete, juste status:deleted)
+# Archiver tasks Taskwarrior
 task project:"$PROJECT" rc.confirmation=off modify status:deleted
 ```
-
-**Ce qui n'est PAS fait (local only) :**
-
-- ❌ Pas de `git push origin --delete` (branche remote intacte)
-- ❌ Pas de suppression définitive des tasks (archivées)
 
 **Output :**
 ```
@@ -555,8 +479,6 @@ task project:"$PROJECT" rc.confirmation=off modify status:deleted
   Tasks archivées          : <count>
 
   Note: La branche remote n'est pas supprimée.
-  Pour la supprimer manuellement:
-    git push origin --delete <branch>
 
 ═══════════════════════════════════════════════
 ```
@@ -565,13 +487,15 @@ task project:"$PROJECT" rc.confirmation=off modify status:deleted
 
 ## GARDE-FOUS (ABSOLUS)
 
-| Action | Hook | Status |
-|--------|------|--------|
+| Action | Hook/Script | Status |
+|--------|-------------|--------|
 | Write/Edit code en PLAN MODE | `task-validate.sh` | ❌ **BLOQUÉ** |
-| Sauter des phases (1→4) | `phase-validate.sh` | ❌ **BLOQUÉ** |
+| Bash écriture en PLAN MODE | `bash-validate.sh` | ❌ **BLOQUÉ** |
+| Sauter des phases (1→4) | `session-transition.sh` | ❌ **BLOQUÉ** |
 | Taskwarrior sans validation | `phase-validate.sh` | ❌ **BLOQUÉ** |
-| Skip validation utilisateur | `phase-validate.sh` | ❌ **INTERDIT** |
-| Passer à /apply sans état "planned" | `task-validate.sh` | ❌ **BLOQUÉ** |
+| Skip validation utilisateur | `session-validate.sh` | ❌ **INTERDIT** |
+| Passer à /apply sans "planned" | `task-validate.sh` | ❌ **BLOQUÉ** |
+| Commandes jq directes session | `bash-validate.sh` | ❌ **BLOQUÉ** |
 
 ---
 
@@ -581,4 +505,3 @@ task project:"$PROJECT" rc.confirmation=off modify status:deleted
 - `/review` - Demander une code review
 - `/git --commit` - Commit manuel
 - `.devcontainer/docs/workflow-plan-apply.md` - Diagrammes Mermaid
-
