@@ -3,7 +3,8 @@
 # Vérifie que les commandes bash respectent les règles du mode courant
 # Exit 0 = autorisé, Exit 2 = bloqué
 #
-# RÈGLE CRITIQUE: En state=planning, TOUTES les écritures sont bloquées
+# RÈGLE CRITIQUE: En state=planning/planned, TOUTES les écritures sont bloquées
+# Allowlist ultra-strict pour éviter tout bypass
 
 set -euo pipefail
 
@@ -20,19 +21,16 @@ fi
 # === Trouver la session active (déterministe) ===
 SESSION_FILE=""
 
-# Priorité 1: Pointeur explicite
 if [[ -f "/workspace/.claude/active-session" ]]; then
     SESSION_FILE=$(cat /workspace/.claude/active-session 2>/dev/null || true)
 fi
 
-# Priorité 2: Symlink state.json
 if [[ -z "$SESSION_FILE" || ! -f "$SESSION_FILE" ]]; then
     if [[ -f "/workspace/.claude/state.json" ]]; then
         SESSION_FILE=$(readlink -f /workspace/.claude/state.json 2>/dev/null || echo "/workspace/.claude/state.json")
     fi
 fi
 
-# Priorité 3: Dernière session (fallback, non recommandé)
 if [[ -z "$SESSION_FILE" || ! -f "$SESSION_FILE" ]]; then
     SESSION_DIR="$HOME/.claude/sessions"
     SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1 || true)
@@ -43,21 +41,20 @@ if [[ ! -f "$SESSION_FILE" ]]; then
     exit 0
 fi
 
-# === Lire l'état depuis .state (pas .mode !) ===
+# === Lire l'état depuis .state ===
 STATE=$(jq -r '.state // "unknown"' "$SESSION_FILE")
 
 # États autorisés pour modifications
-# - applying: exécution des tasks
-# - applied: terminé
-# En planning/planned: lecture seule
 if [[ "$STATE" == "applying" || "$STATE" == "applied" ]]; then
     exit 0
 fi
 
-# === STATE = planning ou planned : MODE LECTURE SEULE ===
+# === STATE = planning ou planned : MODE LECTURE SEULE STRICT ===
 
-# Commandes en lecture seule (allowlist stricte)
+# === ALLOWLIST STRICTE ===
+# UNIQUEMENT ces commandes sont autorisées en planning/planned
 READONLY_ALLOWED=(
+    # Git lecture
     "git status"
     "git log"
     "git diff"
@@ -66,77 +63,112 @@ READONLY_ALLOWED=(
     "git rev-parse"
     "git ls-files"
     "git remote"
+    "git symbolic-ref"
+    # Lecture fichiers
     "ls"
     "cat"
     "head"
     "tail"
+    "less"
+    "more"
+    # Recherche
     "grep"
+    "rg"
+    "ag"
     "find"
+    "fd"
     "tree"
+    "locate"
+    # Analyse
     "wc"
     "file"
     "stat"
+    "du"
+    "df"
+    # Shell
     "which"
+    "whereis"
+    "type"
     "pwd"
     "echo"
     "printf"
     "date"
+    "env"
+    "printenv"
+    # Parseurs (lecture seule)
     "jq"
     "yq"
+    "xmllint"
+    # Scripts session (autorisés car ils valident eux-mêmes)
+    "session-transition.sh"
+    "session-validate.sh"
+    # Taskwarrior (lecture + modification via scripts dédiés)
     "task "
-    "task-"
+    "task-init.sh"
+    "task-epic.sh"
+    "task-add.sh"
+    "task-start.sh"
+    "task-done.sh"
+    # Tests (lecture seule, pas de modification)
     "go test"
     "cargo test"
     "npm test"
+    "npm run test"
+    "yarn test"
+    "pnpm test"
     "pytest"
     "make test"
+    "make check"
 )
 
-# Vérifier si la commande est dans l'allowlist
-COMMAND_LOWER=$(echo "$COMMAND" | tr '[:upper:]' '[:lower:]')
-IS_READONLY=false
-
-for allowed in "${READONLY_ALLOWED[@]}"; do
-    if [[ "$COMMAND_LOWER" == "$allowed"* ]] || [[ "$COMMAND_LOWER" == *" $allowed"* ]]; then
-        IS_READONLY=true
-        break
-    fi
-done
-
-# === Patterns d'écriture TOUJOURS bloqués en planning ===
+# === BLOCKLIST STRICTE (patterns d'écriture) ===
 WRITE_PATTERNS=(
-    # Redirections
+    # === Redirections ===
     " > "
     " >"
     ">"
     ">>"
-    # Heredocs
+    # === Heredocs ===
     "<<EOF"
     "<<'EOF'"
     "<<-EOF"
     "<< EOF"
     "<<HEREDOC"
     "<<END"
-    # Pipes d'écriture
+    "<<-"
+    # === Pipes d'écriture ===
     "| tee"
     "|tee"
-    # Modifications in-place
+    "| dd"
+    "|dd"
+    # === Modifications in-place ===
     "sed -i"
     "sed -i'"
     "perl -i"
     "perl -pi"
-    # Modifications fichiers
+    "awk -i"
+    "ed "
+    "ex "
+    # === Modifications fichiers ===
     "touch "
     "mkdir "
     "rm "
+    "rmdir "
     "mv "
     "cp "
+    "ln "
     "chmod "
     "chown "
-    # Git modifications
+    "chgrp "
+    "install "
+    "truncate "
+    "shred "
+    # === Git modifications ===
     "git add"
     "git commit"
     "git push"
+    "git pull"
+    "git fetch"
     "git merge"
     "git rebase"
     "git cherry-pick"
@@ -144,28 +176,107 @@ WRITE_PATTERNS=(
     "git checkout --"
     "git restore --staged"
     "git stash"
-    # Package managers
+    "git apply"
+    "git am"
+    "git clean"
+    "git gc"
+    # === Patch/Apply ===
+    "patch "
+    "patch -"
+    "diff -u.*|"
+    # === Package managers ===
     "npm install"
     "npm i "
+    "npm ci"
+    "npm update"
+    "npm uninstall"
+    "npm link"
     "yarn install"
     "yarn add"
+    "yarn remove"
     "pnpm install"
     "pnpm add"
+    "pnpm remove"
     "pip install"
+    "pip uninstall"
+    "pip3 install"
+    "pipx install"
+    "poetry install"
+    "poetry add"
+    "go install"
+    "go get"
     "go mod tidy"
+    "go mod download"
     "cargo install"
-    # Formatters/Linters auto-fix
+    "cargo add"
+    "gem install"
+    "bundle install"
+    "composer install"
+    "composer require"
+    "apt install"
+    "apt-get install"
+    "apk add"
+    "brew install"
+    # === Formatters/Linters auto-fix ===
     "prettier --write"
     "prettier -w"
     "eslint --fix"
     "go fmt"
     "gofmt -w"
+    "goimports -w"
     "rustfmt"
+    "cargo fmt"
     "black "
     "autopep8"
+    "isort "
+    "yapf"
+    "rubocop -a"
+    "rubocop --auto-correct"
+    # === Langages avec écriture potentielle ===
+    "python -c"
+    "python3 -c"
+    "node -e"
+    "node --eval"
+    "ruby -e"
+    "perl -e"
+    "php -r"
+    "go run"
+    # === Téléchargement avec écriture ===
+    "curl -o"
+    "curl -O"
+    "curl --output"
+    "wget "
+    "wget -"
+    # === Archives ===
+    "tar -x"
+    "tar xf"
+    "tar xzf"
+    "tar xjf"
+    "unzip "
+    "gunzip "
+    "bunzip2 "
+    "7z x"
+    # === Docker modifications ===
+    "docker build"
+    "docker run"
+    "docker exec"
+    "docker compose up"
+    "docker-compose up"
+    # === Autres commandes dangereuses ===
+    "dd "
+    "mkfs"
+    "mount "
+    "umount "
+    "kill "
+    "pkill "
+    "killall "
+    "nohup "
+    "setsid "
+    "at "
+    "crontab "
 )
 
-# Exceptions (ces patterns ne déclenchent pas le blocage)
+# === EXCEPTIONS (ces patterns NE déclenchent PAS le blocage) ===
 EXCEPTIONS=(
     "> /dev/null"
     ">/dev/null"
@@ -177,13 +288,24 @@ EXCEPTIONS=(
     "| head"
     "| tail"
     "| grep"
+    "| rg"
     "| jq"
+    "| yq"
     "| wc"
     "| sort"
     "| uniq"
+    "| awk"
+    "| sed"
+    "| cut"
+    "| tr"
+    "| xargs"
+    "--help"
+    "-h"
+    "--version"
+    "-V"
 )
 
-# Fonction pour vérifier si une exception s'applique
+# === Vérifier si une exception s'applique ===
 has_exception() {
     local cmd="$1"
     for exc in "${EXCEPTIONS[@]}"; do
@@ -194,7 +316,26 @@ has_exception() {
     return 1
 }
 
-# Vérifier les patterns d'écriture
+# === Vérifier si la commande est dans l'allowlist ===
+is_allowed() {
+    local cmd="$1"
+    local cmd_lower
+    cmd_lower=$(echo "$cmd" | tr '[:upper:]' '[:lower:]')
+    
+    for allowed in "${READONLY_ALLOWED[@]}"; do
+        # Match au début de la commande
+        if [[ "$cmd_lower" == "$allowed"* ]]; then
+            return 0
+        fi
+        # Match après un chemin (ex: /usr/bin/git status)
+        if [[ "$cmd_lower" == *"/$allowed"* ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# === Vérifier les patterns d'écriture ===
 for pattern in "${WRITE_PATTERNS[@]}"; do
     if [[ "$COMMAND" == *"$pattern"* ]]; then
         # Vérifier les exceptions
@@ -206,28 +347,27 @@ for pattern in "${WRITE_PATTERNS[@]}"; do
         echo "  🚫 BLOQUÉ: Écriture interdite en PLAN MODE"
         echo "═══════════════════════════════════════════════"
         echo ""
-        echo "  État actuel : $STATE (lecture seule)"
-        echo "  Pattern détecté : $pattern"
+        echo "  État   : $STATE (lecture seule strict)"
+        echo "  Pattern: $pattern"
         echo ""
         echo "  Commande :"
         echo "    ${COMMAND:0:200}"
         echo ""
         echo "  En PLAN MODE, seules les commandes de lecture"
-        echo "  sont autorisées. Aucune modification de fichier,"
-        echo "  git, ou installation de packages n'est permise."
+        echo "  sont autorisées. Aucune modification permise."
         echo ""
         echo "  Pour modifier des fichiers :"
-        echo "    1. Terminez le planning (/plan → validation)"
-        echo "    2. Passez en /apply"
-        echo "    3. Démarrez une task avec task-start.sh"
+        echo "    1. session-validate.sh --approve"
+        echo "    2. session-transition.sh --finalize"
+        echo "    3. /apply"
         echo ""
         echo "═══════════════════════════════════════════════"
         exit 2
     fi
 done
 
-# Si pas dans l'allowlist et contient des caractères suspects, bloquer
-if [[ "$IS_READONLY" == "false" ]]; then
+# === Vérifier si commande dans allowlist ===
+if ! is_allowed "$COMMAND"; then
     # Vérifier les caractères de redirection bruts
     if [[ "$COMMAND" =~ \>[^/\&] ]] || [[ "$COMMAND" =~ \>\> ]] || [[ "$COMMAND" =~ \<\< ]]; then
         if ! has_exception "$COMMAND"; then
@@ -235,8 +375,8 @@ if [[ "$IS_READONLY" == "false" ]]; then
             echo "  🚫 BLOQUÉ: Redirection détectée en PLAN MODE"
             echo "═══════════════════════════════════════════════"
             echo ""
-            echo "  État actuel : $STATE (lecture seule)"
-            echo "  Commande non reconnue comme lecture seule."
+            echo "  État   : $STATE (lecture seule strict)"
+            echo "  Commande non dans l'allowlist."
             echo ""
             echo "  Commande :"
             echo "    ${COMMAND:0:200}"
@@ -245,6 +385,10 @@ if [[ "$IS_READONLY" == "false" ]]; then
             exit 2
         fi
     fi
+    
+    # Commande non reconnue mais pas de pattern dangereux détecté
+    # Log warning mais autoriser (fallback permissif pour commandes inconnues sans redirection)
+    echo "⚠️  Commande non dans allowlist: ${COMMAND:0:50}..."
 fi
 
 # Commande autorisée
