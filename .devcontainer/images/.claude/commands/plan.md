@@ -7,13 +7,14 @@ $ARGUMENTS
 ## Description
 
 Commande de planification façon Terraform. Crée un état déterministe dans Taskwarrior :
-- Analyse complète (6 phases)
+- Analyse complète (6 phases **OBLIGATOIRES**)
 - Génération des epics/tasks
 - État reproductible et versionné
 
 **Comportement intelligent :**
 - **Sur `main`** → Création automatique de branche (pas de question)
 - **`/plan` répété** → Met à jour le plan existant (affinage itératif)
+- **Refus validation** → Reset complet Phase 1 (ré-analyse intégrale)
 
 **Workflow** : `/plan <desc>` → (affiner) → `/plan` → validation → `/apply`
 
@@ -52,6 +53,7 @@ Options:
 Comportement:
   Sur main          → Crée branche automatiquement
   /plan répété      → Met à jour le plan existant
+  Refus validation  → Reset Phase 1
 
 Exemples:
   /plan add-auth            Nouveau plan feature
@@ -76,36 +78,38 @@ Taskwarrior  = Ressources déclarées (comme les resources TF)
 /apply       = Application de l'état (comme terraform apply)
 ```
 
-### Fichier de session
+### Fichier de session (schéma v3)
 
 ```json
 {
-  "schemaVersion": 2,
-  "state": "planned",
+  "schemaVersion": 3,
+  "state": "planning",
   "type": "feature|fix",
   "project": "<project-name>",
   "branch": "feat/<name>|fix/<name>",
-  "createdAt": "2024-01-01T00:00:00Z",
-  "epics": [
+  "currentPhase": 1,
+  "completedPhases": [
     {
-      "id": 1,
-      "uuid": "<uuid>",
-      "name": "Epic name",
-      "status": "TODO|WIP|DONE",
-      "tasks": [
-        {
-          "id": "T1.1",
-          "uuid": "<uuid>",
-          "name": "Task name",
-          "status": "TODO|WIP|DONE",
-          "parallel": "yes|no",
-          "ctx": { "files": [], "action": "create" }
-        }
-      ]
+      "phase": 1,
+      "startedAt": "2024-01-01T10:00:00Z",
+      "completedAt": "2024-01-01T10:05:00Z",
+      "status": "completed",
+      "artifacts": {}
     }
-  ]
+  ],
+  "validated": false,
+  "rejectionHistory": [],
+  "createdAt": "2024-01-01T00:00:00Z",
+  "epics": []
 }
 ```
+
+**Nouveaux champs v3 :**
+
+- `currentPhase` : Phase en cours (1-6)
+- `completedPhases` : Historique des phases complétées
+- `validated` : Validation utilisateur obtenue (obligatoire avant phase 6)
+- `rejectionHistory` : Historique des refus avec feedback
 
 ### États possibles
 
@@ -211,7 +215,6 @@ if [[ "$CURRENT_BRANCH" == "$MAIN_BRANCH" || "$CURRENT_BRANCH" == "master" ]]; t
     BRANCH="$PREFIX/$(echo "$DESCRIPTION" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')"
 
     # LOCAL ONLY: Création depuis refs/heads/main (pas de fetch)
-    # Note: La branche est créée depuis le main local, point.
     git checkout -b "$BRANCH" "$MAIN_BRANCH"
 
     /home/vscode/.claude/scripts/task-init.sh "$TYPE" "<description>"
@@ -242,56 +245,97 @@ fi
   Type    : feature
   Branch  : feat/<description>  ← créée automatiquement
   State   : planning
+  Phase   : 1/6
   Session : ~/.claude/sessions/<project>.json
 
 ─────────────────────────────────────────────
-  Phases de planification
+  Phases de planification (OBLIGATOIRES)
 ─────────────────────────────────────────────
 
   [ ] 1. Analyse de la demande
   [ ] 2. Recherche documentation
   [ ] 3. Analyse projet existant
   [ ] 4. Affûtage
-  [ ] 5. Définition épics/tasks
+  [ ] 5. Définition épics/tasks → VALIDATION
   [ ] 6. Écriture Taskwarrior
 
-  → Commencer l'analyse...
+  → Commencer Phase 1...
 
 ═══════════════════════════════════════════════
 ```
 
 ---
 
-### Étape 1 : PLAN MODE (6 phases)
+### Étape 1 : PLAN MODE (6 phases OBLIGATOIRES)
 
 **INTERDIT en PLAN MODE :**
 - ❌ Write/Edit sur fichiers code
 - ❌ Bash modifiant l'état du projet
+- ❌ Sauter des phases (hook phase-validate.sh)
+- ❌ Écrire dans Taskwarrior sans validation
 - ✅ Write/Edit sur `/plans/` uniquement
 
 #### Phase 1 : Analyse de la demande
-- Comprendre ce que l'utilisateur veut
+
+**Objectif :** Comprendre ce que l'utilisateur veut
+
+**Actions :**
+
+- Lire et reformuler la demande
 - Identifier contraintes et exigences
 - Pour un fix : identifier les étapes de reproduction
 
+**Fin de phase :**
+```bash
+# Marquer phase 1 complétée
+jq '.completedPhases += [{"phase":1,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"completed"}] | .currentPhase = 2' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+```
+
 #### Phase 2 : Recherche documentation
+
+**Objectif :** Collecter les informations externes nécessaires
+
+**Actions :**
 - WebSearch pour APIs/libs externes
 - Lire docs existantes du projet
 - Pour un fix : rechercher bugs similaires
 
+**Fin de phase :**
+```bash
+jq '.completedPhases += [{"phase":2,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"completed"}] | .currentPhase = 3' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+```
+
 #### Phase 3 : Analyse projet existant
+
+**Objectif :** Comprendre le code existant
+
+**Actions :**
 - Glob/Grep pour trouver code existant
 - Read fichiers pertinents
 - Comprendre patterns/architecture
 - Pour un fix : reproduire le bug
 
+**Fin de phase :**
+```bash
+jq '.completedPhases += [{"phase":3,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"completed"}] | .currentPhase = 4' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+```
+
 #### Phase 4 : Affûtage
+
+**Objectif :** Synthétiser et valider la compréhension
+
+**Actions :**
 - Croiser infos (demande + docs + existant)
-- Si manque info → retour Phase 2
+- Si manque info → **retour Phase 2** (pas de saut)
 - Identifier tous les fichiers à modifier
 - Pour un fix : identifier la cause racine
 
-#### Phase 5 : Définition épics/tasks → VALIDATION
+**Fin de phase :**
+```bash
+jq '.completedPhases += [{"phase":4,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"completed"}] | .currentPhase = 5' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+```
+
+#### Phase 5 : Définition épics/tasks → VALIDATION OBLIGATOIRE
 
 **Output attendu :**
 ```
@@ -321,12 +365,50 @@ Epic 2: <nom>
 ═══════════════════════════════════════════════
 ```
 
-Puis **obligatoire** :
+Puis **OBLIGATOIRE** :
 ```
 AskUserQuestion: "Valider ce plan ?"
 ```
 
+**Si REFUS utilisateur → RESET COMPLET Phase 1 :**
+
+```bash
+# Stocker le feedback du refus
+FEEDBACK="<raison du refus>"
+jq --arg fb "$FEEDBACK" '
+  .rejectionHistory += [{
+    "at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+    "feedback": $fb,
+    "previousPhases": .completedPhases
+  }] |
+  .completedPhases = [] |
+  .currentPhase = 1 |
+  .validated = false |
+  .epics = []
+' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+```
+
+```
+═══════════════════════════════════════════════
+  ⚠ Plan refusé - Reset Phase 1
+═══════════════════════════════════════════════
+
+  Feedback utilisateur stocké.
+  Ré-analyse complète en cours...
+
+  → Retour Phase 1 avec nouveau contexte
+
+═══════════════════════════════════════════════
+```
+
+**Si OUI → Marquer validated et continuer :**
+```bash
+jq '.completedPhases += [{"phase":5,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"completed"}] | .currentPhase = 6 | .validated = true' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+```
+
 #### Phase 6 : Écriture Taskwarrior
+
+**PRÉ-CONDITION :** `validated = true` (vérifié par hook phase-validate.sh)
 
 Après validation utilisateur :
 
@@ -342,7 +424,7 @@ PROJECT=$(jq -r '.project' "$SESSION_FILE")
 /home/vscode/.claude/scripts/task-add.sh "$PROJECT" 1 "<uuid>" "Task name" "no" '{"files":["..."],"action":"..."}'
 
 # Mettre à jour l'état
-jq '.state = "planned"' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
+jq '.completedPhases += [{"phase":6,"completedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"completed"}] | .state = "planned"' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
 ```
 
 **Output final :**
@@ -352,6 +434,7 @@ jq '.state = "planned"' "$SESSION_FILE" > tmp && mv tmp "$SESSION_FILE"
 ═══════════════════════════════════════════════
 
   State   : planned
+  Phases  : 6/6 ✓
   Epics   : 2
   Tasks   : 5
 
@@ -394,26 +477,24 @@ Afficher l'état complet du plan :
   Type    : feature|fix
   State   : planning|planned|applying|applied
   Branch  : <branch>
+  Phase   : 3/6
+
+─────────────────────────────────────────────
+  Phases
+─────────────────────────────────────────────
+
+  [✓] 1. Analyse demande
+  [✓] 2. Recherche docs
+  [→] 3. Analyse projet    ← EN COURS
+  [ ] 4. Affûtage
+  [ ] 5. Définition + Validation
+  [ ] 6. Écriture Taskwarrior
 
 ─────────────────────────────────────────────
   Epics
 ─────────────────────────────────────────────
 
-  1. [DONE] Setup infrastructure
-     ├─ T1.1 [DONE] Create folder structure
-     └─ T1.2 [DONE] Configure dependencies
-
-  2. [WIP] Implementation
-     ├─ T2.1 [DONE] Implement AuthService
-     ├─ T2.2 [WIP]  Add validation
-     └─ T2.3 [TODO] Write tests
-
-─────────────────────────────────────────────
-  Progression
-─────────────────────────────────────────────
-
-  Tasks    : 3/5 (60%)
-  ████████████░░░░░░░░
+  (aucun - en cours de planification)
 
 ═══════════════════════════════════════════════
 ```
@@ -484,12 +565,13 @@ task project:"$PROJECT" rc.confirmation=off modify status:deleted
 
 ## GARDE-FOUS (ABSOLUS)
 
-| Action | Status |
-|--------|--------|
-| Write/Edit code en PLAN MODE | ❌ **BLOQUÉ** |
-| Skip validation utilisateur | ❌ **INTERDIT** |
-| Modifier Taskwarrior sans validation | ❌ **INTERDIT** |
-| Passer à /apply sans état "planned" | ❌ **BLOQUÉ** |
+| Action | Hook | Status |
+|--------|------|--------|
+| Write/Edit code en PLAN MODE | `task-validate.sh` | ❌ **BLOQUÉ** |
+| Sauter des phases (1→4) | `phase-validate.sh` | ❌ **BLOQUÉ** |
+| Taskwarrior sans validation | `phase-validate.sh` | ❌ **BLOQUÉ** |
+| Skip validation utilisateur | `phase-validate.sh` | ❌ **INTERDIT** |
+| Passer à /apply sans état "planned" | `task-validate.sh` | ❌ **BLOQUÉ** |
 
 ---
 
@@ -498,4 +580,5 @@ task project:"$PROJECT" rc.confirmation=off modify status:deleted
 - `/apply` - Exécuter le plan
 - `/review` - Demander une code review
 - `/git --commit` - Commit manuel
+- `.devcontainer/docs/workflow-plan-apply.md` - Diagrammes Mermaid
 
