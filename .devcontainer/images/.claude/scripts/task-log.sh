@@ -27,7 +27,8 @@ if [[ ! -f "$SESSION_FILE" ]]; then
     exit 0
 fi
 
-TASK_UUID=$(jq -r '.current_task_uuid // empty' "$SESSION_FILE")
+# Schéma v2: currentTask (avec fallback sur current_task_uuid pour compatibilité)
+TASK_UUID=$(jq -r '.currentTask // .current_task_uuid // empty' "$SESSION_FILE")
 [[ -z "$TASK_UUID" ]] && exit 0
 
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
