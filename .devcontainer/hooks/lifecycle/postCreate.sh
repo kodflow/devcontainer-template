@@ -18,6 +18,18 @@ echo -e "${CYAN}   Kodflow DevContainer Setup${NC}"
 echo -e "${CYAN}=========================================${NC}"
 echo ""
 
+# ============================================================================
+# Git Safe Directory Configuration (ALWAYS run, even if already initialized)
+# ============================================================================
+# Prevents "dubious ownership" errors when container user differs from
+# directory owner (common in Docker where /workspace may be owned by root)
+if ! git config --global --get-all safe.directory | grep -q "^/workspace$"; then
+    git config --global --add safe.directory /workspace
+    log_success "Git safe.directory configured for /workspace"
+else
+    log_info "Git safe.directory already configured"
+fi
+
 # Note: Tools (status-line, ktn-linter) are now baked into the Docker image
 # No longer need to update on each rebuild
 
