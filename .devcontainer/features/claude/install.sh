@@ -9,7 +9,7 @@ set -e
 
 REPO="kodflow/devcontainer-template"
 BRANCH="main"
-BASE="https://raw.githubusercontent.com/${REPO}/${BRANCH}/.devcontainer/features/claude"
+BASE="https://raw.githubusercontent.com/${REPO}/${BRANCH}/.devcontainer/images"
 TARGET="${KODFLOW_TARGET:-$(pwd)}"
 
 echo "═══════════════════════════════════════════"
