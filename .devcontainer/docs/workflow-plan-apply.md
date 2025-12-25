@@ -523,8 +523,8 @@ flowchart LR
 
 Pour visualiser les diagrammes Mermaid directement dans VSCode, installez :
 
+### Markdown Preview Mermaid Support
 
-**Markdown Preview Mermaid Support**
 - ID: `bierner.markdown-mermaid`
 - [Marketplace](https://marketplace.visualstudio.com/items?itemName=bierner.markdown-mermaid)
 
