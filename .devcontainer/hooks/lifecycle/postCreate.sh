@@ -113,77 +113,11 @@ export BAZEL_USER_ROOT="/home/vscode/.cache/bazel"
 super-claude() {
     local mcp_config="/workspace/.mcp.json"
 
-    if [ ! -f "$mcp_config" ]; then
-        echo "⚠️  MCP config not found, starting without MCP..."
+    if [ -f "$mcp_config" ] && jq empty "$mcp_config" 2>/dev/null; then
+        claude --dangerously-skip-permissions --mcp-config "$mcp_config" "$@"
+    else
         claude --dangerously-skip-permissions "$@"
-        return
     fi
-
-    if ! jq empty "$mcp_config" 2>/dev/null; then
-        echo "❌ MCP config invalid (JSON parse error), starting without MCP..."
-        claude --dangerously-skip-permissions "$@"
-        return
-    fi
-
-    # Check MCP server requirements
-    local servers
-    servers=$(jq -r '.mcpServers | keys[]' "$mcp_config" 2>/dev/null)
-    local npx_required=false
-    local valid_count=0
-    local invalid_count=0
-    local invalid_servers=""
-
-    echo "═══════════════════════════════════════════════"
-    echo "  MCP Servers Configuration"
-    echo "═══════════════════════════════════════════════"
-
-    while IFS= read -r server; do
-        [ -z "$server" ] && continue
-        local cmd
-        cmd=$(jq -r ".mcpServers[\"$server\"].command // empty" "$mcp_config")
-
-        # Validate command field
-        if [ -z "$cmd" ] || [ "$cmd" = "null" ]; then
-            echo "  ✗ $server (command: null - invalid config)"
-            invalid_count=$((invalid_count + 1))
-            invalid_servers="$invalid_servers $server"
-        else
-            if [ "$cmd" = "npx" ]; then
-                npx_required=true
-            fi
-            echo "  ✓ $server"
-            valid_count=$((valid_count + 1))
-        fi
-    done <<< "$servers"
-
-    echo "═══════════════════════════════════════════════"
-
-    # Show warning for invalid servers
-    if [ "$invalid_count" -gt 0 ]; then
-        echo ""
-        echo "⚠️  WARNING: $invalid_count server(s) have invalid configuration:$invalid_servers"
-        echo "   Check /workspace/.mcp.json for missing 'command' field."
-        echo ""
-    fi
-
-    # Check if npx is available when required
-    if [ "$npx_required" = true ]; then
-        if ! command -v npx &> /dev/null; then
-            echo ""
-            echo "❌ ERROR: npx not found but required by MCP servers!"
-            echo "   Node.js is not installed in this container."
-            echo ""
-            echo "   Solutions:"
-            echo "   1. Enable Node.js feature in devcontainer.json:"
-            echo "      \"./features/languages/nodejs\": {}"
-            echo "   2. Rebuild container: Ctrl+Shift+P > Rebuild Container"
-            echo ""
-            echo "⚠️  Starting Claude WITHOUT MCP (servers will fail)..."
-            echo ""
-        fi
-    fi
-
-    claude --dangerously-skip-permissions --mcp-config "$mcp_config" "$@"
 }
 
 # Kubernetes auto-completion (if kubectl is installed)
