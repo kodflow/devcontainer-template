@@ -9,12 +9,29 @@ set -euo pipefail
 INPUT=$(cat)
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')
 
-# Trouver la session active
-SESSION_DIR="$HOME/.claude/sessions"
-SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1)
+# === Trouver la session active (déterministe) ===
+SESSION_FILE=""
+
+# Priorité 1: Pointeur explicite
+if [[ -f "/workspace/.claude/active-session" ]]; then
+    SESSION_FILE=$(cat /workspace/.claude/active-session 2>/dev/null || true)
+fi
+
+# Priorité 2: Symlink state.json
+if [[ -z "$SESSION_FILE" || ! -f "$SESSION_FILE" ]]; then
+    if [[ -f "/workspace/.claude/state.json" ]]; then
+        SESSION_FILE=$(readlink -f /workspace/.claude/state.json 2>/dev/null || echo "/workspace/.claude/state.json")
+    fi
+fi
+
+# Priorité 3: Dernière session (fallback)
+if [[ -z "$SESSION_FILE" || ! -f "$SESSION_FILE" ]]; then
+    SESSION_DIR="$HOME/.claude/sessions"
+    SESSION_FILE=$(ls -t "$SESSION_DIR"/*.json 2>/dev/null | head -1 || true)
+fi
 
 # Si pas de session, autoriser (pas en mode workflow)
-if [[ ! -f "$SESSION_FILE" ]]; then
+if [[ -z "$SESSION_FILE" || ! -f "$SESSION_FILE" ]]; then
     exit 0
 fi
 
