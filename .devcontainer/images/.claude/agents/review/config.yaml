@@ -1,0 +1,195 @@
+# Review Agent Configuration
+# This file defines the Hive architecture for the /review agent
+
+version: "1.0"
+name: "review"
+type: "orchestrator"
+
+# Brain configuration
+brain:
+  prompt_file: "brain.md"
+  persona: "senior_mentor"
+  timeout_seconds: 120
+
+# Drones (specialized sub-agents)
+drones:
+  # Programming Languages
+  - name: "python"
+    taxonomy: "programming"
+    file_patterns: ["*.py", "*.pyw"]
+    prompt_file: "drones/python.md"
+    simulated_tools: ["ruff", "bandit", "mypy"]
+
+  - name: "javascript"
+    taxonomy: "programming"
+    file_patterns: ["*.js", "*.ts", "*.tsx", "*.jsx", "*.mjs", "*.cjs"]
+    prompt_file: "drones/javascript.md"
+    simulated_tools: ["eslint", "biome", "semgrep"]
+
+  - name: "go"
+    taxonomy: "programming"
+    file_patterns: ["*.go"]
+    prompt_file: "drones/go.md"
+    simulated_tools: ["golangci-lint", "gosec"]
+
+  - name: "rust"
+    taxonomy: "programming"
+    file_patterns: ["*.rs"]
+    prompt_file: "drones/rust.md"
+    simulated_tools: ["clippy", "cargo-audit"]
+
+  - name: "java"
+    taxonomy: "programming"
+    file_patterns: ["*.java", "*.kt", "*.kts", "*.scala"]
+    prompt_file: "drones/java.md"
+    simulated_tools: ["pmd", "spotbugs", "detekt"]
+
+  - name: "csharp"
+    taxonomy: "programming"
+    file_patterns: ["*.cs", "*.vb"]
+    prompt_file: "drones/csharp.md"
+    simulated_tools: ["sonarcs", "roslynator"]
+
+  - name: "php"
+    taxonomy: "programming"
+    file_patterns: ["*.php"]
+    prompt_file: "drones/php.md"
+    simulated_tools: ["phpstan", "psalm"]
+
+  - name: "ruby"
+    taxonomy: "programming"
+    file_patterns: ["*.rb"]
+    prompt_file: "drones/ruby.md"
+    simulated_tools: ["rubocop", "brakeman"]
+
+  # Infrastructure
+  - name: "iac"
+    taxonomy: "infrastructure"
+    file_patterns: ["*.tf", "Dockerfile", "docker-compose*.yml", "*.yaml"]
+    prompt_file: "drones/iac.md"
+    simulated_tools: ["checkov", "tfsec", "hadolint", "trivy"]
+    yaml_detection:
+      kubernetes: ["apiVersion:", "kind:"]
+      docker_compose: ["services:", "version:"]
+
+  # Style
+  - name: "style"
+    taxonomy: "style"
+    file_patterns: ["*.css", "*.scss", "*.less", "*.sass"]
+    prompt_file: "drones/style.md"
+    simulated_tools: ["stylelint"]
+
+  # Query
+  - name: "sql"
+    taxonomy: "query"
+    file_patterns: ["*.sql", "*.graphql", "*.gql"]
+    prompt_file: "drones/sql.md"
+    simulated_tools: ["sqlfluff", "graphql-eslint"]
+
+  # Scripts
+  - name: "shell"
+    taxonomy: "scripts"
+    file_patterns: ["*.sh", "*.bash", "*.zsh", "*.ps1"]
+    prompt_file: "drones/shell.md"
+    simulated_tools: ["shellcheck", "psscriptanalyzer"]
+
+  # Markup
+  - name: "markup"
+    taxonomy: "markup"
+    file_patterns: ["*.md", "*.html", "*.htm", "*.xml"]
+    prompt_file: "drones/markup.md"
+    simulated_tools: ["markdownlint", "htmlhint"]
+
+  # Config
+  - name: "config"
+    taxonomy: "config"
+    file_patterns: ["*.json", "*.yaml", "*.yml", "*.toml", ".env*"]
+    prompt_file: "drones/config.md"
+    simulated_tools: ["jsonlint", "yamllint", "gitleaks"]
+    exclude_patterns: ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"]
+
+# Axes (analysis dimensions)
+axes:
+  security:
+    priority: 1
+    enabled: true
+    drones: ["all"]
+
+  quality:
+    priority: 2
+    enabled: true
+    drones: ["programming", "scripts"]
+
+  tests:
+    priority: 3
+    enabled: true
+    drones: ["programming"]
+
+  architecture:
+    priority: 4
+    enabled: true
+    drones: ["programming", "iac"]
+
+  performance:
+    priority: 5
+    enabled: false
+    drones: ["programming", "sql", "style"]
+
+  infrastructure:
+    priority: 6
+    enabled: true
+    drones: ["iac"]
+
+  maintainability:
+    priority: 7
+    enabled: false
+    drones: ["programming"]
+
+  documentation:
+    priority: 8
+    enabled: false
+    drones: ["all"]
+
+  deployment:
+    priority: 9
+    enabled: false
+    drones: ["iac", "config"]
+
+  objectives:
+    priority: 10
+    enabled: false
+    drones: ["all"]
+    requires: ".review.yaml"
+
+# Caching
+cache:
+  enabled: true
+  strategy: "content"  # SHA-256 based
+  directory: ".review-cache"
+  invalidate_on:
+    - ".review.yaml"
+    - "package.json"
+    - "go.mod"
+    - "requirements.txt"
+    - "pyproject.toml"
+
+# Output
+output:
+  default_format: "markdown"
+  supported_formats: ["markdown", "json", "sarif"]
+  max_issues_per_file: 10
+  include_commendations: true
+
+# Severity thresholds
+severity:
+  critical:
+    max_allowed: 0
+    action: "block_merge"
+
+  major:
+    max_allowed: 3
+    action: "warn"
+
+  minor:
+    max_allowed: 10
+    action: "info"

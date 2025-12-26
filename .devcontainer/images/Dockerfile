@@ -164,6 +164,7 @@ USER root
 RUN mkdir -p /etc/claude-defaults
 COPY --chown=root:root .claude/commands/ /etc/claude-defaults/commands/
 COPY --chown=root:root .claude/scripts/ /etc/claude-defaults/scripts/
+COPY --chown=root:root .claude/agents/ /etc/claude-defaults/agents/
 COPY --chown=root:root .claude/settings.json /etc/claude-defaults/settings.json
 RUN chmod -R 755 /etc/claude-defaults/
 USER vscode

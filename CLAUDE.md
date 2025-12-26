@@ -68,6 +68,37 @@ Creates `fix/<description>` branch, **mandatory planning mode**, CI check, PR cr
 - Security-first approach
 - Full test coverage
 
+## MCP-FIRST RULE (MANDATORY)
+
+**ALWAYS use MCP tools BEFORE falling back to CLI binaries.**
+
+```yaml
+mcp_priority:
+  rule: "MCP tools are the PRIMARY interface"
+  fallback: "CLI only when MCP unavailable or fails"
+
+  workflow:
+    1_check_mcp: "Verify MCP server is available in .mcp.json"
+    2_use_mcp: "Call mcp__<server>__<action> tool"
+    3_on_failure: "Log error, inform user, then try CLI fallback"
+    4_never_ask: "NEVER ask user for tokens if MCP is configured"
+
+  examples:
+    github:
+      priority: "mcp__github__list_pull_requests"
+      fallback: "gh pr list"
+    codacy:
+      priority: "mcp__codacy__codacy_cli_analyze"
+      fallback: "codacy-cli analyze"
+```
+
+**Why MCP-first:**
+
+- MCP servers have pre-configured authentication (tokens in .mcp.json)
+- CLI tools require separate auth (`gh auth login`, etc.)
+- MCP provides structured responses (JSON vs text parsing)
+- Single source of truth for credentials
+
 ## SAFEGUARDS (ABSOLUTE - NO BYPASS)
 
 **NEVER without EXPLICIT user approval:**
