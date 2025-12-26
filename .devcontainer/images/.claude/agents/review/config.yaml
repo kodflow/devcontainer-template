@@ -138,12 +138,6 @@ agents:
         skill: "skills/env.yaml"
     exclude_patterns: ["package-lock.json", "yarn.lock", "pnpm-lock.yaml"]
 
-# Drones (DEPRECATED - kept for fallback)
-drones:
-  enabled: false
-  fallback_only: true
-  location: "drones/"
-
 # Axes (analysis dimensions)
 axes:
   security:
