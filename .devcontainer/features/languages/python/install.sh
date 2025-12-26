@@ -150,6 +150,7 @@ echo -e "${GREEN}✓ Python development tools installed${NC}"
 
 # Setup shell integration for pyenv (if installed)
 if [ -d "$PYENV_ROOT" ]; then
+    # shellcheck disable=SC2016 # Intentional: $HOME must expand at runtime, not install time
     PYENV_INIT='export PYENV_ROOT="$HOME/.cache/pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"'

@@ -124,6 +124,7 @@ install_elixir_prebuilt() {
             echo -e "${GREEN}✓ ${ELIXIR_INSTALLED} installed (prebuilt)${NC}"
 
             # Add to system profile
+            # shellcheck disable=SC2016 # Intentional: $PATH must expand at runtime
             echo 'export PATH="/usr/local/elixir/bin:$PATH"' | sudo tee /etc/profile.d/elixir.sh >/dev/null
             return 0
         fi
@@ -203,6 +204,7 @@ echo -e "${GREEN}✓ Elixir development tools installed${NC}"
 
 # Setup shell integration for asdf (if installed)
 if [ -d "$ASDF_DATA_DIR" ]; then
+    # shellcheck disable=SC2016 # Intentional: $HOME must expand at runtime, not install time
     ASDF_INIT='. "$HOME/.cache/asdf/asdf.sh"'
 
     for rc_file in "$HOME/.bashrc" "$HOME/.zshrc"; do

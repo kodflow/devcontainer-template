@@ -141,6 +141,7 @@ echo -e "${GREEN}✓ Ruby development tools installed${NC}"
 
 # Setup shell integration for rbenv (if installed)
 if [ -d "$RBENV_ROOT" ]; then
+    # shellcheck disable=SC2016 # Intentional: $HOME must expand at runtime, not install time
     RBENV_INIT='export RBENV_ROOT="$HOME/.cache/rbenv"
 export PATH="$RBENV_ROOT/bin:$PATH"
 eval "$(rbenv init -)"'
