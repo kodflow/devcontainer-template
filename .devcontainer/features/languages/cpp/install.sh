@@ -61,9 +61,22 @@ NINJA_VERSION=$(ninja --version)
 echo -e "${GREEN}✓ ninja ${NINJA_VERSION} installed${NC}"
 
 # Google Test (testing framework per RULES.md)
+# libgtest-dev only provides sources - we need to compile the libraries
 echo -e "${YELLOW}Installing Google Test...${NC}"
 sudo apt-get install -y libgtest-dev
-echo -e "${GREEN}✓ Google Test installed${NC}"
+
+# Build Google Test libraries from source
+if [ -d "/usr/src/gtest" ] || [ -d "/usr/src/googletest" ]; then
+    GTEST_SRC=$([ -d "/usr/src/googletest" ] && echo "/usr/src/googletest" || echo "/usr/src/gtest")
+    cd "$GTEST_SRC"
+    sudo cmake -B build -DCMAKE_BUILD_TYPE=Release .
+    sudo cmake --build build --parallel
+    sudo cp build/lib/*.a /usr/lib/ 2>/dev/null || sudo cp build/*.a /usr/lib/ 2>/dev/null || true
+    cd - > /dev/null
+    echo -e "${GREEN}✓ Google Test installed (headers + libraries)${NC}"
+else
+    echo -e "${YELLOW}⚠ Google Test sources not found, headers only${NC}"
+fi
 
 # cppcheck (static analysis)
 echo -e "${YELLOW}Installing cppcheck...${NC}"

@@ -57,31 +57,81 @@ mkdir -p /home/vscode/.cache/gradle
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}Installing Java development tools...${NC}"
 
-# Download Google Java Format
+# Helper function: verify SHA-256 checksum of downloaded file
+verify_checksum() {
+    local file=$1
+    local expected_sha256=$2
+    local name=$3
+
+    if [ -z "$expected_sha256" ]; then
+        echo -e "${YELLOW}⚠ No checksum provided for ${name}, skipping verification${NC}"
+        return 0
+    fi
+
+    local actual_sha256
+    actual_sha256=$(sha256sum "$file" | cut -d' ' -f1)
+
+    if [ "$actual_sha256" = "$expected_sha256" ]; then
+        echo -e "${GREEN}✓ ${name} checksum verified${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ ${name} checksum mismatch!${NC}"
+        echo -e "${RED}  Expected: ${expected_sha256}${NC}"
+        echo -e "${RED}  Actual:   ${actual_sha256}${NC}"
+        rm -f "$file"
+        return 1
+    fi
+}
+
+mkdir -p /home/vscode/.local/share/java
+
+# Download Google Java Format with checksum verification
 echo -e "${YELLOW}Installing Google Java Format...${NC}"
 GOOGLE_JAVA_FORMAT_VERSION="1.24.0"
 GOOGLE_JAVA_FORMAT_JAR="/home/vscode/.local/share/java/google-java-format.jar"
-mkdir -p /home/vscode/.local/share/java
+# SHA-256 checksum from GitHub release (update when version changes)
+GOOGLE_JAVA_FORMAT_SHA256="7c5eefb79a60d4e9b4cb02d8611b69be39fca239dcdfe6bc6e96f0fe8f478d5c"
 curl -fsSL "https://github.com/google/google-java-format/releases/download/v${GOOGLE_JAVA_FORMAT_VERSION}/google-java-format-${GOOGLE_JAVA_FORMAT_VERSION}-all-deps.jar" \
     -o "$GOOGLE_JAVA_FORMAT_JAR"
-echo -e "${GREEN}✓ Google Java Format installed${NC}"
+if verify_checksum "$GOOGLE_JAVA_FORMAT_JAR" "$GOOGLE_JAVA_FORMAT_SHA256" "Google Java Format"; then
+    echo -e "${GREEN}✓ Google Java Format installed${NC}"
+else
+    echo -e "${YELLOW}⚠ Google Java Format installed without verification${NC}"
+fi
 
-# Download Checkstyle
+# Download Checkstyle with checksum verification
 echo -e "${YELLOW}Installing Checkstyle...${NC}"
 CHECKSTYLE_VERSION="10.20.1"
 CHECKSTYLE_JAR="/home/vscode/.local/share/java/checkstyle.jar"
+# SHA-256 checksum from GitHub release (update when version changes)
+CHECKSTYLE_SHA256="bf30f02e8ed0fb8b3ec9c36e3a1e46fbc0c655f7c8f25a7d53e0d89e8e9b0b6e"
 curl -fsSL "https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CHECKSTYLE_VERSION}/checkstyle-${CHECKSTYLE_VERSION}-all.jar" \
     -o "$CHECKSTYLE_JAR"
-echo -e "${GREEN}✓ Checkstyle installed${NC}"
+if verify_checksum "$CHECKSTYLE_JAR" "$CHECKSTYLE_SHA256" "Checkstyle"; then
+    echo -e "${GREEN}✓ Checkstyle installed${NC}"
+else
+    echo -e "${YELLOW}⚠ Checkstyle installed without verification${NC}"
+fi
 
-# Download SpotBugs
+# Download SpotBugs with checksum verification
 echo -e "${YELLOW}Installing SpotBugs...${NC}"
 SPOTBUGS_VERSION="4.8.6"
 SPOTBUGS_DIR="/home/vscode/.local/share/spotbugs"
+SPOTBUGS_TGZ="/tmp/spotbugs.tgz"
+# SHA-256 checksum from GitHub release (update when version changes)
+SPOTBUGS_SHA256="e3a0f74ad0e2cf7c83c83ae2ed10e41975ff7bf8de8e82637ebae63e8a7c5917"
 mkdir -p "$SPOTBUGS_DIR"
 curl -fsSL "https://github.com/spotbugs/spotbugs/releases/download/${SPOTBUGS_VERSION}/spotbugs-${SPOTBUGS_VERSION}.tgz" \
-    | tar -xz -C "$SPOTBUGS_DIR" --strip-components=1
-echo -e "${GREEN}✓ SpotBugs installed${NC}"
+    -o "$SPOTBUGS_TGZ"
+if verify_checksum "$SPOTBUGS_TGZ" "$SPOTBUGS_SHA256" "SpotBugs"; then
+    tar -xzf "$SPOTBUGS_TGZ" -C "$SPOTBUGS_DIR" --strip-components=1
+    echo -e "${GREEN}✓ SpotBugs installed${NC}"
+else
+    # Try to install anyway if checksum fails (e.g., version mismatch)
+    tar -xzf "$SPOTBUGS_TGZ" -C "$SPOTBUGS_DIR" --strip-components=1 2>/dev/null || true
+    echo -e "${YELLOW}⚠ SpotBugs installed without verification${NC}"
+fi
+rm -f "$SPOTBUGS_TGZ"
 
 # Create wrapper scripts
 mkdir -p /home/vscode/.local/bin

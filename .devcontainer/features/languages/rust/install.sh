@@ -42,19 +42,41 @@ source "$CARGO_HOME/env"
 echo -e "${YELLOW}Installing cargo-binstall...${NC}"
 curl -L --proto '=https' --tlsv1.2 -sSf \
     https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-echo -e "${GREEN}✓ cargo-binstall installed${NC}"
+
+# Verify cargo-binstall installation
+if ! command -v cargo-binstall &> /dev/null; then
+    echo -e "${RED}✗ cargo-binstall installation failed${NC}"
+    echo -e "${YELLOW}Falling back to cargo install for tools...${NC}"
+    USE_BINSTALL=false
+else
+    echo -e "${GREEN}✓ cargo-binstall installed${NC}"
+    USE_BINSTALL=true
+fi
+
+# Track failed tools for summary
+FAILED_TOOLS=()
 
 # Helper function: try binstall first (fast), fallback to cargo install (slow)
 install_cargo_tool() {
     local tool=$1
     echo -e "${YELLOW}Installing ${tool}...${NC}"
-    if cargo binstall --no-confirm --locked "$tool" 2>/dev/null; then
+
+    # Try binstall if available
+    if [ "$USE_BINSTALL" = true ] && cargo binstall --no-confirm --locked "$tool"; then
         echo -e "${GREEN}✓ ${tool} installed (binary)${NC}"
-    elif cargo install --locked "$tool" 2>/dev/null; then
-        echo -e "${GREEN}✓ ${tool} installed (compiled)${NC}"
-    else
-        echo -e "${YELLOW}⚠ ${tool} failed to install${NC}"
+        return 0
     fi
+
+    # Fallback to cargo install
+    if cargo install --locked "$tool"; then
+        echo -e "${GREEN}✓ ${tool} installed (compiled)${NC}"
+        return 0
+    fi
+
+    # Both methods failed
+    echo -e "${RED}✗ ${tool} failed to install${NC}" >&2
+    FAILED_TOOLS+=("$tool")
+    return 1
 }
 
 RUST_VERSION=$(rustc --version)
@@ -99,7 +121,12 @@ done
 # MCP server (may not have prebuilt binaries)
 install_cargo_tool "rust-analyzer-mcp"
 
-echo -e "${GREEN}✓ Rust development tools installed${NC}"
+# Summary of tool installations
+if [ ${#FAILED_TOOLS[@]} -gt 0 ]; then
+    echo -e "${YELLOW}⚠ Some tools failed to install: ${FAILED_TOOLS[*]}${NC}"
+else
+    echo -e "${GREEN}✓ All Rust development tools installed successfully${NC}"
+fi
 
 # Setup shell integration
 echo -e "${YELLOW}Configuring shell integration...${NC}"

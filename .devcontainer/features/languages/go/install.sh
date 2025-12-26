@@ -129,29 +129,43 @@ install_go_tool() {
     fi
 }
 
+# Helper function: fetch latest version from GitHub API with fallback
+# Protects against rate limiting (60 req/h unauthenticated)
+get_github_version() {
+    local repo=$1
+    local fallback=$2
+    local version
+    version=$(curl -s --connect-timeout 5 --max-time 10 \
+        "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+        | grep -oP '"tag_name": "\K[^"]+' | sed 's/^v//')
+    echo "${version:-$fallback}"
+}
+
 # Quality & Linting - golangci-lint (prebuilt)
-GOLANGCI_VERSION=$(curl -s https://api.github.com/repos/golangci/golangci-lint/releases/latest | grep -oP '"tag_name": "\K[^"]+' | sed 's/^v//')
+GOLANGCI_VERSION=$(get_github_version "golangci/golangci-lint" "1.62.2")
 install_go_tool "golangci-lint" \
     "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_VERSION}/golangci-lint-${GOLANGCI_VERSION}-linux-${GO_ARCH}.tar.gz" \
     "github.com/golangci/golangci-lint/cmd/golangci-lint" \
     "tar.gz"
 
 # Security - gosec (prebuilt)
-GOSEC_VERSION=$(curl -s https://api.github.com/repos/securego/gosec/releases/latest | grep -oP '"tag_name": "\K[^"]+' | sed 's/^v//')
+GOSEC_VERSION=$(get_github_version "securego/gosec" "2.21.4")
 install_go_tool "gosec" \
     "https://github.com/securego/gosec/releases/download/v${GOSEC_VERSION}/gosec_${GOSEC_VERSION}_linux_${GO_ARCH}.tar.gz" \
     "github.com/securego/gosec/v2/cmd/gosec" \
     "tar.gz"
 
 # Formatting - gofumpt (prebuilt binary, no archive)
-GOFUMPT_VERSION=$(curl -s https://api.github.com/repos/mvdan/gofumpt/releases/latest | grep -oP '"tag_name": "\K[^"]+')
+GOFUMPT_VERSION=$(get_github_version "mvdan/gofumpt" "v0.7.0")
+# gofumpt uses 'v' prefix in URLs
+[[ "$GOFUMPT_VERSION" != v* ]] && GOFUMPT_VERSION="v${GOFUMPT_VERSION}"
 install_go_tool "gofumpt" \
     "https://github.com/mvdan/gofumpt/releases/download/${GOFUMPT_VERSION}/gofumpt_${GOFUMPT_VERSION}_linux_${GO_ARCH}" \
     "mvdan.cc/gofumpt" \
     "binary"
 
 # Testing tools - gotestsum (prebuilt)
-GOTESTSUM_VERSION=$(curl -s https://api.github.com/repos/gotestyourself/gotestsum/releases/latest | grep -oP '"tag_name": "\K[^"]+' | sed 's/^v//')
+GOTESTSUM_VERSION=$(get_github_version "gotestyourself/gotestsum" "1.12.0")
 install_go_tool "gotestsum" \
     "https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VERSION}/gotestsum_${GOTESTSUM_VERSION}_linux_${GO_ARCH}.tar.gz" \
     "gotest.tools/gotestsum" \

@@ -65,35 +65,57 @@ mkdir -p "$PUB_CACHE"
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}Installing Dart/Flutter development tools...${NC}"
 
+# Track failed tools
+FAILED_TOOLS=()
+
 # DCM (Dart Code Metrics - code quality tool)
 echo -e "${YELLOW}Installing DCM...${NC}"
-dart pub global activate dcm 2>/dev/null || echo -e "${YELLOW}⚠ DCM requires license for some features${NC}"
-echo -e "${GREEN}✓ DCM installed${NC}"
+if dart pub global activate dcm; then
+    echo -e "${GREEN}✓ DCM installed${NC}"
+else
+    echo -e "${YELLOW}⚠ DCM failed (may require license for some features)${NC}"
+    FAILED_TOOLS+=("dcm")
+fi
 
 # very_good_cli (Very Good CLI for project scaffolding)
 echo -e "${YELLOW}Installing Very Good CLI...${NC}"
-dart pub global activate very_good_cli
-echo -e "${GREEN}✓ Very Good CLI installed${NC}"
+if dart pub global activate very_good_cli; then
+    echo -e "${GREEN}✓ Very Good CLI installed${NC}"
+else
+    echo -e "${RED}✗ Very Good CLI failed to install${NC}"
+    FAILED_TOOLS+=("very_good_cli")
+fi
 
 # melos (monorepo management)
 echo -e "${YELLOW}Installing Melos...${NC}"
-dart pub global activate melos
-echo -e "${GREEN}✓ Melos installed${NC}"
+if dart pub global activate melos; then
+    echo -e "${GREEN}✓ Melos installed${NC}"
+else
+    echo -e "${RED}✗ Melos failed to install${NC}"
+    FAILED_TOOLS+=("melos")
+fi
 
 # dart_style (formatter - part of SDK but ensure global)
 echo -e "${YELLOW}Verifying dart format...${NC}"
 dart format --version
 echo -e "${GREEN}✓ dart format available${NC}"
 
-# Add pub global bin to PATH
+# Add pub global bin to PATH (both .bashrc and .zshrc for consistency)
 PUB_BIN="$PUB_CACHE/bin"
-if ! grep -q "PUB_CACHE" /home/vscode/.zshrc 2>/dev/null; then
-    echo "" >> /home/vscode/.zshrc
-    echo "# Dart pub global binaries" >> /home/vscode/.zshrc
-    echo "export PATH=\"\$PATH:$PUB_BIN\"" >> /home/vscode/.zshrc
-fi
+for rc_file in /home/vscode/.bashrc /home/vscode/.zshrc; do
+    if [ -f "$rc_file" ] && ! grep -q "PUB_CACHE" "$rc_file" 2>/dev/null; then
+        echo "" >> "$rc_file"
+        echo "# Dart pub global binaries" >> "$rc_file"
+        echo "export PATH=\"\$PATH:$PUB_BIN\"" >> "$rc_file"
+    fi
+done
 
-echo -e "${GREEN}✓ Dart/Flutter development tools installed${NC}"
+# Summary of tool installations
+if [ ${#FAILED_TOOLS[@]} -gt 0 ]; then
+    echo -e "${YELLOW}⚠ Some tools failed to install: ${FAILED_TOOLS[*]}${NC}"
+else
+    echo -e "${GREEN}✓ All Dart/Flutter development tools installed successfully${NC}"
+fi
 
 echo ""
 echo -e "${GREEN}=========================================${NC}"
