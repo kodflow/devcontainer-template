@@ -98,3 +98,29 @@ Creates `fix/<description>` branch, **mandatory planning mode**, CI check, PR cr
 ```
 
 **Principle:** More details deeper in tree, <60 lines each.
+
+## MCP-FIRST RULE (MANDATORY)
+
+**ALWAYS use MCP tools BEFORE falling back to CLI binaries.**
+
+| Action | MCP Tool (Priority) | CLI Fallback |
+|--------|---------------------|--------------|
+| GitHub PRs | `mcp__github__*` | `gh pr *` |
+| GitHub Issues | `mcp__github__*` | `gh issue *` |
+| Codacy Analysis | `mcp__codacy__*` | `codacy-cli` |
+| IDE Diagnostics | `mcp__ide__*` | N/A |
+
+**Rules:**
+
+1. Check `.mcp.json` for available MCP servers
+2. Use `mcp__<server>__<action>` tools first
+3. Only fallback to CLI if MCP fails or is unavailable
+4. NEVER ask user for tokens if MCP is already configured
+5. Log MCP failures before trying fallback
+
+**Why:**
+
+- MCP = pre-authenticated (tokens in .mcp.json)
+- CLI = requires separate auth setup
+- MCP = structured JSON responses
+- CLI = text parsing required
