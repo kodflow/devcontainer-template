@@ -93,6 +93,37 @@ echo -e "${GREEN}✓ Rebar3 installed${NC}"
 mkdir -p "$MIX_HOME"
 mkdir -p "$HEX_HOME"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Install Elixir Development Tools (latest versions)
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing Elixir development tools...${NC}"
+
+# Install Credo globally as an archive (per RULES.md)
+echo -e "${YELLOW}Installing Credo...${NC}"
+mix archive.install hex credo --force
+echo -e "${GREEN}✓ Credo installed${NC}"
+
+# Install Dialyxir globally as an archive (per RULES.md)
+echo -e "${YELLOW}Installing Dialyxir...${NC}"
+mix archive.install hex dialyxir --force 2>/dev/null || echo -e "${YELLOW}⚠ Dialyxir requires project context${NC}"
+echo -e "${GREEN}✓ Dialyxir setup ready${NC}"
+
+# Install Elixir LS (Language Server)
+echo -e "${YELLOW}Installing Elixir LS...${NC}"
+mix archive.install hex elixir_ls --force 2>/dev/null || echo -e "${YELLOW}⚠ Elixir LS requires project context${NC}"
+echo -e "${GREEN}✓ Elixir LS setup ready${NC}"
+
+# Pre-build PLT for faster Dialyzer runs
+echo -e "${YELLOW}Building Dialyzer PLT (this may take a while)...${NC}"
+mix dialyzer --plt 2>/dev/null || echo -e "${YELLOW}⚠ PLT build requires project context${NC}"
+
+echo -e "${GREEN}✓ Elixir development tools installed${NC}"
+
+# Note about project-level installation
+echo -e "${YELLOW}Note: For full functionality, add to your mix.exs:${NC}"
+echo '  {:credo, "~> 1.7", only: [:dev, :test], runtime: false}'
+echo '  {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}'
+
 echo ""
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}Elixir environment installed successfully!${NC}"
@@ -104,6 +135,11 @@ echo "  - Erlang/OTP ${ERLANG_VERSION}"
 echo "  - ${ELIXIR_VERSION_CHECK}"
 echo "  - Hex (package manager)"
 echo "  - Rebar3 (build tool)"
+echo ""
+echo "Development tools:"
+echo "  - Credo (linter)"
+echo "  - Dialyxir (type checking)"
+echo "  - Elixir LS (language server)"
 echo ""
 echo "Cache directories:"
 echo "  - asdf: $ASDF_DATA_DIR"

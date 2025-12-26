@@ -201,6 +201,38 @@ log_success "npm ${NPM_INSTALLED} installed"
 # Create cache directory
 mkdir_safe "$npm_config_cache"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Install Node.js Development Tools (latest versions)
+# ─────────────────────────────────────────────────────────────────────────────
+log_info "Installing Node.js development tools..."
+
+# Package manager (pnpm is preferred per RULES.md)
+log_info "Installing pnpm..."
+npm install -g pnpm@latest
+log_success "pnpm installed"
+
+# TypeScript (mandatory for new code per RULES.md)
+log_info "Installing TypeScript..."
+npm install -g typescript@latest
+log_success "TypeScript installed"
+
+# ESLint (linting)
+log_info "Installing ESLint..."
+npm install -g eslint@latest
+log_success "ESLint installed"
+
+# Prettier (formatting)
+log_info "Installing Prettier..."
+npm install -g prettier@latest
+log_success "Prettier installed"
+
+# tsx (TypeScript execute - faster than ts-node)
+log_info "Installing tsx..."
+npm install -g tsx@latest
+log_success "tsx installed"
+
+log_success "Node.js development tools installed"
+
 # Create global symlinks for node, npm, and npx
 # This ensures they're available for subsequent devcontainer features
 log_info "Creating global symlinks..."
@@ -258,8 +290,15 @@ echo "  - NVM (Node Version Manager)"
 echo "  - Node.js ${NODE_INSTALLED}"
 echo "  - npm ${NPM_INSTALLED}"
 echo ""
+echo "Development tools:"
+echo "  - pnpm (package manager)"
+echo "  - TypeScript (type checker)"
+echo "  - ESLint (linter)"
+echo "  - Prettier (formatter)"
+echo "  - tsx (TypeScript runner)"
+echo ""
 echo "Global availability:"
-echo "  - node, npm, npx available in /usr/local/bin"
+echo "  - node, npm, npx, pnpm, tsc, eslint, prettier available globally"
 echo "  - NVM loaded in interactive shells"
 echo ""
 echo "Cache directory:"

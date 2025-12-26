@@ -62,6 +62,25 @@ echo -e "${GREEN}✓ ${PIP_VERSION}${NC}"
 # Create cache directory
 mkdir -p "$PIP_CACHE_DIR"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Install Python Development Tools (latest versions)
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing Python development tools...${NC}"
+
+# Quality & Linting
+pip install --quiet ruff pylint
+
+# Type Checking
+pip install --quiet mypy
+
+# Security
+pip install --quiet bandit
+
+# Testing
+pip install --quiet pytest pytest-cov
+
+echo -e "${GREEN}✓ Python development tools installed${NC}"
+
 echo ""
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}Python environment installed successfully!${NC}"
@@ -71,6 +90,13 @@ echo "Installed components:"
 echo "  - pyenv (Python Version Manager)"
 echo "  - ${PYTHON_INSTALLED}"
 echo "  - pip (upgraded)"
+echo ""
+echo "Development tools:"
+echo "  - ruff (linter/formatter)"
+echo "  - pylint (linter)"
+echo "  - mypy (type checker)"
+echo "  - bandit (security scanner)"
+echo "  - pytest + pytest-cov (testing)"
 echo ""
 echo "Cache directory:"
 echo "  - pip: $PIP_CACHE_DIR"

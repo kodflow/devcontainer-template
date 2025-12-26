@@ -83,11 +83,37 @@ mkdir -p "$GOCACHE"
 mkdir -p "$GOMODCACHE"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Install ktn-linter (Go-specific linter)
+# Install Go Development Tools (latest versions)
 # ─────────────────────────────────────────────────────────────────────────────
-echo -e "${YELLOW}Installing ktn-linter...${NC}"
+echo -e "${YELLOW}Installing Go development tools...${NC}"
 mkdir -p "$HOME/.local/bin"
 
+# Quality & Linting
+echo -e "${YELLOW}Installing golangci-lint...${NC}"
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+echo -e "${GREEN}✓ golangci-lint installed${NC}"
+
+# Security
+echo -e "${YELLOW}Installing gosec...${NC}"
+go install github.com/securego/gosec/v2/cmd/gosec@latest
+echo -e "${GREEN}✓ gosec installed${NC}"
+
+# Formatting
+echo -e "${YELLOW}Installing gofumpt...${NC}"
+go install mvdan.cc/gofumpt@latest
+echo -e "${GREEN}✓ gofumpt installed${NC}"
+
+# Import management
+echo -e "${YELLOW}Installing goimports...${NC}"
+go install golang.org/x/tools/cmd/goimports@latest
+echo -e "${GREEN}✓ goimports installed${NC}"
+
+# Testing tools
+echo -e "${YELLOW}Installing gotestsum...${NC}"
+go install gotest.tools/gotestsum@latest
+echo -e "${GREEN}✓ gotestsum installed${NC}"
+
+# Optional: ktn-linter
 KTN_URL="https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}"
 if curl -fsSL --connect-timeout 10 --max-time 60 "$KTN_URL" -o "$HOME/.local/bin/ktn-linter" 2>/dev/null; then
     chmod +x "$HOME/.local/bin/ktn-linter"
@@ -104,7 +130,14 @@ echo ""
 echo "Installed components:"
 echo "  - ${GO_INSTALLED}"
 echo "  - Go Modules (package manager)"
-echo "  - ktn-linter (Go linter)"
+echo ""
+echo "Development tools:"
+echo "  - golangci-lint (meta-linter)"
+echo "  - gosec (security scanner)"
+echo "  - gofumpt (formatter)"
+echo "  - goimports (import manager)"
+echo "  - gotestsum (test runner)"
+echo "  - ktn-linter (custom linter)"
 echo ""
 echo "Cache directories:"
 echo "  - GOPATH: $GOPATH"
