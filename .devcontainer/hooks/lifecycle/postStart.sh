@@ -47,6 +47,7 @@ if [ -d "$CLAUDE_DEFAULTS" ]; then
     if [ -d "$CLAUDE_DEFAULTS/agents" ]; then
         mkdir -p "$HOME/.claude/agents"
         cp -r "$CLAUDE_DEFAULTS/agents/"* "$HOME/.claude/agents/" 2>/dev/null || true
+        chmod -R 755 "$HOME/.claude/agents/"
     fi
 
     # Restore settings.json only if it does not exist (user customizations preserved)
