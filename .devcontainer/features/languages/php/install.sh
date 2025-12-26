@@ -72,6 +72,46 @@ echo -e "${GREEN}✓ ${COMPOSER_VERSION} installed${NC}"
 mkdir -p "$COMPOSER_HOME"
 mkdir -p "$COMPOSER_CACHE_DIR"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Install PHP Development Tools (latest versions)
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing PHP development tools...${NC}"
+
+# PHP-CS-Fixer (PSR-12 formatter per RULES.md)
+echo -e "${YELLOW}Installing PHP-CS-Fixer...${NC}"
+composer global require friendsofphp/php-cs-fixer --quiet
+echo -e "${GREEN}✓ PHP-CS-Fixer installed${NC}"
+
+# PHPStan (static analysis level 9 per RULES.md)
+echo -e "${YELLOW}Installing PHPStan...${NC}"
+composer global require phpstan/phpstan --quiet
+echo -e "${GREEN}✓ PHPStan installed${NC}"
+
+# PHPUnit (testing per RULES.md)
+echo -e "${YELLOW}Installing PHPUnit...${NC}"
+composer global require phpunit/phpunit --quiet
+echo -e "${GREEN}✓ PHPUnit installed${NC}"
+
+# Pest (BDD-style testing, optional per RULES.md)
+echo -e "${YELLOW}Installing Pest...${NC}"
+composer global require pestphp/pest --quiet 2>/dev/null || echo -e "${YELLOW}⚠ Pest install skipped (optional)${NC}"
+echo -e "${GREEN}✓ Pest installed${NC}"
+
+# PHP CodeSniffer (PSR compliance checking)
+echo -e "${YELLOW}Installing PHP_CodeSniffer...${NC}"
+composer global require squizlabs/php_codesniffer --quiet
+echo -e "${GREEN}✓ PHP_CodeSniffer installed${NC}"
+
+# Add Composer global bin to PATH
+COMPOSER_BIN="$COMPOSER_HOME/vendor/bin"
+if ! grep -q "COMPOSER_HOME" /home/vscode/.zshrc 2>/dev/null; then
+    echo "" >> /home/vscode/.zshrc
+    echo "# Composer global binaries" >> /home/vscode/.zshrc
+    echo "export PATH=\"\$PATH:$COMPOSER_BIN\"" >> /home/vscode/.zshrc
+fi
+
+echo -e "${GREEN}✓ PHP development tools installed${NC}"
+
 echo ""
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}PHP environment installed successfully!${NC}"
@@ -80,6 +120,13 @@ echo ""
 echo "Installed components:"
 echo "  - ${PHP_INSTALLED}"
 echo "  - ${COMPOSER_VERSION}"
+echo ""
+echo "Development tools:"
+echo "  - PHP-CS-Fixer (formatter)"
+echo "  - PHPStan (static analysis)"
+echo "  - PHPUnit (testing)"
+echo "  - Pest (BDD testing)"
+echo "  - PHP_CodeSniffer (PSR compliance)"
 echo ""
 echo "Cache directories:"
 echo "  - Composer: $COMPOSER_HOME"

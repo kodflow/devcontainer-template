@@ -34,6 +34,49 @@ echo -e "${GREEN}✓ ${CLANG_VERSION} installed${NC}"
 echo -e "${GREEN}✓ ${CMAKE_VERSION} installed${NC}"
 echo -e "${GREEN}✓ ${MAKE_VERSION} installed${NC}"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Install C++ Development Tools (latest versions)
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing C++ development tools...${NC}"
+
+# clang-format (formatter - mandatory per RULES.md)
+echo -e "${YELLOW}Installing clang-format...${NC}"
+sudo apt-get install -y clang-format
+echo -e "${GREEN}✓ clang-format installed${NC}"
+
+# clang-tidy (linter - mandatory per RULES.md)
+echo -e "${YELLOW}Installing clang-tidy...${NC}"
+sudo apt-get install -y clang-tidy
+echo -e "${GREEN}✓ clang-tidy installed${NC}"
+
+# ccache (compilation cache)
+echo -e "${YELLOW}Installing ccache...${NC}"
+sudo apt-get install -y ccache
+echo -e "${GREEN}✓ ccache installed${NC}"
+
+# ninja (fast build system)
+echo -e "${YELLOW}Installing ninja-build...${NC}"
+sudo apt-get install -y ninja-build
+NINJA_VERSION=$(ninja --version)
+echo -e "${GREEN}✓ ninja ${NINJA_VERSION} installed${NC}"
+
+# Google Test (testing framework per RULES.md)
+echo -e "${YELLOW}Installing Google Test...${NC}"
+sudo apt-get install -y libgtest-dev
+echo -e "${GREEN}✓ Google Test installed${NC}"
+
+# cppcheck (static analysis)
+echo -e "${YELLOW}Installing cppcheck...${NC}"
+sudo apt-get install -y cppcheck
+echo -e "${GREEN}✓ cppcheck installed${NC}"
+
+# valgrind (memory checker)
+echo -e "${YELLOW}Installing valgrind...${NC}"
+sudo apt-get install -y valgrind
+echo -e "${GREEN}✓ valgrind installed${NC}"
+
+echo -e "${GREEN}✓ C++ development tools installed${NC}"
+
 echo ""
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}C/C++ environment installed successfully!${NC}"
@@ -45,4 +88,13 @@ echo "  - ${CLANG_VERSION}"
 echo "  - ${CMAKE_VERSION}"
 echo "  - ${MAKE_VERSION}"
 echo "  - gdb (debugger)"
+echo ""
+echo "Development tools:"
+echo "  - clang-format (formatter)"
+echo "  - clang-tidy (linter)"
+echo "  - ccache (compilation cache)"
+echo "  - ninja ${NINJA_VERSION} (build system)"
+echo "  - Google Test (testing)"
+echo "  - cppcheck (static analysis)"
+echo "  - valgrind (memory checker)"
 echo ""

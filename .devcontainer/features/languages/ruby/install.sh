@@ -68,6 +68,37 @@ echo -e "${GREEN}✓ ${BUNDLER_VERSION} installed${NC}"
 mkdir -p "$GEM_HOME"
 mkdir -p "$BUNDLE_PATH"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Install Ruby Development Tools (latest versions)
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing Ruby development tools...${NC}"
+
+# RuboCop (linter/formatter - mandatory per RULES.md)
+echo -e "${YELLOW}Installing RuboCop...${NC}"
+gem install rubocop
+rbenv rehash
+echo -e "${GREEN}✓ RuboCop installed${NC}"
+
+# SimpleCov (coverage - per RULES.md)
+echo -e "${YELLOW}Installing SimpleCov...${NC}"
+gem install simplecov
+rbenv rehash
+echo -e "${GREEN}✓ SimpleCov installed${NC}"
+
+# Solargraph (Language Server)
+echo -e "${YELLOW}Installing Solargraph...${NC}"
+gem install solargraph
+rbenv rehash
+echo -e "${GREEN}✓ Solargraph installed${NC}"
+
+# Ruby LSP (alternative language server)
+echo -e "${YELLOW}Installing Ruby LSP...${NC}"
+gem install ruby-lsp
+rbenv rehash
+echo -e "${GREEN}✓ Ruby LSP installed${NC}"
+
+echo -e "${GREEN}✓ Ruby development tools installed${NC}"
+
 echo ""
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}Ruby environment installed successfully!${NC}"
@@ -78,6 +109,12 @@ echo "  - rbenv (Ruby Version Manager)"
 echo "  - ${RUBY_INSTALLED}"
 echo "  - RubyGems ${GEM_VERSION}"
 echo "  - ${BUNDLER_VERSION}"
+echo ""
+echo "Development tools:"
+echo "  - RuboCop (linter/formatter)"
+echo "  - SimpleCov (coverage)"
+echo "  - Solargraph (language server)"
+echo "  - Ruby LSP (language server)"
 echo ""
 echo "Cache directories:"
 echo "  - rbenv: $RBENV_ROOT"

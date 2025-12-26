@@ -61,6 +61,25 @@ cargo install --locked cargo-watch cargo-nextest cargo-audit cargo-expand cargo-
 }
 echo -e "${GREEN}✓ cargo tools installed${NC}"
 
+# Install additional security and coverage tools
+echo -e "${YELLOW}Installing cargo-deny (dependency checker)...${NC}"
+cargo install --locked cargo-deny 2>/dev/null || {
+    echo -e "${YELLOW}⚠ cargo-deny failed to install${NC}"
+}
+echo -e "${GREEN}✓ cargo-deny installed${NC}"
+
+echo -e "${YELLOW}Installing cargo-tarpaulin (code coverage)...${NC}"
+cargo install --locked cargo-tarpaulin 2>/dev/null || {
+    echo -e "${YELLOW}⚠ cargo-tarpaulin failed to install${NC}"
+}
+echo -e "${GREEN}✓ cargo-tarpaulin installed${NC}"
+
+echo -e "${YELLOW}Installing cargo-edit (dependency management)...${NC}"
+cargo install --locked cargo-edit 2>/dev/null || {
+    echo -e "${YELLOW}⚠ cargo-edit failed to install${NC}"
+}
+echo -e "${GREEN}✓ cargo-edit installed${NC}"
+
 # Install MCP server for rust-analyzer integration
 echo -e "${YELLOW}Installing rust-analyzer-mcp...${NC}"
 cargo install --locked rust-analyzer-mcp 2>/dev/null || {
@@ -89,10 +108,18 @@ echo "Installed components:"
 echo "  - rustup (Rust toolchain manager)"
 echo "  - ${RUST_VERSION}"
 echo "  - ${CARGO_VERSION}"
+echo ""
+echo "Development tools:"
 echo "  - rust-analyzer (LSP)"
 echo "  - clippy (linter)"
 echo "  - rustfmt (formatter)"
-echo "  - cargo-watch, cargo-nextest, cargo-audit, etc."
+echo "  - cargo-watch (auto-rebuild)"
+echo "  - cargo-nextest (test runner)"
+echo "  - cargo-audit (security audit)"
+echo "  - cargo-deny (dependency checker)"
+echo "  - cargo-tarpaulin (code coverage)"
+echo "  - cargo-edit (add/remove deps)"
+echo "  - cargo-expand, cargo-outdated"
 echo "  - rust-analyzer-mcp (MCP server)"
 echo ""
 echo "Cache directories:"
