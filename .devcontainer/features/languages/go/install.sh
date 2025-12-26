@@ -83,44 +83,90 @@ mkdir -p "$GOCACHE"
 mkdir -p "$GOMODCACHE"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Install Go Development Tools (latest versions)
+# Install Go Development Tools (prebuilt binaries from GitHub Releases)
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}Installing Go development tools...${NC}"
 mkdir -p "$HOME/.local/bin"
 
-# Quality & Linting
-echo -e "${YELLOW}Installing golangci-lint...${NC}"
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-echo -e "${GREEN}✓ golangci-lint installed${NC}"
+# Helper function: download from GitHub Releases, fallback to go install
+install_go_tool() {
+    local name=$1
+    local url=$2
+    local go_pkg=$3
+    local extract_type=$4  # "tar.gz", "zip", or "binary"
 
-# Security
-echo -e "${YELLOW}Installing gosec...${NC}"
-go install github.com/securego/gosec/v2/cmd/gosec@latest
-echo -e "${GREEN}✓ gosec installed${NC}"
+    echo -e "${YELLOW}Installing ${name}...${NC}"
 
-# Formatting
-echo -e "${YELLOW}Installing gofumpt...${NC}"
-go install mvdan.cc/gofumpt@latest
-echo -e "${GREEN}✓ gofumpt installed${NC}"
+    local tmp_file="/tmp/${name}-download"
 
-# Import management
+    if curl -fsSL --connect-timeout 10 --max-time 120 "$url" -o "$tmp_file" 2>/dev/null; then
+        case "$extract_type" in
+            tar.gz)
+                tar -xzf "$tmp_file" -C "$GOPATH/bin/" "$name" 2>/dev/null || \
+                tar -xzf "$tmp_file" --wildcards --strip-components=1 -C "$GOPATH/bin/" "*/$name" 2>/dev/null || \
+                tar -xzf "$tmp_file" -C "/tmp/" && mv "/tmp/$name" "$GOPATH/bin/" 2>/dev/null
+                ;;
+            zip)
+                unzip -o "$tmp_file" "$name" -d "$GOPATH/bin/" 2>/dev/null || \
+                unzip -o "$tmp_file" -d "/tmp/${name}-extracted" && mv "/tmp/${name}-extracted/$name" "$GOPATH/bin/" 2>/dev/null
+                ;;
+            binary)
+                mv "$tmp_file" "$GOPATH/bin/$name"
+                ;;
+        esac
+        chmod +x "$GOPATH/bin/$name"
+        rm -f "$tmp_file" "/tmp/${name}-extracted" 2>/dev/null
+        echo -e "${GREEN}✓ ${name} installed (binary)${NC}"
+    elif [ -n "$go_pkg" ]; then
+        echo -e "${YELLOW}  Fallback to go install...${NC}"
+        if go install "${go_pkg}@latest" 2>/dev/null; then
+            echo -e "${GREEN}✓ ${name} installed (compiled)${NC}"
+        else
+            echo -e "${YELLOW}⚠ ${name} failed to install${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠ ${name} download failed${NC}"
+    fi
+}
+
+# Quality & Linting - golangci-lint (prebuilt)
+GOLANGCI_VERSION=$(curl -s https://api.github.com/repos/golangci/golangci-lint/releases/latest | grep -oP '"tag_name": "\K[^"]+' | sed 's/^v//')
+install_go_tool "golangci-lint" \
+    "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_VERSION}/golangci-lint-${GOLANGCI_VERSION}-linux-${GO_ARCH}.tar.gz" \
+    "github.com/golangci/golangci-lint/cmd/golangci-lint" \
+    "tar.gz"
+
+# Security - gosec (prebuilt)
+GOSEC_VERSION=$(curl -s https://api.github.com/repos/securego/gosec/releases/latest | grep -oP '"tag_name": "\K[^"]+' | sed 's/^v//')
+install_go_tool "gosec" \
+    "https://github.com/securego/gosec/releases/download/v${GOSEC_VERSION}/gosec_${GOSEC_VERSION}_linux_${GO_ARCH}.tar.gz" \
+    "github.com/securego/gosec/v2/cmd/gosec" \
+    "tar.gz"
+
+# Formatting - gofumpt (prebuilt binary, no archive)
+GOFUMPT_VERSION=$(curl -s https://api.github.com/repos/mvdan/gofumpt/releases/latest | grep -oP '"tag_name": "\K[^"]+')
+install_go_tool "gofumpt" \
+    "https://github.com/mvdan/gofumpt/releases/download/${GOFUMPT_VERSION}/gofumpt_${GOFUMPT_VERSION}_linux_${GO_ARCH}" \
+    "mvdan.cc/gofumpt" \
+    "binary"
+
+# Testing tools - gotestsum (prebuilt)
+GOTESTSUM_VERSION=$(curl -s https://api.github.com/repos/gotestyourself/gotestsum/releases/latest | grep -oP '"tag_name": "\K[^"]+' | sed 's/^v//')
+install_go_tool "gotestsum" \
+    "https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VERSION}/gotestsum_${GOTESTSUM_VERSION}_linux_${GO_ARCH}.tar.gz" \
+    "gotest.tools/gotestsum" \
+    "tar.gz"
+
+# Import management - goimports (no prebuilt, go install only)
 echo -e "${YELLOW}Installing goimports...${NC}"
 go install golang.org/x/tools/cmd/goimports@latest
 echo -e "${GREEN}✓ goimports installed${NC}"
 
-# Testing tools
-echo -e "${YELLOW}Installing gotestsum...${NC}"
-go install gotest.tools/gotestsum@latest
-echo -e "${GREEN}✓ gotestsum installed${NC}"
-
-# Optional: ktn-linter
-KTN_URL="https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}"
-if curl -fsSL --connect-timeout 10 --max-time 60 "$KTN_URL" -o "$HOME/.local/bin/ktn-linter" 2>/dev/null; then
-    chmod +x "$HOME/.local/bin/ktn-linter"
-    echo -e "${GREEN}✓ ktn-linter installed${NC}"
-else
-    echo -e "${YELLOW}⚠ ktn-linter download failed (optional)${NC}"
-fi
+# Optional: ktn-linter (prebuilt)
+install_go_tool "ktn-linter" \
+    "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}" \
+    "" \
+    "binary"
 
 echo ""
 echo -e "${GREEN}=========================================${NC}"

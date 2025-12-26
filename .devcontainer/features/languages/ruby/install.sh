@@ -12,55 +12,95 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Environment variables
-export RBENV_ROOT="${RBENV_ROOT:-$HOME/.cache/rbenv}"
 export RUBY_VERSION="${RUBY_VERSION:-3.3}"
 export GEM_HOME="${GEM_HOME:-$HOME/.cache/gems}"
 export BUNDLE_PATH="${BUNDLE_PATH:-$HOME/.cache/bundle}"
+export RBENV_ROOT="${RBENV_ROOT:-$HOME/.cache/rbenv}"
 
-# Install dependencies
+# Install base dependencies
 echo -e "${YELLOW}Installing dependencies...${NC}"
 sudo apt-get update && sudo apt-get install -y \
+    software-properties-common \
     curl \
-    git \
-    build-essential \
-    libssl-dev \
-    libreadline-dev \
-    zlib1g-dev \
-    autoconf \
-    bison \
-    libyaml-dev \
-    libncurses5-dev \
-    libffi-dev \
-    libgdbm-dev
+    git
 
-# Install rbenv (Ruby Version Manager)
-echo -e "${YELLOW}Installing rbenv...${NC}"
-git clone https://github.com/rbenv/rbenv.git "$RBENV_ROOT"
-git clone https://github.com/rbenv/ruby-build.git "$RBENV_ROOT/plugins/ruby-build"
+# ─────────────────────────────────────────────────────────────────────────────
+# Install Ruby (prefer prebuilt from Brightbox PPA, fallback to rbenv compile)
+# ─────────────────────────────────────────────────────────────────────────────
+RUBY_INSTALLED=""
 
-# Setup rbenv
-export PATH="$RBENV_ROOT/bin:$PATH"
-eval "$(rbenv init -)"
+# Strategy 1: Brightbox PPA (prebuilt, fast ~10s)
+install_ruby_brightbox() {
+    echo -e "${YELLOW}Trying Brightbox PPA (prebuilt)...${NC}"
 
-# Install Ruby (latest stable of specified major.minor)
-echo -e "${YELLOW}Installing Ruby ${RUBY_VERSION}...${NC}"
-LATEST_RUBY=$(rbenv install --list | grep -E "^\s*${RUBY_VERSION}\.[0-9]+$" | tail -1 | xargs)
-rbenv install "$LATEST_RUBY"
-rbenv global "$LATEST_RUBY"
+    # Add Brightbox PPA
+    if sudo add-apt-repository -y ppa:brightbox/ruby-ng 2>/dev/null; then
+        sudo apt-get update
 
-RUBY_INSTALLED=$(ruby --version)
-echo -e "${GREEN}✓ ${RUBY_INSTALLED} installed${NC}"
+        # Ruby version format: 3.3 -> ruby3.3
+        local APT_RUBY_PKG="ruby${RUBY_VERSION}"
+        local APT_RUBY_DEV="ruby${RUBY_VERSION}-dev"
+
+        if sudo apt-get install -y "$APT_RUBY_PKG" "$APT_RUBY_DEV" 2>/dev/null; then
+            RUBY_INSTALLED=$(ruby --version)
+            echo -e "${GREEN}✓ ${RUBY_INSTALLED} installed (prebuilt)${NC}"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+# Strategy 2: rbenv (compile from source, slow ~8-15min)
+install_ruby_rbenv() {
+    echo -e "${YELLOW}Fallback to rbenv (compile from source)...${NC}"
+
+    # Install rbenv build dependencies
+    sudo apt-get install -y \
+        build-essential \
+        libssl-dev \
+        libreadline-dev \
+        zlib1g-dev \
+        autoconf \
+        bison \
+        libyaml-dev \
+        libncurses5-dev \
+        libffi-dev \
+        libgdbm-dev
+
+    # Install rbenv
+    git clone https://github.com/rbenv/rbenv.git "$RBENV_ROOT"
+    git clone https://github.com/rbenv/ruby-build.git "$RBENV_ROOT/plugins/ruby-build"
+
+    # Setup rbenv
+    export PATH="$RBENV_ROOT/bin:$PATH"
+    eval "$(rbenv init -)"
+
+    # Install Ruby (latest stable of specified major.minor)
+    LATEST_RUBY=$(rbenv install --list | grep -E "^\s*${RUBY_VERSION}\.[0-9]+$" | tail -1 | xargs)
+    rbenv install "$LATEST_RUBY"
+    rbenv global "$LATEST_RUBY"
+
+    RUBY_INSTALLED=$(ruby --version)
+    echo -e "${GREEN}✓ ${RUBY_INSTALLED} installed (compiled)${NC}"
+    return 0
+}
+
+# Try prebuilt first, fallback to compile
+if ! install_ruby_brightbox; then
+    install_ruby_rbenv
+fi
 
 # Update RubyGems
 echo -e "${YELLOW}Updating RubyGems...${NC}"
-gem update --system
+gem update --system 2>/dev/null || sudo gem update --system 2>/dev/null || true
 GEM_VERSION=$(gem --version)
 echo -e "${GREEN}✓ RubyGems ${GEM_VERSION} installed${NC}"
 
 # Install Bundler
 echo -e "${YELLOW}Installing Bundler...${NC}"
-gem install bundler
-rbenv rehash
+gem install bundler 2>/dev/null || sudo gem install bundler 2>/dev/null
+if [ -d "$RBENV_ROOT" ]; then rbenv rehash 2>/dev/null || true; fi
 BUNDLER_VERSION=$(bundler --version)
 echo -e "${GREEN}✓ ${BUNDLER_VERSION} installed${NC}"
 
@@ -73,31 +113,49 @@ mkdir -p "$BUNDLE_PATH"
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}Installing Ruby development tools...${NC}"
 
+# Helper for gem install
+install_gem() {
+    local name=$1
+    echo -e "${YELLOW}Installing ${name}...${NC}"
+    if gem install "$name" 2>/dev/null || sudo gem install "$name" 2>/dev/null; then
+        if [ -d "$RBENV_ROOT" ]; then rbenv rehash 2>/dev/null || true; fi
+        echo -e "${GREEN}✓ ${name} installed${NC}"
+    else
+        echo -e "${YELLOW}⚠ ${name} failed to install${NC}"
+    fi
+}
+
 # RuboCop (linter/formatter - mandatory per RULES.md)
-echo -e "${YELLOW}Installing RuboCop...${NC}"
-gem install rubocop
-rbenv rehash
-echo -e "${GREEN}✓ RuboCop installed${NC}"
+install_gem rubocop
 
 # SimpleCov (coverage - per RULES.md)
-echo -e "${YELLOW}Installing SimpleCov...${NC}"
-gem install simplecov
-rbenv rehash
-echo -e "${GREEN}✓ SimpleCov installed${NC}"
+install_gem simplecov
 
 # Solargraph (Language Server)
-echo -e "${YELLOW}Installing Solargraph...${NC}"
-gem install solargraph
-rbenv rehash
-echo -e "${GREEN}✓ Solargraph installed${NC}"
+install_gem solargraph
 
 # Ruby LSP (alternative language server)
-echo -e "${YELLOW}Installing Ruby LSP...${NC}"
-gem install ruby-lsp
-rbenv rehash
-echo -e "${GREEN}✓ Ruby LSP installed${NC}"
+install_gem ruby-lsp
 
 echo -e "${GREEN}✓ Ruby development tools installed${NC}"
+
+# Setup shell integration for rbenv (if installed)
+if [ -d "$RBENV_ROOT" ]; then
+    # shellcheck disable=SC2016 # Intentional: $HOME must expand at runtime, not install time
+    RBENV_INIT='export RBENV_ROOT="$HOME/.cache/rbenv"
+export PATH="$RBENV_ROOT/bin:$PATH"
+eval "$(rbenv init -)"'
+
+    for rc_file in "$HOME/.bashrc" "$HOME/.zshrc"; do
+        if [ -f "$rc_file" ] && ! grep -q "rbenv init" "$rc_file"; then
+            {
+                echo ""
+                echo "# Rbenv initialization"
+                echo "$RBENV_INIT"
+            } >> "$rc_file"
+        fi
+    done
+fi
 
 echo ""
 echo -e "${GREEN}=========================================${NC}"
@@ -105,7 +163,6 @@ echo -e "${GREEN}Ruby environment installed successfully!${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "Installed components:"
-echo "  - rbenv (Ruby Version Manager)"
 echo "  - ${RUBY_INSTALLED}"
 echo "  - RubyGems ${GEM_VERSION}"
 echo "  - ${BUNDLER_VERSION}"
@@ -117,7 +174,6 @@ echo "  - Solargraph (language server)"
 echo "  - Ruby LSP (language server)"
 echo ""
 echo "Cache directories:"
-echo "  - rbenv: $RBENV_ROOT"
 echo "  - gems: $GEM_HOME"
 echo "  - bundler: $BUNDLE_PATH"
 echo ""

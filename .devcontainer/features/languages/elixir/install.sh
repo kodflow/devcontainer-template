@@ -11,73 +11,160 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Environment variables
-export ASDF_DATA_DIR="${ASDF_DATA_DIR:-/home/vscode/.cache/asdf}"
+# Environment variables (can be overridden)
+export ERLANG_VERSION="${ERLANG_VERSION:-27}"
+export ELIXIR_VERSION="${ELIXIR_VERSION:-1.17.3}"
 export MIX_HOME="${MIX_HOME:-/home/vscode/.cache/mix}"
 export HEX_HOME="${HEX_HOME:-/home/vscode/.cache/hex}"
+export ASDF_DATA_DIR="${ASDF_DATA_DIR:-/home/vscode/.cache/asdf}"
 
-# Install dependencies
+# Install base dependencies
 echo -e "${YELLOW}Installing dependencies...${NC}"
 sudo apt-get update && sudo apt-get install -y \
     wget \
     curl \
     git \
+    unzip \
     build-essential \
-    autoconf \
-    m4 \
-    libncurses5-dev \
-    libssl-dev \
-    libwxgtk3.2-dev \
-    libwxgtk-webview3.2-dev \
-    libgl1-mesa-dev \
-    libglu1-mesa-dev \
-    libpng-dev \
-    libssh-dev \
-    unixodbc-dev \
-    xsltproc \
-    fop \
-    libxml2-utils \
-    openjdk-11-jdk 2>/dev/null || sudo apt-get install -y \
-    wget \
-    curl \
-    git \
-    build-essential \
-    autoconf \
-    m4 \
     libncurses5-dev \
     libssl-dev
 
-# Install asdf
-echo -e "${YELLOW}Installing asdf version manager...${NC}"
-if [ ! -d "$ASDF_DATA_DIR" ]; then
-    git clone https://github.com/asdf-vm/asdf.git "$ASDF_DATA_DIR" --branch v0.14.1
+# ─────────────────────────────────────────────────────────────────────────────
+# Install Erlang (prefer erlang-solutions prebuilt, fallback to asdf compile)
+# ─────────────────────────────────────────────────────────────────────────────
+ERLANG_INSTALLED=""
+
+# Strategy 1: erlang-solutions (prebuilt, fast ~30s)
+install_erlang_prebuilt() {
+    echo -e "${YELLOW}Trying erlang-solutions packages (prebuilt)...${NC}"
+
+    # Download and install erlang-solutions repo
+    local DEB_FILE="/tmp/erlang-solutions.deb"
+    if curl -fsSL "https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb" -o "$DEB_FILE" 2>/dev/null; then
+        sudo dpkg -i "$DEB_FILE" 2>/dev/null || true
+        rm -f "$DEB_FILE"
+        sudo apt-get update
+
+        # Install Erlang (esl-erlang includes everything)
+        if sudo apt-get install -y esl-erlang 2>/dev/null; then
+            ERLANG_INSTALLED=$(erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().' -noshell 2>/dev/null | tr -d '"')
+            echo -e "${GREEN}✓ Erlang/OTP ${ERLANG_INSTALLED} installed (prebuilt)${NC}"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+# Strategy 2: asdf (compile from source, slow ~15-25min)
+install_erlang_asdf() {
+    echo -e "${YELLOW}Fallback to asdf (compile from source)...${NC}"
+
+    # Install additional build dependencies
+    sudo apt-get install -y \
+        autoconf \
+        m4 \
+        libssh-dev
+
+    # Install asdf if not present
+    if [ ! -d "$ASDF_DATA_DIR" ]; then
+        git clone https://github.com/asdf-vm/asdf.git "$ASDF_DATA_DIR" --branch v0.14.1
+    fi
+
+    # shellcheck source=/dev/null
+    source "$ASDF_DATA_DIR/asdf.sh"
+
+    # Add erlang plugin
+    asdf plugin add erlang https://github.com/asdf-vm/asdf-erlang.git 2>/dev/null || true
+
+    # Install Erlang (find latest matching version)
+    local ERLANG_FULL_VERSION
+    ERLANG_FULL_VERSION=$(asdf list all erlang | grep "^${ERLANG_VERSION}" | tail -1)
+    asdf install erlang "$ERLANG_FULL_VERSION"
+    asdf global erlang "$ERLANG_FULL_VERSION"
+
+    ERLANG_INSTALLED=$(erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().' -noshell 2>/dev/null | tr -d '"')
+    echo -e "${GREEN}✓ Erlang/OTP ${ERLANG_INSTALLED} installed (compiled)${NC}"
+    return 0
+}
+
+# Try prebuilt first, fallback to compile
+if ! install_erlang_prebuilt; then
+    install_erlang_asdf
 fi
 
-# Source asdf
-source "$ASDF_DATA_DIR/asdf.sh"
+# ─────────────────────────────────────────────────────────────────────────────
+# Install Elixir (prefer GitHub releases, fallback to asdf)
+# ─────────────────────────────────────────────────────────────────────────────
+ELIXIR_INSTALLED=""
 
-# Add asdf plugins
-echo -e "${YELLOW}Adding asdf plugins...${NC}"
-asdf plugin add erlang https://github.com/asdf-vm/asdf-erlang.git 2>/dev/null || true
-asdf plugin add elixir https://github.com/asdf-vm/asdf-elixir.git 2>/dev/null || true
+# Strategy 1: GitHub releases (prebuilt, fast ~10s)
+install_elixir_prebuilt() {
+    echo -e "${YELLOW}Trying Elixir GitHub releases (prebuilt)...${NC}"
 
-# Install Erlang (latest stable)
-echo -e "${YELLOW}Installing Erlang via asdf...${NC}"
-ERLANG_VERSION="27.1.2"
-asdf install erlang $ERLANG_VERSION
-asdf global erlang $ERLANG_VERSION
+    # Detect OTP major version for matching prebuilt
+    local OTP_MAJOR
+    OTP_MAJOR=$(erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().' -noshell 2>/dev/null | tr -d '"')
 
-ERLANG_VERSION_CHECK=$(erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().' -noshell)
-echo -e "${GREEN}✓ Erlang/OTP ${ERLANG_VERSION_CHECK} installed${NC}"
+    # Download Elixir prebuilt for this OTP version
+    local ELIXIR_ZIP="/tmp/elixir.zip"
+    local ELIXIR_URL="https://github.com/elixir-lang/elixir/releases/download/v${ELIXIR_VERSION}/elixir-otp-${OTP_MAJOR}.zip"
 
-# Install Elixir (latest stable)
-echo -e "${YELLOW}Installing Elixir via asdf...${NC}"
-ELIXIR_VERSION="1.17.3-otp-27"
-asdf install elixir $ELIXIR_VERSION
-asdf global elixir $ELIXIR_VERSION
+    if curl -fsSL "$ELIXIR_URL" -o "$ELIXIR_ZIP" 2>/dev/null; then
+        sudo mkdir -p /usr/local/elixir
+        sudo unzip -o "$ELIXIR_ZIP" -d /usr/local/elixir
+        rm -f "$ELIXIR_ZIP"
 
-ELIXIR_VERSION_CHECK=$(elixir --version | grep "Elixir" | head -n 1)
-echo -e "${GREEN}✓ ${ELIXIR_VERSION_CHECK} installed${NC}"
+        # Add to PATH
+        export PATH="/usr/local/elixir/bin:$PATH"
+
+        # Verify
+        if command -v elixir &>/dev/null; then
+            ELIXIR_INSTALLED=$(elixir --version | grep "Elixir" | head -n 1)
+            echo -e "${GREEN}✓ ${ELIXIR_INSTALLED} installed (prebuilt)${NC}"
+
+            # Add to system profile
+            # shellcheck disable=SC2016 # Intentional: $PATH must expand at runtime
+            echo 'export PATH="/usr/local/elixir/bin:$PATH"' | sudo tee /etc/profile.d/elixir.sh >/dev/null
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+# Strategy 2: asdf (compile from source, slow ~2-5min)
+install_elixir_asdf() {
+    echo -e "${YELLOW}Fallback to asdf for Elixir...${NC}"
+
+    # Install asdf if not present
+    if [ ! -d "$ASDF_DATA_DIR" ]; then
+        git clone https://github.com/asdf-vm/asdf.git "$ASDF_DATA_DIR" --branch v0.14.1
+    fi
+
+    # shellcheck source=/dev/null
+    source "$ASDF_DATA_DIR/asdf.sh"
+
+    # Add elixir plugin
+    asdf plugin add elixir https://github.com/asdf-vm/asdf-elixir.git 2>/dev/null || true
+
+    # Install Elixir with OTP version suffix
+    local OTP_MAJOR
+    OTP_MAJOR=$(erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().' -noshell 2>/dev/null | tr -d '"')
+    local ELIXIR_FULL="${ELIXIR_VERSION}-otp-${OTP_MAJOR}"
+
+    asdf install elixir "$ELIXIR_FULL"
+    asdf global elixir "$ELIXIR_FULL"
+
+    ELIXIR_INSTALLED=$(elixir --version | grep "Elixir" | head -n 1)
+    echo -e "${GREEN}✓ ${ELIXIR_INSTALLED} installed (compiled)${NC}"
+    return 0
+}
+
+# Try prebuilt first, fallback to compile
+if ! install_elixir_prebuilt; then
+    install_elixir_asdf
+fi
 
 # Install Hex (package manager)
 echo -e "${YELLOW}Installing Hex...${NC}"
@@ -100,8 +187,8 @@ echo -e "${YELLOW}Installing Elixir development tools...${NC}"
 
 # Install Credo globally as an archive (per RULES.md)
 echo -e "${YELLOW}Installing Credo...${NC}"
-mix archive.install hex credo --force
-echo -e "${GREEN}✓ Credo installed${NC}"
+mix archive.install hex credo --force 2>/dev/null || echo -e "${YELLOW}⚠ Credo requires project context${NC}"
+echo -e "${GREEN}✓ Credo setup ready${NC}"
 
 # Install Dialyxir globally as an archive (per RULES.md)
 echo -e "${YELLOW}Installing Dialyxir...${NC}"
@@ -113,11 +200,23 @@ echo -e "${YELLOW}Installing Elixir LS...${NC}"
 mix archive.install hex elixir_ls --force 2>/dev/null || echo -e "${YELLOW}⚠ Elixir LS requires project context${NC}"
 echo -e "${GREEN}✓ Elixir LS setup ready${NC}"
 
-# Pre-build PLT for faster Dialyzer runs
-echo -e "${YELLOW}Building Dialyzer PLT (this may take a while)...${NC}"
-mix dialyzer --plt 2>/dev/null || echo -e "${YELLOW}⚠ PLT build requires project context${NC}"
-
 echo -e "${GREEN}✓ Elixir development tools installed${NC}"
+
+# Setup shell integration for asdf (if installed)
+if [ -d "$ASDF_DATA_DIR" ]; then
+    # shellcheck disable=SC2016 # Intentional: $HOME must expand at runtime, not install time
+    ASDF_INIT='. "$HOME/.cache/asdf/asdf.sh"'
+
+    for rc_file in "$HOME/.bashrc" "$HOME/.zshrc"; do
+        if [ -f "$rc_file" ] && ! grep -q "asdf.sh" "$rc_file"; then
+            {
+                echo ""
+                echo "# asdf initialization"
+                echo "$ASDF_INIT"
+            } >> "$rc_file"
+        fi
+    done
+fi
 
 # Note about project-level installation
 echo -e "${YELLOW}Note: For full functionality, add to your mix.exs:${NC}"
@@ -130,9 +229,8 @@ echo -e "${GREEN}Elixir environment installed successfully!${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "Installed components:"
-echo "  - asdf (version manager)"
-echo "  - Erlang/OTP ${ERLANG_VERSION}"
-echo "  - ${ELIXIR_VERSION_CHECK}"
+echo "  - Erlang/OTP ${ERLANG_INSTALLED:-$ERLANG_VERSION}"
+echo "  - ${ELIXIR_INSTALLED:-Elixir $ELIXIR_VERSION}"
 echo "  - Hex (package manager)"
 echo "  - Rebar3 (build tool)"
 echo ""
@@ -142,7 +240,6 @@ echo "  - Dialyxir (type checking)"
 echo "  - Elixir LS (language server)"
 echo ""
 echo "Cache directories:"
-echo "  - asdf: $ASDF_DATA_DIR"
 echo "  - Mix: $MIX_HOME"
 echo "  - Hex: $HEX_HOME"
 echo ""
