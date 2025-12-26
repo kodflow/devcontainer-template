@@ -36,6 +36,27 @@ export PATH="$CARGO_HOME/bin:$PATH"
 # Source cargo env
 source "$CARGO_HOME/env"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Install cargo-binstall (for fast prebuilt binary downloads)
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing cargo-binstall...${NC}"
+curl -L --proto '=https' --tlsv1.2 -sSf \
+    https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+echo -e "${GREEN}✓ cargo-binstall installed${NC}"
+
+# Helper function: try binstall first (fast), fallback to cargo install (slow)
+install_cargo_tool() {
+    local tool=$1
+    echo -e "${YELLOW}Installing ${tool}...${NC}"
+    if cargo binstall --no-confirm --locked "$tool" 2>/dev/null; then
+        echo -e "${GREEN}✓ ${tool} installed (binary)${NC}"
+    elif cargo install --locked "$tool" 2>/dev/null; then
+        echo -e "${GREEN}✓ ${tool} installed (compiled)${NC}"
+    else
+        echo -e "${YELLOW}⚠ ${tool} failed to install${NC}"
+    fi
+}
+
 RUST_VERSION=$(rustc --version)
 CARGO_VERSION=$(cargo --version)
 echo -e "${GREEN}✓ ${RUST_VERSION} installed${NC}"
@@ -54,38 +75,31 @@ echo -e "${GREEN}✓ rust-analyzer installed${NC}"
 echo -e "${GREEN}✓ clippy installed${NC}"
 echo -e "${GREEN}✓ rustfmt installed${NC}"
 
-# Install essential cargo tools
-echo -e "${YELLOW}Installing cargo tools...${NC}"
-cargo install --locked cargo-watch cargo-nextest cargo-audit cargo-expand cargo-outdated 2>/dev/null || {
-    echo -e "${YELLOW}⚠ Some cargo tools failed to install (may require manual installation)${NC}"
-}
-echo -e "${GREEN}✓ cargo tools installed${NC}"
+# ─────────────────────────────────────────────────────────────────────────────
+# Install Rust Development Tools (via binstall - prebuilt binaries)
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing Rust development tools...${NC}"
 
-# Install additional security and coverage tools
-echo -e "${YELLOW}Installing cargo-deny (dependency checker)...${NC}"
-cargo install --locked cargo-deny 2>/dev/null || {
-    echo -e "${YELLOW}⚠ cargo-deny failed to install${NC}"
-}
-echo -e "${GREEN}✓ cargo-deny installed${NC}"
+# List of cargo tools to install (binstall downloads prebuilt binaries when available)
+CARGO_TOOLS=(
+    "cargo-watch"       # Auto-rebuild on file changes
+    "cargo-nextest"     # Fast test runner
+    "cargo-audit"       # Security vulnerability scanner
+    "cargo-expand"      # Macro expansion viewer
+    "cargo-outdated"    # Dependency update checker
+    "cargo-deny"        # Dependency security checker
+    "cargo-tarpaulin"   # Code coverage tool
+    "cargo-edit"        # Dependency management (add/remove)
+)
 
-echo -e "${YELLOW}Installing cargo-tarpaulin (code coverage)...${NC}"
-cargo install --locked cargo-tarpaulin 2>/dev/null || {
-    echo -e "${YELLOW}⚠ cargo-tarpaulin failed to install${NC}"
-}
-echo -e "${GREEN}✓ cargo-tarpaulin installed${NC}"
+for tool in "${CARGO_TOOLS[@]}"; do
+    install_cargo_tool "$tool"
+done
 
-echo -e "${YELLOW}Installing cargo-edit (dependency management)...${NC}"
-cargo install --locked cargo-edit 2>/dev/null || {
-    echo -e "${YELLOW}⚠ cargo-edit failed to install${NC}"
-}
-echo -e "${GREEN}✓ cargo-edit installed${NC}"
+# MCP server (may not have prebuilt binaries)
+install_cargo_tool "rust-analyzer-mcp"
 
-# Install MCP server for rust-analyzer integration
-echo -e "${YELLOW}Installing rust-analyzer-mcp...${NC}"
-cargo install --locked rust-analyzer-mcp 2>/dev/null || {
-    echo -e "${YELLOW}⚠ rust-analyzer-mcp failed to install (MCP integration unavailable)${NC}"
-}
-echo -e "${GREEN}✓ rust-analyzer-mcp installed${NC}"
+echo -e "${GREEN}✓ Rust development tools installed${NC}"
 
 # Setup shell integration
 echo -e "${YELLOW}Configuring shell integration...${NC}"
@@ -110,6 +124,7 @@ echo "  - ${RUST_VERSION}"
 echo "  - ${CARGO_VERSION}"
 echo ""
 echo "Development tools:"
+echo "  - cargo-binstall (fast binary installer)"
 echo "  - rust-analyzer (LSP)"
 echo "  - clippy (linter)"
 echo "  - rustfmt (formatter)"

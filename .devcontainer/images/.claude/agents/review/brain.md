@@ -423,7 +423,6 @@ integration:
   locations:
     agents: ".claude/agents/review/agents/"
     skills: ".claude/agents/review/skills/"
-    drones: ".claude/agents/review/drones/"  # Fallback (deprecated)
 
   output_targets:
     - "Console (default)"
@@ -432,6 +431,5 @@ integration:
     - "SARIF (if --format sarif)"
 
   fallback_strategy:
-    if_agent_missing: "Use corresponding drone from drones/"
     if_skill_missing: "Use generic analysis without language-specific rules"
 ```
