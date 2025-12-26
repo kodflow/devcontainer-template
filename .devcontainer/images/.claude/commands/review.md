@@ -18,6 +18,28 @@ Agent de code review IA avec architecture multi-agents "The Hive" :
 - **--copilot** : Déclenche une full review GitHub Copilot sur la PR
 - **--codacy** : Déclenche une analyse Codacy locale
 
+**Agents disponibles :**
+```
+.claude/agents/review/
+├── brain.md           # Orchestrateur principal
+├── config.yaml        # Configuration des drones
+└── drones/
+    ├── python.md      # Ruff, Bandit, mypy
+    ├── javascript.md  # ESLint, Biome, Semgrep
+    ├── go.md          # golangci-lint, gosec
+    ├── rust.md        # Clippy, cargo-audit
+    ├── java.md        # PMD, SpotBugs, detekt
+    ├── csharp.md      # SonarC#, Roslynator
+    ├── php.md         # PHPStan, Psalm
+    ├── ruby.md        # RuboCop, Brakeman
+    ├── iac.md         # Checkov, Hadolint, Trivy
+    ├── style.md       # Stylelint
+    ├── sql.md         # SQLFluff, graphql-eslint
+    ├── shell.md       # ShellCheck
+    ├── markup.md      # markdownlint, HTMLHint
+    └── config.md      # jsonlint, yamllint, gitleaks
+```
+
 ---
 
 ## Arguments
@@ -339,25 +361,54 @@ L'agent détecte automatiquement le mode d'analyse optimal.
 
 ### Workflow de détection
 
+**IMPORTANT** : Utiliser MCP GitHub en priorité (pas `gh` CLI qui nécessite auth séparée).
+
+```yaml
+detection_workflow:
+  1_branch:
+    command: "git branch --show-current"
+    fallback: "git rev-parse --abbrev-ref HEAD"
+
+  2_remote:
+    command: "git remote -v"
+    extract: "owner/repo from origin URL"
+
+  3_pr_detection:
+    priority: MCP
+    method: |
+      # Via MCP GitHub (PRIORITAIRE)
+      mcp__github__list_pull_requests({
+        owner: "<org>",
+        repo: "<repo>",
+        state: "open",
+        head: "<org>:<branch>"
+      })
+    fallback: |
+      # Via gh CLI (si MCP indisponible)
+      gh pr view --json number,url,title 2>/dev/null
+
+  4_files:
+    if_pr: |
+      mcp__github__get_pull_request_files({
+        owner: "<org>",
+        repo: "<repo>",
+        pull_number: <number>
+      })
+    else: |
+      git diff --name-only "origin/$MAIN_BRANCH"...HEAD
+
+  5_diff:
+    command: "git diff origin/$MAIN_BRANCH...HEAD"
+```
+
+**Extraction owner/repo depuis git remote :**
 ```bash
-# 1. Détecter la branche
-CURRENT_BRANCH=$(git branch --show-current)
-MAIN_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
-
-# 2. Détecter la PR associée
-PR_INFO=$(gh pr view --json number,url,title 2>/dev/null)
-
-# 3. Lister les fichiers modifiés
-if [[ -n "$PR_INFO" ]]; then
-    # Mode PR
-    FILES=$(gh pr view --json files -q '.files[].path')
-else
-    # Mode Diff
-    FILES=$(git diff --name-only "origin/$MAIN_BRANCH"...HEAD)
-fi
-
-# 4. Générer le diff complet
-DIFF=$(git diff "origin/$MAIN_BRANCH"...HEAD)
+# Patterns supportés
+# SSH: git@github.com:owner/repo.git
+# HTTPS: https://github.com/owner/repo.git
+REMOTE_URL=$(git remote get-url origin)
+OWNER=$(echo "$REMOTE_URL" | sed -E 's|.*[:/]([^/]+)/[^/]+\.git$|\1|')
+REPO=$(echo "$REMOTE_URL" | sed -E 's|.*/([^/]+)\.git$|\1|')
 ```
 
 ### Stratégie d'analyse par mode
@@ -852,12 +903,23 @@ Déclenche une review CodeRabbit sur la PR GitHub courante.
 
 **Comportement :**
 
-```bash
-# 1. Vérifier qu'une PR existe
-PR_NUMBER=$(gh pr view --json number -q '.number')
+```yaml
+coderabbit_workflow:
+  1_detect_pr:
+    # Utiliser le workflow de détection (section précédente)
+    # Récupère owner, repo, branch, pr_number
 
-# 2. Déclencher CodeRabbit
-gh pr comment "$PR_NUMBER" --body "@coderabbitai full review"
+  2_trigger:
+    priority: MCP
+    method: |
+      mcp__github__add_issue_comment({
+        owner: "<owner>",
+        repo: "<repo>",
+        issue_number: <pr_number>,
+        body: "@coderabbitai full review"
+      })
+    fallback: |
+      gh pr comment <pr_number> --body "@coderabbitai full review"
 ```
 
 **Output :**
@@ -888,12 +950,23 @@ Déclenche une review GitHub Copilot sur la PR.
 
 **Comportement :**
 
-```bash
-# 1. Vérifier qu'une PR existe
-PR_NUMBER=$(gh pr view --json number -q '.number')
+```yaml
+copilot_workflow:
+  1_detect_pr:
+    # Utiliser le workflow de détection (section précédente)
+    # Récupère owner, repo, branch, pr_number
 
-# 2. Demander review Copilot (si disponible)
-gh pr review "$PR_NUMBER" --request-review "github-copilot[bot]"
+  2_trigger:
+    priority: MCP
+    method: |
+      mcp__github__add_issue_comment({
+        owner: "<owner>",
+        repo: "<repo>",
+        issue_number: <pr_number>,
+        body: "@copilot review"
+      })
+    fallback: |
+      gh pr review <pr_number> --request-review "github-copilot[bot]"
 ```
 
 **Note :** GitHub Copilot Code Review est en beta et nécessite l'activation par l'organisation.
