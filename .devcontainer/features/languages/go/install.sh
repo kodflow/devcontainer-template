@@ -167,7 +167,7 @@ install_go_tool "gofumpt" \
     "binary"
 
 # Testing tools - gotestsum (prebuilt)
-GOTESTSUM_VERSION=$(get_github_version "gotestyourself/gotestsum" "1.12.0")
+GOTESTSUM_VERSION=$(get_github_version "gotestyourself/gotestsum" "1.13.0")
 install_go_tool "gotestsum" \
     "https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VERSION}/gotestsum_${GOTESTSUM_VERSION}_linux_${GO_ARCH}.tar.gz" \
     "gotest.tools/gotestsum" \

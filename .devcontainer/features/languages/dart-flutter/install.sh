@@ -103,7 +103,7 @@ echo -e "${GREEN}✓ dart format available${NC}"
 # Add pub global bin to PATH (both .bashrc and .zshrc for consistency)
 PUB_BIN="$PUB_CACHE/bin"
 for rc_file in /home/vscode/.bashrc /home/vscode/.zshrc; do
-    if [ -f "$rc_file" ] && ! grep -q "PUB_CACHE" "$rc_file" 2>/dev/null; then
+    if [ -f "$rc_file" ] && ! grep -q "Dart pub global binaries" "$rc_file" 2>/dev/null; then
         echo "" >> "$rc_file"
         echo "# Dart pub global binaries" >> "$rc_file"
         echo "export PATH=\"\$PATH:$PUB_BIN\"" >> "$rc_file"
