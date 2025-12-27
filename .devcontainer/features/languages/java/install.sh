@@ -131,12 +131,11 @@ fi
 # Download Checkstyle with checksum verification
 # Note: Checkstyle is distributed via Maven Central, GitHub releases redirect there
 echo -e "${YELLOW}Installing Checkstyle...${NC}"
-CHECKSTYLE_VERSION="10.20.1"
+CHECKSTYLE_VERSION="10.21.2"
 CHECKSTYLE_JAR="/home/vscode/.local/share/java/checkstyle.jar"
-# Download from Maven Central (official distribution)
-# Note: No -all.jar variant exists for 10.20.1, using standard jar
+# Download from GitHub releases (official -all.jar with all dependencies)
 CHECKSTYLE_SHA256=""
-curl -fsSL "https://repo1.maven.org/maven2/com/puppycrawl/tools/checkstyle/${CHECKSTYLE_VERSION}/checkstyle-${CHECKSTYLE_VERSION}-all.jar" \
+curl -fsSL "https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CHECKSTYLE_VERSION}/checkstyle-${CHECKSTYLE_VERSION}-all.jar" \
     -o "$CHECKSTYLE_JAR"
 if [ -f "$CHECKSTYLE_JAR" ]; then
     if [ -n "$CHECKSTYLE_SHA256" ]; then

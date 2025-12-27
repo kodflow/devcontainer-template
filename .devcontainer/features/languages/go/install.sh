@@ -143,21 +143,22 @@ get_github_version() {
 }
 
 # Quality & Linting - golangci-lint (prebuilt)
-GOLANGCI_VERSION=$(get_github_version "golangci/golangci-lint" "1.62.2")
+# Fallback 1.63.4 fixes CVE-2024-45337 (golang.org/x/crypto) and CVE-2024-45338 (golang.org/x/net)
+GOLANGCI_VERSION=$(get_github_version "golangci/golangci-lint" "1.63.4")
 install_go_tool "golangci-lint" \
     "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_VERSION}/golangci-lint-${GOLANGCI_VERSION}-linux-${GO_ARCH}.tar.gz" \
     "github.com/golangci/golangci-lint/cmd/golangci-lint" \
     "tar.gz"
 
 # Security - gosec (prebuilt)
-GOSEC_VERSION=$(get_github_version "securego/gosec" "2.21.4")
+GOSEC_VERSION=$(get_github_version "securego/gosec" "2.22.0")
 install_go_tool "gosec" \
     "https://github.com/securego/gosec/releases/download/v${GOSEC_VERSION}/gosec_${GOSEC_VERSION}_linux_${GO_ARCH}.tar.gz" \
     "github.com/securego/gosec/v2/cmd/gosec" \
     "tar.gz"
 
 # Formatting - gofumpt (prebuilt binary, no archive)
-GOFUMPT_VERSION=$(get_github_version "mvdan/gofumpt" "v0.7.0")
+GOFUMPT_VERSION=$(get_github_version "mvdan/gofumpt" "0.9.0")
 # gofumpt uses 'v' prefix in URLs
 [[ "$GOFUMPT_VERSION" != v* ]] && GOFUMPT_VERSION="v${GOFUMPT_VERSION}"
 install_go_tool "gofumpt" \
