@@ -129,29 +129,45 @@ install_go_tool() {
     fi
 }
 
+# Helper function: fetch latest version from GitHub API with fallback
+# Protects against rate limiting (60 req/h unauthenticated)
+get_github_version() {
+    local repo=$1
+    local fallback=$2
+    local version
+    # Use portable sed instead of grep -oP (PCRE not available on all systems)
+    version=$(curl -s --connect-timeout 5 --max-time 10 \
+        "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+        | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+    echo "${version:-$fallback}"
+}
+
 # Quality & Linting - golangci-lint (prebuilt)
-GOLANGCI_VERSION=$(curl -s https://api.github.com/repos/golangci/golangci-lint/releases/latest | grep -oP '"tag_name": "\K[^"]+' | sed 's/^v//')
+# Fallback 1.63.4 fixes CVE-2024-45337 (golang.org/x/crypto) and CVE-2024-45338 (golang.org/x/net)
+GOLANGCI_VERSION=$(get_github_version "golangci/golangci-lint" "1.63.4")
 install_go_tool "golangci-lint" \
     "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_VERSION}/golangci-lint-${GOLANGCI_VERSION}-linux-${GO_ARCH}.tar.gz" \
     "github.com/golangci/golangci-lint/cmd/golangci-lint" \
     "tar.gz"
 
 # Security - gosec (prebuilt)
-GOSEC_VERSION=$(curl -s https://api.github.com/repos/securego/gosec/releases/latest | grep -oP '"tag_name": "\K[^"]+' | sed 's/^v//')
+GOSEC_VERSION=$(get_github_version "securego/gosec" "2.22.11")
 install_go_tool "gosec" \
     "https://github.com/securego/gosec/releases/download/v${GOSEC_VERSION}/gosec_${GOSEC_VERSION}_linux_${GO_ARCH}.tar.gz" \
     "github.com/securego/gosec/v2/cmd/gosec" \
     "tar.gz"
 
 # Formatting - gofumpt (prebuilt binary, no archive)
-GOFUMPT_VERSION=$(curl -s https://api.github.com/repos/mvdan/gofumpt/releases/latest | grep -oP '"tag_name": "\K[^"]+')
+GOFUMPT_VERSION=$(get_github_version "mvdan/gofumpt" "0.9.2")
+# gofumpt uses 'v' prefix in URLs
+[[ "$GOFUMPT_VERSION" != v* ]] && GOFUMPT_VERSION="v${GOFUMPT_VERSION}"
 install_go_tool "gofumpt" \
     "https://github.com/mvdan/gofumpt/releases/download/${GOFUMPT_VERSION}/gofumpt_${GOFUMPT_VERSION}_linux_${GO_ARCH}" \
     "mvdan.cc/gofumpt" \
     "binary"
 
 # Testing tools - gotestsum (prebuilt)
-GOTESTSUM_VERSION=$(curl -s https://api.github.com/repos/gotestyourself/gotestsum/releases/latest | grep -oP '"tag_name": "\K[^"]+' | sed 's/^v//')
+GOTESTSUM_VERSION=$(get_github_version "gotestyourself/gotestsum" "1.13.0")
 install_go_tool "gotestsum" \
     "https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VERSION}/gotestsum_${GOTESTSUM_VERSION}_linux_${GO_ARCH}.tar.gz" \
     "gotest.tools/gotestsum" \

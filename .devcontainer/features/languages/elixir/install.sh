@@ -40,8 +40,15 @@ install_erlang_prebuilt() {
 
     # Download and install erlang-solutions repo
     local DEB_FILE="/tmp/erlang-solutions.deb"
-    if curl -fsSL "https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb" -o "$DEB_FILE" 2>/dev/null; then
-        sudo dpkg -i "$DEB_FILE" 2>/dev/null || true
+    if curl -fsSL --connect-timeout 10 --max-time 60 \
+        "https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb" -o "$DEB_FILE"; then
+        # Install the .deb package, handle dependencies
+        if ! sudo dpkg -i "$DEB_FILE"; then
+            echo -e "${YELLOW}Fixing dpkg dependencies...${NC}"
+            if ! sudo apt-get install -f -y; then
+                echo -e "${YELLOW}⚠ Could not fix dependencies automatically${NC}"
+            fi
+        fi
         rm -f "$DEB_FILE"
         sudo apt-get update
 

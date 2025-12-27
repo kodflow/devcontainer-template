@@ -94,21 +94,29 @@ echo -e "${GREEN}✓ PHPUnit installed${NC}"
 
 # Pest (BDD-style testing, optional per RULES.md)
 echo -e "${YELLOW}Installing Pest...${NC}"
-composer global require pestphp/pest --quiet 2>/dev/null || echo -e "${YELLOW}⚠ Pest install skipped (optional)${NC}"
-echo -e "${GREEN}✓ Pest installed${NC}"
+PEST_OUTPUT=$(composer global require pestphp/pest --quiet 2>&1) && PEST_STATUS=$? || PEST_STATUS=$?
+if [ "$PEST_STATUS" -eq 0 ]; then
+    echo -e "${GREEN}✓ Pest installed${NC}"
+else
+    echo -e "${YELLOW}⚠ Pest install skipped (optional, may require project context)${NC}"
+    # Log error for debugging if verbose
+    [ -n "$PEST_OUTPUT" ] && echo -e "${YELLOW}  Details: ${PEST_OUTPUT}${NC}" | head -1
+fi
 
 # PHP CodeSniffer (PSR compliance checking)
 echo -e "${YELLOW}Installing PHP_CodeSniffer...${NC}"
 composer global require squizlabs/php_codesniffer --quiet
 echo -e "${GREEN}✓ PHP_CodeSniffer installed${NC}"
 
-# Add Composer global bin to PATH
+# Add Composer global bin to PATH (both .bashrc and .zshrc for consistency)
 COMPOSER_BIN="$COMPOSER_HOME/vendor/bin"
-if ! grep -q "COMPOSER_HOME" /home/vscode/.zshrc 2>/dev/null; then
-    echo "" >> /home/vscode/.zshrc
-    echo "# Composer global binaries" >> /home/vscode/.zshrc
-    echo "export PATH=\"\$PATH:$COMPOSER_BIN\"" >> /home/vscode/.zshrc
-fi
+for rc_file in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    if [ -f "$rc_file" ] && ! grep -q "Composer global binaries" "$rc_file" 2>/dev/null; then
+        echo "" >> "$rc_file"
+        echo "# Composer global binaries" >> "$rc_file"
+        echo "export PATH=\"\$PATH:$COMPOSER_BIN\"" >> "$rc_file"
+    fi
+done
 
 echo -e "${GREEN}✓ PHP development tools installed${NC}"
 

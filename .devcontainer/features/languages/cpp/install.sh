@@ -61,9 +61,32 @@ NINJA_VERSION=$(ninja --version)
 echo -e "${GREEN}✓ ninja ${NINJA_VERSION} installed${NC}"
 
 # Google Test (testing framework per RULES.md)
+# libgtest-dev only provides sources - we need to compile the libraries
 echo -e "${YELLOW}Installing Google Test...${NC}"
 sudo apt-get install -y libgtest-dev
-echo -e "${GREEN}✓ Google Test installed${NC}"
+
+# Build Google Test libraries from source
+if [ -d "/usr/src/gtest" ] || [ -d "/usr/src/googletest" ]; then
+    GTEST_SRC=$([ -d "/usr/src/googletest" ] && echo "/usr/src/googletest" || echo "/usr/src/gtest")
+    cd "$GTEST_SRC"
+    sudo cmake -B build -DCMAKE_BUILD_TYPE=Release .
+    sudo cmake --build build --parallel
+    # Copy libraries with proper error handling
+    if sudo cp build/lib/*.a /usr/lib/ 2>/dev/null; then
+        echo -e "${GREEN}✓ Google Test libraries copied from build/lib/${NC}"
+    elif sudo cp build/*.a /usr/lib/ 2>/dev/null; then
+        echo -e "${GREEN}✓ Google Test libraries copied from build/${NC}"
+    else
+        echo -e "${RED}✗ Failed to copy Google Test libraries${NC}"
+        echo -e "${YELLOW}  Check build output for errors${NC}"
+        exit 1
+    fi
+    cd - > /dev/null
+    echo -e "${GREEN}✓ Google Test installed (headers + libraries)${NC}"
+else
+    echo -e "${RED}✗ Google Test sources not found - required for linking${NC}"
+    exit 1
+fi
 
 # cppcheck (static analysis)
 echo -e "${YELLOW}Installing cppcheck...${NC}"
