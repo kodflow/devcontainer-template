@@ -95,7 +95,7 @@ echo -e "${GREEN}✓ PHPUnit installed${NC}"
 # Pest (BDD-style testing, optional per RULES.md)
 echo -e "${YELLOW}Installing Pest...${NC}"
 PEST_OUTPUT=$(composer global require pestphp/pest --quiet 2>&1) && PEST_STATUS=$? || PEST_STATUS=$?
-if [ $PEST_STATUS -eq 0 ]; then
+if [ "$PEST_STATUS" -eq 0 ]; then
     echo -e "${GREEN}✓ Pest installed${NC}"
 else
     echo -e "${YELLOW}⚠ Pest install skipped (optional, may require project context)${NC}"
