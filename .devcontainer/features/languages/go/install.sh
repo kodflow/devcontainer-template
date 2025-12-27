@@ -151,14 +151,14 @@ install_go_tool "golangci-lint" \
     "tar.gz"
 
 # Security - gosec (prebuilt)
-GOSEC_VERSION=$(get_github_version "securego/gosec" "2.22.0")
+GOSEC_VERSION=$(get_github_version "securego/gosec" "2.22.11")
 install_go_tool "gosec" \
     "https://github.com/securego/gosec/releases/download/v${GOSEC_VERSION}/gosec_${GOSEC_VERSION}_linux_${GO_ARCH}.tar.gz" \
     "github.com/securego/gosec/v2/cmd/gosec" \
     "tar.gz"
 
 # Formatting - gofumpt (prebuilt binary, no archive)
-GOFUMPT_VERSION=$(get_github_version "mvdan/gofumpt" "0.9.0")
+GOFUMPT_VERSION=$(get_github_version "mvdan/gofumpt" "0.9.2")
 # gofumpt uses 'v' prefix in URLs
 [[ "$GOFUMPT_VERSION" != v* ]] && GOFUMPT_VERSION="v${GOFUMPT_VERSION}"
 install_go_tool "gofumpt" \

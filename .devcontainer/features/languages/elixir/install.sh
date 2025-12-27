@@ -45,7 +45,9 @@ install_erlang_prebuilt() {
         # Install the .deb package, handle dependencies
         if ! sudo dpkg -i "$DEB_FILE"; then
             echo -e "${YELLOW}Fixing dpkg dependencies...${NC}"
-            sudo apt-get install -f -y
+            if ! sudo apt-get install -f -y; then
+                echo -e "${YELLOW}⚠ Could not fix dependencies automatically${NC}"
+            fi
         fi
         rm -f "$DEB_FILE"
         sudo apt-get update

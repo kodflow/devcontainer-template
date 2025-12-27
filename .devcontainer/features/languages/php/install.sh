@@ -110,7 +110,7 @@ echo -e "${GREEN}✓ PHP_CodeSniffer installed${NC}"
 
 # Add Composer global bin to PATH (both .bashrc and .zshrc for consistency)
 COMPOSER_BIN="$COMPOSER_HOME/vendor/bin"
-for rc_file in /home/vscode/.bashrc /home/vscode/.zshrc; do
+for rc_file in "$HOME/.bashrc" "$HOME/.zshrc"; do
     if [ -f "$rc_file" ] && ! grep -q "Composer global binaries" "$rc_file" 2>/dev/null; then
         echo "" >> "$rc_file"
         echo "# Composer global binaries" >> "$rc_file"
