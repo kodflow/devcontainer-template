@@ -91,7 +91,7 @@ cat > "$SESSION_FILE" << ENDJSON
     "currentEpic": null,
     "lockedPaths": [],
     "epics": [],
-    "actions": 0,
+    "actions": [],
     "lastAction": null,
     "createdAt": "$TIMESTAMP"
 }
