@@ -170,6 +170,27 @@ CODACY_TOKEN="${CODACY_API_TOKEN:-}"
 GITHUB_TOKEN="${GITHUB_API_TOKEN:-}"
 CODERABBIT_TOKEN="${CODERABBIT_API_KEY:-}"
 
+# ============================================================================
+# 1Password CLI Config Directory Permissions Fix
+# ============================================================================
+# Docker named volumes create directories with root ownership.
+# 1Password CLI requires: ownership by current user + permissions 700.
+# See: https://github.com/kodflow/devcontainer-template/issues/86
+OP_CONFIG_DIRS=("$HOME/.config/op" "$HOME/.op")
+
+for OP_DIR in "${OP_CONFIG_DIRS[@]}"; do
+    if [ -d "$OP_DIR" ]; then
+        # Fix ownership if not current user
+        if [ "$(stat -c '%U' "$OP_DIR" 2>/dev/null)" != "$(whoami)" ]; then
+            log_info "Fixing ownership of $OP_DIR..."
+            sudo chown -R "$(whoami):$(whoami)" "$OP_DIR"
+        fi
+        # Ensure correct permissions (700 = owner only)
+        chmod 700 "$OP_DIR"
+    fi
+done
+log_success "1Password config directories configured"
+
 # Try 1Password if OP_SERVICE_ACCOUNT_TOKEN is defined
 if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ] && command -v op &> /dev/null; then
     log_info "Retrieving secrets from 1Password..."
