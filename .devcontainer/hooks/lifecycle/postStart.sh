@@ -191,6 +191,23 @@ for OP_DIR in "${OP_CONFIG_DIRS[@]}"; do
 done
 log_success "1Password config directories configured"
 
+# ============================================================================
+# npm Cache Permissions Fix
+# ============================================================================
+# Docker named volumes create directories with root ownership.
+# npm requires write access to its cache for npx/MCP servers to work.
+# See: https://github.com/kodflow/devcontainer-template/issues/88
+NPM_CACHE_DIR="$HOME/.cache/npm"
+
+if [ -d "$NPM_CACHE_DIR" ]; then
+    # Fix ownership if not current user
+    if [ "$(stat -c '%U' "$NPM_CACHE_DIR" 2>/dev/null)" != "$(whoami)" ]; then
+        log_info "Fixing ownership of npm cache..."
+        sudo chown -R "$(whoami):$(whoami)" "$NPM_CACHE_DIR"
+    fi
+fi
+log_success "npm cache configured"
+
 # Try 1Password if OP_SERVICE_ACCOUNT_TOKEN is defined
 if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ] && command -v op &> /dev/null; then
     log_info "Retrieving secrets from 1Password..."
