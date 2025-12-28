@@ -240,13 +240,21 @@ log_info "Installing Desktop & WASM tools..."
 
 # Electron (desktop GUI framework)
 log_info "Installing Electron..."
-npm install -g electron@latest
-log_success "Electron installed"
+if npm install -g electron@latest && command -v electron &> /dev/null; then
+    ELECTRON_VERSION=$(electron --version 2>/dev/null || echo "installed")
+    log_success "Electron ${ELECTRON_VERSION} installed"
+else
+    log_warning "Electron installation failed or not in PATH"
+fi
 
 # AssemblyScript (TypeScript-like to WASM compiler)
 log_info "Installing AssemblyScript..."
-npm install -g assemblyscript@latest
-log_success "AssemblyScript installed"
+if npm install -g assemblyscript@latest && command -v asc &> /dev/null; then
+    ASC_VERSION=$(asc --version 2>/dev/null | head -n 1 || echo "installed")
+    log_success "AssemblyScript ${ASC_VERSION} installed"
+else
+    log_warning "AssemblyScript installation failed or not in PATH"
+fi
 
 log_success "Desktop & WASM tools installed"
 

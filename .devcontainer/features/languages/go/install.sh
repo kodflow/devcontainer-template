@@ -193,12 +193,15 @@ install_go_tool "ktn-linter" \
 # Install Wails v2 (Desktop GUI Framework)
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}Installing Wails v2 (desktop GUI framework)...${NC}"
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
-if command -v wails &> /dev/null; then
-    WAILS_VERSION=$(wails version 2>/dev/null | head -n 1 || echo "installed")
-    echo -e "${GREEN}✓ Wails ${WAILS_VERSION}${NC}"
+if go install github.com/wailsapp/wails/v2/cmd/wails@latest; then
+    if command -v wails &> /dev/null; then
+        WAILS_VERSION=$(wails version 2>/dev/null | head -n 1 || echo "installed")
+        echo -e "${GREEN}✓ Wails ${WAILS_VERSION}${NC}"
+    else
+        echo -e "${YELLOW}⚠ Wails installed but not in PATH yet${NC}"
+    fi
 else
-    echo -e "${YELLOW}⚠ Wails installed but not in PATH yet${NC}"
+    echo -e "${YELLOW}⚠ Wails installation failed${NC}"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────

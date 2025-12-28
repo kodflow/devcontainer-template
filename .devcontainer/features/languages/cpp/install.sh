@@ -114,20 +114,32 @@ fi
 # Clone and install emsdk
 EMSDK_DIR="/opt/emsdk"
 if [ ! -d "$EMSDK_DIR" ]; then
-    sudo git clone https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR"
-    sudo chown -R "$(whoami):$(whoami)" "$EMSDK_DIR"
+    sudo git clone https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR" || {
+        echo -e "${RED}✗ Failed to clone Emscripten SDK${NC}"
+        exit 1
+    }
+    # Use devcontainer user (REMOTE_USER), fallback to vscode
+    TARGET_USER="${REMOTE_USER:-vscode}"
+    sudo chown -R "${TARGET_USER}:${TARGET_USER}" "$EMSDK_DIR"
 fi
 
 cd "$EMSDK_DIR"
 
 # Install and activate latest Emscripten
-./emsdk install latest
-./emsdk activate latest
+./emsdk install latest || {
+    echo -e "${RED}✗ Failed to install Emscripten${NC}"
+    exit 1
+}
+./emsdk activate latest || {
+    echo -e "${RED}✗ Failed to activate Emscripten${NC}"
+    exit 1
+}
 
 # Source emsdk environment
 source "$EMSDK_DIR/emsdk_env.sh"
 
 # Add to shell profiles for persistence
+# Note: 2>/dev/null suppresses emsdk output during shell startup (cleaner prompt)
 EMSDK_ENV_LINE="[ -s \"$EMSDK_DIR/emsdk_env.sh\" ] && source \"$EMSDK_DIR/emsdk_env.sh\" 2>/dev/null"
 for rc_file in "$HOME/.bashrc" "$HOME/.zshrc"; do
     if [ -f "$rc_file" ] && ! grep -q "emsdk_env" "$rc_file"; then
