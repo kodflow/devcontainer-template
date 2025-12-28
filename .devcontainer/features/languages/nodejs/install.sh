@@ -233,6 +233,31 @@ log_success "tsx installed"
 
 log_success "Node.js development tools installed"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Install Desktop & WASM Tools
+# ─────────────────────────────────────────────────────────────────────────────
+log_info "Installing Desktop & WASM tools..."
+
+# Electron (desktop GUI framework)
+log_info "Installing Electron..."
+if npm install -g electron@latest && command -v electron &> /dev/null; then
+    ELECTRON_VERSION=$(electron --version 2>/dev/null || echo "installed")
+    log_success "Electron ${ELECTRON_VERSION} installed"
+else
+    log_warning "Electron installation failed or not in PATH"
+fi
+
+# AssemblyScript (TypeScript-like to WASM compiler)
+log_info "Installing AssemblyScript..."
+if npm install -g assemblyscript@latest && command -v asc &> /dev/null; then
+    ASC_VERSION=$(asc --version 2>/dev/null | head -n 1 || echo "installed")
+    log_success "AssemblyScript ${ASC_VERSION} installed"
+else
+    log_warning "AssemblyScript installation failed or not in PATH"
+fi
+
+log_success "Desktop & WASM tools installed"
+
 # Create global symlinks for node, npm, and npx
 # This ensures they're available for subsequent devcontainer features
 log_info "Creating global symlinks..."
@@ -296,6 +321,10 @@ echo "  - TypeScript (type checker)"
 echo "  - ESLint (linter)"
 echo "  - Prettier (formatter)"
 echo "  - tsx (TypeScript runner)"
+echo ""
+echo "Desktop & WASM tools:"
+echo "  - electron (desktop GUI framework)"
+echo "  - assemblyscript (TypeScript to WASM compiler)"
 echo ""
 echo "Global availability:"
 echo "  - node, npm, npx, pnpm, tsc, eslint, prettier available globally"

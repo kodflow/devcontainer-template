@@ -103,6 +103,24 @@ echo -e "${GREEN}✓ clippy installed${NC}"
 echo -e "${GREEN}✓ rustfmt installed${NC}"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Install WebAssembly Targets
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing WebAssembly targets...${NC}"
+
+# Browser WASM target (most common)
+rustup target add wasm32-unknown-unknown
+echo -e "${GREEN}✓ wasm32-unknown-unknown (browser) installed${NC}"
+
+# WASI Preview 1 (server-side WASM runtimes: Wasmtime, Wasmer)
+rustup target add wasm32-wasip1
+echo -e "${GREEN}✓ wasm32-wasip1 (WASI) installed${NC}"
+
+# WASI Preview 2 (component model - newer)
+rustup target add wasm32-wasip2 2>/dev/null && \
+    echo -e "${GREEN}✓ wasm32-wasip2 (WASI P2) installed${NC}" || \
+    echo -e "${YELLOW}⚠ wasm32-wasip2 not available on this toolchain${NC}"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Install Rust Development Tools (via binstall - prebuilt binaries)
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}Installing Rust development tools...${NC}"
@@ -118,6 +136,8 @@ CARGO_TOOLS=(
     "cargo-tarpaulin"   # Code coverage tool
     "cargo-edit"        # Dependency management (add/remove)
     "tauri-cli"         # Tauri desktop app framework CLI
+    "wasm-pack"         # WASM packaging and publishing
+    "wasm-bindgen-cli"  # JS bindings generator for WASM
 )
 
 # Install tools - use || true to continue on failure (tracked in FAILED_TOOLS)
@@ -170,7 +190,13 @@ echo "  - cargo-tarpaulin (code coverage)"
 echo "  - cargo-edit (add/remove deps)"
 echo "  - cargo-expand, cargo-outdated"
 echo "  - rust-analyzer-mcp (MCP server)"
+echo ""
+echo "Desktop & WASM tools:"
 echo "  - tauri-cli (desktop app framework)"
+echo "  - wasm-pack (WASM packaging)"
+echo "  - wasm-bindgen-cli (JS bindings)"
+echo "  - wasm32-unknown-unknown (browser target)"
+echo "  - wasm32-wasip1/wasip2 (WASI targets)"
 echo ""
 echo "Cache directories:"
 echo "  - CARGO_HOME: $CARGO_HOME"

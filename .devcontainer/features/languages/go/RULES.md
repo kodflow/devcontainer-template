@@ -51,3 +51,17 @@
 - Global mutable state
 - `interface{}` without type assertion
 - Naked returns in long functions
+
+## Desktop Apps (Wails)
+
+- `wails init` for new projects
+- Frontend in `/frontend` (React, Vue, Svelte)
+- Backend bindings via `wails.Call()`
+- Build: `wails build`
+
+## WebAssembly (TinyGo)
+
+- TinyGo for browser WASM
+- Compile: `tinygo build -o main.wasm -target wasm ./main.go`
+- Use `wasm_exec.js` from TinyGo (not Go stdlib)
+- Prefer WASI for server-side

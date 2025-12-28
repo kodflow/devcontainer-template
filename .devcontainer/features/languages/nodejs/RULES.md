@@ -65,3 +65,19 @@
 - `console.log` in production
 - Synchronous file operations
 - `require()` in ES modules
+
+## Desktop Apps (Electron)
+
+- `npm create electron-app@latest`
+- Main process in `/main`
+- Renderer in `/renderer`
+- IPC for main<->renderer communication
+- Build: `electron-builder`
+
+## WebAssembly (AssemblyScript)
+
+- TypeScript-like syntax to WASM
+- `npx asinit .` for new projects
+- Source in `/assembly/`
+- Compile: `npx asc assembly/index.ts -o build/main.wasm`
+- Optimizations: `-O3` or `-Oz` for size

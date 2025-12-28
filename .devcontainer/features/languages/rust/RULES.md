@@ -56,3 +56,18 @@
 - `expect()` without clear message
 - `clone()` without justification
 - Unused `Result` values
+
+## Desktop Apps (Tauri)
+
+- `cargo tauri init` for new projects
+- Frontend in `/src-tauri/` adjacent to web UI
+- Commands via `#[tauri::command]`
+- Build: `cargo tauri build`
+
+## WebAssembly
+
+- Browser: `wasm-pack build --target web`
+- Node.js: `wasm-pack build --target nodejs`
+- WASI: `cargo build --target wasm32-wasip1`
+- Use `wasm-bindgen` for JS bindings
+- Targets: `wasm32-unknown-unknown`, `wasm32-wasip1/2`
