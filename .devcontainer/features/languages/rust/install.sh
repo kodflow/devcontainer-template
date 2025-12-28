@@ -15,7 +15,8 @@ NC='\033[0m' # No Color
 export CARGO_HOME="${CARGO_HOME:-$HOME/.cache/cargo}"
 export RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.cache/rustup}"
 
-# Install dependencies (includes Tauri/WebKitGTK support)
+# Install dependencies
+# Includes Tauri/WebKitGTK dependencies for Linux desktop apps
 echo -e "${YELLOW}Installing dependencies...${NC}"
 sudo apt-get update && sudo apt-get install -y \
     curl \
@@ -25,7 +26,6 @@ sudo apt-get update && sudo apt-get install -y \
     cmake \
     pkg-config \
     libssl-dev \
-    # Tauri dependencies (WebKitGTK for Linux desktop apps)
     libwebkit2gtk-4.1-dev \
     libxdo-dev \
     libayatana-appindicator3-dev \
