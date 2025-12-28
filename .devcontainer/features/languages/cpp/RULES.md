@@ -62,3 +62,12 @@
 - `#define` for constants
 - `using namespace std;` in headers
 - Manual memory management
+
+## WebAssembly (Emscripten)
+
+- Source emsdk: `source /opt/emsdk/emsdk_env.sh`
+- Compile: `emcc main.cpp -o main.js`
+- WASM only: `emcc main.cpp -o main.wasm -s STANDALONE_WASM`
+- Optimization: `-O3` or `-Oz` for size
+- Memory: `-s INITIAL_MEMORY=256MB`
+- Bindings: Embind for C++ to JS

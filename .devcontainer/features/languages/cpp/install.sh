@@ -100,6 +100,65 @@ echo -e "${GREEN}✓ valgrind installed${NC}"
 
 echo -e "${GREEN}✓ C++ development tools installed${NC}"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Install Emscripten SDK (WebAssembly Compiler)
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing Emscripten SDK (WebAssembly compiler)...${NC}"
+
+# Install Python if not available (required by emsdk)
+if ! command -v python3 &> /dev/null; then
+    echo -e "${YELLOW}Installing Python (required by emsdk)...${NC}"
+    sudo apt-get install -y python3
+fi
+
+# Clone and install emsdk
+EMSDK_DIR="/opt/emsdk"
+if [ ! -d "$EMSDK_DIR" ]; then
+    sudo git clone https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR" || {
+        echo -e "${RED}✗ Failed to clone Emscripten SDK${NC}"
+        exit 1
+    }
+    # Use devcontainer user (REMOTE_USER), fallback to vscode
+    TARGET_USER="${REMOTE_USER:-vscode}"
+    sudo chown -R "${TARGET_USER}:${TARGET_USER}" "$EMSDK_DIR"
+fi
+
+cd "$EMSDK_DIR"
+
+# Install and activate latest Emscripten
+./emsdk install latest || {
+    echo -e "${RED}✗ Failed to install Emscripten${NC}"
+    exit 1
+}
+./emsdk activate latest || {
+    echo -e "${RED}✗ Failed to activate Emscripten${NC}"
+    exit 1
+}
+
+# Source emsdk environment
+source "$EMSDK_DIR/emsdk_env.sh"
+
+# Add to shell profiles for persistence
+# Note: 2>/dev/null suppresses emsdk output during shell startup (cleaner prompt)
+EMSDK_ENV_LINE="[ -s \"$EMSDK_DIR/emsdk_env.sh\" ] && source \"$EMSDK_DIR/emsdk_env.sh\" 2>/dev/null"
+for rc_file in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    if [ -f "$rc_file" ] && ! grep -q "emsdk_env" "$rc_file"; then
+        echo "" >> "$rc_file"
+        echo "# Emscripten SDK" >> "$rc_file"
+        echo "$EMSDK_ENV_LINE" >> "$rc_file"
+    fi
+done
+
+cd - > /dev/null
+
+# Verify installation
+if command -v emcc &> /dev/null; then
+    EMCC_VERSION=$(emcc --version 2>/dev/null | head -n 1)
+    echo -e "${GREEN}✓ ${EMCC_VERSION}${NC}"
+else
+    echo -e "${GREEN}✓ Emscripten installed (source emsdk_env.sh to use)${NC}"
+fi
+
 echo ""
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}C/C++ environment installed successfully!${NC}"
@@ -120,4 +179,8 @@ echo "  - ninja ${NINJA_VERSION} (build system)"
 echo "  - Google Test (testing)"
 echo "  - cppcheck (static analysis)"
 echo "  - valgrind (memory checker)"
+echo ""
+echo "WASM tools:"
+echo "  - emscripten (C/C++ to WASM compiler)"
+echo "  - emcc, em++ (compiler frontends)"
 echo ""

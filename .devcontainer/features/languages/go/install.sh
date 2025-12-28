@@ -20,13 +20,18 @@ export GOMODCACHE="${GOMODCACHE:-/home/vscode/.cache/go/pkg/mod}"
 export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
 
 # Install dependencies
+# Includes Wails/WebKitGTK dependencies for Linux desktop apps
 echo -e "${YELLOW}Installing dependencies...${NC}"
 sudo apt-get update && sudo apt-get install -y \
     curl \
     git \
     make \
     gcc \
-    build-essential
+    build-essential \
+    pkg-config \
+    libgtk-3-dev \
+    libwebkit2gtk-4.1-dev \
+    libglib2.0-dev
 
 # Detect architecture
 ARCH=$(uname -m)
@@ -184,6 +189,59 @@ install_go_tool "ktn-linter" \
     "" \
     "binary"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Install Wails v2 (Desktop GUI Framework)
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing Wails v2 (desktop GUI framework)...${NC}"
+if go install github.com/wailsapp/wails/v2/cmd/wails@latest; then
+    if command -v wails &> /dev/null; then
+        WAILS_VERSION=$(wails version 2>/dev/null | head -n 1 || echo "installed")
+        echo -e "${GREEN}✓ Wails ${WAILS_VERSION}${NC}"
+    else
+        echo -e "${YELLOW}⚠ Wails installed but not in PATH yet${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠ Wails installation failed${NC}"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Install TinyGo (WebAssembly Compiler)
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "${YELLOW}Installing TinyGo (WASM/embedded compiler)...${NC}"
+
+# Get latest TinyGo version
+TINYGO_VERSION=$(get_github_version "tinygo-org/tinygo" "0.34.0")
+
+# Download and install TinyGo
+case "$GO_ARCH" in
+    amd64)
+        TINYGO_PKG="tinygo_${TINYGO_VERSION}_amd64.deb"
+        ;;
+    arm64)
+        TINYGO_PKG="tinygo_${TINYGO_VERSION}_arm64.deb"
+        ;;
+    *)
+        echo -e "${YELLOW}⚠ TinyGo not available for ${GO_ARCH}${NC}"
+        TINYGO_PKG=""
+        ;;
+esac
+
+if [ -n "$TINYGO_PKG" ]; then
+    TINYGO_URL="https://github.com/tinygo-org/tinygo/releases/download/v${TINYGO_VERSION}/${TINYGO_PKG}"
+    if curl -fsSL --connect-timeout 10 --max-time 120 -o "/tmp/${TINYGO_PKG}" "$TINYGO_URL" 2>/dev/null; then
+        sudo dpkg -i "/tmp/${TINYGO_PKG}" 2>/dev/null || sudo apt-get install -f -y
+        rm -f "/tmp/${TINYGO_PKG}"
+        if command -v tinygo &> /dev/null; then
+            TINYGO_INSTALLED=$(tinygo version 2>/dev/null | head -n 1)
+            echo -e "${GREEN}✓ ${TINYGO_INSTALLED}${NC}"
+        else
+            echo -e "${GREEN}✓ TinyGo ${TINYGO_VERSION} installed${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠ TinyGo download failed, skipping${NC}"
+    fi
+fi
+
 echo ""
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}Go environment installed successfully!${NC}"
@@ -200,6 +258,10 @@ echo "  - gofumpt (formatter)"
 echo "  - goimports (import manager)"
 echo "  - gotestsum (test runner)"
 echo "  - ktn-linter (custom linter)"
+echo ""
+echo "Desktop & WASM tools:"
+echo "  - wails (desktop GUI framework)"
+echo "  - tinygo (WASM/embedded compiler)"
 echo ""
 echo "Cache directories:"
 echo "  - GOPATH: $GOPATH"
