@@ -116,9 +116,10 @@ USER vscode
 WORKDIR /home/vscode
 
 # Create cache and config directories
+# Note: .config/op must exist with correct ownership for 1Password CLI (requires 700 perms)
 RUN mkdir -p .cache .config .local/bin .local/share .zsh_history_dir \
     .cache/{terraform,helm,aws,bazel} \
-    .config/{aws,gcloud,azure} .kube \
+    .config/{aws,gcloud,azure,op} .kube \
     .claude .config/@anthropic .cache/@anthropic .local/share/@anthropic
 
 # Oh My Zsh + Powerlevel10k (force fresh install to ensure completeness)
