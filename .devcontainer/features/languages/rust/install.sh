@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 export CARGO_HOME="${CARGO_HOME:-$HOME/.cache/cargo}"
 export RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.cache/rustup}"
 
-# Install dependencies
+# Install dependencies (includes Tauri/WebKitGTK support)
 echo -e "${YELLOW}Installing dependencies...${NC}"
 sudo apt-get update && sudo apt-get install -y \
     curl \
@@ -24,7 +24,12 @@ sudo apt-get update && sudo apt-get install -y \
     make \
     cmake \
     pkg-config \
-    libssl-dev
+    libssl-dev \
+    # Tauri dependencies (WebKitGTK for Linux desktop apps)
+    libwebkit2gtk-4.1-dev \
+    libxdo-dev \
+    libayatana-appindicator3-dev \
+    librsvg2-dev
 
 # Install rustup (Rust toolchain installer)
 echo -e "${YELLOW}Installing rustup...${NC}"
@@ -112,6 +117,7 @@ CARGO_TOOLS=(
     "cargo-deny"        # Dependency security checker
     "cargo-tarpaulin"   # Code coverage tool
     "cargo-edit"        # Dependency management (add/remove)
+    "tauri-cli"         # Tauri desktop app framework CLI
 )
 
 # Install tools - use || true to continue on failure (tracked in FAILED_TOOLS)
@@ -164,6 +170,7 @@ echo "  - cargo-tarpaulin (code coverage)"
 echo "  - cargo-edit (add/remove deps)"
 echo "  - cargo-expand, cargo-outdated"
 echo "  - rust-analyzer-mcp (MCP server)"
+echo "  - tauri-cli (desktop app framework)"
 echo ""
 echo "Cache directories:"
 echo "  - CARGO_HOME: $CARGO_HOME"
