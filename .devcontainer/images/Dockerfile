@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 # hadolint global ignore=DL3008
 # =============================================================================
-# Kodflow Base Development Image
+# Base Development Image
 # =============================================================================
 # Single base image with all tools + Claude Code (standalone)
 # Languages (including Node.js) are added via devcontainer features at runtime
@@ -135,7 +135,7 @@ COPY --chown=vscode:vscode .p10k.zsh /home/vscode/.p10k.zsh
 # Configure zsh
 RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc && \
     sed -i 's/^plugins=.*/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc && \
-    printf '\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\nexport HISTFILE=~/.zsh_history_dir/.zsh_history\nexport HISTSIZE=50000\nexport SAVEHIST=50000\n[[ -f ~/.kodflow-env.sh ]] && source ~/.kodflow-env.sh\n' >> ~/.zshrc
+    printf '\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\nexport HISTFILE=~/.zsh_history_dir/.zsh_history\nexport HISTSIZE=50000\nexport SAVEHIST=50000\n[[ -f ~/.devcontainer-env.sh ]] && source ~/.devcontainer-env.sh\n' >> ~/.zshrc
 
 # =============================================================================
 # Claude Code (standalone installation - no Node.js required)
@@ -205,5 +205,5 @@ WORKDIR /workspace
 # Labels
 # =============================================================================
 LABEL org.opencontainers.image.source="https://github.com/kodflow/devcontainer-template" \
-      org.opencontainers.image.description="Kodflow Base Development Image - All tools + Claude Code included" \
+      org.opencontainers.image.description="Base Development Image - All tools + Claude Code included" \
       org.opencontainers.image.licenses="MIT"
