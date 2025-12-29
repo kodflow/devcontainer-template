@@ -120,10 +120,13 @@ generate_ai_title = false
 enable_help_text = true
 
 [rag_arguments]
-enable_rag = true
+# RAG requires Enterprise tier (single-tenant or on-premises)
+# enable_rag = true
 
 [pr_compliance]
 enable_codebase_duplication = true
+enable_global_pr_compliance = true
+enable_generic_custom_compliance_checklist = true
 
 [github_action_config]
 auto_review = true
