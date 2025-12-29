@@ -301,7 +301,7 @@ if command -v claude &> /dev/null && [ -z "${CI:-}" ]; then
     log_info "Running project initialization check..."
     # Run /init in background to not block container startup
     # Logs persisted to $HOME for debugging (survives container restarts)
-    nohup bash -c 'sleep 2 && claude "/init" || echo "[$(date -Iseconds)] Init check failed with exit code $?" >> "'"$INIT_LOG"'"' >> "$INIT_LOG" 2>&1 &
+    nohup bash -c "sleep 2 && claude \"/init\" || echo \"[\$(date -Iseconds)] Init check failed with exit code \$?\" >> \"$INIT_LOG\"" >> "$INIT_LOG" 2>&1 &
     log_success "Init check scheduled (logs: ~/.devcontainer-init.log)"
 elif [ -n "${CI:-}" ]; then
     log_info "CI environment detected, skipping init"
