@@ -27,7 +27,8 @@ Commande automatisée pour corriger les issues de code review sur une PR :
 | (vide) | Résout issues de la PR de la branche courante |
 | `--pr <number>` | Résout issues d'une PR spécifique |
 | `--codacy-only` | Ne traite que les issues Codacy |
-| `--coderabbit-only` | Ne traite que les commentaires CodeRabbit/Qodo |
+| `--coderabbit-only` | Ne traite que les commentaires CodeRabbit |
+| `--qodo-only` | Ne traite que les commentaires Qodo Merge |
 | `--dry-run` | Affiche les issues sans les corriger |
 | `--help` | Affiche l'aide |
 
@@ -48,7 +49,8 @@ Options:
   (vide)              Résout la PR de la branche courante
   --pr <number>       Résout une PR spécifique
   --codacy-only       Issues Codacy uniquement
-  --coderabbit-only   Commentaires CodeRabbit/Qodo uniquement
+  --coderabbit-only   Commentaires CodeRabbit uniquement
+  --qodo-only         Commentaires Qodo Merge uniquement
   --dry-run           Affiche sans corriger
   --help              Affiche cette aide
 
@@ -179,9 +181,9 @@ IF iteration >= MAX_ITERATIONS AND issues.data.length > 0:
 
 ---
 
-### Étape 3 : Boucle CodeRabbit / Qodo
+### Étape 3 : Boucle CodeRabbit
 
-**Skip si `--codacy-only`**
+**Skip si `--codacy-only` ou `--qodo-only`**
 
 ```
 # Récupérer tous les commentaires de la PR
@@ -191,9 +193,9 @@ comments = mcp__github__get_pull_request_comments(
     pull_number: $PR_NUMBER
 )
 
-# Filtrer les commentaires actionables
-actionable_comments = comments.filter(c =>
-    (c.user.login == "coderabbitai[bot]" OR c.user.login == "qodo-merge-pro[bot]")
+# Filtrer les commentaires CodeRabbit actionables
+coderabbit_comments = comments.filter(c =>
+    c.user.login == "coderabbitai[bot]"
     AND (
         c.body contains "Potential issue"
         OR c.body contains "suggestion"
@@ -201,12 +203,12 @@ actionable_comments = comments.filter(c =>
     )
 )
 
-IF actionable_comments.length == 0:
-    log_success "✓ CodeRabbit/Qodo: 0 commentaires actionables"
+IF coderabbit_comments.length == 0:
+    log_success "✓ CodeRabbit: 0 commentaires actionables"
 ELSE:
-    log_info "${actionable_comments.length} commentaires à traiter"
+    log_info "${coderabbit_comments.length} commentaires CodeRabbit à traiter"
 
-    FOR each comment in actionable_comments:
+    FOR each comment in coderabbit_comments:
         file = comment.path
         line = comment.position OR comment.original_position
 
@@ -217,32 +219,70 @@ ELSE:
         suggestion = extract_committable_suggestion(comment.body)
 
         IF suggestion:
-            # Appliquer la suggestion exacte
             Edit(file, apply_suggestion)
         ELSE:
-            # Analyser le commentaire et corriger
             fix_based_on_comment(file, line, comment.body)
 
-        # Commit atomique
         git add $file
-        git commit -m "fix: address $(comment.user.login) review comment"
+        git commit -m "fix: address CodeRabbit review comment"
 
-    # Push
     git push
 
-    # Marquer comme résolu (CodeRabbit uniquement)
-    IF any comment from "coderabbitai[bot]":
-        mcp__github__add_issue_comment(
-            owner: $OWNER,
-            repo: $REPO,
-            issue_number: $PR_NUMBER,
-            body: "@coderabbitai resolve\n\nAll review comments have been addressed."
-        )
+    # Marquer comme résolu
+    mcp__github__add_issue_comment(
+        owner: $OWNER,
+        repo: $REPO,
+        issue_number: $PR_NUMBER,
+        body: "@coderabbitai resolve\n\nAll review comments have been addressed."
+    )
 ```
 
-**Extraction de suggestion :**
+---
+
+### Étape 4 : Boucle Qodo Merge
+
+**Skip si `--codacy-only` ou `--coderabbit-only`**
+
 ```
-extract_committable_suggestion(body):
+# Filtrer les commentaires Qodo Merge actionables
+qodo_comments = comments.filter(c =>
+    c.user.login == "qodo-merge-pro[bot]"
+    AND (
+        c.body contains "suggestion"
+        OR c.body contains "Code suggestion"
+        OR c.body contains "Recommended fix"
+    )
+)
+
+IF qodo_comments.length == 0:
+    log_success "✓ Qodo Merge: 0 commentaires actionables"
+ELSE:
+    log_info "${qodo_comments.length} commentaires Qodo à traiter"
+
+    FOR each comment in qodo_comments:
+        file = comment.path
+        line = comment.position OR comment.original_position
+
+        # Lire le fichier (OBLIGATOIRE)
+        Read(file)
+
+        # Extraire la suggestion
+        suggestion = extract_qodo_suggestion(comment.body)
+
+        IF suggestion:
+            Edit(file, apply_suggestion)
+        ELSE:
+            fix_based_on_comment(file, line, comment.body)
+
+        git add $file
+        git commit -m "fix: address Qodo Merge review comment"
+
+    git push
+```
+
+**Extraction de suggestions :**
+```
+extract_committable_suggestion(body):  # CodeRabbit
     # Pattern: ```suggestion ... ```
     match = regex(body, /```suggestion\n(.*?)\n```/s)
     IF match:
@@ -254,11 +294,19 @@ extract_committable_suggestion(body):
         return match[1]
 
     return null
+
+extract_qodo_suggestion(body):  # Qodo Merge
+    # Pattern: Code suggestion block
+    match = regex(body, /```[a-z]*\n(.*?)\n```/s)
+    IF match:
+        return match[1]
+
+    return null
 ```
 
 ---
 
-### Étape 4 : Résumé final
+### Étape 5 : Résumé final
 
 ```
 ═══════════════════════════════════════════════
@@ -269,13 +317,18 @@ extract_committable_suggestion(body):
 ─────────────────────────────────────────────
   Iterations     : $codacy_iterations
   Issues fixed   : $codacy_fixed
-  Status         : $codacy_status
+  Status         : ✓ Clean
 
-  CodeRabbit/Qodo Comments
+  CodeRabbit Comments
 ─────────────────────────────────────────────
-  Comments found : $comments_total
-  Comments fixed : $comments_fixed
-  @resolve posted: $resolve_posted
+  Comments found : $coderabbit_total
+  Comments fixed : $coderabbit_fixed
+  @resolve posted: ✓
+
+  Qodo Merge Comments
+─────────────────────────────────────────────
+  Comments found : $qodo_total
+  Comments fixed : $qodo_fixed
 
   Summary
 ─────────────────────────────────────────────
