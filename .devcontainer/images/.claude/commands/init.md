@@ -252,7 +252,7 @@ Après les réponses, générer des fichiers personnalisés :
 
 ## Type
 
-<Type sélectionné> project using <Architecture> pattern.
+`<Type>` project using `<Architecture>` pattern.
 
 ## Conventions
 
@@ -265,6 +265,7 @@ Après les réponses, générer des fichiers personnalisés :
 - `/update --context` - Generate context files
 - `/feature <desc>` - Start new feature
 - `/fix <desc>` - Fix a bug
+
 ```
 
 **README.md template personnalisé :**
