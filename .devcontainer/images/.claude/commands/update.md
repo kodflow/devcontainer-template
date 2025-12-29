@@ -9,7 +9,7 @@ $ARGUMENTS
 Commande unifiée pour mettre à jour le projet :
 - **--context** : Génère les fichiers CLAUDE.md + vérifie les versions
 - **--project** : Met à jour les dépendances (npm, go, cargo, pip...)
-- **--devcontainer** : Remplace .devcontainer depuis le template Kodflow
+- **--devcontainer** : Remplace .devcontainer depuis le template GitHub
 - **(vide)** : Exécute tout (context + project + devcontainer)
 
 ---
@@ -21,7 +21,7 @@ Commande unifiée pour mettre à jour le projet :
 | (vide) | Exécute tout (--context + --project + --devcontainer) |
 | `--context` | Génère CLAUDE.md hiérarchiques + vérifie versions |
 | `--project` | Met à jour versions et dépendances du projet |
-| `--devcontainer` | Remplace .devcontainer depuis le template Kodflow |
+| `--devcontainer` | Remplace .devcontainer depuis le template GitHub |
 | `--dry-run` | Affiche les changements sans les appliquer |
 | `--help` | Affiche l'aide |
 
@@ -204,20 +204,22 @@ Go (go.mod):
 
 ## Action: --devcontainer
 
-Remplace .devcontainer depuis le template Kodflow.
+Remplace .devcontainer depuis le template GitHub.
 
 ### ⚠️ IMPORTANT : Scope du téléchargement
 
-**UNIQUEMENT `.devcontainer/` est téléchargé et remplacé.**
+**`.devcontainer/` est téléchargé SAUF `images/`** (car images/ est géré via GitHub Container Registry).
 
-Le template `kodflow/devcontainer-template` contient d'autres fichiers à la racine qui sont **EXCLUS** :
+Le template `kodflow/devcontainer-template` contient d'autres fichiers qui sont **EXCLUS** :
 
 | Fichier/Dossier | Action |
 |-----------------|--------|
-| `.devcontainer/` | ✅ **Téléchargé et remplacé** |
+| `.devcontainer/` (hors images/) | ✅ **Téléchargé et remplacé** |
+| `.devcontainer/images/` | ❌ **JAMAIS téléchargé** (vient de GHCR, pas du repo) |
 | `.github/` | ❌ **JAMAIS téléchargé** (workflows du projet) |
 | `.gitignore` | ❌ **JAMAIS téléchargé** (config du projet) |
 | `.coderabbit.yaml` | ❌ **JAMAIS téléchargé** (config du projet) |
+| `.qodo-merge.toml` | ❌ **JAMAIS téléchargé** (config PR-Agent du projet) |
 | `CLAUDE.md` | ❌ **JAMAIS téléchargé** (doc du projet) |
 | `README.md` | ❌ **JAMAIS téléchargé** (doc du projet) |
 
@@ -225,13 +227,36 @@ Le template `kodflow/devcontainer-template` contient d'autres fichiers à la rac
 
 1. Identifier les fichiers protégés (gitignored, .env)
 2. Sauvegarder les fichiers protégés
-3. Télécharger **UNIQUEMENT** `.devcontainer/` depuis le template GitHub
-4. Remplacer `.devcontainer/` (et rien d'autre)
-5. Restaurer les fichiers protégés
-6. Valider la configuration
+3. Sauvegarder `.devcontainer/images/` (JAMAIS remplacé)
+4. Télécharger `.devcontainer/` depuis le template GitHub (via archive tarball)
+5. Extraire en EXCLUANT `images/` du téléchargement
+6. Remplacer `.devcontainer/` (sauf images/)
+7. Restaurer les fichiers protégés
+8. Valider la configuration
+
+### Implémentation technique (exclusion images/)
+
+```bash
+# Télécharger l'archive et extraire en excluant images/
+REPO="kodflow/devcontainer-template"
+BRANCH="main"
+
+# Méthode 1: tar avec --exclude
+curl -sL "https://github.com/$REPO/archive/refs/heads/$BRANCH.tar.gz" | \
+  tar -xz --strip-components=1 \
+    --exclude="devcontainer-template-$BRANCH/.devcontainer/images" \
+    "devcontainer-template-$BRANCH/.devcontainer"
+
+# Méthode 2: gh cli
+gh api "repos/$REPO/tarball/$BRANCH" | \
+  tar -xz --strip-components=1 \
+    --exclude="*/.devcontainer/images/*" \
+    "*/.devcontainer"
+```
 
 ### Fichiers protégés (préservés)
 
+- `.devcontainer/images/` (TOUT le dossier - vient de GHCR)
 - `.devcontainer/.env`
 - `.devcontainer/.env.local`
 - `.devcontainer/hooks/shared/.env`
@@ -248,21 +273,27 @@ Le template `kodflow/devcontainer-template` contient d'autres fichiers à la rac
 Identification des fichiers protégés...
 
 Fichiers protégés (préservés):
+  ✓ .devcontainer/images/ (vient de GHCR)
   ✓ .devcontainer/.env
   ✓ .devcontainer/hooks/shared/.env
 
 Fichiers EXCLUS (jamais téléchargés):
-  ○ .github/ (workflows du projet préservés)
+  ○ .devcontainer/images/ (Docker image via GHCR)
+  ○ .github/ (workflows du projet)
   ○ .gitignore, CLAUDE.md, README.md
-
-Sauvegarde des fichiers protégés...
-  ✓ .devcontainer/.env sauvegardé
+  ○ .qodo-merge.toml (config PR-Agent)
 
 Téléchargement de kodflow/devcontainer-template...
-  ✓ .devcontainer/ téléchargé (scope limité)
+  ✓ Archive téléchargée
+  ✓ Extraction avec exclusion de images/
 
 Remplacement de .devcontainer/...
-  ✓ .devcontainer/ remplacé
+  ✓ features/ remplacé
+  ✓ hooks/ remplacé
+  ✓ devcontainer.json remplacé
+  ✓ docker-compose.yml remplacé
+  ✓ Dockerfile remplacé
+  ○ images/ préservé (non modifié)
 
 Restauration des fichiers protégés...
   ✓ .devcontainer/.env restauré
@@ -273,8 +304,8 @@ Validation de la configuration...
 ═══════════════════════════════════════════════
   ✓ DevContainer mis à jour
 
-  Note: .github/ et autres fichiers racine
-        n'ont PAS été modifiés.
+  Note: .devcontainer/images/ n'a PAS été modifié.
+        Ce dossier est géré via GHCR (Docker image).
 
   Prochaine étape:
     Ctrl+Shift+P → 'Rebuild Container'

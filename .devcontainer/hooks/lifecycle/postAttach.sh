@@ -14,7 +14,7 @@ source "$SCRIPT_DIR/../shared/utils.sh"
 
 echo ""
 echo -e "${CYAN}=========================================${NC}"
-echo -e "${CYAN}   Kodflow DevContainer Ready${NC}"
+echo -e "${CYAN}   DevContainer Ready${NC}"
 echo -e "${CYAN}=========================================${NC}"
 echo ""
 

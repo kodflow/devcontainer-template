@@ -1,5 +1,5 @@
 #!/bin/bash
-# Kodflow Utility Functions for Robust Installation
+# DevContainer Utility Functions
 # Provides retry mechanisms, error handling, and logging
 
 # Colors for output
