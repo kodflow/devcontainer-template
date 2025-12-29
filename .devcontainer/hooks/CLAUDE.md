@@ -1,10 +1,12 @@
 # DevContainer Hooks
 
 ## Purpose
+
 Lifecycle scripts for devcontainer events.
 
 ## Structure
-```
+
+```text
 hooks/
 ├── lifecycle/          # DevContainer lifecycle hooks
 │   ├── initialize.sh   # Initial setup
@@ -18,6 +20,7 @@ hooks/
 ```
 
 ## Lifecycle Events
+
 | Event | Script | Description |
 |-------|--------|-------------|
 | onCreate | onCreate.sh | Initial container creation |
@@ -26,6 +29,7 @@ hooks/
 | postStart | postStart.sh | After each start |
 
 ## Conventions
+
 - Scripts must be executable (chmod +x)
 - Use bash strict mode (set -euo pipefail)
 - Log to stderr, results to stdout

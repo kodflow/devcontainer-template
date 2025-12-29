@@ -1,9 +1,11 @@
 # Language Features
 
 ## Purpose
+
 Language-specific installation and conventions.
 
 ## Available Languages
+
 | Language | Version | Status |
 |----------|---------|--------|
 | Go | >= 1.25.0 | Stable |
@@ -20,13 +22,15 @@ Language-specific installation and conventions.
 | Carbon | >= 0.1.0 | Experimental |
 
 ## Per-Language Structure
-```
+
+```text
 <language>/
 ├── install.sh    # Installation script
 └── RULES.md      # Coding conventions
 ```
 
 ## Conventions
+
 - RULES.md line 1: Minimum version requirement
 - All code in /src regardless of language
 - Tests in /tests (except Go: alongside code)

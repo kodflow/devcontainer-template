@@ -1,9 +1,11 @@
 # Architecture Patterns
 
 ## Purpose
+
 Reference documentation for software architecture patterns.
 
 ## Available Patterns
+
 | Pattern | File | Use Case |
 |---------|------|----------|
 | Clean | clean.md | Dependency inversion |
@@ -22,5 +24,6 @@ Reference documentation for software architecture patterns.
 | Sliceable Monolith | sliceable-monolith.md | Modular monolith |
 
 ## Usage
+
 Each file contains structure, conventions, and examples for the pattern.
 Choose based on project requirements and team expertise.

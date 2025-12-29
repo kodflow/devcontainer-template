@@ -1,9 +1,11 @@
 # Lifecycle Hooks
 
 ## Purpose
+
 DevContainer lifecycle scripts executed at specific container events.
 
 ## Scripts
+
 | Script | Event | Description |
 |--------|-------|-------------|
 | `initialize.sh` | onCreateCommand | Initial setup |
@@ -14,6 +16,7 @@ DevContainer lifecycle scripts executed at specific container events.
 | `updateContent.sh` | updateContent | Content updates |
 
 ## Execution Order
+
 1. initialize.sh (earliest)
 2. onCreate.sh
 3. postCreate.sh
@@ -21,6 +24,7 @@ DevContainer lifecycle scripts executed at specific container events.
 5. postAttach.sh (latest)
 
 ## Conventions
+
 - All scripts must be executable (`chmod +x`)
 - Use bash strict mode: `set -euo pipefail`
 - Source `../shared/utils.sh` for common functions
