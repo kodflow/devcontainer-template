@@ -10,6 +10,9 @@ set -e
 REPO="kodflow/devcontainer-template"
 BRANCH="main"
 BASE="https://raw.githubusercontent.com/${REPO}/${BRANCH}/.devcontainer/images"
+
+# DC_TARGET: Override installation directory (defaults to current working directory)
+# Usage: DC_TARGET=/path/to/project ./install.sh
 TARGET="${DC_TARGET:-$(pwd)}"
 
 echo "═══════════════════════════════════════════"

@@ -11,7 +11,8 @@
 language: "fr-FR"
 
 reviews:
-  # "assertive" keeps reviewers strict without spamming low-value comments
+  # "assertive" provides thorough, strict reviews with detailed feedback
+  # This generates more comments but ensures high-quality code review
   profile: "assertive"
 
   high_level_summary: true
