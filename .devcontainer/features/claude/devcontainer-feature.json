@@ -1,7 +1,7 @@
 {
   "id": "claude",
   "version": "1.0.0",
-  "name": "Kodflow Claude Code",
+  "name": "Claude Code Integration",
   "description": "Configuration Claude Code avec commandes, hooks, MCP et marketplace",
   "documentationURL": "https://github.com/kodflow/devcontainer-template",
   "options": {

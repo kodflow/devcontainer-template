@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================================
-# Kodflow Claude Marketplace - One-liner Install
+# Claude Code Marketplace - One-liner Install
 # ============================================================================
 # curl -sL https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/features/claude/install.sh | bash
 # ============================================================================
@@ -10,10 +10,10 @@ set -e
 REPO="kodflow/devcontainer-template"
 BRANCH="main"
 BASE="https://raw.githubusercontent.com/${REPO}/${BRANCH}/.devcontainer/images"
-TARGET="${KODFLOW_TARGET:-$(pwd)}"
+TARGET="${DC_TARGET:-$(pwd)}"
 
 echo "═══════════════════════════════════════════"
-echo "  Kodflow Claude Marketplace"
+echo "  Claude Code Marketplace"
 echo "═══════════════════════════════════════════"
 echo ""
 

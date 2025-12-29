@@ -111,24 +111,24 @@ setup_gnome_keyring() {
 
 # Run keyring setup and export env vars for shell sessions
 if setup_gnome_keyring; then
-    KODFLOW_ENV="$HOME/.kodflow-env.sh"
-    if [ -f "$KODFLOW_ENV" ]; then
+    DC_ENV="$HOME/.devcontainer-env.sh"
+    if [ -f "$DC_ENV" ]; then
         # Remove existing entries to avoid duplicates
-        sed -i '/^export DBUS_SESSION_BUS_ADDRESS=/d' "$KODFLOW_ENV"
-        sed -i '/^export GNOME_KEYRING_CONTROL=/d' "$KODFLOW_ENV"
-        sed -i '/^export SSH_AUTH_SOCK=/d' "$KODFLOW_ENV"
+        sed -i '/^export DBUS_SESSION_BUS_ADDRESS=/d' "$DC_ENV"
+        sed -i '/^export GNOME_KEYRING_CONTROL=/d' "$DC_ENV"
+        sed -i '/^export SSH_AUTH_SOCK=/d' "$DC_ENV"
     fi
     # Export D-Bus and keyring variables for all shells
     if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-        echo "export DBUS_SESSION_BUS_ADDRESS=\"$DBUS_SESSION_BUS_ADDRESS\"" >> "$KODFLOW_ENV"
+        echo "export DBUS_SESSION_BUS_ADDRESS=\"$DBUS_SESSION_BUS_ADDRESS\"" >> "$DC_ENV"
     fi
     if [ -n "${GNOME_KEYRING_CONTROL:-}" ]; then
-        echo "export GNOME_KEYRING_CONTROL=\"$GNOME_KEYRING_CONTROL\"" >> "$KODFLOW_ENV"
+        echo "export GNOME_KEYRING_CONTROL=\"$GNOME_KEYRING_CONTROL\"" >> "$DC_ENV"
     fi
     if [ -n "${SSH_AUTH_SOCK:-}" ]; then
-        echo "export SSH_AUTH_SOCK=\"$SSH_AUTH_SOCK\"" >> "$KODFLOW_ENV"
+        echo "export SSH_AUTH_SOCK=\"$SSH_AUTH_SOCK\"" >> "$DC_ENV"
     fi
-    log_success "Keyring environment variables exported to $KODFLOW_ENV"
+    log_success "Keyring environment variables exported to $DC_ENV"
 fi
 
 # Reload .env file to get updated tokens
@@ -272,20 +272,36 @@ git config --global --unset-all credential.https://gist.github.com.helper 2>/dev
 log_success "Git credential helpers cleaned"
 
 # ============================================================================
-# Export dynamic environment variables (appended to ~/.kodflow-env.sh)
+# Export dynamic environment variables (appended to ~/.devcontainer-env.sh)
 # ============================================================================
-# Note: ~/.kodflow-env.sh is created by postCreate.sh with static content
+# Note: ~/.devcontainer-env.sh is created by postCreate.sh with static content
 # We only append dynamic variables here (secrets from 1Password)
-KODFLOW_ENV="$HOME/.kodflow-env.sh"
+DC_ENV="$HOME/.devcontainer-env.sh"
 
 # Export CodeRabbit API key if available (append to existing file)
 if [ -n "$CODERABBIT_TOKEN" ]; then
     # Remove any existing CODERABBIT_API_KEY line to avoid duplicates
-    if [ -f "$KODFLOW_ENV" ]; then
-        sed -i '/^export CODERABBIT_API_KEY=/d' "$KODFLOW_ENV"
+    if [ -f "$DC_ENV" ]; then
+        sed -i '/^export CODERABBIT_API_KEY=/d' "$DC_ENV"
     fi
-    echo "export CODERABBIT_API_KEY=\"$CODERABBIT_TOKEN\"" >> "$KODFLOW_ENV"
-    log_success "CODERABBIT_API_KEY exported to $KODFLOW_ENV"
+    echo "export CODERABBIT_API_KEY=\"$CODERABBIT_TOKEN\"" >> "$DC_ENV"
+    log_success "CODERABBIT_API_KEY exported to $DC_ENV"
+fi
+
+# ============================================================================
+# Auto-run /init for project initialization check
+# ============================================================================
+# Runs at every container start to verify project is properly initialized
+# (compares CLAUDE.md and README.md footprints with template)
+# Skipped in CI environment
+
+if command -v claude &> /dev/null && [ -z "${CI:-}" ]; then
+    log_info "Running project initialization check..."
+    # Run /init in background to not block container startup
+    nohup bash -c 'sleep 2 && claude --dangerously-skip-permissions "/init"' > /tmp/init.log 2>&1 &
+    log_success "Init check scheduled (runs in background)"
+elif [ -n "${CI:-}" ]; then
+    log_info "CI environment detected, skipping init"
 fi
 
 # ============================================================================

@@ -14,7 +14,7 @@ source "$SCRIPT_DIR/../shared/utils.sh"
 
 echo ""
 echo -e "${CYAN}=========================================${NC}"
-echo -e "${CYAN}   Kodflow DevContainer Setup${NC}"
+echo -e "${CYAN}   DevContainer Setup${NC}"
 echo -e "${CYAN}=========================================${NC}"
 echo ""
 
@@ -34,8 +34,8 @@ fi
 # No longer need to update on each rebuild
 
 # Check if already initialized
-if [ -f /home/vscode/.kodflow-initialized ]; then
-    log_success "Kodflow already initialized"
+if [ -f /home/vscode/.devcontainer-initialized ]; then
+    log_success "DevContainer already initialized"
     echo ""
     exit 0
 fi
@@ -43,8 +43,8 @@ fi
 log_info "Setting up environment variables and aliases..."
 
 # Create environment initialization script
-cat > /home/vscode/.kodflow-env.sh << 'ENVEOF'
-# Kodflow Environment Initialization
+cat > /home/vscode/.devcontainer-env.sh << 'ENVEOF'
+# DevContainer Environment Initialization
 # This file is sourced by ~/.zshrc and ~/.bashrc
 
 # NVM (Node.js Version Manager)
@@ -213,7 +213,7 @@ fi
 # ============================================================================
 # Dynamically detect D-Bus session for gnome-keyring support
 # Required by: CodeRabbit CLI, GitHub CLI, VS Code credential storage
-_kodflow_init_dbus() {
+_dc_init_dbus() {
     # Skip if D-Bus already configured and socket exists
     if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
         local socket_path="${DBUS_SESSION_BUS_ADDRESS#unix:path=}"
@@ -235,13 +235,13 @@ _kodflow_init_dbus() {
         [ -n "$keyring_dir" ] && [ -S "$keyring_dir/control" ] && export GNOME_KEYRING_CONTROL="$keyring_dir"
     fi
 }
-_kodflow_init_dbus
+_dc_init_dbus
 ENVEOF
 
-log_success "Environment script created at ~/.kodflow-env.sh"
+log_success "Environment script created at ~/.devcontainer-env.sh"
 
 # Mark as initialized
-touch /home/vscode/.kodflow-initialized
+touch /home/vscode/.devcontainer-initialized
 
 echo ""
 echo -e "${CYAN}=========================================${NC}"

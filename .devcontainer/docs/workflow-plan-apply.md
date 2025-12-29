@@ -1,6 +1,6 @@
 # Workflow /plan & /apply - Visualisation
 
-Ce document présente les diagrammes de flux pour les commandes `/plan` et `/apply` du DevContainer Kodflow.
+Ce document présente les diagrammes de flux pour les commandes `/plan` et `/apply` du DevContainer.
 
 ## Vue d'ensemble du workflow
 

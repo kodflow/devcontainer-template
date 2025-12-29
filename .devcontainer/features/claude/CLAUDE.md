@@ -1,4 +1,4 @@
-# Kodflow DevContainer Template
+# DevContainer Template
 
 ## Project Structure (MANDATORY)
 

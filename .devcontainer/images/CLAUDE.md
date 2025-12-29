@@ -1,4 +1,4 @@
-# Kodflow DevContainer - Workflow Obligatoire
+# DevContainer Workflow
 
 ## MODES DE TRAVAIL
 
