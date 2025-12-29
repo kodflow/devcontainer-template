@@ -7,11 +7,13 @@ $ARGUMENTS
 ## Description
 
 Commande automatisée pour corriger les issues de code review sur une PR :
+
 - **Codacy** : Issues statiques (linting, security, best practices)
 - **CodeRabbit** : Commentaires de review IA
 - **Qodo Merge** : Commentaires PR-Agent
 
 **Workflow itératif :**
+
 1. Récupère les issues/commentaires via MCP
 2. Applique les corrections
 3. Commit + Push
