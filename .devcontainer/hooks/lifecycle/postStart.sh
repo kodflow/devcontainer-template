@@ -236,23 +236,31 @@ escape_for_sed() {
     LC_ALL=C printf '%s' "$1" | tr -d '\n\r' | sed -e 's/[&/|\\]/\\&/g'
 }
 
+# Security: refuse to write secrets through symlinks or non-regular files
+if [ -e "$MCP_OUTPUT" ] && { [ -L "$MCP_OUTPUT" ] || [ ! -f "$MCP_OUTPUT" ]; }; then
+    log_error "Refusing to write mcp.json: not a regular file ($MCP_OUTPUT)"
+    # Skip all MCP generation but continue with rest of postStart
+else
+
 # Migrate legacy .mcp.json to mcp.json (renamed in v2)
-if [ -f "/workspace/.mcp.json" ] && [ ! -f "$MCP_OUTPUT" ]; then
+if [ -f "/workspace/.mcp.json" ] && [ ! -e "$MCP_OUTPUT" ]; then
     log_info "Migrating legacy .mcp.json to mcp.json..."
-    if cp "/workspace/.mcp.json" "$MCP_OUTPUT"; then
+    MCP_MIG_TMP=$(mktemp "${MCP_OUTPUT}.migrate.XXXXXX")
+    if cp "/workspace/.mcp.json" "$MCP_MIG_TMP"; then
         # Validate JSON before completing migration
-        if jq empty "$MCP_OUTPUT" 2>/dev/null; then
-            # Ensure correct ownership (fixes multi-user permission issues)
+        if jq empty "$MCP_MIG_TMP" 2>/dev/null; then
+            mv "$MCP_MIG_TMP" "$MCP_OUTPUT"
             chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
             chmod 600 "$MCP_OUTPUT"
             rm "/workspace/.mcp.json"
             log_success "Migration complete: .mcp.json → mcp.json"
         else
             log_error "Legacy .mcp.json is invalid JSON; keeping legacy file"
-            rm -f "$MCP_OUTPUT"
+            rm -f "$MCP_MIG_TMP"
         fi
     else
         log_error "Migration failed"
+        rm -f "$MCP_MIG_TMP"
     fi
 fi
 
@@ -335,6 +343,8 @@ if [ -f "$MCP_TPL" ]; then
 else
     log_warning "MCP template not found at $MCP_TPL"
 fi
+
+fi  # End of symlink security check
 
 # ============================================================================
 # Git Credential Cleanup (remove macOS-specific helpers)
