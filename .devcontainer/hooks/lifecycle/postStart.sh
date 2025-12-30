@@ -238,11 +238,18 @@ escape_for_sed() {
 # Migrate legacy .mcp.json to mcp.json (renamed in v2)
 if [ -f "/workspace/.mcp.json" ] && [ ! -f "$MCP_OUTPUT" ]; then
     log_info "Migrating legacy .mcp.json to mcp.json..."
-    if cp "/workspace/.mcp.json" "$MCP_OUTPUT" && rm "/workspace/.mcp.json"; then
-        # Ensure correct ownership (fixes multi-user permission issues)
-        chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
-        chmod 600 "$MCP_OUTPUT"
-        log_success "Migration complete: .mcp.json → mcp.json"
+    if cp "/workspace/.mcp.json" "$MCP_OUTPUT"; then
+        # Validate JSON before completing migration
+        if jq empty "$MCP_OUTPUT" 2>/dev/null; then
+            # Ensure correct ownership (fixes multi-user permission issues)
+            chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
+            chmod 600 "$MCP_OUTPUT"
+            rm "/workspace/.mcp.json"
+            log_success "Migration complete: .mcp.json → mcp.json"
+        else
+            log_error "Legacy .mcp.json is invalid JSON; keeping legacy file"
+            rm -f "$MCP_OUTPUT"
+        fi
     else
         log_error "Migration failed"
     fi
@@ -253,9 +260,19 @@ fi
 if [ -f "$MCP_TPL" ]; then
     if [ -f "$MCP_OUTPUT" ] && jq empty "$MCP_OUTPUT" 2>/dev/null; then
         log_info "mcp.json exists with valid JSON, preserving user modifications"
+        # Ensure correct ownership and secure permissions
+        chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
+        chmod 600 "$MCP_OUTPUT" 2>/dev/null || true
     elif [ -z "$CODACY_TOKEN" ] && [ -z "$GITHUB_TOKEN" ]; then
         # Skip generation if no tokens available (would create unusable config)
         log_warning "No tokens available, skipping mcp.json generation"
+        # Ensure downstream steps have a valid file to work with
+        if [ ! -f "$MCP_OUTPUT" ]; then
+            printf '%s\n' '{"mcpServers":{}}' > "$MCP_OUTPUT"
+            chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
+            chmod 600 "$MCP_OUTPUT"
+            log_info "Created minimal mcp.json for optional MCPs"
+        fi
     else
         log_info "Generating mcp.json from template..."
         ESCAPED_CODACY=$(escape_for_sed "${CODACY_TOKEN}")
@@ -285,6 +302,9 @@ if [ -f "$MCP_TPL" ]; then
         local binary="$2"
         local output="$3"
 
+        # Nothing to do if there is no base config to modify
+        [ -f "$output" ] || return 0
+
         if [ -x "$binary" ]; then
             log_info "Adding $name MCP (binary found at $binary)"
             local tmp_file
@@ -293,6 +313,9 @@ if [ -f "$MCP_TPL" ]; then
                '.mcpServers[$name] = {"command": $bin, "args": [], "env": {}}' \
                "$output" > "$tmp_file" && jq empty "$tmp_file" 2>/dev/null; then
                 mv "$tmp_file" "$output"
+                # Ensure correct ownership and secure permissions
+                chown "$(id -u):$(id -g)" "$output" 2>/dev/null || true
+                chmod 600 "$output" 2>/dev/null || true
             else
                 log_warning "Failed to add $name MCP, keeping original"
                 rm -f "$tmp_file"

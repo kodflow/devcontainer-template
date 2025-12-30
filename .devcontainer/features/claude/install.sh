@@ -104,6 +104,8 @@ if [ -f "$MCP_FILE" ]; then
         MCP_TMP=$(mktemp "${MCP_FILE}.tmp.XXXXXX")
         if jq --argjson tw "$TASKWARRIOR_MCP" '.mcpServers = ((.mcpServers // {}) + $tw)' "$MCP_FILE" > "$MCP_TMP" && jq empty "$MCP_TMP" 2>/dev/null; then
             mv "$MCP_TMP" "$MCP_FILE"
+            # Ensure correct ownership (match target directory owner)
+            chown "$(stat -c '%u:%g' "$TARGET")" "$MCP_FILE" 2>/dev/null || true
             chmod 600 "$MCP_FILE"
             echo "  ✓ mcp.json (merged + taskwarrior)"
         else
@@ -115,6 +117,8 @@ if [ -f "$MCP_FILE" ]; then
     fi
 else
     echo "{\"mcpServers\":$TASKWARRIOR_MCP}" > "$MCP_FILE"
+    # Ensure correct ownership (match target directory owner)
+    chown "$(stat -c '%u:%g' "$TARGET")" "$MCP_FILE" 2>/dev/null || true
     chmod 600 "$MCP_FILE"
     echo "  ✓ mcp.json (created + taskwarrior)"
 fi
