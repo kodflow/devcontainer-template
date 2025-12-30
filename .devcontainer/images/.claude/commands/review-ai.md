@@ -249,14 +249,14 @@ resolve_loop:
           - "Pas de régression introduite"
 
       5_mark_resolved:
-        # Optionnel: répondre au commentaire
+        # OBLIGATOIRE: répondre au commentaire pour que le bot le marque résolu
         action: |
-          mcp__github__add_issue_comment({
-            owner: "<owner>",
-            repo: "<repo>",
-            issue_number: <pr_number>,
-            body: "Fixed in latest commit"
-          })
+          # Répondre au commentaire inline (review comment)
+          gh api repos/<owner>/<repo>/pulls/<pr_number>/comments/<comment_id>/replies \
+            -X POST -f body="Fixed in <commit_sha> - <description du fix>"
+
+          # OU poster un commentaire général mentionnant le bot
+          gh pr comment <pr_number> --body "@<bot_name> Fixed: <issue_description>"
 
   commit_strategy:
     # Grouper les fixes par fichier ou par batch
