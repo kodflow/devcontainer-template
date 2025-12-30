@@ -125,6 +125,13 @@ export BAZEL_USER_ROOT="/home/vscode/.cache/bazel"
 super-claude() {
     local mcp_config="/workspace/mcp.json"
 
+    # Check if jq is available for JSON validation
+    if ! command -v jq &>/dev/null; then
+        echo "Warning: jq not found, skipping MCP config validation" >&2
+        claude --dangerously-skip-permissions "$@"
+        return
+    fi
+
     if [ -f "$mcp_config" ] && jq empty "$mcp_config" 2>/dev/null; then
         claude --dangerously-skip-permissions --mcp-config "$mcp_config" "$@"
     else
