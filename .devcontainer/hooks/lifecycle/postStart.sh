@@ -227,9 +227,9 @@ fi
 [ -z "$CODERABBIT_TOKEN" ] && log_warning "CodeRabbit token not available"
 
 # Helper: escape special chars for sed replacement
-# Handles: & \ | / and newlines (covers most token formats)
+# Handles: & \ | / and strips newlines/CR (covers all token formats)
 escape_for_sed() {
-    printf '%s' "$1" | sed -e 's/[\&/|]/\\&/g' -e 's/\\/\\\\/g'
+    printf '%s' "$1" | tr -d '\n\r' | sed -e 's/[&/|\\]/\\&/g'
 }
 
 # Migrate legacy .mcp.json to mcp.json (renamed in v2)

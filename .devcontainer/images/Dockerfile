@@ -180,12 +180,15 @@ USER vscode
 
 # =============================================================================
 # Status Line & ktn-linter (installed directly to ~/.local/bin/)
+# Pinned versions for supply-chain security
 # =============================================================================
+ARG STATUS_LINE_VERSION=v0.6.2
+ARG KTN_LINTER_VERSION=v1.3.75
 RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
-    curl -fsSL "https://github.com/kodflow/status-line/releases/latest/download/status-line-linux-${ARCH}" \
+    curl -fsSL "https://github.com/kodflow/status-line/releases/download/${STATUS_LINE_VERSION}/status-line-linux-${ARCH}" \
       -o ~/.local/bin/status-line && \
     chmod +x ~/.local/bin/status-line && \
-    curl -fsSL "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${ARCH}" \
+    curl -fsSL "https://github.com/kodflow/ktn-linter/releases/download/${KTN_LINTER_VERSION}/ktn-linter-linux-${ARCH}" \
       -o ~/.local/bin/ktn-linter && \
     chmod +x ~/.local/bin/ktn-linter
 
