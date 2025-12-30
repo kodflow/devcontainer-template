@@ -129,8 +129,8 @@ super-claude() {
     # Check if jq is available for JSON validation
     if ! command -v jq &>/dev/null; then
         echo "Warning: jq not found, skipping MCP config validation" >&2
-        # Still use mcp config if it looks like JSON (basic sanity check)
-        if [ -s "$mcp_config" ] && head -c 1 "$mcp_config" 2>/dev/null | grep -q '{'; then
+        # Still use mcp config if it looks like JSON (skip leading whitespace/newlines)
+        if [ -s "$mcp_config" ] && LC_ALL=C tr -d ' \t\r\n' < "$mcp_config" 2>/dev/null | head -c 1 | grep -q '{'; then
             claude --dangerously-skip-permissions --mcp-config "$mcp_config" "$@"
         else
             claude --dangerously-skip-permissions "$@"

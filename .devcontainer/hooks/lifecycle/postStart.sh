@@ -245,8 +245,11 @@ else
 # Migrate legacy .mcp.json to mcp.json (renamed in v2)
 if [ -f "/workspace/.mcp.json" ] && [ ! -e "$MCP_OUTPUT" ]; then
     log_info "Migrating legacy .mcp.json to mcp.json..."
-    MCP_MIG_TMP=$(mktemp "${MCP_OUTPUT}.migrate.XXXXXX")
-    if cp "/workspace/.mcp.json" "$MCP_MIG_TMP"; then
+    MCP_MIG_TMP=$(mktemp "${MCP_OUTPUT}.migrate.XXXXXX") || {
+        log_error "Migration failed: unable to create temp file"
+        MCP_MIG_TMP=""
+    }
+    if [ -n "$MCP_MIG_TMP" ] && cp "/workspace/.mcp.json" "$MCP_MIG_TMP"; then
         # Validate JSON before completing migration
         if jq empty "$MCP_MIG_TMP" 2>/dev/null; then
             mv "$MCP_MIG_TMP" "$MCP_OUTPUT"
@@ -258,7 +261,7 @@ if [ -f "/workspace/.mcp.json" ] && [ ! -e "$MCP_OUTPUT" ]; then
             log_error "Legacy .mcp.json is invalid JSON; keeping legacy file"
             rm -f "$MCP_MIG_TMP"
         fi
-    else
+    elif [ -n "$MCP_MIG_TMP" ]; then
         log_error "Migration failed"
         rm -f "$MCP_MIG_TMP"
     fi
@@ -283,28 +286,38 @@ if [ -f "$MCP_TPL" ]; then
             log_info "Created minimal mcp.json for optional MCPs"
         fi
     else
+        # Generate mcp.json from template (uses subshell to avoid global trap clobbering)
+        generate_mcp_from_template() {
+            local escaped_codacy escaped_github mcp_tmp
+            escaped_codacy=$(escape_for_sed "${CODACY_TOKEN}")
+            escaped_github=$(escape_for_sed "${GITHUB_TOKEN}")
+
+            mcp_tmp=$(mktemp "${MCP_OUTPUT}.tmp.XXXXXX") || {
+                log_error "Failed to create temp file for mcp.json generation"
+                return 0
+            }
+
+            # Cleanup on function exit (does not affect other traps)
+            trap 'rm -f "$mcp_tmp" 2>/dev/null || true' RETURN
+
+            if ! sed -e "s|{{CODACY_TOKEN}}|${escaped_codacy}|g" \
+                    -e "s|{{GITHUB_TOKEN}}|${escaped_github}|g" \
+                    "$MCP_TPL" > "$mcp_tmp"; then
+                log_error "Failed to render mcp.json template"
+                return 0
+            fi
+
+            if jq empty "$mcp_tmp" 2>/dev/null; then
+                mv "$mcp_tmp" "$MCP_OUTPUT"
+                chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
+                chmod 600 "$MCP_OUTPUT"
+                log_success "mcp.json generated successfully"
+            else
+                log_error "Generated mcp.json is invalid JSON, keeping original"
+            fi
+        }
         log_info "Generating mcp.json from template..."
-        ESCAPED_CODACY=$(escape_for_sed "${CODACY_TOKEN}")
-        ESCAPED_GITHUB=$(escape_for_sed "${GITHUB_TOKEN}")
-        # Use atomic temp file to prevent race conditions
-        MCP_TMP=$(mktemp "${MCP_OUTPUT}.tmp.XXXXXX")
-        # Ensure temp file with secrets is always cleaned up
-        trap 'rm -f "$MCP_TMP" 2>/dev/null || true' EXIT
-        sed -e "s|{{CODACY_TOKEN}}|${ESCAPED_CODACY}|g" \
-            -e "s|{{GITHUB_TOKEN}}|${ESCAPED_GITHUB}|g" \
-            "$MCP_TPL" > "$MCP_TMP"
-        # Validate JSON before overwriting
-        if jq empty "$MCP_TMP" 2>/dev/null; then
-            mv "$MCP_TMP" "$MCP_OUTPUT"
-            trap - EXIT
-            chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
-            chmod 600 "$MCP_OUTPUT"
-            log_success "mcp.json generated successfully"
-        else
-            log_error "Generated mcp.json is invalid JSON, keeping original"
-            rm -f "$MCP_TMP"
-            trap - EXIT
-        fi
+        generate_mcp_from_template
     fi
 
     # =========================================================================
@@ -322,7 +335,10 @@ if [ -f "$MCP_TPL" ]; then
         if [ -x "$binary" ]; then
             log_info "Adding $name MCP (binary found at $binary)"
             local tmp_file
-            tmp_file=$(mktemp "${output}.tmp.XXXXXX")
+            tmp_file=$(mktemp "${output}.tmp.XXXXXX") || {
+                log_warning "Failed to add $name MCP (unable to create temp file)"
+                return 0
+            }
             if jq --arg name "$name" --arg bin "$binary" \
                '.mcpServers = (.mcpServers // {}) | .mcpServers[$name] = {"command": $bin, "args": [], "env": {}}' \
                "$output" > "$tmp_file" && jq empty "$tmp_file" 2>/dev/null; then
