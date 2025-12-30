@@ -145,7 +145,8 @@ fi
 # ============================================================================
 # MCP Configuration Setup (inject secrets into template)
 # ============================================================================
-VAULT_ID="ypahjj334ixtiyjkytu5hij2im"
+# 1Password vault ID (can be overridden via OP_VAULT_ID env var)
+VAULT_ID="${OP_VAULT_ID:-ypahjj334ixtiyjkytu5hij2im}"
 MCP_TPL="/etc/mcp/mcp.json.tpl"
 MCP_OUTPUT="/workspace/mcp.json"
 

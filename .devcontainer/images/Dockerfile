@@ -189,20 +189,24 @@ USER vscode
 # =============================================================================
 ARG STATUS_LINE_VERSION=v0.6.2
 ARG KTN_LINTER_VERSION=v1.3.75
-# ktn-linter checksums (from official release)
+# Checksums for supply-chain verification (from official releases)
+ARG STATUS_LINE_SHA256_AMD64=6ba6b53162444fbc87f40e76b236e459ac6f88b99d2bdc183379a693592240a3
+ARG STATUS_LINE_SHA256_ARM64=8bfd15968a836276a075fd6dd5b86f075ff3a7eb11dec8e3c5733bcef83ece74
 ARG KTN_LINTER_SHA256_AMD64=93577390b2cb8d5a7110a233a6585e373673f5784efbe8b8b0250fa1a05e109c
 ARG KTN_LINTER_SHA256_ARM64=5843e787ab811baf6a1fd111969ab86fdf36440f7f2c81a972453793cc75e1ab
 RUN mkdir -p ~/.local/bin && \
     ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
-    # status-line (no checksums available from upstream)
+    # status-line with checksum verification
     curl -fsSL "https://github.com/kodflow/status-line/releases/download/${STATUS_LINE_VERSION}/status-line-linux-${ARCH}" \
       -o ~/.local/bin/status-line && \
+    EXPECTED_SL_SHA=$([ "$ARCH" = "arm64" ] && echo "$STATUS_LINE_SHA256_ARM64" || echo "$STATUS_LINE_SHA256_AMD64") && \
+    echo "$EXPECTED_SL_SHA  $HOME/.local/bin/status-line" | sha256sum -c - && \
     chmod +x ~/.local/bin/status-line && \
     # ktn-linter with checksum verification
     curl -fsSL "https://github.com/kodflow/ktn-linter/releases/download/${KTN_LINTER_VERSION}/ktn-linter-linux-${ARCH}" \
       -o ~/.local/bin/ktn-linter && \
-    EXPECTED_SHA=$([ "$ARCH" = "arm64" ] && echo "$KTN_LINTER_SHA256_ARM64" || echo "$KTN_LINTER_SHA256_AMD64") && \
-    echo "$EXPECTED_SHA  $HOME/.local/bin/ktn-linter" | sha256sum -c - && \
+    EXPECTED_KTN_SHA=$([ "$ARCH" = "arm64" ] && echo "$KTN_LINTER_SHA256_ARM64" || echo "$KTN_LINTER_SHA256_AMD64") && \
+    echo "$EXPECTED_KTN_SHA  $HOME/.local/bin/ktn-linter" | sha256sum -c - && \
     chmod +x ~/.local/bin/ktn-linter
 
 # =============================================================================
