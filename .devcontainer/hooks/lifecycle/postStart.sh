@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1090,SC1091
 # ============================================================================
 # postStart.sh - Runs EVERY TIME the container starts
 # ============================================================================
@@ -90,7 +91,8 @@ setup_gnome_keyring() {
             export DBUS_SESSION_BUS_ADDRESS
         else
             log_warning "dbus-launch not found - using fallback"
-            export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+            DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+            export DBUS_SESSION_BUS_ADDRESS
         fi
     fi
 

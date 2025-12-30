@@ -120,7 +120,8 @@ generate_ai_title = false
 enable_help_text = true
 
 [rag_arguments]
-# RAG requires Enterprise tier (single-tenant or on-premises)
+# NOTE: RAG context enrichment requires Qodo Enterprise tier (single-tenant or on-premises)
+# Uncomment below if your organization has Enterprise access:
 # enable_rag = true
 
 [pr_compliance]
