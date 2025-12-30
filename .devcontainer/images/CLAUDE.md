@@ -248,11 +248,11 @@ planning ──→ planned ──→ applying ──→ applied
 
 ### Vérification obligatoire au démarrage
 
-**TOUJOURS** vérifier `/workspace/.mcp.json` au début de chaque session :
+**TOUJOURS** vérifier `/workspace/mcp.json` au début de chaque session :
 
 ```bash
 # Lire la config MCP
-cat /workspace/.mcp.json 2>/dev/null | jq -r '.mcpServers | keys[]'
+cat /workspace/mcp.json 2>/dev/null | jq -r '.mcpServers | keys[]'
 ```
 
 ### Priorité d'utilisation
@@ -267,7 +267,7 @@ cat /workspace/.mcp.json 2>/dev/null | jq -r '.mcpServers | keys[]'
 
 ### Ne JAMAIS demander ce qui est déjà configuré
 
-Si `.mcp.json` contient un serveur (ex: `github`), **NE PAS** :
+Si `mcp.json` contient un serveur (ex: `github`), **NE PAS** :
 - ❌ Demander un token GitHub à l'utilisateur
 - ❌ Suggérer `gh auth login`
 - ❌ Utiliser le CLI en fallback si MCP disponible
@@ -275,11 +275,11 @@ Si `.mcp.json` contient un serveur (ex: `github`), **NE PAS** :
 **TOUJOURS** :
 - ✅ Utiliser directement les outils `mcp__<server>__*`
 - ✅ En cas d'échec MCP, informer l'utilisateur du problème
-- ✅ Extraire le token de `.mcp.json` si CLI fallback nécessaire
+- ✅ Extraire le token de `mcp.json` si CLI fallback nécessaire
 
 ### Diagnostic des erreurs MCP
 
-Si les outils MCP ne sont pas disponibles alors que `.mcp.json` existe :
+Si les outils MCP ne sont pas disponibles alors que `mcp.json` existe :
 
 1. **Vérifier le démarrage** : `super-claude` affiche les serveurs actifs
 2. **Vérifier Node.js** : Les serveurs MCP utilisent `npx`, Node.js doit être installé

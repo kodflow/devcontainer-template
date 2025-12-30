@@ -112,7 +112,7 @@ Creates `fix/<description>` branch, **mandatory planning mode**, CI check, PR cr
 
 **Rules:**
 
-1. Check `.mcp.json` for available MCP servers
+1. Check `mcp.json` for available MCP servers
 2. Use `mcp__<server>__<action>` tools first
 3. Only fallback to CLI if MCP fails or is unavailable
 4. NEVER ask user for tokens if MCP is already configured
@@ -120,7 +120,7 @@ Creates `fix/<description>` branch, **mandatory planning mode**, CI check, PR cr
 
 **Why:**
 
-- MCP = pre-authenticated (tokens in .mcp.json)
+- MCP = pre-authenticated (tokens in mcp.json)
 - CLI = requires separate auth setup
 - MCP = structured JSON responses
 - CLI = text parsing required

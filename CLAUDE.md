@@ -78,7 +78,7 @@ mcp_priority:
   fallback: "CLI only when MCP unavailable or fails"
 
   workflow:
-    1_check_mcp: "Verify MCP server is available in .mcp.json"
+    1_check_mcp: "Verify MCP server is available in mcp.json"
     2_use_mcp: "Call mcp__<server>__<action> tool"
     3_on_failure: "Log error, inform user, then try CLI fallback"
     4_never_ask: "NEVER ask user for tokens if MCP is configured"
@@ -94,7 +94,7 @@ mcp_priority:
 
 **Why MCP-first:**
 
-- MCP servers have pre-configured authentication (tokens in .mcp.json)
+- MCP servers have pre-configured authentication (tokens in mcp.json)
 - CLI tools require separate auth (`gh auth login`, etc.)
 - MCP provides structured responses (JSON vs text parsing)
 - Single source of truth for credentials

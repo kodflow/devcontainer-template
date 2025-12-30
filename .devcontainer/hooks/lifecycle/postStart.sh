@@ -145,7 +145,7 @@ fi
 # ============================================================================
 VAULT_ID="ypahjj334ixtiyjkytu5hij2im"
 MCP_TPL="/etc/mcp/mcp.json.tpl"
-MCP_OUTPUT="/workspace/.mcp.json"
+MCP_OUTPUT="/workspace/mcp.json"
 
 # Helper function to get 1Password field (tries multiple field names)
 # Usage: get_1password_field <item_name> <vault_id>
@@ -228,7 +228,7 @@ fi
 
 # Generate mcp.json from template (baked in Docker image)
 if [ -f "$MCP_TPL" ]; then
-    log_info "Generating .mcp.json from template..."
+    log_info "Generating mcp.json from template..."
     sed -e "s|{{CODACY_TOKEN}}|${CODACY_TOKEN}|g" \
         -e "s|{{GITHUB_TOKEN}}|${GITHUB_TOKEN}|g" \
         "$MCP_TPL" > "$MCP_OUTPUT"

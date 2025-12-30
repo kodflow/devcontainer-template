@@ -260,7 +260,7 @@ gh api "repos/$REPO/tarball/$BRANCH" | \
 - `.devcontainer/.env`
 - `.devcontainer/.env.local`
 - `.devcontainer/hooks/shared/.env`
-- `.mcp.json` (racine)
+- `mcp.json` (racine)
 - Tous les fichiers gitignored dans .devcontainer/
 
 ### Output --devcontainer
