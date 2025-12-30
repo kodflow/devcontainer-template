@@ -192,18 +192,10 @@ RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
 # =============================================================================
 # xdg-open wrapper (for headless container - displays URL instead of opening)
 # =============================================================================
-RUN cat > ~/.local/bin/xdg-open << 'EOF' && chmod +x ~/.local/bin/xdg-open
-#!/bin/sh
-echo ""
-echo "══════════════════════════════════════════════════════════════"
-echo "  Open this URL in your browser:"
-echo "══════════════════════════════════════════════════════════════"
-echo ""
-printf '  %s\n' "$1"
-echo ""
-echo "══════════════════════════════════════════════════════════════"
-echo ""
-EOF
+RUN printf '%s\n' '#!/bin/sh' \
+    '[ -z "$1" ] && exit 1' \
+    'printf "\n  Open in browser: %s\n\n" "$1"' \
+    > ~/.local/bin/xdg-open && chmod +x ~/.local/bin/xdg-open
 
 # =============================================================================
 # Environment Variables
