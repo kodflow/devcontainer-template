@@ -193,8 +193,9 @@ RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
 # xdg-open wrapper (for headless container - displays URL instead of opening)
 # =============================================================================
 RUN printf '%s\n' '#!/bin/sh' \
-    '[ -z "$1" ] && exit 1' \
-    'printf "\n  Open in browser: %s\n\n" "$1"' \
+    '[ $# -eq 0 ] && { echo "Usage: xdg-open <url> [url...]" >&2; exit 2; }' \
+    'for url in "$@"; do printf "\n  Open in browser: %s\n" "$url"; done' \
+    'echo ""' \
     > ~/.local/bin/xdg-open && chmod +x ~/.local/bin/xdg-open
 
 # =============================================================================

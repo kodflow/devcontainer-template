@@ -226,19 +226,31 @@ fi
 [ -z "$GITHUB_TOKEN" ] && log_warning "GitHub token not available"
 [ -z "$CODERABBIT_TOKEN" ] && log_warning "CodeRabbit token not available"
 
+# Helper: escape special chars for sed replacement (& \ |)
+escape_for_sed() {
+    printf '%s' "$1" | sed -e 's/[&\|]/\\&/g'
+}
+
 # Migrate legacy .mcp.json to mcp.json (renamed in v2)
 if [ -f "/workspace/.mcp.json" ] && [ ! -f "$MCP_OUTPUT" ]; then
     log_info "Migrating legacy .mcp.json to mcp.json..."
-    mv "/workspace/.mcp.json" "$MCP_OUTPUT"
-    log_success "Migration complete: .mcp.json → mcp.json"
+    if cp "/workspace/.mcp.json" "$MCP_OUTPUT" && rm "/workspace/.mcp.json"; then
+        chmod 600 "$MCP_OUTPUT"
+        log_success "Migration complete: .mcp.json → mcp.json"
+    else
+        log_error "Migration failed"
+    fi
 fi
 
 # Generate mcp.json from template (baked in Docker image)
 if [ -f "$MCP_TPL" ]; then
     log_info "Generating mcp.json from template..."
-    sed -e "s|{{CODACY_TOKEN}}|${CODACY_TOKEN}|g" \
-        -e "s|{{GITHUB_TOKEN}}|${GITHUB_TOKEN}|g" \
+    ESCAPED_CODACY=$(escape_for_sed "${CODACY_TOKEN}")
+    ESCAPED_GITHUB=$(escape_for_sed "${GITHUB_TOKEN}")
+    sed -e "s|{{CODACY_TOKEN}}|${ESCAPED_CODACY}|g" \
+        -e "s|{{GITHUB_TOKEN}}|${ESCAPED_GITHUB}|g" \
         "$MCP_TPL" > "$MCP_OUTPUT"
+    chmod 600 "$MCP_OUTPUT"
     log_success "mcp.json generated successfully"
 
     # =========================================================================

@@ -154,22 +154,40 @@ collect_comments:
 
   api_calls:
     # Commentaires de review (inline sur le code)
-    review_comments: |
-      mcp__github__get_pull_request_comments({
-        owner: "<owner>",
-        repo: "<repo>",
-        pull_number: <number>
-      })
-      # Fallback:
-      gh api repos/<owner>/<repo>/pulls/<number>/comments
+    review_comments:
+      priority: MCP
+      mcp: |
+        mcp__github__get_pull_request_comments({
+          owner: "<owner>",
+          repo: "<repo>",
+          pull_number: <number>
+        })
+      fallback: |
+        gh api repos/<owner>/<repo>/pulls/<number>/comments
 
     # Commentaires généraux (issue comments)
-    issue_comments: |
-      gh api repos/<owner>/<repo>/issues/<number>/comments
+    issue_comments:
+      priority: MCP
+      mcp: |
+        mcp__github__list_issue_comments({
+          owner: "<owner>",
+          repo: "<repo>",
+          issue_number: <number>
+        })
+      fallback: |
+        gh api repos/<owner>/<repo>/issues/<number>/comments
 
     # Reviews avec leurs commentaires
-    reviews: |
-      gh api repos/<owner>/<repo>/pulls/<number>/reviews
+    reviews:
+      priority: MCP
+      mcp: |
+        mcp__github__list_pull_request_reviews({
+          owner: "<owner>",
+          repo: "<repo>",
+          pull_number: <number>
+        })
+      fallback: |
+        gh api repos/<owner>/<repo>/pulls/<number>/reviews
 ```
 
 ### Phase 3: Parsing des Commentaires
