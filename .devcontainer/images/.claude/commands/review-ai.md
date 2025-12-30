@@ -250,13 +250,21 @@ resolve_loop:
 
       5_mark_resolved:
         # OBLIGATOIRE: répondre au commentaire pour que le bot le marque résolu
-        action: |
-          # Répondre au commentaire inline (review comment)
-          gh api repos/<owner>/<repo>/pulls/<pr_number>/comments/<comment_id>/replies \
-            -X POST -f body="Fixed in <commit_sha> - <description du fix>"
+        priority: MCP
 
-          # OU poster un commentaire général mentionnant le bot
-          gh pr comment <pr_number> --body "@<bot_name> Fixed: <issue_description>"
+        # Commentaire général sur la PR (MCP disponible)
+        mcp_method: |
+          mcp__github__add_issue_comment({
+            owner: "<owner>",
+            repo: "<repo>",
+            issue_number: <pr_number>,
+            body: "@<bot_name> Fixed in <commit_sha>: <description>"
+          })
+
+        # Réponse inline review comment (pas de MCP dédié, fallback API)
+        fallback_inline: |
+          gh api repos/<owner>/<repo>/pulls/<pr_number>/comments/<comment_id>/replies \
+            -X POST -f body="Fixed in <commit_sha> - <description>"
 
   commit_strategy:
     # Grouper les fixes par fichier ou par batch
