@@ -230,8 +230,9 @@ fi
 
 # Helper: escape special chars for sed replacement
 # Handles: & \ | / and strips newlines/CR (covers all token formats)
+# LC_ALL=C ensures deterministic behavior across locales
 escape_for_sed() {
-    printf '%s' "$1" | tr -d '\n\r' | sed -e 's/[&/|\\]/\\&/g'
+    LC_ALL=C printf '%s' "$1" | tr -d '\n\r' | sed -e 's/[&/|\\]/\\&/g'
 }
 
 # Migrate legacy .mcp.json to mcp.json (renamed in v2)

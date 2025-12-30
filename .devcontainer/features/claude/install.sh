@@ -100,7 +100,7 @@ TASKWARRIOR_MCP='{"taskwarrior":{"command":"npx","args":["-y","mcp-server-taskwa
 if [ -f "$MCP_FILE" ]; then
     # Merge with existing (ensure .mcpServers exists with fallback to empty object)
     if command -v jq &>/dev/null; then
-        jq --argjson tw "$TASKWARRIOR_MCP" '(.mcpServers // {}) += $tw | .mcpServers = (.mcpServers // {})' "$MCP_FILE" > "$MCP_FILE.tmp" && mv "$MCP_FILE.tmp" "$MCP_FILE"
+        jq --argjson tw "$TASKWARRIOR_MCP" '.mcpServers = ((.mcpServers // {}) + $tw)' "$MCP_FILE" > "$MCP_FILE.tmp" && mv "$MCP_FILE.tmp" "$MCP_FILE"
         echo "  ✓ mcp.json (merged + taskwarrior)"
     else
         echo "  ⚠ mcp.json (jq not found, manual config needed)"

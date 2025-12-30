@@ -10,9 +10,10 @@
 #   docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/kodflow/devcontainer-template:latest .
 # =============================================================================
 
-# Base image pinned to digest for supply-chain security
-# Update digest: docker manifest inspect mcr.microsoft.com/devcontainers/base:ubuntu-24.04
-ARG BASE_IMAGE=mcr.microsoft.com/devcontainers/base:ubuntu-24.04@sha256:3612b800eaae8513e7dca54f21d2e4eda48eda57426f3746a78677f342ac7ee9
+# Base image uses tagged version for multi-arch support (amd64/arm64)
+# Note: Digest pinning not used as it would require platform-specific digests
+# The devcontainers base images are published by Microsoft with regular security updates
+ARG BASE_IMAGE=mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 # hadolint ignore=DL3006
 FROM ${BASE_IMAGE}
 
@@ -191,7 +192,8 @@ ARG KTN_LINTER_VERSION=v1.3.75
 # ktn-linter checksums (from official release)
 ARG KTN_LINTER_SHA256_AMD64=93577390b2cb8d5a7110a233a6585e373673f5784efbe8b8b0250fa1a05e109c
 ARG KTN_LINTER_SHA256_ARM64=5843e787ab811baf6a1fd111969ab86fdf36440f7f2c81a972453793cc75e1ab
-RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+RUN mkdir -p ~/.local/bin && \
+    ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     # status-line (no checksums available from upstream)
     curl -fsSL "https://github.com/kodflow/status-line/releases/download/${STATUS_LINE_VERSION}/status-line-linux-${ARCH}" \
       -o ~/.local/bin/status-line && \
