@@ -101,12 +101,14 @@ if [ -f "$MCP_FILE" ]; then
     # Merge with existing (ensure .mcpServers exists with fallback to empty object)
     if command -v jq &>/dev/null; then
         jq --argjson tw "$TASKWARRIOR_MCP" '.mcpServers = ((.mcpServers // {}) + $tw)' "$MCP_FILE" > "$MCP_FILE.tmp" && mv "$MCP_FILE.tmp" "$MCP_FILE"
+        chmod 600 "$MCP_FILE"
         echo "  ✓ mcp.json (merged + taskwarrior)"
     else
         echo "  ⚠ mcp.json (jq not found, manual config needed)"
     fi
 else
     echo "{\"mcpServers\":$TASKWARRIOR_MCP}" > "$MCP_FILE"
+    chmod 600 "$MCP_FILE"
     echo "  ✓ mcp.json (created + taskwarrior)"
 fi
 
