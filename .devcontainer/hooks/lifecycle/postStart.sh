@@ -239,6 +239,8 @@ escape_for_sed() {
 if [ -f "/workspace/.mcp.json" ] && [ ! -f "$MCP_OUTPUT" ]; then
     log_info "Migrating legacy .mcp.json to mcp.json..."
     if cp "/workspace/.mcp.json" "$MCP_OUTPUT" && rm "/workspace/.mcp.json"; then
+        # Ensure correct ownership (fixes multi-user permission issues)
+        chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
         chmod 600 "$MCP_OUTPUT"
         log_success "Migration complete: .mcp.json → mcp.json"
     else
@@ -251,6 +253,9 @@ fi
 if [ -f "$MCP_TPL" ]; then
     if [ -f "$MCP_OUTPUT" ] && jq empty "$MCP_OUTPUT" 2>/dev/null; then
         log_info "mcp.json exists with valid JSON, preserving user modifications"
+    elif [ -z "$CODACY_TOKEN" ] && [ -z "$GITHUB_TOKEN" ]; then
+        # Skip generation if no tokens available (would create unusable config)
+        log_warning "No tokens available, skipping mcp.json generation"
     else
         log_info "Generating mcp.json from template..."
         ESCAPED_CODACY=$(escape_for_sed "${CODACY_TOKEN}")
