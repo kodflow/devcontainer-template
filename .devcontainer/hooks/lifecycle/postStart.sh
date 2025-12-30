@@ -247,20 +247,34 @@ if [ -f "/workspace/.mcp.json" ] && [ ! -f "$MCP_OUTPUT" ]; then
 fi
 
 # Generate mcp.json from template (baked in Docker image)
+# Skip if mcp.json already exists with valid JSON (preserve user modifications)
 if [ -f "$MCP_TPL" ]; then
-    log_info "Generating mcp.json from template..."
-    ESCAPED_CODACY=$(escape_for_sed "${CODACY_TOKEN}")
-    ESCAPED_GITHUB=$(escape_for_sed "${GITHUB_TOKEN}")
-    sed -e "s|{{CODACY_TOKEN}}|${ESCAPED_CODACY}|g" \
-        -e "s|{{GITHUB_TOKEN}}|${ESCAPED_GITHUB}|g" \
-        "$MCP_TPL" > "$MCP_OUTPUT"
-    chmod 600 "$MCP_OUTPUT"
-    log_success "mcp.json generated successfully"
+    if [ -f "$MCP_OUTPUT" ] && jq empty "$MCP_OUTPUT" 2>/dev/null; then
+        log_info "mcp.json exists with valid JSON, preserving user modifications"
+    else
+        log_info "Generating mcp.json from template..."
+        ESCAPED_CODACY=$(escape_for_sed "${CODACY_TOKEN}")
+        ESCAPED_GITHUB=$(escape_for_sed "${GITHUB_TOKEN}")
+        # Use atomic temp file to prevent race conditions
+        MCP_TMP=$(mktemp "${MCP_OUTPUT}.tmp.XXXXXX")
+        sed -e "s|{{CODACY_TOKEN}}|${ESCAPED_CODACY}|g" \
+            -e "s|{{GITHUB_TOKEN}}|${ESCAPED_GITHUB}|g" \
+            "$MCP_TPL" > "$MCP_TMP"
+        # Validate JSON before overwriting
+        if jq empty "$MCP_TMP" 2>/dev/null; then
+            mv "$MCP_TMP" "$MCP_OUTPUT"
+            chmod 600 "$MCP_OUTPUT"
+            log_success "mcp.json generated successfully"
+        else
+            log_error "Generated mcp.json is invalid JSON, keeping original"
+            rm -f "$MCP_TMP"
+        fi
+    fi
 
     # =========================================================================
     # Add optional MCPs based on installed features
     # =========================================================================
-    # Helper function to add a conditional MCP server
+    # Helper function to add a conditional MCP server (uses atomic temp file)
     add_optional_mcp() {
         local name="$1"
         local binary="$2"
@@ -268,9 +282,16 @@ if [ -f "$MCP_TPL" ]; then
 
         if [ -x "$binary" ]; then
             log_info "Adding $name MCP (binary found at $binary)"
-            jq --arg name "$name" --arg bin "$binary" \
+            local tmp_file
+            tmp_file=$(mktemp "${output}.tmp.XXXXXX")
+            if jq --arg name "$name" --arg bin "$binary" \
                '.mcpServers[$name] = {"command": $bin, "args": [], "env": {}}' \
-               "$output" > "$output.tmp" && mv "$output.tmp" "$output"
+               "$output" > "$tmp_file" && jq empty "$tmp_file" 2>/dev/null; then
+                mv "$tmp_file" "$output"
+            else
+                log_warning "Failed to add $name MCP, keeping original"
+                rm -f "$tmp_file"
+            fi
         else
             log_info "Skipping $name MCP (binary not found)"
         fi
