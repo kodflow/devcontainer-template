@@ -226,6 +226,13 @@ fi
 [ -z "$GITHUB_TOKEN" ] && log_warning "GitHub token not available"
 [ -z "$CODERABBIT_TOKEN" ] && log_warning "CodeRabbit token not available"
 
+# Migrate legacy .mcp.json to mcp.json (renamed in v2)
+if [ -f "/workspace/.mcp.json" ] && [ ! -f "$MCP_OUTPUT" ]; then
+    log_info "Migrating legacy .mcp.json to mcp.json..."
+    mv "/workspace/.mcp.json" "$MCP_OUTPUT"
+    log_success "Migration complete: .mcp.json → mcp.json"
+fi
+
 # Generate mcp.json from template (baked in Docker image)
 if [ -f "$MCP_TPL" ]; then
     log_info "Generating mcp.json from template..."
