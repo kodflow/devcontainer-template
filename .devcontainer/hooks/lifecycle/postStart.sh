@@ -236,8 +236,12 @@ escape_for_sed() {
     LC_ALL=C printf '%s' "$1" | tr -d '\n\r' | sed -e 's/[&/|\\]/\\&/g'
 }
 
-# Security: refuse to write secrets through symlinks or non-regular files
-if [ -e "$MCP_OUTPUT" ] && { [ -L "$MCP_OUTPUT" ] || [ ! -f "$MCP_OUTPUT" ]; }; then
+# Security: refuse to write secrets through symlinks or unsafe directories
+MCP_DIR=$(dirname -- "$MCP_OUTPUT")
+if [ ! -d "$MCP_DIR" ] || [ -L "$MCP_DIR" ]; then
+    log_error "Refusing to write mcp.json: unsafe parent directory ($MCP_DIR)"
+    # Skip all MCP generation but continue with rest of postStart
+elif [ -e "$MCP_OUTPUT" ] && { [ -L "$MCP_OUTPUT" ] || [ ! -f "$MCP_OUTPUT" ]; }; then
     log_error "Refusing to write mcp.json: not a regular file ($MCP_OUTPUT)"
     # Skip all MCP generation but continue with rest of postStart
 else
@@ -245,25 +249,38 @@ else
 # Migrate legacy .mcp.json to mcp.json (renamed in v2)
 if [ -f "/workspace/.mcp.json" ] && [ ! -e "$MCP_OUTPUT" ]; then
     log_info "Migrating legacy .mcp.json to mcp.json..."
-    MCP_MIG_TMP=$(mktemp "${MCP_OUTPUT}.migrate.XXXXXX") || {
-        log_error "Migration failed: unable to create temp file"
-        MCP_MIG_TMP=""
-    }
-    if [ -n "$MCP_MIG_TMP" ] && cp "/workspace/.mcp.json" "$MCP_MIG_TMP"; then
-        # Validate JSON before completing migration
-        if jq empty "$MCP_MIG_TMP" 2>/dev/null; then
-            mv "$MCP_MIG_TMP" "$MCP_OUTPUT"
+
+    if ! command -v jq >/dev/null 2>&1; then
+        log_warning "jq not found; migrating without JSON validation"
+        if cp "/workspace/.mcp.json" "$MCP_OUTPUT"; then
             chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
             chmod 600 "$MCP_OUTPUT"
             rm -f "/workspace/.mcp.json" || log_warning "Could not remove legacy .mcp.json (permissions?)"
             log_success "Migration complete: .mcp.json → mcp.json"
         else
-            log_error "Legacy .mcp.json is invalid JSON; keeping legacy file"
+            log_error "Migration failed: unable to copy legacy file"
+        fi
+    else
+        MCP_MIG_TMP=$(mktemp "${MCP_OUTPUT}.migrate.XXXXXX") || {
+            log_error "Migration failed: unable to create temp file"
+            MCP_MIG_TMP=""
+        }
+        if [ -n "$MCP_MIG_TMP" ] && cp "/workspace/.mcp.json" "$MCP_MIG_TMP"; then
+            # Validate JSON before completing migration
+            if jq empty "$MCP_MIG_TMP" 2>/dev/null; then
+                mv "$MCP_MIG_TMP" "$MCP_OUTPUT"
+                chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
+                chmod 600 "$MCP_OUTPUT"
+                rm -f "/workspace/.mcp.json" || log_warning "Could not remove legacy .mcp.json (permissions?)"
+                log_success "Migration complete: .mcp.json → mcp.json"
+            else
+                log_error "Legacy .mcp.json is invalid JSON; keeping legacy file"
+                rm -f "$MCP_MIG_TMP"
+            fi
+        elif [ -n "$MCP_MIG_TMP" ]; then
+            log_error "Migration failed"
             rm -f "$MCP_MIG_TMP"
         fi
-    elif [ -n "$MCP_MIG_TMP" ]; then
-        log_error "Migration failed"
-        rm -f "$MCP_MIG_TMP"
     fi
 fi
 
@@ -331,6 +348,12 @@ if [ -f "$MCP_TPL" ]; then
 
         # Nothing to do if there is no base config to modify
         [ -f "$output" ] || return 0
+
+        # jq is required for JSON manipulation
+        if ! command -v jq >/dev/null 2>&1; then
+            log_warning "Skipping $name MCP injection (jq not found)"
+            return 0
+        fi
 
         if [ -x "$binary" ]; then
             log_info "Adding $name MCP (binary found at $binary)"
