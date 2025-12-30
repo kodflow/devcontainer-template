@@ -227,4 +227,4 @@ These ensure every major package manager (npm, pnpm, pip, poetry, Go, Cargo, Com
 - Secrets flow only via env vars, 1Password CLI, or `mcp.json`; scripts explicitly avoid logging token values and remove duplicates before appending to `~/.devcontainer-env.sh`.
 - Codacy instructions (`.github/instructions/codacy.instructions.md`) require running `codacy_cli_analyze` after every edit; integrate that tool into your workflow to maintain supply-chain checks.
 
-*Last updated: 2025-01-05*
+Last updated: 2025-01-05
