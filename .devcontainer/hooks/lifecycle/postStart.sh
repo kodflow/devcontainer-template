@@ -252,7 +252,7 @@ if [ -f "/workspace/.mcp.json" ] && [ ! -e "$MCP_OUTPUT" ]; then
             mv "$MCP_MIG_TMP" "$MCP_OUTPUT"
             chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
             chmod 600 "$MCP_OUTPUT"
-            rm "/workspace/.mcp.json"
+            rm -f "/workspace/.mcp.json" || log_warning "Could not remove legacy .mcp.json (permissions?)"
             log_success "Migration complete: .mcp.json → mcp.json"
         else
             log_error "Legacy .mcp.json is invalid JSON; keeping legacy file"
@@ -288,17 +288,22 @@ if [ -f "$MCP_TPL" ]; then
         ESCAPED_GITHUB=$(escape_for_sed "${GITHUB_TOKEN}")
         # Use atomic temp file to prevent race conditions
         MCP_TMP=$(mktemp "${MCP_OUTPUT}.tmp.XXXXXX")
+        # Ensure temp file with secrets is always cleaned up
+        trap 'rm -f "$MCP_TMP" 2>/dev/null || true' EXIT
         sed -e "s|{{CODACY_TOKEN}}|${ESCAPED_CODACY}|g" \
             -e "s|{{GITHUB_TOKEN}}|${ESCAPED_GITHUB}|g" \
             "$MCP_TPL" > "$MCP_TMP"
         # Validate JSON before overwriting
         if jq empty "$MCP_TMP" 2>/dev/null; then
             mv "$MCP_TMP" "$MCP_OUTPUT"
+            trap - EXIT
+            chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
             chmod 600 "$MCP_OUTPUT"
             log_success "mcp.json generated successfully"
         else
             log_error "Generated mcp.json is invalid JSON, keeping original"
             rm -f "$MCP_TMP"
+            trap - EXIT
         fi
     fi
 
@@ -319,7 +324,7 @@ if [ -f "$MCP_TPL" ]; then
             local tmp_file
             tmp_file=$(mktemp "${output}.tmp.XXXXXX")
             if jq --arg name "$name" --arg bin "$binary" \
-               '.mcpServers[$name] = {"command": $bin, "args": [], "env": {}}' \
+               '.mcpServers = (.mcpServers // {}) | .mcpServers[$name] = {"command": $bin, "args": [], "env": {}}' \
                "$output" > "$tmp_file" && jq empty "$tmp_file" 2>/dev/null; then
                 mv "$tmp_file" "$output"
                 # Ensure correct ownership and secure permissions
