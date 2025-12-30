@@ -9,6 +9,7 @@ $ARGUMENTS
 Agent automatisé qui résout les commentaires de review sur une PR existante.
 
 **Workflow :**
+
 1. Vérifie qu'une PR existe pour la branche courante
 2. Récupère les commentaires de **Qodo** (PR-Agent) et **CodeRabbit**
 3. Itère pour corriger chaque commentaire
@@ -16,6 +17,7 @@ Agent automatisé qui résout les commentaires de review sur une PR existante.
 5. Push les corrections et re-vérifie
 
 **Pré-requis :**
+
 - Une PR doit exister (sinon → `/git --commit`)
 - Les reviewers (Qodo, CodeRabbit, Codacy) doivent être configurés sur le repo
 

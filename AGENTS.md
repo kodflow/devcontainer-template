@@ -39,13 +39,14 @@ docker compose -f .devcontainer/docker-compose.yml down -v
 
 ---
 
-# Repository Tour
+## Repository Tour
 
 ## 🎯 What This Repository Does
 
 Kodflow DevContainer Template provides a batteries-included VS Code Dev Container configuration that ships Claude CLI, CodeRabbit, major cloud CLIs, HashiCorp tooling, and language features so new projects can bootstrap a consistent, secure development workstation in seconds.
 
 **Key responsibilities:**
+
 - Curate the Docker image, docker-compose services, and lifecycle scripts that power the containerized IDE.
 - Encode company-wide policies (CLAUDE.md, RULES.md, compliance checklists) and enforce them via hooks and MCP tools.
 - Document contributor workflows so projects cloned from this template inherit repeatable build/test/deploy practices.
@@ -67,6 +68,7 @@ MCP servers (github, codacy, taskwarrior) via /workspace/mcp.json
 ```
 
 ### System Context
+
 ```
 [Contributor Workstation]
       ↓ (VS Code Dev Containers)
@@ -76,6 +78,7 @@ MCP servers (github, codacy, taskwarrior) via /workspace/mcp.json
 ```
 
 ### Key Components
+
 - **`.devcontainer/devcontainer.json`** – Declares the docker-compose service, features, VS Code settings, and lifecycle commands that bootstrap the container.
 - **Lifecycle hooks (`hooks/lifecycle/*.sh`)** – Harden environment setup (safe directories, alias injection, Claude restore, MCP template generation, keyring bootstrap).
 - **Custom devcontainer features** – Modular installers for languages (`features/languages/*`) and Claude-specific assets (`features/claude`).
@@ -83,6 +86,7 @@ MCP servers (github, codacy, taskwarrior) via /workspace/mcp.json
 - **Automation configs (`.qodo-merge.toml`, `.codacy.yaml`, `.coderabbit.yaml`)** – Enforce review severity, compliance, and lint exclusions across downstream repos.
 
 ### Data Flow
+
 1. Developer opens the project in VS Code → Dev Containers uses `devcontainer.json` and `docker-compose.yml` to build and run the `devcontainer` service.
 2. `onCreate.sh` and `postCreate.sh` provision safe caches, environment shims, and developer aliases (e.g., `super-claude`).
 3. `postStart.sh` restores Claude defaults, injects secrets into `/workspace/mcp.json`, and configures keyrings/npm caches before starting background tasks.
@@ -130,17 +134,20 @@ workspace/
 ## 🔧 Technology Stack
 
 ### Core Technologies
+
 - **Container base:** `mcr.microsoft.com/devcontainers/base:ubuntu-24.04` extended in `.devcontainer/images/Dockerfile` for a reproducible Ubuntu environment.
 - **Tooling layer:** HashiCorp suite (Terraform, Vault, Consul, Nomad, Packer), AWS CLI v2, Google Cloud SDK, Azure CLI, Kubernetes (kubectl v1.35.0, Helm v4.0.4), Ansible, Bazelisk, Claude CLI, and CodeRabbit CLI are preinstalled globally.
 - **Orchestration:** VS Code Dev Containers + Docker Compose single-service stack defined in `.devcontainer/docker-compose.yml`.
 - **Language expansion:** Custom features under `.devcontainer/features/languages/` install Node.js (via NVM), Python (via pyenv), Go, Rust, Carbon, etc., on demand with pinned versions.
 
 ### Key Libraries & Utilities
+
 - **Lifecycle helpers (`hooks/shared/utils.sh`)** – Provide retry/backoff, apt locking mitigation, download helpers, and logging wrappers for consistent scripting.
 - **MCP servers (`images/mcp.json.tpl`)** – Template for GitHub, Codacy, and Taskwarrior servers executed through `npx` inside the container with secrets injected post-start.
 - **Status-line & ktn-linter binaries** – Installed into `~/.local/bin` for interactive feedback and linting within the container.
 
 ### Development Tools
+
 - **super-claude alias** – Created in `postCreate.sh` to run the Claude CLI with `/workspace/mcp.json` automatically when available.
 - **Keyring bootstrap** – `postStart.sh` ensures `gnome-keyring-daemon` and D-Bus sockets exist so CLI tools can store credentials securely.
 - **Named volumes** – `docker-compose.yml` keeps caches (`package-cache`, `npm-global`, `.claude`, `.config/op`) across rebuilds to accelerate repeated work.
@@ -150,11 +157,13 @@ workspace/
 ## 🌐 External Dependencies
 
 ### Required Services
+
 - **GitHub MCP server** (`@modelcontextprotocol/server-github`) – Provides repository metadata and PR automation; tokens are sourced via env vars or 1Password (see `postStart.sh`).
 - **Codacy MCP server** (`@codacy/codacy-mcp`) – Runs security/lint analysis whenever files change; tokens are injected from `CODACY_API_TOKEN` or 1Password vault `mcp-codacy`.
 - **Taskwarrior MCP server** (`mcp-server-taskwarrior`) – Integrates planning `/plan` phases with Taskwarrior tasks, ensuring `/apply` only runs against WIP tasks.
 
 ### Optional Integrations
+
 - **Rust Analyzer MCP** – `postStart.sh` adds it if `rust-analyzer-mcp` exists in the cargo cache when the Rust feature is enabled.
 - **Additional MCP servers** – Template scaffolding inside `postStart.sh` allows adding more servers by calling `add_optional_mcp` once binaries are available.
 
@@ -180,6 +189,7 @@ These ensure every major package manager (npm, pnpm, pip, poetry, Go, Cargo, Com
 ## 🔄 Common Workflows
 
 ### Spin up or refresh the development environment
+
 1. Open the folder in VS Code and run **Dev Containers: Rebuild Container** (per README) to rebuild `.devcontainer/images/Dockerfile` and apply features.
 2. `onCreate.sh` provisions cache directories and injects `CLAUDE.md` if missing; `postCreate.sh` wires language managers and the `super-claude` alias.
 3. `postStart.sh` restores Claude command packs, configures gnome-keyring, fixes npm/1Password permissions, regenerates `mcp.json`, and schedules `/init` to validate template drift.
@@ -187,6 +197,7 @@ These ensure every major package manager (npm, pnpm, pip, poetry, Go, Cargo, Com
 **Code path:** `.devcontainer/devcontainer.json` → `hooks/lifecycle/*.sh` → `.devcontainer/images/mcp.json.tpl`
 
 ### Generate project-scoped MCP credentials
+
 1. Provide `CODACY_API_TOKEN`, `GITHUB_API_TOKEN`, and (optionally) `CODERABBIT_API_KEY` via `.devcontainer/.env` or 1Password service account env vars referenced in `postStart.sh`.
 2. On container start, the hook pulls secrets from env vars or the vault (`get_1password_field`), renders `/workspace/mcp.json`, and appends dynamic exports to `~/.devcontainer-env.sh`.
 3. Run `super-claude /review --all` or Codacy MCP tools; they automatically use the regenerated JSON without manual auth.
@@ -198,10 +209,12 @@ These ensure every major package manager (npm, pnpm, pip, poetry, Go, Cargo, Com
 ## 📈 Performance & Scale
 
 ### Performance Considerations
+
 - Extensive caching: docker-compose volumes (`package-cache`, `npm-global`, `.claude`, `.config/op`) prevent reinstalling large toolchains, while hooks fix ownership/permissions on each start so caches remain usable.
 - Buildx multi-arch workflow (`.github/workflows/docker-images.yml`) compiles the base image separately for amd64 and arm64, then merges manifests to keep pull times low for both architectures.
 
 ### Monitoring / Diagnostics
+
 - `postStart.sh` logs into `~/.devcontainer-env.sh` and `~/.devcontainer-init.log`, giving a persistent trace of hook outcomes and `/init` health checks for debugging.
 
 ---
@@ -209,6 +222,7 @@ These ensure every major package manager (npm, pnpm, pip, poetry, Go, Cargo, Com
 ## 🚨 Things to Be Careful About
 
 ### 🔒 Security Considerations
+
 - Hooks scrub git credential helpers and ensure `git config --global safe.directory /workspace` to avoid dubious ownership errors.
 - Secrets flow only via env vars, 1Password CLI, or `mcp.json`; scripts explicitly avoid logging token values and remove duplicates before appending to `~/.devcontainer-env.sh`.
 - Codacy instructions (`.github/instructions/codacy.instructions.md`) require running `codacy_cli_analyze` after every edit; integrate that tool into your workflow to maintain supply-chain checks.
