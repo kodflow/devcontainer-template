@@ -194,12 +194,12 @@ USER vscode
 # Pinned versions + checksum verification for supply-chain security
 # =============================================================================
 ARG STATUS_LINE_VERSION=v0.6.2
-ARG KTN_LINTER_VERSION=v1.3.75
+ARG KTN_LINTER_VERSION=v1.3.90
 # Checksums for supply-chain verification (from official releases)
 ARG STATUS_LINE_SHA256_AMD64=6ba6b53162444fbc87f40e76b236e459ac6f88b99d2bdc183379a693592240a3
 ARG STATUS_LINE_SHA256_ARM64=8bfd15968a836276a075fd6dd5b86f075ff3a7eb11dec8e3c5733bcef83ece74
-ARG KTN_LINTER_SHA256_AMD64=93577390b2cb8d5a7110a233a6585e373673f5784efbe8b8b0250fa1a05e109c
-ARG KTN_LINTER_SHA256_ARM64=5843e787ab811baf6a1fd111969ab86fdf36440f7f2c81a972453793cc75e1ab
+ARG KTN_LINTER_SHA256_AMD64=152bdc455eaf119b7e52c72d8b3f0804ec94586e934afc6ce758995dc69b2f6f
+ARG KTN_LINTER_SHA256_ARM64=a48bfd057d405ae3727a43b20926dd9641837af268b216e1e4dace5560a24b48
 RUN mkdir -p ~/.local/bin && \
     ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     # status-line with checksum verification
