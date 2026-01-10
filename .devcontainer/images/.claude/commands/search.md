@@ -1,4 +1,4 @@
-# Search - Documentation Research
+# Search - Documentation Research (RLM-Enhanced)
 
 $ARGUMENTS
 
@@ -6,13 +6,17 @@ $ARGUMENTS
 
 ## Description
 
-Recherche d'informations sur les documentations officielles UNIQUEMENT :
+Recherche d'informations sur les documentations officielles avec patterns RLM (Recursive Language Models).
 
-- Croise minimum 2 sources pour valider chaque information
-- Questionne l'utilisateur pour affiner la recherche
-- Génère un fichier `.context.md` (non commité) utilisable par `/plan` et `/apply`
+**Patterns RLM appliqués :**
 
-**Principe** : Fiabilité > Quantité. Mieux vaut peu d'infos confirmées que beaucoup d'infos douteuses.
+- **Peek** - Aperçu rapide avant analyse complète
+- **Grep** - Filtrage par keywords avant fetch sémantique
+- **Partition+Map** - Recherches parallèles multi-domaines
+- **Summarize** - Résumé progressif des sources
+- **Programmatic** - Génération structurée du context
+
+**Principe** : Fiabilité > Quantité. Décomposer → Paralléliser → Synthétiser.
 
 ---
 
@@ -21,7 +25,7 @@ Recherche d'informations sur les documentations officielles UNIQUEMENT :
 | Pattern | Action |
 |---------|--------|
 | `<query>` | Nouvelle recherche sur le sujet |
-| `--append` | Ajoute au contexte existant au lieu de le remplacer |
+| `--append` | Ajoute au contexte existant |
 | `--status` | Affiche le contexte actuel |
 | `--clear` | Supprime le fichier .context.md |
 | `--help` | Affiche l'aide |
@@ -30,11 +34,9 @@ Recherche d'informations sur les documentations officielles UNIQUEMENT :
 
 ## --help
 
-Quand `--help` est passé, afficher :
-
 ```
 ═══════════════════════════════════════════════
-  /search - Documentation Research
+  /search - Documentation Research (RLM)
 ═══════════════════════════════════════════════
 
 Usage: /search <query> [options]
@@ -46,18 +48,19 @@ Options:
   --clear           Supprime .context.md
   --help            Affiche cette aide
 
-Comportement:
-  - Sources officielles uniquement
-  - Croisement obligatoire (min 2 sources)
-  - Questions pour affiner la recherche
+RLM Patterns (toujours appliqués):
+  1. Peek    - Aperçu rapide des résultats
+  2. Grep    - Filtrage par keywords
+  3. Map     - 6 recherches parallèles
+  4. Synth   - Synthèse multi-sources (3+ pour HIGH)
 
 Exemples:
   /search OAuth2 avec JWT
-  /search Go generics --append
+  /search Kubernetes ingress --append
   /search --status
 
 Workflow:
-  /search <query> → itérer → /plan → /apply
+  /search <query> → itérer → EnterPlanMode
 ═══════════════════════════════════════════════
 ```
 
@@ -65,378 +68,322 @@ Workflow:
 
 ## Sources officielles (Whitelist)
 
-**RÈGLE ABSOLUE** : Utiliser UNIQUEMENT les domaines suivants pour WebSearch.
+**RÈGLE ABSOLUE** : UNIQUEMENT les domaines suivants.
 
 ### Langages
-
-| Langage | Domaines autorisés |
-|---------|-------------------|
+| Langage | Domaines |
+|---------|----------|
 | Node.js | nodejs.org, developer.mozilla.org |
 | Python | docs.python.org, python.org |
-| Go | go.dev, golang.org, pkg.go.dev |
+| Go | go.dev, pkg.go.dev |
 | Rust | rust-lang.org, doc.rust-lang.org |
 | Java | docs.oracle.com, openjdk.org |
 | C/C++ | cppreference.com, isocpp.org |
-| PHP | php.net |
-| Ruby | ruby-lang.org, ruby-doc.org |
 
-### Cloud & Infrastructure
+### Cloud & Infra
 
-| Service | Domaines autorisés |
-|---------|-------------------|
+| Service | Domaines |
+|---------|----------|
 | AWS | docs.aws.amazon.com |
 | GCP | cloud.google.com |
-| Azure | learn.microsoft.com, docs.microsoft.com |
+| Azure | learn.microsoft.com |
 | Docker | docs.docker.com |
 | Kubernetes | kubernetes.io |
 | Terraform | developer.hashicorp.com |
 
-### Bases de données
-
-| DB | Domaines autorisés |
-|----|-------------------|
-| PostgreSQL | postgresql.org |
-| MySQL | dev.mysql.com |
-| MongoDB | mongodb.com/docs |
-| Redis | redis.io |
-
 ### Frameworks
-
-| Framework | Domaines autorisés |
-|-----------|-------------------|
-| React | react.dev, reactjs.org |
+| Framework | Domaines |
+|-----------|----------|
+| React | react.dev |
 | Vue | vuejs.org |
-| Angular | angular.io |
 | Next.js | nextjs.org |
-| Django | docs.djangoproject.com |
-| Flask | flask.palletsprojects.com |
-| Spring | spring.io |
 | FastAPI | fastapi.tiangolo.com |
 
-### Généralistes fiables
+### Standards
 
-| Type | Domaines autorisés |
-|------|-------------------|
-| Web APIs | developer.mozilla.org |
-| Standards | w3.org, whatwg.org |
+| Type | Domaines |
+|------|----------|
+| Web | developer.mozilla.org, w3.org |
 | Security | owasp.org |
 | RFCs | rfc-editor.org, tools.ietf.org |
 
-### Blacklist implicite
+### Blacklist
 
-- ❌ Blogs personnels
-- ❌ Medium, Dev.to (sauf domaines officiels)
-- ❌ Stack Overflow (OK pour identifier problèmes, PAS pour solutions)
-- ❌ Tutoriels tiers
-- ❌ Sites de cours (Udemy, Coursera...)
-- ❌ ChatGPT/AI-generated content
+- ❌ Blogs, Medium, Dev.to
+- ❌ Stack Overflow (sauf identification problème)
+- ❌ Tutoriels tiers, cours en ligne
 
 ---
 
-## Workflow de recherche (5 phases)
+## Workflow RLM (6 phases)
 
-### Phase 1 : Analyse de la query
+### Phase 0 : Décomposition (RLM Pattern: Peek + Grep)
 
-1. Identifier les technologies mentionnées
-2. Détecter les concepts clés
-3. Lister les sources officielles à cibler
+**Analyser la query AVANT toute recherche :**
 
-**Output Phase 1 :**
+1. **Peek** - Identifier la complexité
+   - Query simple (1 concept) → Phase 1 directe
+   - Query complexe (2+ concepts) → Décomposer
+
+2. **Grep** - Extraire les keywords
+   ```
+   Query: "OAuth2 avec JWT pour API REST"
+   Keywords: [OAuth2, JWT, API, REST]
+   Technologies: [OAuth2 → rfc-editor.org, JWT → tools.ietf.org]
+   ```
+
+3. **Parallélisation systématique**
+   - Toujours lancer jusqu'à 6 Task agents en parallèle
+   - Couvrir tous les domaines pertinents
+
+**Output Phase 0 :**
 ```
 ═══════════════════════════════════════════════
-  /search <query>
+  /search - RLM Decomposition
 ═══════════════════════════════════════════════
 
-  Technologies détectées :
-    • <tech1> → <domaine officiel>
-    • <tech2> → <domaine officiel>
+  Query    : <query>
+  Keywords : <k1>, <k2>, <k3>
 
-  Concepts clés :
-    • <concept1>
-    • <concept2>
+  Decomposition:
+    ├─ Sub-query 1: <concept1> → <domain1>
+    ├─ Sub-query 2: <concept2> → <domain2>
+    └─ Sub-query 3: <concept3> → <domain3>
 
-  Recherche en cours...
+  Strategy: PARALLEL (6 Task agents max)
 
 ═══════════════════════════════════════════════
 ```
 
 ---
 
-### Phase 2 : Recherche documentations officielles
+### Phase 1 : Recherche parallèle (RLM Pattern: Partition + Map)
 
-Utiliser WebSearch avec `allowed_domains` :
+**Pour chaque sous-query, lancer un Task agent :**
 
 ```
-WebSearch({
-  query: "<query optimisée>",
-  allowed_domains: ["<domain1>", "<domain2>", ...]
+Task({
+  subagent_type: "Explore",
+  prompt: "Rechercher <concept> sur <domain>. Extraire: définition, usage, exemples.",
+  model: "haiku"  // Rapide pour recherche
 })
 ```
 
-Puis WebFetch pour extraire le contenu pertinent :
+**IMPORTANT** : Lancer TOUS les agents dans UN SEUL message (parallèle).
+
+**Exemple multi-agent :**
+```
+// Message unique avec 3 Task calls
+Task({ prompt: "OAuth2 sur rfc-editor.org", ... })
+Task({ prompt: "JWT sur tools.ietf.org", ... })
+Task({ prompt: "REST API sur developer.mozilla.org", ... })
+```
+
+---
+
+### Phase 2 : Peek des résultats
+
+**Avant analyse complète, peek sur chaque résultat :**
+
+1. Lire les 500 premiers caractères de chaque réponse
+2. Vérifier la pertinence (score 0-10)
+3. Filtrer les résultats non-pertinents (< 5)
+
+```
+Résultats agents:
+  ✓ OAuth2 (score: 9) - RFC 6749 trouvé
+  ✓ JWT (score: 8) - RFC 7519 trouvé
+  ✗ REST (score: 3) - Résultat trop générique
+    → Relancer avec query affinée
+```
+
+---
+
+### Phase 3 : Fetch approfondi (RLM Pattern: Summarization)
+
+**Pour les résultats pertinents, WebFetch avec summarization :**
 
 ```
 WebFetch({
-  url: "<url doc officielle>",
-  prompt: "Extraire les informations sur <sujet>"
+  url: "<url trouvée>",
+  prompt: "Résumer en 5 points clés: 1) Définition, 2) Cas d'usage, 3) Implémentation, 4) Sécurité, 5) Exemples"
 })
 ```
 
-**IMPORTANT** : Ne jamais utiliser de source non-officielle, même si elle semble pertinente.
+**Summarization progressive :**
+
+- Niveau 1: Résumé par source (5 points)
+- Niveau 2: Fusion des résumés (synthèse)
+- Niveau 3: Context final (actionable)
 
 ---
 
-### Phase 3 : Croisement des sources
+### Phase 4 : Croisement et validation
 
-**Règle** : Chaque affirmation doit être confirmée par minimum 2 sources officielles.
+| Situation | Confidence | Action |
+|-----------|------------|--------|
+| 3+ sources confirment | HIGH | Inclure |
+| 2 sources confirment | MEDIUM | Inclure |
+| 1 source officielle | LOW | Inclure + warning |
+| Sources contradictoires | VERIFY | Signaler |
+| 0 source | NONE | Exclure |
 
-| Situation | Action |
-|-----------|--------|
-| 2+ sources confirment | ✓ Inclure avec confidence: HIGH |
-| 1 source officielle | ⚠ Inclure avec confidence: MEDIUM |
-| Sources contradictoires | 🔄 Approfondir ou signaler |
-| 0 source officielle | ❌ Ne pas inclure |
+**Détection contradictions :**
 
-**Détection des contradictions :**
-
-- Comparer les versions (doc ancienne vs récente)
-- Vérifier les dates de mise à jour
-- Signaler les incohérences à l'utilisateur
+- Comparer versions (date docs)
+- Identifier breaking changes
+- Signaler à l'utilisateur
 
 ---
 
-### Phase 4 : Questions de clarification
+### Phase 5 : Questions (si nécessaire)
 
-**OBLIGATOIRE** : Utiliser AskUserQuestion pour affiner la recherche.
-
-Questions typiques :
-
-- Version spécifique à cibler ?
-- Cas d'usage précis ?
-- Contraintes techniques ?
-- Priorités (performance vs simplicité) ?
-- Environnement cible (dev/prod) ?
+**UNIQUEMENT si ambiguïté détectée :**
 
 ```
-AskUserQuestion: {
-  questions: [
-    {
-      question: "Quelle version de <tech> ciblez-vous ?",
-      header: "Version",
-      options: [
-        { label: "Dernière stable", description: "Recommandée" },
-        { label: "LTS", description: "Support long terme" },
-        { label: "Spécifique", description: "Je précise" }
-      ]
-    }
-  ]
-}
+AskUserQuestion({
+  questions: [{
+    question: "La query mentionne X et Y. Lequel prioriser ?",
+    header: "Priorité",
+    options: [
+      { label: "X d'abord", description: "Focus sur X" },
+      { label: "Y d'abord", description: "Focus sur Y" },
+      { label: "Les deux", description: "Recherche complète" }
+    ]
+  }]
+})
 ```
 
-**Itération** : Si les réponses révèlent de nouveaux besoins → retour Phase 2.
+**NE PAS demander si :**
+
+- Query claire et non-ambiguë
+- Une seule technologie
+- Contexte suffisant
 
 ---
 
-### Phase 5 : Génération context.md
+### Phase 6 : Génération context.md (RLM Pattern: Programmatic)
 
-Créer `/workspace/.context.md` avec le format suivant :
+**Générer le fichier de manière structurée :**
 
 ```markdown
 # Context: <sujet>
 
 Generated: <ISO8601>
-Query: <recherche initiale>
-Iterations: <nombre>
+Query: <query>
+Iterations: <n>
+RLM-Depth: <parallel_agents_count>
 
 ## Summary
 
-<Résumé en 2-3 phrases des informations clés>
+<2-3 phrases résumant les findings>
 
 ## Key Information
 
-### <Sous-thème 1>
+### <Concept 1>
 
 <Information validée>
 
 **Sources:**
-- [<Titre doc>](<url>) - "<extrait pertinent>"
-- [<Titre doc 2>](<url>) - "<confirmation>"
+- [<Titre>](<url>) - "<extrait>"
+- [<Titre2>](<url>) - "<confirmation>"
 
 **Confidence:** HIGH
 
-### <Sous-thème 2>
+### <Concept 2>
 
-<Information avec une seule source>
+<Information>
 
 **Sources:**
-- [<Titre doc>](<url>) - "<extrait>"
+- [<Titre>](<url>)
 
 **Confidence:** MEDIUM
 
-**Note:** Information non confirmée par une seconde source.
-
 ## Clarifications
-
-<Questions posées et réponses utilisateur>
 
 | Question | Réponse |
 |----------|---------|
-| Version ciblée ? | 3.x LTS |
-| Environnement ? | Production |
+| <Q1> | <R1> |
 
 ## Recommendations
 
-<Suggestions basées sur la recherche croisée>
-
-1. <Recommandation 1>
-2. <Recommandation 2>
+1. <Recommandation actionable>
+2. <Recommandation actionable>
 
 ## Warnings
 
-<Points d'attention identifiés>
-
-- ⚠ <Warning 1>
-- ⚠ <Warning 2>
+- ⚠ <Point d'attention>
 
 ## Sources Summary
 
-| Source | Domain | Confidence | Sections |
-|--------|--------|------------|----------|
-| <titre> | <domain> | HIGH | §1, §2 |
-| <titre> | <domain> | MEDIUM | §2 |
+| Source | Domain | Confidence | Used In |
+|--------|--------|------------|---------|
+| RFC 6749 | rfc-editor.org | HIGH | §1 |
+| RFC 7519 | tools.ietf.org | HIGH | §2 |
 
 ---
-
-_Ce fichier est généré automatiquement par `/search`. Ne pas commiter._
+_Généré par /search (RLM-enhanced). Ne pas commiter._
 ```
 
 ---
 
 ## --append
 
-Quand `--append` est passé :
+Enrichir le contexte existant :
 
-1. **Lire** le fichier `.context.md` existant
-2. **Ajouter** les nouvelles informations (pas de duplicata)
-3. **Mettre à jour** le timestamp et le compteur d'itérations
-4. **Fusionner** les sources
-
-**Output --append :**
-```
-═══════════════════════════════════════════════
-  /search --append <query>
-═══════════════════════════════════════════════
-
-  Context existant : .context.md
-  Sujet actuel     : <sujet existant>
-  Iterations       : 2 → 3
-
-  Ajout de nouvelles informations...
-
-─────────────────────────────────────────────
-
-  + 2 nouvelles sections
-  ~ 1 section enrichie
-  = 3 sections inchangées
-
-  ✓ Context mis à jour
-
-═══════════════════════════════════════════════
-```
+1. Lire `.context.md` existant
+2. Identifier les gaps (sections manquantes)
+3. Rechercher uniquement les gaps
+4. Fusionner sans duplicata
 
 ---
 
-## --status
+## --status / --clear
 
-Afficher un résumé du contexte actuel :
-
-```
-═══════════════════════════════════════════════
-  Context actuel
-═══════════════════════════════════════════════
-
-  Fichier     : .context.md
-  Sujet       : <sujet>
-  Généré      : <date>
-  Iterations  : <n>
-
-─────────────────────────────────────────────
-  Sections
-─────────────────────────────────────────────
-
-  1. <Section 1> [HIGH]
-  2. <Section 2> [MEDIUM]
-  3. <Section 3> [HIGH]
-
-─────────────────────────────────────────────
-  Sources
-─────────────────────────────────────────────
-
-  • nodejs.org (3 références)
-  • developer.mozilla.org (2 références)
-
-─────────────────────────────────────────────
-  Statistiques
-─────────────────────────────────────────────
-
-  Sections      : 3
-  Sources       : 5
-  Confidence    : 80% HIGH, 20% MEDIUM
-
-═══════════════════════════════════════════════
-```
+Identique à la version précédente.
 
 ---
 
-## --clear
-
-Supprimer le fichier `.context.md` :
-
-```bash
-rm -f /workspace/.context.md
-```
-
-**Output --clear :**
-```
-═══════════════════════════════════════════════
-  ✓ Context supprimé
-═══════════════════════════════════════════════
-
-  Fichier supprimé : .context.md
-
-═══════════════════════════════════════════════
-```
-
----
-
-## Intégration avec autres commandes
-
-| Commande | Utilisation du context |
-|----------|------------------------|
-| `/plan` | Lit `.context.md` en Phase 2 pour les informations techniques |
-| `/apply` | Référence les URLs pour installer les dépendances |
-| `/fix` | Utilise le context pour rechercher des solutions |
-
-**Détection automatique :**
-
-- Si `.context.md` existe, les commandes l'utilisent automatiquement
-- Affichage d'un message : "Context chargé : `<sujet>`"
-
----
-
-## GARDE-FOUS (ABSOLUS)
+## GARDE-FOUS
 
 | Action | Status |
 |--------|--------|
-| Utiliser source non-officielle | ❌ **INTERDIT** |
-| Inclure info non-vérifiée (0 source) | ❌ **INTERDIT** |
-| Skip Phase 4 (questions) | ❌ **INTERDIT** |
-| Générer context sans croisement | ❌ **INTERDIT** |
+| Source non-officielle | ❌ INTERDIT |
+| Skip Phase 0 (décomposition) | ❌ INTERDIT |
+| Agents séquentiels si parallélisable | ❌ INTERDIT |
+| Info sans source | ❌ INTERDIT |
 
 ---
 
-## Voir aussi
+## Exemples d'exécution
 
-- `/plan` - Planifier une implémentation
-- `/apply` - Exécuter le plan
-- `/update --context` - Mettre à jour le contexte projet
+### Query simple
+
+```
+/search "Go context package"
+
+→ 1 concept, 1 domaine (go.dev)
+→ WebSearch + WebFetch direct
+→ Validation 3+ sources
+```
+
+### Query complexe
+
+```
+/search "OAuth2 JWT authentication pour API REST"
+
+→ 4 concepts, 3 domaines
+→ 6 Task agents parallèles
+→ Fetch références croisées
+→ Synthèse RLM (3+ sources pour HIGH)
+```
+
+### Query multi-domaines
+
+```
+/search "Kubernetes ingress controller comparison"
+
+→ 6 Task agents parallèles
+→ Couverture: kubernetes.io, docs.docker.com, cloud.google.com
+→ Validation stricte 3+ sources
+```

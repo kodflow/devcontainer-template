@@ -13,11 +13,6 @@
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "{{GITHUB_TOKEN}}"
       }
-    },
-    "taskwarrior": {
-      "command": "npx",
-      "args": ["-y", "mcp-server-taskwarrior"],
-      "env": {}
     }
   }
 }

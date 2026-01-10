@@ -74,12 +74,6 @@
       "Bash(date:*)",
       "Bash(env:*)",
       "Bash(printenv:*)",
-      "Bash(task:*)",
-      "Bash(task-init.sh:*)",
-      "Bash(task-epic.sh:*)",
-      "Bash(task-add.sh:*)",
-      "Bash(task-start.sh:*)",
-      "Bash(task-done.sh:*)",
       "Bash(/home/vscode/.claude/scripts/*:*)",
       "Read(**/*)",
       "Glob(**/*)",
@@ -96,32 +90,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/vscode/.claude/scripts/bash-validate.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "/home/vscode/.claude/scripts/commit-validate.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "/home/vscode/.claude/scripts/phase-validate.sh",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/vscode/.claude/scripts/task-validate.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "/home/vscode/.claude/scripts/phase-validate.sh",
             "timeout": 10
           }
         ]
@@ -138,16 +107,6 @@
       }
     ],
     "PostToolUse": [
-      {
-        "matcher": "Write|Edit|Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/vscode/.claude/scripts/task-log.sh",
-            "timeout": 10
-          }
-        ]
-      },
       {
         "matcher": "Write|Edit",
         "hooks": [

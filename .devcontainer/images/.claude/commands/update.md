@@ -1,4 +1,4 @@
-# Update - Project & DevContainer Updates
+# Update - DevContainer Environment Update
 
 $ARGUMENTS
 
@@ -6,11 +6,17 @@ $ARGUMENTS
 
 ## Description
 
-Commande unifiée pour mettre à jour le projet :
-- **--context** : Génère les fichiers CLAUDE.md + vérifie les versions
-- **--project** : Met à jour les dépendances (npm, go, cargo, pip...)
-- **--devcontainer** : Remplace .devcontainer depuis le template GitHub
-- **(vide)** : Exécute tout (context + project + devcontainer)
+Met à jour l'environnement DevContainer depuis le template officiel.
+
+**Composants mis à jour :**
+
+- **Features** - Language features et leurs RULES.md
+- **Hooks** - Scripts Claude (format, lint, security, etc.)
+- **Commands** - Commandes slash (/git, /search)
+- **p10k** - Configuration Powerlevel10k
+- **Settings** - Configuration Claude
+
+**Source** : `github.com/kodflow/devcontainer-template`
 
 ---
 
@@ -18,341 +24,313 @@ Commande unifiée pour mettre à jour le projet :
 
 | Pattern | Action |
 |---------|--------|
-| (vide) | Exécute tout (--context + --project + --devcontainer) |
-| `--context` | Génère CLAUDE.md hiérarchiques + vérifie versions |
-| `--project` | Met à jour versions et dépendances du projet |
-| `--devcontainer` | Remplace .devcontainer depuis le template GitHub |
-| `--dry-run` | Affiche les changements sans les appliquer |
+| (none) | Mise à jour complète |
+| `--check` | Vérifie les mises à jour disponibles |
+| `--component <name>` | Met à jour un composant spécifique |
 | `--help` | Affiche l'aide |
+
+### Composants disponibles
+
+| Composant | Chemin |
+|-----------|--------|
+| `features` | `.devcontainer/features/languages/` |
+| `hooks` | `.devcontainer/images/.claude/scripts/` |
+| `commands` | `.devcontainer/images/.claude/commands/` |
+| `p10k` | `.devcontainer/images/.p10k.zsh` |
+| `settings` | `.devcontainer/images/.claude/settings.json` |
 
 ---
 
 ## --help
 
-Quand `--help` est passé, afficher :
-
 ```
 ═══════════════════════════════════════════════
-  /update - Mise à jour complète du projet
+  /update - DevContainer Environment Update
 ═══════════════════════════════════════════════
 
 Usage: /update [options]
 
 Options:
-  (vide)            Exécute tout (context + project + devcontainer)
-  --context         Génère CLAUDE.md + vérifie versions langages
-  --project         Met à jour dépendances (npm, go, pip...)
-  --devcontainer    Remplace .devcontainer depuis template
-  --dry-run         Prévisualise sans appliquer
-  --help            Affiche cette aide
+  (none)              Mise à jour complète
+  --check             Vérifie les mises à jour
+  --component <name>  Met à jour un composant
+  --help              Affiche cette aide
+
+Composants:
+  features    Language features (RULES.md)
+  hooks       Scripts Claude (format, lint...)
+  commands    Commandes slash (/git, /search)
+  p10k        Powerlevel10k config
+  settings    Claude settings.json
 
 Exemples:
-  /update                   Met à jour tout
-  /update --context         Génère le contexte Claude
-  /update --project         Met à jour les dépendances
-  /update --devcontainer    Met à jour le devcontainer
-  /update --dry-run         Prévisualise les changements
+  /update                       Tout mettre à jour
+  /update --check               Voir les mises à jour
+  /update --component hooks     Hooks seulement
+
+Source: kodflow/devcontainer-template (main)
 ═══════════════════════════════════════════════
 ```
 
 ---
 
-## Action: --context
+## Configuration
 
-Génère le contexte du projet pour optimiser les interactions avec Claude.
+```yaml
+REPO: "kodflow/devcontainer-template"
+BRANCH: "main"
+BASE_URL: "https://raw.githubusercontent.com/${REPO}/${BRANCH}"
+```
 
-### Étape 1 : Vérification des versions
+---
 
-Récupérer les dernières versions stables depuis les sources officielles.
+## Workflow (RLM Pattern: Partition + Map)
 
-**RÈGLE ABSOLUE** : Ne JAMAIS downgrader une version existante.
+### Phase 0 : Détection du contexte
+
+1. Vérifier la connectivité GitHub
+2. Récupérer le dernier commit du template
+3. Comparer avec la version locale (si `.devcontainer/.template-version` existe)
+
+**Output Phase 0 :**
+```
+═══════════════════════════════════════════════
+  /update - Context Detection
+═══════════════════════════════════════════════
+
+  Local version  : abc1234 (2024-01-15)
+  Remote version : def5678 (2024-01-20)
+
+  Status: UPDATE AVAILABLE
+
+═══════════════════════════════════════════════
+```
+
+---
+
+### Phase 1 : Analyse des composants (Parallel)
+
+**Lancer 5 Task agents en parallèle pour analyser chaque composant :**
+
+```
+Task({ prompt: "Compare features/languages/ local vs remote", model: "haiku" })
+Task({ prompt: "Compare .claude/scripts/ local vs remote", model: "haiku" })
+Task({ prompt: "Compare .claude/commands/ local vs remote", model: "haiku" })
+Task({ prompt: "Compare .p10k.zsh local vs remote", model: "haiku" })
+Task({ prompt: "Compare settings.json local vs remote", model: "haiku" })
+```
+
+---
+
+### Phase 2 : Rapport des différences
+
+**Pour chaque composant, identifier :**
+
+- Fichiers ajoutés (nouveau dans template)
+- Fichiers modifiés (diff entre local et remote)
+- Fichiers supprimés (retiré du template)
+
+```
+═══════════════════════════════════════════════
+  Component Analysis
+═══════════════════════════════════════════════
+
+  features:
+    + languages/zig/           (new)
+    ~ languages/go/RULES.md    (modified)
+
+  hooks:
+    ~ format.sh                (modified)
+    ~ lint.sh                  (modified)
+
+  commands:
+    ~ git.md                   (modified)
+
+  p10k:
+    (no changes)
+
+  settings:
+    ~ settings.json            (modified)
+
+═══════════════════════════════════════════════
+```
+
+---
+
+### Phase 3 : Mise à jour (séquentielle)
+
+**Pour chaque composant avec changements :**
+
+#### Features
 
 ```bash
-# Exemple pour Node.js
-CURRENT=$(node -v 2>/dev/null | tr -d 'v')
-LATEST=$(curl -sL https://nodejs.org/dist/index.json | jq -r '.[0].version' | tr -d 'v')
-
-# Comparer et mettre à jour uniquement si plus récent
-if [ "$(printf '%s\n' "$CURRENT" "$LATEST" | sort -V | tail -n1)" = "$LATEST" ]; then
-    echo "Update available: $CURRENT → $LATEST"
-fi
+BASE="https://raw.githubusercontent.com/kodflow/devcontainer-template/main"
+for lang in go nodejs python rust java ruby php elixir dart-flutter scala carbon cpp; do
+    curl -sL "$BASE/.devcontainer/features/languages/$lang/RULES.md" \
+         -o ".devcontainer/features/languages/$lang/RULES.md" 2>/dev/null
+done
 ```
 
-### Étape 2 : Génération CLAUDE.md
-
-Créer des fichiers CLAUDE.md dans chaque dossier selon le principe de l'entonnoir :
-
-| Profondeur | Lignes max | Contenu |
-|------------|------------|---------|
-| 1 (racine) | ~30 | Vue d'ensemble, structure |
-| 2 | ~50 | Détails du module |
-| 3+ | ~60 | Spécificités techniques |
-
-**Structure type :**
-
-```markdown
-# <Nom du dossier>
-
-## Purpose
-<Description en 1-2 phrases>
-
-## Structure
-<Arborescence simplifiée>
-
-## Key Files
-<Fichiers importants avec description>
-
-## Conventions
-<Règles spécifiques au dossier>
-```
-
-### Étape 3 : Gitignore
-
-Les CLAUDE.md générés (sauf racine) ne doivent PAS être commités :
+#### Hooks (scripts)
 
 ```bash
-# Vérifier que CLAUDE.md est dans .gitignore
-if ! grep -q "CLAUDE.md" .gitignore 2>/dev/null; then
-    echo "" >> .gitignore
-    echo "# Generated context files" >> .gitignore
-    echo "CLAUDE.md" >> .gitignore
-    echo "!./CLAUDE.md" >> .gitignore  # Garder celui de la racine
-fi
+for script in format imports lint security test commit-validate bash-validate pre-validate post-edit; do
+    curl -sL "$BASE/.devcontainer/images/.claude/scripts/$script.sh" \
+         -o ".devcontainer/images/.claude/scripts/$script.sh" 2>/dev/null
+    chmod +x ".devcontainer/images/.claude/scripts/$script.sh"
+done
 ```
 
-### Ressources distantes
-
-Si des fichiers de règles ne sont pas présents localement :
-
-```
-REPO="kodflow/devcontainer-template"
-BASE="https://raw.githubusercontent.com/$REPO/main/.devcontainer/features"
-```
-
-| Ressource | Local | Distant |
-|-----------|-------|---------|
-| RULES.md | `languages/<lang>/RULES.md` | `$BASE/languages/<lang>/RULES.md` |
-
-**Priorité** : Local > Distant (fallback automatique)
-
-### Output --context
-
-```
-═══════════════════════════════════════════════
-  /update --context
-═══════════════════════════════════════════════
-
-Checking versions...
-  ✓ Node.js: 20.10.0 (latest)
-  ✓ Go: 1.21.5 (latest)
-
-Generating CLAUDE.md files...
-  ✓ /src/CLAUDE.md
-  ✓ /src/api/CLAUDE.md
-  ✓ /src/services/CLAUDE.md
-  ✓ /tests/CLAUDE.md
-
-✓ Context updated (4 files)
-═══════════════════════════════════════════════
-```
-
----
-
-## Action: --project
-
-Met à jour les versions et dépendances du projet.
-
-### Éléments mis à jour
-
-- **GitHub Actions** : uses: avec hash
-- **Dockerfile** : ARG versions (KUBECTL, HELM, etc.)
-- **package.json** : npm dependencies
-- **go.mod** : Go modules
-- **Cargo.toml** : Rust crates
-- **requirements.txt** : Python packages
-- **Gemfile** : Ruby gems
-
-### Output --project
-
-```
-═══════════════════════════════════════════════
-  /update --project
-═══════════════════════════════════════════════
-
-GitHub Actions:
-  .github/workflows/docker-images.yml:
-    actions/checkout: v4 → v4.2.2
-    docker/build-push-action: v5 → v5.2.0
-
-Dockerfile ARG versions:
-  .devcontainer/images/Dockerfile:
-    KUBECTL_VERSION: 1.32.0 → 1.33.0
-    HELM_VERSION: 3.16.3 → 3.17.0
-
-Node.js (package.json):
-  (aucun package.json trouvé)
-
-Go (go.mod):
-  (aucun go.mod trouvé)
-
-═══════════════════════════════════════════════
-  ✓ 4 mises à jour appliquées
-═══════════════════════════════════════════════
-```
-
----
-
-## Action: --devcontainer
-
-Remplace .devcontainer depuis le template GitHub.
-
-### ⚠️ IMPORTANT : Scope du téléchargement
-
-**`.devcontainer/` est téléchargé SAUF `images/`** (car images/ est géré via GitHub Container Registry).
-
-Le template `kodflow/devcontainer-template` contient d'autres fichiers qui sont **EXCLUS** :
-
-| Fichier/Dossier | Action |
-|-----------------|--------|
-| `.devcontainer/` (hors images/) | ✅ **Téléchargé et remplacé** |
-| `.devcontainer/images/` | ❌ **JAMAIS téléchargé** (vient de GHCR, pas du repo) |
-| `.github/` | ❌ **JAMAIS téléchargé** (workflows du projet) |
-| `.gitignore` | ❌ **JAMAIS téléchargé** (config du projet) |
-| `.coderabbit.yaml` | ❌ **JAMAIS téléchargé** (config du projet) |
-| `.qodo-merge.toml` | ❌ **JAMAIS téléchargé** (config PR-Agent du projet) |
-| `CLAUDE.md` | ❌ **JAMAIS téléchargé** (doc du projet) |
-| `README.md` | ❌ **JAMAIS téléchargé** (doc du projet) |
-
-### Workflow
-
-1. Identifier les fichiers protégés (gitignored, .env)
-2. Sauvegarder les fichiers protégés
-3. Sauvegarder `.devcontainer/images/` (JAMAIS remplacé)
-4. Télécharger `.devcontainer/` depuis le template GitHub (via archive tarball)
-5. Extraire en EXCLUANT `images/` du téléchargement
-6. Remplacer `.devcontainer/` (sauf images/)
-7. Restaurer les fichiers protégés
-8. Valider la configuration
-
-### Implémentation technique (exclusion images/)
+#### Commands
 
 ```bash
-# Télécharger l'archive et extraire en excluant images/
-REPO="kodflow/devcontainer-template"
-BRANCH="main"
-
-# Méthode 1: tar avec --exclude
-curl -sL "https://github.com/$REPO/archive/refs/heads/$BRANCH.tar.gz" | \
-  tar -xz --strip-components=1 \
-    --exclude="devcontainer-template-$BRANCH/.devcontainer/images" \
-    "devcontainer-template-$BRANCH/.devcontainer"
-
-# Méthode 2: gh cli
-gh api "repos/$REPO/tarball/$BRANCH" | \
-  tar -xz --strip-components=1 \
-    --exclude="*/.devcontainer/images/*" \
-    "*/.devcontainer"
+for cmd in git search update; do
+    curl -sL "$BASE/.devcontainer/images/.claude/commands/$cmd.md" \
+         -o ".devcontainer/images/.claude/commands/$cmd.md" 2>/dev/null
+done
 ```
 
-### Fichiers protégés (préservés)
+#### p10k
 
-- `.devcontainer/images/` (TOUT le dossier - vient de GHCR)
-- `.devcontainer/.env`
-- `.devcontainer/.env.local`
-- `.devcontainer/hooks/shared/.env`
-- `mcp.json` (racine)
-- Tous les fichiers gitignored dans .devcontainer/
+```bash
+curl -sL "$BASE/.devcontainer/images/.p10k.zsh" \
+     -o ".devcontainer/images/.p10k.zsh" 2>/dev/null
+```
 
-### Output --devcontainer
+#### Settings
+
+```bash
+curl -sL "$BASE/.devcontainer/images/.claude/settings.json" \
+     -o ".devcontainer/images/.claude/settings.json" 2>/dev/null
+```
+
+---
+
+### Phase 4 : Validation
+
+1. Vérifier que tous les fichiers sont valides (pas de 404)
+2. Exécuter les hooks pour valider la syntaxe
+3. Mettre à jour `.devcontainer/.template-version`
+
+```bash
+# Enregistrer la version
+COMMIT=$(curl -sL "https://api.github.com/repos/kodflow/devcontainer-template/commits/main" | jq -r '.sha[:7]')
+DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.template-version
+```
+
+---
+
+## --check
+
+Mode dry-run : affiche les différences sans appliquer.
 
 ```
 ═══════════════════════════════════════════════
-  /update --devcontainer
+  /update --check
 ═══════════════════════════════════════════════
 
-Identification des fichiers protégés...
+  Updates available:
 
-Fichiers protégés (préservés):
-  ✓ .devcontainer/images/ (vient de GHCR)
-  ✓ .devcontainer/.env
-  ✓ .devcontainer/hooks/shared/.env
+  features (2 changes):
+    ~ go/RULES.md      → Go 1.24 (was 1.23)
+    + zig/             → New language support
 
-Fichiers EXCLUS (jamais téléchargés):
-  ○ .devcontainer/images/ (Docker image via GHCR)
-  ○ .github/ (workflows du projet)
-  ○ .gitignore, CLAUDE.md, README.md
-  ○ .qodo-merge.toml (config PR-Agent)
+  hooks (1 change):
+    ~ lint.sh          → Added ktn-linter support
 
-Téléchargement de kodflow/devcontainer-template...
-  ✓ Archive téléchargée
-  ✓ Extraction avec exclusion de images/
+  commands (0 changes):
+    (up to date)
 
-Remplacement de .devcontainer/...
-  ✓ features/ remplacé
-  ✓ hooks/ remplacé
-  ✓ devcontainer.json remplacé
-  ✓ docker-compose.yml remplacé
-  ✓ Dockerfile remplacé
-  ○ images/ préservé (non modifié)
-
-Restauration des fichiers protégés...
-  ✓ .devcontainer/.env restauré
-
-Validation de la configuration...
-  ✓ docker-compose.yml valide
-
-═══════════════════════════════════════════════
-  ✓ DevContainer mis à jour
-
-  Note: .devcontainer/images/ n'a PAS été modifié.
-        Ce dossier est géré via GHCR (Docker image).
-
-  Prochaine étape:
-    Ctrl+Shift+P → 'Rebuild Container'
+  Run '/update' to apply all changes.
 ═══════════════════════════════════════════════
 ```
 
 ---
 
-## Action: (vide) - Tout mettre à jour
+## --component NAME
 
-Quand `/update` est appelé sans argument, exécuter les trois actions dans l'ordre :
-
-1. **--context** : Génère CLAUDE.md + vérifie versions
-2. **--project** : Met à jour dépendances
-3. **--devcontainer** : Met à jour le devcontainer
-
-### Output (vide)
+Met à jour un seul composant.
 
 ```
-═══════════════════════════════════════════════
-  /update - Mise à jour complète
-═══════════════════════════════════════════════
-
-[1/3] Context...
-  ✓ CLAUDE.md générés (4 fichiers)
-  ✓ Versions vérifiées
-
-[2/3] Project...
-  ✓ GitHub Actions à jour
-  ✓ Dépendances mises à jour
-
-[3/3] DevContainer...
-  ✓ Template téléchargé
-  ✓ .devcontainer/ remplacé
+/update --component hooks
 
 ═══════════════════════════════════════════════
-  ✓ Mise à jour complète terminée
+  /update --component hooks
+═══════════════════════════════════════════════
 
-  Prochaine étape:
-    Ctrl+Shift+P → 'Rebuild Container'
+  Updating: hooks only
+
+  ✓ format.sh      updated
+  ✓ imports.sh     updated
+  ✓ lint.sh        updated
+  ✓ security.sh    updated
+  ✓ test.sh        updated
+  - pre-validate   (unchanged)
+  - post-edit      (unchanged)
+
+  Done: 5 files updated
+
 ═══════════════════════════════════════════════
 ```
 
 ---
 
-## Voir aussi
+## Output final
 
-- `/feature <description>` - Développer une nouvelle fonctionnalité
-- `/fix <description>` - Corriger un bug
-- `/review --pr` - Demander une review CodeRabbit
+```
+═══════════════════════════════════════════════
+  ✓ DevContainer updated successfully
+═══════════════════════════════════════════════
+
+  Template: kodflow/devcontainer-template
+  Version : def5678 (2024-01-20)
+
+  Updated components:
+    ✓ features    (2 files)
+    ✓ hooks       (5 files)
+    ✓ commands    (1 file)
+    - p10k        (unchanged)
+    ✓ settings    (1 file)
+
+  Total: 9 files updated
+
+  Note: Restart terminal to apply p10k changes.
+═══════════════════════════════════════════════
+```
+
+---
+
+## GARDE-FOUS
+
+| Action | Status |
+|--------|--------|
+| Écraser des fichiers locaux modifiés sans backup | ⚠ WARNING (affiche diff) |
+| Mettre à jour depuis une source non-officielle | ❌ INTERDIT |
+| Modifier des fichiers hors .devcontainer/ | ❌ INTERDIT |
+
+---
+
+## Fichiers concernés
+
+**Mis à jour par /update :**
+```
+.devcontainer/
+├── features/languages/*/RULES.md
+├── images/
+│   ├── .p10k.zsh
+│   └── .claude/
+│       ├── commands/*.md
+│       ├── scripts/*.sh
+│       └── settings.json
+└── .template-version
+```
+
+**JAMAIS modifiés :**
+```
+.devcontainer/
+├── devcontainer.json      # Config projet
+├── docker-compose.yml     # Services locaux
+├── Dockerfile             # Customisations
+└── hooks/                 # Hooks lifecycle
+```
