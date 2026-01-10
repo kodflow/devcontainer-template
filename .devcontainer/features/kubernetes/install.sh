@@ -102,18 +102,32 @@ esac
 # Helper functions
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Validate port number (1-65535)
+validate_port() {
+    local name=$1
+    local value=$2
+    if [[ "$value" =~ ^[0-9]+$ ]] && (( value >= 1 && value <= 65535 )); then
+        return 0
+    fi
+    echo "Error: Invalid $name '$value'. Must be an integer 1-65535." >&2
+    return 1
+}
+
 # Get latest version from GitHub
 get_github_version() {
     local repo=$1
     local fallback=$2
     local version response
-    response=$(curl -s --connect-timeout 5 --max-time 10 \
-        "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null) || true
+
+    response="$(curl -fsSL --connect-timeout 5 --max-time 10 \
+        "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null)" || response=""
+
     if command -v jq &>/dev/null; then
-        version=$(echo "$response" | jq -r '.tag_name // empty' 2>/dev/null) || true
+        version="$(echo "$response" | jq -r '.tag_name // empty' 2>/dev/null)" || version=""
     else
-        version=$(echo "$response" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1) || true
+        version="$(echo "$response" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)" || version=""
     fi
+
     echo "${version:-$fallback}"
 }
 
@@ -194,7 +208,8 @@ fi
 echo -e "${YELLOW}Installing kubectl...${NC}"
 
 if [[ "$KUBECTL_VERSION" == "latest" ]]; then
-    KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt 2>/dev/null) || KUBECTL_VERSION="v1.35.0"
+    KUBECTL_VERSION="$(curl -fsSL --connect-timeout 5 --max-time 10 \
+        https://dl.k8s.io/release/stable.txt 2>/dev/null)" || KUBECTL_VERSION="v1.35.0"
 fi
 [[ "$KUBECTL_VERSION" != v* ]] && KUBECTL_VERSION="v${KUBECTL_VERSION}"
 
@@ -236,10 +251,12 @@ if [[ "$ENABLE_HELM" == "true" ]]; then
             echo -e "${GREEN}✓ Helm ${HELM_VERSION} installed${NC}"
         else
             rm -f /tmp/helm.tar.gz
-            echo -e "${YELLOW}⚠ Helm checksum verification failed (optional)${NC}"
+            echo -e "${RED}✗ Helm checksum verification failed${NC}"
+            exit 1
         fi
     else
-        echo -e "${YELLOW}⚠ Helm installation failed (optional)${NC}"
+        echo -e "${RED}✗ Helm installation failed${NC}"
+        exit 1
     fi
 fi
 
@@ -274,14 +291,32 @@ validate_cluster_name() {
     exit 1
 }
 
+# Validate port number (1-65535)
+validate_port() {
+    local name=$1
+    local value=$2
+    if [[ "$value" =~ ^[0-9]+$ ]] && (( value >= 1 && value <= 65535 )); then
+        return 0
+    fi
+    echo "Error: Invalid $name '$value'. Must be an integer 1-65535." >&2
+    exit 1
+}
+
+# Check Docker dependency
+if ! command -v docker &>/dev/null; then
+    echo "Error: docker is required for kind-with-registry (docker-outside-of-docker)." >&2
+    exit 1
+fi
+
 CLUSTER_NAME="${1:-dev}"
 validate_cluster_name "$CLUSTER_NAME"
 
 REGISTRY_NAME="kind-registry"
 REGISTRY_PORT="${REGISTRY_PORT:-5001}"
+validate_port "REGISTRY_PORT" "$REGISTRY_PORT"
 
 # Create registry container if not exists
-if [[ "$(docker inspect -f '{{.State.Running}}' "${REGISTRY_NAME}" 2>/dev/null || true)" != 'true' ]]; then
+if [[ "$(docker inspect -f '{{.State.Running}}' "${REGISTRY_NAME}" 2>/dev/null || echo 'false')" != 'true' ]]; then
     docker run -d --restart=always -p "127.0.0.1:${REGISTRY_PORT}:5000" --network bridge --name "${REGISTRY_NAME}" registry:2
 fi
 
@@ -320,7 +355,7 @@ EOF
 done
 
 # Connect registry to kind network
-if [[ "$(docker inspect -f='{{json .NetworkSettings.Networks.kind}}' "${REGISTRY_NAME}")" == 'null' ]]; then
+if [[ "$(docker inspect -f='{{json .NetworkSettings.Networks.kind}}' "${REGISTRY_NAME}" 2>/dev/null || echo 'null')" == 'null' ]]; then
     docker network connect "kind" "${REGISTRY_NAME}"
 fi
 
