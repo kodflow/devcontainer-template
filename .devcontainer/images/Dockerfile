@@ -149,11 +149,17 @@ RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc 
 # This avoids requiring Node.js/npm in the base image.
 # If you need Node.js for your project, enable the "nodejs" feature.
 # Note: The official installer creates the symlink at ~/.local/bin/claude automatically.
+#
+# CACHE_BUST_DYNAMIC: Forces cache invalidation for dynamic installations.
+# Set to current date (YYYY-MM-DD) during scheduled builds to pull latest versions.
+# See: https://docs.docker.com/build/cache/invalidation/
+ARG CACHE_BUST_DYNAMIC=stable
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
 # =============================================================================
 # CodeRabbit CLI (AI Code Reviews)
 # =============================================================================
+# Also affected by CACHE_BUST_DYNAMIC for scheduled updates
 RUN curl -fsSL https://cli.coderabbit.ai/install.sh | sh
 
 # =============================================================================
