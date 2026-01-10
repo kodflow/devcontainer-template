@@ -9,6 +9,7 @@ $ARGUMENTS
 Recherche d'informations sur les documentations officielles avec patterns RLM (Recursive Language Models).
 
 **Patterns RLM appliqués :**
+
 - **Peek** - Aperçu rapide avant analyse complète
 - **Grep** - Filtrage par keywords avant fetch sémantique
 - **Partition+Map** - Recherches parallèles multi-domaines
@@ -80,6 +81,7 @@ Workflow:
 | C/C++ | cppreference.com, isocpp.org |
 
 ### Cloud & Infra
+
 | Service | Domaines |
 |---------|----------|
 | AWS | docs.aws.amazon.com |
@@ -98,6 +100,7 @@ Workflow:
 | FastAPI | fastapi.tiangolo.com |
 
 ### Standards
+
 | Type | Domaines |
 |------|----------|
 | Web | developer.mozilla.org, w3.org |
@@ -105,6 +108,7 @@ Workflow:
 | RFCs | rfc-editor.org, tools.ietf.org |
 
 ### Blacklist
+
 - ❌ Blogs, Medium, Dev.to
 - ❌ Stack Overflow (sauf identification problème)
 - ❌ Tutoriels tiers, cours en ligne
@@ -207,6 +211,7 @@ WebFetch({
 ```
 
 **Summarization progressive :**
+
 - Niveau 1: Résumé par source (5 points)
 - Niveau 2: Fusion des résumés (synthèse)
 - Niveau 3: Context final (actionable)
@@ -224,6 +229,7 @@ WebFetch({
 | 0 source | NONE | Exclure |
 
 **Détection contradictions :**
+
 - Comparer versions (date docs)
 - Identifier breaking changes
 - Signaler à l'utilisateur
@@ -249,6 +255,7 @@ AskUserQuestion({
 ```
 
 **NE PAS demander si :**
+
 - Query claire et non-ambiguë
 - Une seule technologie
 - Contexte suffisant
@@ -351,6 +358,7 @@ Identique à la version précédente.
 ## Exemples d'exécution
 
 ### Query simple
+
 ```
 /search "Go context package"
 
@@ -360,6 +368,7 @@ Identique à la version précédente.
 ```
 
 ### Query complexe
+
 ```
 /search "OAuth2 JWT authentication pour API REST"
 
@@ -370,6 +379,7 @@ Identique à la version précédente.
 ```
 
 ### Query multi-domaines
+
 ```
 /search "Kubernetes ingress controller comparison"
 

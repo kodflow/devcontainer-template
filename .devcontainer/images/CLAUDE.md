@@ -33,6 +33,7 @@ Claude Code and MCP servers are included; languages added via features.
 ## MCP Servers (Runtime)
 
 Configured in `mcp.json.tpl`, tokens injected at startup:
+
 - **GitHub** - PR/Issue management
 - **Codacy** - Code quality analysis
 

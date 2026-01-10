@@ -9,6 +9,7 @@ $ARGUMENTS
 Met à jour l'environnement DevContainer depuis le template officiel.
 
 **Composants mis à jour :**
+
 - **Features** - Language features et leurs RULES.md
 - **Hooks** - Scripts Claude (format, lint, security, etc.)
 - **Commands** - Commandes slash (/git, /search)
@@ -124,6 +125,7 @@ Task({ prompt: "Compare settings.json local vs remote", model: "haiku" })
 ### Phase 2 : Rapport des différences
 
 **Pour chaque composant, identifier :**
+
 - Fichiers ajoutés (nouveau dans template)
 - Fichiers modifiés (diff entre local et remote)
 - Fichiers supprimés (retiré du template)
@@ -160,6 +162,7 @@ Task({ prompt: "Compare settings.json local vs remote", model: "haiku" })
 **Pour chaque composant avec changements :**
 
 #### Features
+
 ```bash
 BASE="https://raw.githubusercontent.com/kodflow/devcontainer-template/main"
 for lang in go nodejs python rust java ruby php elixir dart-flutter scala carbon cpp; do
@@ -169,6 +172,7 @@ done
 ```
 
 #### Hooks (scripts)
+
 ```bash
 for script in format imports lint security test commit-validate bash-validate pre-validate post-edit; do
     curl -sL "$BASE/.devcontainer/images/.claude/scripts/$script.sh" \
@@ -178,6 +182,7 @@ done
 ```
 
 #### Commands
+
 ```bash
 for cmd in git search update; do
     curl -sL "$BASE/.devcontainer/images/.claude/commands/$cmd.md" \
@@ -186,12 +191,14 @@ done
 ```
 
 #### p10k
+
 ```bash
 curl -sL "$BASE/.devcontainer/images/.p10k.zsh" \
      -o ".devcontainer/images/.p10k.zsh" 2>/dev/null
 ```
 
 #### Settings
+
 ```bash
 curl -sL "$BASE/.devcontainer/images/.claude/settings.json" \
      -o ".devcontainer/images/.claude/settings.json" 2>/dev/null
@@ -241,7 +248,7 @@ Mode dry-run : affiche les différences sans appliquer.
 
 ---
 
-## --component <name>
+## --component NAME
 
 Met à jour un seul composant.
 
