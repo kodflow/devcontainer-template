@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1090,SC1091
 # ============================================================================
 # postStart.sh - Runs EVERY TIME the container starts
 # ============================================================================
@@ -90,7 +91,8 @@ setup_gnome_keyring() {
             export DBUS_SESSION_BUS_ADDRESS
         else
             log_warning "dbus-launch not found - using fallback"
-            export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+            DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+            export DBUS_SESSION_BUS_ADDRESS
         fi
     fi
 
@@ -143,9 +145,10 @@ fi
 # ============================================================================
 # MCP Configuration Setup (inject secrets into template)
 # ============================================================================
-VAULT_ID="ypahjj334ixtiyjkytu5hij2im"
+# 1Password vault ID (can be overridden via OP_VAULT_ID env var)
+VAULT_ID="${OP_VAULT_ID:-ypahjj334ixtiyjkytu5hij2im}"
 MCP_TPL="/etc/mcp/mcp.json.tpl"
-MCP_OUTPUT="/workspace/.mcp.json"
+MCP_OUTPUT="/workspace/mcp.json"
 
 # Helper function to get 1Password field (tries multiple field names)
 # Usage: get_1password_field <item_name> <vault_id>
@@ -226,28 +229,150 @@ fi
 [ -z "$GITHUB_TOKEN" ] && log_warning "GitHub token not available"
 [ -z "$CODERABBIT_TOKEN" ] && log_warning "CodeRabbit token not available"
 
+# Helper: escape special chars for sed replacement
+# Handles: & \ | / and strips newlines/CR (covers all token formats)
+# LC_ALL=C ensures deterministic behavior across locales
+escape_for_sed() {
+    LC_ALL=C printf '%s' "$1" | tr -d '\n\r' | sed -e 's/[&/|\\]/\\&/g'
+}
+
+# Security: refuse to write secrets through symlinks or unsafe directories
+MCP_DIR=$(dirname -- "$MCP_OUTPUT")
+if [ ! -d "$MCP_DIR" ] || [ -L "$MCP_DIR" ]; then
+    log_error "Refusing to write mcp.json: unsafe parent directory ($MCP_DIR)"
+    # Skip all MCP generation but continue with rest of postStart
+elif [ -e "$MCP_OUTPUT" ] && { [ -L "$MCP_OUTPUT" ] || [ ! -f "$MCP_OUTPUT" ]; }; then
+    log_error "Refusing to write mcp.json: not a regular file ($MCP_OUTPUT)"
+    # Skip all MCP generation but continue with rest of postStart
+else
+
+# Migrate legacy .mcp.json to mcp.json (renamed in v2)
+if [ -f "/workspace/.mcp.json" ] && [ ! -e "$MCP_OUTPUT" ]; then
+    log_info "Migrating legacy .mcp.json to mcp.json..."
+
+    if ! command -v jq >/dev/null 2>&1; then
+        log_warning "jq not found; migrating without JSON validation"
+        if cp "/workspace/.mcp.json" "$MCP_OUTPUT"; then
+            chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
+            chmod 600 "$MCP_OUTPUT"
+            rm -f "/workspace/.mcp.json" || log_warning "Could not remove legacy .mcp.json (permissions?)"
+            log_success "Migration complete: .mcp.json → mcp.json"
+        else
+            log_error "Migration failed: unable to copy legacy file"
+        fi
+    else
+        MCP_MIG_TMP=$(mktemp "${MCP_OUTPUT}.migrate.XXXXXX") || {
+            log_error "Migration failed: unable to create temp file"
+            MCP_MIG_TMP=""
+        }
+        if [ -n "$MCP_MIG_TMP" ] && cp "/workspace/.mcp.json" "$MCP_MIG_TMP"; then
+            # Validate JSON before completing migration
+            if jq empty "$MCP_MIG_TMP" 2>/dev/null; then
+                mv "$MCP_MIG_TMP" "$MCP_OUTPUT"
+                chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
+                chmod 600 "$MCP_OUTPUT"
+                rm -f "/workspace/.mcp.json" || log_warning "Could not remove legacy .mcp.json (permissions?)"
+                log_success "Migration complete: .mcp.json → mcp.json"
+            else
+                log_error "Legacy .mcp.json is invalid JSON; keeping legacy file"
+                rm -f "$MCP_MIG_TMP"
+            fi
+        elif [ -n "$MCP_MIG_TMP" ]; then
+            log_error "Migration failed"
+            rm -f "$MCP_MIG_TMP"
+        fi
+    fi
+fi
+
 # Generate mcp.json from template (baked in Docker image)
+# Skip if mcp.json already exists with valid JSON (preserve user modifications)
 if [ -f "$MCP_TPL" ]; then
-    log_info "Generating .mcp.json from template..."
-    sed -e "s|{{CODACY_TOKEN}}|${CODACY_TOKEN}|g" \
-        -e "s|{{GITHUB_TOKEN}}|${GITHUB_TOKEN}|g" \
-        "$MCP_TPL" > "$MCP_OUTPUT"
-    log_success "mcp.json generated successfully"
+    if [ -f "$MCP_OUTPUT" ] && jq empty "$MCP_OUTPUT" 2>/dev/null; then
+        log_info "mcp.json exists with valid JSON, preserving user modifications"
+        # Ensure correct ownership and secure permissions
+        chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
+        chmod 600 "$MCP_OUTPUT" 2>/dev/null || true
+    elif [ -z "$CODACY_TOKEN" ] && [ -z "$GITHUB_TOKEN" ]; then
+        # Skip generation if no tokens available (would create unusable config)
+        log_warning "No tokens available, skipping mcp.json generation"
+        # Ensure downstream steps have a valid file to work with
+        if [ ! -f "$MCP_OUTPUT" ]; then
+            printf '%s\n' '{"mcpServers":{}}' > "$MCP_OUTPUT"
+            chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
+            chmod 600 "$MCP_OUTPUT"
+            log_info "Created minimal mcp.json for optional MCPs"
+        fi
+    else
+        # Generate mcp.json from template (uses subshell to avoid global trap clobbering)
+        generate_mcp_from_template() {
+            local escaped_codacy escaped_github mcp_tmp
+            escaped_codacy=$(escape_for_sed "${CODACY_TOKEN}")
+            escaped_github=$(escape_for_sed "${GITHUB_TOKEN}")
+
+            mcp_tmp=$(mktemp "${MCP_OUTPUT}.tmp.XXXXXX") || {
+                log_error "Failed to create temp file for mcp.json generation"
+                return 0
+            }
+
+            # Cleanup on function exit (does not affect other traps)
+            trap 'rm -f "$mcp_tmp" 2>/dev/null || true' RETURN
+
+            if ! sed -e "s|{{CODACY_TOKEN}}|${escaped_codacy}|g" \
+                    -e "s|{{GITHUB_TOKEN}}|${escaped_github}|g" \
+                    "$MCP_TPL" > "$mcp_tmp"; then
+                log_error "Failed to render mcp.json template"
+                return 0
+            fi
+
+            if jq empty "$mcp_tmp" 2>/dev/null; then
+                mv "$mcp_tmp" "$MCP_OUTPUT"
+                chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
+                chmod 600 "$MCP_OUTPUT"
+                log_success "mcp.json generated successfully"
+            else
+                log_error "Generated mcp.json is invalid JSON, keeping original"
+            fi
+        }
+        log_info "Generating mcp.json from template..."
+        generate_mcp_from_template
+    fi
 
     # =========================================================================
     # Add optional MCPs based on installed features
     # =========================================================================
-    # Helper function to add a conditional MCP server
+    # Helper function to add a conditional MCP server (uses atomic temp file)
     add_optional_mcp() {
         local name="$1"
         local binary="$2"
         local output="$3"
 
+        # Nothing to do if there is no base config to modify
+        [ -f "$output" ] || return 0
+
+        # jq is required for JSON manipulation
+        if ! command -v jq >/dev/null 2>&1; then
+            log_warning "Skipping $name MCP injection (jq not found)"
+            return 0
+        fi
+
         if [ -x "$binary" ]; then
             log_info "Adding $name MCP (binary found at $binary)"
-            jq --arg name "$name" --arg bin "$binary" \
-               '.mcpServers[$name] = {"command": $bin, "args": [], "env": {}}' \
-               "$output" > "$output.tmp" && mv "$output.tmp" "$output"
+            local tmp_file
+            tmp_file=$(mktemp "${output}.tmp.XXXXXX") || {
+                log_warning "Failed to add $name MCP (unable to create temp file)"
+                return 0
+            }
+            if jq --arg name "$name" --arg bin "$binary" \
+               '.mcpServers = (.mcpServers // {}) | .mcpServers[$name] = {"command": $bin, "args": [], "env": {}}' \
+               "$output" > "$tmp_file" && jq empty "$tmp_file" 2>/dev/null; then
+                mv "$tmp_file" "$output"
+                # Ensure correct ownership and secure permissions
+                chown "$(id -u):$(id -g)" "$output" 2>/dev/null || true
+                chmod 600 "$output" 2>/dev/null || true
+            else
+                log_warning "Failed to add $name MCP, keeping original"
+                rm -f "$tmp_file"
+            fi
         else
             log_info "Skipping $name MCP (binary not found)"
         fi
@@ -262,6 +387,8 @@ if [ -f "$MCP_TPL" ]; then
 else
     log_warning "MCP template not found at $MCP_TPL"
 fi
+
+fi  # End of symlink security check
 
 # ============================================================================
 # Git Credential Cleanup (remove macOS-specific helpers)
