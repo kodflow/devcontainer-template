@@ -99,6 +99,21 @@ mcp_priority:
 - MCP provides structured responses (JSON vs text parsing)
 - Single source of truth for credentials
 
+## Reasoning Patterns (RLM)
+
+Before complex tasks, apply these patterns from [Recursive Language Models](https://arxiv.org/abs/2512.24601):
+
+1. **Peek** - Read aperçu (Glob, Read partial) before full analysis
+2. **Grep** - Search specific patterns before semantic analysis
+3. **Decompose** - Divide into sub-tasks (Task agents)
+4. **Parallelize** - Execute independents in parallel (single message, multiple tools)
+5. **Synthesize** - Combine results into coherent answer
+
+**Application:**
+```
+Complex request → Peek/Grep → Decompose → Parallel Task agents → Synthesize
+```
+
 ## SAFEGUARDS (ABSOLUTE - NO BYPASS)
 
 **NEVER without EXPLICIT user approval:**
@@ -120,12 +135,15 @@ mcp_priority:
 | `security.sh` | Secret detection |
 | `test.sh` | Run related tests |
 
-## Context Hierarchy
+## Context Hierarchy (Funnel Documentation)
 
 ```
-/CLAUDE.md              # Overview (committed)
-/src/CLAUDE.md          # src details (gitignored)
-/src/api/CLAUDE.md      # API details (gitignored)
+/CLAUDE.md                      # Project overview (this file)
+├── .devcontainer/CLAUDE.md     # DevContainer config
+│   ├── features/CLAUDE.md      # Features overview
+│   │   └── kubernetes/CLAUDE.md # K8s details
+│   └── images/CLAUDE.md        # Docker images
+└── src/CLAUDE.md               # Source code context
 ```
 
-**Principle:** More details deeper in tree, under 60 lines each.
+**Principle:** More details deeper in tree, <60 lines each, ALL committed.

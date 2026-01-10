@@ -1,126 +1,38 @@
-# DevContainer Template
+# Claude Feature
 
-## Project Structure (MANDATORY)
+## Purpose
 
-```
-/workspace
-├── src/                    # ALL source code (mandatory)
-│   ├── components/
-│   ├── services/
-│   └── ...
-├── tests/                  # Unit tests (optional, not for Go)
-├── docs/                   # Documentation
-└── CLAUDE.md
+Standalone Claude Code installation for projects without the full DevContainer.
+
+## Installation
+
+```bash
+curl -sL https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/features/claude/install.sh | bash
 ```
 
-**Rules:**
-- ALL code MUST be in `/src` regardless of language
-- Tests in `/tests` (except Go: tests alongside code in `/src`)
-- Never put code at project root
+## What Gets Installed
 
-## Language Rules
+| Component | Description |
+|-----------|-------------|
+| Claude CLI | AI coding assistant |
+| Commands | /git, /search |
+| Hooks | format, lint, security, test |
+| status-line | Git branch/status display |
 
-**STRICT**: Follow rules in `.devcontainer/features/languages/<lang>/RULES.md`
+## Native Claude 2.x Features
 
-Each RULES.md contains:
-1. **Line 1**: Required version (NEVER downgrade)
-2. Code style and conventions
-3. Project structure requirements
-4. Testing standards
+This feature leverages Claude's native capabilities:
 
-## Workflow (MANDATORY)
+- **EnterPlanMode** - Built-in planning mode
+- **TodoWrite** - Task tracking without external tools
+- **Task agents** - Parallel execution
 
-### 1. Context Generation
-```
-/build --context
-```
-Generates CLAUDE.md in all subdirectories + fetches latest language versions.
+## Configuration
 
-### 2. Feature Development
-```
-/feature <description>
-```
-Creates `feat/<description>` branch, **mandatory planning mode**, CI check, PR creation (no auto-merge).
+Settings are stored in `~/.claude/settings.json`.
+MCP servers are configured in project `mcp.json`.
 
-### 3. Bug Fixes
-```
-/fix <description>
-```
-Creates `fix/<description>` branch, **mandatory planning mode**, CI check, PR creation (no auto-merge).
+## See Also
 
-**Flow:**
-```
-/build --context → /feature "..." ou /fix "..."
-```
-
-## Branch Conventions
-
-| Type | Branch | Commit prefix |
-|------|--------|---------------|
-| Feature | `feat/<desc>` | `feat(scope): message` |
-| Bugfix | `fix/<desc>` | `fix(scope): message` |
-
-## Code Quality
-
-- Latest stable version ONLY (see RULES.md)
-- No deprecated APIs
-- No legacy patterns
-- Security-first approach
-- Full test coverage
-
-## SAFEGUARDS (ABSOLUTE - NO BYPASS)
-
-**NEVER without EXPLICIT user approval:**
-- Delete files in `.claude/` directory
-- Delete files in `.devcontainer/` directory
-- Modify `.claude/commands/*.md` destructively (removing features/logic)
-- Remove hooks from `.devcontainer/hooks/`
-
-**When simplifying/refactoring:**
-- Move content to separate files, NEVER delete logic
-- Ask before removing any feature, even if it seems redundant
-
-## Hooks (Auto-applied)
-
-| Hook | Action |
-|------|--------|
-| `pre-validate.sh` | Protect sensitive files |
-| `post-edit.sh` | Format + Imports + Lint |
-| `security.sh` | Secret detection |
-| `test.sh` | Run related tests |
-
-## Context Hierarchy
-
-```
-/CLAUDE.md              → Overview (committed)
-/src/CLAUDE.md          → src details (gitignored)
-/src/api/CLAUDE.md      → API details (gitignored)
-```
-
-**Principle:** More details deeper in tree, <60 lines each.
-
-## MCP-FIRST RULE (MANDATORY)
-
-**ALWAYS use MCP tools BEFORE falling back to CLI binaries.**
-
-| Action | MCP Tool (Priority) | CLI Fallback |
-|--------|---------------------|--------------|
-| GitHub PRs | `mcp__github__*` | `gh pr *` |
-| GitHub Issues | `mcp__github__*` | `gh issue *` |
-| Codacy Analysis | `mcp__codacy__*` | `codacy-cli` |
-| IDE Diagnostics | `mcp__ide__*` | N/A |
-
-**Rules:**
-
-1. Check `mcp.json` for available MCP servers
-2. Use `mcp__<server>__<action>` tools first
-3. Only fallback to CLI if MCP fails or is unavailable
-4. NEVER ask user for tokens if MCP is already configured
-5. Log MCP failures before trying fallback
-
-**Why:**
-
-- MCP = pre-authenticated (tokens in mcp.json)
-- CLI = requires separate auth setup
-- MCP = structured JSON responses
-- CLI = text parsing required
+- Root [CLAUDE.md](/CLAUDE.md) for project conventions
+- [.devcontainer/CLAUDE.md](../) for DevContainer config
