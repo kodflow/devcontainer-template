@@ -86,8 +86,8 @@ Configurez `OP_SERVICE_ACCOUNT_TOKEN` et les items correspondants dans votre vau
 
 | Fichier | Description |
 |---------|-------------|
-| `.mcp.json` | Config MCP projet (ignoré par git) |
-| `.devcontainer/hooks/shared/mcp.json.tpl` | Template MCP |
+| `mcp.json` | Config MCP projet (ignoré par git) |
+| `.devcontainer/images/mcp.json.tpl` | Template MCP |
 
 ## Structure
 

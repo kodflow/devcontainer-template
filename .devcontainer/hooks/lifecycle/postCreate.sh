@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1090,SC1091
 # ============================================================================
 # postCreate.sh - Runs ONCE after container is assigned to user
 # ============================================================================
@@ -123,7 +124,19 @@ export BAZEL_USER_ROOT="/home/vscode/.cache/bazel"
 # Aliases
 # super-claude: runs claude with MCP config if available, otherwise without
 super-claude() {
-    local mcp_config="/workspace/.mcp.json"
+    local mcp_config="/workspace/mcp.json"
+
+    # Check if jq is available for JSON validation
+    if ! command -v jq &>/dev/null; then
+        echo "Warning: jq not found, skipping MCP config validation" >&2
+        # Still use mcp config if it looks like JSON (skip leading whitespace/newlines)
+        if [ -s "$mcp_config" ] && LC_ALL=C tr -d ' \t\r\n' < "$mcp_config" 2>/dev/null | head -c 1 | grep -q '{'; then
+            claude --dangerously-skip-permissions --mcp-config "$mcp_config" "$@"
+        else
+            claude --dangerously-skip-permissions "$@"
+        fi
+        return
+    fi
 
     if [ -f "$mcp_config" ] && jq empty "$mcp_config" 2>/dev/null; then
         claude --dangerously-skip-permissions --mcp-config "$mcp_config" "$@"

@@ -74,6 +74,17 @@ jobs:
           platform=${{ matrix.platform }}
           echo "pair=${platform//\//-}" >> $GITHUB_OUTPUT
 
+      # Generate cache bust value for scheduled builds
+      # This ensures dynamic installations (Claude Code, CodeRabbit) get updated daily
+      - name: Generate cache bust value
+        id: cachebust
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+          else
+            echo "value=stable" >> $GITHUB_OUTPUT
+          fi
+
       # PR: Build only (no push)
       - name: Build image (PR)
         if: github.event_name == 'pull_request'
@@ -84,6 +95,8 @@ jobs:
           platforms: ${{ matrix.platform }}
           push: false
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            CACHE_BUST_DYNAMIC=${{ steps.cachebust.outputs.value }}
           cache-from: type=gha,scope=build-${{ steps.platform.outputs.pair }}
           cache-to: type=gha,mode=max,scope=build-${{ steps.platform.outputs.pair }}
 
@@ -97,6 +110,8 @@ jobs:
           file: .devcontainer/images/Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            CACHE_BUST_DYNAMIC=${{ steps.cachebust.outputs.value }}
           cache-from: type=gha,scope=build-${{ steps.platform.outputs.pair }}
           cache-to: type=gha,mode=max,scope=build-${{ steps.platform.outputs.pair }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true

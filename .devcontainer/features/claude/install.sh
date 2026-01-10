@@ -94,20 +94,36 @@ fi
 # 8. Configurer MCP (Taskwarrior)
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Configuring MCP..."
-MCP_FILE="$TARGET/.mcp.json"
+MCP_FILE="$TARGET/mcp.json"
 TASKWARRIOR_MCP='{"taskwarrior":{"command":"npx","args":["-y","mcp-server-taskwarrior"]}}'
 
 if [ -f "$MCP_FILE" ]; then
-    # Merge with existing
+    # Merge with existing (ensure .mcpServers exists with fallback to empty object)
     if command -v jq &>/dev/null; then
-        jq --argjson tw "$TASKWARRIOR_MCP" '.mcpServers += $tw' "$MCP_FILE" > "$MCP_FILE.tmp" && mv "$MCP_FILE.tmp" "$MCP_FILE"
-        echo "  ✓ .mcp.json (merged + taskwarrior)"
+        # Use atomic temp file to prevent race conditions
+        MCP_TMP=$(mktemp "${MCP_FILE}.tmp.XXXXXX") || {
+            echo "  ⚠ mcp.json (unable to create temp file)"
+            MCP_TMP=""
+        }
+        if [ -n "$MCP_TMP" ] && jq --argjson tw "$TASKWARRIOR_MCP" '.mcpServers = ((.mcpServers // {}) + $tw)' "$MCP_FILE" > "$MCP_TMP" && jq empty "$MCP_TMP" 2>/dev/null; then
+            mv "$MCP_TMP" "$MCP_FILE"
+            # Ensure correct ownership (match target directory owner)
+            chown "$(stat -c '%u:%g' "$TARGET")" "$MCP_FILE" 2>/dev/null || true
+            chmod 600 "$MCP_FILE"
+            echo "  ✓ mcp.json (merged + taskwarrior)"
+        else
+            echo "  ⚠ mcp.json merge failed, keeping original"
+            [ -n "$MCP_TMP" ] && rm -f "$MCP_TMP"
+        fi
     else
-        echo "  ⚠ .mcp.json (jq not found, manual config needed)"
+        echo "  ⚠ mcp.json (jq not found, manual config needed)"
     fi
 else
     echo "{\"mcpServers\":$TASKWARRIOR_MCP}" > "$MCP_FILE"
-    echo "  ✓ .mcp.json (created + taskwarrior)"
+    # Ensure correct ownership (match target directory owner)
+    chown "$(stat -c '%u:%g' "$TARGET")" "$MCP_FILE" 2>/dev/null || true
+    chmod 600 "$MCP_FILE"
+    echo "  ✓ mcp.json (created + taskwarrior)"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
