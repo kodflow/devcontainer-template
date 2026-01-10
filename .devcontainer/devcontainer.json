@@ -20,6 +20,16 @@
     // "./features/languages/ruby": {},
     // "./features/languages/rust": {},
     // "./features/languages/scala": {},
+    // ========== KUBERNETES ==========
+    // Local Kubernetes development with kind
+    // "./features/kubernetes": {
+    //   "kindVersion": "latest",
+    //   "kubectlVersion": "latest",
+    //   "helmVersion": "latest",
+    //   "enableHelm": true,
+    //   "enableRegistry": true,
+    //   "clusterName": "dev"
+    // },
     // ========== EXTERNAL ==========
     // Docker support
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
