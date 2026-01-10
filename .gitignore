@@ -105,7 +105,14 @@ out/
 *.log
 
 
-#Ignore vscode AI rules
+# ============================================
+# DevContainer internal docs (generated)
+# ============================================
+.devcontainer/docs/
+
+# ============================================
+# Ignore vscode AI rules
+# ============================================
 .github/instructions/codacy.instructions.md
 .codacy/
 plans/
