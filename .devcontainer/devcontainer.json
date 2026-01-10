@@ -22,7 +22,11 @@
     // "./features/languages/scala": {},
     // ========== KUBERNETES ==========
     // Local Kubernetes development with kind (requires docker-outside-of-docker)
-    "./features/kubernetes": {},
+    "./features/kubernetes": {
+      "kindVersion": "0.27.0",
+      "kubectlVersion": "1.32.3",
+      "helmVersion": "3.17.3"
+    },
     // ========== EXTERNAL ==========
     // Docker support
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {

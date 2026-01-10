@@ -43,9 +43,14 @@ get_github_version() {
     local repo=$1
     local fallback=$2
     local version
-    version=$(curl -s --connect-timeout 5 --max-time 10 \
-        "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
-        | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+    local response
+    response=$(curl -s --connect-timeout 5 --max-time 10 \
+        "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null)
+    if command -v jq &>/dev/null; then
+        version=$(echo "$response" | jq -r '.tag_name // empty' 2>/dev/null)
+    else
+        version=$(echo "$response" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+    fi
     echo "${version:-$fallback}"
 }
 
@@ -209,7 +214,7 @@ echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "Installed components:"
 echo "  - kind $(kind version 2>/dev/null || echo "$KIND_VERSION")"
-echo "  - kubectl $(kubectl version --client --short 2>/dev/null || echo "$KUBECTL_VERSION")"
+echo "  - kubectl $(kubectl version --client -o yaml 2>/dev/null | grep gitVersion | awk '{print $2}' || echo "$KUBECTL_VERSION")"
 if [ "$ENABLE_HELM" = "true" ]; then
     echo "  - helm $(helm version --short 2>/dev/null || echo "$HELM_VERSION")"
 fi
