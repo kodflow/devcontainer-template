@@ -7,18 +7,18 @@
   "options": {
     "kindVersion": {
       "type": "string",
-      "default": "0.27.0",
-      "description": "kind version to install (e.g., 0.27.0 or latest)"
+      "default": "0.31.0",
+      "description": "kind version to install (e.g., 0.31.0 or latest)"
     },
     "kubectlVersion": {
       "type": "string",
-      "default": "1.32.3",
-      "description": "kubectl version to install (e.g., 1.32.3 or latest)"
+      "default": "1.35.0",
+      "description": "kubectl version to install (e.g., 1.35.0 or latest)"
     },
     "helmVersion": {
       "type": "string",
-      "default": "3.17.3",
-      "description": "Helm version to install (e.g., 3.17.3 or latest)"
+      "default": "4.0.4",
+      "description": "Helm version to install (e.g., 4.0.4 or latest)"
     },
     "enableHelm": {
       "type": "boolean",

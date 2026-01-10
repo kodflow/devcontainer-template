@@ -80,7 +80,7 @@ fi
 echo -e "${YELLOW}Installing kubectl...${NC}"
 
 if [ "$KUBECTL_VERSION" = "latest" ]; then
-    KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt 2>/dev/null || echo "v1.32.0")
+    KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt 2>/dev/null || echo "v1.35.0")
 fi
 [[ "$KUBECTL_VERSION" != v* ]] && KUBECTL_VERSION="v${KUBECTL_VERSION}"
 
@@ -100,7 +100,7 @@ if [ "$ENABLE_HELM" = "true" ]; then
     echo -e "${YELLOW}Installing Helm...${NC}"
 
     if [ "$HELM_VERSION" = "latest" ]; then
-        HELM_VERSION=$(get_github_version "helm/helm" "v3.17.0")
+        HELM_VERSION=$(get_github_version "helm/helm" "v4.0.4")
     fi
     [[ "$HELM_VERSION" != v* ]] && HELM_VERSION="v${HELM_VERSION}"
 

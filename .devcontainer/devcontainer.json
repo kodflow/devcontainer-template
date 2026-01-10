@@ -23,9 +23,9 @@
     // ========== KUBERNETES ==========
     // Local Kubernetes development with kind (requires docker-outside-of-docker)
     "./features/kubernetes": {
-      "kindVersion": "0.27.0",
-      "kubectlVersion": "1.32.3",
-      "helmVersion": "3.17.3"
+      "kindVersion": "0.31.0",
+      "kubectlVersion": "1.35.0",
+      "helmVersion": "4.0.4"
     },
     // ========== EXTERNAL ==========
     // Docker support
