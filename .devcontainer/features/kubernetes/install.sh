@@ -54,6 +54,29 @@ get_github_version() {
     echo "${version:-$fallback}"
 }
 
+# Helper: verify SHA256 checksum
+verify_sha256() {
+    local file=$1
+    local checksum_url=$2
+    local expected
+    expected=$(curl -fsSL --connect-timeout 5 --max-time 10 "$checksum_url" 2>/dev/null | awk '{print $1}')
+    if [ -z "$expected" ]; then
+        echo -e "${YELLOW}⚠ Checksum not available, skipping verification${NC}"
+        return 0
+    fi
+    local actual
+    actual=$(sha256sum "$file" | awk '{print $1}')
+    if [ "$expected" = "$actual" ]; then
+        echo -e "${GREEN}  ✓ SHA256 verified${NC}"
+        return 0
+    else
+        echo -e "${RED}  ✗ SHA256 mismatch!${NC}"
+        echo -e "${RED}    Expected: $expected${NC}"
+        echo -e "${RED}    Actual:   $actual${NC}"
+        return 1
+    fi
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Install kind
 # ─────────────────────────────────────────────────────────────────────────────
@@ -66,9 +89,16 @@ fi
 [[ "$KIND_VERSION" != v* ]] && KIND_VERSION="v${KIND_VERSION}"
 
 KIND_URL="https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-${ARCH_KIND}"
-if curl -fsSL --connect-timeout 10 --max-time 120 -o /usr/local/bin/kind "$KIND_URL"; then
-    chmod +x /usr/local/bin/kind
-    echo -e "${GREEN}✓ kind ${KIND_VERSION} installed${NC}"
+KIND_SHA_URL="${KIND_URL}.sha256sum"
+if curl -fsSL --connect-timeout 10 --max-time 120 -o /tmp/kind "$KIND_URL"; then
+    if verify_sha256 /tmp/kind "$KIND_SHA_URL"; then
+        mv /tmp/kind /usr/local/bin/kind
+        chmod +x /usr/local/bin/kind
+        echo -e "${GREEN}✓ kind ${KIND_VERSION} installed${NC}"
+    else
+        rm -f /tmp/kind
+        exit 1
+    fi
 else
     echo -e "${RED}✗ kind installation failed${NC}"
     exit 1
@@ -85,9 +115,16 @@ fi
 [[ "$KUBECTL_VERSION" != v* ]] && KUBECTL_VERSION="v${KUBECTL_VERSION}"
 
 KUBECTL_URL="https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH_KUBECTL}/kubectl"
-if curl -fsSL --connect-timeout 10 --max-time 120 -o /usr/local/bin/kubectl "$KUBECTL_URL"; then
-    chmod +x /usr/local/bin/kubectl
-    echo -e "${GREEN}✓ kubectl ${KUBECTL_VERSION} installed${NC}"
+KUBECTL_SHA_URL="${KUBECTL_URL}.sha256"
+if curl -fsSL --connect-timeout 10 --max-time 120 -o /tmp/kubectl "$KUBECTL_URL"; then
+    if verify_sha256 /tmp/kubectl "$KUBECTL_SHA_URL"; then
+        mv /tmp/kubectl /usr/local/bin/kubectl
+        chmod +x /usr/local/bin/kubectl
+        echo -e "${GREEN}✓ kubectl ${KUBECTL_VERSION} installed${NC}"
+    else
+        rm -f /tmp/kubectl
+        exit 1
+    fi
 else
     echo -e "${RED}✗ kubectl installation failed${NC}"
     exit 1
@@ -105,12 +142,18 @@ if [ "$ENABLE_HELM" = "true" ]; then
     [[ "$HELM_VERSION" != v* ]] && HELM_VERSION="v${HELM_VERSION}"
 
     HELM_URL="https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH_HELM}.tar.gz"
+    HELM_SHA_URL="${HELM_URL}.sha256sum"
     if curl -fsSL --connect-timeout 10 --max-time 120 -o /tmp/helm.tar.gz "$HELM_URL"; then
-        tar -xzf /tmp/helm.tar.gz -C /tmp
-        mv /tmp/linux-${ARCH_HELM}/helm /usr/local/bin/helm
-        chmod +x /usr/local/bin/helm
-        rm -rf /tmp/helm.tar.gz /tmp/linux-${ARCH_HELM}
-        echo -e "${GREEN}✓ Helm ${HELM_VERSION} installed${NC}"
+        if verify_sha256 /tmp/helm.tar.gz "$HELM_SHA_URL"; then
+            tar -xzf /tmp/helm.tar.gz -C /tmp
+            mv /tmp/linux-${ARCH_HELM}/helm /usr/local/bin/helm
+            chmod +x /usr/local/bin/helm
+            rm -rf /tmp/helm.tar.gz /tmp/linux-${ARCH_HELM}
+            echo -e "${GREEN}✓ Helm ${HELM_VERSION} installed${NC}"
+        else
+            rm -f /tmp/helm.tar.gz
+            echo -e "${YELLOW}⚠ Helm checksum verification failed (optional)${NC}"
+        fi
     else
         echo -e "${YELLOW}⚠ Helm installation failed (optional)${NC}"
     fi
