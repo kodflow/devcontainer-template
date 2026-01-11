@@ -137,6 +137,7 @@ export default tseslint.config(
 ## Code Patterns (Required)
 
 ### Result Type Pattern
+
 ```typescript
 type Result<T, E = Error> =
   | { success: true; data: T }
@@ -156,6 +157,7 @@ async function fetchUser(id: string): Promise<Result<User>> {
 ```
 
 ### Dependency Injection
+
 ```typescript
 interface UserRepository {
   findById(id: string): Promise<User | null>;

@@ -10,6 +10,7 @@ Result<T, E> = Ok<T> | Err<E>
 ```
 
 **Key characteristics:**
+
 - **Explicit errors**: Errors are part of the type signature
 - **Composable**: Chain operations that may fail
 - **Short-circuit**: First error stops the chain
@@ -380,6 +381,7 @@ const processOrder = (order: Order): Result<Order, OrderError> =>
 ## Anti-patterns
 
 1. **Unwrapping Too Early**: Losing type safety
+
    ```typescript
    // BAD
    const user = result.unwrap(); // Throws on Err!
@@ -392,6 +394,7 @@ const processOrder = (order: Order): Result<Order, OrderError> =>
    ```
 
 2. **Mixing with Exceptions**: Inconsistent error handling
+
    ```typescript
    // BAD
    const result = validate(data);
@@ -401,6 +404,7 @@ const processOrder = (order: Order): Result<Order, OrderError> =>
    ```
 
 3. **Ignoring Error Types**: Generic error handling
+
    ```typescript
    // BAD
    Result<User, Error> // Too broad

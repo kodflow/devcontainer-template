@@ -118,6 +118,7 @@ warnings:
 ## System Commands
 
 ### Software Updates
+
 ```bash
 # List available updates
 softwareupdate -l
@@ -133,6 +134,7 @@ softwareupdate -d 'update-name'
 ```
 
 ### launchd Services
+
 ```bash
 # List user services
 launchctl list
@@ -154,6 +156,7 @@ launchctl bootout gui/$(id -u) com.example.agent
 ```
 
 ### LaunchAgent Template
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -181,6 +184,7 @@ launchctl bootout gui/$(id -u) com.example.agent
 ## Security Commands
 
 ### FileVault
+
 ```bash
 # Status
 fdesetup status
@@ -196,6 +200,7 @@ sudo fdesetup add -usertoadd username
 ```
 
 ### Firewall
+
 ```bash
 # Status
 /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
@@ -211,6 +216,7 @@ sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /path/to/app
 ```
 
 ### Gatekeeper
+
 ```bash
 # Status
 spctl --status
@@ -226,6 +232,7 @@ sudo spctl --add /path/to/app
 ```
 
 ### SIP Status
+
 ```bash
 csrutil status
 # Note: Modification requires Recovery Mode

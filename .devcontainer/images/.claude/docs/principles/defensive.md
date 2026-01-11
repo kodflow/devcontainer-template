@@ -129,6 +129,7 @@ new OrderService().process(order); // Uses NullLogger
 ```
 
 **Autres exemples :**
+
 ```typescript
 // Null User
 class GuestUser implements User {

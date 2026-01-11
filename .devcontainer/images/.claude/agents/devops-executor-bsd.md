@@ -140,6 +140,7 @@ warnings:
 ## FreeBSD Commands
 
 ### Package Management
+
 ```bash
 # Update pkg database
 pkg update
@@ -158,6 +159,7 @@ pkg info
 ```
 
 ### Service Management
+
 ```bash
 # Enable service
 sysrc nginx_enable="YES"
@@ -176,6 +178,7 @@ service nginx onestart
 ```
 
 ### ZFS Operations
+
 ```bash
 # Pool status
 zpool status
@@ -199,6 +202,7 @@ zpool scrub data
 ```
 
 ### Jails (iocage)
+
 ```bash
 # Install iocage
 pkg install py311-iocage
@@ -226,6 +230,7 @@ jexec webserver pkg update
 ## pf Firewall
 
 ### /etc/pf.conf
+
 ```
 # Macros
 ext_if = "em0"
@@ -259,6 +264,7 @@ pass in on $ext_if proto tcp to port 22 \
 ```
 
 ### pf Commands
+
 ```bash
 # Load rules
 pfctl -f /etc/pf.conf
@@ -282,6 +288,7 @@ pfctl -F states
 ## OpenBSD Specifics
 
 ### Security Features
+
 ```bash
 # Check pledge/unveil usage
 ktrace -di command
@@ -292,6 +299,7 @@ sysctl kern.wxabort=1
 ```
 
 ### doas (sudo alternative)
+
 ```bash
 # /etc/doas.conf
 permit persist :wheel

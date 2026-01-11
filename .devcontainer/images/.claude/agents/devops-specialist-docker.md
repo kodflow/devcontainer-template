@@ -126,6 +126,7 @@ warnings:
 ## Dockerfile Templates
 
 ### Multi-Stage Node.js
+
 ```dockerfile
 # Build stage
 FROM node:20-alpine AS builder
@@ -150,6 +151,7 @@ CMD ["node", "dist/index.js"]
 ```
 
 ### Multi-Stage Go
+
 ```dockerfile
 FROM golang:1.22-alpine AS builder
 WORKDIR /app
@@ -166,6 +168,7 @@ ENTRYPOINT ["/server"]
 ```
 
 ## Docker Compose Security
+
 ```yaml
 version: "3.9"
 services:

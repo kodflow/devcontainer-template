@@ -10,6 +10,7 @@ pipe(f, g)(x) = g(f(x))      // Left to right (more readable)
 ```
 
 **Key characteristics:**
+
 - **Declarative**: Describes what, not how
 - **Reusable**: Small functions combine freely
 - **Testable**: Each function tested in isolation
@@ -312,6 +313,7 @@ const process = pipe(
 ## Anti-patterns
 
 1. **Long Pipelines**: Hard to debug
+
    ```typescript
    // BAD - 20 steps, hard to trace errors
    pipe(data, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, /* ... */);
@@ -322,6 +324,7 @@ const process = pipe(
    ```
 
 2. **Impure Functions in Pipeline**: Side effects break reasoning
+
    ```typescript
    // BAD
    pipe(
@@ -340,6 +343,7 @@ const process = pipe(
    ```
 
 3. **Type Inference Failure**: Missing type annotations
+
    ```typescript
    // BAD - TypeScript can't infer
    const process = flow(

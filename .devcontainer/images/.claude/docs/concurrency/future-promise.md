@@ -32,6 +32,7 @@ Pattern representant une valeur qui sera disponible dans le futur.
 ```
 
 **Pourquoi :**
+
 - Representer des operations asynchrones
 - Composer des operations sequentielles/paralleles
 - Gerer les erreurs de maniere uniforme

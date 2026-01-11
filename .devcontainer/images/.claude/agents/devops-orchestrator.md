@@ -161,6 +161,7 @@ strategy:
 ## Dispatch Templates
 
 ### Infrastructure Task
+
 ```yaml
 Task:
   subagent_type: Explore
@@ -173,6 +174,7 @@ Task:
 ```
 
 ### Software Stack Task
+
 ```yaml
 Task:
   subagent_type: Explore
@@ -184,6 +186,7 @@ Task:
 ```
 
 ### SysAdmin Task
+
 ```yaml
 Task:
   subagent_type: Explore
@@ -195,6 +198,7 @@ Task:
 ```
 
 ### Cloud Task
+
 ```yaml
 Task:
   subagent_type: Explore

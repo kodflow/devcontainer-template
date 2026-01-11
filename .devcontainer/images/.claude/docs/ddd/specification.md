@@ -9,6 +9,7 @@ Specification = Business Rule + Composability + Reusability + Testability
 ```
 
 **Key characteristics:**
+
 - **Single responsibility**: One rule per specification
 - **Composable**: AND, OR, NOT operations
 - **Reusable**: Same spec for queries and validation
@@ -304,6 +305,7 @@ const discountedOrders = pipe(
 ## Anti-patterns
 
 1. **God Specification**: Too many rules in one spec
+
    ```typescript
    // BAD
    class OrderIsValidSpec {
@@ -317,6 +319,7 @@ const discountedOrders = pipe(
    ```
 
 2. **Leaking Implementation**: Exposing internal details
+
    ```typescript
    // BAD
    class OrderSpec {
@@ -325,6 +328,7 @@ const discountedOrders = pipe(
    ```
 
 3. **Non-Composable**: Specifications that can't be combined
+
    ```typescript
    // BAD - No composition support
    class OrderSpec {
@@ -333,6 +337,7 @@ const discountedOrders = pipe(
    ```
 
 4. **Side Effects**: Modifying state in specification
+
    ```typescript
    // BAD
    isSatisfiedBy(order: Order): boolean {

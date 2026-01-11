@@ -131,6 +131,7 @@ mcp__codacy__codacy_list_repository_issues:
 ## Commendation Triggers
 
 Look for positive patterns:
+
 - Type annotations present
 - Docstrings on public functions
 - Error handling with specific exceptions

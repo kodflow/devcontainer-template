@@ -122,6 +122,7 @@ critical_findings:
 ## Scan Commands
 
 ### Infrastructure (Terraform)
+
 ```bash
 # Comprehensive IaC scan
 trivy config --severity CRITICAL,HIGH .
@@ -130,6 +131,7 @@ tfsec . --format json
 ```
 
 ### Containers
+
 ```bash
 # Image vulnerability scan
 trivy image --severity CRITICAL,HIGH image:tag
@@ -138,6 +140,7 @@ syft image:tag -o json > sbom.json
 ```
 
 ### Secrets
+
 ```bash
 # Secret detection
 gitleaks detect --source . --verbose
@@ -145,6 +148,7 @@ trufflehog filesystem . --json
 ```
 
 ### Kubernetes
+
 ```bash
 # Manifest security
 kubesec scan deployment.yaml

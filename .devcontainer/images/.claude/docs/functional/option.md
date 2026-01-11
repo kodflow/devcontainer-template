@@ -10,6 +10,7 @@ Maybe<A> = Just<A> | Nothing
 ```
 
 **Key characteristics:**
+
 - **Null-safety**: No null pointer exceptions
 - **Explicit optionality**: Optional values in type signature
 - **Composable**: Chain operations on optional values
@@ -362,6 +363,7 @@ const findUserWithError = (id: string): Either<NotFoundError, User> => { /* ... 
 ## Anti-patterns
 
 1. **Immediate Unwrapping**: Losing safety
+
    ```typescript
    // BAD
    const name = findUser(id).getOrElse(null);
@@ -374,6 +376,7 @@ const findUserWithError = (id: string): Either<NotFoundError, User> => { /* ... 
    ```
 
 2. **Optional Properties Instead**: Missing the point
+
    ```typescript
    // BAD - Optional in data model
    interface User { email?: string }
@@ -384,6 +387,7 @@ const findUserWithError = (id: string): Either<NotFoundError, User> => { /* ... 
    ```
 
 3. **Nested Options**: Over-wrapping
+
    ```typescript
    // BAD
    Option<Option<User>>

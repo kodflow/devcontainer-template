@@ -122,6 +122,7 @@ addopts = "-v --cov=src --cov-report=term-missing"
 ## Code Patterns (Required)
 
 ### Protocol-based Dependency Injection
+
 ```python
 from __future__ import annotations
 
@@ -176,6 +177,7 @@ class UserService:
 ```
 
 ### Result Pattern
+
 ```python
 from __future__ import annotations
 

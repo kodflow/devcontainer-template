@@ -9,6 +9,7 @@ Domain Service = Stateless + Domain Logic + Cross-Entity Operations
 ```
 
 **Key characteristics:**
+
 - **Stateless**: No internal state, operates on domain objects
 - **Domain-focused**: Contains business logic, not infrastructure
 - **Operation-centric**: Named after domain actions (verbs)
@@ -314,6 +315,7 @@ class OrderApplicationService {
 ## Anti-patterns
 
 1. **Stateful Service**: Maintaining internal state
+
    ```typescript
    // BAD
    class PricingService {
@@ -322,6 +324,7 @@ class OrderApplicationService {
    ```
 
 2. **Anemic Service**: Just delegates to entities
+
    ```typescript
    // BAD - No actual domain logic
    class OrderService {
@@ -332,6 +335,7 @@ class OrderApplicationService {
    ```
 
 3. **Infrastructure in Domain Service**: Database or API calls
+
    ```typescript
    // BAD - Infrastructure concern
    class PricingService {
@@ -342,6 +346,7 @@ class OrderApplicationService {
    ```
 
 4. **God Service**: Too many responsibilities
+
    ```typescript
    // BAD - Too broad
    class OrderDomainService {

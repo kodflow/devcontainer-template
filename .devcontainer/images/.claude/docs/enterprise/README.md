@@ -696,6 +696,7 @@ class EmployeeMapper {
 ```
 
 **Stratégies :**
+
 - **Single Table** : Une table, discriminator column
 - **Class Table** : Table par classe dans la hiérarchie
 - **Concrete Table** : Table par classe concrète

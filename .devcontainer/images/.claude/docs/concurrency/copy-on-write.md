@@ -27,6 +27,7 @@ Pattern d'optimisation différant la copie jusqu'à la modification.
 ```
 
 **Pourquoi :**
+
 - Économiser la mémoire (pas de copie si pas de modification)
 - Améliorer les performances (copie différée)
 - Sécurité des snapshots (état cohérent)

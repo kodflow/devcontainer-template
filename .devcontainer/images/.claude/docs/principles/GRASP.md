@@ -53,6 +53,7 @@ class OrderItem {
 ## 2. Creator
 
 > Assigner la responsabilité de créer un objet à la classe qui :
+>
 > - Contient ou agrège l'objet
 > - Enregistre l'objet
 > - Utilise étroitement l'objet
@@ -161,6 +162,7 @@ class OrderService {
 ```
 
 **Métriques :**
+
 - Nombre d'imports
 - Profondeur des dépendances
 - Fan-out (classes utilisées)
@@ -334,6 +336,7 @@ class OrderService {
 ```
 
 **Formes d'indirection :**
+
 - Adapter
 - Facade
 - Proxy
@@ -387,6 +390,7 @@ class CheckoutService {
 ```
 
 **Points de variation protégés :**
+
 ```typescript
 // 1. Data source variations
 interface Repository<T> {
@@ -416,6 +420,7 @@ interface FileStorage {
 ```
 
 **Techniques :**
+
 - Interfaces / Abstract classes
 - Dependency Injection
 - Configuration externe

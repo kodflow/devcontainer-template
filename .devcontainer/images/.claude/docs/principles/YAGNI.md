@@ -9,6 +9,7 @@
 Résister à la tentation d'ajouter des fonctionnalités "au cas où".
 
 **Coût de la fonctionnalité prématurée :**
+
 - Temps de développement
 - Temps de test
 - Complexité ajoutée
@@ -97,6 +98,7 @@ interface Config {
 YAGNI ne s'applique pas à :
 
 ### 1. Sécurité
+
 ```typescript
 // ✅ Toujours inclure (pas YAGNI)
 function hashPassword(password: string) {
@@ -105,6 +107,7 @@ function hashPassword(password: string) {
 ```
 
 ### 2. Architecture difficile à changer
+
 ```typescript
 // ✅ Réfléchir dès le départ
 interface Database {
@@ -114,6 +117,7 @@ interface Database {
 ```
 
 ### 3. Contrats d'API publique
+
 ```typescript
 // ✅ Versionner dès le départ
 // /api/v1/users

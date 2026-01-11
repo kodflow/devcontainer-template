@@ -148,6 +148,7 @@ end
 ## Code Patterns (Required)
 
 ### GenServer with Typespec
+
 ```elixir
 defmodule MyApp.Counter do
   @moduledoc """
@@ -214,6 +215,7 @@ end
 ```
 
 ### Result Pattern with With
+
 ```elixir
 defmodule MyApp.Users do
   @moduledoc "User operations with proper error handling."
@@ -262,6 +264,7 @@ end
 ```
 
 ### Supervisor Tree
+
 ```elixir
 defmodule MyApp.Application do
   @moduledoc "Application supervisor."

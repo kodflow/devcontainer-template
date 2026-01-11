@@ -28,6 +28,7 @@ Pattern de traitement par etapes sequentielles potentiellement paralleles.
 ```
 
 **Pourquoi :**
+
 - Decomposer un traitement complexe
 - Paralleliser les etapes independantes
 - Meilleure utilisation des ressources

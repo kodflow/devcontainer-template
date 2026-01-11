@@ -53,6 +53,7 @@ describe('UserProfile', () => {
 ```
 
 Generated snapshot file (`__snapshots__/UserProfile.test.tsx.snap`):
+
 ```
 exports[`UserProfile renders correctly 1`] = `
 <div>

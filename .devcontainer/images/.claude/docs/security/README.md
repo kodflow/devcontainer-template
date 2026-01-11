@@ -221,6 +221,7 @@ class PKCEClient {
 ```
 
 **Flows :**
+
 - **Authorization Code** : Web apps avec backend
 - **Authorization Code + PKCE** : SPAs, mobile
 - **Client Credentials** : Machine-to-machine
@@ -855,6 +856,7 @@ class SecretRotation {
 ```
 
 **Best practices :**
+
 - Ne jamais commit de secrets
 - Rotation régulière
 - Least privilege

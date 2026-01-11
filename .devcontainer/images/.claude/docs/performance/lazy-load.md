@@ -28,6 +28,7 @@ Pattern differant l'initialisation d'une ressource jusqu'a son premier usage.
 ```
 
 **Pourquoi :**
+
 - Reduire le temps de demarrage
 - Economiser la memoire (ressources non utilisees)
 - Eviter les effets de bord au chargement

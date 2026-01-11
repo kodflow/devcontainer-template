@@ -81,6 +81,7 @@ Exemples:
 4. Détecter le langage et les patterns existants
 
 **Output Phase 1 :**
+
 ```
 ═══════════════════════════════════════════════
   /plan - Context Analysis
@@ -154,6 +155,7 @@ pattern_consultation:
 ```
 
 **Output Phase 2.5 :**
+
 ```
 ═══════════════════════════════════════════════
   Pattern Analysis
@@ -207,19 +209,24 @@ pattern_consultation:
 ```
 
 ### Step 2: <Titre>
+
 ...
 
 ## Testing Strategy
+
 - [ ] Unit tests for <component>
 - [ ] Integration test for <flow>
 
 ## Rollback Plan
+
 <Comment annuler si problème>
 
 ## Risks & Mitigations
+
 | Risk | Mitigation |
 |------|------------|
 | <Risk> | <Solution> |
+
 ```
 
 ---

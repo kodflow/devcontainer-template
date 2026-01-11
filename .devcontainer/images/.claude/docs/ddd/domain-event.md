@@ -9,6 +9,7 @@ Domain Event = Past Tense + Immutable + Business Significance + Timestamp
 ```
 
 **Key characteristics:**
+
 - **Past tense naming**: `OrderConfirmed`, not `ConfirmOrder`
 - **Immutable**: Once created, never modified
 - **Contains all context**: Self-sufficient information
@@ -299,6 +300,7 @@ class Order extends EventSourcedAggregate<OrderId> {
 ## Anti-patterns
 
 1. **Technical Events**: Events about infrastructure, not domain
+
    ```typescript
    // BAD - Technical concern
    class DatabaseUpdatedEvent extends DomainEvent { }
@@ -308,6 +310,7 @@ class Order extends EventSourcedAggregate<OrderId> {
    ```
 
 2. **Mutable Events**: Modifying events after creation
+
    ```typescript
    // BAD
    event.orderId = newOrderId; // Mutation!
@@ -317,6 +320,7 @@ class Order extends EventSourcedAggregate<OrderId> {
    ```
 
 3. **Missing Context**: Event without enough information
+
    ```typescript
    // BAD - Not self-sufficient
    class OrderCreatedEvent {
@@ -335,6 +339,7 @@ class Order extends EventSourcedAggregate<OrderId> {
    ```
 
 4. **Coupling via Events**: Handler knowing too much about producer
+
    ```typescript
    // BAD - Tight coupling
    class OrderHandler {

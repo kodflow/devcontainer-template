@@ -137,6 +137,7 @@ warnings:
 ## AWS CLI Patterns
 
 ### IAM Audit
+
 ```bash
 # List overly permissive policies
 aws iam list-policies --scope Local --query 'Policies[*].Arn'
@@ -149,6 +150,7 @@ aws iam list-access-keys --user-name $USER
 ```
 
 ### Security Audit
+
 ```bash
 # Public S3 buckets
 aws s3api list-buckets --query 'Buckets[*].Name' | \
@@ -164,6 +166,7 @@ aws ec2 describe-volumes --filters "Name=encrypted,Values=false"
 ```
 
 ### Cost Analysis
+
 ```bash
 # Current month spend
 aws ce get-cost-and-usage \
@@ -180,6 +183,7 @@ aws compute-optimizer get-ec2-instance-recommendations \
 ## Terraform AWS Patterns
 
 ### Required Tags
+
 ```hcl
 provider "aws" {
   default_tags {
@@ -194,6 +198,7 @@ provider "aws" {
 ```
 
 ### Secure S3 Bucket
+
 ```hcl
 resource "aws_s3_bucket" "secure" {
   bucket = "my-secure-bucket"

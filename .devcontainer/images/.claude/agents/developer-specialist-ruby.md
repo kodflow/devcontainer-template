@@ -134,6 +134,7 @@ Metrics/AbcSize:
 ## Code Patterns (Required)
 
 ### Data Class (Ruby 4.0)
+
 ```ruby
 # frozen_string_literal: true
 
@@ -160,6 +161,7 @@ end
 ```
 
 ### Result Pattern with Pattern Matching
+
 ```ruby
 # frozen_string_literal: true
 
@@ -204,6 +206,7 @@ end
 ```
 
 ### Ractor-based Concurrency
+
 ```ruby
 # frozen_string_literal: true
 

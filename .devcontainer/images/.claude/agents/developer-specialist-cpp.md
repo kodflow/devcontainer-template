@@ -158,6 +158,7 @@ CheckOptions:
 ## Code Patterns (Required)
 
 ### Concepts for Type Constraints
+
 ```cpp
 #include <concepts>
 #include <string>
@@ -190,6 +191,7 @@ template <Stringifiable T>
 ```
 
 ### std::expected for Error Handling
+
 ```cpp
 #include <expected>
 #include <string>
@@ -238,6 +240,7 @@ private:
 ```
 
 ### Ranges for Data Processing
+
 ```cpp
 #include <ranges>
 #include <vector>
@@ -287,6 +290,7 @@ template <typename T>
 ```
 
 ### RAII Resource Management
+
 ```cpp
 #include <memory>
 #include <fstream>

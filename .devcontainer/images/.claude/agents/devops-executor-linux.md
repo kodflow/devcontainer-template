@@ -241,6 +241,7 @@ sestatus
 ## Package Management
 
 ### Debian/Ubuntu
+
 ```bash
 apt update && apt upgrade
 apt install package
@@ -250,6 +251,7 @@ apt list --upgradable
 ```
 
 ### RHEL/Fedora
+
 ```bash
 dnf check-update
 dnf upgrade
@@ -259,6 +261,7 @@ dnf autoremove
 ```
 
 ### Arch
+
 ```bash
 pacman -Syu
 pacman -S package

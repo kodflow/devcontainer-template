@@ -9,6 +9,7 @@ Aggregate = Root Entity + Child Entities + Value Objects + Invariants + Consiste
 ```
 
 **Key characteristics:**
+
 - **Aggregate Root**: Single entry point for all modifications
 - **Consistency Boundary**: Transactional consistency within aggregate
 - **Invariants**: Business rules enforced across the cluster
@@ -266,6 +267,7 @@ class OrderConfirmedHandler implements DomainEventHandler<OrderConfirmedEvent> {
 ## Anti-patterns
 
 1. **God Aggregate**: Too many entities in one aggregate
+
    ```typescript
    // BAD - Too large, concurrency issues
    class Customer extends AggregateRoot {
@@ -276,6 +278,7 @@ class OrderConfirmedHandler implements DomainEventHandler<OrderConfirmedEvent> {
    ```
 
 2. **Anemic Aggregate**: No business logic, just data container
+
    ```typescript
    // BAD - Logic in services instead of aggregate
    class Order {
@@ -289,6 +292,7 @@ class OrderConfirmedHandler implements DomainEventHandler<OrderConfirmedEvent> {
    ```
 
 3. **Cross-Aggregate Transaction**: Modifying multiple aggregates in one transaction
+
    ```typescript
    // BAD
    async confirmOrder(orderId: OrderId): Promise<void> {
@@ -303,6 +307,7 @@ class OrderConfirmedHandler implements DomainEventHandler<OrderConfirmedEvent> {
    ```
 
 4. **Exposing Internals**: Returning mutable collections
+
    ```typescript
    // BAD
    get items(): OrderItem[] { return this._items; }

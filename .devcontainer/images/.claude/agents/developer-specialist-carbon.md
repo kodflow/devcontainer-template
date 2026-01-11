@@ -111,6 +111,7 @@ carbon_test(
 ## Code Patterns (Required)
 
 ### Basic Types and Functions
+
 ```carbon
 // Package declaration
 package MyApp api;
@@ -160,6 +161,7 @@ fn Map[T:! Type, U:! Type](
 ```
 
 ### Interfaces and Generics
+
 ```carbon
 package Serialization api;
 
@@ -210,6 +212,7 @@ class User {
 ```
 
 ### Result Type Pattern
+
 ```carbon
 package Result api;
 
@@ -246,6 +249,7 @@ fn ProcessResult[T:! Type, E:! Type](
 ```
 
 ### C++ Interoperability
+
 ```carbon
 package Interop api;
 

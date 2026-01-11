@@ -38,6 +38,7 @@ Pattern de concurrence base sur des entites isolees communiquant par messages.
 ```
 
 **Pourquoi :**
+
 - Elimine les race conditions (pas de shared state)
 - Scalabilite naturelle (actors distribues)
 - Fault tolerance (supervision)

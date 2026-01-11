@@ -119,6 +119,7 @@ linter:
 ## Code Patterns (Required)
 
 ### Sealed Class ADT
+
 ```dart
 /// Result of an operation that may fail.
 ///
@@ -180,6 +181,7 @@ final class Err<T, E> extends Result<T, E> {
 ```
 
 ### Extension Types for Type Safety
+
 ```dart
 /// Validated email address.
 ///
@@ -211,6 +213,7 @@ extension type const Email._(String value) {
 ```
 
 ### State Management with Riverpod
+
 ```dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -273,6 +276,7 @@ final userProvider = FutureProvider.family<User, String>((ref, id) async {
 ```
 
 ### Record Types
+
 ```dart
 /// Represents a geographic coordinate.
 typedef Coordinate = ({double latitude, double longitude});

@@ -31,6 +31,7 @@ Pattern de gestion des connexions reseau reutilisables (DB, HTTP, etc.).
 ```
 
 **Pourquoi :**
+
 - Eviter le handshake TCP/TLS a chaque requete
 - Limiter le nombre de connexions au serveur
 - Reduire la latence des requetes

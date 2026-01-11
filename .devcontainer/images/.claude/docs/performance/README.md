@@ -161,6 +161,7 @@ class TTLCache<K, V> {
 ```
 
 **Stratégies :**
+
 - **LRU** : Évicte le moins récemment utilisé
 - **LFU** : Évicte le moins fréquemment utilisé
 - **TTL** : Expiration temporelle
@@ -214,6 +215,7 @@ class HeavyService {
 ```
 
 **Variantes :**
+
 - **Virtual Proxy** : Proxy qui charge à la demande
 - **Ghost** : Objet partiel chargé progressivement
 - **Value Holder** : Conteneur qui charge au premier accès

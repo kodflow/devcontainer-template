@@ -9,6 +9,7 @@ Entity = Identity + State + Behavior + Lifecycle
 ```
 
 **Key characteristics:**
+
 - **Identity**: Unique identifier that persists across changes
 - **Continuity**: Same entity even when attributes change
 - **Lifecycle**: Creation, modification, and potentially deletion
@@ -182,6 +183,7 @@ const deactivate = (user: User): E.Either<DomainError, User> =>
 ## Anti-patterns
 
 1. **Anemic Entity**: Entity with only getters/setters, no behavior
+
    ```typescript
    // BAD - No domain logic
    class User {
@@ -192,6 +194,7 @@ const deactivate = (user: User): E.Either<DomainError, User> =>
    ```
 
 2. **Primitive Obsession**: Using primitives instead of Value Objects for identity
+
    ```typescript
    // BAD
    class User extends Entity<string> { }
@@ -201,6 +204,7 @@ const deactivate = (user: User): E.Either<DomainError, User> =>
    ```
 
 3. **Missing Invariant Protection**: Allowing invalid state transitions
+
    ```typescript
    // BAD - No validation
    user.status = UserStatus.Deactivated;
@@ -210,6 +214,7 @@ const deactivate = (user: User): E.Either<DomainError, User> =>
    ```
 
 4. **Identity Confusion**: Comparing entities by attributes instead of ID
+
    ```typescript
    // BAD
    user1.email === user2.email

@@ -115,6 +115,7 @@ warnings:
 ## QEMU Commands
 
 ### Create VM
+
 ```bash
 # Create disk
 qemu-img create -f qcow2 vm-disk.qcow2 20G
@@ -134,6 +135,7 @@ qemu-system-x86_64 \
 ```
 
 ### Image Operations
+
 ```bash
 # Convert raw to qcow2
 qemu-img convert -f raw -O qcow2 disk.raw disk.qcow2
@@ -151,6 +153,7 @@ qemu-img info disk.qcow2
 ## libvirt/virsh Patterns
 
 ### Domain XML
+
 ```xml
 <domain type='kvm'>
   <name>web-server</name>
@@ -179,6 +182,7 @@ qemu-img info disk.qcow2
 ```
 
 ### virsh Commands
+
 ```bash
 # List VMs
 virsh list --all
@@ -200,6 +204,7 @@ virsh console web-server
 ## Cloud-init
 
 ### user-data
+
 ```yaml
 #cloud-config
 hostname: web-server
@@ -224,6 +229,7 @@ runcmd:
 ```
 
 ### Create cloud-init ISO
+
 ```bash
 # Create meta-data
 cat > meta-data <<EOF
@@ -239,6 +245,7 @@ genisoimage -output cloud-init.iso -volid cidata -joliet -rock user-data meta-da
 ```
 
 ## virt-install
+
 ```bash
 virt-install \
   --name web-server \

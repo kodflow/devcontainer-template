@@ -9,6 +9,7 @@ Bounded Context = Model Boundary + Ubiquitous Language + Team Ownership + Integr
 ```
 
 **Key characteristics:**
+
 - **Linguistic boundary**: Same term can mean different things in different contexts
 - **Model consistency**: One model per context, no ambiguity
 - **Team alignment**: Often maps to team ownership
@@ -327,6 +328,7 @@ src/
 ## Anti-patterns
 
 1. **Shared Database**: Multiple contexts writing to same tables
+
    ```
    // BAD - Tight coupling via database
    Orders Context ──┐
@@ -335,18 +337,21 @@ src/
    ```
 
 2. **Model Bleeding**: Using another context's internal model
+
    ```typescript
    // BAD - Billing using Orders' internal model
    import { Order } from '../orders-context/domain/Order';
    ```
 
 3. **Big Ball of Mud**: No clear boundaries
+
    ```typescript
    // BAD - Everything in one "domain"
    class OrderBillingShippingService { }
    ```
 
 4. **Sync Integration**: Direct synchronous calls between contexts
+
    ```typescript
    // BAD - Tight coupling
    class OrderService {

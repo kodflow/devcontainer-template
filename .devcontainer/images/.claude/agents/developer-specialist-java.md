@@ -117,6 +117,7 @@ before_approval:
 ## Code Patterns (Required)
 
 ### Record with Validation
+
 ```java
 /**
  * Represents a validated email address.
@@ -144,6 +145,7 @@ public record Email(String value) {
 ```
 
 ### Sealed Interface with Pattern Matching
+
 ```java
 /**
  * Result of an operation that may fail.
@@ -172,6 +174,7 @@ public record Failure<T>(Exception error) implements Result<T> {}
 ```
 
 ### Virtual Threads
+
 ```java
 /**
  * Processes items concurrently using virtual threads.

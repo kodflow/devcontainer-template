@@ -136,6 +136,7 @@ warnings:
 ## Vault Patterns
 
 ### Policy Template
+
 ```hcl
 # app-policy.hcl
 path "secret/data/app/*" {
@@ -152,6 +153,7 @@ path "auth/token/renew-self" {
 ```
 
 ### AppRole Auth
+
 ```bash
 # Enable AppRole
 vault auth enable approle
@@ -168,6 +170,7 @@ vault write -f auth/approle/role/app-role/secret-id
 ```
 
 ### Dynamic Database Secrets
+
 ```bash
 # Enable database engine
 vault secrets enable database
@@ -191,6 +194,7 @@ vault write database/roles/app-role \
 ## Consul Patterns
 
 ### Service Definition
+
 ```hcl
 service {
   name = "api"
@@ -216,6 +220,7 @@ service {
 ```
 
 ### ACL Policy
+
 ```hcl
 # api-policy.hcl
 service "api" {
@@ -238,6 +243,7 @@ key_prefix "app/" {
 ## Nomad Patterns
 
 ### Job Spec
+
 ```hcl
 job "api" {
   datacenters = ["dc1"]
@@ -308,6 +314,7 @@ EOF
 ```
 
 ## Packer Template
+
 ```hcl
 packer {
   required_plugins {

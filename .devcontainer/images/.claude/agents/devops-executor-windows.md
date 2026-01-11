@@ -114,6 +114,7 @@ warnings:
 ## PowerShell Commands
 
 ### System Information
+
 ```powershell
 # System info
 Get-ComputerInfo | Select-Object CsName, WindowsVersion, OsArchitecture
@@ -132,6 +133,7 @@ Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{N='GB Free';E={[math]
 ```
 
 ### Windows Update
+
 ```powershell
 # Install PSWindowsUpdate module
 Install-Module PSWindowsUpdate -Force
@@ -148,6 +150,7 @@ Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
 ```
 
 ### Security
+
 ```powershell
 # Windows Defender status
 Get-MpComputerStatus
@@ -169,6 +172,7 @@ Enable-BitLocker -MountPoint "C:" -EncryptionMethod XtsAes256 -UsedSpaceOnly -Tp
 ```
 
 ### Firewall
+
 ```powershell
 # Get firewall status
 Get-NetFirewallProfile | Select-Object Name, Enabled
@@ -186,6 +190,7 @@ Get-NetFirewallRule | Where-Object Enabled -eq 'True' | Select-Object DisplayNam
 ## Active Directory
 
 ### User Management
+
 ```powershell
 # New user
 New-ADUser -Name "John Doe" -SamAccountName "jdoe" -UserPrincipalName "jdoe@corp.local" -Path "OU=Users,DC=corp,DC=local" -AccountPassword (ConvertTo-SecureString "P@ssw0rd" -AsPlainText -Force) -Enabled $true
@@ -204,6 +209,7 @@ Unlock-ADAccount -Identity "jdoe"
 ```
 
 ### Group Policy
+
 ```powershell
 # Get all GPOs
 Get-GPO -All

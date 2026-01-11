@@ -9,6 +9,7 @@
 > Une classe ne doit avoir qu'une seule raison de changer.
 
 **Problème :**
+
 ```typescript
 // ❌ Mauvais - Multiple responsabilités
 class User {
@@ -19,6 +20,7 @@ class User {
 ```
 
 **Solution :**
+
 ```typescript
 // ✅ Bon - Une responsabilité par classe
 class User { /* Data only */ }
@@ -36,6 +38,7 @@ class UserNotifier { sendEmail(user: User) {} }
 > Ouvert à l'extension, fermé à la modification.
 
 **Problème :**
+
 ```typescript
 // ❌ Mauvais - Modifier pour ajouter
 class PaymentProcessor {
@@ -48,6 +51,7 @@ class PaymentProcessor {
 ```
 
 **Solution :**
+
 ```typescript
 // ✅ Bon - Étendre sans modifier
 interface PaymentMethod {
@@ -68,6 +72,7 @@ class PayPalPayment implements PaymentMethod { process() {} }
 > Les sous-types doivent être substituables à leurs types de base.
 
 **Problème :**
+
 ```typescript
 // ❌ Mauvais - Carré n'est pas un Rectangle
 class Rectangle {
@@ -81,6 +86,7 @@ class Square extends Rectangle {
 ```
 
 **Solution :**
+
 ```typescript
 // ✅ Bon - Abstraction commune
 interface Shape {
@@ -100,6 +106,7 @@ class Square implements Shape { area() { return this.side ** 2; } }
 > Plusieurs interfaces spécifiques valent mieux qu'une interface générale.
 
 **Problème :**
+
 ```typescript
 // ❌ Mauvais - Interface trop large
 interface Worker {
@@ -116,6 +123,7 @@ class Robot implements Worker {
 ```
 
 **Solution :**
+
 ```typescript
 // ✅ Bon - Interfaces spécifiques
 interface Workable { work(): void; }
@@ -135,6 +143,7 @@ class Human implements Workable, Eatable, Sleepable { /* ... */ }
 > Dépendre d'abstractions, pas d'implémentations concrètes.
 
 **Problème :**
+
 ```typescript
 // ❌ Mauvais - Dépendance concrète
 class UserService {
@@ -147,6 +156,7 @@ class UserService {
 ```
 
 **Solution :**
+
 ```typescript
 // ✅ Bon - Dépendance sur abstraction
 interface Database {

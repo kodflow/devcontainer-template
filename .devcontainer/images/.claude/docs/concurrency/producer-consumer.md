@@ -34,6 +34,7 @@ Pattern separant production et consommation de donnees via une queue.
 ```
 
 **Pourquoi :**
+
 - Decoupler production/consommation
 - Gerer les differences de vitesse
 - Permettre le buffering

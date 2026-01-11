@@ -9,6 +9,7 @@ Repository = Collection Abstraction + Persistence Encapsulation + Query Isolatio
 ```
 
 **Key characteristics:**
+
 - **Aggregate-centric**: One repository per aggregate root
 - **Collection semantics**: Acts like an in-memory collection
 - **Persistence ignorance**: Domain doesn't know about storage
@@ -283,6 +284,7 @@ const confirmOrder = (orderId: OrderId) =>
 ## Anti-patterns
 
 1. **Generic Repository**: Over-abstracting with generic CRUD
+
    ```typescript
    // BAD - Not domain-driven
    interface Repository<T> {
@@ -292,6 +294,7 @@ const confirmOrder = (orderId: OrderId) =>
    ```
 
 2. **Exposing Query Details**: Leaking ORM into domain
+
    ```typescript
    // BAD - ORM concepts in domain
    interface OrderRepository {
@@ -300,6 +303,7 @@ const confirmOrder = (orderId: OrderId) =>
    ```
 
 3. **Multiple Aggregates**: One repository for multiple roots
+
    ```typescript
    // BAD
    interface OrderCustomerRepository {
@@ -309,6 +313,7 @@ const confirmOrder = (orderId: OrderId) =>
    ```
 
 4. **Missing Domain Events**: Not publishing events after save
+
    ```typescript
    // BAD - Events lost
    async save(order: Order): Promise<void> {

@@ -213,6 +213,7 @@ securityContext:
 ## GitOps Patterns
 
 ### ArgoCD Application
+
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -235,6 +236,7 @@ spec:
 ```
 
 ### Flux Kustomization
+
 ```yaml
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization

@@ -28,6 +28,7 @@ Pattern de gestion de ressources reutilisant des objets couteux au lieu de les r
 ```
 
 **Pourquoi :**
+
 - Eviter les allocations couteuses (GC pressure)
 - Limiter les ressources systeme (connexions, threads)
 - Reduire la latence d'acquisition

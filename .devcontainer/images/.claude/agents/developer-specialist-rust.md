@@ -127,6 +127,7 @@ format_strings = true
 ## Code Patterns (Required)
 
 ### Builder Pattern
+
 ```rust
 /// Configuration for the server.
 #[derive(Debug, Clone)]
@@ -181,6 +182,7 @@ impl ServerConfigBuilder {
 ```
 
 ### Error Handling with thiserror
+
 ```rust
 use thiserror::Error;
 
@@ -215,6 +217,7 @@ pub async fn get_user(id: &str) -> Result<User, UserError> {
 ```
 
 ### Newtype Pattern
+
 ```rust
 /// A validated email address.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

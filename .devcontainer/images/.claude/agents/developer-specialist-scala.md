@@ -132,6 +132,7 @@ rewrite.scala3.removeOptionalBraces = true
 ## Code Patterns (Required)
 
 ### Opaque Types
+
 ```scala
 /** Email address value object. */
 object Email:
@@ -156,6 +157,7 @@ object Email:
 ```
 
 ### ADT with Enum
+
 ```scala
 /** Result of an operation that may fail.
   *
@@ -195,6 +197,7 @@ enum Result[+E, +A]:
 ```
 
 ### Context Functions for DI
+
 ```scala
 /** Database context for operations. */
 trait Database:
@@ -222,6 +225,7 @@ object UserRepository:
 ```
 
 ### Type Class Pattern
+
 ```scala
 /** JSON encoder type class. */
 trait JsonEncoder[A]:

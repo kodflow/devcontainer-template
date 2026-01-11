@@ -30,6 +30,7 @@ Pattern de gestion d'un pool de workers pour executer des taches en parallele.
 ```
 
 **Pourquoi :**
+
 - Eviter le cout de creation/destruction de threads
 - Limiter la concurrence (eviter surcharge)
 - Reutiliser les ressources

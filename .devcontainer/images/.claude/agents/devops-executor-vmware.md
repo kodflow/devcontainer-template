@@ -123,6 +123,7 @@ warnings:
 ## govc Commands (CLI for vSphere)
 
 ### Environment Setup
+
 ```bash
 export GOVC_URL="vcenter.local"
 export GOVC_USERNAME="administrator@vsphere.local"
@@ -131,6 +132,7 @@ export GOVC_INSECURE=true  # For self-signed certs
 ```
 
 ### VM Operations
+
 ```bash
 # List VMs
 govc find / -type m
@@ -158,6 +160,7 @@ govc snapshot.remove -vm web-server "Before update"
 ```
 
 ### Host Operations
+
 ```bash
 # List hosts
 govc find / -type h
@@ -174,6 +177,7 @@ govc datastore.info datastore1
 ```
 
 ### Template Creation
+
 ```bash
 # Clone VM to template
 govc vm.clone -vm source-vm \

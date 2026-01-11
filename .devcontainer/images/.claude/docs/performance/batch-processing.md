@@ -32,6 +32,7 @@ Pattern de regroupement d'operations pour reduire l'overhead.
 ```
 
 **Pourquoi :**
+
 - Reduire les round-trips reseau/DB
 - Amortir les couts fixes (connexion, headers)
 - Optimiser le throughput

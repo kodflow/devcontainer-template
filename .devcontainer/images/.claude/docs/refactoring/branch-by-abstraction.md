@@ -27,6 +27,7 @@ Pattern pour remplacer progressivement une implémentation par une autre sans br
 ```
 
 **Pourquoi :**
+
 - Éviter les branches Git longues (merge hell)
 - Déployer continuellement sur main
 - Rollback facile à tout moment

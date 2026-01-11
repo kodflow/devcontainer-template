@@ -126,6 +126,7 @@ parameters:
 ## Code Patterns (Required)
 
 ### Readonly DTO with Validation
+
 ```php
 <?php
 
@@ -162,6 +163,7 @@ readonly class Email
 ```
 
 ### Enum with Methods
+
 ```php
 <?php
 
@@ -202,6 +204,7 @@ enum UserRole: string
 ```
 
 ### Result Pattern
+
 ```php
 <?php
 

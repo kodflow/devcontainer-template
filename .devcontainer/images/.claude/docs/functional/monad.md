@@ -9,6 +9,7 @@ Monad = Type Constructor + unit (of/return) + flatMap (bind/chain)
 ```
 
 **Monad Laws:**
+
 1. **Left Identity**: `of(a).flatMap(f)` === `f(a)`
 2. **Right Identity**: `m.flatMap(of)` === `m`
 3. **Associativity**: `m.flatMap(f).flatMap(g)` === `m.flatMap(x => f(x).flatMap(g))`
@@ -326,6 +327,7 @@ const getUserName = (id: string) =>
 ## Anti-patterns
 
 1. **Monad Hell**: Too many nested flatMaps
+
    ```typescript
    // BAD
    a.flatMap(b =>
@@ -343,6 +345,7 @@ const getUserName = (id: string) =>
    ```
 
 2. **Escaping the Monad**: Unwrapping too early
+
    ```typescript
    // BAD - Loses safety
    const value = maybe.getOrElse(null);
@@ -353,6 +356,7 @@ const getUserName = (id: string) =>
    ```
 
 3. **Ignoring Errors**: Not handling Left/None cases
+
    ```typescript
    // BAD
    const result = either.flatMap(/* ... */);

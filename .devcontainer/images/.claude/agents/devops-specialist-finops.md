@@ -165,6 +165,7 @@ infracost comment github --path . --github-token $TOKEN
 ## Cloud Cost Commands
 
 ### AWS
+
 ```bash
 # Current month costs
 aws ce get-cost-and-usage \
@@ -177,6 +178,7 @@ aws compute-optimizer get-ec2-instance-recommendations
 ```
 
 ### GCP
+
 ```bash
 # Billing export query
 bq query --use_legacy_sql=false \
@@ -187,6 +189,7 @@ gcloud recommender recommendations list --recommender=google.compute.instance.Ma
 ```
 
 ### Azure
+
 ```bash
 # Cost analysis
 az cost management query --type Usage --timeframe MonthToDate

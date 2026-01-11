@@ -118,6 +118,7 @@ issues:
 ## Code Patterns (Required)
 
 ### Functional Options
+
 ```go
 // Option configures a Server.
 type Option func(*Server)
@@ -151,6 +152,7 @@ func NewServer(addr string, opts ...Option) *Server {
 ```
 
 ### Error Handling Pattern
+
 ```go
 // UserNotFoundError indicates a user was not found.
 type UserNotFoundError struct {
@@ -175,6 +177,7 @@ func (s *Service) GetUser(ctx context.Context, id string) (*User, error) {
 ```
 
 ### Interface Segregation
+
 ```go
 // Reader reads users.
 type Reader interface {
@@ -196,6 +199,7 @@ type Repository interface {
 ```
 
 ### Table-Driven Tests
+
 ```go
 func TestAdd(t *testing.T) {
     tests := []struct {

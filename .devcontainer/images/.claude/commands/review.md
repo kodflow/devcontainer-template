@@ -23,6 +23,7 @@ allowed-tools:
 ## Overview
 
 Intelligent code review using **Recursive Language Model** decomposition:
+
 - **Peek** before full analysis (Glob, partial Read)
 - **Decompose** into parallel sub-tasks
 - **Synthesize** condensed results
@@ -127,6 +128,7 @@ review_workflow:
 | Security | `mcp__codacy__codacy_search_repository_srm_items` |
 
 **Fallback CLI:**
+
 - `git diff`, `gh pr view --json files`
 
 ## Agents Architecture

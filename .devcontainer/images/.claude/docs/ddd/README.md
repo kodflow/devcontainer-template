@@ -54,6 +54,7 @@ class User extends Entity<UserId> {
 ```
 
 **Caractéristiques :**
+
 - Identité stable dans le temps
 - Mutable (peut changer d'état)
 - Égalité basée sur l'ID
@@ -126,6 +127,7 @@ class Address {
 ```
 
 **Caractéristiques :**
+
 - Immutable
 - Égalité par valeur (tous les attributs)
 - Pas d'identité propre
@@ -215,6 +217,7 @@ class OrderItem {
 ```
 
 **Règles :**
+
 - Une seule racine d'agrégat
 - Références externes uniquement vers la racine (par ID)
 - Invariants garantis dans les limites de l'agrégat
@@ -273,6 +276,7 @@ class PostgresOrderRepository implements OrderRepository {
 ```
 
 **Caractéristiques :**
+
 - Interface orientée collection
 - Un repository par agrégat
 - Abstrait le stockage
@@ -337,6 +341,7 @@ class PricingService {
 ```
 
 **Caractéristiques :**
+
 - Stateless
 - Opérations sur plusieurs entités
 - Logique qui n'appartient pas naturellement à une entité
@@ -402,6 +407,7 @@ class DomainEventPublisher {
 ```
 
 **Caractéristiques :**
+
 - Immutable
 - Passé (quelque chose s'est passé)
 - Nommé en langage ubiquitaire
@@ -570,6 +576,7 @@ namespace ShippingContext {
 ```
 
 **Caractéristiques :**
+
 - Limites claires
 - Modèle cohérent à l'intérieur
 - Langage ubiquitaire spécifique
@@ -618,6 +625,7 @@ namespace OrderContext {
 ```
 
 **Types de relations :**
+
 - **Partnership** : Coopération étroite
 - **Shared Kernel** : Code partagé
 - **Customer-Supplier** : Dépendance dirigée
@@ -854,6 +862,7 @@ class EventSourcedOrderRepository {
 ```
 
 **Avantages :**
+
 - Audit trail complet
 - Debug temporal
 - Rebuild d'état
@@ -943,6 +952,7 @@ class OrderProjector {
 ```
 
 **Avantages :**
+
 - Optimisation lectures/écritures indépendantes
 - Scaling séparé
 - Modèles de lecture spécialisés

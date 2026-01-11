@@ -18,6 +18,7 @@ if (featureFlags.isEnabled('new-checkout')) {
 ```
 
 **Pourquoi :**
+
 - Déployer du code inactif (deploy ≠ release)
 - Tester en production avec subset d'utilisateurs
 - Rollback instantané sans redéploiement

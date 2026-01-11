@@ -12,6 +12,7 @@ Lens<S, A> = {
 ```
 
 **Key characteristics:**
+
 - **Composable**: Lenses can be combined to focus deeper
 - **Immutable updates**: Returns new structures, doesn't mutate
 - **Bidirectional**: Can both read and write
@@ -291,6 +292,7 @@ const upperCity = modify(userCityLens, s => s.toUpperCase())(user);
 ## Anti-patterns
 
 1. **Creating Lenses Inline**: Loses reusability
+
    ```typescript
    // BAD
    lens(u => u.company.address.city, c => u => ({ ...u, ... }))(user)
@@ -301,6 +303,7 @@ const upperCity = modify(userCityLens, s => s.toUpperCase())(user);
    ```
 
 2. **Over-using for Simple Cases**: Unnecessary complexity
+
    ```typescript
    // BAD - Overkill for single property
    const nameLens = prop<User, 'name'>('name');
@@ -311,6 +314,7 @@ const upperCity = modify(userCityLens, s => s.toUpperCase())(user);
    ```
 
 3. **Mutating Through Lens**: Breaking immutability
+
    ```typescript
    // BAD
    const address = addressLens.get(user);

@@ -7,6 +7,7 @@
 ## Principe
 
 La complexité est l'ennemi de la fiabilité. Le code simple est :
+
 - Plus facile à lire
 - Plus facile à maintenir
 - Plus facile à tester
@@ -115,6 +116,7 @@ const result = cacheData(transformData(validateData(data)));
 ## Quand la complexité est nécessaire
 
 KISS ne veut pas dire "pas de complexité". Parfois elle est justifiée :
+
 - Optimisation de performance prouvée par benchmarks
 - Exigences métier réellement complexes
 - Contraintes techniques inévitables

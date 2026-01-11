@@ -7,6 +7,7 @@
 ## Principe
 
 **DRY ne concerne pas seulement le code dupliqué, mais toute forme de duplication de connaissance :**
+
 - Code
 - Documentation
 - Configuration
@@ -112,6 +113,7 @@ Raison : Éviter les abstractions prématurées.
 **WET = Write Everything Twice** (ou "Waste Everyone's Time")
 
 Symptômes :
+
 - Même bug à corriger à plusieurs endroits
 - Changement de règle métier = modifications multiples
 - "J'ai oublié de modifier l'autre endroit"

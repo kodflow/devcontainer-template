@@ -127,6 +127,7 @@ warnings:
 ## Cloud-Specific Patterns
 
 ### AWS
+
 ```hcl
 # Required tags
 default_tags {
@@ -139,6 +140,7 @@ default_tags {
 ```
 
 ### GCP
+
 ```hcl
 # Required labels
 labels = {
@@ -149,6 +151,7 @@ labels = {
 ```
 
 ### Azure
+
 ```hcl
 # Required tags
 tags = {

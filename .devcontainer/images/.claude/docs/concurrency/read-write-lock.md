@@ -37,6 +37,7 @@ Pattern permettant plusieurs lecteurs simultanes mais un seul ecrivain exclusif.
 ```
 
 **Pourquoi :**
+
 - Lectures frequentes, ecritures rares
 - Maximiser le throughput en lecture
 - Garantir la consistance en ecriture

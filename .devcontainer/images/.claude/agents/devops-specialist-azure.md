@@ -140,6 +140,7 @@ warnings:
 ## Azure CLI Patterns
 
 ### Identity Audit
+
 ```bash
 # List role assignments at subscription
 az role assignment list --scope /subscriptions/$SUB_ID --output table
@@ -152,6 +153,7 @@ az ad sp list --all --query "[].{Name:displayName,AppId:appId}" --output table
 ```
 
 ### Security Audit
+
 ```bash
 # Storage accounts with public access
 az storage account list --query "[?allowBlobPublicAccess==\`true\`].name"
@@ -164,6 +166,7 @@ az keyvault list --query "[].{Name:name,SoftDelete:properties.enableSoftDelete}"
 ```
 
 ### Cost Analysis
+
 ```bash
 # Current month costs
 az consumption usage list \
@@ -179,6 +182,7 @@ az advisor recommendation list --category Cost --output table
 ## Terraform Azure Patterns
 
 ### Required Tags
+
 ```hcl
 provider "azurerm" {
   features {}
@@ -196,6 +200,7 @@ locals {
 ```
 
 ### Secure Storage Account
+
 ```hcl
 resource "azurerm_storage_account" "secure" {
   name                     = "mysecurestorage"
@@ -232,6 +237,7 @@ resource "azurerm_storage_account" "secure" {
 ```
 
 ### Private AKS Cluster
+
 ```hcl
 resource "azurerm_kubernetes_cluster" "private" {
   name                = "private-aks"

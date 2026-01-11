@@ -9,6 +9,7 @@ Value Object = Attributes + Immutability + Equality by Value + Self-Validation
 ```
 
 **Key characteristics:**
+
 - **Immutability**: Cannot be changed after creation
 - **Equality**: Compared by attribute values, not reference
 - **Self-Validation**: Always valid after construction
@@ -236,6 +237,7 @@ console.log(Data.equals(m1, m2)); // true (structural)
 ## Anti-patterns
 
 1. **Mutable Value Object**: Adding setters breaks immutability
+
    ```typescript
    // BAD
    class Email {
@@ -245,6 +247,7 @@ console.log(Data.equals(m1, m2)); // true (structural)
    ```
 
 2. **Invalid Construction**: Allowing invalid state
+
    ```typescript
    // BAD - No validation
    const email = new Email('not-an-email');
@@ -254,6 +257,7 @@ console.log(Data.equals(m1, m2)); // true (structural)
    ```
 
 3. **Primitive Obsession**: Using primitives instead of Value Objects
+
    ```typescript
    // BAD
    function sendEmail(to: string, amount: number, currency: string) {}
@@ -263,6 +267,7 @@ console.log(Data.equals(m1, m2)); // true (structural)
    ```
 
 4. **Missing Equality**: Not implementing proper equality
+
    ```typescript
    // BAD - Reference comparison
    email1 === email2

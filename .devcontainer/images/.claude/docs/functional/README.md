@@ -612,6 +612,7 @@ program.run();
 ```
 
 **Lois monadiques :**
+
 1. Left identity: `of(a).flatMap(f) === f(a)`
 2. Right identity: `m.flatMap(of) === m`
 3. Associativity: `m.flatMap(f).flatMap(g) === m.flatMap(x => f(x).flatMap(g))`
@@ -877,6 +878,7 @@ const result = new Box(5)
 ```
 
 **Lois :**
+
 1. Identity: `f.map(x => x) === f`
 2. Composition: `f.map(g).map(h) === f.map(x => h(g(x)))`
 

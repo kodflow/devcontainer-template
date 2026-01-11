@@ -31,6 +31,7 @@ Structure de donnees circulaire haute performance pour flux continus.
 ```
 
 **Pourquoi :**
+
 - Allocation memoire fixe (pas de GC)
 - O(1) pour lecture/ecriture
 - Ideal pour streaming et logs

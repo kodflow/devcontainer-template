@@ -134,6 +134,7 @@ warnings:
 ## GCloud CLI Patterns
 
 ### IAM Audit
+
 ```bash
 # List IAM policy
 gcloud projects get-iam-policy $PROJECT_ID --format=json
@@ -147,6 +148,7 @@ gcloud iam service-accounts list --format="table(email,disabled)"
 ```
 
 ### Security Audit
+
 ```bash
 # Public Cloud Storage buckets
 gsutil iam get gs://$BUCKET | grep -E "allUsers|allAuthenticatedUsers"
@@ -162,6 +164,7 @@ gcloud container clusters describe $CLUSTER \
 ```
 
 ### Cost Analysis
+
 ```bash
 # Billing export query
 bq query --use_legacy_sql=false '
@@ -184,6 +187,7 @@ gcloud recommender recommendations list \
 ## Terraform GCP Patterns
 
 ### Required Labels
+
 ```hcl
 provider "google" {
   project = var.project_id
@@ -199,6 +203,7 @@ provider "google" {
 ```
 
 ### Secure GCS Bucket
+
 ```hcl
 resource "google_storage_bucket" "secure" {
   name     = "my-secure-bucket"
@@ -236,6 +241,7 @@ resource "google_storage_bucket_iam_member" "deny_public" {
 ```
 
 ### Private GKE Cluster
+
 ```hcl
 resource "google_container_cluster" "private" {
   name     = "private-cluster"
