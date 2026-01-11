@@ -299,7 +299,7 @@ const enrichedOrder = await orderEnricher.enrich(partialOrder);
 
 > Supprime les donnees non necessaires ou sensibles.
 
-### Schema
+### Filter Schema
 
 ```
 +------------------+       +------------------+
@@ -310,7 +310,7 @@ const enrichedOrder = await orderEnricher.enrich(partialOrder);
 +------------------+       +------------------+
 ```
 
-### Implementation
+### Filter Implementation
 
 ```typescript
 type FilterProjection<T, R> = (input: T) => R;
