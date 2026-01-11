@@ -656,10 +656,15 @@ CI: {status}
 
 ## Pattern Consultation (CONDITIONNELLE)
 
+**Source :** `.claude/docs/` (Design Patterns Knowledge Base)
+
 **Déclencher UNIQUEMENT si :**
 
 ```yaml
 pattern_triggers:
+  source: ".claude/docs/"
+  index: ".claude/docs/README.md"
+
   conditions:
     - "complexity_increase > 20%"
     - "duplication_detected"
@@ -671,6 +676,12 @@ pattern_triggers:
     - "only docs/config changes"
     - "test files only"
     - "mode == TRIAGE"
+
+  workflow:
+    1_identify: "Lire .claude/docs/README.md pour identifier catégorie"
+    2_consult: "Read(.claude/docs/<category>/README.md)"
+    3_analyze: "Vérifier patterns utilisés vs recommandés"
+    4_report: "Inclure dans section 'Pattern Analysis'"
 
   language_aware:
     go: "No 'class' keyword, check interfaces/structs"

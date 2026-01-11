@@ -8,9 +8,15 @@ Patterns de communication entre objets.
 |---------|---------|-------------|
 | Chain of Responsibility | [chain-of-responsibility.md](chain-of-responsibility.md) | Middleware pattern |
 | Command | [command.md](command.md) | Undo/Redo, transactions |
+| Interpreter | [interpreter.md](interpreter.md) | Interpreter une grammaire/DSL |
+| Iterator | [iterator.md](iterator.md) | Parcourir sans exposer la structure |
+| Mediator | [mediator.md](mediator.md) | Reduire les dependances directes |
+| Memento | [memento.md](memento.md) | Sauvegarder et restaurer l'etat |
 | Observer | [observer.md](observer.md) | Event Emitter moderne |
 | State | [state.md](state.md) | State machine pattern |
 | Strategy | [strategy.md](strategy.md) | Algorithmes interchangeables |
+| Template Method | [template-method.md](template-method.md) | Squelette d'algorithme avec variations |
+| Visitor | [visitor.md](visitor.md) | Operations sur une structure d'objets |
 
 ## Les 11 Patterns
 
