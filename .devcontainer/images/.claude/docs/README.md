@@ -34,6 +34,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 ## Index Alphabétique Complet
 
 ### A
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Abstract Factory | creational | Familles d'objets liés |
@@ -50,6 +51,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Async/Await | concurrency | Asynchrone simplifié |
 
 ### B
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Backend for Frontend (BFF) | integration | Backend par client |
@@ -62,6 +64,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Bulkhead | resilience | Isolation ressources |
 
 ### C
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Cache-Aside | cloud | Cache on-demand |
@@ -88,6 +91,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Currying | functional | f(a,b) → f(a)(b) |
 
 ### D
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Data Mapper | enterprise | Mapping objet-DB |
@@ -106,6 +110,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Dynamic Router | messaging | Routage dynamique |
 
 ### E
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Embedded Value | enterprise | Value Object en colonne |
@@ -118,6 +123,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | External Configuration Store | cloud | Config externalisée |
 
 ### F
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Facade | structural | Interface simplifiée |
@@ -134,6 +140,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Future/Promise | concurrency | Valeur asynchrone |
 
 ### G
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Gateway | enterprise | Accès système externe |
@@ -148,6 +155,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Guard Clause | principles | Validation early return |
 
 ### H
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Half-Sync/Half-Async | concurrency | Sync + Async combinés |
@@ -155,6 +163,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Hexagonal Architecture | architectural | Ports & Adapters |
 
 ### I
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Idempotent Receiver | messaging | Traitement unique |
@@ -170,11 +179,13 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Iterator | behavioral | Parcours collection |
 
 ### J-K
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | JWT | security | Token auto-contenu |
 
 ### L
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Layer Supertype | enterprise | Classe de base couche |
@@ -184,6 +195,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Lock | concurrency | Exclusion mutuelle |
 
 ### M
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Mapper | enterprise | Conversion objets |
@@ -220,12 +232,14 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Mutex | concurrency | Verrou exclusif |
 
 ### N
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Normalizer | messaging | Standardiser format |
 | Null Object | behavioral | Éviter null checks |
 
 ### O
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | OAuth | security | Délégation d'accès |
@@ -237,6 +251,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Outbox | messaging | Fiabilité événements |
 
 ### P
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Page Controller | enterprise | Controller par page |
@@ -255,6 +270,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Publisher Confirms | messaging | Confirmation publication |
 
 ### Q
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Quarantine | cloud | Isoler assets suspects |
@@ -262,6 +278,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Queue-Based Load Leveling | cloud | Lisser la charge |
 
 ### R
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Rate Limiting | resilience | Limiter débit |
@@ -282,6 +299,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Row Data Gateway | enterprise | Gateway par row |
 
 ### S
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Saga | cloud | Transactions distribuées |
@@ -312,6 +330,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Supervisor | concurrency | Gérer erreurs actors |
 
 ### T
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Table Data Gateway | enterprise | Gateway par table |
@@ -329,12 +348,14 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Two Step View | enterprise | Vue en 2 étapes |
 
 ### U
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Ubiquitous Language | ddd | Langage commun |
 | Unit of Work | enterprise | Regrouper modifications |
 
 ### V
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Valet Key | cloud | Accès temporaire |
@@ -343,6 +364,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Visitor | behavioral | Opérations sur structure |
 
 ### W
+
 | Pattern | Catégorie | Usage |
 |---------|-----------|-------|
 | Wire Tap | messaging | Intercepter messages |
@@ -354,6 +376,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 ## Patterns par Problème
 
 ### Validation / Robustesse
+
 | Problème | Patterns |
 |----------|----------|
 | Variables nulles/invalides | Guard Clause, Null Object |
@@ -364,6 +387,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Modifications accidentelles | Immutability, Copy-on-Write |
 
 ### Création d'objets
+
 | Problème | Patterns |
 |----------|----------|
 | Construction complexe | Builder |
@@ -374,6 +398,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Instance unique | Singleton, Multiton |
 
 ### Performance
+
 | Problème | Patterns |
 |----------|----------|
 | Objets coûteux | Object Pool, Flyweight |
@@ -382,6 +407,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Appels répétés | Debounce, Throttle |
 
 ### Concurrence
+
 | Problème | Patterns |
 |----------|----------|
 | Threads coûteux | Thread Pool |
@@ -390,6 +416,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Async simplifié | Future/Promise, Async/Await |
 
 ### Résilience
+
 | Problème | Patterns |
 |----------|----------|
 | Pannes en cascade | Circuit Breaker |
@@ -398,6 +425,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Monitoring | Health Check |
 
 ### Distribution
+
 | Problème | Patterns |
 |----------|----------|
 | Transactions distribuées | Saga, Outbox |
@@ -406,6 +434,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Multi-région | Geode |
 
 ### Sécurité
+
 | Problème | Patterns |
 |----------|----------|
 | Authentification | OAuth, JWT, OIDC |
@@ -413,6 +442,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | Secrets | Vault, Sealed Secrets |
 
 ### Refactoring / Migration
+
 | Problème | Patterns |
 |----------|----------|
 | Migration sans branches longues | Branch by Abstraction |
