@@ -74,16 +74,30 @@
       "Bash(date:*)",
       "Bash(env:*)",
       "Bash(printenv:*)",
+      "Bash(grepai:*)",
       "Bash(/home/vscode/.claude/scripts/*:*)",
       "Read(**/*)",
       "Glob(**/*)",
-      "Grep(**/*)"
+      "Grep(**/*)",
+      "mcp__grepai__*"
     ],
     "deny": [],
     "additionalDirectories": []
   },
   "enableAllProjectMcpServers": true,
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/vscode/.claude/scripts/post-compact.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",

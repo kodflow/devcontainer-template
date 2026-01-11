@@ -48,11 +48,18 @@ done
 # 4. Télécharger les scripts (hooks)
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Downloading scripts..."
-for script in format imports lint post-edit pre-validate security test bash-validate commit-validate; do
-    curl -sL "$BASE/.claude/scripts/$script.sh" -o "$TARGET/.claude/scripts/$script.sh" 2>/dev/null && \
-    chmod +x "$TARGET/.claude/scripts/$script.sh"
+download_failed=0
+for script in format imports lint post-edit pre-validate security test bash-validate commit-validate post-compact; do
+    script_tmp="$(mktemp)"
+    if curl -fsL --retry 2 "$BASE/.claude/scripts/$script.sh" -o "$script_tmp" 2>/dev/null; then
+        install -m 0755 "$script_tmp" "$TARGET/.claude/scripts/$script.sh"
+    else
+        echo "  ⚠ Failed to download: $script.sh" >&2
+        download_failed=1
+    fi
+    rm -f "$script_tmp"
 done
-echo "  ✓ hooks (format, lint, security...)"
+[ "$download_failed" -eq 0 ] && echo "  ✓ hooks (format, lint, security...)" || echo "  ⚠ Some hooks failed to download"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Télécharger settings.json
@@ -70,7 +77,59 @@ if [ ! -f "$TARGET/CLAUDE.md" ]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. Installer status-line (binaire officiel)
+# 7. Installer grepai (semantic code search MCP)
+# ─────────────────────────────────────────────────────────────────────────────
+echo "→ Installing grepai..."
+mkdir -p "$HOME/.local/bin"
+
+# Détecter OS
+case "$(uname -s)" in
+    Linux*)  GREPAI_OS="linux" ;;
+    Darwin*) GREPAI_OS="darwin" ;;
+    MINGW*|MSYS*|CYGWIN*) GREPAI_OS="windows" ;;
+    *)       GREPAI_OS="linux" ;;
+esac
+
+# Détecter architecture
+case "$(uname -m)" in
+    x86_64|amd64) GREPAI_ARCH="amd64" ;;
+    aarch64|arm64) GREPAI_ARCH="arm64" ;;
+    *)            GREPAI_ARCH="amd64" ;;
+esac
+
+# Extension pour Windows
+GREPAI_EXT=""
+[ "$GREPAI_OS" = "windows" ] && GREPAI_EXT=".exe"
+
+# Télécharger depuis les releases officielles (avec sécurité download)
+GREPAI_URL="https://github.com/yoanbernabeu/grepai/releases/latest/download/grepai_${GREPAI_OS}_${GREPAI_ARCH}${GREPAI_EXT}"
+grepai_tmp="$(mktemp)"
+if curl -fsL --retry 3 --retry-delay 1 --proto '=https' --tlsv1.2 "$GREPAI_URL" -o "$grepai_tmp" 2>/dev/null; then
+    install -m 0755 "$grepai_tmp" "$HOME/.local/bin/grepai${GREPAI_EXT}"
+    echo "  ✓ grepai (${GREPAI_OS}/${GREPAI_ARCH})"
+else
+    # Fallback: try go install with binary discovery
+    if command -v go &>/dev/null; then
+        if go install github.com/yoanbernabeu/grepai/cmd/grepai@latest 2>/dev/null; then
+            # Ensure binary is in expected location
+            GREPAI_BIN_PATH="$(go env GOBIN 2>/dev/null || true)"
+            [ -z "${GREPAI_BIN_PATH}" ] && GREPAI_BIN_PATH="$(go env GOPATH 2>/dev/null)/bin"
+            if [ -x "${GREPAI_BIN_PATH}/grepai${GREPAI_EXT}" ]; then
+                cp -f "${GREPAI_BIN_PATH}/grepai${GREPAI_EXT}" "$HOME/.local/bin/grepai${GREPAI_EXT}"
+                chmod +x "$HOME/.local/bin/grepai${GREPAI_EXT}"
+            fi
+            echo "  ✓ grepai (go install)"
+        else
+            echo "  ⚠ grepai install failed (optional)"
+        fi
+    else
+        echo "  ⚠ grepai download failed (optional)"
+    fi
+fi
+rm -f "$grepai_tmp"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. Installer status-line (binaire officiel)
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Installing status-line..."
 mkdir -p "$HOME/.local/bin"
@@ -94,14 +153,16 @@ esac
 STATUS_EXT=""
 [ "$STATUS_OS" = "windows" ] && STATUS_EXT=".exe"
 
-# Télécharger depuis les releases officielles
+# Télécharger depuis les releases officielles (avec sécurité download)
 STATUS_URL="https://github.com/kodflow/status-line/releases/latest/download/status-line-${STATUS_OS}-${STATUS_ARCH}${STATUS_EXT}"
-if curl -sL "$STATUS_URL" -o "$HOME/.local/bin/status-line${STATUS_EXT}" 2>/dev/null; then
-    chmod +x "$HOME/.local/bin/status-line${STATUS_EXT}"
+status_tmp="$(mktemp)"
+if curl -fsL --retry 3 --retry-delay 1 --proto '=https' --tlsv1.2 "$STATUS_URL" -o "$status_tmp" 2>/dev/null; then
+    install -m 0755 "$status_tmp" "$HOME/.local/bin/status-line${STATUS_EXT}"
     echo "  ✓ status-line (${STATUS_OS}/${STATUS_ARCH})"
 else
     echo "  ⚠ status-line download failed (optional)"
 fi
+rm -f "$status_tmp"
 
 # Ajouter au PATH si nécessaire
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then

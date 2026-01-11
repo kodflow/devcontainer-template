@@ -8,6 +8,8 @@ allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
   - "Grep(**/*)"
+  - "mcp__grepai__*"
+  - "mcp__context7__*"
   - "Task(*)"
   - "WebFetch(*)"
   - "WebSearch(*)"

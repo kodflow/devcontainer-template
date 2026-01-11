@@ -8,6 +8,7 @@ allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
   - "Grep(**/*)"
+  - "mcp__grepai__*"
   - "Write(**/*)"
   - "Edit(**/*)"
   - "Bash(*)"
