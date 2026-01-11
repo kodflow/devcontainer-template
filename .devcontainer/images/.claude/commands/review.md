@@ -13,6 +13,7 @@ allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
   - "Grep(**/*)"
+  - "mcp__grepai__*"
   - "mcp__github__*"
   - "mcp__codacy__*"
   - "mcp__playwright__*"

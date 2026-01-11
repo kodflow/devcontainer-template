@@ -70,7 +70,46 @@ if [ ! -f "$TARGET/CLAUDE.md" ]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. Installer status-line (binaire officiel)
+# 7. Installer grepai (semantic code search MCP)
+# ─────────────────────────────────────────────────────────────────────────────
+echo "→ Installing grepai..."
+mkdir -p "$HOME/.local/bin"
+
+# Détecter OS
+case "$(uname -s)" in
+    Linux*)  GREPAI_OS="linux" ;;
+    Darwin*) GREPAI_OS="darwin" ;;
+    MINGW*|MSYS*|CYGWIN*) GREPAI_OS="windows" ;;
+    *)       GREPAI_OS="linux" ;;
+esac
+
+# Détecter architecture
+case "$(uname -m)" in
+    x86_64|amd64) GREPAI_ARCH="amd64" ;;
+    aarch64|arm64) GREPAI_ARCH="arm64" ;;
+    *)            GREPAI_ARCH="amd64" ;;
+esac
+
+# Extension pour Windows
+GREPAI_EXT=""
+[ "$GREPAI_OS" = "windows" ] && GREPAI_EXT=".exe"
+
+# Télécharger depuis les releases officielles
+GREPAI_URL="https://github.com/yoanbernabeu/grepai/releases/latest/download/grepai_${GREPAI_OS}_${GREPAI_ARCH}${GREPAI_EXT}"
+if curl -sL "$GREPAI_URL" -o "$HOME/.local/bin/grepai${GREPAI_EXT}" 2>/dev/null; then
+    chmod +x "$HOME/.local/bin/grepai${GREPAI_EXT}"
+    echo "  ✓ grepai (${GREPAI_OS}/${GREPAI_ARCH})"
+else
+    # Fallback: try go install
+    if command -v go &>/dev/null; then
+        go install github.com/yoanbernabeu/grepai/cmd/grepai@latest 2>/dev/null && echo "  ✓ grepai (go install)" || echo "  ⚠ grepai install failed (optional)"
+    else
+        echo "  ⚠ grepai download failed (optional)"
+    fi
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. Installer status-line (binaire officiel)
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Installing status-line..."
 mkdir -p "$HOME/.local/bin"

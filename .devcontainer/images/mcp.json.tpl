@@ -1,5 +1,15 @@
 {
   "mcpServers": {
+    "grepai": {
+      "command": "grepai",
+      "args": ["mcp", "serve"],
+      "env": {}
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "env": {}
+    },
     "codacy": {
       "command": "npx",
       "args": ["-y", "@codacy/codacy-mcp@latest"],

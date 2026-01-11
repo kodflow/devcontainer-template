@@ -8,6 +8,9 @@ tools:
   - Read
   - Glob
   - Grep
+  - mcp__grepai__grepai_search
+  - mcp__grepai__grepai_trace_callers
+  - mcp__grepai__grepai_trace_callees
   - Bash
   - mcp__codacy__codacy_search_repository_srm_items
   - mcp__codacy__codacy_cli_analyze

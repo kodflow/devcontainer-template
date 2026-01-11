@@ -10,6 +10,7 @@ allowed-tools:
   - "Read(**/*)"
   - "Write(.context.md)"
   - "Task(*)"
+  - "mcp__context7__*"
 ---
 
 # Search - Documentation Research (RLM-Enhanced)

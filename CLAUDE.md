@@ -107,15 +107,69 @@ mcp_priority:
 Before complex tasks, apply these patterns from [Recursive Language Models](https://arxiv.org/abs/2512.24601):
 
 1. **Peek** - Read aperçu (Glob, Read partial) before full analysis
-2. **Grep** - Search specific patterns before semantic analysis
+2. **Semantic Search** - Use grepai MCP for intelligent code search (replaces Grep)
 3. **Decompose** - Divide into sub-tasks (Task agents)
 4. **Parallelize** - Execute independents in parallel (single message, multiple tools)
 5. **Synthesize** - Combine results into coherent answer
 
 **Application:**
 ```
-Complex request → Peek/Grep → Decompose → Parallel Task agents → Synthesize
+Complex request → Peek/grepai → Decompose → Parallel Task agents → Synthesize
 ```
+
+## GREPAI-FIRST RULE (MANDATORY)
+
+**ALWAYS use grepai MCP for code search BEFORE falling back to Grep tool.**
+
+```yaml
+grepai_priority:
+  rule: "grepai is the PRIMARY search interface"
+  fallback: "Grep tool only when grepai unavailable"
+
+  workflow:
+    1_init: "Ensure grepai is initialized (grepai init)"
+    2_search: "Call mcp__grepai__grepai_search for semantic search"
+    3_trace: "Use mcp__grepai__grepai_trace_* for call graph analysis"
+    4_fallback: "Grep tool only if MCP fails"
+
+  tools:
+    grepai_search:
+      description: "Semantic code search with natural language"
+      priority: "ALWAYS use first"
+      example: "mcp__grepai__grepai_search(query='error handling')"
+
+    grepai_trace_callers:
+      description: "Find all callers of a function"
+      use_case: "Before modifying a function"
+
+    grepai_trace_callees:
+      description: "Find all functions called by a symbol"
+      use_case: "Understanding dependencies"
+
+    grepai_trace_graph:
+      description: "Build call graph around a symbol"
+      use_case: "Impact analysis"
+
+    grepai_index_status:
+      description: "Check index health and stats"
+      use_case: "Debugging search issues"
+
+  examples:
+    semantic_search:
+      priority: "mcp__grepai__grepai_search"
+      fallback: "Grep tool"
+    call_analysis:
+      priority: "mcp__grepai__grepai_trace_callers"
+      fallback: "Grep for function name"
+```
+
+**Why grepai-first:**
+
+- Semantic understanding (natural language queries)
+- Call graph analysis (callers/callees)
+- Context-aware results (file paths, line numbers)
+- Faster than regex for complex patterns
+- Local processing (no cloud dependency)
 
 ## SAFEGUARDS (ABSOLUTE - NO BYPASS)
 
