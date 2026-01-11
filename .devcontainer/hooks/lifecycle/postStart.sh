@@ -27,9 +27,9 @@ if [ -d "$CLAUDE_DEFAULTS" ]; then
     # Ensure base directory exists
     mkdir -p "$HOME/.claude"
 
-    # CLEAN commands, scripts and agents to avoid legacy pollution
+    # CLEAN commands, scripts, agents and docs to avoid legacy pollution
     # Only these directories are managed by the image - sessions/plans are user data
-    rm -rf "$HOME/.claude/commands" "$HOME/.claude/scripts" "$HOME/.claude/agents"
+    rm -rf "$HOME/.claude/commands" "$HOME/.claude/scripts" "$HOME/.claude/agents" "$HOME/.claude/docs"
 
     # Restore commands (fresh copy from image)
     if [ -d "$CLAUDE_DEFAULTS/commands" ]; then
@@ -49,6 +49,12 @@ if [ -d "$CLAUDE_DEFAULTS" ]; then
         mkdir -p "$HOME/.claude/agents"
         cp -r "$CLAUDE_DEFAULTS/agents/"* "$HOME/.claude/agents/" 2>/dev/null || true
         chmod -R 755 "$HOME/.claude/agents/"
+    fi
+
+    # Restore docs (Design Patterns Knowledge Base - fresh copy from image)
+    if [ -d "$CLAUDE_DEFAULTS/docs" ]; then
+        mkdir -p "$HOME/.claude/docs"
+        cp -r "$CLAUDE_DEFAULTS/docs/"* "$HOME/.claude/docs/" 2>/dev/null || true
     fi
 
     # Restore settings.json only if it does not exist (user customizations preserved)

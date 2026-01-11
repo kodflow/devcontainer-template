@@ -149,7 +149,7 @@ improve_workflow:
       pattern_files:
         - "Titre H1 présent: ^# .+"
         - "Description blockquote: ^> .+"
-        - "Exemple TypeScript: ```typescript"
+        - "Exemple Go: ```go"
         - "Section Quand: ## Quand ou **Quand**"
         - "Patterns liés: ## Patterns liés ou **Lié à**"
         - "Sources (recommandé): ## Sources"
@@ -185,7 +185,7 @@ improve_workflow:
     action: "Vérifier que les concepts sont à jour"
     method:
       - "WebSearch: '{pattern} best practices 2024 2025'"
-      - "Vérifier syntaxe TypeScript moderne"
+      - "Vérifier syntaxe Go idiomatique (Go 1.24+)"
       - "Comparer avec documentation officielle"
     output: "outdated_patterns[]"
 
@@ -206,7 +206,7 @@ improve_workflow:
 |---------|---------------|-------------|
 | Titre H1 | `^# .+` | ✓ |
 | Description | `^> .+` | ✓ |
-| Exemple TypeScript | ` ```typescript` | ✓ |
+| Exemple Go | ` ```go` | ✓ |
 | Quand utiliser | `## Quand` ou `**Quand**` | ✓ |
 | Patterns liés | `## Patterns liés` ou `**Lié à**` | ✓ |
 | Sources | `## Sources` | Recommandé |
