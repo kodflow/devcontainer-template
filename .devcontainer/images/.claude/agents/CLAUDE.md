@@ -69,6 +69,18 @@ Orchestrators (opus)     → Strategy, delegation, synthesis
 | `developer-executor-security` | Security | Scans, CVE checks |
 | `developer-executor-quality` | Quality | Tests, coverage |
 
+## MCP Tools (Mandatory)
+
+All agents have access to these MCP tools:
+
+| Tool | Package | Usage |
+|------|---------|-------|
+| `mcp__grepai__grepai_search` | grepai | Semantic code search |
+| `mcp__grepai__grepai_trace_callers` | grepai | Find function callers |
+| `mcp__grepai__grepai_trace_callees` | grepai | Find called functions |
+
+**GREPAI-FIRST RULE:** Use grepai_search instead of Grep for semantic queries.
+
 ## Academic Standards
 
 All language specialists enforce:

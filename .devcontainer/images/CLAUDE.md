@@ -61,7 +61,7 @@ Base de connaissances exhaustive de 250+ design patterns, consultée automatique
 | Cloud CLIs | AWS, GCP, Azure, 1Password |
 | IaC | Terraform, Vault, Consul, Nomad, Packer, Ansible |
 | Container | Docker (via feature), kubectl, Helm |
-| Code Quality | ShellCheck, ktn-linter |
+| Code Quality | ShellCheck, ktn-linter, grepai |
 | Shell | Zsh + Oh My Zsh + Powerlevel10k |
 
 ## MCP Servers (Runtime)
@@ -70,9 +70,23 @@ Configured in `mcp.json.tpl`:
 
 | Server | Package | Usage | Auth |
 |--------|---------|-------|------|
+| **grepai** | `grepai` (binary) | Semantic code search, Call graph | None (local) |
+| **context7** | `@upstash/context7-mcp` | Up-to-date documentation for prompts | None (rate-limited) |
 | **GitHub** | `@modelcontextprotocol/server-github` | PR, Issues, Repos | `GITHUB_TOKEN` |
 | **Codacy** | `@codacy/codacy-mcp` | Code quality, Security | `CODACY_TOKEN` |
 | **Playwright** | `@playwright/mcp` | Browser automation, E2E tests | None |
+
+**grepai tools (MANDATORY - use instead of Grep):**
+
+| Tool | Description | Use Case |
+|------|-------------|----------|
+| `grepai_search` | Semantic code search | Natural language queries |
+| `grepai_trace_callers` | Find function callers | Impact analysis |
+| `grepai_trace_callees` | Find called functions | Dependency analysis |
+| `grepai_trace_graph` | Build call graph | Architecture understanding |
+| `grepai_index_status` | Check index health | Debugging |
+
+**Context7 usage:** Add "use context7" in prompts to fetch up-to-date documentation.
 
 **Playwright capabilities:** `core`, `pdf`, `testing`, `tracing` (headless mode)
 
@@ -99,6 +113,7 @@ Configured in `mcp.json.tpl`:
 | `post-edit.sh` | PostToolUse (Write/Edit) | Format + Lint |
 | `security.sh` | PostToolUse (Write/Edit) | Secret detection |
 | `test.sh` | PostToolUse (Write/Edit) | Run related tests |
+| `post-compact.sh` | SessionStart (compact) | Restore context after compaction |
 
 ## Build
 

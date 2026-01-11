@@ -10,6 +10,7 @@ allowed-tools:
   - "Edit(**/*)"
   - "Glob(**/*)"
   - "Grep(**/*)"
+  - "mcp__grepai__*"
   - "Bash(*)"
   - "Task(*)"
   - "TodoWrite(*)"

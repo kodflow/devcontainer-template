@@ -12,6 +12,7 @@ allowed-tools:
   - "Write(**/*)"
   - "Glob(**/*)"
   - "Grep(**/*)"
+  - "mcp__grepai__*"
   - "Task(*)"
 ---
 
