@@ -7,9 +7,12 @@ Patterns de composition d'objets.
 | Pattern | Fichier | Description |
 |---------|---------|-------------|
 | Adapter | [adapter.md](adapter.md) | Convertir interfaces incompatibles |
+| Bridge | [bridge.md](bridge.md) | Separer abstraction et implementation |
+| Composite | [composite.md](composite.md) | Traiter objets simples et composes uniformement |
 | Decorator | [decorator.md](decorator.md) | Ajouter comportements dynamiquement |
-| Proxy | [proxy.md](proxy.md) | Virtual, Remote, Protection, Cache |
 | Facade | [facade.md](facade.md) | Simplifier systemes complexes |
+| Flyweight | [flyweight.md](flyweight.md) | Partager des etats communs entre objets |
+| Proxy | [proxy.md](proxy.md) | Virtual, Remote, Protection, Cache |
 
 ## Les 7 Patterns
 

@@ -10,8 +10,8 @@ Base de données exhaustive des design patterns pour les agents Claude.
 |---|-----------|----------|-------------|
 | 1 | [principles/](principles/) | 7 | SOLID, DRY, KISS, YAGNI, GRASP, Defensive |
 | 2 | [creational/](creational/) | 4 | Factory, Builder, Singleton, Prototype |
-| 3 | [structural/](structural/) | 5 | Adapter, Decorator, Proxy, Facade, Composite |
-| 4 | [behavioral/](behavioral/) | 6 | Observer, Strategy, Command, State, Chain |
+| 3 | [structural/](structural/) | 7 | Adapter, Bridge, Composite, Decorator, Facade, Flyweight, Proxy |
+| 4 | [behavioral/](behavioral/) | 11 | Observer, Strategy, Command, State, Chain, Iterator, Mediator, Memento, Template, Visitor, Interpreter |
 | 5 | [performance/](performance/) | 9 | Pool, Cache, Lazy, Memoization, Buffer |
 | 6 | [concurrency/](concurrency/) | 9 | Thread Pool, Actor, Mutex, Pipeline, COW |
 | 7 | [architectural/](architectural/) | 10 | Hexagonal, Microservices, CQRS, Event Sourcing |
@@ -27,7 +27,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | 17 | [refactoring/](refactoring/) | 2 | Branch by Abstraction, Strangler Fig |
 | 18 | [integration/](integration/) | 6 | API Gateway, BFF, Service Mesh, Sidecar |
 
-Total : 155 fichiers markdown - 300+ patterns documentés
+Total : 167 fichiers markdown - 300+ patterns documentés
 
 ---
 

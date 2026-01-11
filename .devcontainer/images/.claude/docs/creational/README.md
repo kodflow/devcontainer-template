@@ -8,6 +8,7 @@ Patterns de creation d'objets.
 |---------|---------|-------------|
 | Builder | [builder.md](builder.md) | Construction complexe etape par etape |
 | Factory Method / Abstract Factory | [factory.md](factory.md) | Delegation de creation |
+| Prototype | [prototype.md](prototype.md) | Cloner des objets existants |
 | Singleton | [singleton.md](singleton.md) | Instance unique + alternatives DI |
 
 ## Les 5 Patterns

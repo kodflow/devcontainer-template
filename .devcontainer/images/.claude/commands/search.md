@@ -2,15 +2,20 @@
 name: search
 description: |
   Documentation Research with RLM (Recursive Language Model) patterns.
-  Searches official documentation only, cross-validates sources, generates .context.md.
+  LOCAL-FIRST: Searches internal docs (.claude/docs/) before external sources.
+  Cross-validates sources, generates .context.md, handles conflicts.
   Use when: researching technologies, APIs, or best practices before implementation.
 allowed-tools:
   - "WebSearch(*)"
   - "WebFetch(*)"
   - "Read(**/*)"
+  - "Glob(**/*)"
+  - "Grep(**/*)"
   - "Write(.context.md)"
   - "Task(*)"
+  - "AskUserQuestion(*)"
   - "mcp__context7__*"
+  - "mcp__github__create_issue"
 ---
 
 # Search - Documentation Research (RLM-Enhanced)
@@ -21,17 +26,28 @@ $ARGUMENTS
 
 ## Description
 
-Recherche d'informations sur les documentations officielles avec patterns RLM (Recursive Language Models).
+Recherche d'informations avec stratégie **LOCAL-FIRST** et patterns RLM (Recursive Language Models).
+
+**PRIORITÉ ABSOLUE : Documentation locale validée**
+
+```
+.claude/docs/ (LOCAL)  →  Sources officielles (EXTERNE)
+     ✓ Validée              ⚠ Peut être obsolète
+     ✓ Cohérente            ⚠ Peut contredire local
+     ✓ Immédiate            ⚠ Nécessite validation
+```
 
 **Patterns RLM appliqués :**
 
+- **Local-First** - Consultation `.claude/docs/` en priorité
 - **Peek** - Aperçu rapide avant analyse complète
 - **Grep** - Filtrage par keywords avant fetch sémantique
 - **Partition+Map** - Recherches parallèles multi-domaines
 - **Summarize** - Résumé progressif des sources
+- **Conflict-Resolution** - Gestion des contradictions local/externe
 - **Programmatic** - Génération structurée du context
 
-**Principe** : Fiabilité > Quantité. Décomposer → Paralléliser → Synthétiser.
+**Principe** : Local > Externe. Fiabilité > Quantité. Décomposer → Paralléliser → Synthétiser.
 
 ---
 
@@ -130,7 +146,111 @@ Workflow:
 
 ---
 
-## Workflow RLM (6 phases)
+## Workflow RLM (7 phases)
+
+### Phase -1 : Documentation locale (LOCAL-FIRST)
+
+**TOUJOURS exécuter en premier. La documentation locale est VALIDÉE et prioritaire.**
+
+```yaml
+local_first:
+  source: ".claude/docs/"
+  index: ".claude/docs/README.md"
+
+  workflow:
+    1_search_local:
+      action: |
+        Grep(".claude/docs/", pattern=<keywords>)
+        Glob(".claude/docs/**/*.md", pattern=<topic>)
+      output: [matching_files]
+
+    2_read_matches:
+      action: |
+        POUR chaque matching_file:
+          Read(matching_file)
+          Extraire: définition, exemples, patterns liés
+      output: local_knowledge
+
+    3_evaluate_coverage:
+      rule: |
+        SI local_knowledge couvre >= 80% de la query:
+          status = "LOCAL_COMPLETE"
+          → Skip Phase 1-3, go to Phase 6
+        SINON SI local_knowledge couvre >= 40%:
+          status = "LOCAL_PARTIAL"
+          → Continue Phase 0+ pour gaps uniquement
+        SINON:
+          status = "LOCAL_NONE"
+          → Continue workflow normal
+
+  categories_mapping:
+    design_patterns: "creational/, structural/, behavioral/"
+    performance: "performance/"
+    concurrency: "concurrency/"
+    enterprise: "enterprise/"
+    messaging: "messaging/"
+    ddd: "ddd/"
+    functional: "functional/"
+    architecture: "architectural/"
+    cloud: "cloud/, resilience/"
+    security: "security/"
+    testing: "testing/"
+    devops: "devops/"
+    integration: "integration/"
+    principles: "principles/"
+```
+
+**Output Phase -1 :**
+
+```
+═══════════════════════════════════════════════
+  /search - Local Documentation Check
+═══════════════════════════════════════════════
+
+  Query    : <query>
+  Keywords : <k1>, <k2>, <k3>
+
+  Local Search (.claude/docs/):
+    ├─ Matches: 3 files
+    │   ├─ behavioral/observer.md (95% match)
+    │   ├─ behavioral/README.md (70% match)
+    │   └─ principles/solid.md (40% match)
+    │
+    └─ Coverage: 85% → LOCAL_COMPLETE
+
+  Status: ✓ Using local documentation (validated)
+  External search: SKIPPED (local sufficient)
+
+═══════════════════════════════════════════════
+```
+
+**Si LOCAL_PARTIAL :**
+
+```
+═══════════════════════════════════════════════
+  /search - Local Documentation Check
+═══════════════════════════════════════════════
+
+  Query    : "OAuth2 JWT authentication"
+  Keywords : OAuth2, JWT, authentication
+
+  Local Search (.claude/docs/):
+    ├─ Matches: 1 file
+    │   └─ security/README.md (50% match)
+    │
+    └─ Coverage: 50% → LOCAL_PARTIAL
+
+  Status: ⚠ Partial local coverage
+  Gaps identified:
+    ├─ OAuth2 flow details (not in local)
+    └─ JWT implementation specifics (not in local)
+
+  Action: External search for gaps only
+
+═══════════════════════════════════════════════
+```
+
+---
 
 ### Phase 0 : Décomposition (RLM Pattern: Peek + Grep)
 
@@ -237,17 +357,174 @@ WebFetch({
 
 | Situation | Confidence | Action |
 |-----------|------------|--------|
-| 3+ sources confirment | HIGH | Inclure |
-| 2 sources confirment | MEDIUM | Inclure |
-| 1 source officielle | LOW | Inclure + warning |
-| Sources contradictoires | VERIFY | Signaler |
+| Local + 2+ externes confirment | HIGHEST | Inclure (local prioritaire) |
+| Local seul | HIGH | Inclure (validé) |
+| 3+ sources externes confirment | MEDIUM | Inclure + comparer avec local |
+| 2 sources externes confirment | LOW | Inclure + warning |
+| 1 source externe | VERIFY | Vérifier avec local |
+| Sources contradictoires | CONFLICT | Résolution utilisateur |
 | 0 source | NONE | Exclure |
 
-**Détection contradictions :**
+**Détection contradictions LOCAL vs EXTERNE :**
 
-- Comparer versions (date docs)
-- Identifier breaking changes
-- Signaler à l'utilisateur
+```yaml
+conflict_detection:
+  trigger: |
+    SI info_externe != info_locale:
+      status = "CONFLICT"
+      action = "user_resolution"
+
+  comparison:
+    - Versions/dates
+    - Syntaxe/API
+    - Breaking changes
+    - Best practices
+
+  priority_rule: |
+    LOCAL est TOUJOURS considéré comme VALIDÉ.
+    EXTERNE peut être obsolète ou incorrect.
+```
+
+---
+
+### Phase 4.5 : Résolution des conflits (CONFLICT HANDLING)
+
+**OBLIGATOIRE si conflit détecté entre documentation locale et externe.**
+
+```yaml
+conflict_resolution:
+  step_1_notify_user:
+    tool: AskUserQuestion
+    prompt: |
+      ⚠️ CONFLIT détecté entre documentation locale et externe
+
+      **Sujet:** {topic}
+
+      **Documentation locale (.claude/docs/):**
+      {local_content}
+
+      **Documentation externe ({source}):**
+      {external_content}
+
+      **Différence:**
+      {diff_summary}
+
+    questions:
+      - question: "Comment résoudre ce conflit ?"
+        header: "Résolution"
+        options:
+          - label: "Garder LOCAL"
+            description: "La doc locale est correcte, ignorer l'externe"
+          - label: "Mettre à jour LOCAL"
+            description: "L'externe est plus récent, créer issue pour MAJ"
+          - label: "Les deux valides"
+            description: "Contextes différents, documenter les deux"
+
+  step_2_create_issue:
+    condition: "user_choice == 'Mettre à jour LOCAL'"
+    tool: mcp__github__create_issue
+    params:
+      owner: "kodflow"
+      repo: "devcontainer-template"
+      title: "docs: Update {category}/{file} - conflict with official docs"
+      body: |
+        ## Conflict Report
+
+        **Generated by:** `/search` skill
+        **Date:** {ISO8601}
+
+        ### Local Documentation
+        **File:** `.claude/docs/{path}`
+        **Content:**
+        ```
+        {local_excerpt}
+        ```
+
+        ### External Source
+        **URL:** {external_url}
+        **Content:**
+        ```
+        {external_excerpt}
+        ```
+
+        ### Difference
+        {diff_description}
+
+        ### Suggested Action
+        - [ ] Review external source validity
+        - [ ] Update local documentation if confirmed
+        - [ ] Add version/date metadata
+
+        ---
+        _Auto-generated by /search conflict detection_
+      labels:
+        - "documentation"
+        - "auto-generated"
+
+  step_3_continue:
+    action: |
+      SI user_choice == "Garder LOCAL":
+        → Utiliser info locale, ignorer externe
+      SI user_choice == "Mettre à jour LOCAL":
+        → Issue créée, utiliser externe avec warning
+      SI user_choice == "Les deux valides":
+        → Documenter les deux contextes
+```
+
+**Output Phase 4.5 :**
+
+```
+═══════════════════════════════════════════════
+  /search - Conflict Resolution
+═══════════════════════════════════════════════
+
+  ⚠️ CONFLICT DETECTED
+
+  Topic: Observer Pattern implementation
+
+  Local (.claude/docs/behavioral/observer.md):
+    → Uses EventEmitter interface
+    → Recommends typed events
+
+  External (developer.mozilla.org):
+    → Uses addEventListener
+    → Browser-specific API
+
+  User Decision: "Les deux valides"
+    → Local = Application patterns
+    → External = Browser DOM events
+
+  Issue: NOT CREATED (different contexts)
+
+═══════════════════════════════════════════════
+```
+
+**Output si issue créée :**
+
+```
+═══════════════════════════════════════════════
+  /search - Conflict Resolution
+═══════════════════════════════════════════════
+
+  ⚠️ CONFLICT DETECTED
+
+  Topic: JWT expiration handling
+
+  Local (.claude/docs/security/jwt.md):
+    → Recommends 15min access token
+
+  External (tools.ietf.org/html/rfc7519):
+    → No specific recommendation
+
+  User Decision: "Mettre à jour LOCAL"
+
+  ✓ Issue created: kodflow/devcontainer-template#142
+    Title: "docs: Update security/jwt.md - add RFC reference"
+
+  Action: Using external info with warning
+
+═══════════════════════════════════════════════
+```
 
 ---
 
@@ -363,10 +640,27 @@ Identique à la version précédente.
 
 | Action | Status |
 |--------|--------|
+| Skip Phase -1 (documentation locale) | ❌ **INTERDIT** |
+| Ignorer conflit local/externe | ❌ **INTERDIT** |
+| Préférer externe sur local sans validation | ❌ **INTERDIT** |
 | Source non-officielle | ❌ INTERDIT |
 | Skip Phase 0 (décomposition) | ❌ INTERDIT |
 | Agents séquentiels si parallélisable | ❌ INTERDIT |
 | Info sans source | ❌ INTERDIT |
+
+**RÈGLE ABSOLUE LOCAL-FIRST :**
+
+```yaml
+local_first_rule:
+  priority: "LOCAL > EXTERNE"
+  reason: "Documentation locale est validée et cohérente"
+
+  workflow:
+    1: "TOUJOURS chercher dans .claude/docs/ d'abord"
+    2: "SI local suffisant → utiliser local uniquement"
+    3: "SI conflit → demander à l'utilisateur"
+    4: "SI mise à jour nécessaire → créer issue GitHub"
+```
 
 ---
 
