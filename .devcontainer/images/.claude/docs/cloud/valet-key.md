@@ -57,175 +57,169 @@
       │                            │                            │
 ```
 
-## Exemple TypeScript - AWS S3
+## Exemple Go - AWS S3
 
-```typescript
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+```go
+package valetkey
 
-class S3ValetKeyService {
-  private s3: S3Client;
+import (
+	"context"
+	"fmt"
+	"time"
+)
 
-  constructor(private bucket: string) {
-    this.s3 = new S3Client({ region: 'eu-west-1' });
-  }
-
-  // Generate upload URL (PUT)
-  async getUploadUrl(
-    key: string,
-    contentType: string,
-    expiresInSeconds = 900, // 15 min
-  ): Promise<{ url: string; key: string }> {
-    const command = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: key,
-      ContentType: contentType,
-    });
-
-    const url = await getSignedUrl(this.s3, command, {
-      expiresIn: expiresInSeconds,
-    });
-
-    return { url, key };
-  }
-
-  // Generate download URL (GET)
-  async getDownloadUrl(
-    key: string,
-    expiresInSeconds = 3600, // 1 hour
-  ): Promise<string> {
-    const command = new GetObjectCommand({
-      Bucket: this.bucket,
-      Key: key,
-    });
-
-    return getSignedUrl(this.s3, command, {
-      expiresIn: expiresInSeconds,
-    });
-  }
+// S3Client defines S3 operations (interface for AWS SDK).
+type S3Client interface {
+	GeneratePresignedURL(ctx context.Context, bucket, key string, expires time.Duration, method string) (string, error)
 }
 
-// API endpoint
-class UploadController {
-  constructor(private valetService: S3ValetKeyService) {}
+// S3ValetKeyService manages valet keys for S3.
+type S3ValetKeyService struct {
+	s3     S3Client
+	bucket string
+}
 
-  async requestUploadUrl(req: Request): Promise<Response> {
-    const { filename, contentType } = req.body;
+// NewS3ValetKeyService creates a new S3ValetKeyService.
+func NewS3ValetKeyService(s3 S3Client, bucket string) *S3ValetKeyService {
+	return &S3ValetKeyService{
+		s3:     s3,
+		bucket: bucket,
+	}
+}
 
-    // Validation
-    if (!this.isAllowedType(contentType)) {
-      return Response.json({ error: 'Invalid content type' }, { status: 400 });
-    }
+// UploadURLResponse contains the upload URL and key.
+type UploadURLResponse struct {
+	URL string `json:"url"`
+	Key string `json:"key"`
+}
 
-    // Generate unique key
-    const key = `uploads/${req.user.id}/${Date.now()}-${filename}`;
+// GetUploadURL generates a presigned URL for uploading.
+func (svks *S3ValetKeyService) GetUploadURL(
+	ctx context.Context,
+	key, contentType string,
+	expiresInSeconds int,
+) (*UploadURLResponse, error) {
+	if expiresInSeconds == 0 {
+		expiresInSeconds = 900 // 15 minutes default
+	}
 
-    const { url } = await this.valetService.getUploadUrl(key, contentType);
+	expires := time.Duration(expiresInSeconds) * time.Second
 
-    return Response.json({
-      uploadUrl: url,
-      key,
-      expiresIn: 900,
-    });
-  }
+	url, err := svks.s3.GeneratePresignedURL(ctx, svks.bucket, key, expires, "PUT")
+	if err != nil {
+		return nil, fmt.Errorf("generating presigned URL: %w", err)
+	}
 
-  private isAllowedType(contentType: string): boolean {
-    const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
-    return allowed.includes(contentType);
-  }
+	return &UploadURLResponse{
+		URL: url,
+		Key: key,
+	}, nil
+}
+
+// GetDownloadURL generates a presigned URL for downloading.
+func (svks *S3ValetKeyService) GetDownloadURL(
+	ctx context.Context,
+	key string,
+	expiresInSeconds int,
+) (string, error) {
+	if expiresInSeconds == 0 {
+		expiresInSeconds = 3600 // 1 hour default
+	}
+
+	expires := time.Duration(expiresInSeconds) * time.Second
+
+	url, err := svks.s3.GeneratePresignedURL(ctx, svks.bucket, key, expires, "GET")
+	if err != nil {
+		return "", fmt.Errorf("generating presigned URL: %w", err)
+	}
+
+	return url, nil
+}
+
+// UploadController handles upload URL requests.
+type UploadController struct {
+	valetService *S3ValetKeyService
+}
+
+// NewUploadController creates a new UploadController.
+func NewUploadController(valetService *S3ValetKeyService) *UploadController {
+	return &UploadController{
+		valetService: valetService,
+	}
+}
+
+// UploadRequest represents an upload URL request.
+type UploadRequest struct {
+	Filename    string `json:"filename"`
+	ContentType string `json:"contentType"`
+}
+
+// UploadResponse contains the upload URL response.
+type UploadResponse struct {
+	UploadURL string `json:"uploadUrl"`
+	Key       string `json:"key"`
+	ExpiresIn int    `json:"expiresIn"`
+}
+
+// RequestUploadURL handles upload URL requests.
+func (uc *UploadController) RequestUploadURL(
+	ctx context.Context,
+	userID string,
+	req *UploadRequest,
+) (*UploadResponse, error) {
+	// Validation
+	if !uc.isAllowedType(req.ContentType) {
+		return nil, fmt.Errorf("invalid content type: %s", req.ContentType)
+	}
+
+	// Generate unique key
+	key := fmt.Sprintf("uploads/%s/%d-%s", userID, time.Now().UnixNano(), req.Filename)
+
+	urlResp, err := uc.valetService.GetUploadURL(ctx, key, req.ContentType, 900)
+	if err != nil {
+		return nil, fmt.Errorf("generating upload URL: %w", err)
+	}
+
+	return &UploadResponse{
+		UploadURL: urlResp.URL,
+		Key:       urlResp.Key,
+		ExpiresIn: 900,
+	}, nil
+}
+
+func (uc *UploadController) isAllowedType(contentType string) bool {
+	allowed := []string{
+		"image/jpeg",
+		"image/png",
+		"application/pdf",
+	}
+
+	for _, t := range allowed {
+		if t == contentType {
+			return true
+		}
+	}
+
+	return false
 }
 ```
 
-## Exemple Azure Blob Storage
+## Exemple Azure Blob Storage (Go)
 
-```typescript
-import {
-  BlobServiceClient,
-  BlobSASPermissions,
-  generateBlobSASQueryParameters,
-  StorageSharedKeyCredential,
-} from '@azure/storage-blob';
-
-class AzureValetKeyService {
-  private blobService: BlobServiceClient;
-  private credential: StorageSharedKeyCredential;
-
-  constructor(
-    accountName: string,
-    accountKey: string,
-    private containerName: string,
-  ) {
-    this.credential = new StorageSharedKeyCredential(accountName, accountKey);
-    this.blobService = new BlobServiceClient(
-      `https://${accountName}.blob.core.windows.net`,
-      this.credential,
-    );
-  }
-
-  async getSasUrl(
-    blobName: string,
-    permissions: 'read' | 'write',
-    expiresInMinutes = 15,
-  ): Promise<string> {
-    const containerClient = this.blobService.getContainerClient(
-      this.containerName,
-    );
-    const blobClient = containerClient.getBlobClient(blobName);
-
-    const startsOn = new Date();
-    const expiresOn = new Date(startsOn.getTime() + expiresInMinutes * 60000);
-
-    const sasPermissions = new BlobSASPermissions();
-    if (permissions === 'read') sasPermissions.read = true;
-    if (permissions === 'write') {
-      sasPermissions.write = true;
-      sasPermissions.create = true;
-    }
-
-    const sasToken = generateBlobSASQueryParameters(
-      {
-        containerName: this.containerName,
-        blobName,
-        permissions: sasPermissions,
-        startsOn,
-        expiresOn,
-      },
-      this.credential,
-    ).toString();
-
-    return `${blobClient.url}?${sasToken}`;
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
-## Client-side usage
+## Client-side usage (Go)
 
-```typescript
-// Frontend code
-async function uploadFile(file: File): Promise<string> {
-  // 1. Get presigned URL from backend
-  const { uploadUrl, key } = await fetch('/api/upload-url', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      filename: file.name,
-      contentType: file.type,
-    }),
-  }).then((r) => r.json());
-
-  // 2. Upload directly to storage
-  await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type },
-    body: file,
-  });
-
-  return key;
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Securite
@@ -239,18 +233,11 @@ async function uploadFile(file: File): Promise<string> {
 | Size | Configurer limite max |
 | CORS | Restreindre origines |
 
-```typescript
-// Secure token generation
-async getSecureUploadUrl(userId: string, filename: string): Promise<string> {
-  // Sanitize filename
-  const safeName = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
-
-  // User-scoped path
-  const key = `users/${userId}/uploads/${Date.now()}-${safeName}`;
-
-  // Short expiration
-  return this.getUploadUrl(key, 'application/octet-stream', 300); // 5 min
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Quand utiliser

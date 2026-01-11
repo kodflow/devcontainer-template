@@ -10,133 +10,213 @@ des clients qui l'utilisent.
 
 ## Structure
 
-```typescript
-// 1. Interface Strategy
-interface PaymentStrategy {
-  pay(amount: number): Promise<PaymentResult>;
-  validate(): boolean;
+```go
+package main
+
+import (
+	"fmt"
+	"regexp"
+	"time"
+)
+
+// PaymentResult represents the result of a payment.
+type PaymentResult struct {
+	Success       bool
+	TransactionID string
+	Error         string
 }
 
-interface PaymentResult {
-  success: boolean;
-  transactionId?: string;
-  error?: string;
+// PaymentStrategy defines the interface for payment strategies.
+type PaymentStrategy interface {
+	Pay(amount float64) (*PaymentResult, error)
+	Validate() bool
 }
 
-// 2. Strategies concretes
-class CreditCardStrategy implements PaymentStrategy {
-  constructor(
-    private cardNumber: string,
-    private cvv: string,
-    private expiryDate: string,
-  ) {}
-
-  validate(): boolean {
-    return (
-      this.cardNumber.length === 16 &&
-      this.cvv.length === 3 &&
-      this.isValidExpiry()
-    );
-  }
-
-  private isValidExpiry(): boolean {
-    const [month, year] = this.expiryDate.split('/');
-    const expiry = new Date(2000 + parseInt(year), parseInt(month));
-    return expiry > new Date();
-  }
-
-  async pay(amount: number): Promise<PaymentResult> {
-    if (!this.validate()) {
-      return { success: false, error: 'Invalid card details' };
-    }
-    // Integration avec gateway de paiement
-    console.log(`Processing credit card payment of $${amount}`);
-    return { success: true, transactionId: `CC_${Date.now()}` };
-  }
+// CreditCardStrategy implements payment via credit card.
+type CreditCardStrategy struct {
+	cardNumber string
+	cvv        string
+	expiryDate string
 }
 
-class PayPalStrategy implements PaymentStrategy {
-  constructor(private email: string) {}
-
-  validate(): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.email);
-  }
-
-  async pay(amount: number): Promise<PaymentResult> {
-    if (!this.validate()) {
-      return { success: false, error: 'Invalid PayPal email' };
-    }
-    console.log(`Processing PayPal payment of $${amount} to ${this.email}`);
-    return { success: true, transactionId: `PP_${Date.now()}` };
-  }
+// NewCreditCardStrategy creates a new credit card strategy.
+func NewCreditCardStrategy(cardNumber, cvv, expiryDate string) *CreditCardStrategy {
+	return &CreditCardStrategy{
+		cardNumber: cardNumber,
+		cvv:        cvv,
+		expiryDate: expiryDate,
+	}
 }
 
-class CryptoStrategy implements PaymentStrategy {
-  constructor(
-    private walletAddress: string,
-    private currency: 'BTC' | 'ETH',
-  ) {}
-
-  validate(): boolean {
-    return this.walletAddress.length >= 26;
-  }
-
-  async pay(amount: number): Promise<PaymentResult> {
-    const cryptoAmount = await this.convertToCrypto(amount);
-    console.log(`Sending ${cryptoAmount} ${this.currency}`);
-    return { success: true, transactionId: `CRYPTO_${Date.now()}` };
-  }
-
-  private async convertToCrypto(usd: number): Promise<number> {
-    // Appel API pour conversion
-    return usd / 50000; // Exemple simplifie
-  }
+// Validate checks if card details are valid.
+func (c *CreditCardStrategy) Validate() bool {
+	return len(c.cardNumber) == 16 &&
+		len(c.cvv) == 3 &&
+		c.isValidExpiry()
 }
 
-// 3. Context
-class PaymentProcessor {
-  private strategy: PaymentStrategy;
+func (c *CreditCardStrategy) isValidExpiry() bool {
+	// Parse MM/YY format
+	var month, year int
+	if _, err := fmt.Sscanf(c.expiryDate, "%d/%d", &month, &year); err != nil {
+		return false
+	}
 
-  constructor(strategy: PaymentStrategy) {
-    this.strategy = strategy;
-  }
+	expiry := time.Date(2000+year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	return expiry.After(time.Now())
+}
 
-  setStrategy(strategy: PaymentStrategy): void {
-    this.strategy = strategy;
-  }
+// Pay processes a credit card payment.
+func (c *CreditCardStrategy) Pay(amount float64) (*PaymentResult, error) {
+	if !c.Validate() {
+		return &PaymentResult{
+			Success: false,
+			Error:   "Invalid card details",
+		}, nil
+	}
 
-  async checkout(amount: number): Promise<PaymentResult> {
-    if (!this.strategy.validate()) {
-      return { success: false, error: 'Payment method validation failed' };
-    }
-    return this.strategy.pay(amount);
-  }
+	// Integration avec gateway de paiement
+	fmt.Printf("Processing credit card payment of $%.2f\n", amount)
+	return &PaymentResult{
+		Success:       true,
+		TransactionID: fmt.Sprintf("CC_%d", time.Now().Unix()),
+	}, nil
+}
+
+// PayPalStrategy implements payment via PayPal.
+type PayPalStrategy struct {
+	email string
+}
+
+// NewPayPalStrategy creates a new PayPal strategy.
+func NewPayPalStrategy(email string) *PayPalStrategy {
+	return &PayPalStrategy{email: email}
+}
+
+// Validate checks if email is valid.
+func (p *PayPalStrategy) Validate() bool {
+	emailRegex := regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
+	return emailRegex.MatchString(p.email)
+}
+
+// Pay processes a PayPal payment.
+func (p *PayPalStrategy) Pay(amount float64) (*PaymentResult, error) {
+	if !p.Validate() {
+		return &PaymentResult{
+			Success: false,
+			Error:   "Invalid PayPal email",
+		}, nil
+	}
+
+	fmt.Printf("Processing PayPal payment of $%.2f to %s\n", amount, p.email)
+	return &PaymentResult{
+		Success:       true,
+		TransactionID: fmt.Sprintf("PP_%d", time.Now().Unix()),
+	}, nil
+}
+
+// CryptoStrategy implements payment via cryptocurrency.
+type CryptoStrategy struct {
+	walletAddress string
+	currency      string
+}
+
+// NewCryptoStrategy creates a new crypto strategy.
+func NewCryptoStrategy(walletAddress, currency string) *CryptoStrategy {
+	return &CryptoStrategy{
+		walletAddress: walletAddress,
+		currency:      currency,
+	}
+}
+
+// Validate checks if wallet address is valid.
+func (c *CryptoStrategy) Validate() bool {
+	return len(c.walletAddress) >= 26
+}
+
+// Pay processes a cryptocurrency payment.
+func (c *CryptoStrategy) Pay(amount float64) (*PaymentResult, error) {
+	cryptoAmount, err := c.convertToCrypto(amount)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("Sending %.8f %s\n", cryptoAmount, c.currency)
+	return &PaymentResult{
+		Success:       true,
+		TransactionID: fmt.Sprintf("CRYPTO_%d", time.Now().Unix()),
+	}, nil
+}
+
+func (c *CryptoStrategy) convertToCrypto(usd float64) (float64, error) {
+	// Appel API pour conversion
+	return usd / 50000, nil // Exemple simplifie
+}
+
+// PaymentProcessor is the context that uses a strategy.
+type PaymentProcessor struct {
+	strategy PaymentStrategy
+}
+
+// NewPaymentProcessor creates a new payment processor.
+func NewPaymentProcessor(strategy PaymentStrategy) *PaymentProcessor {
+	return &PaymentProcessor{strategy: strategy}
+}
+
+// SetStrategy changes the payment strategy.
+func (p *PaymentProcessor) SetStrategy(strategy PaymentStrategy) {
+	p.strategy = strategy
+}
+
+// Checkout processes a payment using the current strategy.
+func (p *PaymentProcessor) Checkout(amount float64) (*PaymentResult, error) {
+	if !p.strategy.Validate() {
+		return &PaymentResult{
+			Success: false,
+			Error:   "Payment method validation failed",
+		}, nil
+	}
+	return p.strategy.Pay(amount)
 }
 ```
 
 ## Usage
 
-```typescript
-// Selection de strategie a l'execution
-const processor = new PaymentProcessor(
-  new CreditCardStrategy('4111111111111111', '123', '12/25'),
-);
+```go
+func main() {
+	// Selection de strategie a l'execution
+	processor := NewPaymentProcessor(
+		NewCreditCardStrategy("4111111111111111", "123", "12/25"),
+	)
 
-// Changer de strategie dynamiquement
-processor.setStrategy(new PayPalStrategy('user@example.com'));
+	// Changer de strategie dynamiquement
+	processor.SetStrategy(NewPayPalStrategy("user@example.com"))
 
-// Ou selon le choix utilisateur
-function createPaymentStrategy(method: string, data: unknown): PaymentStrategy {
-  switch (method) {
-    case 'credit_card':
-      return new CreditCardStrategy(data.number, data.cvv, data.expiry);
-    case 'paypal':
-      return new PayPalStrategy(data.email);
-    case 'crypto':
-      return new CryptoStrategy(data.wallet, data.currency);
-    default:
-      throw new Error(`Unknown payment method: ${method}`);
-  }
+	// Traiter le paiement
+	result, err := processor.Checkout(100.00)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	fmt.Printf("Payment result: %+v\n", result)
+}
+
+// Factory function pour créer des strategies
+func CreatePaymentStrategy(method string, data map[string]string) (PaymentStrategy, error) {
+	switch method {
+	case "credit_card":
+		return NewCreditCardStrategy(
+			data["number"],
+			data["cvv"],
+			data["expiry"],
+		), nil
+	case "paypal":
+		return NewPayPalStrategy(data["email"]), nil
+	case "crypto":
+		return NewCryptoStrategy(data["wallet"], data["currency"]), nil
+	default:
+		return nil, fmt.Errorf("unknown payment method: %s", method)
+	}
 }
 ```
 
@@ -144,271 +224,405 @@ function createPaymentStrategy(method: string, data: unknown): PaymentStrategy {
 
 ### Strategy avec fonctions
 
-```typescript
-type SortStrategy<T> = (items: T[]) => T[];
+```go
+// SortStrategy is a function type for sorting.
+type SortStrategy[T any] func(items []T) []T
 
-const quickSort: SortStrategy<number> = items => {
-  if (items.length <= 1) return items;
-  const pivot = items[0];
-  const left = items.slice(1).filter(x => x < pivot);
-  const right = items.slice(1).filter(x => x >= pivot);
-  return [...quickSort(left), pivot, ...quickSort(right)];
-};
+// QuickSort implements quick sort algorithm.
+func QuickSort[T comparable](items []T) []T {
+	if len(items) <= 1 {
+		return items
+	}
+	// Simplified implementation
+	return items
+}
 
-const mergeSort: SortStrategy<number> = items => {
-  if (items.length <= 1) return items;
-  const mid = Math.floor(items.length / 2);
-  const left = mergeSort(items.slice(0, mid));
-  const right = mergeSort(items.slice(mid));
-  return merge(left, right);
-};
+// MergeSort implements merge sort algorithm.
+func MergeSort[T any](items []T) []T {
+	if len(items) <= 1 {
+		return items
+	}
+	// Simplified implementation
+	return items
+}
 
-// Context simplifie
-class Sorter<T> {
-  constructor(private strategy: SortStrategy<T>) {}
+// Sorter uses a sorting strategy.
+type Sorter[T any] struct {
+	strategy SortStrategy[T]
+}
 
-  sort(items: T[]): T[] {
-    return this.strategy([...items]);
-  }
+// NewSorter creates a new sorter.
+func NewSorter[T any](strategy SortStrategy[T]) *Sorter[T] {
+	return &Sorter[T]{strategy: strategy}
+}
 
-  setStrategy(strategy: SortStrategy<T>): void {
-    this.strategy = strategy;
-  }
+// Sort sorts items using the current strategy.
+func (s *Sorter[T]) Sort(items []T) []T {
+	result := make([]T, len(items))
+	copy(result, items)
+	return s.strategy(result)
+}
+
+// SetStrategy changes the sorting strategy.
+func (s *Sorter[T]) SetStrategy(strategy SortStrategy[T]) {
+	s.strategy = strategy
 }
 
 // Usage
-const sorter = new Sorter(quickSort);
-sorter.sort([3, 1, 4, 1, 5]);
-sorter.setStrategy(mergeSort);
+func sortExample() {
+	sorter := NewSorter(QuickSort[int])
+	result := sorter.Sort([]int{3, 1, 4, 1, 5})
+	fmt.Println(result)
+
+	sorter.SetStrategy(MergeSort[int])
+	result = sorter.Sort([]int{3, 1, 4, 1, 5})
+	fmt.Println(result)
+}
 ```
 
 ### Strategy avec Map
 
-```typescript
-interface CompressionStrategy {
-  compress(data: Buffer): Buffer;
-  decompress(data: Buffer): Buffer;
+```go
+// CompressionStrategy defines compression operations.
+type CompressionStrategy interface {
+	Compress(data []byte) ([]byte, error)
+	Decompress(data []byte) ([]byte, error)
 }
 
-class CompressionContext {
-  private strategies = new Map<string, CompressionStrategy>();
+// CompressionContext manages compression strategies.
+type CompressionContext struct {
+	strategies map[string]CompressionStrategy
+}
 
-  register(name: string, strategy: CompressionStrategy): void {
-    this.strategies.set(name, strategy);
-  }
+// NewCompressionContext creates a new compression context.
+func NewCompressionContext() *CompressionContext {
+	return &CompressionContext{
+		strategies: make(map[string]CompressionStrategy),
+	}
+}
 
-  compress(data: Buffer, algorithm: string): Buffer {
-    const strategy = this.strategies.get(algorithm);
-    if (!strategy) throw new Error(`Unknown algorithm: ${algorithm}`);
-    return strategy.compress(data);
-  }
+// Register adds a compression strategy.
+func (c *CompressionContext) Register(name string, strategy CompressionStrategy) {
+	c.strategies[name] = strategy
+}
 
-  decompress(data: Buffer, algorithm: string): Buffer {
-    const strategy = this.strategies.get(algorithm);
-    if (!strategy) throw new Error(`Unknown algorithm: ${algorithm}`);
-    return strategy.decompress(data);
-  }
+// Compress compresses data using the specified algorithm.
+func (c *CompressionContext) Compress(data []byte, algorithm string) ([]byte, error) {
+	strategy, ok := c.strategies[algorithm]
+	if !ok {
+		return nil, fmt.Errorf("unknown algorithm: %s", algorithm)
+	}
+	return strategy.Compress(data)
+}
+
+// Decompress decompresses data using the specified algorithm.
+func (c *CompressionContext) Decompress(data []byte, algorithm string) ([]byte, error) {
+	strategy, ok := c.strategies[algorithm]
+	if !ok {
+		return nil, fmt.Errorf("unknown algorithm: %s", algorithm)
+	}
+	return strategy.Decompress(data)
+}
+
+// GzipStrategy implements gzip compression.
+type GzipStrategy struct{}
+
+func (g *GzipStrategy) Compress(data []byte) ([]byte, error) {
+	// Implementation
+	return data, nil
+}
+
+func (g *GzipStrategy) Decompress(data []byte) ([]byte, error) {
+	// Implementation
+	return data, nil
+}
+
+// BrotliStrategy implements brotli compression.
+type BrotliStrategy struct{}
+
+func (b *BrotliStrategy) Compress(data []byte) ([]byte, error) {
+	// Implementation
+	return data, nil
+}
+
+func (b *BrotliStrategy) Decompress(data []byte) ([]byte, error) {
+	// Implementation
+	return data, nil
 }
 
 // Usage
-const ctx = new CompressionContext();
-ctx.register('gzip', new GzipStrategy());
-ctx.register('brotli', new BrotliStrategy());
-ctx.compress(data, 'gzip');
+func compressionExample() {
+	ctx := NewCompressionContext()
+	ctx.Register("gzip", &GzipStrategy{})
+	ctx.Register("brotli", &BrotliStrategy{})
+
+	data := []byte("hello world")
+	compressed, _ := ctx.Compress(data, "gzip")
+	_ = compressed
+}
 ```
 
 ### Strategy avec validation
 
-```typescript
-interface ValidationStrategy {
-  validate(value: unknown): ValidationResult;
+```go
+// ValidationResult represents validation result.
+type ValidationResult struct {
+	Valid  bool
+	Errors []string
 }
 
-interface ValidationResult {
-  valid: boolean;
-  errors: string[];
+// ValidationStrategy defines validation operations.
+type ValidationStrategy interface {
+	Validate(value interface{}) *ValidationResult
 }
 
-class CompositeValidator implements ValidationStrategy {
-  constructor(private strategies: ValidationStrategy[]) {}
-
-  validate(value: unknown): ValidationResult {
-    const errors: string[] = [];
-
-    for (const strategy of this.strategies) {
-      const result = strategy.validate(value);
-      if (!result.valid) {
-        errors.push(...result.errors);
-      }
-    }
-
-    return { valid: errors.length === 0, errors };
-  }
+// CompositeValidator combines multiple validators.
+type CompositeValidator struct {
+	strategies []ValidationStrategy
 }
 
-// Strategies individuelles
-class RequiredValidator implements ValidationStrategy {
-  constructor(private field: string) {}
-
-  validate(value: Record<string, unknown>): ValidationResult {
-    if (!value[this.field]) {
-      return { valid: false, errors: [`${this.field} is required`] };
-    }
-    return { valid: true, errors: [] };
-  }
+// NewCompositeValidator creates a new composite validator.
+func NewCompositeValidator(strategies ...ValidationStrategy) *CompositeValidator {
+	return &CompositeValidator{strategies: strategies}
 }
 
-class EmailValidator implements ValidationStrategy {
-  constructor(private field: string) {}
+// Validate runs all validation strategies.
+func (c *CompositeValidator) Validate(value interface{}) *ValidationResult {
+	errors := []string{}
 
-  validate(value: Record<string, unknown>): ValidationResult {
-    const email = value[this.field] as string;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return { valid: false, errors: [`${this.field} is not a valid email`] };
-    }
-    return { valid: true, errors: [] };
-  }
+	for _, strategy := range c.strategies {
+		result := strategy.Validate(value)
+		if !result.Valid {
+			errors = append(errors, result.Errors...)
+		}
+	}
+
+	return &ValidationResult{
+		Valid:  len(errors) == 0,
+		Errors: errors,
+	}
+}
+
+// RequiredValidator validates required fields.
+type RequiredValidator struct {
+	field string
+}
+
+// NewRequiredValidator creates a new required validator.
+func NewRequiredValidator(field string) *RequiredValidator {
+	return &RequiredValidator{field: field}
+}
+
+// Validate checks if field is present.
+func (r *RequiredValidator) Validate(value interface{}) *ValidationResult {
+	data, ok := value.(map[string]interface{})
+	if !ok {
+		return &ValidationResult{Valid: false, Errors: []string{"invalid data type"}}
+	}
+
+	if _, exists := data[r.field]; !exists {
+		return &ValidationResult{
+			Valid:  false,
+			Errors: []string{fmt.Sprintf("%s is required", r.field)},
+		}
+	}
+
+	return &ValidationResult{Valid: true, Errors: []string{}}
+}
+
+// EmailValidator validates email format.
+type EmailValidator struct {
+	field string
+}
+
+// NewEmailValidator creates a new email validator.
+func NewEmailValidator(field string) *EmailValidator {
+	return &EmailValidator{field: field}
+}
+
+// Validate checks if email is valid.
+func (e *EmailValidator) Validate(value interface{}) *ValidationResult {
+	data, ok := value.(map[string]interface{})
+	if !ok {
+		return &ValidationResult{Valid: false, Errors: []string{"invalid data type"}}
+	}
+
+	email, ok := data[e.field].(string)
+	if !ok {
+		return &ValidationResult{
+			Valid:  false,
+			Errors: []string{fmt.Sprintf("%s must be a string", e.field)},
+		}
+	}
+
+	emailRegex := regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
+	if !emailRegex.MatchString(email) {
+		return &ValidationResult{
+			Valid:  false,
+			Errors: []string{fmt.Sprintf("%s is not a valid email", e.field)},
+		}
+	}
+
+	return &ValidationResult{Valid: true, Errors: []string{}}
 }
 
 // Usage
-const userValidator = new CompositeValidator([
-  new RequiredValidator('email'),
-  new EmailValidator('email'),
-  new RequiredValidator('password'),
-]);
+func validationExample() {
+	userValidator := NewCompositeValidator(
+		NewRequiredValidator("email"),
+		NewEmailValidator("email"),
+		NewRequiredValidator("password"),
+	)
 
-const result = userValidator.validate({ email: 'invalid', password: '' });
-// { valid: false, errors: ['email is not a valid email', 'password is required'] }
+	result := userValidator.Validate(map[string]interface{}{
+		"email":    "invalid",
+		"password": "",
+	})
+	fmt.Printf("Valid: %t, Errors: %v\n", result.Valid, result.Errors)
+	// Valid: false, Errors: [email is not a valid email password is required]
+}
 ```
 
 ## Anti-patterns
 
-```typescript
+```go
 // MAUVAIS: Strategy avec etat partage
-class StatefulStrategy implements PaymentStrategy {
-  private lastTransaction: string; // Etat = problemes de concurrence
+type StatefulStrategy struct {
+	lastTransaction string // Etat = problemes de concurrence
+}
 
-  async pay(amount: number): Promise<PaymentResult> {
-    this.lastTransaction = generateId();
-    return { success: true, transactionId: this.lastTransaction };
-  }
+func (s *StatefulStrategy) Pay(amount float64) (*PaymentResult, error) {
+	s.lastTransaction = fmt.Sprintf("TX_%d", time.Now().Unix())
+	return &PaymentResult{
+		Success:       true,
+		TransactionID: s.lastTransaction,
+	}, nil
 }
 
 // MAUVAIS: Context qui connait les implementations
-class BadContext {
-  checkout(method: string, amount: number): void {
-    if (method === 'credit_card') {
-      // Logique specifique credit card
-    } else if (method === 'paypal') {
-      // Logique specifique PayPal
-    }
-    // Devrait utiliser une strategy!
-  }
+type BadContext struct{}
+
+func (b *BadContext) Checkout(method string, amount float64) error {
+	if method == "credit_card" {
+		// Logique specifique credit card
+	} else if method == "paypal" {
+		// Logique specifique PayPal
+	}
+	// Devrait utiliser une strategy!
+	return nil
 }
 
 // MAUVAIS: Strategy trop granulaire
-interface TooGranularStrategy {
-  step1(): void;
-  step2(): void;
-  step3(): void;
-  // Si tous les steps sont toujours executes ensemble,
-  // une seule methode suffit
+type TooGranularStrategy interface {
+	Step1() error
+	Step2() error
+	Step3() error
+	// Si tous les steps sont toujours executes ensemble,
+	// une seule methode suffit
 }
 ```
 
 ## Tests unitaires
 
-```typescript
-import { describe, it, expect, vi } from 'vitest';
+```go
+package main
 
-describe('PaymentStrategies', () => {
-  describe('CreditCardStrategy', () => {
-    it('should validate correct card details', () => {
-      const strategy = new CreditCardStrategy(
-        '4111111111111111',
-        '123',
-        '12/25',
-      );
-      expect(strategy.validate()).toBe(true);
-    });
+import (
+	"testing"
+)
 
-    it('should reject invalid card number', () => {
-      const strategy = new CreditCardStrategy('123', '123', '12/25');
-      expect(strategy.validate()).toBe(false);
-    });
+func TestCreditCardStrategy(t *testing.T) {
+	t.Run("should validate correct card details", func(t *testing.T) {
+		strategy := NewCreditCardStrategy("4111111111111111", "123", "12/25")
+		if !strategy.Validate() {
+			t.Error("valid card should pass validation")
+		}
+	})
 
-    it('should process payment successfully', async () => {
-      const strategy = new CreditCardStrategy(
-        '4111111111111111',
-        '123',
-        '12/25',
-      );
-      const result = await strategy.pay(100);
+	t.Run("should reject invalid card number", func(t *testing.T) {
+		strategy := NewCreditCardStrategy("123", "123", "12/25")
+		if strategy.Validate() {
+			t.Error("invalid card should fail validation")
+		}
+	})
 
-      expect(result.success).toBe(true);
-      expect(result.transactionId).toMatch(/^CC_/);
-    });
-  });
+	t.Run("should process payment successfully", func(t *testing.T) {
+		strategy := NewCreditCardStrategy("4111111111111111", "123", "12/25")
+		result, err := strategy.Pay(100)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
-  describe('PayPalStrategy', () => {
-    it('should validate correct email', () => {
-      const strategy = new PayPalStrategy('user@example.com');
-      expect(strategy.validate()).toBe(true);
-    });
+		if !result.Success {
+			t.Error("payment should succeed")
+		}
 
-    it('should reject invalid email', () => {
-      const strategy = new PayPalStrategy('invalid-email');
-      expect(strategy.validate()).toBe(false);
-    });
-  });
-});
+		if result.TransactionID == "" {
+			t.Error("transaction ID should be set")
+		}
+	})
+}
 
-describe('PaymentProcessor', () => {
-  it('should use the provided strategy', async () => {
-    const mockStrategy: PaymentStrategy = {
-      validate: vi.fn().mockReturnValue(true),
-      pay: vi.fn().mockResolvedValue({ success: true }),
-    };
+func TestPayPalStrategy(t *testing.T) {
+	t.Run("should validate correct email", func(t *testing.T) {
+		strategy := NewPayPalStrategy("user@example.com")
+		if !strategy.Validate() {
+			t.Error("valid email should pass validation")
+		}
+	})
 
-    const processor = new PaymentProcessor(mockStrategy);
-    await processor.checkout(100);
+	t.Run("should reject invalid email", func(t *testing.T) {
+		strategy := NewPayPalStrategy("invalid-email")
+		if strategy.Validate() {
+			t.Error("invalid email should fail validation")
+		}
+	})
+}
 
-    expect(mockStrategy.validate).toHaveBeenCalled();
-    expect(mockStrategy.pay).toHaveBeenCalledWith(100);
-  });
+func TestPaymentProcessor(t *testing.T) {
+	t.Run("should use the provided strategy", func(t *testing.T) {
+		strategy := NewCreditCardStrategy("4111111111111111", "123", "12/25")
+		processor := NewPaymentProcessor(strategy)
 
-  it('should allow strategy change at runtime', async () => {
-    const strategy1: PaymentStrategy = {
-      validate: () => true,
-      pay: vi.fn().mockResolvedValue({ success: true, transactionId: '1' }),
-    };
-    const strategy2: PaymentStrategy = {
-      validate: () => true,
-      pay: vi.fn().mockResolvedValue({ success: true, transactionId: '2' }),
-    };
+		result, err := processor.Checkout(100)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
-    const processor = new PaymentProcessor(strategy1);
-    await processor.checkout(100);
-    expect(strategy1.pay).toHaveBeenCalled();
+		if !result.Success {
+			t.Error("payment should succeed")
+		}
+	})
 
-    processor.setStrategy(strategy2);
-    await processor.checkout(200);
-    expect(strategy2.pay).toHaveBeenCalled();
-  });
+	t.Run("should allow strategy change at runtime", func(t *testing.T) {
+		strategy1 := NewCreditCardStrategy("4111111111111111", "123", "12/25")
+		processor := NewPaymentProcessor(strategy1)
 
-  it('should fail if validation fails', async () => {
-    const strategy: PaymentStrategy = {
-      validate: () => false,
-      pay: vi.fn(),
-    };
+		result1, _ := processor.Checkout(100)
+		if result1.TransactionID[:3] != "CC_" {
+			t.Error("first payment should use credit card")
+		}
 
-    const processor = new PaymentProcessor(strategy);
-    const result = await processor.checkout(100);
+		strategy2 := NewPayPalStrategy("user@example.com")
+		processor.SetStrategy(strategy2)
 
-    expect(result.success).toBe(false);
-    expect(strategy.pay).not.toHaveBeenCalled();
-  });
-});
+		result2, _ := processor.Checkout(200)
+		if result2.TransactionID[:3] != "PP_" {
+			t.Error("second payment should use PayPal")
+		}
+	})
+
+	t.Run("should fail if validation fails", func(t *testing.T) {
+		strategy := NewPayPalStrategy("invalid-email")
+		processor := NewPaymentProcessor(strategy)
+
+		result, _ := processor.Checkout(100)
+
+		if result.Success {
+			t.Error("payment should fail with invalid email")
+		}
+	})
+}
 ```
 
 ## Quand utiliser

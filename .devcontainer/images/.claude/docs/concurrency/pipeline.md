@@ -35,78 +35,159 @@ Pattern de traitement par etapes sequentielles potentiellement paralleles.
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
 ### Pipeline basique
 
-```typescript
-type Stage<I, O> = (input: I) => O | Promise<O>;
+```go
+package pipeline
 
-class Pipeline<TInput, TOutput> {
-  private stages: Stage<any, any>[] = [];
+import (
+	"context"
+)
 
-  addStage<TNewOutput>(
-    stage: Stage<TOutput, TNewOutput>,
-  ): Pipeline<TInput, TNewOutput> {
-    this.stages.push(stage);
-    return this as unknown as Pipeline<TInput, TNewOutput>;
-  }
+// Stage represents a processing stage.
+type Stage[I, O any] func(context.Context, I) (O, error)
 
-  async execute(input: TInput): Promise<TOutput> {
-    let result: any = input;
-
-    for (const stage of this.stages) {
-      result = await stage(result);
-    }
-
-    return result;
-  }
+// Pipeline chains multiple stages.
+type Pipeline[T any] struct {
+	stages []func(context.Context, T) (T, error)
 }
 
-// Usage
-const pipeline = new Pipeline<string, ProcessedData>()
-  .addStage((raw) => JSON.parse(raw))           // Parse
-  .addStage((data) => validate(data))            // Validate
-  .addStage((data) => transform(data))           // Transform
-  .addStage((data) => enrich(data));             // Enrich
+// New creates a new pipeline.
+func New[T any]() *Pipeline[T] {
+	return &Pipeline[T]{
+		stages: make([]func(context.Context, T) (T, error), 0),
+	}
+}
 
-const result = await pipeline.execute(rawJson);
+// AddStage adds a stage to the pipeline.
+func (p *Pipeline[T]) AddStage(stage func(context.Context, T) (T, error)) *Pipeline[T] {
+	p.stages = append(p.stages, stage)
+	return p
+}
+
+// Execute runs the pipeline.
+func (p *Pipeline[T]) Execute(ctx context.Context, input T) (T, error) {
+	result := input
+
+	for _, stage := range p.stages {
+		var err error
+		result, err = stage(ctx, result)
+		if err != nil {
+			return result, err
+		}
+	}
+
+	return result, nil
+}
 ```
 
-### Pipeline avec streaming
+**Usage:**
 
-```typescript
-class StreamPipeline<TInput, TOutput> {
-  private stages: Stage<any, any>[] = [];
+```go
+package main
 
-  addStage<TNewOutput>(
-    stage: Stage<TOutput, TNewOutput>,
-  ): StreamPipeline<TInput, TNewOutput> {
-    this.stages.push(stage);
-    return this as unknown as StreamPipeline<TInput, TNewOutput>;
-  }
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+)
 
-  async *stream(
-    inputs: AsyncIterable<TInput>,
-  ): AsyncGenerator<TOutput> {
-    for await (const input of inputs) {
-      let result: any = input;
+type Data struct {
+	Raw       string
+	Parsed    map[string]interface{}
+	Validated bool
+}
 
-      for (const stage of this.stages) {
-        result = await stage(result);
-      }
+func main() {
+	pipeline := New[Data]().
+		AddStage(func(ctx context.Context, d Data) (Data, error) {
+			// Parse
+			var parsed map[string]interface{}
+			if err := json.Unmarshal([]byte(d.Raw), &parsed); err != nil {
+				return d, fmt.Errorf("parsing: %w", err)
+			}
+			d.Parsed = parsed
+			return d, nil
+		}).
+		AddStage(func(ctx context.Context, d Data) (Data, error) {
+			// Validate
+			if _, ok := d.Parsed["id"]; !ok {
+				return d, fmt.Errorf("missing id field")
+			}
+			d.Validated = true
+			return d, nil
+		})
 
-      yield result;
-    }
-  }
+	result, err := pipeline.Execute(context.Background(), Data{
+		Raw: `{"id": 123, "name": "test"}`,
+	})
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
 
-  async collect(inputs: AsyncIterable<TInput>): Promise<TOutput[]> {
-    const results: TOutput[] = [];
-    for await (const output of this.stream(inputs)) {
-      results.push(output);
-    }
-    return results;
-  }
+	fmt.Printf("Result: %+v\n", result)
+}
+```
+
+---
+
+### Pipeline avec streaming (channels)
+
+```go
+package pipeline
+
+import (
+	"context"
+	"sync"
+)
+
+// Stream processes items through a pipeline of stages.
+func Stream[T any](
+	ctx context.Context,
+	input <-chan T,
+	stages ...func(context.Context, T) (T, error),
+) <-chan Result[T] {
+	output := make(chan Result[T])
+
+	go func() {
+		defer close(output)
+
+		for item := range input {
+			result := item
+
+			for _, stage := range stages {
+				var err error
+				result, err = stage(ctx, result)
+				if err != nil {
+					select {
+					case output <- Result[T]{Err: err}:
+					case <-ctx.Done():
+						return
+					}
+					goto next
+				}
+			}
+
+			select {
+			case output <- Result[T]{Value: result}:
+			case <-ctx.Done():
+				return
+			}
+
+		next:
+		}
+	}()
+
+	return output
+}
+
+// Result holds either a value or an error.
+type Result[T any] struct {
+	Value T
+	Err   error
 }
 ```
 
@@ -114,112 +195,83 @@ class StreamPipeline<TInput, TOutput> {
 
 ## Pipeline parallele
 
-```typescript
-interface ParallelStage<I, O> {
-  process: (input: I) => Promise<O>;
-  concurrency: number;
+```go
+package pipeline
+
+import (
+	"context"
+	"sync"
+)
+
+// ParallelStage represents a parallelized stage.
+type ParallelStage[T any] struct {
+	Process     func(context.Context, T) (T, error)
+	Concurrency int
 }
 
-class ParallelPipeline<TInput, TOutput> {
-  private stages: ParallelStage<any, any>[] = [];
+// ParallelPipeline executes stages in parallel.
+func ParallelPipeline[T any](
+	ctx context.Context,
+	input <-chan T,
+	stages []ParallelStage[T],
+) <-chan Result[T] {
+	current := input
 
-  addStage<TNewOutput>(
-    process: (input: TOutput) => Promise<TNewOutput>,
-    concurrency: number = 1,
-  ): ParallelPipeline<TInput, TNewOutput> {
-    this.stages.push({ process, concurrency });
-    return this as unknown as ParallelPipeline<TInput, TNewOutput>;
-  }
+	for _, stage := range stages {
+		current = parallelStage(ctx, current, stage)
+	}
 
-  async *stream(
-    inputs: AsyncIterable<TInput>,
-  ): AsyncGenerator<TOutput> {
-    // Creer des queues entre chaque stage
-    const queues: AsyncQueue<any>[] = [];
-
-    for (let i = 0; i < this.stages.length; i++) {
-      queues.push(new AsyncQueue());
-    }
-
-    // Demarrer les workers pour chaque stage
-    const workers: Promise<void>[] = [];
-
-    for (let i = 0; i < this.stages.length; i++) {
-      const stage = this.stages[i];
-      const inputQueue = i === 0 ? null : queues[i - 1];
-      const outputQueue = queues[i];
-
-      for (let w = 0; w < stage.concurrency; w++) {
-        workers.push(
-          this.runStageWorker(stage, inputQueue, outputQueue),
-        );
-      }
-    }
-
-    // Alimenter le premier stage
-    (async () => {
-      for await (const input of inputs) {
-        queues[0].push(input);
-      }
-      queues[0].close();
-    })();
-
-    // Consommer le dernier stage
-    for await (const output of queues[queues.length - 1]) {
-      yield output;
-    }
-  }
-
-  private async runStageWorker(
-    stage: ParallelStage<any, any>,
-    inputQueue: AsyncQueue<any> | null,
-    outputQueue: AsyncQueue<any>,
-  ): Promise<void> {
-    if (!inputQueue) return;
-
-    for await (const input of inputQueue) {
-      const output = await stage.process(input);
-      outputQueue.push(output);
-    }
-  }
+	return resultify(current)
 }
 
-// Queue asynchrone
-class AsyncQueue<T> implements AsyncIterable<T> {
-  private queue: T[] = [];
-  private waiting: Array<(value: IteratorResult<T>) => void> = [];
-  private closed = false;
+// parallelStage runs a stage with multiple workers.
+func parallelStage[T any](
+	ctx context.Context,
+	input <-chan T,
+	stage ParallelStage[T],
+) <-chan T {
+	output := make(chan T)
 
-  push(item: T): void {
-    if (this.closed) return;
-    const waiter = this.waiting.shift();
-    if (waiter) {
-      waiter({ value: item, done: false });
-    } else {
-      this.queue.push(item);
-    }
-  }
+	var wg sync.WaitGroup
+	for i := 0; i < stage.Concurrency; i++ {
+		wg.Go(func() { // Go 1.25: handles Add/Done internally
+			for item := range input {
+				result, err := stage.Process(ctx, item)
+				if err != nil {
+					// Log or handle error
+					continue
+				}
 
-  close(): void {
-    this.closed = true;
-    this.waiting.forEach((w) => w({ value: undefined as T, done: true }));
-  }
+				select {
+				case output <- result:
+				case <-ctx.Done():
+					return
+				}
+			}
+		})
+	}
 
-  async *[Symbol.asyncIterator](): AsyncIterator<T> {
-    while (true) {
-      if (this.queue.length > 0) {
-        yield this.queue.shift()!;
-      } else if (this.closed) {
-        return;
-      } else {
-        const result = await new Promise<IteratorResult<T>>((resolve) => {
-          this.waiting.push(resolve);
-        });
-        if (result.done) return;
-        yield result.value;
-      }
-    }
-  }
+	go func() {
+		wg.Wait()
+		close(output)
+	}()
+
+	return output
+}
+
+// resultify converts a channel to Result channel.
+func resultify[T any](input <-chan T) <-chan Result[T] {
+	output := make(chan Result[T])
+
+	go func() {
+		defer close(output)
+
+		for item := range input {
+			output <- Result[T]{Value: item}
+		}
+	}()
+
+	return output
 }
 ```
 
@@ -227,105 +279,135 @@ class AsyncQueue<T> implements AsyncIterable<T> {
 
 ## Pipeline avec error handling
 
-```typescript
-interface PipelineResult<T> {
-  success: boolean;
-  data?: T;
-  error?: Error;
-  stage?: string;
+```go
+package pipeline
+
+import (
+	"context"
+	"fmt"
+)
+
+// StageInfo holds stage metadata.
+type StageInfo struct {
+	Name    string
+	Process func(context.Context, interface{}) (interface{}, error)
 }
 
-class RobustPipeline<TInput, TOutput> {
-  private stages: Array<{
-    name: string;
-    process: Stage<any, any>;
-  }> = [];
+// RobustPipeline handles errors with context.
+type RobustPipeline struct {
+	stages []StageInfo
+}
 
-  addStage<TNewOutput>(
-    name: string,
-    process: Stage<TOutput, TNewOutput>,
-  ): RobustPipeline<TInput, TNewOutput> {
-    this.stages.push({ name, process });
-    return this as unknown as RobustPipeline<TInput, TNewOutput>;
-  }
+// NewRobust creates a robust pipeline.
+func NewRobust() *RobustPipeline {
+	return &RobustPipeline{
+		stages: make([]StageInfo, 0),
+	}
+}
 
-  async execute(input: TInput): Promise<PipelineResult<TOutput>> {
-    let result: any = input;
+// AddStage adds a named stage.
+func (p *RobustPipeline) AddStage(name string, process func(context.Context, interface{}) (interface{}, error)) *RobustPipeline {
+	p.stages = append(p.stages, StageInfo{
+		Name:    name,
+		Process: process,
+	})
+	return p
+}
 
-    for (const stage of this.stages) {
-      try {
-        result = await stage.process(result);
-      } catch (error) {
-        return {
-          success: false,
-          error: error as Error,
-          stage: stage.name,
-        };
-      }
-    }
+// PipelineError contains error context.
+type PipelineError struct {
+	Stage string
+	Err   error
+}
 
-    return { success: true, data: result };
-  }
+func (e *PipelineError) Error() string {
+	return fmt.Sprintf("stage %s: %v", e.Stage, e.Err)
+}
 
-  async executeWithRetry(
-    input: TInput,
-    retries: number = 3,
-  ): Promise<PipelineResult<TOutput>> {
-    for (let attempt = 0; attempt < retries; attempt++) {
-      const result = await this.execute(input);
-      if (result.success) return result;
+func (e *PipelineError) Unwrap() error {
+	return e.Err
+}
 
-      console.warn(`Pipeline failed at ${result.stage}, retry ${attempt + 1}`);
-      await delay(Math.pow(2, attempt) * 100);
-    }
+// Execute runs the pipeline with error tracking.
+func (p *RobustPipeline) Execute(ctx context.Context, input interface{}) (interface{}, error) {
+	result := input
 
-    return this.execute(input); // Dernier essai
-  }
+	for _, stage := range p.stages {
+		var err error
+		result, err = stage.Process(ctx, result)
+		if err != nil {
+			return nil, &PipelineError{
+				Stage: stage.Name,
+				Err:   err,
+			}
+		}
+	}
+
+	return result, nil
 }
 ```
 
 ---
 
-## Cas d'usage: ETL Pipeline
+## Fan-Out/Fan-In Pattern
 
-```typescript
-interface RawData {
-  id: string;
-  json: string;
+```go
+package pipeline
+
+import (
+	"context"
+	"sync"
+)
+
+// FanOut duplicates input to multiple outputs.
+func FanOut[T any](ctx context.Context, input <-chan T, n int) []<-chan T {
+	outputs := make([]<-chan T, n)
+
+	for i := 0; i < n; i++ {
+		ch := make(chan T)
+		outputs[i] = ch
+
+		go func(out chan<- T) {
+			defer close(out)
+
+			for item := range input {
+				select {
+				case out <- item:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}(ch)
+	}
+
+	return outputs
 }
 
-interface ParsedData {
-  id: string;
-  data: Record<string, unknown>;
+// FanIn merges multiple inputs into one output.
+func FanIn[T any](ctx context.Context, inputs ...<-chan T) <-chan T {
+	output := make(chan T)
+
+	var wg sync.WaitGroup
+	for _, input := range inputs {
+		in := input // Capture for closure
+		wg.Go(func() { // Go 1.25: handles Add/Done internally
+			for item := range in {
+				select {
+				case output <- item:
+				case <-ctx.Done():
+					return
+				}
+			}
+		})
+	}
+
+	go func() {
+		wg.Wait()
+		close(output)
+	}()
+
+	return output
 }
-
-interface EnrichedData extends ParsedData {
-  metadata: { processedAt: Date };
-}
-
-interface ValidatedData extends EnrichedData {
-  valid: boolean;
-}
-
-const etlPipeline = new Pipeline<RawData, ValidatedData>()
-  .addStage(async (raw): Promise<ParsedData> => ({
-    id: raw.id,
-    data: JSON.parse(raw.json),
-  }))
-  .addStage(async (parsed): Promise<EnrichedData> => ({
-    ...parsed,
-    metadata: { processedAt: new Date() },
-  }))
-  .addStage(async (enriched): Promise<ValidatedData> => ({
-    ...enriched,
-    valid: validateSchema(enriched.data),
-  }));
-
-// Traitement batch
-const rawItems = await fetchRawData();
-const results = await Promise.all(
-  rawItems.map((item) => etlPipeline.execute(item)),
-);
 ```
 
 ---
@@ -344,6 +426,7 @@ const results = await Promise.all(
 - Parallelisme naturel
 - Testabilite par stage
 - Monitoring par stage
+- Channels natifs Go
 
 ### Inconvenients
 

@@ -8,330 +8,528 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Test Fixture Lifecycle                      │
 │                                                                  │
-│   beforeAll ──► beforeEach ──► Test ──► afterEach ──► afterAll  │
-│       │             │           │           │             │      │
-│       ▼             ▼           ▼           ▼             ▼      │
-│   Setup once    Reset state   Execute   Cleanup       Teardown   │
-│   (DB, server)  (clear data)   test     (rollback)   (close)    │
+│   setup ──► beforeEach ──► Test ──► afterEach ──► teardown      │
+│     │           │           │           │             │          │
+│     ▼           ▼           ▼           ▼             ▼          │
+│   Setup once  Reset state Execute   Cleanup       Teardown       │
+│   (DB, server) (clear data) test    (rollback)    (close)       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Fixture Class Pattern
+## Fixture Struct Pattern
 
-```typescript
-interface TestFixture {
-  setup(): Promise<void>;
-  teardown(): Promise<void>;
+```go
+package integration_test
+
+import (
+	"context"
+	"database/sql"
+	"testing"
+)
+
+// TestFixture interface
+type TestFixture interface {
+	Setup(ctx context.Context) error
+	Teardown(ctx context.Context) error
 }
 
-class DatabaseFixture implements TestFixture {
-  db!: Database;
-  userRepo!: UserRepository;
-  orderRepo!: OrderRepository;
+// DatabaseFixture manages database test setup
+type DatabaseFixture struct {
+	DB        *sql.DB
+	UserRepo  *UserRepository
+	OrderRepo *OrderRepository
+}
 
-  async setup(): Promise<void> {
-    this.db = await Database.connect(process.env.TEST_DATABASE_URL!);
-    await this.db.migrate();
+func NewDatabaseFixture(dbURL string) *DatabaseFixture {
+	return &DatabaseFixture{}
+}
 
-    this.userRepo = new UserRepository(this.db);
-    this.orderRepo = new OrderRepository(this.db);
+func (f *DatabaseFixture) Setup(ctx context.Context) error {
+	var err error
+	f.DB, err = sql.Open("postgres", os.Getenv("TEST_DATABASE_URL"))
+	if err != nil {
+		return err
+	}
 
-    await this.seed();
-  }
+	if err := f.DB.PingContext(ctx); err != nil {
+		return err
+	}
 
-  async teardown(): Promise<void> {
-    await this.db.close();
-  }
+	// Run migrations
+	if err := runMigrations(f.DB); err != nil {
+		return err
+	}
 
-  private async seed(): Promise<void> {
-    await this.userRepo.save(UserMother.john());
-    await this.userRepo.save(UserMother.jane());
-  }
+	f.UserRepo = NewUserRepository(f.DB)
+	f.OrderRepo = NewOrderRepository(f.DB)
 
-  async reset(): Promise<void> {
-    await this.db.truncateAll();
-    await this.seed();
-  }
+	// Seed initial data
+	return f.seed(ctx)
+}
+
+func (f *DatabaseFixture) Teardown(ctx context.Context) error {
+	if f.DB != nil {
+		return f.DB.Close()
+	}
+	return nil
+}
+
+func (f *DatabaseFixture) seed(ctx context.Context) error {
+	if err := f.UserRepo.Save(ctx, UserMother{}.John()); err != nil {
+		return err
+	}
+	if err := f.UserRepo.Save(ctx, UserMother{}.Jane()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *DatabaseFixture) Reset(ctx context.Context) error {
+	if err := f.truncateAll(ctx); err != nil {
+		return err
+	}
+	return f.seed(ctx)
+}
+
+func (f *DatabaseFixture) truncateAll(ctx context.Context) error {
+	tables := []string{"orders", "users"}
+	for _, table := range tables {
+		_, err := f.DB.ExecContext(ctx, "TRUNCATE TABLE "+table+" CASCADE")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Usage
-describe('OrderService', () => {
-  const fixture = new DatabaseFixture();
+func TestOrderService(t *testing.T) {
+	ctx := context.Background()
+	fixture := NewDatabaseFixture(os.Getenv("TEST_DATABASE_URL"))
 
-  beforeAll(async () => {
-    await fixture.setup();
-  });
+	if err := fixture.Setup(ctx); err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+	defer fixture.Teardown(ctx)
 
-  afterAll(async () => {
-    await fixture.teardown();
-  });
+	t.Run("should create order", func(t *testing.T) {
+		if err := fixture.Reset(ctx); err != nil {
+			t.Fatalf("reset failed: %v", err)
+		}
 
-  beforeEach(async () => {
-    await fixture.reset();
-  });
+		service := NewOrderService(fixture.OrderRepo, fixture.UserRepo)
+		order, err := service.Create(ctx, "john-id", []OrderItem{{ProductID: "1", Qty: 2}})
 
-  test('should create order', async () => {
-    const service = new OrderService(fixture.orderRepo, fixture.userRepo);
-    const order = await service.create('john-id', [{ productId: '1', qty: 2 }]);
-
-    expect(order.status).toBe('pending');
-  });
-});
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if order.Status != "pending" {
+			t.Errorf("order.Status = %q; want %q", order.Status, "pending")
+		}
+	})
+}
 ```
 
 ## Composable Fixtures
 
-```typescript
-class HttpFixture implements TestFixture {
-  server!: Server;
-  baseUrl!: string;
+```go
+package integration_test
 
-  async setup(): Promise<void> {
-    const app = createApp();
-    this.server = await new Promise((resolve) => {
-      const s = app.listen(0, () => resolve(s));
-    });
-    this.baseUrl = `http://localhost:${(this.server.address() as any).port}`;
-  }
+import (
+	"context"
+	"net/http"
+	"testing"
+)
 
-  async teardown(): Promise<void> {
-    await new Promise((resolve) => this.server.close(resolve));
-  }
+// HTTPFixture manages HTTP server
+type HTTPFixture struct {
+	Server  *http.Server
+	BaseURL string
 }
 
-class CompositeFixture implements TestFixture {
-  private fixtures: TestFixture[] = [];
+func NewHTTPFixture() *HTTPFixture {
+	return &HTTPFixture{}
+}
 
-  add(fixture: TestFixture): this {
-    this.fixtures.push(fixture);
-    return this;
-  }
+func (f *HTTPFixture) Setup(ctx context.Context) error {
+	app := createApp()
+	f.Server = &http.Server{
+		Addr:    ":0",
+		Handler: app,
+	}
 
-  async setup(): Promise<void> {
-    for (const fixture of this.fixtures) {
-      await fixture.setup();
-    }
-  }
+	listener, err := net.Listen("tcp", f.Server.Addr)
+	if err != nil {
+		return err
+	}
 
-  async teardown(): Promise<void> {
-    // Teardown in reverse order
-    for (const fixture of [...this.fixtures].reverse()) {
-      await fixture.teardown();
-    }
-  }
+	f.BaseURL = "http://localhost:" + strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+
+	go f.Server.Serve(listener)
+	return nil
+}
+
+func (f *HTTPFixture) Teardown(ctx context.Context) error {
+	if f.Server != nil {
+		return f.Server.Shutdown(ctx)
+	}
+	return nil
+}
+
+// CompositeFixture combines multiple fixtures
+type CompositeFixture struct {
+	fixtures []TestFixture
+}
+
+func NewCompositeFixture(fixtures ...TestFixture) *CompositeFixture {
+	return &CompositeFixture{fixtures: fixtures}
+}
+
+func (f *CompositeFixture) Setup(ctx context.Context) error {
+	for _, fixture := range f.fixtures {
+		if err := fixture.Setup(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (f *CompositeFixture) Teardown(ctx context.Context) error {
+	// Teardown in reverse order
+	for i := len(f.fixtures) - 1; i >= 0; i-- {
+		if err := f.fixtures[i].Teardown(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Usage
-describe('Integration Tests', () => {
-  const dbFixture = new DatabaseFixture();
-  const httpFixture = new HttpFixture();
-  const fixture = new CompositeFixture().add(dbFixture).add(httpFixture);
+func TestIntegration(t *testing.T) {
+	ctx := context.Background()
 
-  beforeAll(() => fixture.setup());
-  afterAll(() => fixture.teardown());
+	dbFixture := NewDatabaseFixture(os.Getenv("TEST_DATABASE_URL"))
+	httpFixture := NewHTTPFixture()
+	fixture := NewCompositeFixture(dbFixture, httpFixture)
 
-  test('API should return users', async () => {
-    const response = await fetch(`${httpFixture.baseUrl}/users`);
-    const users = await response.json();
+	if err := fixture.Setup(ctx); err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+	defer fixture.Teardown(ctx)
 
-    expect(users).toHaveLength(2); // Seeded users
-  });
-});
+	t.Run("API should return users", func(t *testing.T) {
+		resp, err := http.Get(httpFixture.BaseURL + "/users")
+		if err != nil {
+			t.Fatalf("request failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d; want %d", resp.StatusCode, http.StatusOK)
+		}
+	})
+}
 ```
 
-## JSON Fixtures
+## Embedded Test Data
 
-```typescript
-// fixtures/users.json
-[
-  {
-    "id": "user-1",
-    "name": "John Doe",
-    "email": "john@test.com",
-    "role": "admin"
-  },
-  {
-    "id": "user-2",
-    "name": "Jane Doe",
-    "email": "jane@test.com",
-    "role": "member"
-  }
-]
+```go
+package testdata
 
-// fixtures/orders.json
-[
-  {
-    "id": "order-1",
-    "userId": "user-1",
-    "items": [{ "productId": "prod-1", "quantity": 2 }],
-    "status": "pending"
-  }
-]
+import (
+	"embed"
+	"encoding/json"
+)
 
-// Fixture loader
-import fs from 'fs/promises';
-import path from 'path';
+//go:embed fixtures/*.json
+var fixturesFS embed.FS
 
-class JsonFixtureLoader {
-  constructor(private fixturesDir: string = './fixtures') {}
+// FixtureLoader loads test data from embedded files
+type FixtureLoader struct{}
 
-  async load<T>(name: string): Promise<T> {
-    const filePath = path.join(this.fixturesDir, `${name}.json`);
-    const content = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(content);
-  }
+func NewFixtureLoader() *FixtureLoader {
+	return &FixtureLoader{}
+}
 
-  async loadAll<T>(name: string): Promise<T[]> {
-    return this.load<T[]>(name);
-  }
+func (l *FixtureLoader) Load(name string, v interface{}) error {
+	data, err := fixturesFS.ReadFile("fixtures/" + name + ".json")
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, v)
+}
+
+func (l *FixtureLoader) LoadUsers() ([]*User, error) {
+	var users []*User
+	if err := l.Load("users", &users); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (l *FixtureLoader) LoadOrders() ([]*Order, error) {
+	var orders []*Order
+	if err := l.Load("orders", &orders); err != nil {
+		return nil, err
+	}
+	return orders, nil
 }
 
 // Usage
-describe('with JSON fixtures', () => {
-  const loader = new JsonFixtureLoader();
-  let users: User[];
-  let orders: Order[];
+func TestWithJSONFixtures(t *testing.T) {
+	loader := NewFixtureLoader()
 
-  beforeAll(async () => {
-    users = await loader.loadAll<User>('users');
-    orders = await loader.loadAll<Order>('orders');
-  });
+	users, err := loader.LoadUsers()
+	if err != nil {
+		t.Fatalf("failed to load users: %v", err)
+	}
 
-  test('should have seeded users', () => {
-    expect(users).toHaveLength(2);
-    expect(users[0].name).toBe('John Doe');
-  });
-});
+	if len(users) != 2 {
+		t.Errorf("len(users) = %d; want 2", len(users))
+	}
+	if users[0].Name != "John Doe" {
+		t.Errorf("users[0].Name = %q; want %q", users[0].Name, "John Doe")
+	}
+}
 ```
 
-## Scoped Fixtures (Per-test data)
+## Scoped Fixtures (Per-test cleanup)
 
-```typescript
-class ScopedFixture<T> {
-  private data: T | null = null;
-  private cleanup: (() => Promise<void>) | null = null;
+```go
+package user_test
 
-  async use(factory: () => Promise<{ data: T; cleanup: () => Promise<void> }>) {
-    const result = await factory();
-    this.data = result.data;
-    this.cleanup = result.cleanup;
-    return this.data;
-  }
+import (
+	"context"
+	"testing"
+)
 
-  get(): T {
-    if (!this.data) {
-      throw new Error('Fixture not initialized');
-    }
-    return this.data;
-  }
+// ScopedFixture manages per-test resources
+type ScopedFixture[T any] struct {
+	data    T
+	cleanup func() error
+}
 
-  async dispose(): Promise<void> {
-    if (this.cleanup) {
-      await this.cleanup();
-    }
-    this.data = null;
-    this.cleanup = null;
-  }
+func NewScopedFixture[T any]() *ScopedFixture[T] {
+	return &ScopedFixture[T]{}
+}
+
+func (f *ScopedFixture[T]) Use(factory func() (T, func() error, error)) (T, error) {
+	data, cleanup, err := factory()
+	if err != nil {
+		return *new(T), err
+	}
+	f.data = data
+	f.cleanup = cleanup
+	return data, nil
+}
+
+func (f *ScopedFixture[T]) Get() T {
+	return f.data
+}
+
+func (f *ScopedFixture[T]) Dispose() error {
+	if f.cleanup != nil {
+		return f.cleanup()
+	}
+	return nil
 }
 
 // Usage
-describe('OrderService', () => {
-  const userFixture = new ScopedFixture<User>();
+func TestOrderService(t *testing.T) {
+	ctx := context.Background()
+	userFixture := NewScopedFixture[*User]()
+	defer userFixture.Dispose()
 
-  afterEach(async () => {
-    await userFixture.dispose();
-  });
+	t.Run("admin can delete orders", func(t *testing.T) {
+		user, err := userFixture.Use(func() (*User, func() error, error) {
+			u, err := createUser(ctx, &User{Role: "admin"})
+			if err != nil {
+				return nil, nil, err
+			}
+			cleanup := func() error {
+				return deleteUser(ctx, u.ID)
+			}
+			return u, cleanup, nil
+		})
+		if err != nil {
+			t.Fatalf("failed to create user: %v", err)
+		}
 
-  test('admin can delete orders', async () => {
-    const user = await userFixture.use(async () => {
-      const data = await createUser({ role: 'admin' });
-      return {
-        data,
-        cleanup: () => deleteUser(data.id),
-      };
-    });
+		service := NewOrderService()
+		err = service.DeleteOrder(ctx, "order-1", user)
 
-    const service = new OrderService();
-    await service.deleteOrder('order-1', user);
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
-    expect(await service.getOrder('order-1')).toBeNull();
-  });
+		order, err := service.GetOrder(ctx, "order-1")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if order != nil {
+			t.Errorf("order should be deleted")
+		}
+	})
 
-  test('member cannot delete orders', async () => {
-    const user = await userFixture.use(async () => {
-      const data = await createUser({ role: 'member' });
-      return {
-        data,
-        cleanup: () => deleteUser(data.id),
-      };
-    });
+	t.Run("member cannot delete orders", func(t *testing.T) {
+		user, err := userFixture.Use(func() (*User, func() error, error) {
+			u, err := createUser(ctx, &User{Role: "member"})
+			if err != nil {
+				return nil, nil, err
+			}
+			cleanup := func() error {
+				return deleteUser(ctx, u.ID)
+			}
+			return u, cleanup, nil
+		})
+		if err != nil {
+			t.Fatalf("failed to create user: %v", err)
+		}
 
-    const service = new OrderService();
+		service := NewOrderService()
+		err = service.DeleteOrder(ctx, "order-1", user)
 
-    await expect(service.deleteOrder('order-1', user)).rejects.toThrow(
-      'Forbidden',
-    );
-  });
-});
+		if err == nil {
+			t.Errorf("expected error; got nil")
+		}
+	})
+}
 ```
 
 ## Transaction Rollback Fixture
 
-```typescript
-class TransactionFixture implements TestFixture {
-  private db!: Database;
-  private transaction!: Transaction;
+```go
+package repo_test
 
-  constructor(private connectionString: string) {}
+import (
+	"context"
+	"database/sql"
+	"testing"
+)
 
-  async setup(): Promise<void> {
-    this.db = await Database.connect(this.connectionString);
-    this.transaction = await this.db.beginTransaction();
-  }
+// TransactionFixture manages test transactions
+type TransactionFixture struct {
+	db *sql.DB
+	tx *sql.Tx
+}
 
-  async teardown(): Promise<void> {
-    await this.transaction.rollback(); // Always rollback
-    await this.db.close();
-  }
+func NewTransactionFixture(dbURL string) *TransactionFixture {
+	return &TransactionFixture{}
+}
 
-  getConnection(): Database {
-    return this.transaction as unknown as Database;
-  }
+func (f *TransactionFixture) Setup(ctx context.Context) error {
+	var err error
+	f.db, err = sql.Open("postgres", os.Getenv("TEST_DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+
+	f.tx, err = f.db.BeginTx(ctx, nil)
+	return err
+}
+
+func (f *TransactionFixture) Teardown(ctx context.Context) error {
+	if f.tx != nil {
+		f.tx.Rollback() // Always rollback
+	}
+	if f.db != nil {
+		return f.db.Close()
+	}
+	return nil
+}
+
+func (f *TransactionFixture) GetDB() *sql.Tx {
+	return f.tx
 }
 
 // Usage - Each test is isolated via transaction rollback
-describe('UserRepository', () => {
-  const fixture = new TransactionFixture(process.env.TEST_DB_URL!);
+func TestUserRepository(t *testing.T) {
+	ctx := context.Background()
+	fixture := NewTransactionFixture(os.Getenv("TEST_DATABASE_URL"))
 
-  beforeAll(() => fixture.setup());
-  afterAll(() => fixture.teardown());
+	if err := fixture.Setup(ctx); err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+	defer fixture.Teardown(ctx)
 
-  test('should create user', async () => {
-    const repo = new UserRepository(fixture.getConnection());
-    await repo.save({ id: '1', name: 'Test' });
+	t.Run("should create user", func(t *testing.T) {
+		repo := NewUserRepository(fixture.GetDB())
+		err := repo.Save(ctx, &User{ID: "1", Name: "Test"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
-    const user = await repo.findById('1');
-    expect(user?.name).toBe('Test');
-    // Transaction will be rolled back - no cleanup needed
-  });
-});
+		user, err := repo.FindByID(ctx, "1")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if user.Name != "Test" {
+			t.Errorf("user.Name = %q; want %q", user.Name, "Test")
+		}
+		// Transaction will be rolled back - no cleanup needed
+	})
+}
+```
+
+## TestMain Pattern
+
+```go
+package integration_test
+
+import (
+	"context"
+	"os"
+	"testing"
+)
+
+var globalFixture *DatabaseFixture
+
+func TestMain(m *testing.M) {
+	ctx := context.Background()
+
+	// Setup
+	globalFixture = NewDatabaseFixture(os.Getenv("TEST_DATABASE_URL"))
+	if err := globalFixture.Setup(ctx); err != nil {
+		panic(err)
+	}
+
+	// Run tests
+	code := m.Run()
+
+	// Teardown
+	if err := globalFixture.Teardown(ctx); err != nil {
+		panic(err)
+	}
+
+	os.Exit(code)
+}
+
+func TestWithGlobalFixture(t *testing.T) {
+	ctx := context.Background()
+
+	// Reset before each test
+	if err := globalFixture.Reset(ctx); err != nil {
+		t.Fatalf("reset failed: %v", err)
+	}
+
+	// Use globalFixture...
+}
 ```
 
 ## Librairies recommandees
 
 | Package | Usage |
 |---------|-------|
-| `jest` | Built-in beforeAll/afterAll |
-| `vitest` | Same lifecycle hooks |
-| `testcontainers` | Container-based fixtures |
-| `factory-girl` | Fixture factories |
+| `testing` | Built-in testing package |
+| `github.com/testcontainers/testcontainers-go` | Container-based fixtures |
+| `github.com/stretchr/testify/suite` | Test suite pattern |
 
 ## Erreurs communes
 
 | Erreur | Impact | Solution |
 |--------|--------|----------|
-| Setup dans chaque test | Tests lents | beforeAll pour setup couteux |
-| Pas de cleanup | State leak entre tests | afterEach/afterAll |
+| Setup dans chaque test | Tests lents | TestMain pour setup couteux |
+| Pas de cleanup | State leak entre tests | defer Teardown() |
 | Fixtures mutables partagees | Tests dependants | Reset ou copie profonde |
 | Ordre des tests compte | Flaky tests | Isolation complete |
 | Fixtures trop grosses | Slow tests | Fixtures minimales par suite |
@@ -342,9 +540,9 @@ describe('UserRepository', () => {
 |----------|-----------------|
 | Database tests | Transaction rollback |
 | API tests | HTTP server fixture |
-| Complex object graphs | JSON fixtures + loaders |
+| Complex object graphs | Embedded JSON fixtures |
 | Per-test isolation | Scoped fixtures |
-| Shared expensive resources | beforeAll setup |
+| Shared expensive resources | TestMain setup |
 
 ## Patterns lies
 
@@ -355,4 +553,4 @@ describe('UserRepository', () => {
 ## Sources
 
 - [xUnit Test Patterns - Fixtures](http://xunitpatterns.com/test%20fixture%20-%20xUnit.html)
-- [Jest Setup/Teardown](https://jestjs.io/docs/setup-teardown)
+- [Go Testing Documentation](https://pkg.go.dev/testing)

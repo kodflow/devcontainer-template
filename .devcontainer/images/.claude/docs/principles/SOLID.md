@@ -10,23 +10,42 @@
 
 **Problème :**
 
-```typescript
+```go
 // ❌ Mauvais - Multiple responsabilités
-class User {
-  save() { /* DB logic */ }
-  validate() { /* Validation logic */ }
-  sendEmail() { /* Email logic */ }
+type User struct {
+	ID    string
+	Email string
 }
+
+func (u *User) Save() error { /* DB logic */ }
+func (u *User) Validate() error { /* Validation logic */ }
+func (u *User) SendEmail() error { /* Email logic */ }
 ```
 
 **Solution :**
 
-```typescript
-// ✅ Bon - Une responsabilité par classe
-class User { /* Data only */ }
-class UserRepository { save(user: User) {} }
-class UserValidator { validate(user: User) {} }
-class UserNotifier { sendEmail(user: User) {} }
+```go
+// ✅ Bon - Une responsabilité par type
+type User struct {
+	ID    string
+	Email string
+}
+
+type UserRepository struct {
+	db *sql.DB
+}
+
+func (r *UserRepository) Save(user *User) error { /* DB logic */ }
+
+type UserValidator struct{}
+
+func (v *UserValidator) Validate(user *User) error { /* Validation logic */ }
+
+type UserNotifier struct {
+	mailer Mailer
+}
+
+func (n *UserNotifier) SendEmail(user *User) error { /* Email logic */ }
 ```
 
 **Quand l'appliquer :** Toujours. C'est le principe le plus fondamental.
@@ -39,28 +58,66 @@ class UserNotifier { sendEmail(user: User) {} }
 
 **Problème :**
 
-```typescript
+```go
 // ❌ Mauvais - Modifier pour ajouter
-class PaymentProcessor {
-  process(type: string) {
-    if (type === 'card') { /* ... */ }
-    else if (type === 'paypal') { /* ... */ }
-    // Ajouter ici = modifier
-  }
+type PaymentProcessor struct{}
+
+func (p *PaymentProcessor) Process(paymentType string) error {
+	switch paymentType {
+	case "card":
+		// ... card logic
+	case "paypal":
+		// ... paypal logic
+	// Ajouter ici = modifier
+	default:
+		return errors.New("unknown payment type")
+	}
+	return nil
 }
 ```
 
 **Solution :**
 
-```typescript
+```go
 // ✅ Bon - Étendre sans modifier
-interface PaymentMethod {
-  process(): void;
+type PaymentMethod interface {
+	Process() error
 }
 
-class CardPayment implements PaymentMethod { process() {} }
-class PayPalPayment implements PaymentMethod { process() {} }
-// Ajouter = nouvelle classe
+type CardPayment struct {
+	CardNumber string
+}
+
+func (c *CardPayment) Process() error {
+	// Card processing logic
+	return nil
+}
+
+type PayPalPayment struct {
+	Email string
+}
+
+func (p *PayPalPayment) Process() error {
+	// PayPal processing logic
+	return nil
+}
+
+// Ajouter = nouvelle struct implémentant PaymentMethod
+type CryptoPayment struct {
+	WalletAddress string
+}
+
+func (c *CryptoPayment) Process() error {
+	// Crypto processing logic
+	return nil
+}
+
+// Usage
+type PaymentProcessor struct{}
+
+func (p *PaymentProcessor) ProcessPayment(method PaymentMethod) error {
+	return method.Process()
+}
 ```
 
 **Quand l'appliquer :** Quand le code change souvent pour ajouter des variantes.
@@ -73,31 +130,72 @@ class PayPalPayment implements PaymentMethod { process() {} }
 
 **Problème :**
 
-```typescript
+```go
 // ❌ Mauvais - Carré n'est pas un Rectangle
-class Rectangle {
-  setWidth(w: number) { this.width = w; }
-  setHeight(h: number) { this.height = h; }
+type Rectangle struct {
+	width  float64
+	height float64
 }
 
-class Square extends Rectangle {
-  setWidth(w: number) { this.width = this.height = w; } // Viole LSP
+func (r *Rectangle) SetWidth(w float64)  { r.width = w }
+func (r *Rectangle) SetHeight(h float64) { r.height = h }
+func (r *Rectangle) Area() float64       { return r.width * r.height }
+
+type Square struct {
+	Rectangle
+}
+
+func (s *Square) SetWidth(w float64) {
+	s.width = w
+	s.height = w // Viole LSP - comportement inattendu
+}
+
+func (s *Square) SetHeight(h float64) {
+	s.width = h
+	s.height = h // Viole LSP - comportement inattendu
 }
 ```
 
 **Solution :**
 
-```typescript
+```go
 // ✅ Bon - Abstraction commune
-interface Shape {
-  area(): number;
+type Shape interface {
+	Area() float64
 }
 
-class Rectangle implements Shape { area() { return this.width * this.height; } }
-class Square implements Shape { area() { return this.side ** 2; } }
+type Rectangle struct {
+	width  float64
+	height float64
+}
+
+func NewRectangle(width, height float64) *Rectangle {
+	return &Rectangle{width: width, height: height}
+}
+
+func (r *Rectangle) Area() float64 {
+	return r.width * r.height
+}
+
+type Square struct {
+	side float64
+}
+
+func NewSquare(side float64) *Square {
+	return &Square{side: side}
+}
+
+func (s *Square) Area() float64 {
+	return s.side * s.side
+}
+
+// Usage - les deux sont substituables
+func PrintArea(s Shape) {
+	fmt.Printf("Area: %.2f\n", s.Area())
+}
 ```
 
-**Quand l'appliquer :** Avant chaque héritage, vérifier la substitution.
+**Quand l'appliquer :** Avant chaque héritage/composition, vérifier la substitution.
 
 ---
 
@@ -107,34 +205,71 @@ class Square implements Shape { area() { return this.side ** 2; } }
 
 **Problème :**
 
-```typescript
+```go
 // ❌ Mauvais - Interface trop large
-interface Worker {
-  work(): void;
-  eat(): void;
-  sleep(): void;
+type Worker interface {
+	Work()
+	Eat()
+	Sleep()
 }
 
-class Robot implements Worker {
-  work() {}
-  eat() { throw new Error('Robots dont eat'); } // Forcé d'implémenter
-  sleep() { throw new Error('Robots dont sleep'); }
+type Robot struct{}
+
+func (r *Robot) Work() {
+	// OK
+}
+
+func (r *Robot) Eat() {
+	// Robots don't eat - méthode forcée
+	panic("robots don't eat")
+}
+
+func (r *Robot) Sleep() {
+	// Robots don't sleep - méthode forcée
+	panic("robots don't sleep")
 }
 ```
 
 **Solution :**
 
-```typescript
+```go
 // ✅ Bon - Interfaces spécifiques
-interface Workable { work(): void; }
-interface Eatable { eat(): void; }
-interface Sleepable { sleep(): void; }
+type Workable interface {
+	Work()
+}
 
-class Robot implements Workable { work() {} }
-class Human implements Workable, Eatable, Sleepable { /* ... */ }
+type Eatable interface {
+	Eat()
+}
+
+type Sleepable interface {
+	Sleep()
+}
+
+type Robot struct{}
+
+func (r *Robot) Work() {
+	// OK - Robot implémente seulement Workable
+}
+
+type Human struct{}
+
+func (h *Human) Work()  { /* ... */ }
+func (h *Human) Eat()   { /* ... */ }
+func (h *Human) Sleep() { /* ... */ }
+
+// Usage
+func DoWork(w Workable) {
+	w.Work()
+}
+
+func TakeCareOf(e Eatable, s Sleepable) {
+	e.Eat()
+	s.Sleep()
+}
 ```
 
-**Quand l'appliquer :** Quand des implémenteurs doivent laisser des méthodes vides.
+**Quand l'appliquer :** Quand des implémenteurs doivent laisser des méthodes vides ou panic.
 
 ---
 
@@ -144,31 +279,84 @@ class Human implements Workable, Eatable, Sleepable { /* ... */ }
 
 **Problème :**
 
-```typescript
+```go
 // ❌ Mauvais - Dépendance concrète
-class UserService {
-  private db = new MySQLDatabase(); // Couplage fort
+type MySQLDatabase struct{}
 
-  getUser(id: string) {
-    return this.db.query(`SELECT * FROM users WHERE id = ${id}`);
-  }
+func (db *MySQLDatabase) Query(sql string) ([]byte, error) {
+	// MySQL-specific query
+	return nil, nil
+}
+
+type UserService struct {
+	db *MySQLDatabase // Couplage fort à MySQL
+}
+
+func NewUserService() *UserService {
+	return &UserService{
+		db: &MySQLDatabase{}, // Dépendance hard-codée
+	}
+}
+
+func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
+	data, err := s.db.Query(ctx, "SELECT * FROM users WHERE id = $1", id)
+	if err != nil {
+		return nil, fmt.Errorf("querying user: %w", err)
+	}
+	// ... parse data
+	return nil, nil
 }
 ```
 
 **Solution :**
 
-```typescript
+```go
 // ✅ Bon - Dépendance sur abstraction
-interface Database {
-  query(sql: string): any;
+type Database interface {
+	Query(ctx context.Context, sql string, args ...interface{}) ([]byte, error)
 }
 
-class UserService {
-  constructor(private db: Database) {} // Injection
+type MySQLDatabase struct{}
 
-  getUser(id: string) {
-    return this.db.query(`SELECT * FROM users WHERE id = ${id}`);
-  }
+func (db *MySQLDatabase) Query(ctx context.Context, sql string, args ...interface{}) ([]byte, error) {
+	// MySQL-specific implementation
+	return nil, nil
+}
+
+type PostgresDatabase struct{}
+
+func (db *PostgresDatabase) Query(ctx context.Context, sql string, args ...interface{}) ([]byte, error) {
+	// Postgres-specific implementation
+	return nil, nil
+}
+
+type UserService struct {
+	db Database // Dépend de l'abstraction
+}
+
+func NewUserService(db Database) *UserService {
+	return &UserService{db: db} // Injection de dépendance
+}
+
+func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
+	data, err := s.db.Query(ctx, "SELECT * FROM users WHERE id = $1", id)
+	if err != nil {
+		return nil, fmt.Errorf("querying user: %w", err)
+	}
+	// ... parse data
+	return nil, nil
+}
+
+// Usage
+func main() {
+	// Facilement interchangeable
+	mysqlDB := &MySQLDatabase{}
+	service1 := NewUserService(mysqlDB)
+	
+	postgresDB := &PostgresDatabase{}
+	service2 := NewUserService(postgresDB)
+	
+	_, _ = service1, service2
 }
 ```
 
@@ -180,20 +368,31 @@ class UserService {
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  S  │ Une classe = Une responsabilité                       │
+│  S  │ Une struct/package = Une responsabilité               │
 ├─────────────────────────────────────────────────────────────┤
 │  O  │ Ajouter du code, pas modifier                         │
 ├─────────────────────────────────────────────────────────────┤
-│  L  │ Sous-classe = comportement parent préservé            │
+│  L  │ Sous-type = comportement parent préservé              │
 ├─────────────────────────────────────────────────────────────┤
 │  I  │ Interfaces petites et spécifiques                     │
 ├─────────────────────────────────────────────────────────────┤
-│  D  │ Dépendre d'interfaces, pas de classes                 │
+│  D  │ Dépendre d'interfaces, pas de structs                 │
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## Quand utiliser
+
+- Lors de la conception de classes et interfaces (SRP, ISP)
+- Quand on ajoute de nouvelles variantes sans modifier l'existant (OCP)
+- Avant d'utiliser l'heritage ou la composition (LSP)
+- Pour decoupler les modules et faciliter les tests (DIP)
+- Lors de revues de code pour evaluer la qualite architecturale
+
 ## Patterns liés
 
+- [GRASP](./GRASP.md) - Complementaire pour l'attribution des responsabilites
+- [DRY](./DRY.md) - SRP aide a centraliser les responsabilites
+- [Defensive Programming](./defensive.md) - DIP facilite l'injection de mocks
 - **Factory** : Respecte OCP pour la création
 - **Strategy** : Respecte OCP pour les algorithmes
 - **Adapter** : Aide à respecter DIP

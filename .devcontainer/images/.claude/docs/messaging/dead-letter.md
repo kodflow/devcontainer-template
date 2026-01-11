@@ -1,6 +1,6 @@
 # Dead Letter Channel Pattern
 
-Gestion des messages non traitables.
+> Gestion des messages non traitables via une queue dédiée pour capturer les messages qui échouent après plusieurs tentatives de traitement.
 
 ## Vue d'ensemble
 
@@ -38,145 +38,222 @@ Gestion des messages non traitables.
 
 ## Implementation de base
 
-```typescript
-interface DeadLetterMessage {
-  id: string;
-  originalQueue: string;
-  originalMessage: unknown;
-  error: {
-    name: string;
-    message: string;
-    stack?: string;
-  };
-  attempts: number;
-  firstFailedAt: Date;
-  lastFailedAt: Date;
-  headers: Record<string, string>;
+```go
+package messaging
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type DeadLetterMessage struct {
+	ID              string            `json:"id"`
+	OriginalQueue   string            `json:"originalQueue"`
+	OriginalMessage interface{}       `json:"originalMessage"`
+	Error           ErrorInfo         `json:"error"`
+	Attempts        int               `json:"attempts"`
+	FirstFailedAt   time.Time         `json:"first_failed_at"`
+	LastFailedAt    time.Time         `json:"lastFailedAt"`
+	Headers         map[string]string `json:"headers"`
 }
 
-class DeadLetterChannel {
-  constructor(
-    private dlq: MessageQueue,
-    private alertService: AlertService
-  ) {}
-
-  async send(
-    originalQueue: string,
-    message: unknown,
-    error: Error,
-    attempts: number
-  ): Promise<void> {
-    const dlMessage: DeadLetterMessage = {
-      id: crypto.randomUUID(),
-      originalQueue,
-      originalMessage: message,
-      error: {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      },
-      attempts,
-      firstFailedAt: new Date(),
-      lastFailedAt: new Date(),
-      headers: this.extractHeaders(message),
-    };
-
-    await this.dlq.send('dead-letter-queue', dlMessage);
-
-    // Alerter si erreur critique
-    if (this.isCriticalError(error)) {
-      await this.alertService.critical('Message moved to DLQ', {
-        queue: originalQueue,
-        error: error.message,
-        messageId: dlMessage.id,
-      });
-    }
-  }
-
-  private isCriticalError(error: Error): boolean {
-    return error instanceof PaymentError ||
-           error instanceof DataCorruptionError ||
-           error instanceof SecurityError;
-  }
-
-  private extractHeaders(message: unknown): Record<string, string> {
-    if (typeof message === 'object' && message !== null && 'headers' in message) {
-      return (message as { headers: Record<string, string> }).headers;
-    }
-    return {};
-  }
+type ErrorInfo struct {
+	Name    string `json:"name"`
+	Message string `json:"message"`
+	Stack   string `json:"stack,omitempty"`
 }
+
+type AlertService interface {
+	Critical(ctx context.Context, message string, details map[string]interface{}) error
+}
+
+type MessageQueue interface {
+	Send(ctx context.Context, queue string, message interface{}) error
+}
+
+type DeadLetterChannel struct {
+	dlq          MessageQueue
+	alertService AlertService
+}
+
+func NewDeadLetterChannel(dlq MessageQueue, alertService AlertService) *DeadLetterChannel {
+	return &DeadLetterChannel{
+		dlq:          dlq,
+		alertService: alertService,
+	}
+}
+
+func (d *DeadLetterChannel) Send(ctx context.Context, originalQueue string, message interface{}, err error, attempts int) error {
+	dlMessage := &DeadLetterMessage{
+		ID:              uuid.New().String(),
+		OriginalQueue:   originalQueue,
+		OriginalMessage: message,
+		Error: ErrorInfo{
+			Name:    fmt.Sprintf("%T", err),
+			Message: err.Error(),
+		},
+		Attempts:      attempts,
+		FirstFailedAt: time.Now(),
+		LastFailedAt:  time.Now(),
+		Headers:       extractHeaders(message),
+	}
+
+	if err := d.dlq.Send(ctx, "dead-letter-queue", dlMessage); err != nil {
+		return fmt.Errorf("sending to DLQ: %w", err)
+	}
+
+	// Alerter si erreur critique
+	if d.isCriticalError(err) {
+		alertErr := d.alertService.Critical(ctx, "Message moved to DLQ", map[string]interface{}{
+			"queue":     originalQueue,
+			"error":     err.Error(),
+			"messageId": dlMessage.ID,
+		})
+		if alertErr != nil {
+			return fmt.Errorf("sending alert: %w", alertErr)
+		}
+	}
+
+	return nil
+}
+
+func (d *DeadLetterChannel) isCriticalError(err error) bool {
+	_, isPayment := err.(*PaymentError)
+	_, isDataCorruption := err.(*DataCorruptionError)
+	_, isSecurity := err.(*SecurityError)
+	return isPayment || isDataCorruption || isSecurity
+}
+
+func extractHeaders(message interface{}) map[string]string {
+	type withHeaders interface {
+		GetHeaders() map[string]string
+	}
+	if msg, ok := message.(withHeaders); ok {
+		return msg.GetHeaders()
+	}
+	return make(map[string]string)
+}
+
+// Custom error types
+type PaymentError struct{ error }
+type DataCorruptionError struct{ error }
+type SecurityError struct{ error }
 ```
 
 ---
 
 ## Consumer avec retry et DLQ
 
-```typescript
-interface RetryConfig {
-  maxRetries: number;
-  backoffMultiplier: number;
-  initialDelayMs: number;
-  maxDelayMs: number;
+```go
+package messaging
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"time"
+)
+
+type RetryConfig struct {
+	MaxRetries         int
+	BackoffMultiplier  float64
+	InitialDelayMs     int
+	MaxDelayMs         int
 }
 
-class ResilientConsumer {
-  private retryConfig: RetryConfig = {
-    maxRetries: 3,
-    backoffMultiplier: 2,
-    initialDelayMs: 1000,
-    maxDelayMs: 30000,
-  };
+type MessageMeta struct {
+	Queue   string
+	Headers map[string]string
+}
 
-  constructor(
-    private queue: MessageQueue,
-    private handler: (msg: unknown) => Promise<void>,
-    private deadLetter: DeadLetterChannel
-  ) {}
+type MessageHandler func(ctx context.Context, msg interface{}) error
 
-  async consume(): Promise<void> {
-    await this.queue.subscribe(async (message, meta) => {
-      const attempts = meta.headers['x-retry-count'] ?? 0;
+type ResilientConsumer struct {
+	queue       MessageQueue
+	handler     MessageHandler
+	deadLetter  *DeadLetterChannel
+	retryConfig RetryConfig
+}
 
-      try {
-        await this.handler(message);
-        await this.queue.ack(message);
-      } catch (error) {
-        if (attempts >= this.retryConfig.maxRetries) {
-          // Max retries atteint -> DLQ
-          await this.deadLetter.send(
-            meta.queue,
-            message,
-            error as Error,
-            attempts
-          );
-          await this.queue.ack(message); // Retirer de la queue principale
-        } else {
-          // Requeue avec delay
-          const delay = this.calculateDelay(attempts);
-          await this.requeueWithDelay(message, attempts + 1, delay);
-          await this.queue.ack(message);
-        }
-      }
-    });
-  }
+func NewResilientConsumer(queue MessageQueue, handler MessageHandler, deadLetter *DeadLetterChannel) *ResilientConsumer {
+	return &ResilientConsumer{
+		queue:      queue,
+		handler:    handler,
+		deadLetter: deadLetter,
+		retryConfig: RetryConfig{
+			MaxRetries:        3,
+			BackoffMultiplier: 2,
+			InitialDelayMs:    1000,
+			MaxDelayMs:        30000,
+		},
+	}
+}
 
-  private calculateDelay(attempts: number): number {
-    const delay = this.retryConfig.initialDelayMs *
-                  Math.pow(this.retryConfig.backoffMultiplier, attempts);
-    return Math.min(delay, this.retryConfig.maxDelayMs);
-  }
+func (rc *ResilientConsumer) Consume(ctx context.Context, messages <-chan Message) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case msg := <-messages:
+			if err := rc.processMessage(ctx, msg); err != nil {
+				return fmt.Errorf("processing message: %w", err)
+			}
+		}
+	}
+}
 
-  private async requeueWithDelay(
-    message: unknown,
-    attempts: number,
-    delayMs: number
-  ): Promise<void> {
-    // Utiliser un delayed exchange ou scheduler
-    await this.queue.sendDelayed(message, delayMs, {
-      'x-retry-count': attempts,
-    });
-  }
+type Message struct {
+	Content interface{}
+	Meta    MessageMeta
+}
+
+func (rc *ResilientConsumer) processMessage(ctx context.Context, msg Message) error {
+	attempts := rc.getRetryCount(msg.Meta.Headers)
+
+	if err := rc.handler(ctx, msg.Content); err != nil {
+		if attempts >= rc.retryConfig.MaxRetries {
+			// Max retries atteint -> DLQ
+			return rc.deadLetter.Send(ctx, msg.Meta.Queue, msg.Content, err, attempts)
+		}
+
+		// Requeue avec delay
+		delay := rc.calculateDelay(attempts)
+		return rc.requeueWithDelay(ctx, msg.Content, attempts+1, delay)
+	}
+
+	return nil
+}
+
+func (rc *ResilientConsumer) calculateDelay(attempts int) time.Duration {
+	delay := float64(rc.retryConfig.InitialDelayMs) * math.Pow(rc.retryConfig.BackoffMultiplier, float64(attempts))
+	maxDelay := float64(rc.retryConfig.MaxDelayMs)
+	if delay > maxDelay {
+		delay = maxDelay
+	}
+	return time.Duration(delay) * time.Millisecond
+}
+
+func (rc *ResilientConsumer) requeueWithDelay(ctx context.Context, message interface{}, attempts int, delay time.Duration) error {
+	time.Sleep(delay)
+	headers := map[string]string{
+		"x-retry-count": fmt.Sprintf("%d", attempts),
+	}
+	return rc.queue.Send(ctx, "retry-queue", struct {
+		Message interface{}
+		Headers map[string]string
+	}{message, headers})
+}
+
+func (rc *ResilientConsumer) getRetryCount(headers map[string]string) int {
+	if count, ok := headers["x-retry-count"]; ok {
+		var attempts int
+		fmt.Sscanf(count, "%d", &attempts)
+		return attempts
+	}
+	return 0
 }
 ```
 
@@ -184,50 +261,144 @@ class ResilientConsumer {
 
 ## RabbitMQ Dead Letter Configuration
 
-```typescript
-// Configuration RabbitMQ avec DLX
-class RabbitMQDeadLetterSetup {
-  async setup(): Promise<void> {
-    // Dead Letter Exchange
-    await this.channel.assertExchange('dlx', 'direct', { durable: true });
+```go
+package messaging
 
-    // Dead Letter Queue
-    await this.channel.assertQueue('dead-letter-queue', {
-      durable: true,
-      arguments: {
-        'x-message-ttl': 7 * 24 * 60 * 60 * 1000, // 7 jours
-      },
-    });
-    await this.channel.bindQueue('dead-letter-queue', 'dlx', 'dead-letter');
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
 
-    // Queue principale avec DLX configure
-    await this.channel.assertQueue('orders', {
-      durable: true,
-      arguments: {
-        'x-dead-letter-exchange': 'dlx',
-        'x-dead-letter-routing-key': 'dead-letter',
-      },
-    });
-  }
+	amqp "github.com/rabbitmq/amqp091-go"
+)
 
-  // Consumer sur la DLQ
-  async consumeDeadLetters(): Promise<void> {
-    await this.channel.consume('dead-letter-queue', async (msg) => {
-      if (!msg) return;
+type RabbitMQDeadLetterSetup struct {
+	channel *amqp.Channel
+}
 
-      const deathInfo = msg.properties.headers['x-death'];
-      const dlMessage = {
-        content: JSON.parse(msg.content.toString()),
-        originalQueue: deathInfo?.[0]?.queue,
-        reason: deathInfo?.[0]?.reason, // rejected, expired, maxlen
-        count: deathInfo?.[0]?.count,
-        firstDeathTime: deathInfo?.[0]?.time,
-      };
+func NewRabbitMQDeadLetterSetup(channel *amqp.Channel) *RabbitMQDeadLetterSetup {
+	return &RabbitMQDeadLetterSetup{channel: channel}
+}
 
-      await this.processDLQMessage(dlMessage);
-      this.channel.ack(msg);
-    });
-  }
+func (r *RabbitMQDeadLetterSetup) Setup(ctx context.Context) error {
+	// Dead Letter Exchange
+	if err := r.channel.ExchangeDeclare(
+		"dlx",     // name
+		"direct",  // type
+		true,      // durable
+		false,     // auto-deleted
+		false,     // internal
+		false,     // no-wait
+		nil,       // arguments
+	); err != nil {
+		return fmt.Errorf("declaring DLX: %w", err)
+	}
+
+	// Dead Letter Queue
+	args := amqp.Table{
+		"x-message-ttl": int32(7 * 24 * 60 * 60 * 1000), // 7 jours
+	}
+	if _, err := r.channel.QueueDeclare(
+		"dead-letter-queue", // name
+		true,                // durable
+		false,               // delete when unused
+		false,               // exclusive
+		false,               // no-wait
+		args,                // arguments
+	); err != nil {
+		return fmt.Errorf("declaring DLQ: %w", err)
+	}
+
+	if err := r.channel.QueueBind(
+		"dead-letter-queue", // queue name
+		"dead-letter",       // routing key
+		"dlx",               // exchange
+		false,
+		nil,
+	); err != nil {
+		return fmt.Errorf("binding DLQ: %w", err)
+	}
+
+	// Queue principale avec DLX configure
+	args = amqp.Table{
+		"x-dead-letter-exchange":    "dlx",
+		"x-dead-letter-routing-key": "dead-letter",
+	}
+	if _, err := r.channel.QueueDeclare(
+		"orders",
+		true,
+		false,
+		false,
+		false,
+		args,
+	); err != nil {
+		return fmt.Errorf("declaring orders queue: %w", err)
+	}
+
+	return nil
+}
+
+type DeathInfo struct {
+	Queue string    `json:"queue"`
+	Reason string   `json:"reason"`
+	Count  int      `json:"count"`
+	Time   time.Time `json:"time"`
+}
+
+func (r *RabbitMQDeadLetterSetup) ConsumeDeadLetters(ctx context.Context) error {
+	msgs, err := r.channel.Consume(
+		"dead-letter-queue",
+		"",    // consumer
+		false, // auto-ack
+		false, // exclusive
+		false, // no-local
+		false, // no-wait
+		nil,   // args
+	)
+	if err != nil {
+		return fmt.Errorf("consuming DLQ: %w", err)
+	}
+
+	go func() {
+		for d := range msgs {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				if err := r.processDLQMessage(ctx, d); err != nil {
+					fmt.Printf("Error processing DLQ message: %v\n", err)
+					d.Nack(false, false)
+					continue
+				}
+				d.Ack(false)
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (r *RabbitMQDeadLetterSetup) processDLQMessage(ctx context.Context, msg amqp.Delivery) error {
+	var deathInfo []DeathInfo
+	if xDeath, ok := msg.Headers["x-death"].([]interface{}); ok && len(xDeath) > 0 {
+		if death, ok := xDeath[0].(amqp.Table); ok {
+			info := DeathInfo{
+				Queue:  death["queue"].(string),
+				Reason: death["reason"].(string),
+				Count:  int(death["count"].(int64)),
+			}
+			deathInfo = append(deathInfo, info)
+		}
+	}
+
+	var content interface{}
+	if err := json.Unmarshal(msg.Body, &content); err != nil {
+		return fmt.Errorf("unmarshaling message: %w", err)
+	}
+
+	fmt.Printf("DLQ Message: %+v, Death Info: %+v\n", content, deathInfo)
+	return nil
 }
 ```
 
@@ -235,62 +406,94 @@ class RabbitMQDeadLetterSetup {
 
 ## Kafka DLQ Pattern
 
-```typescript
-class KafkaDeadLetterHandler {
-  private dlqTopic: string;
+```go
+package messaging
 
-  constructor(
-    private producer: KafkaProducer,
-    mainTopic: string
-  ) {
-    this.dlqTopic = `${mainTopic}.dlq`;
-  }
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
 
-  async sendToDLQ(
-    message: KafkaMessage,
-    error: Error,
-    partition: number,
-    offset: string
-  ): Promise<void> {
-    await this.producer.send({
-      topic: this.dlqTopic,
-      messages: [{
-        key: message.key,
-        value: message.value,
-        headers: {
-          ...message.headers,
-          'x-original-topic': message.topic,
-          'x-original-partition': String(partition),
-          'x-original-offset': offset,
-          'x-error-message': error.message,
-          'x-error-type': error.name,
-          'x-failed-at': new Date().toISOString(),
-        },
-      }],
-    });
-  }
+	"github.com/segmentio/kafka-go"
+)
 
-  // Consumer avec auto-DLQ
-  async consumeWithDLQ(
-    topic: string,
-    handler: (msg: unknown) => Promise<void>
-  ): Promise<void> {
-    await this.consumer.run({
-      eachMessage: async ({ topic, partition, message }) => {
-        try {
-          const payload = JSON.parse(message.value!.toString());
-          await handler(payload);
-        } catch (error) {
-          await this.sendToDLQ(
-            { ...message, topic },
-            error as Error,
-            partition,
-            message.offset
-          );
-        }
-      },
-    });
-  }
+type KafkaDeadLetterHandler struct {
+	writer   *kafka.Writer
+	dlqTopic string
+}
+
+func NewKafkaDeadLetterHandler(brokers []string, mainTopic string) *KafkaDeadLetterHandler {
+	dlqTopic := fmt.Sprintf("%s.dlq", mainTopic)
+	return &KafkaDeadLetterHandler{
+		writer: &kafka.Writer{
+			Addr:     kafka.TCP(brokers...),
+			Topic:    dlqTopic,
+			Balancer: &kafka.LeastBytes{},
+		},
+		dlqTopic: dlqTopic,
+	}
+}
+
+func (k *KafkaDeadLetterHandler) SendToDLQ(ctx context.Context, msg kafka.Message, err error, partition int, offset int64) error {
+	headers := make([]kafka.Header, 0, len(msg.Headers)+5)
+	headers = append(headers, msg.Headers...)
+	headers = append(headers,
+		kafka.Header{Key: "x-original-topic", Value: []byte(msg.Topic)},
+		kafka.Header{Key: "x-original-partition", Value: []byte(fmt.Sprintf("%d", partition))},
+		kafka.Header{Key: "x-original-offset", Value: []byte(fmt.Sprintf("%d", offset))},
+		kafka.Header{Key: "x-error-message", Value: []byte(err.Error())},
+		kafka.Header{Key: "x-error-type", Value: []byte(fmt.Sprintf("%T", err))},
+		kafka.Header{Key: "x-failed-at", Value: []byte(time.Now().Format(time.RFC3339))},
+	)
+
+	return k.writer.WriteMessages(ctx, kafka.Message{
+		Key:     msg.Key,
+		Value:   msg.Value,
+		Headers: headers,
+	})
+}
+
+type MessageHandler func(ctx context.Context, payload interface{}) error
+
+func (k *KafkaDeadLetterHandler) ConsumeWithDLQ(ctx context.Context, topic string, brokers []string, groupID string, handler MessageHandler) error {
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:  brokers,
+		Topic:    topic,
+		GroupID:  groupID,
+		MinBytes: 10e3, // 10KB
+		MaxBytes: 10e6, // 10MB
+	})
+	defer reader.Close()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			msg, err := reader.FetchMessage(ctx)
+			if err != nil {
+				return fmt.Errorf("fetching message: %w", err)
+			}
+
+			var payload interface{}
+			if err := json.Unmarshal(msg.Value, &payload); err != nil {
+				k.SendToDLQ(ctx, msg, err, msg.Partition, msg.Offset)
+				reader.CommitMessages(ctx, msg)
+				continue
+			}
+
+			if err := handler(ctx, payload); err != nil {
+				k.SendToDLQ(ctx, msg, err, msg.Partition, msg.Offset)
+			}
+
+			reader.CommitMessages(ctx, msg)
+		}
+	}
+}
+
+func (k *KafkaDeadLetterHandler) Close() error {
+	return k.writer.Close()
 }
 ```
 
@@ -298,89 +501,146 @@ class KafkaDeadLetterHandler {
 
 ## DLQ Consumer et Remediation
 
-```typescript
-class DLQRemediator {
-  constructor(
-    private dlqConsumer: MessageQueue,
-    private originalQueues: Map<string, MessageQueue>,
-    private archiveStore: ArchiveStore
-  ) {}
+```go
+package messaging
 
-  async processDeadLetters(): Promise<void> {
-    await this.dlqConsumer.subscribe(async (dlMessage: DeadLetterMessage) => {
-      const action = await this.determineAction(dlMessage);
+import (
+	"context"
+	"fmt"
+	"time"
+)
 
-      switch (action) {
-        case 'retry':
-          await this.retryMessage(dlMessage);
-          break;
-        case 'fix_and_retry':
-          const fixed = await this.fixMessage(dlMessage);
-          await this.retryMessage({ ...dlMessage, originalMessage: fixed });
-          break;
-        case 'archive':
-          await this.archiveMessage(dlMessage);
-          break;
-        case 'discard':
-          // Log et supprimer
-          console.log('Discarding message:', dlMessage.id);
-          break;
-      }
-    });
-  }
+type RemediationAction string
 
-  private async determineAction(dlMessage: DeadLetterMessage): Promise<string> {
-    // Regles de remediation basees sur l'erreur
-    const errorType = dlMessage.error.name;
+const (
+	ActionRetry      RemediationAction = "retry"
+	ActionFixAndRetry RemediationAction = "fix_and_retry"
+	ActionArchive    RemediationAction = "archive"
+	ActionDiscard    RemediationAction = "discard"
+)
 
-    if (errorType === 'TransientError' || errorType === 'TimeoutError') {
-      return 'retry';
-    }
-    if (errorType === 'ValidationError') {
-      return 'fix_and_retry';
-    }
-    if (errorType === 'PermanentError') {
-      return 'archive';
-    }
-    if (dlMessage.attempts > 10) {
-      return 'archive';
-    }
+type ArchiveStore interface {
+	Store(ctx context.Context, message interface{}) error
+}
 
-    return 'retry';
-  }
+type DLQRemediator struct {
+	dlqConsumer    <-chan DeadLetterMessage
+	originalQueues map[string]MessageQueue
+	archiveStore   ArchiveStore
+}
 
-  private async retryMessage(dlMessage: DeadLetterMessage): Promise<void> {
-    const originalQueue = this.originalQueues.get(dlMessage.originalQueue);
-    if (!originalQueue) {
-      throw new Error(`Unknown queue: ${dlMessage.originalQueue}`);
-    }
+func NewDLQRemediator(dlqConsumer <-chan DeadLetterMessage, originalQueues map[string]MessageQueue, archiveStore ArchiveStore) *DLQRemediator {
+	return &DLQRemediator{
+		dlqConsumer:    dlqConsumer,
+		originalQueues: originalQueues,
+		archiveStore:   archiveStore,
+	}
+}
 
-    await originalQueue.send(dlMessage.originalMessage, {
-      'x-retry-from-dlq': 'true',
-      'x-original-failure': dlMessage.error.message,
-    });
-  }
+func (d *DLQRemediator) ProcessDeadLetters(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case dlMessage := <-d.dlqConsumer:
+			if err := d.processMessage(ctx, dlMessage); err != nil {
+				fmt.Printf("Error processing DLQ message: %v\n", err)
+			}
+		}
+	}
+}
 
-  private async fixMessage(dlMessage: DeadLetterMessage): Promise<unknown> {
-    const message = dlMessage.originalMessage as Record<string, unknown>;
+func (d *DLQRemediator) processMessage(ctx context.Context, dlMessage DeadLetterMessage) error {
+	action := d.determineAction(dlMessage)
 
-    // Exemples de corrections automatiques
-    if (dlMessage.error.message.includes('missing field')) {
-      return { ...message, missingField: 'default_value' };
-    }
-    if (dlMessage.error.message.includes('invalid date')) {
-      return { ...message, date: new Date().toISOString() };
-    }
+	switch action {
+	case ActionRetry:
+		return d.retryMessage(ctx, dlMessage)
+	case ActionFixAndRetry:
+		fixed := d.fixMessage(dlMessage)
+		dlMessage.OriginalMessage = fixed
+		return d.retryMessage(ctx, dlMessage)
+	case ActionArchive:
+		return d.archiveMessage(ctx, dlMessage)
+	case ActionDiscard:
+		fmt.Printf("Discarding message: %s\n", dlMessage.ID)
+		return nil
+	default:
+		return fmt.Errorf("unknown action: %s", action)
+	}
+}
 
-    return message;
-  }
+func (d *DLQRemediator) determineAction(dlMessage DeadLetterMessage) RemediationAction {
+	errorType := dlMessage.Error.Name
 
-  private async archiveMessage(dlMessage: DeadLetterMessage): Promise<void> {
-    await this.archiveStore.store({
-      ...dlMessage,
-      archivedAt: new Date(),
-    });
-  }
+	if errorType == "TransientError" || errorType == "TimeoutError" {
+		return ActionRetry
+	}
+	if errorType == "ValidationError" {
+		return ActionFixAndRetry
+	}
+	if errorType == "PermanentError" {
+		return ActionArchive
+	}
+	if dlMessage.Attempts > 10 {
+		return ActionArchive
+	}
+
+	return ActionRetry
+}
+
+func (d *DLQRemediator) retryMessage(ctx context.Context, dlMessage DeadLetterMessage) error {
+	queue, ok := d.originalQueues[dlMessage.OriginalQueue]
+	if !ok {
+		return fmt.Errorf("unknown queue: %s", dlMessage.OriginalQueue)
+	}
+
+	headers := map[string]string{
+		"x-retry-from-dlq":     "true",
+		"x-original-failure":   dlMessage.Error.Message,
+	}
+
+	type messageWithHeaders struct {
+		Message interface{}
+		Headers map[string]string
+	}
+
+	return queue.Send(ctx, dlMessage.OriginalQueue, messageWithHeaders{
+		Message: dlMessage.OriginalMessage,
+		Headers: headers,
+	})
+}
+
+func (d *DLQRemediator) fixMessage(dlMessage DeadLetterMessage) interface{} {
+	message, ok := dlMessage.OriginalMessage.(map[string]interface{})
+	if !ok {
+		return dlMessage.OriginalMessage
+	}
+
+	// Exemples de corrections automatiques
+	if contains(dlMessage.Error.Message, "missing field") {
+		message["missingField"] = "default_value"
+	}
+	if contains(dlMessage.Error.Message, "invalid date") {
+		message["date"] = time.Now().Format(time.RFC3339)
+	}
+
+	return message
+}
+
+func (d *DLQRemediator) archiveMessage(ctx context.Context, dlMessage DeadLetterMessage) error {
+	archiveData := struct {
+		DeadLetterMessage
+		ArchivedAt time.Time
+	}{
+		DeadLetterMessage: dlMessage,
+		ArchivedAt:        time.Now(),
+	}
+	return d.archiveStore.Store(ctx, archiveData)
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && s[:len(substr)] == substr
 }
 ```
 
@@ -388,42 +648,110 @@ class DLQRemediator {
 
 ## Monitoring et Alerting
 
-```typescript
-class DLQMonitor {
-  async checkHealth(): Promise<DLQHealth> {
-    const queueSize = await this.queue.getMessageCount('dead-letter-queue');
-    const oldestMessage = await this.getOldestMessageAge();
-    const errorBreakdown = await this.getErrorBreakdown();
+```go
+package messaging
 
-    const health: DLQHealth = {
-      queueSize,
-      oldestMessageAgeMinutes: oldestMessage,
-      errorTypes: errorBreakdown,
-      status: this.determineStatus(queueSize, oldestMessage),
-    };
+import (
+	"context"
+	"time"
+)
 
-    if (health.status === 'critical') {
-      await this.alertService.critical('DLQ Critical', health);
-    } else if (health.status === 'warning') {
-      await this.alertService.warning('DLQ Warning', health);
-    }
+type DLQHealth struct {
+	QueueSize               int
+	OldestMessageAgeMinutes int
+	ErrorTypes              map[string]int
+	Status                  string
+}
 
-    return health;
-  }
+type DLQMonitor struct {
+	queue         MessageQueue
+	alertService  AlertService
+}
 
-  private determineStatus(size: number, ageMinutes: number): string {
-    if (size > 1000 || ageMinutes > 60) return 'critical';
-    if (size > 100 || ageMinutes > 30) return 'warning';
-    return 'healthy';
-  }
+func NewDLQMonitor(queue MessageQueue, alertService AlertService) *DLQMonitor {
+	return &DLQMonitor{
+		queue:        queue,
+		alertService: alertService,
+	}
+}
+
+func (m *DLQMonitor) CheckHealth(ctx context.Context) (*DLQHealth, error) {
+	queueSize, err := m.getQueueSize(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting queue size: %w", err)
+	}
+
+	oldestMessageAge, err := m.getOldestMessageAge(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting oldest message age: %w", err)
+	}
+
+	errorBreakdown, err := m.getErrorBreakdown(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting error breakdown: %w", err)
+	}
+
+	health := &DLQHealth{
+		QueueSize:               queueSize,
+		OldestMessageAgeMinutes: oldestMessageAge,
+		ErrorTypes:              errorBreakdown,
+		Status:                  m.determineStatus(queueSize, oldestMessageAge),
+	}
+
+	if health.Status == "critical" {
+		if err := m.alertService.Critical(ctx, "DLQ Critical", map[string]interface{}{
+			"queueSize":               health.QueueSize,
+			"oldestMessageAgeMinutes": health.OldestMessageAgeMinutes,
+			"errorTypes":              health.ErrorTypes,
+		}); err != nil {
+			return health, fmt.Errorf("sending critical alert: %w", err)
+		}
+	} else if health.Status == "warning" {
+		// Send warning alert (implementation omitted for brevity)
+	}
+
+	return health, nil
+}
+
+func (m *DLQMonitor) determineStatus(size, ageMinutes int) string {
+	if size > 1000 || ageMinutes > 60 {
+		return "critical"
+	}
+	if size > 100 || ageMinutes > 30 {
+		return "warning"
+	}
+	return "healthy"
+}
+
+func (m *DLQMonitor) getQueueSize(ctx context.Context) (int, error) {
+	// Implementation depends on message broker
+	return 0, nil
+}
+
+func (m *DLQMonitor) getOldestMessageAge(ctx context.Context) (int, error) {
+	// Implementation depends on message broker
+	return 0, nil
+}
+
+func (m *DLQMonitor) getErrorBreakdown(ctx context.Context) (map[string]int, error) {
+	// Implementation depends on message broker
+	return make(map[string]int), nil
 }
 ```
 
 ---
 
-## Patterns complementaires
+## Quand utiliser
 
-- **Retry Pattern** - Avant DLQ
-- **Circuit Breaker** - Prevenir surcharge
-- **Idempotent Receiver** - Retry safe
-- **Process Manager** - Orchestrer remediation
+- Messages non traitables après plusieurs tentatives
+- Erreurs permanentes (données invalides, ressources manquantes)
+- Besoin de conserver les messages échoués pour analyse
+- Système de remediation ou replay requis
+- Audit trail des échecs de traitement
+
+## Patterns liés
+
+- [Retry Pattern](../resilience/retry.md) - Avant DLQ
+- [Circuit Breaker](../cloud/circuit-breaker.md) - Prévenir surcharge
+- [Idempotent Receiver](./idempotent-receiver.md) - Retry safe
+- [Process Manager](./process-manager.md) - Orchestrer remediation

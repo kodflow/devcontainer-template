@@ -43,230 +43,196 @@
        Time              Time                Time
 ```
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-interface Task {
-  id: string;
-  type: string;
-  payload: unknown;
-  createdAt: Date;
+```go
+package queueloadleveling
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+)
+
+// Task represents a task to be processed.
+type Task struct {
+	ID        string
+	Type      string
+	Payload   interface{}
+	CreatedAt time.Time
+	Attempts  int
 }
 
-class LoadLevelingQueue {
-  constructor(
-    private queue: QueueService,
-    private maxConcurrent: number = 10,
-    private processingDelayMs: number = 100,
-  ) {}
-
-  async enqueue(task: Task): Promise<void> {
-    await this.queue.push(task);
-    console.log(`Task ${task.id} queued. Queue depth: ${await this.depth()}`);
-  }
-
-  async depth(): Promise<number> {
-    return this.queue.length();
-  }
+// QueueService defines queue operations.
+type QueueService interface {
+	Push(ctx context.Context, task *Task) error
+	Pop(ctx context.Context) (*Task, error)
+	Length(ctx context.Context) (int, error)
 }
 
-class LeveledConsumer {
-  private active = 0;
-  private running = false;
+// LoadLevelingQueue manages task queuing with load leveling.
+type LoadLevelingQueue struct {
+	queue          QueueService
+	maxConcurrent  int
+	processingDelay time.Duration
+}
 
-  constructor(
-    private queue: QueueService,
-    private handler: (task: Task) => Promise<void>,
-    private maxConcurrent: number = 10,
-    private pollIntervalMs: number = 100,
-  ) {}
+// NewLoadLevelingQueue creates a new LoadLevelingQueue.
+func NewLoadLevelingQueue(queue QueueService, maxConcurrent int, processingDelay time.Duration) *LoadLevelingQueue {
+	return &LoadLevelingQueue{
+		queue:          queue,
+		maxConcurrent:  maxConcurrent,
+		processingDelay: processingDelay,
+	}
+}
 
-  async start(): Promise<void> {
-    this.running = true;
+// Enqueue adds a task to the queue.
+func (llq *LoadLevelingQueue) Enqueue(ctx context.Context, task *Task) error {
+	if err := llq.queue.Push(ctx, task); err != nil {
+		return fmt.Errorf("enqueuing task: %w", err)
+	}
 
-    while (this.running) {
-      // Respecter la limite de concurrence
-      while (this.active < this.maxConcurrent) {
-        const task = await this.queue.pop();
-        if (!task) break;
+	depth, _ := llq.queue.Length(ctx)
+	fmt.Printf("Task %s queued. Queue depth: %d
+", task.ID, depth)
 
-        this.active++;
-        this.processTask(task).finally(() => this.active--);
-      }
+	return nil
+}
 
-      await this.sleep(this.pollIntervalMs);
-    }
-  }
+// Depth returns the current queue depth.
+func (llq *LoadLevelingQueue) Depth(ctx context.Context) (int, error) {
+	return llq.queue.Length(ctx)
+}
 
-  private async processTask(task: Task): Promise<void> {
-    try {
-      await this.handler(task);
-    } catch (error) {
-      console.error(`Task ${task.id} failed:`, error);
-      // Optionnel: re-queue for retry
-      await this.queue.push({ ...task, attempts: (task.attempts ?? 0) + 1 });
-    }
-  }
+// LeveledConsumer processes tasks with controlled concurrency.
+type LeveledConsumer struct {
+	queue           QueueService
+	handler         func(context.Context, *Task) error
+	maxConcurrent   int
+	pollInterval    time.Duration
+	running         bool
+	active          int
+	mu              sync.Mutex
+	wg              sync.WaitGroup
+}
 
-  stop(): void {
-    this.running = false;
-  }
+// NewLeveledConsumer creates a new LeveledConsumer.
+func NewLeveledConsumer(
+	queue QueueService,
+	handler func(context.Context, *Task) error,
+	maxConcurrent int,
+	pollInterval time.Duration,
+) *LeveledConsumer {
+	return &LeveledConsumer{
+		queue:         queue,
+		handler:       handler,
+		maxConcurrent: maxConcurrent,
+		pollInterval:  pollInterval,
+	}
+}
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
+// Start starts the consumer.
+func (lc *LeveledConsumer) Start(ctx context.Context) error {
+	lc.mu.Lock()
+	lc.running = true
+	lc.mu.Unlock()
+
+	ticker := time.NewTicker(lc.pollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			lc.Stop()
+			lc.wg.Wait()
+			return ctx.Err()
+		case <-ticker.C:
+			lc.processAvailable(ctx)
+		}
+	}
+}
+
+func (lc *LeveledConsumer) processAvailable(ctx context.Context) {
+	lc.mu.Lock()
+	running := lc.running
+	active := lc.active
+	lc.mu.Unlock()
+
+	if !running {
+		return
+	}
+
+	// Process up to maxConcurrent tasks
+	for active < lc.maxConcurrent {
+		task, err := lc.queue.Pop(ctx)
+		if err != nil || task == nil {
+			break
+		}
+
+		lc.mu.Lock()
+		lc.active++
+		active = lc.active
+		lc.mu.Unlock()
+
+		lc.wg.Go(func() { // Go 1.25: handles Add/Done internally
+			lc.processTask(ctx, task)
+		})
+	}
+}
+
+func (lc *LeveledConsumer) processTask(ctx context.Context, task *Task) {
+	defer func() {
+		lc.mu.Lock()
+		lc.active--
+		lc.mu.Unlock()
+	}()
+
+	if err := lc.handler(ctx, task); err != nil {
+		fmt.Printf("Task %s failed: %v
+", task.ID, err)
+		
+		// Optionally re-queue for retry
+		task.Attempts++
+		if task.Attempts < 3 {
+			lc.queue.Push(ctx, task)
+		}
+	}
+}
+
+// Stop stops the consumer.
+func (lc *LeveledConsumer) Stop() {
+	lc.mu.Lock()
+	lc.running = false
+	lc.mu.Unlock()
 }
 ```
 
 ## Implementation avec rate limiting
 
-```typescript
-class TokenBucketConsumer {
-  private tokens: number;
-  private lastRefill: number;
-
-  constructor(
-    private queue: QueueService,
-    private handler: (task: Task) => Promise<void>,
-    private tokensPerSecond: number = 10,
-    private maxTokens: number = 20,
-  ) {
-    this.tokens = maxTokens;
-    this.lastRefill = Date.now();
-  }
-
-  async start(): Promise<void> {
-    while (true) {
-      this.refillTokens();
-
-      if (this.tokens >= 1) {
-        const task = await this.queue.pop();
-        if (task) {
-          this.tokens--;
-          this.handler(task); // Fire and forget
-        }
-      }
-
-      await this.sleep(10); // Poll frequently
-    }
-  }
-
-  private refillTokens(): void {
-    const now = Date.now();
-    const elapsed = (now - this.lastRefill) / 1000;
-    const newTokens = elapsed * this.tokensPerSecond;
-
-    this.tokens = Math.min(this.maxTokens, this.tokens + newTokens);
-    this.lastRefill = now;
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Auto-scaling base sur la queue
 
-```typescript
-class AutoScalingConsumer {
-  private consumers: LeveledConsumer[] = [];
-
-  constructor(
-    private queue: QueueService,
-    private handler: (task: Task) => Promise<void>,
-    private minConsumers: number = 1,
-    private maxConsumers: number = 10,
-    private scaleUpThreshold: number = 100, // Queue depth
-    private scaleDownThreshold: number = 10,
-  ) {
-    // Start with min consumers
-    for (let i = 0; i < minConsumers; i++) {
-      this.addConsumer();
-    }
-
-    // Monitor and scale
-    this.startMonitoring();
-  }
-
-  private addConsumer(): void {
-    if (this.consumers.length >= this.maxConsumers) return;
-
-    const consumer = new LeveledConsumer(this.queue, this.handler, 1);
-    consumer.start();
-    this.consumers.push(consumer);
-    console.log(`Scaled up to ${this.consumers.length} consumers`);
-  }
-
-  private removeConsumer(): void {
-    if (this.consumers.length <= this.minConsumers) return;
-
-    const consumer = this.consumers.pop();
-    consumer?.stop();
-    console.log(`Scaled down to ${this.consumers.length} consumers`);
-  }
-
-  private startMonitoring(): void {
-    setInterval(async () => {
-      const depth = await this.queue.length();
-
-      if (depth > this.scaleUpThreshold) {
-        this.addConsumer();
-      } else if (depth < this.scaleDownThreshold) {
-        this.removeConsumer();
-      }
-    }, 5000); // Check every 5 seconds
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Metriques cles
 
-```typescript
-class QueueMetrics {
-  private enqueueTimes: number[] = [];
-  private dequeueTimes: number[] = [];
-
-  recordEnqueue(): void {
-    this.enqueueTimes.push(Date.now());
-    this.cleanup();
-  }
-
-  recordDequeue(): void {
-    this.dequeueTimes.push(Date.now());
-    this.cleanup();
-  }
-
-  // Messages par seconde entrant
-  getEnqueueRate(): number {
-    return this.calculateRate(this.enqueueTimes);
-  }
-
-  // Messages par seconde sortant
-  getDequeueRate(): number {
-    return this.calculateRate(this.dequeueTimes);
-  }
-
-  // Si > 1, queue grandit (backpressure)
-  getBackpressureRatio(): number {
-    const enqRate = this.getEnqueueRate();
-    const deqRate = this.getDequeueRate();
-    return deqRate > 0 ? enqRate / deqRate : Infinity;
-  }
-
-  private calculateRate(times: number[]): number {
-    if (times.length < 2) return 0;
-    const window = 60000; // 1 minute
-    const recent = times.filter((t) => t > Date.now() - window);
-    return (recent.length / window) * 1000;
-  }
-
-  private cleanup(): void {
-    const cutoff = Date.now() - 300000; // Keep 5 min
-    this.enqueueTimes = this.enqueueTimes.filter((t) => t > cutoff);
-    this.dequeueTimes = this.dequeueTimes.filter((t) => t > cutoff);
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Services cloud

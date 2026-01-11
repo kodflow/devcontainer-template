@@ -1,5 +1,7 @@
 # Either / Result Pattern
 
+> Type représentant une valeur de succès (Right) ou une valeur d'erreur (Left), fournissant une gestion des erreurs type-safe sans exceptions.
+
 ## Definition
 
 **Either** (also known as Result) is a type that represents one of two possible values: a success value (Right) or an error value (Left). It provides type-safe error handling without exceptions.
@@ -19,322 +21,442 @@ Result<T, E> = Ok<T> | Err<E>
 
 ## TypeScript Implementation
 
-```typescript
-// Result type (Either with different naming)
-type Result<T, E> = Ok<T, E> | Err<T, E>;
+```go
+package either
 
-class Ok<T, E> {
-  readonly _tag = 'Ok';
-  constructor(readonly value: T) {}
-
-  isOk(): this is Ok<T, E> { return true; }
-  isErr(): this is Err<T, E> { return false; }
-
-  map<U>(f: (value: T) => U): Result<U, E> {
-    return new Ok(f(this.value));
-  }
-
-  mapErr<F>(_f: (error: E) => F): Result<T, F> {
-    return new Ok(this.value);
-  }
-
-  flatMap<U>(f: (value: T) => Result<U, E>): Result<U, E> {
-    return f(this.value);
-  }
-
-  unwrap(): T {
-    return this.value;
-  }
-
-  unwrapOr(_defaultValue: T): T {
-    return this.value;
-  }
-
-  match<U>(handlers: { ok: (value: T) => U; err: (error: E) => U }): U {
-    return handlers.ok(this.value);
-  }
+// Result represents either a success value T or an error E
+type Result[T, E any] interface {
+	IsOk() bool
+	IsErr() bool
+	Unwrap() T
+	UnwrapOr(defaultValue T) T
+	UnwrapErr() E
+	Map(f func(T) T) Result[T, E]
+	MapErr(f func(E) E) Result[T, E]
+	FlatMap(f func(T) Result[T, E]) Result[T, E]
 }
 
-class Err<T, E> {
-  readonly _tag = 'Err';
-  constructor(readonly error: E) {}
-
-  isOk(): this is Ok<T, E> { return false; }
-  isErr(): this is Err<T, E> { return true; }
-
-  map<U>(_f: (value: T) => U): Result<U, E> {
-    return new Err(this.error);
-  }
-
-  mapErr<F>(f: (error: E) => F): Result<T, F> {
-    return new Err(f(this.error));
-  }
-
-  flatMap<U>(_f: (value: T) => Result<U, E>): Result<U, E> {
-    return new Err(this.error);
-  }
-
-  unwrap(): never {
-    throw new Error(`Called unwrap on Err: ${this.error}`);
-  }
-
-  unwrapOr(defaultValue: T): T {
-    return defaultValue;
-  }
-
-  match<U>(handlers: { ok: (value: T) => U; err: (error: E) => U }): U {
-    return handlers.err(this.error);
-  }
+// Ok represents a successful result
+type Ok[T, E any] struct {
+	value T
 }
 
-// Helper functions
-const ok = <T, E = never>(value: T): Result<T, E> => new Ok(value);
-const err = <T = never, E = unknown>(error: E): Result<T, E> => new Err(error);
+func (o Ok[T, E]) IsOk() bool                              { return true }
+func (o Ok[T, E]) IsErr() bool                             { return false }
+func (o Ok[T, E]) Unwrap() T                               { return o.value }
+func (o Ok[T, E]) UnwrapOr(_ T) T                          { return o.value }
+func (o Ok[T, E]) UnwrapErr() E                            { var zero E; return zero }
+func (o Ok[T, E]) Map(f func(T) T) Result[T, E]            { return NewOk[T, E](f(o.value)) }
+func (o Ok[T, E]) MapErr(_ func(E) E) Result[T, E]         { return o }
+func (o Ok[T, E]) FlatMap(f func(T) Result[T, E]) Result[T, E] { return f(o.value) }
 
-// Combine multiple Results
-function combine<T extends readonly Result<unknown, unknown>[]>(
-  results: T
-): Result<
-  { [K in keyof T]: T[K] extends Result<infer U, unknown> ? U : never },
-  T[number] extends Result<unknown, infer E> ? E : never
-> {
-  const values: unknown[] = [];
+// Err represents a failed result
+type Err[T, E any] struct {
+	error E
+}
 
-  for (const result of results) {
-    if (result.isErr()) {
-      return result as any;
-    }
-    values.push(result.value);
-  }
+func (e Err[T, E]) IsOk() bool                       { return false }
+func (e Err[T, E]) IsErr() bool                      { return true }
+func (e Err[T, E]) Unwrap() T                        { panic("called Unwrap on Err") }
+func (e Err[T, E]) UnwrapOr(defaultValue T) T        { return defaultValue }
+func (e Err[T, E]) UnwrapErr() E                     { return e.error }
+func (e Err[T, E]) Map(_ func(T) T) Result[T, E]     { return e }
+func (e Err[T, E]) MapErr(f func(E) E) Result[T, E]  { return NewErr[T, E](f(e.error)) }
+func (e Err[T, E]) FlatMap(_ func(T) Result[T, E]) Result[T, E] { return e }
 
-  return ok(values as any);
+// NewOk creates a successful Result
+func NewOk[T, E any](value T) Result[T, E] {
+	return Ok[T, E]{value: value}
+}
+
+// NewErr creates a failed Result
+func NewErr[T, E any](err E) Result[T, E] {
+	return Err[T, E]{error: err}
+}
+
+// Combine combines multiple Results into one
+func Combine[T any, E any](results []Result[T, E]) Result[[]T, E] {
+	values := make([]T, 0, len(results))
+	
+	for _, result := range results {
+		if result.IsErr() {
+			return NewErr[[]T, E](result.UnwrapErr())
+		}
+		values = append(values, result.Unwrap())
+	}
+	
+	return NewOk[[]T, E](values)
 }
 ```
 
 ## Domain Usage Examples
 
-```typescript
+```go
+package main
+
+import "fmt"
+
 // Error types
-class ValidationError {
-  constructor(readonly field: string, readonly message: string) {}
+type ValidationError struct {
+	Field   string
+	Message string
 }
 
-class NotFoundError {
-  constructor(readonly resource: string, readonly id: string) {}
+func (e ValidationError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Field, e.Message)
 }
 
-class AuthorizationError {
-  constructor(readonly action: string) {}
+type NotFoundError struct {
+	Resource string
+	ID       string
 }
 
-type DomainError = ValidationError | NotFoundError | AuthorizationError;
+func (e NotFoundError) Error() string {
+	return fmt.Sprintf("%s not found: %s", e.Resource, e.ID)
+}
+
+type AuthorizationError struct {
+	Action string
+}
+
+func (e AuthorizationError) Error() string {
+	return fmt.Sprintf("not authorized: %s", e.Action)
+}
+
+// DomainError is a union type
+type DomainError interface {
+	error
+	isDomainError()
+}
+
+func (ValidationError) isDomainError()    {}
+func (NotFoundError) isDomainError()      {}
+func (AuthorizationError) isDomainError() {}
+
+// Value objects
+type Email struct{ value string }
+type Password struct{ value string }
+type Age struct{ value int }
+type User struct {
+	email    Email
+	password Password
+	age      Age
+}
 
 // Validation functions
-const validateEmail = (email: string): Result<Email, ValidationError> => {
-  if (!email.includes('@')) {
-    return err(new ValidationError('email', 'Invalid email format'));
-  }
-  return ok(new Email(email));
-};
+func validateEmail(email string) Result[Email, ValidationError] {
+	if !strings.Contains(email, "@") {
+		return NewErr[Email, ValidationError](ValidationError{
+			Field:   "email",
+			Message: "Invalid email format",
+		})
+	}
+	return NewOk[Email, ValidationError](Email{value: email})
+}
 
-const validatePassword = (password: string): Result<Password, ValidationError> => {
-  if (password.length < 8) {
-    return err(new ValidationError('password', 'Password too short'));
-  }
-  if (!/[A-Z]/.test(password)) {
-    return err(new ValidationError('password', 'Must contain uppercase'));
-  }
-  return ok(new Password(password));
-};
+func validatePassword(password string) Result[Password, ValidationError] {
+	if len(password) < 8 {
+		return NewErr[Password, ValidationError](ValidationError{
+			Field:   "password",
+			Message: "Password too short",
+		})
+	}
+	if !regexp.MustCompile(`[A-Z]`).MatchString(password) {
+		return NewErr[Password, ValidationError](ValidationError{
+			Field:   "password",
+			Message: "Must contain uppercase",
+		})
+	}
+	return NewOk[Password, ValidationError](Password{value: password})
+}
 
-const validateAge = (age: number): Result<Age, ValidationError> => {
-  if (age < 0 || age > 150) {
-    return err(new ValidationError('age', 'Invalid age'));
-  }
-  return ok(new Age(age));
-};
+func validateAge(age int) Result[Age, ValidationError] {
+	if age < 0 || age > 150 {
+		return NewErr[Age, ValidationError](ValidationError{
+			Field:   "age",
+			Message: "Invalid age",
+		})
+	}
+	return NewOk[Age, ValidationError](Age{value: age})
+}
 
 // Compose validations
-const createUser = (
-  email: string,
-  password: string,
-  age: number
-): Result<User, ValidationError> => {
-  return validateEmail(email).flatMap(validEmail =>
-    validatePassword(password).flatMap(validPassword =>
-      validateAge(age).map(validAge =>
-        new User(validEmail, validPassword, validAge)
-      )
-    )
-  );
-};
+func createUser(email, password string, age int) Result[User, ValidationError] {
+	emailResult := validateEmail(email)
+	if emailResult.IsErr() {
+		return NewErr[User, ValidationError](emailResult.UnwrapErr())
+	}
+	
+	passwordResult := validatePassword(password)
+	if passwordResult.IsErr() {
+		return NewErr[User, ValidationError](passwordResult.UnwrapErr())
+	}
+	
+	ageResult := validateAge(age)
+	if ageResult.IsErr() {
+		return NewErr[User, ValidationError](ageResult.UnwrapErr())
+	}
+	
+	return NewOk[User, ValidationError](User{
+		email:    emailResult.Unwrap(),
+		password: passwordResult.Unwrap(),
+		age:      ageResult.Unwrap(),
+	})
+}
 
 // Alternative: Collect all errors
-const createUserValidated = (
-  email: string,
-  password: string,
-  age: number
-): Result<User, ValidationError[]> => {
-  const emailResult = validateEmail(email);
-  const passwordResult = validatePassword(password);
-  const ageResult = validateAge(age);
-
-  const errors: ValidationError[] = [];
-
-  if (emailResult.isErr()) errors.push(emailResult.error);
-  if (passwordResult.isErr()) errors.push(passwordResult.error);
-  if (ageResult.isErr()) errors.push(ageResult.error);
-
-  if (errors.length > 0) {
-    return err(errors);
-  }
-
-  return ok(new User(
-    emailResult.unwrap(),
-    passwordResult.unwrap(),
-    ageResult.unwrap()
-  ));
-};
+func createUserValidated(email, password string, age int) Result[User, []ValidationError] {
+	emailResult := validateEmail(email)
+	passwordResult := validatePassword(password)
+	ageResult := validateAge(age)
+	
+	errors := []ValidationError{}
+	
+	if emailResult.IsErr() {
+		errors = append(errors, emailResult.UnwrapErr())
+	}
+	if passwordResult.IsErr() {
+		errors = append(errors, passwordResult.UnwrapErr())
+	}
+	if ageResult.IsErr() {
+		errors = append(errors, ageResult.UnwrapErr())
+	}
+	
+	if len(errors) > 0 {
+		return NewErr[User, []ValidationError](errors)
+	}
+	
+	return NewOk[User, []ValidationError](User{
+		email:    emailResult.Unwrap(),
+		password: passwordResult.Unwrap(),
+		age:      ageResult.Unwrap(),
+	})
+}
 
 // Service layer usage
-class UserService {
-  async findById(id: UserId): Promise<Result<User, NotFoundError>> {
-    const user = await this.repository.findById(id);
-    if (!user) {
-      return err(new NotFoundError('User', id.value));
-    }
-    return ok(user);
-  }
+type UserID struct{ value string }
 
-  async updateEmail(
-    userId: UserId,
-    newEmail: string
-  ): Promise<Result<User, DomainError>> {
-    // Chain multiple operations
-    return (await this.findById(userId))
-      .flatMap(user => {
-        if (!user.canUpdateEmail) {
-          return err(new AuthorizationError('update email'));
-        }
-        return ok(user);
-      })
-      .flatMap(user =>
-        validateEmail(newEmail).map(email => {
-          user.email = email;
-          return user;
-        })
-      );
-  }
+type UserRepository interface {
+	FindByID(id UserID) (*User, error)
+	Save(user *User) error
+}
+
+type UserService struct {
+	repository UserRepository
+}
+
+func (s *UserService) FindByID(id UserID) Result[*User, NotFoundError] {
+	user, err := s.repository.FindByID(id)
+	if err != nil {
+		return NewErr[*User, NotFoundError](NotFoundError{
+			Resource: "User",
+			ID:       id.value,
+		})
+	}
+	return NewOk[*User, NotFoundError](user)
+}
+
+func (s *UserService) UpdateEmail(
+	userID UserID,
+	newEmail string,
+) Result[*User, DomainError] {
+	// Chain multiple operations
+	userResult := s.FindByID(userID)
+	if userResult.IsErr() {
+		return NewErr[*User, DomainError](userResult.UnwrapErr())
+	}
+	
+	user := userResult.Unwrap()
+	
+	if !user.canUpdateEmail {
+		return NewErr[*User, DomainError](AuthorizationError{
+			Action: "update email",
+		})
+	}
+	
+	emailResult := validateEmail(newEmail)
+	if emailResult.IsErr() {
+		return NewErr[*User, DomainError](emailResult.UnwrapErr())
+	}
+	
+	user.email = emailResult.Unwrap()
+	return NewOk[*User, DomainError](user)
 }
 ```
 
 ## Using fp-ts
 
-```typescript
-import { pipe } from 'fp-ts/function';
-import * as E from 'fp-ts/Either';
-import * as TE from 'fp-ts/TaskEither';
-import * as A from 'fp-ts/Apply';
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+)
 
 // Basic Either
-const parseNumber = (s: string): E.Either<string, number> => {
-  const n = parseInt(s, 10);
-  return isNaN(n) ? E.left('Not a number') : E.right(n);
-};
+func parseNumber(s string) Result[int, string] {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return NewErr[int, string]("Not a number")
+	}
+	return NewOk[int, string](n)
+}
 
-const divide = (a: number, b: number): E.Either<string, number> =>
-  b === 0 ? E.left('Division by zero') : E.right(a / b);
+func divide(a, b int) Result[int, string] {
+	if b == 0 {
+		return NewErr[int, string]("Division by zero")
+	}
+	return NewOk[int, string](a / b)
+}
 
 // Chaining
-const calculate = (a: string, b: string): E.Either<string, number> =>
-  pipe(
-    parseNumber(a),
-    E.flatMap(numA =>
-      pipe(
-        parseNumber(b),
-        E.flatMap(numB => divide(numA, numB))
-      )
-    )
-  );
+func calculate(a, b string) Result[int, string] {
+	numAResult := parseNumber(a)
+	if numAResult.IsErr() {
+		return NewErr[int, string](numAResult.UnwrapErr())
+	}
+	
+	numBResult := parseNumber(b)
+	if numBResult.IsErr() {
+		return NewErr[int, string](numBResult.UnwrapErr())
+	}
+	
+	return divide(numAResult.Unwrap(), numBResult.Unwrap())
+}
 
 // Parallel validation (collect all errors)
-const validateUserParallel = (email: string, password: string) =>
-  pipe(
-    E.Do,
-    E.apS('email', validateEmail(email)),
-    E.apS('password', validatePassword(password)),
-    E.map(({ email, password }) => new User(email, password))
-  );
+func validateUserParallel(email, password string) Result[User, []ValidationError] {
+	return createUserValidated(email, password, 0)
+}
 
-// TaskEither for async operations
-const fetchUser = (id: string): TE.TaskEither<Error, User> =>
-  TE.tryCatch(
-    () => fetch(`/api/users/${id}`).then(r => r.json()),
-    (error) => new Error(String(error))
-  );
+// TaskEither for async operations (simplified)
+type TaskResult[T, E any] func() Result[T, E]
 
-const updateUser = (user: User): TE.TaskEither<Error, User> =>
-  TE.tryCatch(
-    () => fetch(`/api/users/${user.id}`, {
-      method: 'PUT',
-      body: JSON.stringify(user)
-    }).then(r => r.json()),
-    (error) => new Error(String(error))
-  );
+func fetchUser(id string) TaskResult[User, error] {
+	return func() Result[User, error] {
+		// Simulate HTTP call
+		// resp, err := http.Get(fmt.Sprintf("/api/users/%s", id))
+		// if err != nil { return NewErr[User, error](err) }
+		return NewOk[User, error](User{})
+	}
+}
+
+func updateUserHTTP(user User) TaskResult[User, error] {
+	return func() Result[User, error] {
+		// Simulate HTTP PUT
+		return NewOk[User, error](user)
+	}
+}
 
 // Chain async operations
-const fetchAndUpdate = (id: string, email: string): TE.TaskEither<Error, User> =>
-  pipe(
-    fetchUser(id),
-    TE.map(user => ({ ...user, email })),
-    TE.flatMap(updateUser)
-  );
+func fetchAndUpdate(id, email string) TaskResult[User, error] {
+	return func() Result[User, error] {
+		userResult := fetchUser(id)()
+		if userResult.IsErr() {
+			return NewErr[User, error](userResult.UnwrapErr())
+		}
+		
+		user := userResult.Unwrap()
+		user.email = Email{value: email}
+		
+		return updateUserHTTP(user)()
+	}
+}
 ```
 
 ## Using Effect
 
-```typescript
-import { Effect, pipe } from 'effect';
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+)
 
 // Define error types
-class ParseError {
-  readonly _tag = 'ParseError';
-  constructor(readonly input: string) {}
+type ParseError struct {
+	input string
 }
 
-class DivisionError {
-  readonly _tag = 'DivisionError';
+func (e ParseError) Error() string {
+	return fmt.Sprintf("parse error: %s", e.input)
+}
+
+type DivisionError struct{}
+
+func (e DivisionError) Error() string {
+	return "division by zero"
+}
+
+// Effect type that can fail
+type Effect[T any] struct {
+	run func(context.Context) (T, error)
 }
 
 // Functions return Effect with typed errors
-const parseNumber = (s: string): Effect.Effect<number, ParseError> => {
-  const n = parseInt(s, 10);
-  return isNaN(n)
-    ? Effect.fail(new ParseError(s))
-    : Effect.succeed(n);
-};
+func parseNumberEffect(s string) Effect[int] {
+	return Effect[int]{
+		run: func(ctx context.Context) (int, error) {
+			n, err := strconv.Atoi(s)
+			if err != nil {
+				return 0, ParseError{input: s}
+			}
+			return n, nil
+		},
+	}
+}
 
-const divide = (a: number, b: number): Effect.Effect<number, DivisionError> =>
-  b === 0
-    ? Effect.fail(new DivisionError())
-    : Effect.succeed(a / b);
+func divideEffect(a, b int) Effect[int] {
+	return Effect[int]{
+		run: func(ctx context.Context) (int, error) {
+			if b == 0 {
+				return 0, DivisionError{}
+			}
+			return a / b, nil
+		},
+	}
+}
 
-// Compose with generators (like async/await)
-const calculate = (a: string, b: string) =>
-  Effect.gen(function* (_) {
-    const numA = yield* _(parseNumber(a));
-    const numB = yield* _(parseNumber(b));
-    return yield* _(divide(numA, numB));
-  });
+// Compose with explicit error handling
+func calculateEffect(a, b string) Effect[int] {
+	return Effect[int]{
+		run: func(ctx context.Context) (int, error) {
+			numA, err := parseNumberEffect(a).run(ctx)
+			if err != nil {
+				return 0, err
+			}
+			
+			numB, err := parseNumberEffect(b).run(ctx)
+			if err != nil {
+				return 0, err
+			}
+			
+			return divideEffect(numA, numB).run(ctx)
+		},
+	}
+}
 
-// Handle errors
-const program = pipe(
-  calculate('10', '2'),
-  Effect.catchTags({
-    ParseError: (e) => Effect.succeed(`Invalid input: ${e.input}`),
-    DivisionError: () => Effect.succeed('Cannot divide by zero'),
-  })
-);
+// Handle errors by type
+func handleCalculation(a, b string) string {
+	ctx := context.Background()
+	result, err := calculateEffect(a, b).run(ctx)
+	
+	if err != nil {
+		switch e := err.(type) {
+		case ParseError:
+			return fmt.Sprintf("Invalid input: %s", e.input)
+		case DivisionError:
+			return "Cannot divide by zero"
+		default:
+			return "Unknown error"
+		}
+	}
+	
+	return fmt.Sprintf("Result: %d", result)
+}
 ```
 
 ## OOP vs FP Comparison
@@ -347,25 +469,35 @@ const program = pipe(
 | Performance | Stack unwinding | No overhead |
 | Testing | Mock exceptions | Simple assertions |
 
-```typescript
+```go
+package main
+
 // OOP style
-function processOrder(order: Order): Order {
-  if (!order.isValid()) {
-    throw new ValidationError('Invalid order');
-  }
-  if (!inventory.hasStock(order)) {
-    throw new StockError('Out of stock');
-  }
-  return order.process();
+func processOrderOOP(order Order) (Order, error) {
+	if !order.isValid() {
+		return Order{}, ValidationError{Field: "order", Message: "Invalid order"}
+	}
+	if !inventory.hasStock(order) {
+		return Order{}, StockError{Message: "Out of stock"}
+	}
+	return order.process(), nil
 }
 
 // FP style
-const processOrder = (order: Order): Result<Order, OrderError> =>
-  pipe(
-    validateOrder(order),
-    flatMap(checkStock),
-    map(process)
-  );
+func processOrderFP(order Order) Result[Order, OrderError] {
+	if !order.isValid() {
+		return NewErr[Order, OrderError](ValidationError{
+			Field:   "order",
+			Message: "Invalid order",
+		})
+	}
+	
+	if !inventory.hasStock(order) {
+		return NewErr[Order, OrderError](StockError{Message: "Out of stock"})
+	}
+	
+	return NewOk[Order, OrderError](order.process())
+}
 ```
 
 ## Recommended Libraries
@@ -382,46 +514,48 @@ const processOrder = (order: Order): Result<Order, OrderError> =>
 
 1. **Unwrapping Too Early**: Losing type safety
 
-   ```typescript
+   ```go
    // BAD
-   const user = result.unwrap(); // Throws on Err!
-
+   user := result.Unwrap() // Panics on Err!
+   
    // GOOD
-   result.match({
-     ok: user => handleUser(user),
-     err: error => handleError(error)
-   });
+   if result.IsOk() {
+   	user := result.Unwrap()
+   	handleUser(user)
+   } else {
+   	handleError(result.UnwrapErr())
+   }
    ```
 
 2. **Mixing with Exceptions**: Inconsistent error handling
 
-   ```typescript
+   ```go
    // BAD
-   const result = validate(data);
-   if (result.isOk()) {
-     throw new Error('Something else'); // Exception!
+   result := validate(data)
+   if result.IsOk() {
+   	panic("Something else") // Exception!
    }
    ```
 
 3. **Ignoring Error Types**: Generic error handling
 
-   ```typescript
+   ```go
    // BAD
-   Result<User, Error> // Too broad
-
+   Result[User, error] // Too broad
+   
    // GOOD
-   Result<User, ValidationError | NotFoundError>
+   Result[User, DomainError] // Specific error types
    ```
 
-## When to Use
+## Quand utiliser
 
-- Functions that can fail predictably
-- Validation logic
-- API responses
-- Domain operations with business errors
-- Anywhere exceptions would be caught
+- Fonctions qui peuvent échouer de manière prévisible
+- Logique de validation
+- Réponses API
+- Opérations du domaine avec erreurs métier
+- Partout où les exceptions seraient interceptées
 
-## See Also
+## Patterns liés
 
 - [Monad](./monad.md) - Either is a monad
 - [Option](./option.md) - For optional values (no error info)

@@ -55,33 +55,33 @@ Règle: Une couche ne peut appeler que la couche immédiatement en dessous
 src/
 ├── presentation/                # Couche présentation
 │   ├── controllers/
-│   │   ├── UserController.ts
-│   │   └── OrderController.ts
+│   │   ├── UserController.go
+│   │   └── OrderController.go
 │   ├── middleware/
-│   │   ├── AuthMiddleware.ts
-│   │   └── ValidationMiddleware.ts
+│   │   ├── AuthMiddleware.go
+│   │   └── ValidationMiddleware.go
 │   ├── dto/                     # Data Transfer Objects
-│   │   ├── CreateUserDTO.ts
-│   │   └── OrderResponseDTO.ts
+│   │   ├── CreateUserDTO.go
+│   │   └── OrderResponseDTO.go
 │   └── routes/
-│       └── index.ts
+│       └── routes.go
 │
 ├── business/                    # Couche métier
 │   ├── services/
-│   │   ├── UserService.ts
-│   │   └── OrderService.ts
+│   │   ├── UserService.go
+│   │   └── OrderService.go
 │   ├── validators/
-│   │   └── OrderValidator.ts
+│   │   └── OrderValidator.go
 │   └── rules/
-│       └── PricingRules.ts
+│       └── PricingRules.go
 │
 ├── persistence/                 # Couche persistance
 │   ├── repositories/
-│   │   ├── UserRepository.ts
-│   │   └── OrderRepository.ts
+│   │   ├── UserRepository.go
+│   │   └── OrderRepository.go
 │   ├── entities/
-│   │   ├── UserEntity.ts
-│   │   └── OrderEntity.ts
+│   │   ├── UserEntity.go
+│   │   └── OrderEntity.go
 │   └── migrations/
 │       └── ...
 │
@@ -95,133 +95,232 @@ src/
 
 ### Presentation Layer
 
-```typescript
-// presentation/controllers/UserController.ts
-import { Request, Response } from 'express';
-import { UserService } from '../../business/services/UserService';
-import { CreateUserDTO, UserResponseDTO } from '../dto/UserDTO';
+```go
+package controllers
 
-export class UserController {
-  constructor(private userService: UserService) {}
+import (
+	"encoding/json"
+	"net/http"
+)
 
-  async create(req: Request, res: Response): Promise<void> {
-    // Validation des entrées (DTO)
-    const dto = CreateUserDTO.fromRequest(req.body);
+// CreateUserDTO is the data transfer object for creating a user.
+type CreateUserDTO struct {
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
 
-    // Appel de la couche business
-    const user = await this.userService.createUser(dto);
+// UserResponseDTO is the data transfer object for user responses.
+type UserResponseDTO struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
 
-    // Formatage de la réponse
-    res.status(201).json(UserResponseDTO.fromEntity(user));
-  }
+// UserController handles user HTTP requests.
+type UserController struct {
+	userService UserService
+}
 
-  async getById(req: Request, res: Response): Promise<void> {
-    const { id } = req.params;
+// NewUserController creates a new user controller.
+func NewUserController(userService UserService) *UserController {
+	return &UserController{userService: userService}
+}
 
-    const user = await this.userService.getUserById(id);
+// Create handles user creation requests.
+func (c *UserController) Create(w http.ResponseWriter, r *http.Request) {
+	var dto CreateUserDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
 
-    if (!user) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
+	user, err := c.userService.CreateUser(r.Context(), dto)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    res.json(UserResponseDTO.fromEntity(user));
-  }
+	response := UserResponseDTO{
+		ID:    user.ID,
+		Email: user.Email,
+		Name:  user.Name,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteStatus(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetByID handles get user by ID requests.
+func (c *UserController) GetByID(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+
+	user, err := c.userService.GetUserByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if user == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	response := UserResponseDTO{
+		ID:    user.ID,
+		Email: user.Email,
+		Name:  user.Name,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 ```
 
 ### Business Layer
 
-```typescript
-// business/services/UserService.ts
-import { User } from '../../shared/types/User';
-import { UserRepository } from '../../persistence/repositories/UserRepository';
-import { CreateUserDTO } from '../../presentation/dto/UserDTO';
-import { EmailService } from './EmailService';
+```go
+package services
 
-export class UserService {
-  constructor(
-    private userRepository: UserRepository,
-    private emailService: EmailService
-  ) {}
+import (
+	"context"
+	"fmt"
+	"time"
+)
 
-  async createUser(dto: CreateUserDTO): Promise<User> {
-    // Validation métier
-    await this.validateEmail(dto.email);
+// User represents a user entity.
+type User struct {
+	ID        string
+	Email     string
+	Name      string
+	CreatedAt time.Time
+}
 
-    // Création de l'utilisateur
-    const user: User = {
-      id: generateId(),
-      email: dto.email,
-      name: dto.name,
-      createdAt: new Date(),
-    };
+// UserService handles user business logic.
+type UserService struct {
+	userRepository UserRepository
+	emailService   EmailService
+}
 
-    // Persistance
-    await this.userRepository.save(user);
+// NewUserService creates a new user service.
+func NewUserService(userRepository UserRepository, emailService EmailService) *UserService {
+	return &UserService{
+		userRepository: userRepository,
+		emailService:   emailService,
+	}
+}
 
-    // Side effects
-    await this.emailService.sendWelcome(user.email);
+// CreateUser creates a new user.
+func (s *UserService) CreateUser(ctx context.Context, dto CreateUserDTO) (*User, error) {
+	// Business validation
+	if err := s.validateEmail(ctx, dto.Email); err != nil {
+		return nil, err
+	}
 
-    return user;
-  }
+	user := &User{
+		ID:        GenerateID(),
+		Email:     dto.Email,
+		Name:      dto.Name,
+		CreatedAt: time.Now(),
+	}
 
-  async getUserById(id: string): Promise<User | null> {
-    return this.userRepository.findById(id);
-  }
+	// Persistence
+	if err := s.userRepository.Save(ctx, user); err != nil {
+		return nil, fmt.Errorf("saving user: %w", err)
+	}
 
-  private async validateEmail(email: string): Promise<void> {
-    const existing = await this.userRepository.findByEmail(email);
-    if (existing) {
-      throw new DuplicateEmailError(email);
-    }
-  }
+	// Side effects
+	if err := s.emailService.SendWelcome(ctx, user.Email); err != nil {
+		// Log error but don't fail
+		fmt.Printf("failed to send welcome email: %v\n", err)
+	}
+
+	return user, nil
+}
+
+// GetUserByID retrieves a user by ID.
+func (s *UserService) GetUserByID(ctx context.Context, id string) (*User, error) {
+	return s.userRepository.FindByID(ctx, id)
+}
+
+func (s *UserService) validateEmail(ctx context.Context, email string) error {
+	existing, err := s.userRepository.FindByEmail(ctx, email)
+	if err != nil {
+		return fmt.Errorf("finding user by email: %w", err)
+	}
+	if existing != nil {
+		return &DuplicateEmailError{Email: email}
+	}
+	return nil
 }
 ```
 
 ### Persistence Layer
 
-```typescript
-// persistence/repositories/UserRepository.ts
-import { Pool } from 'pg';
-import { User } from '../../shared/types/User';
-import { UserEntity } from '../entities/UserEntity';
+```go
+package repositories
 
-export class UserRepository {
-  constructor(private db: Pool) {}
+import (
+	"context"
+	"database/sql"
+	"fmt"
+)
 
-  async save(user: User): Promise<void> {
-    const entity = UserEntity.fromDomain(user);
+// UserRepository handles user data access.
+type UserRepository struct {
+	db *sql.DB
+}
 
-    await this.db.query(`
-      INSERT INTO users (id, email, name, created_at)
-      VALUES ($1, $2, $3, $4)
-    `, [entity.id, entity.email, entity.name, entity.createdAt]);
-  }
+// NewUserRepository creates a new user repository.
+func NewUserRepository(db *sql.DB) *UserRepository {
+	return &UserRepository{db: db}
+}
 
-  async findById(id: string): Promise<User | null> {
-    const result = await this.db.query(
-      'SELECT * FROM users WHERE id = $1',
-      [id]
-    );
+// Save saves a user to the database.
+func (r *UserRepository) Save(ctx context.Context, user *User) error {
+	query := `
+		INSERT INTO users (id, email, name, created_at)
+		VALUES ($1, $2, $3, $4)
+	`
 
-    if (result.rows.length === 0) {
-      return null;
-    }
+	_, err := r.db.ExecContext(ctx, query, user.ID, user.Email, user.Name, user.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("executing insert: %w", err)
+	}
 
-    return UserEntity.toDomain(result.rows[0]);
-  }
+	return nil
+}
 
-  async findByEmail(email: string): Promise<User | null> {
-    const result = await this.db.query(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    );
+// FindByID finds a user by ID.
+func (r *UserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+	query := "SELECT id, email, name, created_at FROM users WHERE id = $1"
 
-    return result.rows.length > 0
-      ? UserEntity.toDomain(result.rows[0])
-      : null;
-  }
+	var user User
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&user.ID, &user.Email, &user.Name, &user.CreatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("querying user: %w", err)
+	}
+
+	return &user, nil
+}
+
+// FindByEmail finds a user by email.
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	query := "SELECT id, email, name, created_at FROM users WHERE email = $1"
+
+	var user User
+	err := r.db.QueryRowContext(ctx, query, email).Scan(&user.ID, &user.Email, &user.Name, &user.CreatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("querying user: %w", err)
+	}
+
+	return &user, nil
 }
 ```
 

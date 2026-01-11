@@ -46,165 +46,353 @@
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
 ### Gateway basique
 
-```typescript
-import express, { Request, Response, NextFunction } from 'express';
-import httpProxy from 'http-proxy-middleware';
+```go
+package gateway
 
-interface RouteConfig {
-  path: string;
-  target: string;
-  auth: boolean;
-  rateLimit?: { windowMs: number; max: number };
-  cache?: { ttl: number };
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"sync"
+	"time"
+)
+
+// RouteConfig defines configuration for a single route.
+type RouteConfig struct {
+	Path      string
+	Target    string
+	Auth      bool
+	RateLimit *RateLimitConfig
+	Cache     *CacheConfig
 }
 
-class ApiGateway {
-  private readonly app = express();
-  private readonly routes: RouteConfig[] = [];
+// RateLimitConfig defines rate limiting parameters.
+type RateLimitConfig struct {
+	WindowMs int
+	Max      int
+}
 
-  constructor(private readonly config: { port: number }) {
-    this.setupMiddleware();
-  }
+// CacheConfig defines caching parameters.
+type CacheConfig struct {
+	TTL time.Duration
+}
 
-  private setupMiddleware(): void {
-    this.app.use(express.json());
-    this.app.use(this.loggingMiddleware);
-    this.app.use(this.corsMiddleware);
-  }
+// APIGateway implements a basic API gateway.
+type APIGateway struct {
+	mux    *http.ServeMux
+	server *http.Server
+	logger *slog.Logger
+	routes []RouteConfig
+}
 
-  private loggingMiddleware = (req: Request, res: Response, next: NextFunction) => {
-    const start = Date.now();
-    res.on('finish', () => {
-      console.log({
-        method: req.method,
-        path: req.path,
-        status: res.statusCode,
-        duration: Date.now() - start,
-        ip: req.ip,
-      });
-    });
-    next();
-  };
+// NewAPIGateway creates a new API gateway.
+func NewAPIGateway(port int, logger *slog.Logger) *APIGateway {
+	if logger == nil {
+		logger = slog.Default()
+	}
 
-  private corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(200);
-    }
-    next();
-  };
+	mux := http.NewServeMux()
+	
+	return &APIGateway{
+		mux: mux,
+		server: &http.Server{
+			Addr:         fmt.Sprintf(":%d", port),
+			Handler:      mux,
+			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 15 * time.Second,
+			IdleTimeout:  60 * time.Second,
+		},
+		logger: logger,
+		routes: make([]RouteConfig, 0),
+	}
+}
 
-  registerRoute(config: RouteConfig): void {
-    this.routes.push(config);
+// RegisterRoute registers a new route with the gateway.
+func (g *APIGateway) RegisterRoute(config RouteConfig) error {
+	g.routes = append(g.routes, config)
 
-    const middlewares: express.RequestHandler[] = [];
+	targetURL, err := url.Parse(config.Target)
+	if err != nil {
+		return fmt.Errorf("parsing target URL: %w", err)
+	}
 
-    // Authentication
-    if (config.auth) {
-      middlewares.push(this.authMiddleware);
-    }
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	
+	// Build middleware chain
+	handler := g.proxyHandler(proxy, config.Path)
 
-    // Rate limiting
-    if (config.rateLimit) {
-      middlewares.push(this.createRateLimiter(config.rateLimit));
-    }
+	if config.Cache != nil {
+		handler = g.cacheMiddleware(config.Cache)(handler)
+	}
 
-    // Caching
-    if (config.cache) {
-      middlewares.push(this.createCacheMiddleware(config.cache));
-    }
+	if config.RateLimit != nil {
+		handler = g.rateLimitMiddleware(config.RateLimit)(handler)
+	}
 
-    // Proxy
-    const proxy = httpProxy.createProxyMiddleware({
-      target: config.target,
-      changeOrigin: true,
-      pathRewrite: { [`^${config.path}`]: '' },
-    });
+	if config.Auth {
+		handler = g.authMiddleware(handler)
+	}
 
-    this.app.use(config.path, ...middlewares, proxy);
-  }
+	handler = g.loggingMiddleware(handler)
+	handler = g.corsMiddleware(handler)
 
-  private authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+	g.mux.Handle(config.Path, handler)
+	return nil
+}
 
-    if (!token) {
-      return res.status(401).json({ error: 'Missing authorization token' });
-    }
+// Start starts the API gateway server.
+func (g *APIGateway) Start() error {
+	g.logger.Info("starting API gateway", "addr", g.server.Addr)
+	return g.server.ListenAndServe()
+}
 
-    try {
-      const user = await this.validateToken(token);
-      (req as any).user = user;
-      next();
-    } catch (error) {
-      res.status(401).json({ error: 'Invalid token' });
-    }
-  };
+// Shutdown gracefully shuts down the gateway.
+func (g *APIGateway) Shutdown(ctx context.Context) error {
+	return g.server.Shutdown(ctx)
+}
 
-  private async validateToken(token: string): Promise<User> {
-    // Valider avec le service d'authentification
-    const response = await fetch('http://auth-service/validate', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+func (g *APIGateway) proxyHandler(proxy *httputil.ReverseProxy, pathPrefix string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = r.URL.Path[len(pathPrefix):]
+		if r.URL.Path == "" {
+			r.URL.Path = "/"
+		}
+		proxy.ServeHTTP(w, r)
+	})
+}
 
-    if (!response.ok) throw new Error('Invalid token');
-    return response.json();
-  }
+func (g *APIGateway) loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
 
-  private createRateLimiter(config: { windowMs: number; max: number }) {
-    const requests = new Map<string, number[]>();
+		lrw := &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+		next.ServeHTTP(lrw, r)
 
-    return (req: Request, res: Response, next: NextFunction) => {
-      const key = req.ip;
-      const now = Date.now();
-      const windowStart = now - config.windowMs;
+		duration := time.Since(start)
+		g.logger.Info("request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", lrw.statusCode,
+			"duration_ms", duration.Milliseconds(),
+			"remote_addr", r.RemoteAddr,
+		)
+	})
+}
 
-      let timestamps = requests.get(key) ?? [];
-      timestamps = timestamps.filter((t) => t > windowStart);
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
 
-      if (timestamps.length >= config.max) {
-        return res.status(429).json({ error: 'Too many requests' });
-      }
+func (lrw *loggingResponseWriter) WriteHeader(code int) {
+	lrw.statusCode = code
+	lrw.ResponseWriter.WriteHeader(code)
+}
 
-      timestamps.push(now);
-      requests.set(key, timestamps);
-      next();
-    };
-  }
+func (g *APIGateway) corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
-  private createCacheMiddleware(config: { ttl: number }) {
-    const cache = new Map<string, { data: any; expires: number }>();
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 
-    return (req: Request, res: Response, next: NextFunction) => {
-      if (req.method !== 'GET') return next();
+		next.ServeHTTP(w, r)
+	})
+}
 
-      const key = req.originalUrl;
-      const cached = cache.get(key);
+// User represents an authenticated user.
+type User struct {
+	ID    string
+	Email string
+}
 
-      if (cached && cached.expires > Date.now()) {
-        return res.json(cached.data);
-      }
+func (g *APIGateway) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			g.writeError(w, http.StatusUnauthorized, "missing authorization token")
+			return
+		}
 
-      const originalJson = res.json.bind(res);
-      res.json = (data: any) => {
-        cache.set(key, { data, expires: Date.now() + config.ttl });
-        return originalJson(data);
-      };
+		token := authHeader
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			token = authHeader[7:]
+		}
 
-      next();
-    };
-  }
+		user, err := g.validateToken(r.Context(), token)
+		if err != nil {
+			g.writeError(w, http.StatusUnauthorized, "invalid token")
+			return
+		}
 
-  start(): void {
-    this.app.listen(this.config.port, () => {
-      console.log(`API Gateway running on port ${this.config.port}`);
-    });
-  }
+		ctx := context.WithValue(r.Context(), "user", user)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func (g *APIGateway) validateToken(ctx context.Context, token string) (*User, error) {
+	// Call authentication service
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://auth-service/validate", nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("validating token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("invalid token")
+	}
+
+	var user User
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, fmt.Errorf("decoding user: %w", err)
+	}
+
+	return &user, nil
+}
+
+type rateLimiter struct {
+	mu      sync.Mutex
+	buckets map[string][]int64
+}
+
+func newRateLimiter() *rateLimiter {
+	return &rateLimiter{
+		buckets: make(map[string][]int64),
+	}
+}
+
+func (g *APIGateway) rateLimitMiddleware(config *RateLimitConfig) func(http.Handler) http.Handler {
+	limiter := newRateLimiter()
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			key := r.RemoteAddr
+			now := time.Now().UnixMilli()
+			windowStart := now - int64(config.WindowMs)
+
+			limiter.mu.Lock()
+			timestamps := limiter.buckets[key]
+			
+			// Remove expired timestamps
+			valid := make([]int64, 0, len(timestamps))
+			for _, ts := range timestamps {
+				if ts > windowStart {
+					valid = append(valid, ts)
+				}
+			}
+
+			if len(valid) >= config.Max {
+				limiter.mu.Unlock()
+				g.writeError(w, http.StatusTooManyRequests, "too many requests")
+				return
+			}
+
+			valid = append(valid, now)
+			limiter.buckets[key] = valid
+			limiter.mu.Unlock()
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+type cacheEntry struct {
+	data    []byte
+	expires int64
+}
+
+type cache struct {
+	mu      sync.RWMutex
+	entries map[string]*cacheEntry
+}
+
+func newCache() *cache {
+	return &cache{
+		entries: make(map[string]*cacheEntry),
+	}
+}
+
+func (g *APIGateway) cacheMiddleware(config *CacheConfig) func(http.Handler) http.Handler {
+	c := newCache()
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			key := r.URL.String()
+
+			c.mu.RLock()
+			entry, ok := c.entries[key]
+			c.mu.RUnlock()
+
+			now := time.Now().UnixNano()
+			if ok && entry.expires > now {
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("X-Cache", "HIT")
+				w.Write(entry.data)
+				return
+			}
+
+			crw := &cachingResponseWriter{
+				ResponseWriter: w,
+				statusCode:     http.StatusOK,
+			}
+
+			next.ServeHTTP(crw, r)
+
+			if crw.statusCode == http.StatusOK && len(crw.body) > 0 {
+				c.mu.Lock()
+				c.entries[key] = &cacheEntry{
+					data:    crw.body,
+					expires: now + config.TTL.Nanoseconds(),
+				}
+				c.mu.Unlock()
+			}
+		})
+	}
+}
+
+type cachingResponseWriter struct {
+	http.ResponseWriter
+	body       []byte
+	statusCode int
+}
+
+func (crw *cachingResponseWriter) Write(b []byte) (int, error) {
+	crw.body = append(crw.body, b...)
+	return crw.ResponseWriter.Write(b)
+}
+
+func (crw *cachingResponseWriter) WriteHeader(code int) {
+	crw.statusCode = code
+	crw.ResponseWriter.WriteHeader(code)
+}
+
+func (g *APIGateway) writeError(w http.ResponseWriter, code int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 ```
 
@@ -212,142 +400,387 @@ class ApiGateway {
 
 ### Configuration et usage
 
-```typescript
-const gateway = new ApiGateway({ port: 3000 });
+```go
+package main
 
-// Routes publiques
-gateway.registerRoute({
-  path: '/api/products',
-  target: 'http://product-service:8080',
-  auth: false,
-  cache: { ttl: 60000 }, // 1 minute
-});
+import (
+	"context"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-// Routes authentifiees
-gateway.registerRoute({
-  path: '/api/users',
-  target: 'http://user-service:8080',
-  auth: true,
-  rateLimit: { windowMs: 60000, max: 100 },
-});
+	"example.com/app/gateway"
+)
 
-gateway.registerRoute({
-  path: '/api/orders',
-  target: 'http://order-service:8080',
-  auth: true,
-  rateLimit: { windowMs: 60000, max: 50 },
-});
+func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	gw := gateway.NewAPIGateway(3000, logger)
 
-// Routes admin (rate limit strict)
-gateway.registerRoute({
-  path: '/api/admin',
-  target: 'http://admin-service:8080',
-  auth: true,
-  rateLimit: { windowMs: 60000, max: 10 },
-});
+	// Routes publiques
+	if err := gw.RegisterRoute(gateway.RouteConfig{
+		Path:   "/api/products/",
+		Target: "http://product-service:8080",
+		Auth:   false,
+		Cache: &gateway.CacheConfig{
+			TTL: 60 * time.Second,
+		},
+	}); err != nil {
+		logger.Error("registering route", "error", err)
+		os.Exit(1)
+	}
 
-gateway.start();
+	// Routes authentifiees
+	if err := gw.RegisterRoute(gateway.RouteConfig{
+		Path:   "/api/users/",
+		Target: "http://user-service:8080",
+		Auth:   true,
+		RateLimit: &gateway.RateLimitConfig{
+			WindowMs: 60000,
+			Max:      100,
+		},
+	}); err != nil {
+		logger.Error("registering route", "error", err)
+		os.Exit(1)
+	}
+
+	if err := gw.RegisterRoute(gateway.RouteConfig{
+		Path:   "/api/orders/",
+		Target: "http://order-service:8080",
+		Auth:   true,
+		RateLimit: &gateway.RateLimitConfig{
+			WindowMs: 60000,
+			Max:      50,
+		},
+	}); err != nil {
+		logger.Error("registering route", "error", err)
+		os.Exit(1)
+	}
+
+	// Routes admin (rate limit strict)
+	if err := gw.RegisterRoute(gateway.RouteConfig{
+		Path:   "/api/admin/",
+		Target: "http://admin-service:8080",
+		Auth:   true,
+		RateLimit: &gateway.RateLimitConfig{
+			WindowMs: 60000,
+			Max:      10,
+		},
+	}); err != nil {
+		logger.Error("registering route", "error", err)
+		os.Exit(1)
+	}
+
+	// Graceful shutdown
+	go func() {
+		if err := gw.Start(); err != nil {
+			logger.Error("gateway error", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := gw.Shutdown(ctx); err != nil {
+		logger.Error("shutdown error", "error", err)
+	}
+}
 ```
 
 ---
 
 ### Request/Response Transformation
 
-```typescript
-interface TransformConfig {
-  request?: (req: Request) => Request;
-  response?: (data: any) => any;
+```go
+package gateway
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"net/http"
+)
+
+// TransformConfig defines request/response transformation functions.
+type TransformConfig struct {
+	Request  func(*http.Request) error
+	Response func([]byte) ([]byte, error)
 }
 
-class TransformingGateway extends ApiGateway {
-  registerTransformRoute(
-    config: RouteConfig & { transform: TransformConfig },
-  ): void {
-    this.app.use(config.path, async (req, res, next) => {
-      // Transform request
-      if (config.transform.request) {
-        config.transform.request(req);
-      }
-
-      // Intercept response
-      if (config.transform.response) {
-        const originalJson = res.json.bind(res);
-        res.json = (data: any) => {
-          const transformed = config.transform.response!(data);
-          return originalJson(transformed);
-        };
-      }
-
-      next();
-    });
-  }
+// TransformingGateway extends APIGateway with transformation support.
+type TransformingGateway struct {
+	*APIGateway
 }
 
-// Usage: Adapter un legacy API
-gateway.registerTransformRoute({
-  path: '/api/v2/users',
-  target: 'http://legacy-user-service:8080',
-  auth: true,
-  transform: {
-    request: (req) => {
-      // Convertir snake_case en camelCase
-      if (req.body) {
-        req.body = snakeToCamel(req.body);
-      }
-      return req;
-    },
-    response: (data) => {
-      // Ajouter des champs, masquer d'autres
-      return {
-        ...camelToSnake(data),
-        _links: {
-          self: `/api/v2/users/${data.id}`,
-        },
-      };
-    },
-  },
-});
+// NewTransformingGateway creates a new transforming gateway.
+func NewTransformingGateway(port int, logger *slog.Logger) *TransformingGateway {
+	return &TransformingGateway{
+		APIGateway: NewAPIGateway(port, logger),
+	}
+}
+
+// RegisterTransformRoute registers a route with transformations.
+func (g *TransformingGateway) RegisterTransformRoute(config RouteConfig, transform TransformConfig) error {
+	// First register the base route
+	if err := g.RegisterRoute(config); err != nil {
+		return err
+	}
+
+	// Wrap with transformation middleware
+	handler := g.transformMiddleware(transform)(g.mux)
+	g.mux.Handle(config.Path, handler)
+
+	return nil
+}
+
+func (g *TransformingGateway) transformMiddleware(transform TransformConfig) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Transform request
+			if transform.Request != nil {
+				if err := transform.Request(r); err != nil {
+					g.writeError(w, http.StatusBadRequest, "request transformation failed")
+					return
+				}
+			}
+
+			// Transform response
+			if transform.Response != nil {
+				trw := &transformingResponseWriter{
+					ResponseWriter: w,
+					transform:      transform.Response,
+				}
+				next.ServeHTTP(trw, r)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+type transformingResponseWriter struct {
+	http.ResponseWriter
+	transform func([]byte) ([]byte, error)
+	buf       bytes.Buffer
+}
+
+func (trw *transformingResponseWriter) Write(b []byte) (int, error) {
+	return trw.buf.Write(b)
+}
+
+func (trw *transformingResponseWriter) Flush() {
+	if trw.transform != nil {
+		transformed, err := trw.transform(trw.buf.Bytes())
+		if err == nil {
+			trw.ResponseWriter.Write(transformed)
+			return
+		}
+	}
+	trw.ResponseWriter.Write(trw.buf.Bytes())
+}
+
+// Usage example: Adapter un legacy API
+func setupLegacyRoute(gw *TransformingGateway) error {
+	return gw.RegisterTransformRoute(
+		RouteConfig{
+			Path:   "/api/v2/users/",
+			Target: "http://legacy-user-service:8080",
+			Auth:   true,
+		},
+		TransformConfig{
+			Request: func(r *http.Request) error {
+				// Convert request body format
+				if r.Body != nil {
+					body, err := io.ReadAll(r.Body)
+					if err != nil {
+						return err
+					}
+					// Transform body (e.g., snake_case to camelCase)
+					r.Body = io.NopCloser(bytes.NewBuffer(body))
+				}
+				return nil
+			},
+			Response: func(data []byte) ([]byte, error) {
+				var response map[string]interface{}
+				if err := json.Unmarshal(data, &response); err != nil {
+					return data, err
+				}
+
+				// Add fields, mask others
+				response["_links"] = map[string]string{
+					"self": "/api/v2/users/" + response["id"].(string),
+				}
+
+				return json.Marshal(response)
+			},
+		},
+	)
+}
 ```
 
 ---
 
 ### API Aggregation
 
-```typescript
-class AggregatingGateway extends ApiGateway {
-  registerAggregateRoute(
-    path: string,
-    aggregator: (req: Request) => Promise<any>,
-  ): void {
-    this.app.get(path, async (req, res) => {
-      try {
-        const data = await aggregator(req);
-        res.json(data);
-      } catch (error) {
-        res.status(500).json({ error: 'Aggregation failed' });
-      }
-    });
-  }
+```go
+package gateway
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"sync"
+)
+
+// AggregatingGateway extends APIGateway with aggregation support.
+type AggregatingGateway struct {
+	*APIGateway
 }
 
-// Usage: Dashboard agregation
-gateway.registerAggregateRoute('/api/dashboard', async (req) => {
-  const userId = (req as any).user.id;
+// NewAggregatingGateway creates a new aggregating gateway.
+func NewAggregatingGateway(port int, logger *slog.Logger) *AggregatingGateway {
+	return &AggregatingGateway{
+		APIGateway: NewAPIGateway(port, logger),
+	}
+}
 
-  // Appels paralleles a plusieurs services
-  const [user, orders, notifications] = await Promise.all([
-    fetch(`http://user-service/users/${userId}`).then((r) => r.json()),
-    fetch(`http://order-service/users/${userId}/orders?limit=5`).then((r) => r.json()),
-    fetch(`http://notification-service/users/${userId}/unread`).then((r) => r.json()),
-  ]);
+// AggregatorFunc defines a function that aggregates data from multiple sources.
+type AggregatorFunc func(context.Context, *http.Request) (interface{}, error)
 
-  return {
-    user: { id: user.id, name: user.name },
-    recentOrders: orders,
-    unreadNotifications: notifications.count,
-    lastLogin: user.lastLoginAt,
-  };
-});
+// RegisterAggregateRoute registers a route that aggregates data.
+func (g *AggregatingGateway) RegisterAggregateRoute(path string, aggregator AggregatorFunc) {
+	g.mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		data, err := aggregator(r.Context(), r)
+		if err != nil {
+			g.writeError(w, http.StatusInternalServerError, "aggregation failed")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(data)
+	})
+}
+
+// DashboardData represents aggregated dashboard data.
+type DashboardData struct {
+	User                map[string]interface{}   `json:"user"`
+	RecentOrders        []map[string]interface{} `json:"recentOrders"`
+	UnreadNotifications int                      `json:"unreadNotifications"`
+	LastLogin           string                   `json:"lastLogin"`
+}
+
+// Usage: Dashboard aggregation
+func setupDashboard(gw *AggregatingGateway) {
+	gw.RegisterAggregateRoute("/api/dashboard", func(ctx context.Context, r *http.Request) (interface{}, error) {
+		user := r.Context().Value("user").(*User)
+
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		var errs []error
+
+		var userData map[string]interface{}
+		var orders []map[string]interface{}
+		var notifications map[string]interface{}
+
+		// Parallel calls to multiple services
+		wg.Go(func() {
+			data, err := fetchJSON(ctx, fmt.Sprintf("http://user-service/users/%s", user.ID))
+			if err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+				return
+			}
+			userData = data
+		})
+
+		wg.Go(func() {
+			data, err := fetchJSONArray(ctx, fmt.Sprintf("http://order-service/users/%s/orders?limit=5", user.ID))
+			if err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+				return
+			}
+			orders = data
+		})
+
+		wg.Go(func() {
+			data, err := fetchJSON(ctx, fmt.Sprintf("http://notification-service/users/%s/unread", user.ID))
+			if err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+				return
+			}
+			notifications = data
+		})
+
+		wg.Wait()
+
+		if len(errs) > 0 {
+			return nil, errs[0]
+		}
+
+		return &DashboardData{
+			User: map[string]interface{}{
+				"id":   userData["id"],
+				"name": userData["name"],
+			},
+			RecentOrders:        orders,
+			UnreadNotifications: int(notifications["count"].(float64)),
+			LastLogin:           userData["lastLoginAt"].(string),
+		}, nil
+	})
+}
+
+func fetchJSON(ctx context.Context, url string) (map[string]interface{}, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func fetchJSONArray(ctx context.Context, url string) ([]map[string]interface{}, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var data []map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
 ```
 
 ---

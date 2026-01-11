@@ -33,7 +33,7 @@
 │                      EVENT SOURCING SYSTEM                       │
 │                                                                  │
 │  ┌──────────┐    ┌──────────────┐    ┌──────────────────────┐  │
-│  │ Command  │───▶│   Aggregate  │───▶│    Event Store       │  │
+│  │ Command  │───►│   Aggregate  │───►│    Event Store       │  │
 │  │          │    │              │    │                      │  │
 │  │CreateOrder    │  Order       │    │  ┌────────────────┐  │  │
 │  └──────────┘    │  ├─validate()│    │  │ OrderCreated   │  │  │
@@ -61,252 +61,536 @@
 
 ### Événements
 
-```typescript
-// Base event interface
-interface DomainEvent {
-  id: string;
-  aggregateId: string;
-  aggregateType: string;
-  version: number;
-  timestamp: Date;
-  payload: unknown;
+```go
+package events
+
+import "time"
+
+// DomainEvent is the interface for all domain events.
+type DomainEvent interface {
+	GetID() string
+	GetAggregateID() string
+	GetAggregateType() string
+	GetVersion() int
+	GetTimestamp() time.Time
 }
 
-// Événements du domaine Order
-interface OrderCreatedEvent extends DomainEvent {
-  type: 'OrderCreated';
-  payload: {
-    customerId: string;
-    items: OrderItem[];
-  };
+// BaseEvent is the base struct for domain events.
+type BaseEvent struct {
+	ID            string
+	AggregateID   string
+	AggregateType string
+	Version       int
+	Timestamp     time.Time
 }
 
-interface ItemAddedEvent extends DomainEvent {
-  type: 'ItemAdded';
-  payload: {
-    productId: string;
-    quantity: number;
-    price: number;
-  };
+func (e BaseEvent) GetID() string            { return e.ID }
+func (e BaseEvent) GetAggregateID() string   { return e.AggregateID }
+func (e BaseEvent) GetAggregateType() string { return e.AggregateType }
+func (e BaseEvent) GetVersion() int          { return e.Version }
+func (e BaseEvent) GetTimestamp() time.Time  { return e.Timestamp }
+
+// OrderItem represents an item in an order.
+type OrderItem struct {
+	ProductID string
+	Quantity  int
+	Price     float64
 }
 
-interface OrderShippedEvent extends DomainEvent {
-  type: 'OrderShipped';
-  payload: {
-    trackingNumber: string;
-    carrier: string;
-  };
+// OrderCreatedEvent represents an order creation event.
+type OrderCreatedEvent struct {
+	BaseEvent
+	CustomerID string
+	Items      []OrderItem
 }
 
-type OrderEvent = OrderCreatedEvent | ItemAddedEvent | OrderShippedEvent;
+// ItemAddedEvent represents an item added to an order.
+type ItemAddedEvent struct {
+	BaseEvent
+	ProductID string
+	Quantity  int
+	Price     float64
+}
+
+// OrderShippedEvent represents an order shipment event.
+type OrderShippedEvent struct {
+	BaseEvent
+	TrackingNumber string
+	Carrier        string
+}
 ```
 
 ### Aggregate
 
-```typescript
-class Order {
-  private id: string;
-  private customerId: string;
-  private items: OrderItem[] = [];
-  private status: OrderStatus = 'pending';
-  private version: number = 0;
+```go
+package domain
 
-  // Événements non commitésprivate uncommittedEvents: OrderEvent[] = [];
+import (
+	"fmt"
+	"time"
+)
 
-  // Reconstruit l'état depuis les événements
-  static fromEvents(events: OrderEvent[]): Order {
-    const order = new Order();
-    for (const event of events) {
-      order.apply(event);
-      order.version = event.version;
-    }
-    return order;
-  }
+// OrderStatus represents the status of an order.
+type OrderStatus string
 
-  // Commandes métier
-  addItem(productId: string, quantity: number, price: number): void {
-    if (this.status !== 'pending') {
-      throw new Error('Cannot add items to shipped order');
-    }
+const (
+	OrderStatusPending  OrderStatus = "pending"
+	OrderStatusShipped  OrderStatus = "shipped"
+	OrderStatusCanceled OrderStatus = "canceled"
+)
 
-    const event: ItemAddedEvent = {
-      id: generateId(),
-      aggregateId: this.id,
-      aggregateType: 'Order',
-      type: 'ItemAdded',
-      version: this.version + 1,
-      timestamp: new Date(),
-      payload: { productId, quantity, price },
-    };
+// Order is the aggregate root for orders.
+type Order struct {
+	id                string
+	customerID        string
+	items             []OrderItem
+	status            OrderStatus
+	version           int
+	uncommittedEvents []DomainEvent
+}
 
-    this.apply(event);
-    this.uncommittedEvents.push(event);
-  }
+// FromEvents reconstructs an order from events.
+func FromEvents(events []DomainEvent) *Order {
+	order := &Order{
+		items:  make([]OrderItem, 0),
+		status: OrderStatusPending,
+	}
 
-  ship(trackingNumber: string, carrier: string): void {
-    if (this.status !== 'pending') {
-      throw new Error('Order already shipped');
-    }
+	for _, event := range events {
+		order.apply(event)
+		order.version = event.GetVersion()
+	}
 
-    const event: OrderShippedEvent = {
-      id: generateId(),
-      aggregateId: this.id,
-      aggregateType: 'Order',
-      type: 'OrderShipped',
-      version: this.version + 1,
-      timestamp: new Date(),
-      payload: { trackingNumber, carrier },
-    };
+	return order
+}
 
-    this.apply(event);
-    this.uncommittedEvents.push(event);
-  }
+// AddItem adds an item to the order.
+func (o *Order) AddItem(productID string, quantity int, price float64) error {
+	if o.status != OrderStatusPending {
+		return fmt.Errorf("cannot add items to %s order", o.status)
+	}
 
-  // Applique un événement (modifie l'état)
-  private apply(event: OrderEvent): void {
-    switch (event.type) {
-      case 'OrderCreated':
-        this.id = event.aggregateId;
-        this.customerId = event.payload.customerId;
-        this.items = event.payload.items;
-        break;
+	event := &ItemAddedEvent{
+		BaseEvent: BaseEvent{
+			ID:            GenerateID(),
+			AggregateID:   o.id,
+			AggregateType: "Order",
+			Version:       o.version + 1,
+			Timestamp:     time.Now(),
+		},
+		ProductID: productID,
+		Quantity:  quantity,
+		Price:     price,
+	}
 
-      case 'ItemAdded':
-        this.items.push({
-          productId: event.payload.productId,
-          quantity: event.payload.quantity,
-          price: event.payload.price,
-        });
-        break;
+	o.apply(event)
+	o.uncommittedEvents = append(o.uncommittedEvents, event)
 
-      case 'OrderShipped':
-        this.status = 'shipped';
-        break;
-    }
-    this.version = event.version;
-  }
+	return nil
+}
 
-  getUncommittedEvents(): OrderEvent[] {
-    return [...this.uncommittedEvents];
-  }
+// Ship ships the order.
+func (o *Order) Ship(trackingNumber, carrier string) error {
+	if o.status != OrderStatusPending {
+		return fmt.Errorf("order already %s", o.status)
+	}
 
-  markEventsAsCommitted(): void {
-    this.uncommittedEvents = [];
-  }
+	event := &OrderShippedEvent{
+		BaseEvent: BaseEvent{
+			ID:            GenerateID(),
+			AggregateID:   o.id,
+			AggregateType: "Order",
+			Version:       o.version + 1,
+			Timestamp:     time.Now(),
+		},
+		TrackingNumber: trackingNumber,
+		Carrier:        carrier,
+	}
+
+	o.apply(event)
+	o.uncommittedEvents = append(o.uncommittedEvents, event)
+
+	return nil
+}
+
+// apply applies an event to the aggregate (modifies state).
+func (o *Order) apply(event DomainEvent) {
+	switch e := event.(type) {
+	case *OrderCreatedEvent:
+		o.id = e.GetAggregateID()
+		o.customerID = e.CustomerID
+		o.items = e.Items
+
+	case *ItemAddedEvent:
+		o.items = append(o.items, OrderItem{
+			ProductID: e.ProductID,
+			Quantity:  e.Quantity,
+			Price:     e.Price,
+		})
+
+	case *OrderShippedEvent:
+		o.status = OrderStatusShipped
+	}
+
+	o.version = event.GetVersion()
+}
+
+// GetUncommittedEvents returns uncommitted events.
+func (o *Order) GetUncommittedEvents() []DomainEvent {
+	events := make([]DomainEvent, len(o.uncommittedEvents))
+	copy(events, o.uncommittedEvents)
+	return events
+}
+
+// MarkEventsAsCommitted marks all uncommitted events as committed.
+func (o *Order) MarkEventsAsCommitted() {
+	o.uncommittedEvents = make([]DomainEvent, 0)
 }
 ```
 
 ### Event Store
 
-```typescript
-interface EventStore {
-  append(events: DomainEvent[]): Promise<void>;
-  getEvents(aggregateId: string): Promise<DomainEvent[]>;
-  getEventsAfter(position: number): Promise<DomainEvent[]>;
-  subscribe(handler: (event: DomainEvent) => void): void;
+```go
+package store
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+)
+
+// EventStore defines the interface for event storage.
+type EventStore interface {
+	Append(ctx context.Context, events []DomainEvent) error
+	GetEvents(ctx context.Context, aggregateID string) ([]DomainEvent, error)
+	GetEventsAfter(ctx context.Context, position int) ([]DomainEvent, error)
+	Subscribe(handler func(DomainEvent))
 }
 
-class PostgresEventStore implements EventStore {
-  async append(events: DomainEvent[]): Promise<void> {
-    const client = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
+// ConcurrencyError indicates a version conflict.
+type ConcurrencyError struct {
+	AggregateID string
+	Expected    int
+	Actual      int
+}
 
-      for (const event of events) {
-        // Optimistic concurrency via version
-        const result = await client.query(`
-          INSERT INTO events (
-            id, aggregate_id, aggregate_type, type, version, timestamp, payload
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (aggregate_id, version) DO NOTHING
-          RETURNING id
-        `, [
-          event.id,
-          event.aggregateId,
-          event.aggregateType,
-          event.type,
-          event.version,
-          event.timestamp,
-          JSON.stringify(event.payload),
-        ]);
+func (e *ConcurrencyError) Error() string {
+	return fmt.Sprintf("concurrency error for aggregate %s: expected version %d, got %d",
+		e.AggregateID, e.Expected, e.Actual)
+}
 
-        if (result.rowCount === 0) {
-          throw new ConcurrencyError('Version conflict');
-        }
-      }
+// PostgresEventStore implements EventStore with PostgreSQL.
+type PostgresEventStore struct {
+	db *sql.DB
+}
 
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
+// NewPostgresEventStore creates a new PostgreSQL event store.
+func NewPostgresEventStore(db *sql.DB) *PostgresEventStore {
+	return &PostgresEventStore{db: db}
+}
 
-  async getEvents(aggregateId: string): Promise<DomainEvent[]> {
-    const result = await this.pool.query(`
-      SELECT * FROM events
-      WHERE aggregate_id = $1
-      ORDER BY version ASC
-    `, [aggregateId]);
+// Append appends events to the store with optimistic concurrency.
+func (s *PostgresEventStore) Append(ctx context.Context, events []DomainEvent) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback()
 
-    return result.rows.map(this.rowToEvent);
-  }
+	for _, event := range events {
+		payload, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("marshaling event: %w", err)
+		}
+
+		query := `
+			INSERT INTO events (
+				id, aggregate_id, aggregate_type, type, version, timestamp, payload
+			) VALUES ($1, $2, $3, $4, $5, $6, $7)
+			ON CONFLICT (aggregate_id, version) DO NOTHING
+			RETURNING id
+		`
+
+		var returnedID string
+		err = tx.QueryRowContext(ctx, query,
+			event.GetID(),
+			event.GetAggregateID(),
+			event.GetAggregateType(),
+			fmt.Sprintf("%T", event),
+			event.GetVersion(),
+			event.GetTimestamp(),
+			payload,
+		).Scan(&returnedID)
+
+		if err == sql.ErrNoRows {
+			return &ConcurrencyError{
+				AggregateID: event.GetAggregateID(),
+				Expected:    event.GetVersion(),
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("inserting event: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing transaction: %w", err)
+	}
+
+	return nil
+}
+
+// GetEvents retrieves all events for an aggregate.
+func (s *PostgresEventStore) GetEvents(ctx context.Context, aggregateID string) ([]DomainEvent, error) {
+	query := `
+		SELECT id, aggregate_id, aggregate_type, type, version, timestamp, payload
+		FROM events
+		WHERE aggregate_id = $1
+		ORDER BY version ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, aggregateID)
+	if err != nil {
+		return nil, fmt.Errorf("querying events: %w", err)
+	}
+	defer rows.Close()
+
+	events := make([]DomainEvent, 0)
+	for rows.Next() {
+		event, err := s.scanEvent(rows)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, event)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating events: %w", err)
+	}
+
+	return events, nil
+}
+
+// GetEventsAfter retrieves events after a position.
+func (s *PostgresEventStore) GetEventsAfter(ctx context.Context, position int) ([]DomainEvent, error) {
+	query := `
+		SELECT id, aggregate_id, aggregate_type, type, version, timestamp, payload
+		FROM events
+		WHERE position > $1
+		ORDER BY position ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, position)
+	if err != nil {
+		return nil, fmt.Errorf("querying events: %w", err)
+	}
+	defer rows.Close()
+
+	events := make([]DomainEvent, 0)
+	for rows.Next() {
+		event, err := s.scanEvent(rows)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, event)
+	}
+
+	return events, nil
+}
+
+func (s *PostgresEventStore) scanEvent(rows *sql.Rows) (DomainEvent, error) {
+	var (
+		id            string
+		aggregateID   string
+		aggregateType string
+		eventType     string
+		version       int
+		timestamp     time.Time
+		payload       []byte
+	)
+
+	if err := rows.Scan(&id, &aggregateID, &aggregateType, &eventType, &version, &timestamp, &payload); err != nil {
+		return nil, fmt.Errorf("scanning event: %w", err)
+	}
+
+	// Deserialize based on event type
+	var event DomainEvent
+	switch eventType {
+	case "*events.OrderCreatedEvent":
+		var e OrderCreatedEvent
+		if err := json.Unmarshal(payload, &e); err != nil {
+			return nil, fmt.Errorf("unmarshaling OrderCreatedEvent: %w", err)
+		}
+		event = &e
+	case "*events.ItemAddedEvent":
+		var e ItemAddedEvent
+		if err := json.Unmarshal(payload, &e); err != nil {
+			return nil, fmt.Errorf("unmarshaling ItemAddedEvent: %w", err)
+		}
+		event = &e
+	case "*events.OrderShippedEvent":
+		var e OrderShippedEvent
+		if err := json.Unmarshal(payload, &e); err != nil {
+			return nil, fmt.Errorf("unmarshaling OrderShippedEvent: %w", err)
+		}
+		event = &e
+	default:
+		return nil, fmt.Errorf("unknown event type: %s", eventType)
+	}
+
+	return event, nil
+}
+
+// Subscribe subscribes to events (simplified implementation).
+func (s *PostgresEventStore) Subscribe(handler func(DomainEvent)) {
+	// Implementation would use LISTEN/NOTIFY or polling
 }
 ```
 
 ### Projections
 
-```typescript
-class OrderProjection {
-  constructor(
-    private eventStore: EventStore,
-    private readDb: Database
-  ) {
-    eventStore.subscribe(event => this.handle(event));
-  }
+```go
+package projections
 
-  private async handle(event: DomainEvent): Promise<void> {
-    switch (event.type) {
-      case 'OrderCreated':
-        await this.readDb.orders.insert({
-          id: event.aggregateId,
-          customerId: event.payload.customerId,
-          status: 'pending',
-          totalAmount: 0,
-          createdAt: event.timestamp,
-        });
-        break;
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"time"
+)
 
-      case 'ItemAdded':
-        await this.readDb.orderItems.insert({
-          orderId: event.aggregateId,
-          productId: event.payload.productId,
-          quantity: event.payload.quantity,
-          price: event.payload.price,
-        });
-        // Update total
-        await this.readDb.orders.updateTotal(event.aggregateId);
-        break;
+// OrderView is the denormalized read model for orders.
+type OrderView struct {
+	ID         string
+	CustomerID string
+	Status     string
+	TotalAmount float64
+	CreatedAt  time.Time
+	ShippedAt  *time.Time
+}
 
-      case 'OrderShipped':
-        await this.readDb.orders.update(event.aggregateId, {
-          status: 'shipped',
-          shippedAt: event.timestamp,
-        });
-        break;
-    }
-  }
+// OrderProjection projects events to the read model.
+type OrderProjection struct {
+	eventStore EventStore
+	readDB     *sql.DB
+}
 
-  // Rebuild projection from scratch
-  async rebuild(): Promise<void> {
-    await this.readDb.orders.truncate();
-    const events = await this.eventStore.getEventsAfter(0);
-    for (const event of events) {
-      await this.handle(event);
-    }
-  }
+// NewOrderProjection creates a new order projection.
+func NewOrderProjection(eventStore EventStore, readDB *sql.DB) *OrderProjection {
+	p := &OrderProjection{
+		eventStore: eventStore,
+		readDB:     readDB,
+	}
+
+	eventStore.Subscribe(func(event DomainEvent) {
+		if err := p.handle(context.Background(), event); err != nil {
+			fmt.Printf("error handling event: %v\n", err)
+		}
+	})
+
+	return p
+}
+
+// handle handles domain events.
+func (p *OrderProjection) handle(ctx context.Context, event DomainEvent) error {
+	switch e := event.(type) {
+	case *OrderCreatedEvent:
+		return p.handleOrderCreated(ctx, e)
+	case *ItemAddedEvent:
+		return p.handleItemAdded(ctx, e)
+	case *OrderShippedEvent:
+		return p.handleOrderShipped(ctx, e)
+	default:
+		return nil
+	}
+}
+
+func (p *OrderProjection) handleOrderCreated(ctx context.Context, event *OrderCreatedEvent) error {
+	query := `
+		INSERT INTO orders (id, customer_id, status, total_amount, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+
+	_, err := p.readDB.ExecContext(ctx, query,
+		event.GetAggregateID(),
+		event.CustomerID,
+		"pending",
+		0.0,
+		event.GetTimestamp(),
+	)
+
+	return err
+}
+
+func (p *OrderProjection) handleItemAdded(ctx context.Context, event *ItemAddedEvent) error {
+	// Insert order item
+	query := `
+		INSERT INTO order_items (order_id, product_id, quantity, price)
+		VALUES ($1, $2, $3, $4)
+	`
+
+	_, err := p.readDB.ExecContext(ctx, query,
+		event.GetAggregateID(),
+		event.ProductID,
+		event.Quantity,
+		event.Price,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Update total
+	updateQuery := `
+		UPDATE orders
+		SET total_amount = (
+			SELECT SUM(price * quantity)
+			FROM order_items
+			WHERE order_id = $1
+		)
+		WHERE id = $1
+	`
+
+	_, err = p.readDB.ExecContext(ctx, updateQuery, event.GetAggregateID())
+	return err
+}
+
+func (p *OrderProjection) handleOrderShipped(ctx context.Context, event *OrderShippedEvent) error {
+	query := `
+		UPDATE orders
+		SET status = $1, shipped_at = $2
+		WHERE id = $3
+	`
+
+	_, err := p.readDB.ExecContext(ctx, query,
+		"shipped",
+		event.GetTimestamp(),
+		event.GetAggregateID(),
+	)
+
+	return err
+}
+
+// Rebuild rebuilds the projection from scratch.
+func (p *OrderProjection) Rebuild(ctx context.Context) error {
+	// Truncate read model
+	if _, err := p.readDB.ExecContext(ctx, "TRUNCATE orders, order_items"); err != nil {
+		return fmt.Errorf("truncating tables: %w", err)
+	}
+
+	// Replay all events
+	events, err := p.eventStore.GetEventsAfter(ctx, 0)
+	if err != nil {
+		return fmt.Errorf("getting events: %w", err)
+	}
+
+	for _, event := range events {
+		if err := p.handle(ctx, event); err != nil {
+			return fmt.Errorf("handling event: %w", err)
+		}
+	}
+
+	return nil
 }
 ```
 

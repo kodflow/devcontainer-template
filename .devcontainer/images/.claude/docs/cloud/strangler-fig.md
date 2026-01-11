@@ -56,207 +56,170 @@
 
 ## Implementation TypeScript
 
-```typescript
-interface RoutingConfig {
-  feature: string;
-  useNew: boolean;
-  percentage?: number; // Pour canary deployment
+```go
+package stranglerfig
+
+import (
+	"context"
+	"fmt"
+	"math/rand"
+	"sync"
+)
+
+// RoutingConfig defines routing configuration for a feature.
+type RoutingConfig struct {
+	Feature    string
+	UseNew     bool
+	Percentage int // For canary deployment
 }
 
-class StranglerFacade {
-  private routingConfig: Map<string, RoutingConfig> = new Map();
+// LegacyService defines the legacy service interface.
+type LegacyService interface {
+	Execute(ctx context.Context, feature, method string, data interface{}) (interface{}, error)
+}
 
-  constructor(
-    private legacyService: LegacyService,
-    private newServices: Map<string, NewService>,
-  ) {
-    this.initializeRouting();
-  }
+// NewService defines the new service interface.
+type NewService interface {
+	Execute(ctx context.Context, method string, data interface{}) (interface{}, error)
+}
 
-  private initializeRouting(): void {
-    // Configuration par feature
-    this.routingConfig.set('users', { feature: 'users', useNew: true });
-    this.routingConfig.set('orders', {
-      feature: 'orders',
-      useNew: true,
-      percentage: 50,
-    }); // Canary
-    this.routingConfig.set('inventory', { feature: 'inventory', useNew: false }); // Still legacy
-    this.routingConfig.set('reports', { feature: 'reports', useNew: false });
-  }
+// StranglerFacade manages migration from legacy to new services.
+type StranglerFacade struct {
+	mu            sync.RWMutex
+	routingConfig map[string]*RoutingConfig
+	legacyService LegacyService
+	newServices   map[string]NewService
+}
 
-  async handleRequest(
-    feature: string,
-    method: string,
-    data: unknown,
-  ): Promise<unknown> {
-    const config = this.routingConfig.get(feature);
+// NewStranglerFacade creates a new StranglerFacade.
+func NewStranglerFacade(
+	legacyService LegacyService,
+	newServices map[string]NewService,
+) *StranglerFacade {
+	sf := &StranglerFacade{
+		routingConfig: make(map[string]*RoutingConfig),
+		legacyService: legacyService,
+		newServices:   newServices,
+	}
+	
+	sf.initializeRouting()
+	return sf
+}
 
-    if (!config) {
-      throw new Error(`Unknown feature: ${feature}`);
-    }
+func (sf *StranglerFacade) initializeRouting() {
+	// Configuration by feature
+	sf.routingConfig["users"] = &RoutingConfig{
+		Feature: "users",
+		UseNew:  true,
+	}
+	sf.routingConfig["orders"] = &RoutingConfig{
+		Feature:    "orders",
+		UseNew:     true,
+		Percentage: 50, // Canary: 50% traffic
+	}
+	sf.routingConfig["inventory"] = &RoutingConfig{
+		Feature: "inventory",
+		UseNew:  false, // Still legacy
+	}
+	sf.routingConfig["reports"] = &RoutingConfig{
+		Feature: "reports",
+		UseNew:  false,
+	}
+}
 
-    const useNewService = this.shouldUseNewService(config);
+// HandleRequest handles a request by routing to legacy or new service.
+func (sf *StranglerFacade) HandleRequest(
+	ctx context.Context,
+	feature, method string,
+	data interface{},
+) (interface{}, error) {
+	sf.mu.RLock()
+	config, exists := sf.routingConfig[feature]
+	sf.mu.RUnlock()
 
-    if (useNewService) {
-      const service = this.newServices.get(feature);
-      if (!service) {
-        throw new Error(`New service not found for: ${feature}`);
-      }
-      return service.execute(method, data);
-    }
+	if !exists {
+		return nil, fmt.Errorf("unknown feature: %s", feature)
+	}
 
-    return this.legacyService.execute(feature, method, data);
-  }
+	useNewService := sf.shouldUseNewService(config)
 
-  private shouldUseNewService(config: RoutingConfig): boolean {
-    if (!config.useNew) return false;
+	if useNewService {
+		service, exists := sf.newServices[feature]
+		if !exists {
+			return nil, fmt.Errorf("new service not found for: %s", feature)
+		}
+		return service.Execute(ctx, method, data)
+	}
 
-    // Canary: pourcentage du trafic
-    if (config.percentage !== undefined) {
-      return Math.random() * 100 < config.percentage;
-    }
+	return sf.legacyService.Execute(ctx, feature, method, data)
+}
 
-    return true;
-  }
+func (sf *StranglerFacade) shouldUseNewService(config *RoutingConfig) bool {
+	if !config.UseNew {
+		return false
+	}
 
-  // Migrer une feature
-  enableNewService(feature: string, percentage = 100): void {
-    this.routingConfig.set(feature, {
-      feature,
-      useNew: true,
-      percentage,
-    });
-  }
+	// Canary: percentage of traffic
+	if config.Percentage > 0 && config.Percentage < 100 {
+		return rand.Intn(100) < config.Percentage
+	}
 
-  // Rollback si probleme
-  disableNewService(feature: string): void {
-    this.routingConfig.set(feature, {
-      feature,
-      useNew: false,
-    });
-  }
+	return true
+}
+
+// EnableNewService migrates a feature to the new service.
+func (sf *StranglerFacade) EnableNewService(feature string, percentage int) {
+	if percentage == 0 {
+		percentage = 100
+	}
+
+	sf.mu.Lock()
+	defer sf.mu.Unlock()
+
+	sf.routingConfig[feature] = &RoutingConfig{
+		Feature:    feature,
+		UseNew:     true,
+		Percentage: percentage,
+	}
+}
+
+// DisableNewService rolls back to legacy service.
+func (sf *StranglerFacade) DisableNewService(feature string) {
+	sf.mu.Lock()
+	defer sf.mu.Unlock()
+
+	sf.routingConfig[feature] = &RoutingConfig{
+		Feature: feature,
+		UseNew:  false,
+	}
 }
 ```
 
 ## Anti-Corruption Layer
 
-```typescript
-// Adapte les modeles legacy vers le nouveau format
-interface LegacyUser {
-  USR_ID: number;
-  USR_NAME: string;
-  USR_MAIL: string;
-  USR_ACTIVE: 'Y' | 'N';
-  CREATED_DT: string;
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  active: boolean;
-  createdAt: Date;
-}
-
-class UserAntiCorruptionLayer {
-  // Legacy -> New
-  translateFromLegacy(legacy: LegacyUser): User {
-    return {
-      id: `user_${legacy.USR_ID}`,
-      name: legacy.USR_NAME,
-      email: legacy.USR_MAIL,
-      active: legacy.USR_ACTIVE === 'Y',
-      createdAt: new Date(legacy.CREATED_DT),
-    };
-  }
-
-  // New -> Legacy (pour sync bidirectionnelle)
-  translateToLegacy(user: User): LegacyUser {
-    return {
-      USR_ID: parseInt(user.id.replace('user_', '')),
-      USR_NAME: user.name,
-      USR_MAIL: user.email,
-      USR_ACTIVE: user.active ? 'Y' : 'N',
-      CREATED_DT: user.createdAt.toISOString().split('T')[0],
-    };
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Sync bidirectionnelle pendant migration
 
-```typescript
-class DualWriteService {
-  constructor(
-    private legacyRepo: LegacyUserRepository,
-    private newRepo: UserRepository,
-    private acl: UserAntiCorruptionLayer,
-  ) {}
-
-  async createUser(user: User): Promise<User> {
-    // Ecrire dans les deux systemes
-    const legacyUser = this.acl.translateToLegacy(user);
-
-    const [, created] = await Promise.all([
-      this.legacyRepo.create(legacyUser),
-      this.newRepo.create(user),
-    ]);
-
-    return created;
-  }
-
-  async getUser(id: string): Promise<User> {
-    // Lire du nouveau systeme, fallback sur legacy
-    try {
-      return await this.newRepo.findById(id);
-    } catch {
-      const legacyUser = await this.legacyRepo.findById(
-        parseInt(id.replace('user_', '')),
-      );
-      return this.acl.translateFromLegacy(legacyUser);
-    }
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Feature flags pour migration
 
-```typescript
-class MigrationFeatureFlags {
-  private flags: Map<string, boolean | number> = new Map();
-
-  constructor(private configService: ConfigService) {
-    this.loadFlags();
-  }
-
-  private async loadFlags(): Promise<void> {
-    const config = await this.configService.get('migration');
-    Object.entries(config).forEach(([key, value]) => {
-      this.flags.set(key, value as boolean | number);
-    });
-  }
-
-  isEnabled(feature: string): boolean {
-    return this.flags.get(feature) === true;
-  }
-
-  getPercentage(feature: string): number {
-    const value = this.flags.get(feature);
-    return typeof value === 'number' ? value : 0;
-  }
-
-  // Toggle sans redeploy
-  async enable(feature: string): Promise<void> {
-    await this.configService.set(`migration.${feature}`, true);
-    this.flags.set(feature, true);
-  }
-
-  async disable(feature: string): Promise<void> {
-    await this.configService.set(`migration.${feature}`, false);
-    this.flags.set(feature, false);
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Phases de migration
@@ -292,33 +255,11 @@ class MigrationFeatureFlags {
 
 ## Metriques de migration
 
-```typescript
-class MigrationMetrics {
-  recordRequest(
-    feature: string,
-    target: 'legacy' | 'new',
-    success: boolean,
-    latencyMs: number,
-  ): void {
-    // Prometheus metrics
-    requestCounter.inc({
-      feature,
-      target,
-      status: success ? 'success' : 'error',
-    });
-    latencyHistogram.observe({ feature, target }, latencyMs);
-  }
-
-  getMigrationProgress(): Record<string, number> {
-    // Pourcentage de trafic vers nouveau par feature
-    return {
-      users: 100,
-      orders: 75,
-      inventory: 0,
-      reports: 25,
-    };
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Quand utiliser

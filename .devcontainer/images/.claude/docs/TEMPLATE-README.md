@@ -24,7 +24,7 @@
 
 > [Description courte]
 
-```typescript
+```go
 // Exemple minimal mais fonctionnel
 [code]
 ```
@@ -41,7 +41,7 @@
 
 > [Description courte]
 
-```typescript
+```go
 // Exemple minimal
 [code]
 ```

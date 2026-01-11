@@ -10,432 +10,558 @@ les fonctionnalites.
 
 ## Structure
 
-```typescript
+```go
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"math"
+	"net/http"
+	"time"
+)
+
 // 1. Interface composant
-interface HttpClient {
-  request(config: RequestConfig): Promise<Response>;
+type HTTPClient interface {
+	Request(ctx context.Context, config RequestConfig) (*http.Response, error)
 }
 
-interface RequestConfig {
-  url: string;
-  method: string;
-  headers?: Record<string, string>;
-  body?: unknown;
+type RequestConfig struct {
+	URL     string
+	Method  string
+	Headers map[string]string
+	Body    io.Reader
 }
 
 // 2. Composant concret
-class BasicHttpClient implements HttpClient {
-  async request(config: RequestConfig): Promise<Response> {
-    return fetch(config.url, {
-      method: config.method,
-      headers: config.headers,
-      body: config.body ? JSON.stringify(config.body) : undefined,
-    });
-  }
+type BasicHTTPClient struct {
+	client *http.Client
 }
 
-// 3. Decorateur de base
-abstract class HttpClientDecorator implements HttpClient {
-  constructor(protected client: HttpClient) {}
-
-  async request(config: RequestConfig): Promise<Response> {
-    return this.client.request(config);
-  }
+func NewBasicHTTPClient() *BasicHTTPClient {
+	return &BasicHTTPClient{
+		client: http.DefaultClient,
+	}
 }
 
-// 4. Decorateurs concrets
-class LoggingDecorator extends HttpClientDecorator {
-  async request(config: RequestConfig): Promise<Response> {
-    console.log(`[HTTP] ${config.method} ${config.url}`);
-    const start = Date.now();
+func (b *BasicHTTPClient) Request(ctx context.Context, config RequestConfig) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, config.Method, config.URL, config.Body)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
 
-    const response = await super.request(config);
+	for k, v := range config.Headers {
+		req.Header.Set(k, v)
+	}
 
-    console.log(`[HTTP] ${response.status} (${Date.now() - start}ms)`);
-    return response;
-  }
+	return b.client.Do(req)
 }
 
-class AuthDecorator extends HttpClientDecorator {
-  constructor(
-    client: HttpClient,
-    private tokenProvider: () => string,
-  ) {
-    super(client);
-  }
+// 3. Decorateurs concrets (pas de classe de base en Go - composition directe)
 
-  async request(config: RequestConfig): Promise<Response> {
-    const token = this.tokenProvider();
-    const headers = {
-      ...config.headers,
-      Authorization: `Bearer ${token}`,
-    };
-    return super.request({ ...config, headers });
-  }
+type LoggingDecorator struct {
+	client HTTPClient
 }
 
-class RetryDecorator extends HttpClientDecorator {
-  constructor(
-    client: HttpClient,
-    private maxRetries: number = 3,
-    private delay: number = 1000,
-  ) {
-    super(client);
-  }
-
-  async request(config: RequestConfig): Promise<Response> {
-    let lastError: Error | undefined;
-
-    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      try {
-        const response = await super.request(config);
-        if (response.ok || response.status < 500) {
-          return response;
-        }
-        throw new Error(`HTTP ${response.status}`);
-      } catch (error) {
-        lastError = error as Error;
-        if (attempt < this.maxRetries) {
-          await this.sleep(this.delay * Math.pow(2, attempt));
-        }
-      }
-    }
-    throw lastError;
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+func NewLoggingDecorator(client HTTPClient) *LoggingDecorator {
+	return &LoggingDecorator{client: client}
 }
 
-class CacheDecorator extends HttpClientDecorator {
-  private cache = new Map<string, { response: Response; expires: number }>();
+func (l *LoggingDecorator) Request(ctx context.Context, config RequestConfig) (*http.Response, error) {
+	fmt.Printf("[HTTP] %s %s\n", config.Method, config.URL)
+	start := time.Now()
 
-  constructor(
-    client: HttpClient,
-    private ttl: number = 60000,
-  ) {
-    super(client);
-  }
+	response, err := l.client.Request(ctx, config)
 
-  async request(config: RequestConfig): Promise<Response> {
-    if (config.method !== 'GET') {
-      return super.request(config);
-    }
+	if err != nil {
+		fmt.Printf("[HTTP] Error: %v\n", err)
+		return nil, err
+	}
 
-    const key = config.url;
-    const cached = this.cache.get(key);
+	fmt.Printf("[HTTP] %d (%dms)\n", response.StatusCode, time.Since(start).Milliseconds())
+	return response, nil
+}
 
-    if (cached && cached.expires > Date.now()) {
-      console.log('[CACHE] Hit:', key);
-      return cached.response.clone();
-    }
+type AuthDecorator struct {
+	client        HTTPClient
+	tokenProvider func() string
+}
 
-    const response = await super.request(config);
-    this.cache.set(key, {
-      response: response.clone(),
-      expires: Date.now() + this.ttl,
-    });
+func NewAuthDecorator(client HTTPClient, tokenProvider func() string) *AuthDecorator {
+	return &AuthDecorator{
+		client:        client,
+		tokenProvider: tokenProvider,
+	}
+}
 
-    return response;
-  }
+func (a *AuthDecorator) Request(ctx context.Context, config RequestConfig) (*http.Response, error) {
+	token := a.tokenProvider()
+
+	if config.Headers == nil {
+		config.Headers = make(map[string]string)
+	}
+	config.Headers["Authorization"] = "Bearer " + token
+
+	return a.client.Request(ctx, config)
+}
+
+type RetryDecorator struct {
+	client     HTTPClient
+	maxRetries int
+	delay      time.Duration
+}
+
+func NewRetryDecorator(client HTTPClient, maxRetries int, delay time.Duration) *RetryDecorator {
+	if maxRetries == 0 {
+		maxRetries = 3
+	}
+	if delay == 0 {
+		delay = 1 * time.Second
+	}
+	return &RetryDecorator{
+		client:     client,
+		maxRetries: maxRetries,
+		delay:      delay,
+	}
+}
+
+func (r *RetryDecorator) Request(ctx context.Context, config RequestConfig) (*http.Response, error) {
+	var lastErr error
+
+	for attempt := 0; attempt <= r.maxRetries; attempt++ {
+		response, err := r.client.Request(ctx, config)
+		if err == nil && (response.StatusCode < 500 || response.StatusCode == http.StatusOK) {
+			return response, nil
+		}
+
+		lastErr = err
+		if err == nil {
+			lastErr = fmt.Errorf("HTTP %d", response.StatusCode)
+		}
+
+		if attempt < r.maxRetries {
+			backoff := time.Duration(math.Pow(2, float64(attempt))) * r.delay
+			time.Sleep(backoff)
+		}
+	}
+
+	return nil, lastErr
+}
+
+type CacheDecorator struct {
+	client HTTPClient
+	cache  map[string]*cacheEntry
+	ttl    time.Duration
+}
+
+type cacheEntry struct {
+	response *http.Response
+	expires  time.Time
+}
+
+func NewCacheDecorator(client HTTPClient, ttl time.Duration) *CacheDecorator {
+	if ttl == 0 {
+		ttl = 60 * time.Second
+	}
+	return &CacheDecorator{
+		client: client,
+		cache:  make(map[string]*cacheEntry),
+		ttl:    ttl,
+	}
+}
+
+func (c *CacheDecorator) Request(ctx context.Context, config RequestConfig) (*http.Response, error) {
+	if config.Method != "GET" {
+		return c.client.Request(ctx, config)
+	}
+
+	key := config.URL
+	if cached, found := c.cache[key]; found && cached.expires.After(time.Now()) {
+		fmt.Printf("[CACHE] Hit: %s\n", key)
+		return cached.response, nil
+	}
+
+	response, err := c.client.Request(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+
+	c.cache[key] = &cacheEntry{
+		response: response,
+		expires:  time.Now().Add(c.ttl),
+	}
+
+	return response, nil
 }
 ```
 
 ## Usage
 
-```typescript
-// Composition de decorateurs
-let client: HttpClient = new BasicHttpClient();
-client = new LoggingDecorator(client);
-client = new AuthDecorator(client, () => 'my-token');
-client = new RetryDecorator(client, 3);
-client = new CacheDecorator(client, 30000);
+```go
+package main
 
-// L'ordre est important!
-// Cache -> Retry -> Auth -> Logging -> Basic
+import (
+	"context"
+	"fmt"
+)
 
-// Utilisation transparente
-const response = await client.request({
-  url: 'https://api.example.com/users',
-  method: 'GET',
-});
+func main() {
+	// Composition de decorateurs
+	var client HTTPClient = NewBasicHTTPClient()
+	client = NewLoggingDecorator(client)
+	client = NewAuthDecorator(client, func() string { return "my-token" })
+	client = NewRetryDecorator(client, 3, 1*time.Second)
+	client = NewCacheDecorator(client, 30*time.Second)
+
+	// L'ordre est important!
+	// Cache -> Retry -> Auth -> Logging -> Basic
+
+	// Utilisation transparente
+	response, err := client.Request(context.Background(), RequestConfig{
+		URL:    "https://api.example.com/users",
+		Method: "GET",
+	})
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	defer response.Body.Close()
+}
 ```
 
 ## Variantes
 
-### Decorator avec TypeScript decorators
-
-```typescript
-function Log(
-  target: object,
-  propertyKey: string,
-  descriptor: PropertyDescriptor,
-) {
-  const original = descriptor.value;
-
-  descriptor.value = async function (...args: unknown[]) {
-    console.log(`Calling ${propertyKey}`, args);
-    const result = await original.apply(this, args);
-    console.log(`Result of ${propertyKey}:`, result);
-    return result;
-  };
-
-  return descriptor;
-}
-
-function Retry(attempts: number) {
-  return function (
-    target: object,
-    propertyKey: string,
-    descriptor: PropertyDescriptor,
-  ) {
-    const original = descriptor.value;
-
-    descriptor.value = async function (...args: unknown[]) {
-      for (let i = 0; i < attempts; i++) {
-        try {
-          return await original.apply(this, args);
-        } catch (error) {
-          if (i === attempts - 1) throw error;
-        }
-      }
-    };
-
-    return descriptor;
-  };
-}
-
-class ApiService {
-  @Log
-  @Retry(3)
-  async fetchUser(id: string): Promise<User> {
-    return fetch(`/api/users/${id}`).then(r => r.json());
-  }
-}
-```
-
 ### Functional Decorator
 
-```typescript
-type Middleware<T, R> = (next: (input: T) => Promise<R>) =>
-  (input: T) => Promise<R>;
+```go
+package main
 
-const logging: Middleware<RequestConfig, Response> = next => async config => {
-  console.log('Request:', config);
-  const response = await next(config);
-  console.log('Response:', response.status);
-  return response;
-};
+import (
+	"context"
+)
 
-const auth =
-  (token: string): Middleware<RequestConfig, Response> =>
-  next =>
-  async config => {
-    return next({
-      ...config,
-      headers: { ...config.headers, Authorization: `Bearer ${token}` },
-    });
-  };
+type Middleware func(next HandlerFunc) HandlerFunc
+
+type HandlerFunc func(ctx context.Context, config RequestConfig) (*http.Response, error)
+
+func LoggingMiddleware(next HandlerFunc) HandlerFunc {
+	return func(ctx context.Context, config RequestConfig) (*http.Response, error) {
+		fmt.Printf("Request: %s %s\n", config.Method, config.URL)
+		response, err := next(ctx, config)
+		if err == nil {
+			fmt.Printf("Response: %d\n", response.StatusCode)
+		}
+		return response, err
+	}
+}
+
+func AuthMiddleware(token string) Middleware {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, config RequestConfig) (*http.Response, error) {
+			if config.Headers == nil {
+				config.Headers = make(map[string]string)
+			}
+			config.Headers["Authorization"] = "Bearer " + token
+			return next(ctx, config)
+		}
+	}
+}
 
 // Composition
-const compose = <T, R>(
-  ...middlewares: Middleware<T, R>[]
-): Middleware<T, R> =>
-  middlewares.reduce((acc, mw) => next => acc(mw(next)));
+func Compose(middlewares ...Middleware) Middleware {
+	return func(next HandlerFunc) HandlerFunc {
+		for i := len(middlewares) - 1; i >= 0; i-- {
+			next = middlewares[i](next)
+		}
+		return next
+	}
+}
 
-const enhancedFetch = compose(
-  logging,
-  auth('token'),
-)(config => fetch(config.url, config));
+func main() {
+	baseHandler := func(ctx context.Context, config RequestConfig) (*http.Response, error) {
+		req, _ := http.NewRequestWithContext(ctx, config.Method, config.URL, config.Body)
+		return http.DefaultClient.Do(req)
+	}
+
+	enhanced := Compose(
+		LoggingMiddleware,
+		AuthMiddleware("token"),
+	)(baseHandler)
+
+	_, _ = enhanced(context.Background(), RequestConfig{
+		URL:    "https://api.example.com",
+		Method: "GET",
+	})
+}
 ```
 
 ## Cas d'usage concrets
 
 ### Streams decorators
 
-```typescript
-interface OutputStream {
-  write(data: string): void;
-  close(): void;
+```go
+package main
+
+import (
+	"compress/gzip"
+	"io"
+	"os"
+)
+
+type OutputStream interface {
+	Write(data []byte) (int, error)
+	Close() error
 }
 
-class FileOutputStream implements OutputStream {
-  write(data: string) { /* ecrire dans fichier */ }
-  close() { /* fermer fichier */ }
+type FileOutputStream struct {
+	file *os.File
 }
 
-class BufferedOutputStream implements OutputStream {
-  private buffer: string[] = [];
-
-  constructor(
-    private stream: OutputStream,
-    private bufferSize: number = 1024,
-  ) {}
-
-  write(data: string) {
-    this.buffer.push(data);
-    if (this.buffer.join('').length >= this.bufferSize) {
-      this.flush();
-    }
-  }
-
-  flush() {
-    this.stream.write(this.buffer.join(''));
-    this.buffer = [];
-  }
-
-  close() {
-    this.flush();
-    this.stream.close();
-  }
+func NewFileOutputStream(path string) (*FileOutputStream, error) {
+	file, err := os.Create(path)
+	if err != nil {
+		return nil, err
+	}
+	return &FileOutputStream{file: file}, nil
 }
 
-class CompressedOutputStream implements OutputStream {
-  constructor(private stream: OutputStream) {}
+func (f *FileOutputStream) Write(data []byte) (int, error) {
+	return f.file.Write(data)
+}
 
-  write(data: string) {
-    const compressed = this.compress(data);
-    this.stream.write(compressed);
-  }
+func (f *FileOutputStream) Close() error {
+	return f.file.Close()
+}
 
-  close() { this.stream.close(); }
-  private compress(data: string): string { /* ... */ return data; }
+type BufferedOutputStream struct {
+	stream     OutputStream
+	buffer     []byte
+	bufferSize int
+}
+
+func NewBufferedOutputStream(stream OutputStream, bufferSize int) *BufferedOutputStream {
+	if bufferSize == 0 {
+		bufferSize = 1024
+	}
+	return &BufferedOutputStream{
+		stream:     stream,
+		buffer:     make([]byte, 0, bufferSize),
+		bufferSize: bufferSize,
+	}
+}
+
+func (b *BufferedOutputStream) Write(data []byte) (int, error) {
+	b.buffer = append(b.buffer, data...)
+	if len(b.buffer) >= b.bufferSize {
+		return b.flush()
+	}
+	return len(data), nil
+}
+
+func (b *BufferedOutputStream) flush() (int, error) {
+	n, err := b.stream.Write(b.buffer)
+	b.buffer = b.buffer[:0]
+	return n, err
+}
+
+func (b *BufferedOutputStream) Close() error {
+	if len(b.buffer) > 0 {
+		if _, err := b.flush(); err != nil {
+			return err
+		}
+	}
+	return b.stream.Close()
+}
+
+type CompressedOutputStream struct {
+	stream OutputStream
+	writer *gzip.Writer
+}
+
+func NewCompressedOutputStream(stream OutputStream) *CompressedOutputStream {
+	writer := gzip.NewWriter(stream.(io.Writer))
+	return &CompressedOutputStream{
+		stream: stream,
+		writer: writer,
+	}
+}
+
+func (c *CompressedOutputStream) Write(data []byte) (int, error) {
+	return c.writer.Write(data)
+}
+
+func (c *CompressedOutputStream) Close() error {
+	if err := c.writer.Close(); err != nil {
+		return err
+	}
+	return c.stream.Close()
 }
 
 // Usage
-const output = new CompressedOutputStream(
-  new BufferedOutputStream(
-    new FileOutputStream(),
-  ),
-);
+func ExampleStreamDecorators() {
+	file, _ := NewFileOutputStream("output.txt.gz")
+	buffered := NewBufferedOutputStream(file, 1024)
+	compressed := NewCompressedOutputStream(buffered)
+
+	compressed.Write([]byte("Hello, World!"))
+	compressed.Close()
+}
 ```
 
 ## Anti-patterns
 
-```typescript
+```go
 // MAUVAIS: Decorateur qui modifie l'interface
-class BadDecorator extends HttpClientDecorator {
-  async request(config: RequestConfig): Promise<Response> {
-    return super.request(config);
-  }
+type BadDecorator struct {
+	client HTTPClient
+	stats  map[string]int
+}
 
-  // Methode supplementaire = violation du pattern
-  getStats(): Stats {
-    return this.stats;
-  }
+func (b *BadDecorator) Request(ctx context.Context, config RequestConfig) (*http.Response, error) {
+	return b.client.Request(ctx, config)
+}
+
+// Methode supplementaire = violation du pattern
+func (b *BadDecorator) GetStats() map[string]int {
+	return b.stats
 }
 
 // MAUVAIS: Ordre des decorateurs non documente
-const client = new CacheDecorator(
-  new AuthDecorator( // Cache avant Auth = tokens caches!
-    new BasicHttpClient(),
-    () => 'token',
-  ),
-);
+func BadOrder() {
+	var client HTTPClient = NewBasicHTTPClient()
+	// Cache avant Auth = tokens caches!
+	client = NewCacheDecorator(client, 60*time.Second)
+	client = NewAuthDecorator(client, func() string { return "token" })
+}
 
 // MAUVAIS: Decorateur avec etat partage
-class StatefulDecorator extends HttpClientDecorator {
-  private static count = 0; // Etat partage = problemes
+var globalCount int
 
-  async request(config: RequestConfig) {
-    StatefulDecorator.count++;
-    return super.request(config);
-  }
+type StatefulDecorator struct {
+	client HTTPClient
+}
+
+func (s *StatefulDecorator) Request(ctx context.Context, config RequestConfig) (*http.Response, error) {
+	globalCount++ // Etat partage = problemes
+	return s.client.Request(ctx, config)
 }
 ```
 
 ## Tests unitaires
 
-```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+```go
+package main
 
-describe('LoggingDecorator', () => {
-  it('should log requests and responses', async () => {
-    const consoleSpy = vi.spyOn(console, 'log');
-    const mockClient: HttpClient = {
-      request: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
-    };
+import (
+	"context"
+	"net/http"
+	"testing"
+	"time"
+)
 
-    const decorator = new LoggingDecorator(mockClient);
-    await decorator.request({ url: '/api', method: 'GET' });
+func TestLoggingDecorator(t *testing.T) {
+	mockClient := &mockHTTPClient{
+		response: &http.Response{StatusCode: 200},
+	}
 
-    expect(consoleSpy).toHaveBeenCalledWith('[HTTP] GET /api');
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[HTTP] 200'));
-  });
-});
+	decorator := NewLoggingDecorator(mockClient)
+	_, err := decorator.Request(context.Background(), RequestConfig{
+		URL:    "/api",
+		Method: "GET",
+	})
 
-describe('RetryDecorator', () => {
-  it('should retry failed requests', async () => {
-    const mockClient: HttpClient = {
-      request: vi
-        .fn()
-        .mockRejectedValueOnce(new Error('Network error'))
-        .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValue(new Response(null, { status: 200 })),
-    };
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
 
-    const decorator = new RetryDecorator(mockClient, 3, 10);
-    const response = await decorator.request({ url: '/api', method: 'GET' });
+	if !mockClient.called {
+		t.Error("Expected client to be called")
+	}
+}
 
-    expect(mockClient.request).toHaveBeenCalledTimes(3);
-    expect(response.status).toBe(200);
-  });
+func TestRetryDecorator(t *testing.T) {
+	attempts := 0
+	mockClient := &mockHTTPClient{
+		requestFunc: func(ctx context.Context, config RequestConfig) (*http.Response, error) {
+			attempts++
+			if attempts < 3 {
+				return nil, fmt.Errorf("network error")
+			}
+			return &http.Response{StatusCode: 200}, nil
+		},
+	}
 
-  it('should throw after max retries', async () => {
-    const mockClient: HttpClient = {
-      request: vi.fn().mockRejectedValue(new Error('Always fails')),
-    };
+	decorator := NewRetryDecorator(mockClient, 3, 10*time.Millisecond)
+	response, err := decorator.Request(context.Background(), RequestConfig{
+		URL:    "/api",
+		Method: "GET",
+	})
 
-    const decorator = new RetryDecorator(mockClient, 2, 10);
+	if err != nil {
+		t.Fatalf("Request failed: %v", err)
+	}
 
-    await expect(
-      decorator.request({ url: '/api', method: 'GET' }),
-    ).rejects.toThrow('Always fails');
-  });
-});
+	if response.StatusCode != 200 {
+		t.Errorf("Expected 200, got %d", response.StatusCode)
+	}
 
-describe('Decorator composition', () => {
-  it('should apply decorators in order', async () => {
-    const order: string[] = [];
+	if attempts != 3 {
+		t.Errorf("Expected 3 attempts, got %d", attempts)
+	}
+}
 
-    const client: HttpClient = {
-      request: vi.fn().mockImplementation(async () => {
-        order.push('base');
-        return new Response();
-      }),
-    };
+func TestDecoratorComposition(t *testing.T) {
+	order := []string{}
 
-    class FirstDecorator extends HttpClientDecorator {
-      async request(config: RequestConfig) {
-        order.push('first-before');
-        const res = await super.request(config);
-        order.push('first-after');
-        return res;
-      }
-    }
+	mockClient := &mockHTTPClient{
+		requestFunc: func(ctx context.Context, config RequestConfig) (*http.Response, error) {
+			order = append(order, "base")
+			return &http.Response{StatusCode: 200}, nil
+		},
+	}
 
-    class SecondDecorator extends HttpClientDecorator {
-      async request(config: RequestConfig) {
-        order.push('second-before');
-        const res = await super.request(config);
-        order.push('second-after');
-        return res;
-      }
-    }
+	// Simulate decorators that track order
+	var client HTTPClient = mockClient
+	client = &orderTrackingDecorator{client: client, name: "first", order: &order}
+	client = &orderTrackingDecorator{client: client, name: "second", order: &order}
 
-    const decorated = new SecondDecorator(new FirstDecorator(client));
-    await decorated.request({ url: '/', method: 'GET' });
+	_, _ = client.Request(context.Background(), RequestConfig{})
 
-    expect(order).toEqual([
-      'second-before',
-      'first-before',
-      'base',
-      'first-after',
-      'second-after',
-    ]);
-  });
-});
+	expected := []string{"second-before", "first-before", "base", "first-after", "second-after"}
+	if len(order) != len(expected) {
+		t.Errorf("Expected %v, got %v", expected, order)
+	}
+}
+
+type mockHTTPClient struct {
+	response    *http.Response
+	err         error
+	called      bool
+	requestFunc func(context.Context, RequestConfig) (*http.Response, error)
+}
+
+func (m *mockHTTPClient) Request(ctx context.Context, config RequestConfig) (*http.Response, error) {
+	m.called = true
+	if m.requestFunc != nil {
+		return m.requestFunc(ctx, config)
+	}
+	return m.response, m.err
+}
+
+type orderTrackingDecorator struct {
+	client HTTPClient
+	name   string
+	order  *[]string
+}
+
+func (o *orderTrackingDecorator) Request(ctx context.Context, config RequestConfig) (*http.Response, error) {
+	*o.order = append(*o.order, o.name+"-before")
+	resp, err := o.client.Request(ctx, config)
+	*o.order = append(*o.order, o.name+"-after")
+	return resp, err
+}
 ```
 
 ## Quand utiliser

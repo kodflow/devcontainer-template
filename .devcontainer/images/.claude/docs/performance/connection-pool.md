@@ -38,136 +38,249 @@ Pattern de gestion des connexions reseau reutilisables (DB, HTTP, etc.).
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-interface PooledConnection {
-  query<T>(sql: string, params?: unknown[]): Promise<T>;
-  isAlive(): Promise<boolean>;
-  close(): Promise<void>;
+```go
+package connpool
+
+import (
+	"context"
+	"errors"
+	"sync"
+	"time"
+)
+
+var (
+	ErrPoolClosed    = errors.New("pool is closed")
+	ErrAcquireTimeout = errors.New("acquire timeout")
+)
+
+// PooledConnection represents a poolable connection.
+type PooledConnection interface {
+	Query(ctx context.Context, sql string, params ...any) (any, error)
+	IsAlive(ctx context.Context) bool
+	Close() error
 }
 
-interface PoolConfig {
-  minConnections: number;
-  maxConnections: number;
-  acquireTimeout: number;
-  idleTimeout: number;
-  connectionFactory: () => Promise<PooledConnection>;
+// Config holds connection pool configuration.
+type Config struct {
+	MinConnections    int
+	MaxConnections    int
+	AcquireTimeout    time.Duration
+	IdleTimeout       time.Duration
+	ConnectionFactory func(context.Context) (PooledConnection, error)
 }
 
-class ConnectionPool {
-  private idle: PooledConnection[] = [];
-  private active = new Set<PooledConnection>();
-  private waiting: Array<{
-    resolve: (conn: PooledConnection) => void;
-    reject: (err: Error) => void;
-    timer: ReturnType<typeof setTimeout>;
-  }> = [];
+// ConnectionPool manages a pool of connections.
+type ConnectionPool struct {
+	config  Config
+	idle    []PooledConnection
+	active  map[PooledConnection]struct{}
+	waiting []chan PooledConnection
+	mu      sync.Mutex
+	closed  bool
+	done    chan struct{}
+}
 
-  constructor(private config: PoolConfig) {
-    this.initPool();
-    this.startIdleCheck();
-  }
+// New creates a new connection pool.
+func New(ctx context.Context, config Config) (*ConnectionPool, error) {
+	cp := &ConnectionPool{
+		config:  config,
+		idle:    make([]PooledConnection, 0, config.MinConnections),
+		active:  make(map[PooledConnection]struct{}),
+		waiting: make([]chan PooledConnection, 0),
+		done:    make(chan struct{}),
+	}
 
-  private async initPool(): Promise<void> {
-    const promises = Array(this.config.minConnections)
-      .fill(null)
-      .map(() => this.createConnection());
+	if err := cp.initPool(ctx); err != nil {
+		return nil, err
+	}
 
-    const connections = await Promise.all(promises);
-    this.idle.push(...connections);
-  }
+	go cp.idleChecker()
+	return cp, nil
+}
 
-  private async createConnection(): Promise<PooledConnection> {
-    return this.config.connectionFactory();
-  }
+func (cp *ConnectionPool) initPool(ctx context.Context) error {
+	for i := 0; i < cp.config.MinConnections; i++ {
+		conn, err := cp.config.ConnectionFactory(ctx)
+		if err != nil {
+			return err
+		}
+		cp.idle = append(cp.idle, conn)
+	}
+	return nil
+}
 
-  async acquire(): Promise<PooledConnection> {
-    // 1. Connexion idle disponible
-    while (this.idle.length > 0) {
-      const conn = this.idle.pop()!;
-      if (await conn.isAlive()) {
-        this.active.add(conn);
-        return conn;
-      }
-      // Connexion morte, on l'ignore
-    }
+// Acquire gets a connection from the pool.
+func (cp *ConnectionPool) Acquire(ctx context.Context) (PooledConnection, error) {
+	cp.mu.Lock()
 
-    // 2. Creer nouvelle si possible
-    if (this.totalConnections < this.config.maxConnections) {
-      const conn = await this.createConnection();
-      this.active.add(conn);
-      return conn;
-    }
+	if cp.closed {
+		cp.mu.Unlock()
+		return nil, ErrPoolClosed
+	}
 
-    // 3. Attendre une liberation
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        const idx = this.waiting.findIndex((w) => w.resolve === resolve);
-        if (idx >= 0) this.waiting.splice(idx, 1);
-        reject(new Error('Acquire timeout'));
-      }, this.config.acquireTimeout);
+	// Try to get idle connection
+	for len(cp.idle) > 0 {
+		conn := cp.idle[len(cp.idle)-1]
+		cp.idle = cp.idle[:len(cp.idle)-1]
 
-      this.waiting.push({ resolve, reject, timer });
-    });
-  }
+		if conn.IsAlive(ctx) {
+			cp.active[conn] = struct{}{}
+			cp.mu.Unlock()
+			return conn, nil
+		}
+		conn.Close()
+	}
 
-  release(conn: PooledConnection): void {
-    if (!this.active.delete(conn)) return;
+	// Create new connection if under limit
+	if cp.totalConnections() < cp.config.MaxConnections {
+		cp.mu.Unlock()
+		conn, err := cp.config.ConnectionFactory(ctx)
+		if err != nil {
+			return nil, err
+		}
+		cp.mu.Lock()
+		cp.active[conn] = struct{}{}
+		cp.mu.Unlock()
+		return conn, nil
+	}
 
-    // Donner a un waiter si present
-    const waiter = this.waiting.shift();
-    if (waiter) {
-      clearTimeout(waiter.timer);
-      this.active.add(conn);
-      waiter.resolve(conn);
-      return;
-    }
+	// Wait for available connection
+	waiter := make(chan PooledConnection, 1)
+	cp.waiting = append(cp.waiting, waiter)
+	cp.mu.Unlock()
 
-    // Sinon remettre en idle
-    this.idle.push(conn);
-  }
+	select {
+	case conn := <-waiter:
+		return conn, nil
+	case <-time.After(cp.config.AcquireTimeout):
+		cp.mu.Lock()
+		cp.removeWaiter(waiter)
+		cp.mu.Unlock()
+		return nil, ErrAcquireTimeout
+	case <-ctx.Done():
+		cp.mu.Lock()
+		cp.removeWaiter(waiter)
+		cp.mu.Unlock()
+		return nil, ctx.Err()
+	}
+}
 
-  async withConnection<T>(
-    fn: (conn: PooledConnection) => Promise<T>,
-  ): Promise<T> {
-    const conn = await this.acquire();
-    try {
-      return await fn(conn);
-    } finally {
-      this.release(conn);
-    }
-  }
+// Release returns a connection to the pool.
+func (cp *ConnectionPool) Release(conn PooledConnection) {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
 
-  private get totalConnections(): number {
-    return this.idle.length + this.active.size;
-  }
+	if !cp.isActive(conn) {
+		return
+	}
 
-  private startIdleCheck(): void {
-    setInterval(async () => {
-      const now = Date.now();
-      const toRemove: PooledConnection[] = [];
+	delete(cp.active, conn)
 
-      for (const conn of this.idle) {
-        if (!(await conn.isAlive())) {
-          toRemove.push(conn);
-        }
-      }
+	// Give to waiter if present
+	if len(cp.waiting) > 0 {
+		waiter := cp.waiting[0]
+		cp.waiting = cp.waiting[1:]
+		cp.active[conn] = struct{}{}
+		waiter <- conn
+		return
+	}
 
-      for (const conn of toRemove) {
-        const idx = this.idle.indexOf(conn);
-        if (idx >= 0) this.idle.splice(idx, 1);
-        await conn.close();
-      }
-    }, this.config.idleTimeout);
-  }
+	// Return to idle pool
+	cp.idle = append(cp.idle, conn)
+}
 
-  async close(): Promise<void> {
-    const all = [...this.idle, ...this.active];
-    await Promise.all(all.map((c) => c.close()));
-    this.idle = [];
-    this.active.clear();
-  }
+// WithConnection executes a function with a pooled connection.
+func (cp *ConnectionPool) WithConnection(
+	ctx context.Context,
+	fn func(PooledConnection) error,
+) error {
+	conn, err := cp.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer cp.Release(conn)
+	return fn(conn)
+}
+
+func (cp *ConnectionPool) totalConnections() int {
+	return len(cp.idle) + len(cp.active)
+}
+
+func (cp *ConnectionPool) isActive(conn PooledConnection) bool {
+	_, ok := cp.active[conn]
+	return ok
+}
+
+func (cp *ConnectionPool) removeWaiter(waiter chan PooledConnection) {
+	for i, w := range cp.waiting {
+		if w == waiter {
+			cp.waiting = append(cp.waiting[:i], cp.waiting[i+1:]...)
+			close(waiter)
+			break
+		}
+	}
+}
+
+func (cp *ConnectionPool) idleChecker() {
+	ticker := time.NewTicker(cp.config.IdleTimeout)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			cp.checkIdleConnections()
+		case <-cp.done:
+			return
+		}
+	}
+}
+
+func (cp *ConnectionPool) checkIdleConnections() {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
+
+	alive := make([]PooledConnection, 0, len(cp.idle))
+	ctx := context.Background()
+
+	for _, conn := range cp.idle {
+		if conn.IsAlive(ctx) {
+			alive = append(alive, conn)
+		} else {
+			conn.Close()
+		}
+	}
+
+	cp.idle = alive
+}
+
+// Close closes all connections in the pool.
+func (cp *ConnectionPool) Close() error {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
+
+	if cp.closed {
+		return nil
+	}
+
+	cp.closed = true
+	close(cp.done)
+
+	// Close all idle connections
+	for _, conn := range cp.idle {
+		conn.Close()
+	}
+
+	// Close all active connections
+	for conn := range cp.active {
+		conn.Close()
+	}
+
+	cp.idle = nil
+	cp.active = nil
+
+	return nil
 }
 ```
 
@@ -175,25 +288,65 @@ class ConnectionPool {
 
 ## Configuration recommandee
 
-```typescript
-const poolConfig: PoolConfig = {
-  minConnections: 5,        // Connexions maintenues au minimum
-  maxConnections: 20,       // Limite absolue
-  acquireTimeout: 30_000,   // 30s max d'attente
-  idleTimeout: 60_000,      // Nettoyer idle apres 1min
-  connectionFactory: async () => {
-    const conn = new PostgresConnection(dbUrl);
-    await conn.connect();
-    return conn;
-  },
-};
+```go
+package main
 
-const pool = new ConnectionPool(poolConfig);
+import (
+	"context"
+	"database/sql"
+	"time"
+)
 
-// Usage
-const users = await pool.withConnection(async (conn) => {
-  return conn.query('SELECT * FROM users WHERE active = $1', [true]);
-});
+type PostgresConnection struct {
+	db *sql.DB
+}
+
+func (pc *PostgresConnection) Query(ctx context.Context, query string, params ...any) (any, error) {
+	return pc.db.QueryContext(ctx, query, params...)
+}
+
+func (pc *PostgresConnection) IsAlive(ctx context.Context) bool {
+	return pc.db.PingContext(ctx) == nil
+}
+
+func (pc *PostgresConnection) Close() error {
+	return pc.db.Close()
+}
+
+func main() {
+	config := connpool.Config{
+		MinConnections: 5,
+		MaxConnections: 20,
+		AcquireTimeout: 30 * time.Second,
+		IdleTimeout:    60 * time.Second,
+		ConnectionFactory: func(ctx context.Context) (connpool.PooledConnection, error) {
+			db, err := sql.Open("postgres", "postgres://localhost/mydb")
+			if err != nil {
+				return nil, err
+			}
+			if err := db.PingContext(ctx); err != nil {
+				return nil, err
+			}
+			return &PostgresConnection{db: db}, nil
+		},
+	}
+
+	ctx := context.Background()
+	pool, err := connpool.New(ctx, config)
+	if err != nil {
+		panic(err)
+	}
+	defer pool.Close()
+
+	// Usage
+	err = pool.WithConnection(ctx, func(conn connpool.PooledConnection) error {
+		_, err := conn.Query(ctx, "SELECT * FROM users WHERE active = $1", true)
+		return err
+	})
+	if err != nil {
+		panic(err)
+	}
+}
 ```
 
 ---
@@ -218,6 +371,16 @@ const users = await pool.withConnection(async (conn) => {
 - Connexions inutilisees consomment des ressources
 - Complexite de configuration (sizing)
 - Deadlock possible si pool trop petit
+
+---
+
+## Quand utiliser
+
+- Applications avec connexions frequentes a une base de donnees
+- Services HTTP/gRPC necessitant des connexions persistantes
+- Systemes avec latence de connexion elevee (TLS handshake, authentication)
+- Applications a fort trafic necessitant une limitation des connexions
+- Microservices communiquant avec des backends externes (cache, queue, DB)
 
 ---
 

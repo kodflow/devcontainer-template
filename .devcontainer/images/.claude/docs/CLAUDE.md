@@ -197,7 +197,7 @@ Chaque pattern documenté contient :
 
 > Description courte (1 ligne)
 
-```typescript
+```go
 // Exemple de code fonctionnel
 ```
 
@@ -236,7 +236,7 @@ Chaque fichier pattern DOIT contenir :
 |---------|-------------|-------------|
 | Titre H1 | ✓ | `# Nom du Pattern` |
 | Description | ✓ | `> Description courte` |
-| Exemple TypeScript | ✓ | Code fonctionnel |
+| Exemple Go | ✓ | Code fonctionnel |
 | Quand utiliser | ✓ | Cas d'usage |
 | Patterns liés | ✓ | Relations |
 | Sources | ⚠ | Recommandé |

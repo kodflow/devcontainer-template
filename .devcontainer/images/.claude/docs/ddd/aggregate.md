@@ -1,5 +1,7 @@
 # Aggregate Pattern
 
+> Cluster d'objets domaine traité comme une unité pour les modifications de données, avec une Entity racine qui contrôle l'accès et maintient les invariants.
+
 ## Definition
 
 An **Aggregate** is a cluster of domain objects (Entities and Value Objects) treated as a single unit for data changes. It has a root Entity (Aggregate Root) that controls access and maintains invariants across the cluster.
@@ -16,216 +18,325 @@ Aggregate = Root Entity + Child Entities + Value Objects + Invariants + Consiste
 - **Identity**: Referenced only by root's identity
 - **Encapsulation**: Internal structure hidden from outside
 
-## TypeScript Implementation
+## Go Implementation
 
-```typescript
-// Aggregate Root base class
-abstract class AggregateRoot<TId> extends Entity<TId> {
-  private _domainEvents: DomainEvent[] = [];
-  private _version: number = 0;
+```go
+package domain
 
-  protected constructor(id: TId) {
-    super(id);
-  }
+import (
+	"errors"
+	"time"
 
-  get version(): number {
-    return this._version;
-  }
+	"github.com/google/uuid"
+)
 
-  protected addDomainEvent(event: DomainEvent): void {
-    this._domainEvents.push(event);
-  }
-
-  pullDomainEvents(): DomainEvent[] {
-    const events = [...this._domainEvents];
-    this._domainEvents = [];
-    return events;
-  }
-
-  incrementVersion(): void {
-    this._version++;
-  }
+// AggregateRoot is a base type for aggregate roots.
+type AggregateRoot[TID comparable] struct {
+	Entity[TID]
+	domainEvents []DomainEvent
+	version      int
 }
 
-// Order Aggregate - Complete example
-class Order extends AggregateRoot<OrderId> {
-  private _customerId: CustomerId;
-  private _items: OrderItem[] = [];
-  private _status: OrderStatus;
-  private _shippingAddress: Address;
-  private _createdAt: Date;
-
-  private constructor(
-    id: OrderId,
-    customerId: CustomerId,
-    shippingAddress: Address
-  ) {
-    super(id);
-    this._customerId = customerId;
-    this._shippingAddress = shippingAddress;
-    this._status = OrderStatus.Draft;
-    this._createdAt = new Date();
-  }
-
-  // Factory method
-  static create(
-    customerId: CustomerId,
-    shippingAddress: Address
-  ): Result<Order, ValidationError> {
-    const id = OrderId.generate();
-    const order = new Order(id, customerId, shippingAddress);
-
-    order.addDomainEvent(new OrderCreatedEvent(id, customerId));
-
-    return Result.ok(order);
-  }
-
-  // Business operation with invariant enforcement
-  addItem(
-    productId: ProductId,
-    quantity: Quantity,
-    unitPrice: Money
-  ): Result<void, DomainError> {
-    // Invariant: Cannot modify confirmed orders
-    if (this._status !== OrderStatus.Draft) {
-      return Result.fail(
-        new DomainError('Cannot add items to a non-draft order')
-      );
-    }
-
-    // Invariant: Maximum 10 items per order
-    if (this._items.length >= 10) {
-      return Result.fail(
-        new DomainError('Order cannot have more than 10 items')
-      );
-    }
-
-    // Check if item already exists
-    const existingItem = this._items.find(i => i.productId.equals(productId));
-
-    if (existingItem) {
-      existingItem.increaseQuantity(quantity);
-    } else {
-      const itemResult = OrderItem.create(productId, quantity, unitPrice);
-      if (itemResult.isFailure) {
-        return Result.fail(itemResult.error);
-      }
-      this._items.push(itemResult.value);
-    }
-
-    this.addDomainEvent(new OrderItemAddedEvent(this.id, productId, quantity));
-
-    return Result.ok(undefined);
-  }
-
-  removeItem(productId: ProductId): Result<void, DomainError> {
-    if (this._status !== OrderStatus.Draft) {
-      return Result.fail(
-        new DomainError('Cannot remove items from a non-draft order')
-      );
-    }
-
-    const index = this._items.findIndex(i => i.productId.equals(productId));
-    if (index === -1) {
-      return Result.fail(new DomainError('Item not found'));
-    }
-
-    this._items.splice(index, 1);
-    this.addDomainEvent(new OrderItemRemovedEvent(this.id, productId));
-
-    return Result.ok(undefined);
-  }
-
-  confirm(): Result<void, DomainError> {
-    // Invariant: Order must have items
-    if (this._items.length === 0) {
-      return Result.fail(new DomainError('Cannot confirm empty order'));
-    }
-
-    // Invariant: Must be in Draft status
-    if (this._status !== OrderStatus.Draft) {
-      return Result.fail(new DomainError('Order already confirmed'));
-    }
-
-    this._status = OrderStatus.Confirmed;
-    this.addDomainEvent(new OrderConfirmedEvent(this.id, this.totalAmount));
-
-    return Result.ok(undefined);
-  }
-
-  cancel(reason: string): Result<void, DomainError> {
-    if (this._status === OrderStatus.Shipped) {
-      return Result.fail(new DomainError('Cannot cancel shipped order'));
-    }
-
-    this._status = OrderStatus.Cancelled;
-    this.addDomainEvent(new OrderCancelledEvent(this.id, reason));
-
-    return Result.ok(undefined);
-  }
-
-  // Computed properties
-  get totalAmount(): Money {
-    return this._items.reduce(
-      (sum, item) => sum.add(item.subtotal).value!,
-      Money.zero(Currency.USD)
-    );
-  }
-
-  get itemCount(): number {
-    return this._items.reduce((sum, item) => sum + item.quantity.value, 0);
-  }
-
-  // Read-only access to internal entities
-  get items(): ReadonlyArray<OrderItem> {
-    return [...this._items];
-  }
-
-  get status(): OrderStatus { return this._status; }
-  get customerId(): CustomerId { return this._customerId; }
-  get shippingAddress(): Address { return this._shippingAddress; }
+// NewAggregateRoot creates a new aggregate root.
+func NewAggregateRoot[TID comparable](id TID) AggregateRoot[TID] {
+	return AggregateRoot[TID]{
+		Entity:       NewEntity(id),
+		domainEvents: make([]DomainEvent, 0),
+		version:      0,
+	}
 }
 
-// Child Entity - part of aggregate
-class OrderItem extends Entity<OrderItemId> {
-  private _productId: ProductId;
-  private _quantity: Quantity;
-  private _unitPrice: Money;
-
-  private constructor(
-    id: OrderItemId,
-    productId: ProductId,
-    quantity: Quantity,
-    unitPrice: Money
-  ) {
-    super(id);
-    this._productId = productId;
-    this._quantity = quantity;
-    this._unitPrice = unitPrice;
-  }
-
-  static create(
-    productId: ProductId,
-    quantity: Quantity,
-    unitPrice: Money
-  ): Result<OrderItem, ValidationError> {
-    const id = OrderItemId.generate();
-    return Result.ok(new OrderItem(id, productId, quantity, unitPrice));
-  }
-
-  // Only accessible through aggregate root
-  increaseQuantity(additional: Quantity): void {
-    this._quantity = this._quantity.add(additional);
-  }
-
-  get subtotal(): Money {
-    return this._unitPrice.multiply(this._quantity.value).value!;
-  }
-
-  get productId(): ProductId { return this._productId; }
-  get quantity(): Quantity { return this._quantity; }
-  get unitPrice(): Money { return this._unitPrice; }
+// Version returns the aggregate version for optimistic locking.
+func (a AggregateRoot[TID]) Version() int {
+	return a.version
 }
+
+// AddDomainEvent adds a domain event to be published.
+func (a *AggregateRoot[TID]) AddDomainEvent(event DomainEvent) {
+	a.domainEvents = append(a.domainEvents, event)
+}
+
+// PullDomainEvents retrieves and clears domain events.
+func (a *AggregateRoot[TID]) PullDomainEvents() []DomainEvent {
+	events := make([]DomainEvent, len(a.domainEvents))
+	copy(events, a.domainEvents)
+	a.domainEvents = nil
+	return events
+}
+
+// IncrementVersion increments the version for optimistic locking.
+func (a *AggregateRoot[TID]) IncrementVersion() {
+	a.version++
+}
+
+// OrderID is a strongly-typed order identifier.
+type OrderID struct {
+	value string
+}
+
+// NewOrderID generates a new order ID.
+func NewOrderID() OrderID {
+	return OrderID{value: uuid.New().String()}
+}
+
+// OrderIDFrom creates an OrderID from a string.
+func OrderIDFrom(value string) (OrderID, error) {
+	if value == "" {
+		return OrderID{}, errors.New("orderID cannot be empty")
+	}
+	return OrderID{value: value}, nil
+}
+
+// Value returns the underlying string value.
+func (id OrderID) Value() string {
+	return id.value
+}
+
+// Equals checks OrderID equality.
+func (id OrderID) Equals(other OrderID) bool {
+	return id.value == other.value
+}
+
+// OrderStatus represents the order lifecycle state.
+type OrderStatus string
+
+const (
+	OrderStatusDraft     OrderStatus = "draft"
+	OrderStatusConfirmed OrderStatus = "confirmed"
+	OrderStatusShipped   OrderStatus = "shipped"
+	OrderStatusCancelled OrderStatus = "cancelled"
+)
+
+// Order is the aggregate root for order management.
+type Order struct {
+	AggregateRoot[OrderID]
+	customerID      CustomerID
+	items           []OrderItem
+	status          OrderStatus
+	shippingAddress Address
+	createdAt       time.Time
+}
+
+// NewOrder creates a new order in draft status.
+func NewOrder(customerID CustomerID, shippingAddress Address) (*Order, error) {
+	id := NewOrderID()
+	order := &Order{
+		AggregateRoot:   NewAggregateRoot(id),
+		customerID:      customerID,
+		shippingAddress: shippingAddress,
+		status:          OrderStatusDraft,
+		createdAt:       time.Now(),
+		items:           make([]OrderItem, 0),
+	}
+	
+	order.AddDomainEvent(NewOrderCreatedEvent(id, customerID))
+	
+	return order, nil
+}
+
+// AddItem adds an item to the order with invariant enforcement.
+func (o *Order) AddItem(
+	productID ProductID,
+	quantity Quantity,
+	unitPrice Money,
+) error {
+	// Invariant: Cannot modify confirmed orders
+	if o.status != OrderStatusDraft {
+		return errors.New("cannot add items to a non-draft order")
+	}
+	
+	// Invariant: Maximum 10 items per order
+	if len(o.items) >= 10 {
+		return errors.New("order cannot have more than 10 items")
+	}
+	
+	// Check if item already exists
+	for i := range o.items {
+		if o.items[i].ProductID().Equals(productID) {
+			return o.items[i].IncreaseQuantity(quantity)
+		}
+	}
+	
+	// Add new item
+	item, err := NewOrderItem(productID, quantity, unitPrice)
+	if err != nil {
+		return err
+	}
+	
+	o.items = append(o.items, item)
+	o.AddDomainEvent(NewOrderItemAddedEvent(o.ID(), productID, quantity))
+	
+	return nil
+}
+
+// RemoveItem removes an item from the order.
+func (o *Order) RemoveItem(productID ProductID) error {
+	if o.status != OrderStatusDraft {
+		return errors.New("cannot remove items from a non-draft order")
+	}
+	
+	for i, item := range o.items {
+		if item.ProductID().Equals(productID) {
+			o.items = append(o.items[:i], o.items[i+1:]...)
+			o.AddDomainEvent(NewOrderItemRemovedEvent(o.ID(), productID))
+			return nil
+		}
+	}
+	
+	return errors.New("item not found")
+}
+
+// Confirm confirms the order.
+func (o *Order) Confirm() error {
+	// Invariant: Order must have items
+	if len(o.items) == 0 {
+		return errors.New("cannot confirm empty order")
+	}
+	
+	// Invariant: Must be in Draft status
+	if o.status != OrderStatusDraft {
+		return errors.New("order already confirmed")
+	}
+	
+	o.status = OrderStatusConfirmed
+	o.AddDomainEvent(NewOrderConfirmedEvent(o.ID(), o.TotalAmount()))
+	
+	return nil
+}
+
+// Cancel cancels the order with a reason.
+func (o *Order) Cancel(reason string) error {
+	if o.status == OrderStatusShipped {
+		return errors.New("cannot cancel shipped order")
+	}
+	
+	o.status = OrderStatusCancelled
+	o.AddDomainEvent(NewOrderCancelledEvent(o.ID(), reason))
+	
+	return nil
+}
+
+// TotalAmount calculates the total order amount.
+func (o *Order) TotalAmount() Money {
+	total, _ := NewMoney(0, CurrencyUSD)
+	
+	for _, item := range o.items {
+		subtotal := item.Subtotal()
+		total, _ = total.Add(subtotal)
+	}
+	
+	return total
+}
+
+// ItemCount returns the total quantity of items.
+func (o *Order) ItemCount() int {
+	count := 0
+	for _, item := range o.items {
+		count += item.Quantity().Value()
+	}
+	return count
+}
+
+// Items returns a read-only copy of items.
+func (o *Order) Items() []OrderItem {
+	items := make([]OrderItem, len(o.items))
+	copy(items, o.items)
+	return items
+}
+
+// Getters for aggregate state
+func (o *Order) Status() OrderStatus            { return o.status }
+func (o *Order) CustomerID() CustomerID         { return o.customerID }
+func (o *Order) ShippingAddress() Address       { return o.shippingAddress }
+func (o *Order) CreatedAt() time.Time           { return o.createdAt }
+
+// OrderItemID is a strongly-typed order item identifier.
+type OrderItemID struct {
+	value string
+}
+
+// NewOrderItemID generates a new order item ID.
+func NewOrderItemID() OrderItemID {
+	return OrderItemID{value: uuid.New().String()}
+}
+
+// OrderItemIDFrom creates an OrderItemID from a string.
+func OrderItemIDFrom(value string) (OrderItemID, error) {
+	if value == "" {
+		return OrderItemID{}, errors.New("orderItemID cannot be empty")
+	}
+	return OrderItemID{value: value}, nil
+}
+
+// Value returns the underlying string value.
+func (id OrderItemID) Value() string {
+	return id.value
+}
+
+// Equals checks OrderItemID equality.
+func (id OrderItemID) Equals(other OrderItemID) bool {
+	return id.value == other.value
+}
+
+// OrderItem is a child entity within the Order aggregate.
+type OrderItem struct {
+	Entity[OrderItemID]
+	productID ProductID
+	quantity  Quantity
+	unitPrice Money
+}
+
+// NewOrderItem creates a new order item.
+func NewOrderItem(
+	productID ProductID,
+	quantity Quantity,
+	unitPrice Money,
+) (OrderItem, error) {
+	id := NewOrderItemID()
+	return OrderItem{
+		Entity:    NewEntity(id),
+		productID: productID,
+		quantity:  quantity,
+		unitPrice: unitPrice,
+	}, nil
+}
+
+// ReconstituteOrderItem reconstitutes an order item from persistence.
+func ReconstituteOrderItem(
+	id OrderItemID,
+	productID ProductID,
+	quantity Quantity,
+	unitPrice Money,
+) OrderItem {
+	return OrderItem{
+		Entity:    NewEntity(id),
+		productID: productID,
+		quantity:  quantity,
+		unitPrice: unitPrice,
+	}
+}
+
+// IncreaseQuantity increases the item quantity (only accessible through aggregate).
+func (i *OrderItem) IncreaseQuantity(additional Quantity) error {
+	newValue := i.quantity.Value() + additional.Value()
+	newQuantity, err := NewQuantity(newValue)
+	if err != nil {
+		return err
+	}
+	i.quantity = newQuantity
+	return nil
+}
+
+// Subtotal calculates the item subtotal.
+func (i OrderItem) Subtotal() Money {
+	result, _ := i.unitPrice.Multiply(float64(i.quantity.Value()))
+	return result
+}
+
+// Getters
+func (i OrderItem) ProductID() ProductID { return i.productID }
+func (i OrderItem) Quantity() Quantity   { return i.quantity }
+func (i OrderItem) UnitPrice() Money     { return i.unitPrice }
 ```
 
 ## Aggregate Design Rules
@@ -235,23 +346,37 @@ class OrderItem extends Entity<OrderItemId> {
 3. **Keep Aggregates Small**: Prefer smaller aggregates for concurrency
 4. **Use Domain Events**: For cross-aggregate communication
 
-```typescript
+```go
 // Cross-aggregate reference - by ID only
-class Order extends AggregateRoot<OrderId> {
-  private _customerId: CustomerId; // Reference by ID, not Customer object
-
-  // NOT this:
-  // private _customer: Customer; // BAD - crosses aggregate boundary
+type Order struct {
+	AggregateRoot[OrderID]
+	customerID CustomerID // Reference by ID, not Customer object
+	
+	// NOT this:
+	// customer *Customer // BAD - crosses aggregate boundary
 }
 
 // Cross-aggregate communication via events
-class OrderConfirmedHandler implements DomainEventHandler<OrderConfirmedEvent> {
-  constructor(private inventoryService: InventoryService) {}
+type OrderConfirmedHandler struct {
+	inventoryService InventoryService
+}
 
-  async handle(event: OrderConfirmedEvent): Promise<void> {
-    // Update another aggregate based on event
-    await this.inventoryService.reserveStock(event.orderId, event.items);
-  }
+// NewOrderConfirmedHandler creates a new handler.
+func NewOrderConfirmedHandler(
+	inventoryService InventoryService,
+) *OrderConfirmedHandler {
+	return &OrderConfirmedHandler{
+		inventoryService: inventoryService,
+	}
+}
+
+// Handle processes the order confirmed event.
+func (h *OrderConfirmedHandler) Handle(
+	ctx context.Context,
+	event *OrderConfirmedEvent,
+) error {
+	// Update another aggregate based on event
+	return h.inventoryService.ReserveStock(ctx, event.OrderID, event.Items)
 }
 ```
 
@@ -259,71 +384,83 @@ class OrderConfirmedHandler implements DomainEventHandler<OrderConfirmedEvent> {
 
 | Library | Purpose | Link |
 |---------|---------|------|
-| **@nestjs/cqrs** | Event sourcing | `npm i @nestjs/cqrs` |
-| **eventstore-db** | Event store | `npm i @eventstore/db-client` |
-| **uuid** | ID generation | `npm i uuid` |
-| **Effect** | Functional aggregates | `npm i effect` |
+| **google/uuid** | ID generation | `go get github.com/google/uuid` |
+| **ThreeDotsLabs/watermill** | Event sourcing | `go get github.com/ThreeDotsLabs/watermill` |
+| **nats-io/nats.go** | Event streaming | `go get github.com/nats-io/nats.go` |
 
 ## Anti-patterns
 
 1. **God Aggregate**: Too many entities in one aggregate
 
-   ```typescript
+   ```go
    // BAD - Too large, concurrency issues
-   class Customer extends AggregateRoot {
-     orders: Order[];
-     reviews: Review[];
-     wishlist: WishlistItem[];
+   type Customer struct {
+       AggregateRoot[CustomerID]
+       orders    []*Order
+       reviews   []*Review
+       wishlist  []*WishlistItem
    }
    ```
 
 2. **Anemic Aggregate**: No business logic, just data container
 
-   ```typescript
+   ```go
    // BAD - Logic in services instead of aggregate
-   class Order {
-     items: OrderItem[];
-     status: string;
+   type Order struct {
+       Items  []OrderItem
+       Status string
    }
-
-   class OrderService {
-     addItem(order: Order, item: OrderItem) { /* logic here */ }
+   
+   type OrderService struct{}
+   
+   func (s *OrderService) AddItem(order *Order, item OrderItem) {
+       // Logic here instead of in aggregate
    }
    ```
 
 3. **Cross-Aggregate Transaction**: Modifying multiple aggregates in one transaction
 
-   ```typescript
+   ```go
    // BAD
-   async confirmOrder(orderId: OrderId): Promise<void> {
-     const order = await this.orderRepo.findById(orderId);
-     const customer = await this.customerRepo.findById(order.customerId);
-
-     order.confirm();
-     customer.addLoyaltyPoints(100); // Different aggregate!
-
-     await this.unitOfWork.commit(); // Single transaction - BAD
+   func (s *OrderService) ConfirmOrder(ctx context.Context, orderID OrderID) error {
+       order, _ := s.orderRepo.FindByID(ctx, orderID)
+       customer, _ := s.customerRepo.FindByID(ctx, order.CustomerID())
+       
+       order.Confirm()
+       customer.AddLoyaltyPoints(100) // Different aggregate!
+       
+       // Single transaction - BAD
+       tx, _ := s.db.Begin()
+       s.orderRepo.SaveTx(tx, order)
+       s.customerRepo.SaveTx(tx, customer)
+       return tx.Commit()
    }
    ```
 
 4. **Exposing Internals**: Returning mutable collections
 
-   ```typescript
+   ```go
    // BAD
-   get items(): OrderItem[] { return this._items; }
-
+   func (o *Order) Items() []OrderItem {
+       return o.items // Returns mutable slice!
+   }
+   
    // GOOD
-   get items(): ReadonlyArray<OrderItem> { return [...this._items]; }
+   func (o *Order) Items() []OrderItem {
+       items := make([]OrderItem, len(o.items))
+       copy(items, o.items)
+       return items // Returns copy
+   }
    ```
 
-## When to Use
+## Quand utiliser
 
-- Group of objects that change together
-- Business rules span multiple entities
-- Need transactional consistency for a set of objects
-- Complex domain with many relationships
+- Groupe d'objets qui changent ensemble
+- Règles métier qui couvrent plusieurs entités
+- Besoin de cohérence transactionnelle pour un ensemble d'objets
+- Domaine complexe avec de nombreuses relations
 
-## See Also
+## Patterns liés
 
 - [Entity](./entity.md) - Aggregate root is an entity
 - [Value Object](./value-object.md) - Aggregates contain value objects

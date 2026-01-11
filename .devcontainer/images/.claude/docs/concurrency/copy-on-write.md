@@ -35,332 +35,344 @@ Pattern d'optimisation différant la copie jusqu'à la modification.
 
 ---
 
-## Implémentation de base
+## Implementation Go
 
-### CopyOnWriteArray
+### Immutable List (COW)
 
-```typescript
-class CopyOnWriteArray<T> {
-  private data: T[];
-  private refCount: number = 1;
+```go
+package cow
 
-  constructor(initial: T[] = []) {
-    this.data = [...initial];
-  }
-
-  // Lecture - pas de copie
-  get(index: number): T {
-    return this.data[index];
-  }
-
-  get length(): number {
-    return this.data.length;
-  }
-
-  // Iteration - pas de copie
-  *[Symbol.iterator](): Iterator<T> {
-    for (const item of this.data) {
-      yield item;
-    }
-  }
-
-  // Écriture - copie avant modification
-  set(index: number, value: T): CopyOnWriteArray<T> {
-    // Créer une copie avec la modification
-    const newData = [...this.data];
-    newData[index] = value;
-    return new CopyOnWriteArray(newData);
-  }
-
-  push(value: T): CopyOnWriteArray<T> {
-    return new CopyOnWriteArray([...this.data, value]);
-  }
-
-  filter(predicate: (value: T) => boolean): CopyOnWriteArray<T> {
-    return new CopyOnWriteArray(this.data.filter(predicate));
-  }
-
-  map<U>(fn: (value: T) => U): CopyOnWriteArray<U> {
-    return new CopyOnWriteArray(this.data.map(fn));
-  }
+// ImmutableList is a copy-on-write list.
+type ImmutableList[T any] struct {
+	data []T
 }
 
-// Usage
-const list1 = new CopyOnWriteArray([1, 2, 3]);
-const list2 = list1.push(4);  // list1 inchangé, list2 = [1,2,3,4]
-const list3 = list2.set(0, 10); // list2 inchangé, list3 = [10,2,3,4]
+// NewImmutableList creates a new immutable list.
+func NewImmutableList[T any](initial ...T) *ImmutableList[T] {
+	data := make([]T, len(initial))
+	copy(data, initial)
 
-console.log([...list1]); // [1, 2, 3]
-console.log([...list2]); // [1, 2, 3, 4]
-console.log([...list3]); // [10, 2, 3, 4]
+	return &ImmutableList[T]{
+		data: data,
+	}
+}
+
+// Get retrieves an element (no copy).
+func (l *ImmutableList[T]) Get(index int) T {
+	return l.data[index]
+}
+
+// Len returns the length (no copy).
+func (l *ImmutableList[T]) Len() int {
+	return len(l.data)
+}
+
+// Set creates a new list with modified value.
+func (l *ImmutableList[T]) Set(index int, value T) *ImmutableList[T] {
+	newData := make([]T, len(l.data))
+	copy(newData, l.data)
+	newData[index] = value
+
+	return &ImmutableList[T]{data: newData}
+}
+
+// Append creates a new list with appended value.
+func (l *ImmutableList[T]) Append(value T) *ImmutableList[T] {
+	newData := make([]T, len(l.data)+1)
+	copy(newData, l.data)
+	newData[len(l.data)] = value
+
+	return &ImmutableList[T]{data: newData}
+}
+
+// Filter creates a new filtered list.
+func (l *ImmutableList[T]) Filter(predicate func(T) bool) *ImmutableList[T] {
+	filtered := make([]T, 0, len(l.data))
+	for _, item := range l.data {
+		if predicate(item) {
+			filtered = append(filtered, item)
+		}
+	}
+
+	return &ImmutableList[T]{data: filtered}
+}
+
+// Map creates a new mapped list.
+func (l *ImmutableList[T]) Map(fn func(T) T) *ImmutableList[T] {
+	mapped := make([]T, len(l.data))
+	for i, item := range l.data {
+		mapped[i] = fn(item)
+	}
+
+	return &ImmutableList[T]{data: mapped}
+}
+
+// ToSlice returns a copy of the underlying slice.
+func (l *ImmutableList[T]) ToSlice() []T {
+	result := make([]T, len(l.data))
+	copy(result, l.data)
+	return result
+}
 ```
 
----
+**Usage:**
 
-### CopyOnWriteMap
+```go
+package main
 
-```typescript
-class CopyOnWriteMap<K, V> {
-  private data: Map<K, V>;
+import "fmt"
 
-  constructor(entries?: Iterable<[K, V]>) {
-    this.data = new Map(entries);
-  }
+func main() {
+	list1 := NewImmutableList(1, 2, 3)
+	list2 := list1.Append(4)        // list1 unchanged
+	list3 := list2.Set(0, 10)       // list2 unchanged
 
-  // Lecture - pas de copie
-  get(key: K): V | undefined {
-    return this.data.get(key);
-  }
-
-  has(key: K): boolean {
-    return this.data.has(key);
-  }
-
-  get size(): number {
-    return this.data.size;
-  }
-
-  // Écriture - nouvelle instance
-  set(key: K, value: V): CopyOnWriteMap<K, V> {
-    const newMap = new Map(this.data);
-    newMap.set(key, value);
-    return new CopyOnWriteMap(newMap);
-  }
-
-  delete(key: K): CopyOnWriteMap<K, V> {
-    const newMap = new Map(this.data);
-    newMap.delete(key);
-    return new CopyOnWriteMap(newMap);
-  }
-
-  merge(other: CopyOnWriteMap<K, V>): CopyOnWriteMap<K, V> {
-    const newMap = new Map(this.data);
-    for (const [k, v] of other.data) {
-      newMap.set(k, v);
-    }
-    return new CopyOnWriteMap(newMap);
-  }
+	fmt.Println(list1.ToSlice())    // [1, 2, 3]
+	fmt.Println(list2.ToSlice())    // [1, 2, 3, 4]
+	fmt.Println(list3.ToSlice())    // [10, 2, 3, 4]
 }
 ```
 
 ---
 
-## Optimisation avec Structural Sharing
+### Immutable Map
 
-> Partager les parties non modifiées de la structure.
+```go
+package cow
 
-```typescript
-// Arbre immutable avec partage structurel
-class ImmutableTree<T> {
-  constructor(
-    readonly value: T,
-    readonly left?: ImmutableTree<T>,
-    readonly right?: ImmutableTree<T>,
-  ) {}
-
-  // Modifier seulement le chemin vers le noeud
-  setValue(path: 'left' | 'right', newValue: T): ImmutableTree<T> {
-    if (path === 'left') {
-      // Réutilise this.right, crée nouveau left
-      return new ImmutableTree(
-        this.value,
-        new ImmutableTree(newValue),
-        this.right,  // Partagé, pas copié
-      );
-    } else {
-      return new ImmutableTree(
-        this.value,
-        this.left,   // Partagé, pas copié
-        new ImmutableTree(newValue),
-      );
-    }
-  }
+// ImmutableMap is a copy-on-write map.
+type ImmutableMap[K comparable, V any] struct {
+	data map[K]V
 }
 
-/*
-  Avant:          Après setValue('left', X):
+// NewImmutableMap creates a new immutable map.
+func NewImmutableMap[K comparable, V any]() *ImmutableMap[K, V] {
+	return &ImmutableMap[K, V]{
+		data: make(map[K]V),
+	}
+}
 
-      A                    A'
-     / \                  / \
-    B   C       →        X   C  (C est partagé)
-   / \
-  D   E
+// Get retrieves a value (no copy).
+func (m *ImmutableMap[K, V]) Get(key K) (V, bool) {
+	val, ok := m.data[key]
+	return val, ok
+}
 
-  Seulement A et B sont copiés, C/D/E sont partagés
-*/
+// Has checks if key exists (no copy).
+func (m *ImmutableMap[K, V]) Has(key K) bool {
+	_, ok := m.data[key]
+	return ok
+}
+
+// Size returns the map size (no copy).
+func (m *ImmutableMap[K, V]) Size() int {
+	return len(m.data)
+}
+
+// Set creates a new map with the key-value pair.
+func (m *ImmutableMap[K, V]) Set(key K, value V) *ImmutableMap[K, V] {
+	newData := make(map[K]V, len(m.data)+1)
+	for k, v := range m.data {
+		newData[k] = v
+	}
+	newData[key] = value
+
+	return &ImmutableMap[K, V]{data: newData}
+}
+
+// Delete creates a new map without the key.
+func (m *ImmutableMap[K, V]) Delete(key K) *ImmutableMap[K, V] {
+	newData := make(map[K]V, len(m.data))
+	for k, v := range m.data {
+		if k != key {
+			newData[k] = v
+		}
+	}
+
+	return &ImmutableMap[K, V]{data: newData}
+}
+
+// Merge creates a new map with merged values.
+func (m *ImmutableMap[K, V]) Merge(other *ImmutableMap[K, V]) *ImmutableMap[K, V] {
+	newData := make(map[K]V, len(m.data)+len(other.data))
+
+	for k, v := range m.data {
+		newData[k] = v
+	}
+
+	for k, v := range other.data {
+		newData[k] = v
+	}
+
+	return &ImmutableMap[K, V]{data: newData}
+}
 ```
 
 ---
 
-## Utilisation avec Immer
+## COW pour Thread Safety (sync.Map alternative)
 
-```typescript
-import produce from 'immer';
+```go
+package cow
 
-interface State {
-  users: { id: string; name: string }[];
-  settings: { theme: string };
+import (
+	"sync"
+	"sync/atomic"
+)
+
+// ConcurrentMap is a thread-safe COW map.
+type ConcurrentMap[K comparable, V any] struct {
+	data atomic.Value // stores *ImmutableMap[K, V]
+	mu   sync.Mutex
 }
 
-const initialState: State = {
-  users: [
-    { id: '1', name: 'Alice' },
-    { id: '2', name: 'Bob' },
-  ],
-  settings: { theme: 'dark' },
-};
+// NewConcurrentMap creates a concurrent COW map.
+func NewConcurrentMap[K comparable, V any]() *ConcurrentMap[K, V] {
+	cm := &ConcurrentMap[K, V]{}
+	cm.data.Store(NewImmutableMap[K, V]())
+	return cm
+}
 
-// Immer utilise COW en interne
-const nextState = produce(initialState, (draft) => {
-  // Syntax mutable, mais crée une copie
-  draft.users.push({ id: '3', name: 'Charlie' });
-  draft.users[0].name = 'Alicia';
-  // settings n'est pas modifié, donc partagé
-});
+// Get retrieves a value (lock-free read).
+func (cm *ConcurrentMap[K, V]) Get(key K) (V, bool) {
+	current := cm.data.Load().(*ImmutableMap[K, V])
+	return current.Get(key)
+}
 
-// Vérification du partage structurel
-console.log(initialState.settings === nextState.settings); // true (partagé)
-console.log(initialState.users === nextState.users);       // false (copié)
-console.log(initialState.users[1] === nextState.users[1]); // true (Bob pas modifié)
+// Set stores a value (synchronized write).
+func (cm *ConcurrentMap[K, V]) Set(key K, value V) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	current := cm.data.Load().(*ImmutableMap[K, V])
+	updated := current.Set(key, value)
+	cm.data.Store(updated)
+}
+
+// Delete removes a value (synchronized write).
+func (cm *ConcurrentMap[K, V]) Delete(key K) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	current := cm.data.Load().(*ImmutableMap[K, V])
+	updated := current.Delete(key)
+	cm.data.Store(updated)
+}
+
+// Snapshot returns a consistent snapshot.
+func (cm *ConcurrentMap[K, V]) Snapshot() *ImmutableMap[K, V] {
+	return cm.data.Load().(*ImmutableMap[K, V])
+}
 ```
 
----
+**Usage:**
 
-## COW pour Thread Safety
+```go
+package main
 
-```typescript
-// Collection thread-safe sans locks pour lecture
-class ConcurrentCopyOnWriteList<T> {
-  private volatile data: T[] = [];
+import (
+	"fmt"
+	"sync"
+)
 
-  // Lecture - aucun lock nécessaire
-  get(index: number): T {
-    return this.data[index];
-  }
+func main() {
+	cm := NewConcurrentMap[string, int]()
 
-  toArray(): T[] {
-    return this.data; // Safe: la référence est immutable
-  }
+	var wg sync.WaitGroup
 
-  // Écriture - synchronisée
-  add(item: T): void {
-    synchronized(this, () => {
-      // Copie + modification atomique
-      const newData = [...this.data, item];
-      this.data = newData; // Assignation atomique de référence
-    });
-  }
+	// Concurrent writes
+	for i := 0; i < 10; i++ {
+		n := i // Capture for closure
+		wg.Go(func() { // Go 1.25: handles Add/Done internally
+			cm.Set(fmt.Sprintf("key%d", n), n)
+		})
+	}
 
-  remove(index: number): void {
-    synchronized(this, () => {
-      const newData = [
-        ...this.data.slice(0, index),
-        ...this.data.slice(index + 1),
-      ];
-      this.data = newData;
-    });
-  }
+	wg.Wait()
+
+	// Lock-free reads
+	for i := 0; i < 10; i++ {
+		val, ok := cm.Get(fmt.Sprintf("key%d", i))
+		if ok {
+			fmt.Printf("key%d = %d\n", i, val)
+		}
+	}
+
+	// Snapshot
+	snapshot := cm.Snapshot()
+	fmt.Printf("Snapshot size: %d\n", snapshot.Size())
 }
-
-// Les lecteurs ne bloquent jamais
-// Les écrivains se bloquent entre eux seulement
 ```
 
 ---
 
 ## COW pour Snapshots
 
-```typescript
-class DocumentStore {
-  private history: CopyOnWriteMap<string, Document>[] = [];
-  private current: CopyOnWriteMap<string, Document>;
+```go
+package snapshot
 
-  constructor() {
-    this.current = new CopyOnWriteMap();
-  }
+import (
+	"sync"
+)
 
-  // Créer un snapshot (gratuit grâce à COW)
-  createSnapshot(): number {
-    this.history.push(this.current);
-    return this.history.length - 1;
-  }
-
-  // Modifier (crée nouvelle version)
-  updateDocument(id: string, doc: Document): void {
-    this.current = this.current.set(id, doc);
-  }
-
-  // Lire depuis un snapshot
-  getFromSnapshot(snapshotId: number, docId: string): Document | undefined {
-    return this.history[snapshotId]?.get(docId);
-  }
-
-  // Rollback à un snapshot
-  rollback(snapshotId: number): void {
-    if (snapshotId < this.history.length) {
-      this.current = this.history[snapshotId];
-      this.history = this.history.slice(0, snapshotId + 1);
-    }
-  }
+// DocumentStore manages versioned documents.
+type DocumentStore[K comparable, V any] struct {
+	current  *ImmutableMap[K, V]
+	history  []*ImmutableMap[K, V]
+	mu       sync.Mutex
 }
 
-// Usage
-const store = new DocumentStore();
-store.updateDocument('doc1', { content: 'v1' });
+// NewDocumentStore creates a document store.
+func NewDocumentStore[K comparable, V any]() *DocumentStore[K, V] {
+	return &DocumentStore[K, V]{
+		current: NewImmutableMap[K, V](),
+		history: make([]*ImmutableMap[K, V], 0),
+	}
+}
 
-const snapshot1 = store.createSnapshot();
+// CreateSnapshot creates a snapshot of current state.
+func (ds *DocumentStore[K, V]) CreateSnapshot() int {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
 
-store.updateDocument('doc1', { content: 'v2' });
-store.updateDocument('doc2', { content: 'new' });
+	ds.history = append(ds.history, ds.current)
+	return len(ds.history) - 1
+}
 
-// snapshot1 contient toujours v1 de doc1
-console.log(store.getFromSnapshot(snapshot1, 'doc1')); // { content: 'v1' }
-```
+// Update modifies a document.
+func (ds *DocumentStore[K, V]) Update(key K, value V) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
 
----
+	ds.current = ds.current.Set(key, value)
+}
 
-## COW dans les systèmes de fichiers
+// GetFromSnapshot retrieves from a specific snapshot.
+func (ds *DocumentStore[K, V]) GetFromSnapshot(snapshotID int, key K) (V, bool) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
 
-```typescript
-// Simulation de COW filesystem (comme ZFS, Btrfs)
-class CowFileSystem {
-  private blocks: Map<number, Buffer> = new Map();
-  private fileTable: Map<string, number[]> = new Map(); // file -> block ids
-  private nextBlockId = 0;
+	if snapshotID < 0 || snapshotID >= len(ds.history) {
+		var zero V
+		return zero, false
+	}
 
-  // Écriture COW
-  writeFile(path: string, content: Buffer): void {
-    const oldBlocks = this.fileTable.get(path) || [];
+	return ds.history[snapshotID].Get(key)
+}
 
-    // Allouer nouveaux blocs pour le contenu modifié
-    const newBlocks: number[] = [];
-    for (let i = 0; i < content.length; i += 4096) {
-      const blockId = this.nextBlockId++;
-      this.blocks.set(blockId, content.slice(i, i + 4096));
-      newBlocks.push(blockId);
-    }
+// Rollback reverts to a snapshot.
+func (ds *DocumentStore[K, V]) Rollback(snapshotID int) error {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
 
-    // Atomic pointer swap
-    this.fileTable.set(path, newBlocks);
+	if snapshotID < 0 || snapshotID >= len(ds.history) {
+		return fmt.Errorf("invalid snapshot ID")
+	}
 
-    // Les anciens blocs peuvent être garbage collected
-    // ou conservés pour snapshots
-  }
+	ds.current = ds.history[snapshotID]
+	ds.history = ds.history[:snapshotID+1]
 
-  // Snapshot instantané (juste copier les pointeurs)
-  createSnapshot(): Map<string, number[]> {
-    return new Map(this.fileTable);
-  }
-
-  // Clone de fichier (pas de copie physique)
-  cloneFile(source: string, dest: string): void {
-    const blocks = this.fileTable.get(source);
-    if (blocks) {
-      // Juste copier les références de blocs
-      this.fileTable.set(dest, [...blocks]);
-      // Les blocs physiques sont partagés jusqu'à modification
-    }
-  }
+	return nil
 }
 ```
 
@@ -368,95 +380,63 @@ class CowFileSystem {
 
 ## Cas d'usage typiques
 
-### 1. State Management (Redux/Vuex)
+### 1. Undo/Redo
 
-```typescript
-// Reducers immutables avec COW
-function usersReducer(
-  state: UsersState = initialState,
-  action: Action,
-): UsersState {
-  switch (action.type) {
-    case 'ADD_USER':
-      // COW: nouvel array, anciennes références
-      return {
-        ...state,
-        users: [...state.users, action.payload],
-      };
+```go
+package undo
 
-    case 'UPDATE_USER':
-      return {
-        ...state,
-        users: state.users.map((user) =>
-          user.id === action.payload.id
-            ? { ...user, ...action.payload } // COW pour user modifié
-            : user // Réutilise la référence
-        ),
-      };
-
-    default:
-      return state; // Pas de copie si pas de changement
-  }
+// UndoManager manages undo/redo history.
+type UndoManager[T any] struct {
+	past    []T
+	current T
+	future  []T
 }
-```
 
-### 2. Undo/Redo
-
-```typescript
-class UndoManager<T> {
-  private past: T[] = [];
-  private future: T[] = [];
-
-  constructor(private current: T) {}
-
-  // Enregistrer l'état actuel avant modification
-  update(newState: T): void {
-    this.past.push(this.current); // COW: juste stocker la référence
-    this.current = newState;
-    this.future = []; // Effacer le futur
-  }
-
-  undo(): T | undefined {
-    if (this.past.length === 0) return undefined;
-
-    this.future.push(this.current);
-    this.current = this.past.pop()!;
-    return this.current;
-  }
-
-  redo(): T | undefined {
-    if (this.future.length === 0) return undefined;
-
-    this.past.push(this.current);
-    this.current = this.future.pop()!;
-    return this.current;
-  }
+// NewUndoManager creates an undo manager.
+func NewUndoManager[T any](initial T) *UndoManager[T] {
+	return &UndoManager[T]{
+		past:    make([]T, 0),
+		current: initial,
+		future:  make([]T, 0),
+	}
 }
-```
 
-### 3. Caching avec versioning
+// Update records a new state.
+func (um *UndoManager[T]) Update(newState T) {
+	um.past = append(um.past, um.current)
+	um.current = newState
+	um.future = um.future[:0] // Clear future
+}
 
-```typescript
-class VersionedCache<T> {
-  private versions: Map<number, T> = new Map();
-  private currentVersion = 0;
+// Undo reverts to previous state.
+func (um *UndoManager[T]) Undo() (T, bool) {
+	if len(um.past) == 0 {
+		return um.current, false
+	}
 
-  set(value: T): number {
-    const version = ++this.currentVersion;
-    this.versions.set(version, value);
-    return version;
-  }
+	um.future = append(um.future, um.current)
+	um.current = um.past[len(um.past)-1]
+	um.past = um.past[:len(um.past)-1]
 
-  get(version?: number): T | undefined {
-    return this.versions.get(version ?? this.currentVersion);
-  }
+	return um.current, true
+}
 
-  // Comparaison de versions efficace
-  hasChanged(v1: number, v2: number): boolean {
-    const val1 = this.versions.get(v1);
-    const val2 = this.versions.get(v2);
-    return val1 !== val2; // Comparaison par référence
-  }
+// Redo moves forward in history.
+func (um *UndoManager[T]) Redo() (T, bool) {
+	if len(um.future) == 0 {
+		return um.current, false
+	}
+
+	um.past = append(um.past, um.current)
+	um.current = um.future[len(um.future)-1]
+	um.future = um.future[:len(um.future)-1]
+
+	return um.current, true
+}
+
+// Current returns the current state.
+func (um *UndoManager[T]) Current() T {
+	return um.current
 }
 ```
 
@@ -469,7 +449,7 @@ class VersionedCache<T> {
 | Avantage | Explication |
 |----------|-------------|
 | Mémoire | Pas de copie si pas de modification |
-| Performance lecture | Aucun lock nécessaire |
+| Performance lecture | Lock-free reads avec atomic |
 | Snapshots gratuits | Juste copier les pointeurs |
 | Thread-safe | Références immutables |
 | Undo/Redo facile | Conserver les anciennes versions |
@@ -479,8 +459,18 @@ class VersionedCache<T> {
 | Inconvénient | Mitigation |
 |--------------|------------|
 | Coût d'écriture | Batch les modifications |
-| Pression GC | Pooling, structural sharing |
-| Complexité | Utiliser Immer ou lib dédiée |
+| Pression GC | Utiliser sync.Pool pour buffers |
+| Complexité | Encapsuler dans API simple |
+
+---
+
+## Quand utiliser
+
+- Lectures frequentes, ecritures rares (read-heavy workloads)
+- Besoin de snapshots coherents sans bloquer les lecteurs
+- Historique/versioning avec undo/redo
+- Partage de donnees entre threads sans locks en lecture
+- Structures de donnees persistantes/immutables
 
 ---
 
@@ -492,13 +482,12 @@ class VersionedCache<T> {
 | **Structural Sharing** | Optimisation du COW |
 | **Snapshot** | Cas d'usage principal |
 | **Flyweight** | Partage de données similaire |
-| **Prototype** | Clone paresseux |
+| **sync.Map** | Alternative pour cas simples |
 
 ---
 
 ## Sources
 
 - [Copy-on-write - Wikipedia](https://en.wikipedia.org/wiki/Copy-on-write)
-- [Immer.js](https://immerjs.github.io/immer/)
+- [Go sync/atomic](https://pkg.go.dev/sync/atomic)
 - [Persistent Data Structures](https://en.wikipedia.org/wiki/Persistent_data_structure)
-- [ZFS Copy-on-Write](https://docs.oracle.com/cd/E19253-01/819-5461/zfsover-2/)

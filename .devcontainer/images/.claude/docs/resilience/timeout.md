@@ -36,85 +36,160 @@
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
-### Timeout basique avec Promise.race
+### Timeout basique avec context.Context
 
-```typescript
-class TimeoutError extends Error {
-  constructor(message: string, public readonly timeoutMs: number) {
-    super(message);
-    this.name = 'TimeoutError';
-  }
+```go
+package timeout
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+)
+
+// TimeoutError indicates an operation timed out.
+type TimeoutError struct {
+	Operation string
+	Duration  time.Duration
 }
 
-async function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  message = 'Operation timed out',
-): Promise<T> {
-  let timeoutId: NodeJS.Timeout;
+func (e *TimeoutError) Error() string {
+	return fmt.Sprintf("%s timed out after %v", e.Operation, e.Duration)
+}
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new TimeoutError(message, timeoutMs));
-    }, timeoutMs);
-  });
+// WithTimeout executes fn with a timeout.
+func WithTimeout[T any](ctx context.Context, timeout time.Duration, fn func(context.Context) (T, error)) (T, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    clearTimeout(timeoutId);
-  }
+	type result struct {
+		value T
+		err   error
+	}
+
+	ch := make(chan result, 1)
+	go func() {
+		val, err := fn(ctx)
+		ch <- result{value: val, err: err}
+	}()
+
+	select {
+	case res := <-ch:
+		return res.value, res.err
+	case <-ctx.Done():
+		var zero T
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return zero, &TimeoutError{
+				Operation: "operation",
+				Duration:  timeout,
+			}
+		}
+		return zero, ctx.Err()
+	}
 }
 
 // Usage
-const result = await withTimeout(
-  fetch('https://api.example.com/data'),
-  5000,
-  'API call timed out',
-);
+func example() error {
+	ctx := context.Background()
+	
+	result, err := WithTimeout(ctx, 5*time.Second, func(ctx context.Context) (string, error) {
+		// Simulated API call
+		return fetchData(ctx, "https://api.example.com/data")
+	})
+	if err != nil {
+		var timeoutErr *TimeoutError
+		if errors.As(err, &timeoutErr) {
+			return fmt.Errorf("API call timed out: %w", err)
+		}
+		return err
+	}
+	
+	fmt.Println("Result:", result)
+	return nil
+}
 ```
 
 ---
 
-### Timeout avec AbortController
+### HTTP Client avec timeout
 
-```typescript
-async function fetchWithTimeout(
-  url: string,
-  options: RequestInit = {},
-  timeoutMs = 5000,
-): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+```go
+package timeout
 
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-    return response;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new TimeoutError('Request aborted due to timeout', timeoutMs);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"time"
+)
+
+// HTTPClient wraps http.Client with timeout.
+type HTTPClient struct {
+	client *http.Client
+}
+
+// NewHTTPClient creates an HTTP client with timeout.
+func NewHTTPClient(timeout time.Duration) *HTTPClient {
+	return &HTTPClient{
+		client: &http.Client{
+			Timeout: timeout,
+			Transport: &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout:   5 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ResponseHeaderTimeout: 10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+			},
+		},
+	}
+}
+
+// Get performs a GET request with timeout.
+func (c *HTTPClient) Get(ctx context.Context, url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, &TimeoutError{
+				Operation: "HTTP GET",
+				Duration:  c.client.Timeout,
+			}
+		}
+		return nil, fmt.Errorf("executing request: %w", err)
+	}
+
+	return resp, nil
 }
 
 // Usage
-try {
-  const response = await fetchWithTimeout('/api/users', {}, 3000);
-  const data = await response.json();
-} catch (error) {
-  if (error instanceof TimeoutError) {
-    console.log('Request timed out, using cached data');
-    return getCachedData();
-  }
-  throw error;
+func fetchWithTimeout() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	client := NewHTTPClient(5 * time.Second)
+	resp, err := client.Get(ctx, "https://api.example.com/users")
+	if err != nil {
+		var timeoutErr *TimeoutError
+		if errors.As(err, &timeoutErr) {
+			log.Println("Request timed out, using cached data")
+			return getCachedData()
+		}
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Process response
+	return nil
 }
 ```
 
@@ -122,100 +197,160 @@ try {
 
 ### Timeout avec deadline propagation
 
-```typescript
-interface RequestContext {
-  deadline: number;  // Timestamp absolu
-  remainingTime(): number;
-  isExpired(): boolean;
+```go
+package timeout
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// ProcessWithDeadline executes fn within the context's deadline.
+func ProcessWithDeadline[T any](ctx context.Context, fn func(context.Context) (T, error)) (T, error) {
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return fn(ctx)
+	}
+
+	if time.Now().After(deadline) {
+		var zero T
+		return zero, &TimeoutError{
+			Operation: "deadline check",
+			Duration:  0,
+		}
+	}
+
+	return fn(ctx)
 }
 
-function createContext(timeoutMs: number): RequestContext {
-  const deadline = Date.now() + timeoutMs;
-  return {
-    deadline,
-    remainingTime: () => Math.max(0, deadline - Date.now()),
-    isExpired: () => Date.now() >= deadline,
-  };
+// HandleRequest processes a request with multiple stages sharing the same deadline.
+func HandleRequest(ctx context.Context, data interface{}) error {
+	// Stage 1: Validate
+	validationResult, err := ProcessWithDeadline(ctx, func(ctx context.Context) (interface{}, error) {
+		return validate(ctx, data)
+	})
+	if err != nil {
+		return fmt.Errorf("validation: %w", err)
+	}
+
+	// Stage 2: Persist (uses remaining time from context)
+	_, err = ProcessWithDeadline(ctx, func(ctx context.Context) (interface{}, error) {
+		return database.Save(ctx, validationResult)
+	})
+	if err != nil {
+		return fmt.Errorf("persistence: %w", err)
+	}
+
+	return nil
 }
 
-async function processWithDeadline<T>(
-  ctx: RequestContext,
-  fn: (ctx: RequestContext) => Promise<T>,
-): Promise<T> {
-  if (ctx.isExpired()) {
-    throw new TimeoutError('Deadline exceeded', 0);
-  }
+// Usage - Context with 5s deadline shared across stages
+func example() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-  return withTimeout(fn(ctx), ctx.remainingTime());
+	return HandleRequest(ctx, someData)
 }
-
-// Usage - Propagation de deadline entre services
-async function handleRequest(ctx: RequestContext) {
-  // Etape 1: Valider (utilise une partie du temps)
-  const validationResult = await processWithDeadline(ctx, async (c) => {
-    return validate(data);
-  });
-
-  // Etape 2: Persister (utilise le temps restant)
-  const persistResult = await processWithDeadline(ctx, async (c) => {
-    return database.save(validationResult);
-  });
-
-  return persistResult;
-}
-
-// Le contexte avec deadline de 5s est partage entre les etapes
-const ctx = createContext(5000);
-await handleRequest(ctx);
 ```
 
 ---
 
 ### Timeout hierarchique
 
-```typescript
-class TimeoutManager {
-  private readonly globalTimeout: number;
-  private readonly operationTimeouts: Map<string, number>;
+```go
+package timeout
 
-  constructor(globalTimeout = 30000) {
-    this.globalTimeout = globalTimeout;
-    this.operationTimeouts = new Map([
-      ['database', 5000],
-      ['external_api', 10000],
-      ['file_io', 3000],
-      ['cache', 1000],
-    ]);
-  }
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+	"time"
+)
 
-  getTimeout(operation: string): number {
-    return this.operationTimeouts.get(operation) ?? this.globalTimeout;
-  }
+// TimeoutManager manages timeouts for different operations.
+type TimeoutManager struct {
+	mu                sync.RWMutex
+	globalTimeout     time.Duration
+	operationTimeouts map[string]time.Duration
+}
 
-  async execute<T>(operation: string, fn: () => Promise<T>): Promise<T> {
-    const timeout = this.getTimeout(operation);
-    return withTimeout(fn(), timeout, `${operation} timed out after ${timeout}ms`);
-  }
+// NewTimeoutManager creates a new timeout manager.
+func NewTimeoutManager(globalTimeout time.Duration) *TimeoutManager {
+	return &TimeoutManager{
+		globalTimeout: globalTimeout,
+		operationTimeouts: map[string]time.Duration{
+			"database":     5 * time.Second,
+			"external_api": 10 * time.Second,
+			"file_io":      3 * time.Second,
+			"cache":        1 * time.Second,
+		},
+	}
+}
+
+// GetTimeout returns the timeout for an operation.
+func (tm *TimeoutManager) GetTimeout(operation string) time.Duration {
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+
+	if timeout, ok := tm.operationTimeouts[operation]; ok {
+		return timeout
+	}
+	return tm.globalTimeout
+}
+
+// Execute runs fn with the appropriate timeout for the operation.
+func (tm *TimeoutManager) Execute(ctx context.Context, operation string, fn func(context.Context) error) error {
+	timeout := tm.GetTimeout(operation)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- fn(ctx)
+	}()
+
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return &TimeoutError{
+				Operation: operation,
+				Duration:  timeout,
+			}
+		}
+		return ctx.Err()
+	}
 }
 
 // Usage
-const timeoutManager = new TimeoutManager(30000);
+func processOrder(ctx context.Context, order *Order) error {
+	tm := NewTimeoutManager(30 * time.Second)
 
-async function processOrder(order: Order) {
-  // Chaque operation a son propre timeout
-  const user = await timeoutManager.execute('database', () =>
-    db.findUser(order.userId),
-  );
+	// Each operation has its own timeout
+	if err := tm.Execute(ctx, "database", func(ctx context.Context) error {
+		_, err := db.FindUser(ctx, order.UserID)
+		return err
+	}); err != nil {
+		return fmt.Errorf("finding user: %w", err)
+	}
 
-  const inventory = await timeoutManager.execute('external_api', () =>
-    inventoryService.check(order.items),
-  );
+	if err := tm.Execute(ctx, "external_api", func(ctx context.Context) error {
+		return inventoryService.Check(ctx, order.Items)
+	}); err != nil {
+		return fmt.Errorf("checking inventory: %w", err)
+	}
 
-  const cache = await timeoutManager.execute('cache', () =>
-    redis.set(`order:${order.id}`, order),
-  );
+	if err := tm.Execute(ctx, "cache", func(ctx context.Context) error {
+		return redis.Set(ctx, fmt.Sprintf("order:%s", order.ID), order)
+	}); err != nil {
+		// Cache errors are non-fatal
+		log.Printf("cache error: %v", err)
+	}
 
-  return { user, inventory };
+	return nil
 }
 ```
 
@@ -223,48 +358,77 @@ async function processOrder(order: Order) {
 
 ### Timeout avec cleanup
 
-```typescript
-interface CleanupHandler {
-  cleanup: () => Promise<void>;
+```go
+package timeout
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// Cleaner defines resource cleanup.
+type Cleaner interface {
+	Cleanup(context.Context) error
 }
 
-async function withTimeoutAndCleanup<T>(
-  operation: () => Promise<T> & Partial<CleanupHandler>,
-  timeoutMs: number,
-): Promise<T> {
-  const controller = new AbortController();
-  const result = operation();
+// WithTimeoutAndCleanup executes fn with timeout and cleanup on failure.
+func WithTimeoutAndCleanup[T Cleaner](ctx context.Context, timeout time.Duration, fn func(context.Context) (T, error)) (T, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
-  try {
-    return await withTimeout(result, timeoutMs);
-  } catch (error) {
-    // En cas de timeout, nettoyer les ressources
-    if (error instanceof TimeoutError && 'cleanup' in result) {
-      await (result as CleanupHandler).cleanup();
-    }
-    throw error;
-  }
+	result, err := fn(ctx)
+	if err != nil {
+		// Cleanup on error (with a separate timeout)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cleanupCancel()
+		
+		if cleanupErr := result.Cleanup(cleanupCtx); cleanupErr != nil {
+			return result, fmt.Errorf("operation failed: %w; cleanup failed: %v", err, cleanupErr)
+		}
+		return result, err
+	}
+
+	return result, nil
 }
 
-// Usage avec une transaction DB
-async function executeTransaction() {
-  const txn = await db.beginTransaction();
+// Transaction represents a database transaction with cleanup.
+type Transaction struct {
+	tx interface{}
+}
 
-  const operation = Object.assign(
-    (async () => {
-      await txn.execute('INSERT INTO orders ...');
-      await txn.execute('UPDATE inventory ...');
-      await txn.commit();
-      return { success: true };
-    })(),
-    {
-      cleanup: async () => {
-        await txn.rollback();
-      },
-    },
-  );
+// Cleanup rolls back the transaction.
+func (t *Transaction) Cleanup(ctx context.Context) error {
+	return t.Rollback(ctx)
+}
 
-  return withTimeoutAndCleanup(operation, 5000);
+// Usage with database transaction
+func executeTransaction(ctx context.Context) error {
+	txn, err := WithTimeoutAndCleanup(ctx, 5*time.Second, func(ctx context.Context) (*Transaction, error) {
+		tx, err := db.BeginTransaction(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := tx.Execute(ctx, "INSERT INTO orders ..."); err != nil {
+			return &Transaction{tx: tx}, err
+		}
+
+		if err := tx.Execute(ctx, "UPDATE inventory ..."); err != nil {
+			return &Transaction{tx: tx}, err
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return &Transaction{tx: tx}, err
+		}
+
+		return &Transaction{tx: tx}, nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 ```
 

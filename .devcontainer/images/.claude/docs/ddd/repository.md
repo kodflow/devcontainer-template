@@ -1,5 +1,7 @@
 # Repository Pattern (DDD)
 
+> Médiateur entre le domaine et les couches de mapping de données, agissant comme une collection en mémoire d'objets domaine.
+
 ## Definition
 
 A **Repository** mediates between the domain and data mapping layers, acting as an in-memory collection of domain objects. It encapsulates persistence logic while providing a collection-like interface for accessing aggregates.
@@ -16,320 +18,484 @@ Repository = Collection Abstraction + Persistence Encapsulation + Query Isolatio
 - **Query encapsulation**: Complex queries hidden behind methods
 - **Unit of Work integration**: Transaction boundary awareness
 
-## TypeScript Implementation
+## Go Implementation
 
-```typescript
-// Generic Repository Interface
-interface Repository<T extends AggregateRoot<TId>, TId> {
-  findById(id: TId): Promise<T | null>;
-  save(aggregate: T): Promise<void>;
-  delete(aggregate: T): Promise<void>;
-  exists(id: TId): Promise<boolean>;
+```go
+package domain
+
+import (
+	"context"
+	"errors"
+)
+
+// Repository provides generic repository operations.
+type Repository[T AggregateRoot[TID], TID comparable] interface {
+	FindByID(ctx context.Context, id TID) (T, error)
+	Save(ctx context.Context, aggregate T) error
+	Delete(ctx context.Context, aggregate T) error
+	Exists(ctx context.Context, id TID) (bool, error)
 }
 
-// Domain-specific Repository Interface
-interface OrderRepository extends Repository<Order, OrderId> {
-  findById(id: OrderId): Promise<Order | null>;
-  findByCustomer(customerId: CustomerId): Promise<Order[]>;
-  findPendingOrders(): Promise<Order[]>;
-  findByStatus(status: OrderStatus): Promise<Order[]>;
-  save(order: Order): Promise<void>;
-  delete(order: Order): Promise<void>;
+// OrderRepository defines domain-specific repository operations.
+type OrderRepository interface {
+	FindByID(ctx context.Context, id OrderID) (*Order, error)
+	FindByCustomer(ctx context.Context, customerID CustomerID) ([]*Order, error)
+	FindPendingOrders(ctx context.Context) ([]*Order, error)
+	FindByStatus(ctx context.Context, status OrderStatus) ([]*Order, error)
+	Save(ctx context.Context, order *Order) error
+	Delete(ctx context.Context, order *Order) error
+	Exists(ctx context.Context, id OrderID) (bool, error)
 }
 
-// Implementation with TypeORM
-class TypeOrmOrderRepository implements OrderRepository {
-  constructor(
-    private readonly dataSource: DataSource,
-    private readonly eventBus: EventBus
-  ) {}
-
-  async findById(id: OrderId): Promise<Order | null> {
-    const orderEntity = await this.dataSource
-      .getRepository(OrderEntity)
-      .findOne({
-        where: { id: id.value },
-        relations: ['items']
-      });
-
-    if (!orderEntity) return null;
-
-    return this.toDomain(orderEntity);
-  }
-
-  async findByCustomer(customerId: CustomerId): Promise<Order[]> {
-    const entities = await this.dataSource
-      .getRepository(OrderEntity)
-      .find({
-        where: { customerId: customerId.value },
-        relations: ['items'],
-        order: { createdAt: 'DESC' }
-      });
-
-    return entities.map(e => this.toDomain(e));
-  }
-
-  async findPendingOrders(): Promise<Order[]> {
-    const entities = await this.dataSource
-      .getRepository(OrderEntity)
-      .find({
-        where: { status: In(['draft', 'confirmed']) },
-        relations: ['items']
-      });
-
-    return entities.map(e => this.toDomain(e));
-  }
-
-  async save(order: Order): Promise<void> {
-    const entity = this.toEntity(order);
-
-    // Optimistic locking
-    const result = await this.dataSource
-      .getRepository(OrderEntity)
-      .save(entity);
-
-    // Publish domain events after successful save
-    const events = order.pullDomainEvents();
-    for (const event of events) {
-      await this.eventBus.publish(event);
-    }
-
-    order.incrementVersion();
-  }
-
-  async delete(order: Order): Promise<void> {
-    await this.dataSource
-      .getRepository(OrderEntity)
-      .delete({ id: order.id.value });
-  }
-
-  async exists(id: OrderId): Promise<boolean> {
-    const count = await this.dataSource
-      .getRepository(OrderEntity)
-      .count({ where: { id: id.value } });
-
-    return count > 0;
-  }
-
-  // Mapper: Entity -> Domain
-  private toDomain(entity: OrderEntity): Order {
-    const items = entity.items.map(item =>
-      OrderItem.reconstitute(
-        OrderItemId.from(item.id).value!,
-        ProductId.from(item.productId).value!,
-        Quantity.create(item.quantity).value!,
-        Money.create(item.unitPrice, Currency.USD).value!
-      )
-    );
-
-    return Order.reconstitute(
-      OrderId.from(entity.id).value!,
-      CustomerId.from(entity.customerId).value!,
-      items,
-      entity.status as OrderStatus,
-      Address.reconstitute(entity.shippingAddress),
-      entity.createdAt,
-      entity.version
-    );
-  }
-
-  // Mapper: Domain -> Entity
-  private toEntity(order: Order): OrderEntity {
-    const entity = new OrderEntity();
-    entity.id = order.id.value;
-    entity.customerId = order.customerId.value;
-    entity.status = order.status;
-    entity.shippingAddress = order.shippingAddress.toJSON();
-    entity.version = order.version;
-    entity.items = order.items.map(item => {
-      const itemEntity = new OrderItemEntity();
-      itemEntity.id = item.id.value;
-      itemEntity.productId = item.productId.value;
-      itemEntity.quantity = item.quantity.value;
-      itemEntity.unitPrice = item.unitPrice.amount;
-      return itemEntity;
-    });
-    return entity;
-  }
+// PostgresOrderRepository implements OrderRepository using PostgreSQL.
+type PostgresOrderRepository struct {
+	db       *sql.DB
+	eventBus EventBus
 }
 
-// Specification Pattern integration
-interface OrderRepository {
-  findBySpecification(spec: Specification<Order>): Promise<Order[]>;
+// NewPostgresOrderRepository creates a new repository instance.
+func NewPostgresOrderRepository(db *sql.DB, eventBus EventBus) *PostgresOrderRepository {
+	return &PostgresOrderRepository{
+		db:       db,
+		eventBus: eventBus,
+	}
 }
 
-class TypeOrmOrderRepository {
-  async findBySpecification(spec: Specification<Order>): Promise<Order[]> {
-    // Convert specification to query
-    const queryBuilder = this.dataSource
-      .getRepository(OrderEntity)
-      .createQueryBuilder('order')
-      .leftJoinAndSelect('order.items', 'items');
+// FindByID retrieves an order by ID.
+func (r *PostgresOrderRepository) FindByID(ctx context.Context, id OrderID) (*Order, error) {
+	query := `
+		SELECT id, customer_id, status, shipping_address, created_at, version
+		FROM orders WHERE id = $1
+	`
+	
+	var entity OrderEntity
+	err := r.db.QueryRowContext(ctx, query, id.Value()).Scan(
+		&entity.ID,
+		&entity.CustomerID,
+		&entity.Status,
+		&entity.ShippingAddress,
+		&entity.CreatedAt,
+		&entity.Version,
+	)
+	
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrOrderNotFound
+		}
+		return nil, fmt.Errorf("finding order %s: %w", id.Value(), err)
+	}
+	
+	// Load items
+	items, err := r.loadOrderItems(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("loading order items: %w", err)
+	}
+	entity.Items = items
+	
+	return r.toDomain(entity)
+}
 
-    spec.toQueryBuilder(queryBuilder);
+// FindByCustomer retrieves all orders for a customer.
+func (r *PostgresOrderRepository) FindByCustomer(
+	ctx context.Context,
+	customerID CustomerID,
+) ([]*Order, error) {
+	query := `
+		SELECT id, customer_id, status, shipping_address, created_at, version
+		FROM orders
+		WHERE customer_id = $1
+		ORDER BY created_at DESC
+	`
+	
+	rows, err := r.db.QueryContext(ctx, query, customerID.Value())
+	if err != nil {
+		return nil, fmt.Errorf("querying orders by customer: %w", err)
+	}
+	defer rows.Close()
+	
+	var orders []*Order
+	for rows.Next() {
+		var entity OrderEntity
+		if err := rows.Scan(
+			&entity.ID,
+			&entity.CustomerID,
+			&entity.Status,
+			&entity.ShippingAddress,
+			&entity.CreatedAt,
+			&entity.Version,
+		); err != nil {
+			return nil, err
+		}
+		
+		items, err := r.loadOrderItems(ctx, mustParseOrderID(entity.ID))
+		if err != nil {
+			return nil, err
+		}
+		entity.Items = items
+		
+		order, err := r.toDomain(entity)
+		if err != nil {
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+	
+	return orders, rows.Err()
+}
 
-    const entities = await queryBuilder.getMany();
-    return entities.map(e => this.toDomain(e));
-  }
+// Save persists an order and publishes domain events.
+func (r *PostgresOrderRepository) Save(ctx context.Context, order *Order) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback()
+	
+	entity := r.toEntity(order)
+	
+	// Optimistic locking
+	query := `
+		INSERT INTO orders (id, customer_id, status, shipping_address, created_at, version)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (id) DO UPDATE SET
+			customer_id = EXCLUDED.customer_id,
+			status = EXCLUDED.status,
+			shipping_address = EXCLUDED.shipping_address,
+			version = EXCLUDED.version
+		WHERE orders.version = $6
+	`
+	
+	result, err := tx.ExecContext(ctx, query,
+		entity.ID,
+		entity.CustomerID,
+		entity.Status,
+		entity.ShippingAddress,
+		entity.CreatedAt,
+		entity.Version,
+	)
+	if err != nil {
+		return fmt.Errorf("saving order: %w", err)
+	}
+	
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return ErrOptimisticLockConflict
+	}
+	
+	// Save items
+	if err := r.saveOrderItems(ctx, tx, order); err != nil {
+		return fmt.Errorf("saving order items: %w", err)
+	}
+	
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing transaction: %w", err)
+	}
+	
+	// Publish domain events after successful save
+	events := order.PullDomainEvents()
+	for _, event := range events {
+		if err := r.eventBus.Publish(ctx, event); err != nil {
+			return fmt.Errorf("publishing event: %w", err)
+		}
+	}
+	
+	order.IncrementVersion()
+	return nil
+}
+
+// Delete removes an order.
+func (r *PostgresOrderRepository) Delete(ctx context.Context, order *Order) error {
+	query := `DELETE FROM orders WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, query, order.ID().Value())
+	if err != nil {
+		return fmt.Errorf("deleting order: %w", err)
+	}
+	return nil
+}
+
+// Exists checks if an order exists.
+func (r *PostgresOrderRepository) Exists(ctx context.Context, id OrderID) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM orders WHERE id = $1)`
+	
+	var exists bool
+	err := r.db.QueryRowContext(ctx, query, id.Value()).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("checking order existence: %w", err)
+	}
+	
+	return exists, nil
+}
+
+// Mapper: Entity -> Domain
+func (r *PostgresOrderRepository) toDomain(entity OrderEntity) (*Order, error) {
+	items := make([]OrderItem, len(entity.Items))
+	for i, item := range entity.Items {
+		itemID, err := OrderItemIDFrom(item.ID)
+		if err != nil {
+			return nil, err
+		}
+		
+		productID, err := ProductIDFrom(item.ProductID)
+		if err != nil {
+			return nil, err
+		}
+		
+		quantity, err := NewQuantity(item.Quantity)
+		if err != nil {
+			return nil, err
+		}
+		
+		money, err := NewMoney(item.UnitPrice, CurrencyUSD)
+		if err != nil {
+			return nil, err
+		}
+		
+		items[i] = ReconstituteOrderItem(itemID, productID, quantity, money)
+	}
+	
+	orderID, err := OrderIDFrom(entity.ID)
+	if err != nil {
+		return nil, err
+	}
+	
+	customerID, err := CustomerIDFrom(entity.CustomerID)
+	if err != nil {
+		return nil, err
+	}
+	
+	address, err := AddressFromJSON(entity.ShippingAddress)
+	if err != nil {
+		return nil, err
+	}
+	
+	return ReconstituteOrder(
+		orderID,
+		customerID,
+		items,
+		OrderStatus(entity.Status),
+		address,
+		entity.CreatedAt,
+		entity.Version,
+	), nil
+}
+
+// Mapper: Domain -> Entity
+func (r *PostgresOrderRepository) toEntity(order *Order) OrderEntity {
+	items := make([]OrderItemEntity, len(order.Items()))
+	for i, item := range order.Items() {
+		items[i] = OrderItemEntity{
+			ID:        item.ID().Value(),
+			ProductID: item.ProductID().Value(),
+			Quantity:  item.Quantity().Value(),
+			UnitPrice: item.UnitPrice().Amount(),
+		}
+	}
+	
+	return OrderEntity{
+		ID:              order.ID().Value(),
+		CustomerID:      order.CustomerID().Value(),
+		Status:          string(order.Status()),
+		ShippingAddress: order.ShippingAddress().ToJSON(),
+		Version:         order.Version(),
+		Items:           items,
+		CreatedAt:       order.CreatedAt(),
+	}
 }
 ```
 
 ## In-Memory Repository (Testing)
 
-```typescript
-class InMemoryOrderRepository implements OrderRepository {
-  private orders: Map<string, Order> = new Map();
-  private publishedEvents: DomainEvent[] = [];
+```go
+// InMemoryOrderRepository provides an in-memory implementation for testing.
+type InMemoryOrderRepository struct {
+	orders          map[string]*Order
+	publishedEvents []DomainEvent
+	mu              sync.RWMutex
+}
 
-  async findById(id: OrderId): Promise<Order | null> {
-    return this.orders.get(id.value) ?? null;
-  }
+// NewInMemoryOrderRepository creates a new in-memory repository.
+func NewInMemoryOrderRepository() *InMemoryOrderRepository {
+	return &InMemoryOrderRepository{
+		orders:          make(map[string]*Order),
+		publishedEvents: make([]DomainEvent, 0),
+	}
+}
 
-  async findByCustomer(customerId: CustomerId): Promise<Order[]> {
-    return Array.from(this.orders.values())
-      .filter(o => o.customerId.equals(customerId));
-  }
+// FindByID retrieves an order by ID.
+func (r *InMemoryOrderRepository) FindByID(ctx context.Context, id OrderID) (*Order, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
+	order, ok := r.orders[id.Value()]
+	if !ok {
+		return nil, ErrOrderNotFound
+	}
+	
+	return order, nil
+}
 
-  async findPendingOrders(): Promise<Order[]> {
-    return Array.from(this.orders.values())
-      .filter(o => o.status === OrderStatus.Draft ||
-                   o.status === OrderStatus.Confirmed);
-  }
+// FindByCustomer retrieves orders for a customer.
+func (r *InMemoryOrderRepository) FindByCustomer(
+	ctx context.Context,
+	customerID CustomerID,
+) ([]*Order, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
+	var orders []*Order
+	for _, order := range r.orders {
+		if order.CustomerID().Equals(customerID) {
+			orders = append(orders, order)
+		}
+	}
+	
+	return orders, nil
+}
 
-  async save(order: Order): Promise<void> {
-    // Clone to simulate persistence behavior
-    this.orders.set(order.id.value, structuredClone(order));
+// Save persists an order.
+func (r *InMemoryOrderRepository) Save(ctx context.Context, order *Order) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	
+	// Clone to simulate persistence behavior
+	r.orders[order.ID().Value()] = order
+	
+	// Collect events for testing
+	events := order.PullDomainEvents()
+	r.publishedEvents = append(r.publishedEvents, events...)
+	
+	order.IncrementVersion()
+	return nil
+}
 
-    // Collect events for testing
-    this.publishedEvents.push(...order.pullDomainEvents());
-    order.incrementVersion();
-  }
+// Delete removes an order.
+func (r *InMemoryOrderRepository) Delete(ctx context.Context, order *Order) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	
+	delete(r.orders, order.ID().Value())
+	return nil
+}
 
-  async delete(order: Order): Promise<void> {
-    this.orders.delete(order.id.value);
-  }
+// Exists checks if an order exists.
+func (r *InMemoryOrderRepository) Exists(ctx context.Context, id OrderID) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
+	_, ok := r.orders[id.Value()]
+	return ok, nil
+}
 
-  async exists(id: OrderId): Promise<boolean> {
-    return this.orders.has(id.value);
-  }
+// Clear removes all orders (test helper).
+func (r *InMemoryOrderRepository) Clear() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	
+	r.orders = make(map[string]*Order)
+	r.publishedEvents = make([]DomainEvent, 0)
+}
 
-  // Test helpers
-  clear(): void {
-    this.orders.clear();
-    this.publishedEvents = [];
-  }
-
-  getPublishedEvents(): DomainEvent[] {
-    return [...this.publishedEvents];
-  }
+// PublishedEvents returns all published events (test helper).
+func (r *InMemoryOrderRepository) PublishedEvents() []DomainEvent {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
+	events := make([]DomainEvent, len(r.publishedEvents))
+	copy(events, r.publishedEvents)
+	return events
 }
 ```
 
 ## OOP vs FP Comparison
 
-```typescript
-// FP-style Repository using Effect
-import { Effect, Layer, Context } from 'effect';
+```go
+// FP-style Repository using functional patterns
 
-// Service definition
-class OrderRepository extends Context.Tag('OrderRepository')<
-  OrderRepository,
-  {
-    findById: (id: OrderId) => Effect.Effect<Order | null, DatabaseError>;
-    save: (order: Order) => Effect.Effect<void, DatabaseError>;
-    delete: (order: Order) => Effect.Effect<void, DatabaseError>;
-  }
->() {}
+// OrderRepository is a collection of repository functions.
+type OrderRepository struct {
+	FindByID func(ctx context.Context, id OrderID) (*Order, error)
+	Save     func(ctx context.Context, order *Order) error
+	Delete   func(ctx context.Context, order *Order) error
+}
 
-// Implementation as Layer
-const OrderRepositoryLive = Layer.succeed(
-  OrderRepository,
-  {
-    findById: (id) => Effect.tryPromise({
-      try: () => dataSource.query(/* ... */),
-      catch: (e) => new DatabaseError(e)
-    }),
-    save: (order) => Effect.tryPromise({
-      try: () => dataSource.save(/* ... */),
-      catch: (e) => new DatabaseError(e)
-    }),
-    delete: (order) => Effect.tryPromise({
-      try: () => dataSource.delete(/* ... */),
-      catch: (e) => new DatabaseError(e)
-    })
-  }
-);
-
-// Usage in domain service
-const confirmOrder = (orderId: OrderId) =>
-  Effect.gen(function* (_) {
-    const repo = yield* _(OrderRepository);
-    const order = yield* _(repo.findById(orderId));
-    if (!order) return yield* _(Effect.fail(new NotFoundError()));
-
-    order.confirm();
-    yield* _(repo.save(order));
-  });
+// NewOrderRepository creates a repository with dependencies injected.
+func NewOrderRepository(db *sql.DB, eventBus EventBus) OrderRepository {
+	return OrderRepository{
+		FindByID: func(ctx context.Context, id OrderID) (*Order, error) {
+			// Implementation
+			return nil, nil
+		},
+		Save: func(ctx context.Context, order *Order) error {
+			// Implementation
+			return nil
+		},
+		Delete: func(ctx context.Context, order *Order) error {
+			// Implementation
+			return nil
+		},
+	}
+}
 ```
 
 ## Recommended Libraries
 
 | Library | Purpose | Link |
 |---------|---------|------|
-| **TypeORM** | ORM with repository | `npm i typeorm` |
-| **Prisma** | Type-safe ORM | `npm i prisma` |
-| **MikroORM** | Data mapper ORM | `npm i @mikro-orm/core` |
-| **Effect** | Functional services | `npm i effect` |
+| **sqlx** | SQL extensions | `go get github.com/jmoiron/sqlx` |
+| **pgx** | PostgreSQL driver | `go get github.com/jackc/pgx/v5` |
+| **ent** | ORM with code generation | `go get entgo.io/ent` |
+| **gorm** | Full-featured ORM | `go get gorm.io/gorm` |
 
 ## Anti-patterns
 
 1. **Generic Repository**: Over-abstracting with generic CRUD
 
-   ```typescript
+   ```go
    // BAD - Not domain-driven
-   interface Repository<T> {
-     find(criteria: object): Promise<T[]>;
-     save(entity: T): Promise<T>;
+   type Repository[T any] interface {
+       Find(criteria map[string]interface{}) ([]T, error)
+       Save(entity T) error
    }
    ```
 
 2. **Exposing Query Details**: Leaking ORM into domain
 
-   ```typescript
+   ```go
    // BAD - ORM concepts in domain
-   interface OrderRepository {
-     findByQueryBuilder(qb: QueryBuilder): Promise<Order[]>;
+   type OrderRepository interface {
+       FindByQuery(query *sql.Rows) ([]*Order, error)
    }
    ```
 
 3. **Multiple Aggregates**: One repository for multiple roots
 
-   ```typescript
+   ```go
    // BAD
-   interface OrderCustomerRepository {
-     findOrder(id: OrderId): Promise<Order>;
-     findCustomer(id: CustomerId): Promise<Customer>;
+   type OrderCustomerRepository interface {
+       FindOrder(id OrderID) (*Order, error)
+       FindCustomer(id CustomerID) (*Customer, error)
    }
    ```
 
 4. **Missing Domain Events**: Not publishing events after save
 
-   ```typescript
+   ```go
    // BAD - Events lost
-   async save(order: Order): Promise<void> {
-     await this.dataSource.save(entity);
-     // Missing: order.pullDomainEvents() and publish
+   func (r *Repository) Save(ctx context.Context, order *Order) error {
+       // Save to database
+       // Missing: order.PullDomainEvents() and publish
+       return nil
    }
    ```
 
-## When to Use
+## Quand utiliser
 
-- Persisting and retrieving aggregate roots
-- Encapsulating complex query logic
-- Abstracting data access technology
-- Testing with in-memory implementations
+- Persistance et récupération des racines d'agrégats
+- Encapsulation de la logique de requêtes complexes
+- Abstraction de la technologie d'accès aux données
+- Tests avec des implémentations en mémoire
 
-## See Also
+## Patterns liés
 
 - [Aggregate](./aggregate.md) - Repository per aggregate root
 - [Specification](./specification.md) - Query composition

@@ -48,20 +48,76 @@ Séquence de transactions locales avec compensations.
      └─────────────────────────────────────────────────────────┘
 ```
 
-```typescript
-// Order Service
-class OrderService {
-  @OnEvent(PaymentCompletedEvent)
-  async onPaymentCompleted(event: PaymentCompletedEvent) {
-    await this.orderRepo.updateStatus(event.orderId, 'PAID');
-    await this.eventBus.publish(new ReserveStockEvent(event.orderId));
-  }
+```go
+package saga
 
-  @OnEvent(PaymentFailedEvent)
-  async onPaymentFailed(event: PaymentFailedEvent) {
-    await this.orderRepo.updateStatus(event.orderId, 'CANCELLED');
-    // Compensation: annuler la commande
-  }
+import (
+	"context"
+	"fmt"
+	"log"
+)
+
+// SagaStep defines a step in a saga with action and compensation.
+type SagaStep struct {
+	Action       func(ctx context.Context) error
+	Compensation func(ctx context.Context) error
+}
+
+// Saga manages a sequence of saga steps.
+type Saga struct {
+	steps          []SagaStep
+	completedSteps []SagaStep
+}
+
+// NewSaga creates a new Saga.
+func NewSaga() *Saga {
+	return &Saga{
+		steps:          make([]SagaStep, 0),
+		completedSteps: make([]SagaStep, 0),
+	}
+}
+
+// AddStep adds a step to the saga.
+func (s *Saga) AddStep(step SagaStep) {
+	s.steps = append(s.steps, step)
+}
+
+// Execute executes all saga steps.
+func (s *Saga) Execute(ctx context.Context) error {
+	for _, step := range s.steps {
+		if err := step.Action(ctx); err != nil {
+			log.Printf("Saga step failed: %v", err)
+			
+			// Compensate all completed steps
+			if compErr := s.Compensate(ctx); compErr != nil {
+				return fmt.Errorf("compensation failed: %w (original error: %v)", compErr, err)
+			}
+			
+			return fmt.Errorf("saga execution failed: %w", err)
+		}
+		
+		s.completedSteps = append(s.completedSteps, step)
+	}
+	
+	return nil
+}
+
+// Compensate compensates all completed steps in reverse order.
+func (s *Saga) Compensate(ctx context.Context) error {
+	log.Println("Starting saga compensation...")
+	
+	// Compensate in reverse order
+	for i := len(s.completedSteps) - 1; i >= 0; i-- {
+		step := s.completedSteps[i]
+		
+		if err := step.Compensation(ctx); err != nil {
+			// Log but continue compensating others
+			log.Printf("Compensation step %d failed: %v", i, err)
+			// In production, this should be queued for manual intervention
+		}
+	}
+	
+	return nil
 }
 ```
 
@@ -82,34 +138,11 @@ class OrderService {
    └─────────┘         └─────────┘         └─────────┘
 ```
 
-```typescript
-class OrderSagaOrchestrator {
-  async execute(order: Order) {
-    const saga = new Saga();
-
-    saga.addStep({
-      action: () => this.orderService.create(order),
-      compensation: () => this.orderService.cancel(order.id),
-    });
-
-    saga.addStep({
-      action: () => this.paymentService.charge(order.userId, order.total),
-      compensation: () => this.paymentService.refund(order.id),
-    });
-
-    saga.addStep({
-      action: () => this.stockService.reserve(order.items),
-      compensation: () => this.stockService.release(order.items),
-    });
-
-    try {
-      await saga.execute();
-    } catch (error) {
-      await saga.compensate(); // Rollback
-      throw error;
-    }
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Comparaison
@@ -122,46 +155,21 @@ class OrderSagaOrchestrator {
 | Scalabilité | Meilleure | Orchestrateur = SPOF |
 | Recommandé | Sagas simples | Sagas complexes |
 
+## Quand utiliser
+
+- Transactions impliquant plusieurs microservices independants
+- Impossibilite d'utiliser des transactions distribuees (2PC)
+- Processus metier longs avec etapes compensables
+- Systemes event-driven necessitant une coherence eventuelle
+- E-commerce, reservations, workflows financiers multi-etapes
+
 ## Implémentation Saga Class
 
-```typescript
-interface SagaStep {
-  action: () => Promise<void>;
-  compensation: () => Promise<void>;
-}
-
-class Saga {
-  private steps: SagaStep[] = [];
-  private completedSteps: SagaStep[] = [];
-
-  addStep(step: SagaStep) {
-    this.steps.push(step);
-  }
-
-  async execute() {
-    for (const step of this.steps) {
-      try {
-        await step.action();
-        this.completedSteps.push(step);
-      } catch (error) {
-        await this.compensate();
-        throw error;
-      }
-    }
-  }
-
-  async compensate() {
-    // Compensation en ordre inverse
-    for (const step of this.completedSteps.reverse()) {
-      try {
-        await step.compensation();
-      } catch (error) {
-        // Log but continue compensation
-        console.error('Compensation failed:', error);
-      }
-    }
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Patterns liés

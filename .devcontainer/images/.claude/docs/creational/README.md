@@ -18,18 +18,37 @@ Patterns de creation d'objets.
 
 Voir fichier detaille: [factory.md](factory.md)
 
-```typescript
-abstract class LoggerFactory {
-  abstract createLogger(): Logger;
+```go
+package factory
 
-  log(message: string) {
-    const logger = this.createLogger();
-    logger.log(message);
-  }
+// Logger defines the logging interface.
+type Logger interface {
+	Log(message string)
 }
 
-class ConsoleLoggerFactory extends LoggerFactory {
-  createLogger() { return new ConsoleLogger(); }
+// LoggerFactory creates loggers.
+type LoggerFactory interface {
+	CreateLogger() Logger
+}
+
+// ConsoleLogger logs to console.
+type ConsoleLogger struct{}
+
+func (c *ConsoleLogger) Log(message string) {
+	fmt.Println(message)
+}
+
+// ConsoleLoggerFactory creates console loggers.
+type ConsoleLoggerFactory struct{}
+
+func (f *ConsoleLoggerFactory) CreateLogger() Logger {
+	return &ConsoleLogger{}
+}
+
+// Usage
+func LogMessage(factory LoggerFactory, message string) {
+	logger := factory.CreateLogger()
+	logger.Log(message)
 }
 ```
 
@@ -43,16 +62,40 @@ class ConsoleLoggerFactory extends LoggerFactory {
 
 Voir fichier detaille: [factory.md](factory.md)
 
-```typescript
-interface UIFactory {
-  createButton(): Button;
-  createInput(): Input;
+```go
+package factory
+
+// Button defines button interface.
+type Button interface {
+	Render() string
 }
 
-class MaterialUIFactory implements UIFactory {
-  createButton() { return new MaterialButton(); }
-  createInput() { return new MaterialInput(); }
+// Input defines input interface.
+type Input interface {
+	Render() string
 }
+
+// UIFactory creates UI components.
+type UIFactory interface {
+	CreateButton() Button
+	CreateInput() Input
+}
+
+// MaterialButton is a material design button.
+type MaterialButton struct{}
+
+func (b *MaterialButton) Render() string { return "<material-button/>" }
+
+// MaterialInput is a material design input.
+type MaterialInput struct{}
+
+func (i *MaterialInput) Render() string { return "<material-input/>" }
+
+// MaterialUIFactory creates material UI components.
+type MaterialUIFactory struct{}
+
+func (f *MaterialUIFactory) CreateButton() Button { return &MaterialButton{} }
+func (f *MaterialUIFactory) CreateInput() Input   { return &MaterialInput{} }
 ```
 
 **Quand :** Plusieurs familles d'objets coherents.
@@ -65,12 +108,46 @@ class MaterialUIFactory implements UIFactory {
 
 Voir fichier detaille: [builder.md](builder.md)
 
-```typescript
-const query = new QueryBuilder()
-  .select(['id', 'name'])
-  .from('users')
-  .where('active = true')
-  .build();
+```go
+package builder
+
+// QueryBuilder builds SQL queries.
+type QueryBuilder struct {
+	columns []string
+	table   string
+	where   string
+}
+
+func NewQueryBuilder() *QueryBuilder {
+	return &QueryBuilder{}
+}
+
+func (qb *QueryBuilder) Select(columns []string) *QueryBuilder {
+	qb.columns = columns
+	return qb
+}
+
+func (qb *QueryBuilder) From(table string) *QueryBuilder {
+	qb.table = table
+	return qb
+}
+
+func (qb *QueryBuilder) Where(condition string) *QueryBuilder {
+	qb.where = condition
+	return qb
+}
+
+func (qb *QueryBuilder) Build() string {
+	return fmt.Sprintf("SELECT %s FROM %s WHERE %s",
+		strings.Join(qb.columns, ", "), qb.table, qb.where)
+}
+
+// Usage
+// query := NewQueryBuilder().
+//     Select([]string{"id", "name"}).
+//     From("users").
+//     Where("active = true").
+//     Build()
 ```
 
 **Quand :** Objets complexes avec nombreuses options.
@@ -81,19 +158,33 @@ const query = new QueryBuilder()
 
 > Cloner des objets existants.
 
-```typescript
-interface Prototype<T> {
-  clone(): T;
+```go
+package prototype
+
+// Prototype defines cloneable objects.
+type Prototype[T any] interface {
+	Clone() T
 }
 
-class Document implements Prototype<Document> {
-  clone(): Document {
-    return new Document(
-      this.title,
-      this.content,
-      new Map(this.metadata),
-    );
-  }
+// Document is a cloneable document.
+type Document struct {
+	Title    string
+	Content  string
+	Metadata map[string]string
+}
+
+func (d *Document) Clone() *Document {
+	// Deep copy metadata
+	metaCopy := make(map[string]string, len(d.Metadata))
+	for k, v := range d.Metadata {
+		metaCopy[k] = v
+	}
+
+	return &Document{
+		Title:    d.Title,
+		Content:  d.Content,
+		Metadata: metaCopy,
+	}
 }
 ```
 
@@ -107,19 +198,28 @@ class Document implements Prototype<Document> {
 
 Voir fichier detaille: [singleton.md](singleton.md)
 
-```typescript
-class Database {
-  private static instance: Database;
+```go
+package singleton
 
-  private constructor() {}
+import "sync"
 
-  static getInstance(): Database {
-    if (!Database.instance) {
-      Database.instance = new Database();
-    }
-    return Database.instance;
-  }
+// Database represents a database connection.
+type Database struct {
+	connectionString string
 }
+
+// GetDB returns the singleton database instance.
+// sync.OnceValue (Go 1.21+) is type-safe and concise.
+var GetDB = sync.OnceValue(func() *Database {
+	return &Database{
+		connectionString: "postgres://localhost:5432/mydb",
+	}
+})
+
+// Usage
+// db1 := GetDB()
+// db2 := GetDB()
+// fmt.Println(db1 == db2) // true
 ```
 
 **Quand :** Une seule instance requise (attention: souvent un anti-pattern).
@@ -142,7 +242,7 @@ class Database {
 |---------|-------------|
 | Factory | Dependency Injection |
 | Singleton | DI Container (scoped) |
-| Builder | Object literals + defaults |
+| Builder | Functional Options |
 
 ## Sources
 
