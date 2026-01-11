@@ -1,22 +1,19 @@
 ---
 name: review
 description: |
-  AI-powered code review using RLM (Recursive Language Model) decomposition.
-  Analyzes code changes for security, quality, and best practices.
-  Use when: running /review, analyzing PR changes, pre-commit checks,
-  or when user asks for code review feedback.
+  AI-powered code review (RLM decomposition) for PRs or local diffs.
+  Focus: security, quality, maintainability, shell safety, and review synthesis.
+  Works in Claude Code with Git + MCP (GitHub/Codacy).
 allowed-tools:
-  - "Bash(git diff:*)"
-  - "Bash(git status:*)"
-  - "Bash(git log:*)"
-  - "Bash(git remote:*)"
+  - "Bash(git *)"
+  - "Bash(gh *)"
   - "Read(**/*)"
   - "Glob(**/*)"
   - "Grep(**/*)"
-  - "mcp__grepai__*"
   - "mcp__github__*"
   - "mcp__codacy__*"
-  - "mcp__playwright__*"
+  - "mcp__grepai__*"
+  - "Task(*)"
 ---
 
 # Review - AI Code Review (RLM Architecture)
@@ -25,475 +22,620 @@ allowed-tools:
 
 Intelligent code review using **Recursive Language Model** decomposition:
 
-- **Phase 0**: PR Context Detection (branch, CI, comments)
-- **Phase 1**: Feedback Collection (ALL comments/reviews/suggestions)
-- **Phase 2**: Peek before full analysis
-- **Phase 3**: Decompose into parallel sub-tasks
-- **Phase 4**: Synthesize + Challenge feedback
-- **Phase 5**: Generate /plan
+| Phase | Name | Action |
+|-------|------|--------|
+| 0 | Context | Detect PR, branch, CI status |
+| 1 | Intent | Analyze PR title/description/scope |
+| 2 | Feedback | Collect ALL comments/reviews |
+| 3 | Peek | Snapshot diff, categorize files |
+| 4 | Analyze | Parallel sub-agents (security, quality, shell) |
+| 5 | Challenge | Evaluate feedback relevance with context |
+| 6 | Plan | Generate prioritized action plan |
+
+**Principe RLM** : Peek → Decompose → Parallelize → Synthesize
+
+---
 
 ## Usage
 
 ```
-/review                    # Review current changes (git diff)
+/review                    # Review current changes (auto-detect PR or local)
 /review --pr [number]      # Review specific PR
 /review --staged           # Review staged changes only
 /review --file <path>      # Review specific file
 /review --security         # Security-focused review only
 /review --quality          # Quality-focused review only
+/review --triage           # Large PR mode (>30 files or >1500 lines)
 ```
 
-## Phase 0 : PR Context Detection (OBLIGATOIRE)
+---
 
-**Avant toute review, détecter le contexte PR :**
+## Budget Controller (OBLIGATOIRE)
 
 ```yaml
-pr_context_detection:
-  1_detect_pr:
-    action: "Identifier si on est sur une PR"
+budget_controller:
+  thresholds:
+    normal_mode:
+      max_files: 30
+      max_lines: 1500
+      max_comments_ingested: 80
+    triage_mode:
+      trigger: "files > 30 OR lines > 1500"
+      action: "Focus sur: unresolved threads, lignes modifiées, security only"
+
+  output_limits:
+    critical: unlimited
+    high: 10
+    medium: 5
+    low: 3
+
+  comment_priority:
+    1: "Unresolved threads"
+    2: "Comments on modified lines"
+    3: "Human reviews"
+    4: "AI bot suggestions"
+```
+
+**Décision automatique :**
+
+| Situation | Mode |
+|-----------|------|
+| diff < 1500 lines, files < 30 | NORMAL |
+| diff >= 1500 OR files >= 30 | TRIAGE |
+| comments > 80 | FILTER (unresolved + modified lines only) |
+
+---
+
+## Phase 0 : Context Detection
+
+**Identifier le contexte d'exécution :**
+
+```yaml
+context_detection:
+  1_git_state:
     tools:
+      - "git remote -v"
       - "git branch --show-current"
-      - "mcp__github__list_pull_requests (head: current_branch)"
+      - "git rev-parse --abbrev-ref HEAD@{upstream} 2>/dev/null || echo 'no-upstream'"
     output:
-      on_pr: true/false
-      pr_number: <number> | null
-      pr_url: <url> | null
+      current_branch: string
+      upstream: string
+      remote: "origin" | "upstream"
 
-  2_check_ci:
-    condition: "on_pr == true"
-    action: "Vérifier statut CI/CD"
+  2_pr_detection:
     tools:
-      - "mcp__github__get_pull_request_status"
-      - "gh pr checks" (fallback)
+      - "mcp__github__list_pull_requests(head: current_branch)"
     output:
-      ci_status: "pending|passing|failing"
-      ci_jobs: [{name, status, url}]
+      on_pr: boolean
+      pr_number: number | null
+      pr_url: string | null
+      target_branch: string  # base branch de la PR
 
-  3_wait_ci:
-    condition: "ci_status == 'pending'"
-    action: "Attendre fin du pipeline"
+  3_diff_source:
+    rule: |
+      SI on_pr == true:
+        source = "PR diff via MCP"
+        base = target_branch
+        head = current_branch
+      SINON:
+        source = "local diff"
+        base = "git merge-base origin/main HEAD"
+        head = "HEAD"
+    output:
+      diff_source: "pr" | "local"
+      merge_base: string
+      display: "Reviewing: {base}...{head}"
+
+  4_ci_status:
+    condition: "on_pr == true"
+    tool: "mcp__github__get_pull_request_status"
     strategy:
+      max_polls: 2
       poll_interval: 30s
-      max_wait: 15min
-      on_timeout: "Continue with warning"
-    output: |
-      ═══════════════════════════════════════════
-        CI Pipeline: {status}
-        Jobs: ✓ build, ✓ test, ⏳ lint
-        Waiting... (2m 34s / 15m max)
-      ═══════════════════════════════════════════
+      on_pending: "Continue avec warning 'CI pending'"
+      on_failure: "Signaler dans report, ne pas bloquer"
+    output:
+      ci_status: "passing|pending|failing|unknown"
+      ci_jobs: [{name, status, conclusion}]
 ```
 
 **Output Phase 0 :**
 
 ```
 ═══════════════════════════════════════════════════════════════
-  /review - PR Context Detection
+  /review - Context Detection
 ═══════════════════════════════════════════════════════════════
 
   Branch: feat/post-compact-hook
-  PR: #97 (open)
-  URL: https://github.com/owner/repo/pull/97
+  PR: #97 (open) → main
+  Diff source: PR (mcp__github)
+  Merge base: a60a896...847d6db
 
-  CI Pipeline:
-    ✓ build (passed, 1m 23s)
-    ✓ test (passed, 2m 45s)
-    ✓ lint (passed, 45s)
-    Status: ALL PASSING
+  CI Status: ✓ passing (3/3 jobs)
+    ├─ build: passed (1m 23s)
+    ├─ test: passed (2m 45s)
+    └─ lint: passed (45s)
 
-  Proceeding to Phase 1...
+  Mode: NORMAL (18 files, 375 lines)
 
 ═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Phase 1 : Feedback Collection (TOUT LIRE)
+## Phase 1 : Intent Analysis
 
-**Collecter TOUS les commentaires, reviews, suggestions sur la PR :**
+**Comprendre l'intention de la PR AVANT analyse lourde :**
+
+```yaml
+intent_analysis:
+  inputs:
+    - "mcp__github__get_pull_request (title, body, labels)"
+    - "mcp__github__get_pull_request_files (file list)"
+    - "git diff --stat"
+
+  extract:
+    title: string
+    description: string (first 500 chars)
+    labels: [string]
+    files_changed: number
+    lines_added: number
+    lines_deleted: number
+    directories_touched: [string]
+    file_categories:
+      security: count
+      shell: count
+      config: count
+      tests: count
+      docs: count
+      code: count
+
+  calibration:
+    rule: |
+      SI files_changed <= 5 AND only docs/config:
+        analysis_depth = "light"
+        skip_patterns = true
+      SINON SI security_files > 0 OR shell_files > 0:
+        analysis_depth = "deep"
+        force_security_scan = true
+      SINON:
+        analysis_depth = "normal"
+```
+
+**Output Phase 1 :**
+
+```
+═══════════════════════════════════════════════════════════════
+  /review - Intent Analysis
+═══════════════════════════════════════════════════════════════
+
+  Title: feat(hooks): add SessionStart hook
+  Labels: [enhancement]
+
+  Scope:
+    ├─ Files: 18 (+375, -12)
+    ├─ Dirs: .devcontainer/, .claude/
+    └─ Categories: shell(2), config(3), code(13)
+
+  Calibration:
+    ├─ Depth: DEEP (shell files detected)
+    ├─ Security scan: FORCED
+    └─ Pattern analysis: CONDITIONAL
+
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Phase 2 : Feedback Collection
+
+**Collecter les feedbacks avec budget et priorisation :**
 
 ```yaml
 feedback_collection:
-  1_fetch_all:
-    action: "Récupérer TOUS les feedbacks sans exception"
+  1_fetch:
     tools:
       - "mcp__github__get_pull_request_reviews"
       - "mcp__github__get_pull_request_comments"
       - "mcp__codacy__codacy_list_pull_request_issues"
-    output:
-      reviews: [{author, state, body}]
-      comments: [{author, body, path, line}]
-      suggestions: [{author, body, suggested_code}]
 
-  2_classify_feedback:
-    action: "Classifier chaque feedback"
-    categories:
-      human_review:
-        criteria: "author != bot"
-        action: "Contexte prioritaire"
-      ai_review:
-        criteria: "author contains 'bot' or 'coderabbit' or 'qodo'"
-        action: "Extraire axes comportementaux"
-      question:
-        criteria: "body contains '?' or 'should we' or 'what about'"
-        action: "Préparer réponse (user valide)"
-      suggestion:
-        criteria: "suggested_code != null"
-        action: "Évaluer pertinence"
+  2_budget_filter:
+    rule: |
+      SI count(all_feedback) > 80:
+        filter = "unresolved + modified_lines_only"
+      SINON:
+        filter = "all"
 
-  3_extract_behaviors:
-    action: "Pour chaque AI review pertinente, extraire l'axe"
-    template: |
-      Suggestion: "{original_text}"
-      Behavior: "{extracted_pattern}"
-      Category: "{shell_safety|pattern|security|quality}"
-      Add to: "{workflow_section}"
+  3_classify:
+    method: |
+      POUR chaque feedback:
+        SI author.type == "Bot" OR author.login ends with "[bot]":
+          category = "ai_review"
+        SINON:
+          category = "human_review"
+
+        SI body contains "?" AND NOT suggestion_code:
+          type = "question"
+        SINON SI suggestion_code != null:
+          type = "suggestion"
+        SINON:
+          type = "comment"
+
+  4_prioritize:
+    order:
+      1: "unresolved human reviews"
+      2: "questions (need response)"
+      3: "suggestions on modified lines"
+      4: "ai reviews (behavior extraction)"
+      5: "resolved/outdated"
 ```
 
-**Classification des feedbacks :**
+**Classification output :**
 
-| Type | Auteur | Action |
-|------|--------|--------|
-| Human Review | utilisateur réel | Contexte prioritaire |
-| AI Review (bot) | coderabbit, qodo, etc. | Extraire comportements |
-| Question | any | Préparer réponse → user valide |
-| Suggestion | any | Évaluer pertinence avec contexte |
+| Category | Type | Count | Priority |
+|----------|------|-------|----------|
+| Human | Question | 2 | HIGH |
+| Human | Comment | 3 | MEDIUM |
+| AI (coderabbit) | Suggestion | 5 | EXTRACT |
+| AI (qodo) | Suggestion | 3 | EXTRACT |
 
 ---
 
-## Phase 1.5 : Questions & Réponses (si questions détectées)
+## Phase 2.5 : Question Handling
+
+**Préparer réponses pour questions humaines :**
 
 ```yaml
 question_handling:
-  rule: "JAMAIS mentionner l'IA dans les réponses"
+  rule_absolute: "JAMAIS mentionner AI/Claude/IA dans les réponses"
+
+  forbidden_phrases:
+    - "Claude", "AI", "IA", "assistant", "LLM"
+    - "j'ai été généré", "automatiquement généré"
+    - "l'intelligence artificielle suggère"
 
   workflow:
-    1_collect_questions:
-      - "Extraire toutes les questions des reviews"
-      - "Grouper par thème"
+    1_collect: "Extraire questions des reviews humains"
+    2_prepare: |
+      POUR chaque question:
+        answer = generate_answer(question, context)
+        validate: no_forbidden_phrases(answer)
 
-    2_prepare_answers:
+    3_present:
       format: |
-        ## Question: {question}
-        **Auteur:** {author}
-        **Contexte:** {file}:{line}
+        ## Question by {author}
+        > {question_text}
 
-        **Réponse proposée:**
-        {answer_without_ai_mention}
+        **Proposed answer:**
+        {answer}
 
-        **Poster cette réponse?** [Oui/Non/Modifier]
+        [Post / Edit / Skip]
 
-    3_user_validation:
-      action: "AskUserQuestion pour chaque réponse"
-      options:
-        - "Poster telle quelle"
-        - "Modifier avant de poster"
-        - "Ignorer"
-
-    4_post_response:
-      tool: "mcp__github__add_issue_comment"
-      rule: |
-        INTERDICTION ABSOLUE de mentionner:
-        - "Claude", "AI", "IA", "assistant"
-        - "j'ai été généré", "automatiquement"
-        - Toute référence à l'intelligence artificielle
-```
-
-**Template de réponse (sans mention IA) :**
-
-```markdown
-<!-- BON -->
-Concernant votre question sur {topic}:
-
-{answer}
-
-Cette approche a été choisie car {rationale}.
-
-<!-- INTERDIT -->
-❌ "L'IA suggère que..."
-❌ "Claude recommande..."
-❌ "Cette réponse a été générée..."
+    4_user_validates: "AskUserQuestion avant de poster"
+    5_post: "mcp__github__add_issue_comment (si validé)"
 ```
 
 ---
 
-## Phase 1.6 : Extraction des Axes Comportementaux (AI Reviews)
+## Phase 2.6 : Behavior Extraction (AI Reviews)
+
+**Extraire axes comportementaux des reviews AI :**
 
 ```yaml
 behavior_extraction:
-  description: |
-    Pour chaque suggestion pertinente des bots (coderabbit, qodo),
-    extraire le COMPORTEMENT sous-jacent pour enrichir le workflow.
+  filter:
+    - "importance >= 6/10"
+    - "not already in workflow"
+    - "actionable pattern"
 
-  process:
-    1_filter_relevant:
-      criteria:
-        - "importance >= 6/10"
-        - "Not already in workflow"
-        - "Actionable pattern"
+  extract:
+    from: "{bot_suggestion_text}"
+    to:
+      behavior: "description courte du pattern"
+      category: "shell_safety|security|quality|pattern"
+      check: "question à ajouter au workflow"
 
-    2_extract_pattern:
-      from: "Use temporary file to prevent partial writes"
-      to:
-        behavior: "Downloads should use mktemp + cleanup"
-        category: "shell_safety"
-        axis: "1_download_safety"
+  action:
+    auto: false
+    prompt_user: |
+      Nouveau pattern détecté:
+        Behavior: {behavior}
+        Category: {category}
 
-    3_add_to_workflow:
-      action: "Enrichir review.md avec le nouvel axe"
-      auto: false  # Demander confirmation user
-
-  example:
-    bot_says: |
-      "Make the post-compact.sh hook more resilient by handling
-      potential failures from cat and jq"
-    extracted:
-      behavior: "Hook scripts should handle empty input gracefully"
-      axis: "5_input_resilience"
-      check: "Gère entrée vide/malformée?"
+      Ajouter au workflow /review? [Oui/Non]
 ```
 
 ---
 
-## Phase 2 : Challenge des Feedbacks
+## Phase 3 : Peek & Decompose
+
+**Snapshot du diff et catégorisation :**
 
 ```yaml
-feedback_challenge:
-  description: |
-    Avec NOTRE contexte (codebase, historique, intent),
-    challenger la pertinence des suggestions.
+peek_decompose:
+  1_diff_snapshot:
+    tool: |
+      SI diff_source == "pr":
+        mcp__codacy__codacy_get_pull_request_git_diff
+      SINON:
+        git diff --merge-base {base}...HEAD
 
-  process:
-    1_assess_relevance:
-      for_each_suggestion:
-        - "Est-ce dans le scope de la PR?"
-        - "Est-ce applicable à notre stack?"
-        - "Avons-nous plus de contexte?"
+    extract:
+      files: [{path, status, additions, deletions}]
+      total_lines: number
+      hunks_count: number
 
-    2_classify:
-      relevant:
-        action: "Intégrer dans review"
-        confidence: "HIGH"
-      partially_relevant:
-        action: "Signaler avec nuance"
-        confidence: "MEDIUM"
-      off_topic:
-        action: "Ignorer ou contester"
-        reason: "Explain why not applicable"
+  2_categorize:
+    rules:
+      security:
+        patterns: ["auth", "crypto", "password", "token", "secret", "jwt"]
+        extensions: [".go", ".py", ".js", ".ts", ".java"]
+      shell:
+        extensions: [".sh"]
+        files: ["Dockerfile", "Makefile"]
+      config:
+        extensions: [".json", ".yaml", ".yml", ".toml"]
+        files: ["mcp.json", "settings.json", "*.config.*"]
+      tests:
+        patterns: ["*_test.*", "*.test.*", "*.spec.*", "test_*"]
+      docs:
+        extensions: [".md"]
 
-    3_ask_user_if_needed:
-      condition: "Ambiguïté sur pertinence"
-      tool: "AskUserQuestion"
-      question: |
-        Le bot suggère: {suggestion}
-        Notre contexte indique: {our_context}
+  3_mode_decision:
+    rule: |
+      SI total_lines > 1500 OR files.count > 30:
+        mode = "TRIAGE"
+      SINON:
+        mode = "NORMAL"
+```
 
-        Cette suggestion est-elle pertinente?
+---
 
-  challenge_criteria:
-    - "Suggestion générique vs notre cas spécifique"
-    - "Pattern déjà implémenté ailleurs"
-    - "Trade-off conscient (perf vs safety)"
-    - "Limitation technique connue"
+## Phase 4 : Parallel Analysis
+
+**Lancer sub-agents avec contrat JSON strict :**
+
+```yaml
+parallel_analysis:
+  dispatch:
+    mode: "parallel (single message, multiple Task calls)"
+    agents:
+      - security-scanner
+      - quality-checker
+      - shell-safety-checker (si shell files > 0)
+
+  agent_contract:
+    input:
+      files: [string]
+      diff: string
+      mode: "normal|triage"
+
+    output_schema:
+      agent: string
+      summary: string (max 200 chars)
+      findings:
+        - severity: "CRITICAL|HIGH|MEDIUM|LOW"
+          category: "security|quality|shell|tests|config"
+          file: string
+          line: number
+          title: string (max 80 chars)
+          evidence: string (max 200 chars, NO SECRETS)
+          recommendation: string
+          confidence: "HIGH|MEDIUM|LOW"
+          in_modified_lines: boolean
+      metrics:
+        files_scanned: number
+        findings_count: number
+
+  severity_rubric:
+    CRITICAL:
+      - "Vuln exploitable (RCE, injection, auth bypass)"
+      - "Secret/token exposé"
+      - "Supply chain non vérifiée"
+    HIGH:
+      - "Bug probable (null deref, race condition)"
+      - "Data loss potentiel"
+      - "Performance killer"
+    MEDIUM:
+      - "Dette technique"
+      - "Qualité/maintainabilité"
+      - "Missing validation"
+    LOW:
+      - "Style/polish"
+      - "Documentation"
+      - "Naming conventions"
+```
+
+**Secret Masking Policy (OBLIGATOIRE) :**
+
+```yaml
+secret_masking:
+  rule: "JAMAIS reposter tokens/secrets/URLs signées"
+
+  patterns_to_mask:
+    - "AKIA[0-9A-Z]{16}"           # AWS Access Key
+    - "ghp_[a-zA-Z0-9]{36}"        # GitHub PAT
+    - "sk-[a-zA-Z0-9]{48}"         # OpenAI key
+    - "eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+"  # JWT
+    - "-----BEGIN.*PRIVATE KEY-----"
+    - "Bearer [a-zA-Z0-9._-]+"
+
+  action: "Remplacer par [REDACTED] dans evidence/recommendation"
+```
+
+---
+
+## Phase 5 : Challenge & Synthesize
+
+**Évaluer pertinence avec NOTRE contexte :**
+
+```yaml
+challenge_feedback:
+  timing: "APRÈS phases 3-4 (on a le contexte complet)"
+
+  for_each_suggestion:
+    evaluate:
+      - "Dans le scope de la PR?"
+      - "Applicable à notre stack/langage?"
+      - "Pattern déjà implémenté ailleurs?"
+      - "Trade-off conscient?"
+      - "Suggestion générique vs cas spécifique?"
+
+  classify:
+    KEEP:
+      action: "Intégrer dans findings"
+      confidence: "HIGH"
+    PARTIAL:
+      action: "Signaler avec nuance"
+      confidence: "MEDIUM"
+    REJECT:
+      action: "Ignorer avec raison"
+      confidence: "LOW"
+    DEFER:
+      action: "Créer issue séparée"
+      reason: "Hors scope PR"
+
+  output_format:
+    table:
+      - suggestion: string
+      - source: string (bot name)
+      - verdict: "KEEP|PARTIAL|REJECT|DEFER"
+      - rationale: string (1-2 lines)
+      - action: "apply|issue|ignore"
+
+  ask_user_if:
+    - "Ambiguïté sur pertinence"
+    - "Trade-off non documenté"
+    - "Suggestion impacte architecture"
 ```
 
 **Table de challenge :**
 
-| Situation | Action |
-|-----------|--------|
-| Bot suggère X, déjà fait ailleurs | "Pattern existant dans {file}" |
-| Bot suggère X, hors scope PR | "Hors scope, créer issue séparée" |
-| Bot suggère X, trade-off voulu | "Trade-off conscient: {raison}" |
-| Bot a raison, on a tort | "Suggestion valide, à intégrer" |
+| Situation | Verdict | Action |
+|-----------|---------|--------|
+| Suggestion valide, applicable | KEEP | Apply now |
+| Suggestion valide, hors scope | DEFER | Create issue |
+| Suggestion générique, pas applicable | REJECT | Ignore + rationale |
+| Trade-off conscient | REJECT | Document trade-off |
+| Ambiguïté | ASK | User decision |
 
 ---
 
-## RLM Workflow (Phases 3-4)
+## Phase 6 : Generate Plan
 
-```yaml
-review_workflow:
-  3_peek:
-    action: "Quick scan of changes"
-    tools: [Glob, "git diff --stat"]
-    output: "file_list, change_summary"
-
-  3b_decompose:
-    action: "Categorize files by type"
-    categories:
-      - security: "*.go, *.py, *.js, *.ts (auth, crypto, input)"
-      - quality: "All code files (complexity, style)"
-      - shell_safety: "*.sh, install.sh, Dockerfile (download, paths)"
-      - tests: "*_test.*, *.test.*, *.spec.*"
-      - config: "*.yaml, *.json, *.toml, mcp.json, Dockerfile"
-
-  3c_parallel_dispatch:
-    action: "Launch sub-agents via Task tool"
-    agents:
-      - security-scanner (context: fork)
-      - quality-checker (context: fork)
-      - shell-safety-checker (context: fork, if *.sh present)
-    mode: "parallel"
-
-  4_synthesize:
-    action: "Combine results + feedback challenge"
-    inputs:
-      - agent_results: "Security, quality, shell safety findings"
-      - pr_feedback: "Classified comments/reviews from Phase 1"
-      - behaviors: "Extracted patterns from AI reviews"
-    format: "Prioritized markdown report"
-```
-
----
-
-## Phase 5 : Generate /plan
+**Synthèse finale avec actions priorisées :**
 
 ```yaml
 plan_generation:
-  description: |
-    Après synthèse complète, générer un plan d'action
-    qui intègre tous les inputs collectés.
-
   inputs:
-    - our_review: "Notre analyse code"
-    - bot_feedback: "Suggestions pertinentes des bots"
-    - user_questions: "Questions à répondre"
-    - behaviors: "Nouveaux axes pour le workflow"
+    - our_findings: "Phase 4 agent results"
+    - validated_suggestions: "Phase 5 KEEP items"
+    - questions: "Phase 2.5 pending questions"
+    - behaviors: "Phase 2.6 extracted patterns"
+    - deferred: "Phase 5 DEFER items"
 
-  workflow:
-    1_prioritize:
-      action: "Classer les actions par priorité"
-      order:
-        - "CRITICAL: Security issues"
-        - "HIGH: Bot suggestions validées"
-        - "MEDIUM: Quality improvements"
-        - "LOW: Workflow enhancements"
+  prioritize:
+    order:
+      1: "CRITICAL (security, exploitable)"
+      2: "HIGH (validated suggestions, bugs)"
+      3: "MEDIUM (quality, maintainability)"
+      4: "LOW (style, polish)"
+      5: "WORKFLOW (behavior extraction)"
+      6: "QUESTIONS (pending user validation)"
+      7: "DEFERRED (issues to create)"
 
-    2_generate_plan:
-      format: |
-        ## /plan - Review Implementation
+  format: |
+    ## /plan - Review Implementation
 
-        ### Critical (must fix)
-        1. {issue} - {file}:{line}
-           Action: {fix}
+    ### Critical (must fix before merge)
+    | # | Issue | File:Line | Action |
+    |---|-------|-----------|--------|
+    | 1 | {title} | {file}:{line} | {fix} |
 
-        ### High Priority (validated bot suggestions)
-        1. {suggestion} - Source: {bot}
-           Action: {implementation}
+    ### High Priority
+    | # | Source | Suggestion | Action |
+    |---|--------|------------|--------|
+    | 1 | {bot} | {suggestion} | {implementation} |
 
-        ### Medium (quality)
-        1. {improvement}
+    ### Medium
+    ...
 
-        ### Workflow Enhancement
-        1. Add axis "{new_axis}" to review.md
+    ### Questions (pending validation)
+    | # | Author | Question | Proposed Answer |
+    |---|--------|----------|-----------------|
+    | 1 | {author} | {question} | {answer} |
 
-        ### Questions to Answer
-        1. "{question}" by {author}
-           Proposed answer: {answer}
-           [Validate before posting]
+    ### Deferred (issues to create)
+    | # | Title | Rationale |
+    |---|-------|-----------|
+    | 1 | {title} | {why_deferred} |
 
-    3_user_validation:
-      action: "Présenter le plan pour approbation"
-      tool: "AskUserQuestion"
-      question: |
-        Plan généré avec {n} actions:
-        - {critical_count} critiques
-        - {high_count} haute priorité
-        - {medium_count} moyennes
+  user_validation:
+    prompt: |
+      Plan généré:
+      - CRITICAL: {n}
+      - HIGH: {n}
+      - MEDIUM: {n}
+      - Questions: {n}
 
-        Exécuter ce plan?
-
-    4_execute_or_refine:
-      on_approve: "Exécuter via /apply"
-      on_reject: "Affiner avec feedback user"
+      Exécuter? [Oui / Modifier / Refuser]
 ```
 
-**Output Phase 5 :**
-
-```
-═══════════════════════════════════════════════════════════════
-  /review - Plan Generated
-═══════════════════════════════════════════════════════════════
-
-  Review Summary:
-    ├─ Our findings: 3 issues (0 critical, 2 major, 1 minor)
-    ├─ Bot feedback: 5 suggestions (3 relevant, 2 off-topic)
-    ├─ Questions: 1 to answer
-    └─ New behaviors: 1 to add to workflow
-
-  Generated Plan: 7 actions
-    ├─ CRITICAL: 0
-    ├─ HIGH: 3 (validated bot suggestions)
-    ├─ MEDIUM: 2
-    ├─ LOW: 1 (workflow enhancement)
-    └─ QUESTIONS: 1 (pending user validation)
-
-  → Use /apply to execute or refine
-
-═══════════════════════════════════════════════════════════════
-```
+---
 
 ## Output Format
 
 ```markdown
-# Code Review: <scope>
+# Code Review: PR #{number}
 
 ## Summary
-<1-2 sentences overall assessment>
+{1-2 sentences assessment}
+Mode: {NORMAL|TRIAGE}
+CI: {status}
 
 ## Critical Issues
 > Must fix before merge
 
 ### [CRITICAL] `file:line` - Title
-**Problem:** Description
-**Fix:** Suggestion
-**Reference:** URL
+**Problem:** {description}
+**Evidence:** {code snippet, REDACTED if secret}
+**Fix:** {actionable recommendation}
+**Confidence:** HIGH
 
-## Major Issues
-> Strongly recommended
+## High Priority
+> From our analysis + validated bot suggestions
 
-## Minor Issues
-> Nice to have (max 5 shown)
+## Medium
+> Quality improvements (max 5)
 
-## Shell Safety Analysis (si *.sh présents)
-> Scripts shell et téléchargements
+## Low
+> Style/polish (max 3)
+
+## Shell Safety (si *.sh présents)
 
 ### Download Safety
-| Check | File:Line | Status |
-|-------|-----------|--------|
-| Temp file usage | `install.sh:102` | ⚠ Missing mktemp |
-| Retry logic | `install.sh:102` | ⚠ No --retry |
-| TLS enforcement | `install.sh:102` | ⚠ No --proto |
-| Cleanup | `install.sh:112` | ✗ Missing rm -f |
+| Check | Status | File:Line |
+|-------|--------|-----------|
 
 ### Path Determinism
-| Config | Path Type | Recommendation |
-|--------|-----------|----------------|
-| mcp.json:grepai | Relative | Use /home/vscode/.local/bin/grepai |
+| Config | Issue | Fix |
+|--------|-------|-----|
 
-### Fallback Completeness
-| Binary | Fallback | Discoverable |
-|--------|----------|--------------|
-| grepai | go install | ⚠ Not copied to ~/.local/bin |
-
-### Input Resilience
-| Script | Handles Empty | Graceful Errors |
-|--------|---------------|-----------------|
-| post-compact.sh | ⚠ No | ⚠ set -e strict |
-
-## Pattern Analysis
-> Design patterns assessment
+## Pattern Analysis (CONDITIONAL)
+> Triggered only if: complexity ↑, duplication, or core/ touched
 
 ### Patterns Identified
 | Pattern | Location | Status |
-|---------|----------|--------|
-| Singleton | `src/db.ts` | ✓ Correct |
-| Factory | `src/handlers/` | ⚠ Missing reset |
 
-### Pattern Suggestions
-| Problem | Suggested Pattern | Reference |
-|---------|-------------------|-----------|
-| Repeated DB connections | Object Pool | .claude/docs/performance/README.md |
-| Complex object creation | Builder | .claude/docs/creational/README.md |
+### Suggestions
+| Problem | Pattern | Reference |
+
+## Challenged Feedback
+| Suggestion | Source | Verdict | Rationale |
+|------------|--------|---------|-----------|
+
+## Questions (pending)
+| Author | Question | Proposed Answer |
 
 ## Commendations
 > What's done well
@@ -501,200 +643,80 @@ plan_generation:
 ## Metrics
 | Metric | Value |
 |--------|-------|
-| Files | N |
-| Critical | N |
-| Major | N |
-```
-
-## MCP Integration
-
-**Priority MCP tools:**
-
-| Action | MCP Tool |
-|--------|----------|
-| PR files | `mcp__github__get_pull_request_files` |
-| PR diff | `mcp__codacy__codacy_get_pull_request_git_diff` |
-| Issues | `mcp__codacy__codacy_list_pull_request_issues` |
-| Security | `mcp__codacy__codacy_search_repository_srm_items` |
-
-**Fallback CLI:**
-
-- `git diff`, `gh pr view --json files`
-
-## Agents Architecture
-
-This skill uses specialized agents via the Task tool:
-
-```
-/review
-    │
-    ├─→ code-reviewer (orchestrator)
-    │       │
-    │       ├─→ security-scanner (parallel, context: fork)
-    │       │     Tools: Codacy SRM, bandit, semgrep, trivy, gitleaks
-    │       │     Focus: OWASP Top 10, secrets, injection, crypto
-    │       │
-    │       ├─→ quality-checker (parallel, context: fork)
-    │       │     Tools: Codacy issues, eslint, pylint, shellcheck
-    │       │     Focus: Complexity, duplication, style, dead code
-    │       │
-    │       └─→ shell-safety-checker (parallel, context: fork, if *.sh)
-    │             Tools: shellcheck, grep patterns
-    │             Focus: Download safety, path determinism, input resilience
-    │             Axes: 6 behavioral checks (see shell_safety_axes)
-    │
-    └─→ Synthesized Report
-```
-
-**Agent dispatch example:**
-
-```yaml
-Task:
-  subagent_type: Explore
-  prompt: |
-    Load the security-scanner agent from ~/.claude/agents/security-scanner.md
-    Analyze: {file_list}
-    Diff: {diff_content}
-    Return JSON only.
-```
-
-## Shell Safety Checks (OBLIGATOIRE pour *.sh)
-
-Lors de review de scripts shell, appliquer ces axes comportementaux :
-
-```yaml
-shell_safety_axes:
-  1_download_safety:
-    description: "Sécurité téléchargements binaires"
-    checks:
-      - "Utilise fichier temporaire (mktemp)?"
-      - "curl avec --retry et --proto '=https'?"
-      - "Utilise 'install -m' au lieu de chmod?"
-      - "Supprime le fichier temp après usage?"
-    bad_pattern: |
-      curl -sL "$URL" -o "$DEST" && chmod +x "$DEST"
-    good_pattern: |
-      tmp="$(mktemp)"
-      if curl -fsL --retry 3 --proto '=https' "$URL" -o "$tmp"; then
-          install -m 0755 "$tmp" "$DEST"
-      fi
-      rm -f "$tmp"
-
-  2_download_robustness:
-    description: "Robustesse téléchargements scripts"
-    checks:
-      - "Track les échecs de download?"
-      - "Exit si échec critique?"
-      - "Évite silent failures (2>/dev/null seul)?"
-    bad_pattern: |
-      curl -sL "$URL" -o "$FILE" 2>/dev/null
-    good_pattern: |
-      if curl -fsL "$URL" -o "$FILE" 2>/dev/null; then
-          chmod +x "$FILE"
-      else
-          echo "⚠ Failed: $FILE" >&2
-          download_failed=1
-      fi
-
-  3_path_determinism:
-    description: "Chemins déterministes"
-    checks:
-      - "Configs MCP utilisent chemins absolus?"
-      - "Ne dépend pas de PATH pour binaires critiques?"
-    bad_pattern: |
-      "command": "grepai"
-    good_pattern: |
-      "command": "/home/vscode/.local/bin/grepai"
-
-  4_fallback_completeness:
-    description: "Fallbacks complets"
-    checks:
-      - "Fallback place binaire au bon endroit?"
-      - "Copie depuis GOBIN vers destination attendue?"
-    bad_pattern: |
-      go install github.com/foo/bar@latest
-    good_pattern: |
-      if go install github.com/foo/bar@latest; then
-          GOBIN_PATH="$(go env GOBIN 2>/dev/null || echo "$(go env GOPATH)/bin")"
-          [ -x "${GOBIN_PATH}/bar" ] && cp -f "${GOBIN_PATH}/bar" "$HOME/.local/bin/"
-      fi
-
-  5_input_resilience:
-    description: "Résilience entrées"
-    checks:
-      - "Gère entrée vide/malformée?"
-      - "Vérifie disponibilité jq?"
-      - "set -e avec handling graceful?"
-    bad_pattern: |
-      INPUT=$(cat)
-      SOURCE=$(echo "$INPUT" | jq -r '.source')
-    good_pattern: |
-      INPUT="$(cat || true)"
-      SOURCE=""
-      if command -v jq >/dev/null 2>&1; then
-          SOURCE="$(printf '%s' "$INPUT" | jq -r '.source // ""' 2>/dev/null || true)"
-      fi
-
-  6_url_validation:
-    description: "Validation URLs"
-    checks:
-      - "URL de release existe réellement?"
-      - "Fallback si binaire pré-compilé absent?"
-      - "Script d'installation officiel utilisé si dispo?"
-    warning: |
-      Vérifier que github.com/<repo>/releases publie réellement des binaires.
-      Sinon utiliser: go install ou script officiel.
-```
-
-**Intégration dans le workflow :**
-
-```yaml
-parallel_dispatch_enhanced:
-  agents:
-    - security-scanner
-    - quality-checker
-    - shell-safety-checker  # Nouveau pour *.sh
+| Mode | NORMAL |
+| Files reviewed | 18 |
+| Lines | +375/-12 |
+| Critical | 0 |
+| High | 3 |
+| Medium | 2 |
+| Suggestions kept | 3/8 |
 ```
 
 ---
 
-## Pattern Consultation (OBLIGATOIRE)
+## Pattern Consultation (CONDITIONNELLE)
 
-Lors de chaque review, consulter `.claude/docs/` pour :
+**Déclencher UNIQUEMENT si :**
 
 ```yaml
-pattern_analysis:
-  1_identify:
-    action: "Grep pour patterns connus dans le code"
-    patterns:
-      - "class.*Factory" → Factory pattern
-      - "getInstance" → Singleton pattern
-      - "subscribe.*notify" → Observer pattern
-      - "execute.*undo" → Command pattern
+pattern_triggers:
+  conditions:
+    - "complexity_increase > 20%"
+    - "duplication_detected"
+    - "directories: core/, domain/, pkg/, internal/"
+    - "new_classes > 3"
+    - "file size > 500 lines"
 
-  2_validate:
-    action: "Comparer avec docs/"
-    check:
-      - "Pattern correctement implémenté?"
-      - "Manque-t-il des éléments?"
-      - "Anti-patterns présents?"
+  skip_if:
+    - "only docs/config changes"
+    - "test files only"
+    - "mode == TRIAGE"
 
-  3_suggest:
-    action: "Identifier améliorations possibles"
-    consult:
-      - ".claude/docs/README.md" (tableau de décision)
-      - Category README pour détails
+  language_aware:
+    go: "No 'class' keyword, check interfaces/structs"
+    ts_js: "Factory, Singleton, Observer patterns"
+    python: "Metaclass, decorator patterns"
+    shell: "N/A - skip pattern analysis"
 ```
 
-**Quand suggérer un pattern :**
+---
 
-| Code Smell | Pattern Suggéré | Référence |
-|------------|-----------------|-----------|
-| new() répétés | Factory/Builder | creational/README.md |
-| If/else sur types | Strategy/State | behavioral/README.md |
-| Callbacks imbriqués | Promise/Async | concurrency/README.md |
-| Données dupliquées | Flyweight/Cache | performance/README.md |
-| Couplage fort | Mediator/Observer | behavioral/README.md |
+## Shell Safety Checks (si *.sh présents)
+
+```yaml
+shell_safety_axes:
+  1_download_safety:
+    checks:
+      - "mktemp pour fichiers temporaires?"
+      - "curl --retry --proto '=https'?"
+      - "install -m au lieu de chmod?"
+      - "rm -f cleanup?"
+
+  2_download_robustness:
+    checks:
+      - "Track échecs de download?"
+      - "Exit si critique?"
+      - "Évite silent failures?"
+
+  3_path_determinism:
+    checks:
+      - "Chemins absolus dans configs?"
+      - "Pas de dépendance PATH implicite?"
+
+  4_fallback_completeness:
+    checks:
+      - "Fallback copie binaire au bon endroit?"
+
+  5_input_resilience:
+    checks:
+      - "Gère entrée vide?"
+      - "set -e avec handling graceful?"
+
+  6_url_validation:
+    checks:
+      - "URL release existe?"
+      - "Script officiel si dispo?"
+```
 
 ---
 
@@ -705,43 +727,96 @@ pattern_analysis:
 | Auto-approve/merge | FORBIDDEN |
 | Skip security issues | FORBIDDEN |
 | Modify code directly | FORBIDDEN |
-| Post without user review | FORBIDDEN |
-| Skip pattern analysis | FORBIDDEN |
-| Skip shell safety for *.sh | FORBIDDEN |
-| Ignore download patterns | FORBIDDEN |
-| Accept relative paths in MCP config | FORBIDDEN |
-| Skip Phase 0 (PR context) | FORBIDDEN |
-| Skip Phase 1 (feedback collection) | FORBIDDEN |
 | Post comment without user validation | FORBIDDEN |
 | Mention AI in PR responses | **ABSOLUTE FORBIDDEN** |
-| Ignore bot suggestions without analysis | FORBIDDEN |
-| Challenge feedback without context | FORBIDDEN |
+| Skip Phase 0-1 (context/intent) | FORBIDDEN |
+| Challenge without context (skip Phase 3-4) | FORBIDDEN |
+| Expose secrets in evidence/output | FORBIDDEN |
+| Ignore budget limits | FORBIDDEN |
+| Pattern analysis on docs-only PR | SKIP (not forbidden) |
+
+---
+
+## No-Regression Checklist
+
+```yaml
+no_regression:
+  check_in_pr:
+    - "Tests ajoutés/ajustés pour changes?"
+    - "Migration/rollback nécessaire?"
+    - "Backward compatibility maintenue?"
+    - "Config changes documentées?"
+    - "Observability (logs/metrics) ajoutée?"
+```
+
+---
+
+## Error Handling
+
+```yaml
+error_handling:
+  mcp_rate_limit:
+    action: "Backoff exponentiel (1s, 2s, 4s)"
+    fallback: "git diff local"
+    max_retries: 3
+
+  agent_timeout:
+    max_wait: 60s
+    action: "Continue sans cet agent, signaler"
+
+  large_diff:
+    threshold: 5000 lines
+    action: "Forcer TRIAGE mode, warning user"
+```
+
+---
+
+## Agents Architecture
+
+```
+/review
+    │
+    ├─→ Phase 0-2: Context + Feedback (sequential)
+    │
+    ├─→ Phase 3-4: Parallel Analysis
+    │       │
+    │       ├─→ security-scanner (Task, context: fork)
+    │       │     Schema: agent_contract
+    │       │     Focus: OWASP, secrets, injection
+    │       │
+    │       ├─→ quality-checker (Task, context: fork)
+    │       │     Schema: agent_contract
+    │       │     Focus: complexity, duplication, style
+    │       │
+    │       └─→ shell-safety-checker (Task, context: fork)
+    │             Condition: shell files > 0
+    │             Focus: 6 behavioral axes
+    │
+    ├─→ Phase 5: Challenge (with full context)
+    │
+    └─→ Phase 6: Plan Generation
+```
+
+---
 
 ## Review Iteration Loop
 
 ```yaml
-review_iteration:
+iteration_loop:
   description: |
-    Amélioration continue du workflow /review basée sur les
-    retours des bots (qodo, coderabbit, etc.)
+    Amélioration continue basée sur retours bots.
 
   process:
-    1_collect: "Collecter suggestions des bots après PR"
-    2_extract: "Extraire les COMPORTEMENTS (pas les fixes)"
-    3_categorize: "Ajouter à la catégorie appropriée"
-    4_document: "Enrichir shell_safety_axes ou pattern_consultation"
-    5_commit: "Commit l'amélioration du workflow"
-
-  categories:
-    - shell_safety_axes: "Comportements scripts shell"
-    - pattern_consultation: "Design patterns code"
-    - security_checks: "Vulnérabilités OWASP"
-    - quality_checks: "Complexité, style, tests"
+    1: "Collecter suggestions bots (Phase 2.6)"
+    2: "Extraire COMPORTEMENT (pas le fix)"
+    3: "Catégoriser (shell/security/quality)"
+    4: "Ajouter au workflow (user approuve)"
+    5: "Commit l'amélioration"
 
   example:
-    bot_suggestion: |
-      "Use temporary file to prevent partial writes"
-    extracted_behavior: |
-      "Downloads should use mktemp + cleanup"
-    added_to: "shell_safety_axes.1_download_safety"
+    input: "Use mktemp to prevent partial writes"
+    output:
+      behavior: "Downloads should use temp files"
+      category: "shell_safety"
+      axis: "1_download_safety"
 ```
