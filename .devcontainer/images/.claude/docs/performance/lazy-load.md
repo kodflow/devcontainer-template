@@ -37,7 +37,7 @@ Pattern differant l'initialisation d'une ressource jusqu'a son premier usage.
 
 ## Implementation Go
 
-### Lazy Value basique
+### Lazy Value avec sync.OnceValue (Go 1.21+ - RECOMMENDED)
 
 ```go
 package lazy
@@ -46,7 +46,36 @@ import (
 	"sync"
 )
 
-// Value holds a lazily-initialized value.
+// Pour les cas simples sans reset ni erreur, utiliser sync.OnceValue directement:
+var expensiveResource = sync.OnceValue(func() *Dataset {
+	log.Println("Creating expensive resource...")
+	return loadHugeDataset()
+})
+
+// Avec gestion d'erreur, utiliser sync.OnceValues:
+var config = sync.OnceValues(func() (*Config, error) {
+	return loadConfig()
+})
+
+// Usage:
+// dataset := expensiveResource()  // Premier appel: charge
+// dataset2 := expensiveResource() // Appels suivants: cache
+//
+// cfg, err := config()
+// if err != nil { ... }
+```
+
+### Lazy Value struct (si reset necessaire)
+
+```go
+package lazy
+
+import (
+	"sync"
+)
+
+// Value holds a lazily-initialized value with reset capability.
+// Pour les cas simples sans reset, preferez sync.OnceValue.
 type Value[T any] struct {
 	factory func() T
 	value   T
