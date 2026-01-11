@@ -1,7 +1,7 @@
 ---
 name: apply
 description: |
-  Execute a validated Claude Code plan.
+  Execute a validated Claude Code plan with RLM decomposition.
   Implements the steps defined by /plan with progress tracking.
   Use when: plan is approved and ready for implementation.
 allowed-tools:
@@ -16,17 +16,22 @@ allowed-tools:
   - "mcp__playwright__*"
 ---
 
-# Apply - Execute Claude Code Plan
+# /apply - Execute Claude Code Plan (RLM Architecture)
 
 $ARGUMENTS
 
 ---
 
-## Description
+## Overview
 
-Exécute un plan validé par `/plan`. Implémente étape par étape avec suivi de progression.
+Exécute un plan validé par `/plan` avec patterns **RLM** :
 
-**Principe** : Le plan a été validé → Exécuter fidèlement
+- **Peek** - Vérifier plan et état du code avant exécution
+- **Decompose** - Étapes déjà définies par /plan
+- **Parallelize** - Validations simultanées post-step
+- **Synthesize** - Rapport consolidé
+
+**Principe** : Le plan a été validé → Exécuter fidèlement avec validation continue.
 
 ---
 
@@ -45,9 +50,9 @@ Exécute un plan validé par `/plan`. Implémente étape par étape avec suivi d
 ## --help
 
 ```
-═══════════════════════════════════════════════
-  /apply - Execute Claude Code Plan
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
+  /apply - Execute Claude Code Plan (RLM)
+═══════════════════════════════════════════════════════════════
 
 Usage: /apply [options]
 
@@ -58,12 +63,14 @@ Options:
   --continue        Reprend après interruption
   --help            Affiche cette aide
 
+RLM Patterns:
+  1. Peek     - Vérifier plan + état code
+  2. Parallelize - Validations simultanées
+  3. Synthesize - Rapport consolidé
+
 Prérequis:
   - Plan créé via /plan
   - Plan approuvé par l'utilisateur
-
-Workflow:
-  /plan "feature" → (approve) → /apply
 
 Exemples:
   /apply                    Exécuter tout le plan
@@ -71,49 +78,75 @@ Exemples:
   /apply --dry-run          Voir ce qui serait fait
   /apply --continue         Reprendre après erreur
 
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Workflow (4 phases)
+## Phase 1 : Peek (RLM Pattern)
 
-### Phase 1 : Vérification du plan
+**Vérifications AVANT toute exécution :**
 
-**Checks obligatoires :**
+```yaml
+peek_workflow:
+  1_plan_check:
+    action: "Vérifier que le plan existe et est validé"
+    tools: [Read]
+    checks:
+      - "Plan en mémoire ou fichier /tmp/.claude-plan-*.md"
+      - "Plan marqué comme approuvé"
+      - "Étapes clairement définies"
 
-1. Plan existe (en mémoire ou fichier)
-2. Plan a été validé par l'utilisateur
-3. Pas de modifications conflictuelles depuis le plan
+  2_codebase_scan:
+    action: "Scanner l'état actuel du codebase"
+    tools: [Glob, Grep]
+    checks:
+      - "Fichiers cibles existent"
+      - "Pas de modifications conflictuelles depuis le plan"
+      - "Dépendances requises présentes"
+
+  3_conflict_detect:
+    action: "Détecter les conflits potentiels"
+    tools: [Bash(git status)]
+    checks:
+      - "Pas de changements non commités sur les fichiers cibles"
+      - "Pas de merge en cours"
+```
+
+**Output Phase 1 :**
 
 ```
-═══════════════════════════════════════════════
-  /apply - Pre-flight Check
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
+  /apply - Peek Analysis
+═══════════════════════════════════════════════════════════════
 
-  Plan: "Add JWT authentication to API"
-  Steps: 4
-  Files: 6 to modify, 2 to create
+  Plan   : "Add JWT authentication to API"
+  Steps  : 4
+  Files  : 6 to modify, 2 to create
 
-  Checks:
-    ✓ Plan loaded
-    ✓ User approved
-    ✓ No conflicts detected
+  Peek Results:
+    ✓ Plan loaded and approved
+    ✓ Target files accessible
+    ✓ No conflicting changes
+    ✓ Dependencies available
 
   Ready to execute.
 
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-### Phase 2 : Initialisation TodoWrite
+## Phase 2 : Initialisation TodoWrite
 
-**Créer la todo list pour suivi :**
+**Créer la todo list basée sur les étapes du plan :**
 
 ```yaml
 TodoWrite:
   todos:
+    - content: "Peek: Vérification pré-exécution"
+      status: "completed"
+      activeForm: "Vérifiant pré-requis"
     - content: "Step 1: Create auth middleware"
       status: "pending"
       activeForm: "Creating auth middleware"
@@ -126,104 +159,185 @@ TodoWrite:
     - content: "Step 4: Add tests"
       status: "pending"
       activeForm: "Adding tests"
+    - content: "Synthesize: Validation finale"
+      status: "pending"
+      activeForm: "Validant le résultat"
 ```
 
 ---
 
-### Phase 3 : Exécution séquentielle
+## Phase 3 : Exécution avec Parallelize
 
 **Pour chaque étape du plan :**
 
-1. **Marquer in_progress** dans TodoWrite
-2. **Lire les fichiers** concernés
-3. **Appliquer les modifications** (Write/Edit)
-4. **Vérifier** la syntaxe (post-hooks)
-5. **Marquer completed** dans TodoWrite
+### Step 3.1 : Marquer et lire
 
-**Progress output :**
+```yaml
+step_start:
+  1_mark: "Marquer étape in_progress dans TodoWrite"
+  2_peek: "Lire les fichiers concernés avant modification"
+```
+
+### Step 3.2 : Appliquer les modifications
+
+```yaml
+step_apply:
+  actions:
+    - "Write/Edit selon le plan"
+    - "Suivre les instructions exactes du plan"
+    - "Ne pas dévier du plan approuvé"
+```
+
+### Step 3.3 : Parallelize (validation post-step)
+
+**Lancer les validations en PARALLÈLE après chaque étape :**
+
+```yaml
+parallel_validation:
+  agents:
+    - task: "Syntax check"
+      action: "Vérifier syntaxe des fichiers modifiés"
+      tools: [post-hooks]
+
+    - task: "Import check"
+      action: "Vérifier imports valides"
+      tools: [Bash(linter)]
+
+    - task: "Test related"
+      action: "Exécuter tests liés aux fichiers modifiés"
+      tools: [Bash(test)]
+
+  mode: "PARALLEL (single message, multiple calls)"
+```
+
+**IMPORTANT** : Lancer TOUTES les validations dans UN SEUL message.
+
+### Step 3.4 : Décision
+
+```yaml
+step_decision:
+  on_success:
+    - "Marquer étape completed"
+    - "Passer à l'étape suivante"
+
+  on_failure:
+    - "Analyser l'erreur"
+    - "Proposer fix ou rollback"
+    - "Attendre instruction utilisateur"
+```
+
+**Output par étape :**
 
 ```
-═══════════════════════════════════════════════
-  Executing Step 1/4: Create auth middleware
-═══════════════════════════════════════════════
-
-  [■■■■□□□□□□] 40%
+═══════════════════════════════════════════════════════════════
+  Executing Step 2/4: Add JWT utilities
+═══════════════════════════════════════════════════════════════
 
   Actions:
-    ✓ Read src/middleware/index.ts
-    ✓ Create src/middleware/auth.ts
-    → Validate syntax...
+    ✓ Create src/utils/jwt.ts
+    ✓ Create src/types/auth.ts
 
-═══════════════════════════════════════════════
+  Validation (parallel):
+    ├─ Syntax : ✓ Valid
+    ├─ Imports: ✓ Resolved
+    └─ Tests  : ✓ 3 new tests pass
+
+  Status: COMPLETE → Next step
+
+═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-### Phase 4 : Validation finale
+## Phase 4 : Synthesize (RLM Pattern)
 
-**Après toutes les étapes :**
+**Après toutes les étapes, synthèse finale :**
 
-1. Vérifier que tous les fichiers sont valides
-2. Exécuter les tests si définis dans le plan
-3. Générer un résumé
+```yaml
+synthesize_workflow:
+  1_collect_results:
+    action: "Rassembler tous les résultats d'étapes"
+    data:
+      - "Fichiers créés/modifiés"
+      - "Tests ajoutés/passés"
+      - "Erreurs rencontrées/corrigées"
+
+  2_final_validation:
+    action: "Validation complète du projet"
+    parallel:
+      - "npm test" # Full test suite
+      - "npm run lint" # Full lint
+      - "npm run build" # Full build
+
+  3_generate_report:
+    action: "Générer rapport consolidé"
+    format: "Structured markdown"
+```
+
+**Output Final :**
 
 ```
-═══════════════════════════════════════════════
-  ✓ Plan executed successfully
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
+  /apply - Plan Executed Successfully
+═══════════════════════════════════════════════════════════════
 
-  Summary:
+  Plan: "Add JWT authentication to API"
+
+  Steps Completed:
     ✓ Step 1: Create auth middleware
     ✓ Step 2: Add JWT utilities
     ✓ Step 3: Update routes
     ✓ Step 4: Add tests
 
-  Files modified: 6
-  Files created: 2
-  Tests added: 8
+  Summary:
+    Files modified : 6
+    Files created  : 2
+    Tests added    : 8
+    Tests passing  : 8/8
+    Lint errors    : 0
+    Build          : SUCCESS
 
   Next steps:
-    → Run tests: npm test
-    → Review changes: /review
+    → Review changes: git diff
     → Commit: /git --commit
+    → Or rollback: git checkout .
 
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
 ## --step N
 
-Exécute uniquement l'étape N :
+Exécute uniquement l'étape N avec validation :
 
-```
-/apply --step 2
-
-═══════════════════════════════════════════════
-  Executing Step 2 only: Add JWT utilities
-═══════════════════════════════════════════════
-
-  ✓ Created src/utils/jwt.ts
-  ✓ Created src/types/auth.ts
-  ✓ Syntax validated
-
-  Note: Other steps skipped. Run /apply to complete.
-
-═══════════════════════════════════════════════
+```yaml
+step_only:
+  1_peek: "Vérifier pré-requis pour cette étape"
+  2_execute: "Exécuter l'étape N"
+  3_validate: "Validation parallèle post-étape"
+  4_report: "Rapport partiel"
 ```
 
 ---
 
 ## --dry-run
 
-Simule sans modifier :
+Simule sans modifier avec peek complet :
+
+```yaml
+dry_run:
+  1_peek: "Analyse complète du plan"
+  2_simulate: "Afficher ce qui serait fait"
+  3_no_write: "Aucune modification"
+```
+
+**Output :**
 
 ```
-/apply --dry-run
-
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
   /apply --dry-run (no changes)
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
 
   Would execute:
 
@@ -235,43 +349,26 @@ Simule sans modifier :
     CREATE src/utils/jwt.ts (120 lines)
     CREATE src/types/auth.ts (35 lines)
 
-  Step 3: Update routes
-    MODIFY src/routes/api.ts (+15 lines)
-    MODIFY src/routes/index.ts (+3 lines)
-
-  Step 4: Add tests
-    CREATE tests/auth.test.ts (80 lines)
-    CREATE tests/jwt.test.ts (60 lines)
+  ...
 
   Total: 8 files, ~360 lines
 
   Run /apply to execute for real.
 
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
 ## --continue
 
-Reprend après interruption ou erreur :
+Reprend après interruption avec peek de l'état :
 
-```
-/apply --continue
-
-═══════════════════════════════════════════════
-  /apply --continue
-═══════════════════════════════════════════════
-
-  Previous state:
-    ✓ Step 1: Complete
-    ✓ Step 2: Complete
-    ✗ Step 3: Failed (syntax error)
-    ○ Step 4: Pending
-
-  Resuming from Step 3...
-
-═══════════════════════════════════════════════
+```yaml
+continue_workflow:
+  1_peek: "Analyser l'état actuel vs plan"
+  2_detect: "Identifier étapes complétées"
+  3_resume: "Reprendre à la prochaine étape"
 ```
 
 ---
@@ -285,53 +382,37 @@ Reprend après interruption ou erreur :
 | Test failure | Proposer fix ou rollback |
 | Unexpected | Pause, afficher état, attendre instruction |
 
-**En cas d'échec :**
-
-```
-═══════════════════════════════════════════════
-  ✗ Step 3 failed
-═══════════════════════════════════════════════
-
-  Error: TypeScript compilation error
-  File: src/routes/api.ts:45
-
-  Property 'userId' does not exist on type 'Request'
-
-  Options:
-    1. /apply --continue  (after manual fix)
-    2. Let me fix it automatically
-    3. /plan --revise (update the plan)
-
-═══════════════════════════════════════════════
-```
-
 ---
 
 ## GARDE-FOUS (ABSOLUS)
 
-| Action | Status |
-|--------|--------|
-| Exécuter sans plan validé | ❌ **INTERDIT** |
-| Skip une étape silencieusement | ❌ **INTERDIT** |
-| Modifier des fichiers hors plan | ❌ **INTERDIT** |
-| Continuer après erreur critique | ❌ **INTERDIT** |
-| Force apply sur main/master | ⚠ **WARNING** |
+| Action | Status | Raison |
+|--------|--------|--------|
+| Exécuter sans plan validé | ❌ **INTERDIT** | Approbation requise |
+| Skip Phase 1 (Peek) | ❌ **INTERDIT** | Vérifier état avant exécution |
+| Skip une étape silencieusement | ❌ **INTERDIT** | Traçabilité |
+| Modifier des fichiers hors plan | ❌ **INTERDIT** | Scope défini |
+| Continuer après erreur critique | ❌ **INTERDIT** | Intégrité |
+
+### Parallélisation légitime
+
+| Élément | Parallèle? | Raison |
+|---------|------------|--------|
+| Étapes du plan (step 1 → 2 → 3) | ❌ Séquentiel | Dépendances entre étapes |
+| Validations post-étape (lint+test+build) | ✅ Parallèle | Indépendantes |
+| Validation finale | ✅ Parallèle | Checks indépendants |
 
 ---
 
-## Intégration post-apply
+## Intégration
 
-| Action suivante | Commande |
-|-----------------|----------|
-| Vérifier les changements | `/review` |
-| Exécuter les tests | `npm test` / `go test` |
-| Commiter | `/git --commit` |
-| Créer PR | `/git --commit` (auto PR) |
+| Avant /apply | Après /apply |
+|--------------|--------------|
+| `/plan <description>` | `/review` |
+| User approval | `/git --commit` |
 
----
+**Workflow :**
 
-## Voir aussi
-
-- `/plan <description>` - Crée le plan à exécuter
-- `/review` - Review après implémentation
-- `/git --commit` - Commit les changements
+```
+/plan "Add feature"  →  (approve)  →  /apply  →  /git --commit
+```

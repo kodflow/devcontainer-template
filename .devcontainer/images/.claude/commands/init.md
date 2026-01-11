@@ -1,7 +1,7 @@
 ---
 name: init
 description: |
-  Project initialization check and setup verification.
+  Project initialization check with RLM decomposition.
   Validates environment, dependencies, and configuration.
   Use when: starting work on a project, verifying setup,
   or troubleshooting environment issues.
@@ -16,20 +16,27 @@ allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
   - "Grep(**/*)"
+  - "Task(*)"
   - "mcp__github__*"
   - "mcp__codacy__*"
 ---
 
-# Init - Project Initialization Check
+# /init - Project Initialization (RLM Architecture)
+
+$ARGUMENTS
+
+---
 
 ## Overview
 
-Comprehensive project setup verification:
+Vérification d'initialisation projet avec patterns **RLM** :
 
-- **Detect** project type and requirements
-- **Verify** tools and dependencies
-- **Check** configuration files
-- **Validate** environment variables
+- **Peek** - Scan rapide du projet (type, structure)
+- **Decompose** - Catégoriser les vérifications (tools, deps, config, env)
+- **Parallelize** - Checks simultanés par catégorie
+- **Synthesize** - Rapport consolidé avec actions
+
+---
 
 ## Usage
 
@@ -39,126 +46,331 @@ Comprehensive project setup verification:
 /init --deps               # Check dependencies only
 /init --env                # Check environment only
 /init --fix                # Attempt auto-fix issues
+/init --help               # Show help
 ```
 
-## Workflow
+---
+
+## --help
+
+```
+═══════════════════════════════════════════════════════════════
+  /init - Project Initialization (RLM)
+═══════════════════════════════════════════════════════════════
+
+Usage: /init [options]
+
+Options:
+  (none)            Full initialization check
+  --tools           Check tools only
+  --deps            Check dependencies only
+  --env             Check environment only
+  --fix             Attempt auto-fix issues
+  --help            Show this help
+
+RLM Patterns:
+  1. Peek       - Detect project type
+  2. Decompose  - Categorize checks
+  3. Parallelize - Run checks simultaneously
+  4. Synthesize - Consolidated report
+
+Exemples:
+  /init                       Full check
+  /init --tools               Tools versions only
+  /init --fix                 Auto-fix issues
+
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Phase 1 : Peek (RLM Pattern)
+
+**Scan rapide du projet :**
 
 ```yaml
-init_workflow:
-  1_detect:
-    action: "Detect project type"
-    checks:
+peek_workflow:
+  1_structure:
+    action: "Scanner la structure du projet"
+    tools: [Glob]
+    patterns:
+      - "package.json"
+      - "go.mod"
+      - "Cargo.toml"
+      - "pyproject.toml"
+      - "*.tf"
+      - "Dockerfile"
+      - "*.yaml"
+
+  2_identify_type:
+    action: "Identifier le type de projet"
+    mapping:
       - "package.json → Node.js"
-      - "requirements.txt → Python"
       - "go.mod → Go"
+      - "Cargo.toml → Rust"
+      - "pyproject.toml → Python"
       - "*.tf → Terraform"
       - "Dockerfile → Container"
-      - "*.yaml (k8s) → Kubernetes"
+      - "deployment.yaml → Kubernetes"
 
-  2_tools:
-    action: "Verify required tools"
-    parallel:
-      - "git --version"
-      - "docker --version"
-      - "terraform --version"
-      - "kubectl version --client"
-
-  3_deps:
-    action: "Check dependencies"
-    per_type:
-      nodejs: "npm ci"
-      python: "pip install -r requirements.txt"
-      go: "go mod download"
-      terraform: "terraform init"
-
-  4_config:
-    action: "Validate configuration"
-    checks:
-      - ".env file exists (if .env.example)"
-      - "Required env vars set"
-      - "Config files valid"
-
-  5_report:
-    action: "Generate status report"
-    format: "Markdown with fixes"
+  3_detect_requirements:
+    action: "Extraire les requirements"
+    tools: [Grep]
+    patterns:
+      - "engines" in package.json
+      - "go" version in go.mod
+      - "rust-version" in Cargo.toml
 ```
 
-## Output Format
+**Output Phase 1 :**
 
-```markdown
-# Project Init: {project_name}
+```
+═══════════════════════════════════════════════════════════════
+  /init - Peek Analysis
+═══════════════════════════════════════════════════════════════
 
-## Project Detection
-| Type | Detected |
-|------|----------|
-| Language | Node.js 20.x |
-| Framework | Express |
-| IaC | Terraform |
-| Container | Docker |
+  Project: /workspace
+
+  Detected Types:
+    ✓ Node.js (package.json)
+    ✓ Terraform (*.tf)
+    ✓ Docker (Dockerfile)
+
+  Requirements extracted:
+    - Node.js >= 20.x
+    - Terraform >= 1.6.x
+    - Docker >= 24.x
+
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Phase 2 : Decompose (RLM Pattern)
+
+**Catégoriser les vérifications :**
+
+```yaml
+decompose_workflow:
+  categories:
+    tools:
+      description: "Vérifier les outils installés et versions"
+      checks:
+        - git
+        - node/npm
+        - go
+        - terraform
+        - docker
+        - kubectl
+
+    dependencies:
+      description: "Vérifier les dépendances du projet"
+      checks:
+        - "npm ci / npm install"
+        - "go mod download"
+        - "terraform init"
+
+    configuration:
+      description: "Vérifier les fichiers de configuration"
+      checks:
+        - ".env exists if .env.example"
+        - "Config files valid syntax"
+        - "CLAUDE.md present"
+
+    environment:
+      description: "Vérifier les variables d'environnement"
+      checks:
+        - "Required env vars set"
+        - "MCP servers configured"
+        - "Tokens available"
+```
+
+---
+
+## Phase 3 : Parallelize (RLM Pattern)
+
+**Lancer les checks en PARALLÈLE via Task agents :**
+
+```yaml
+parallel_checks:
+  mode: "PARALLEL (single message, 4 Task calls)"
+
+  agents:
+    - task: "tools-checker"
+      type: "Explore"
+      prompt: |
+        Check installed tools:
+        - git --version
+        - node --version
+        - go version
+        - terraform version
+        - docker version
+        Return: {tool, required, installed, status}
+
+    - task: "deps-checker"
+      type: "Explore"
+      prompt: |
+        Check dependencies:
+        - npm ci (if package.json)
+        - go mod download (if go.mod)
+        - terraform init (if *.tf)
+        Return: {manager, status, issues}
+
+    - task: "config-checker"
+      type: "Explore"
+      prompt: |
+        Check configuration:
+        - .env exists if .env.example
+        - CLAUDE.md present
+        - Config files valid
+        Return: {file, status, issue}
+
+    - task: "env-checker"
+      type: "Explore"
+      prompt: |
+        Check environment:
+        - Required env vars
+        - MCP tokens (GITHUB_TOKEN, CODACY_TOKEN)
+        Return: {variable, status, source}
+```
+
+**IMPORTANT** : Lancer les 4 agents dans UN SEUL message.
+
+---
+
+## Phase 4 : Synthesize (RLM Pattern)
+
+**Consolider les résultats :**
+
+```yaml
+synthesize_workflow:
+  1_collect:
+    action: "Rassembler les résultats des 4 agents"
+
+  2_categorize:
+    action: "Classer par sévérité"
+    levels:
+      - CRITICAL: "Bloquant, impossible de travailler"
+      - WARNING: "Problème potentiel"
+      - INFO: "Suggestion d'amélioration"
+      - PASS: "OK"
+
+  3_generate_report:
+    action: "Générer rapport structuré"
+
+  4_suggest_fixes:
+    action: "Proposer des actions correctives"
+```
+
+**Output Final :**
+
+```
+═══════════════════════════════════════════════════════════════
+  /init - Project Initialization Report
+═══════════════════════════════════════════════════════════════
+
+  Project: example-app
+  Types  : Node.js, Terraform, Docker
 
 ## Tools Status
+
 | Tool | Required | Installed | Status |
 |------|----------|-----------|--------|
-| git | 2.40+ | 2.42.0 | PASS |
-| node | 20.x | 20.10.0 | PASS |
-| terraform | 1.6+ | 1.7.0 | PASS |
-| docker | 24+ | 24.0.7 | PASS |
+| git | 2.40+ | 2.42.0 | ✓ PASS |
+| node | 20.x | 20.10.0 | ✓ PASS |
+| terraform | 1.6+ | 1.7.0 | ✓ PASS |
+| docker | 24+ | 24.0.7 | ✓ PASS |
 
 ## Dependencies
+
 | Manager | Status | Issues |
 |---------|--------|--------|
-| npm | PASS | 0 vulnerabilities |
-| terraform | PASS | Initialized |
+| npm | ✓ PASS | 0 vulnerabilities |
+| terraform | ✓ PASS | Initialized |
 
 ## Configuration
+
 | File | Status | Issue |
 |------|--------|-------|
-| .env | MISSING | Copy from .env.example |
-| .gitignore | PASS | - |
-| CLAUDE.md | PASS | - |
+| .env | ⚠ MISSING | Copy from .env.example |
+| CLAUDE.md | ✓ PASS | - |
+| .gitignore | ✓ PASS | - |
 
-## Environment Variables
+## Environment
+
 | Variable | Status | Source |
 |----------|--------|--------|
-| DATABASE_URL | SET | .env |
-| API_KEY | MISSING | Required |
+| GITHUB_TOKEN | ✓ SET | mcp.json |
+| CODACY_TOKEN | ⚠ MISSING | Required |
+| DATABASE_URL | ⚠ MISSING | .env |
 
 ## Recommended Actions
+
 1. `cp .env.example .env` - Create env file
-2. Set `API_KEY` environment variable
-3. Run `npm audit fix` - Fix 2 vulnerabilities
+2. Set `CODACY_TOKEN` in environment
+3. Set `DATABASE_URL` in .env
 
 ## Quick Start
+
 ```bash
 cp .env.example .env
 # Edit .env with your values
 npm install
 npm run dev
 ```
+
+═══════════════════════════════════════════════════════════════
 ```
+
+---
+
+## --fix Mode
+
+**Auto-fix avec parallélisation :**
+
+```yaml
+fix_workflow:
+  parallel_fixes:
+    - action: "cp .env.example .env"
+      condition: ".env missing && .env.example exists"
+
+    - action: "npm audit fix"
+      condition: "npm vulnerabilities > 0"
+
+    - action: "terraform init -upgrade"
+      condition: "terraform not initialized"
+
+  mode: "PARALLEL where independent"
+```
+
+---
 
 ## Detection Patterns
 
 ```yaml
 project_types:
   nodejs:
-    files: ["package.json", "node_modules/"]
+    files: ["package.json"]
     tools: ["node", "npm"]
-
-  python:
-    files: ["requirements.txt", "pyproject.toml", "setup.py"]
-    tools: ["python", "pip"]
+    deps: "npm ci"
 
   go:
-    files: ["go.mod", "go.sum"]
+    files: ["go.mod"]
     tools: ["go"]
+    deps: "go mod download"
+
+  python:
+    files: ["pyproject.toml", "requirements.txt"]
+    tools: ["python", "pip"]
+    deps: "pip install -r requirements.txt"
 
   terraform:
-    files: ["*.tf", ".terraform/"]
+    files: ["*.tf"]
     tools: ["terraform", "tflint"]
+    deps: "terraform init"
 
   kubernetes:
-    files: ["**/deployment.yaml", "**/service.yaml", "helm/"]
+    files: ["**/deployment.yaml", "helm/"]
     tools: ["kubectl", "helm"]
 
   docker:
@@ -166,64 +378,13 @@ project_types:
     tools: ["docker"]
 ```
 
-## Tool Version Checks
+---
 
-```bash
-# Git
-git --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+'
+## GARDE-FOUS (ABSOLUS)
 
-# Node.js
-node --version | tr -d 'v'
-
-# Python
-python3 --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+'
-
-# Go
-go version | grep -oE 'go[0-9]+\.[0-9]+' | tr -d 'go'
-
-# Terraform
-terraform version -json | jq -r '.terraform_version'
-
-# Docker
-docker version --format '{{.Server.Version}}'
-
-# Kubectl
-kubectl version --client -o json | jq -r '.clientVersion.gitVersion' | tr -d 'v'
-```
-
-## Environment Check
-
-```bash
-# Check .env exists
-if [ -f ".env.example" ] && [ ! -f ".env" ]; then
-  echo "WARNING: .env missing, copy from .env.example"
-fi
-
-# Validate required vars
-for var in DATABASE_URL API_KEY; do
-  if [ -z "${!var}" ]; then
-    echo "MISSING: $var"
-  fi
-done
-```
-
-## Auto-Fix Actions
-
-```yaml
-auto_fix:
-  missing_env:
-    action: "cp .env.example .env"
-    message: "Created .env from template"
-
-  npm_audit:
-    action: "npm audit fix"
-    message: "Fixed npm vulnerabilities"
-
-  terraform_init:
-    action: "terraform init -upgrade"
-    message: "Initialized Terraform"
-
-  docker_pull:
-    action: "docker compose pull"
-    message: "Pulled latest images"
-```
+| Action | Status |
+|--------|--------|
+| Skip Phase 1 (Peek) | ❌ **INTERDIT** |
+| Checks séquentiels | ❌ **INTERDIT** |
+| Ignorer CRITICAL issues | ❌ **INTERDIT** |
+| Auto-fix sans --fix flag | ⚠ WARNING |

@@ -76,6 +76,20 @@ Configured in `mcp.json.tpl`:
 
 **Playwright capabilities:** `core`, `pdf`, `testing`, `tracing` (headless mode)
 
+## Skills (Slash Commands)
+
+| Skill | Description |
+|-------|-------------|
+| `/do` | Ralph Wiggum iterative loop - persistent task execution |
+| `/git` | Workflow Git automation (commit, push, PR, merge) |
+| `/plan` | Planning mode for implementation strategy |
+| `/apply` | Execute a validated plan |
+| `/review` | AI-powered code review (RLM decomposition) |
+| `/search` | Documentation research with official sources |
+| `/test` | E2E testing with Playwright MCP |
+| `/init` | Project initialization check |
+| `/update` | DevContainer update from template |
+
 ## Hooks
 
 | Hook | Trigger | Action |

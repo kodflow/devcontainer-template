@@ -1,7 +1,7 @@
 ---
 name: plan
 description: |
-  Enter Claude Code planning mode for implementation strategy.
+  Enter Claude Code planning mode with RLM decomposition.
   Analyzes codebase, designs approach, creates step-by-step plan.
   Use when: starting a new feature, refactoring, or complex task.
 allowed-tools:
@@ -15,15 +15,20 @@ allowed-tools:
   - "mcp__playwright__*"
 ---
 
-# Plan - Claude Code Planning Mode
+# /plan - Claude Code Planning Mode (RLM Architecture)
 
 $ARGUMENTS
 
 ---
 
-## Description
+## Overview
 
-Entre en **mode planning** pour concevoir une stratégie d'implémentation avant d'écrire du code.
+Mode planning avec patterns **RLM** :
+
+- **Peek** - Scan rapide du codebase
+- **Decompose** - Diviser en sous-tâches
+- **Parallelize** - Exploration multi-domaine
+- **Synthesize** - Plan structuré
 
 **Principe** : Planifier → Valider → Implémenter (jamais l'inverse)
 
@@ -42,9 +47,9 @@ Entre en **mode planning** pour concevoir une stratégie d'implémentation avant
 ## --help
 
 ```
-═══════════════════════════════════════════════
-  /plan - Claude Code Planning Mode
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
+  /plan - Claude Code Planning Mode (RLM)
+═══════════════════════════════════════════════════════════════
 
 Usage: /plan <description> [options]
 
@@ -53,92 +58,167 @@ Options:
   --context         Utilise .context.md comme base
   --help            Affiche cette aide
 
+RLM Patterns:
+  1. Peek       - Scan rapide codebase
+  2. Decompose  - Diviser en sous-tâches
+  3. Parallelize - Exploration parallèle
+  4. Synthesize - Plan structuré
+
 Workflow:
-  1. /search <topic>     Recherche documentation
-  2. /plan <feature>     Planifie l'implémentation
-  3. (user approves)     Validation du plan
-  4. /apply              Exécute le plan
+  /search <topic> → /plan <feature> → (approve) → /apply
 
 Exemples:
   /plan "Add user authentication with JWT"
   /plan "Refactor database layer" --context
   /plan "Fix memory leak in worker process"
 
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Workflow (5 phases)
+## Phase 1 : Peek (RLM Pattern)
 
-### Phase 1 : Analyse du contexte
+**Scan rapide AVANT exploration approfondie :**
 
-**Actions automatiques :**
+```yaml
+peek_workflow:
+  1_context_check:
+    action: "Vérifier si .context.md existe"
+    tool: [Read]
+    output: "context_available"
 
-1. Lire le `.context.md` si présent (généré par /search)
-2. Analyser la structure du projet (Glob)
-3. Identifier les fichiers pertinents (Grep)
-4. Détecter le langage et les patterns existants
+  2_structure_scan:
+    action: "Scanner la structure du projet"
+    tools: [Glob]
+    patterns:
+      - "src/**/*"
+      - "tests/**/*"
+      - "package.json | go.mod | Cargo.toml"
+
+  3_pattern_grep:
+    action: "Identifier les patterns pertinents"
+    tools: [Grep]
+    searches:
+      - Keywords from description
+      - Related function names
+      - Existing patterns
+```
 
 **Output Phase 1 :**
 
 ```
-═══════════════════════════════════════════════
-  /plan - Context Analysis
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
+  /plan - Peek Analysis
+═══════════════════════════════════════════════════════════════
 
-  Project     : <name>
-  Language    : <detected>
-  Framework   : <detected>
+  Description: "Add user authentication with JWT"
 
-  Context loaded:
-    ✓ .context.md (from /search)
-    ✓ 15 relevant files identified
-    ✓ Existing patterns analyzed
+  Context:
+    ✓ .context.md loaded (from /search)
+    ✓ 47 source files scanned
+    ✓ 23 test files found
 
-═══════════════════════════════════════════════
+  Patterns identified:
+    - Existing auth: src/middleware/auth.ts
+    - User model: src/models/user.ts
+    - Routes: src/routes/*.ts
+
+  Keywords matched: 15 occurrences
+
+═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-### Phase 2 : Exploration du codebase (RLM Pattern)
+## Phase 2 : Decompose (RLM Pattern)
 
-**Utiliser le Task agent Explore :**
+**Diviser la tâche en sous-tâches :**
 
 ```yaml
-Task:
-  subagent_type: Explore
-  prompt: |
-    Analyze codebase for: <description>
-    Find:
-    - Related files and functions
-    - Existing patterns to follow
-    - Potential conflicts
-    - Test coverage
+decompose_workflow:
+  1_analyze_description:
+    action: "Extraire les objectifs"
+    example:
+      description: "Add user authentication with JWT"
+      objectives:
+        - "Setup JWT utilities"
+        - "Create auth middleware"
+        - "Add login/logout endpoints"
+        - "Protect existing routes"
+        - "Add tests"
+
+  2_identify_domains:
+    action: "Catégoriser par domaine"
+    domains:
+      - backend: "API, middleware, database"
+      - frontend: "UI components, state"
+      - infrastructure: "config, deployment"
+      - testing: "unit, integration, e2e"
+
+  3_order_dependencies:
+    action: "Ordonner par dépendance"
+    output: "ordered_tasks[]"
 ```
-
-**Paralléliser si multi-domaine :**
-
-- Agent 1: Frontend analysis
-- Agent 2: Backend analysis
-- Agent 3: Database/API analysis
 
 ---
 
-### Phase 2.5 : Consultation Design Patterns (OBLIGATOIRE)
+## Phase 3 : Parallelize (RLM Pattern)
 
-**Consulter la base de patterns `.claude/docs/` :**
+**Exploration multi-domaine en parallèle :**
+
+```yaml
+parallel_exploration:
+  mode: "PARALLEL (single message, multiple Task calls)"
+
+  agents:
+    - task: "backend-explorer"
+      type: "Explore"
+      prompt: |
+        Analyze backend for: {description}
+        Find: related files, existing patterns, dependencies
+        Return: {files[], patterns[], recommendations[]}
+
+    - task: "frontend-explorer"
+      type: "Explore"
+      prompt: |
+        Analyze frontend for: {description}
+        Find: components, state, API calls
+        Return: {files[], components[], state_management}
+
+    - task: "test-explorer"
+      type: "Explore"
+      prompt: |
+        Analyze tests for: {description}
+        Find: existing coverage, test patterns
+        Return: {coverage, patterns[], gaps[]}
+
+    - task: "patterns-consultant"
+      type: "Explore"
+      prompt: |
+        Consult .claude/docs/ for: {description}
+        Find: applicable design patterns
+        Return: {patterns[], references[]}
+```
+
+**IMPORTANT** : Lancer TOUS les agents dans UN SEUL message.
+
+---
+
+## Phase 3.5 : Pattern Consultation (OBLIGATOIRE)
+
+**Consulter `.claude/docs/` pour les patterns :**
 
 ```yaml
 pattern_consultation:
   1_identify_category:
-    - "Création d'objets?" → creational/README.md
-    - "Performance/Cache?" → performance/README.md
-    - "Concurrence?" → concurrency/README.md
-    - "Architecture?" → architectural/*.md
-    - "Intégration?" → messaging/README.md
-    - "Sécurité?" → security/README.md
-    - "Tests?" → testing/README.md
+    mapping:
+      - "Création d'objets?" → creational/README.md
+      - "Performance/Cache?" → performance/README.md
+      - "Concurrence?" → concurrency/README.md
+      - "Architecture?" → architectural/*.md
+      - "Intégration?" → messaging/README.md
+      - "Sécurité?" → security/README.md
 
   2_read_patterns:
     action: "Read(.claude/docs/<category>/README.md)"
@@ -146,39 +226,47 @@ pattern_consultation:
 
   3_integrate:
     action: "Ajouter au plan avec justification"
-    format: |
-      ## Patterns Utilisés
-      | Pattern | Justification | Référence |
-      |---------|---------------|-----------|
-      | Builder | Création Order complexe | creational/README.md |
-      | Repository | Accès données | ddd/README.md |
 ```
 
-**Output Phase 2.5 :**
+**Output :**
 
 ```
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
   Pattern Analysis
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
 
   Patterns identifiés:
-    ✓ Object Pool (performance) - Pour connexions DB
-    ✓ Repository (DDD) - Pour accès données
-    ✓ Circuit Breaker (cloud) - Pour appels externes
+    ✓ Repository (DDD) - Pour accès données user
+    ✓ Factory (Creational) - Pour création tokens
+    ✓ Middleware (Enterprise) - Pour auth chain
 
   Références consultées:
-    → .claude/docs/performance/README.md
     → .claude/docs/ddd/README.md
-    → .claude/docs/cloud/circuit-breaker.md
+    → .claude/docs/creational/README.md
+    → .claude/docs/enterprise/README.md
 
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-### Phase 3 : Conception du plan
+## Phase 4 : Synthesize (RLM Pattern)
 
-**Créer un plan structuré :**
+**Générer le plan structuré :**
+
+```yaml
+synthesize_workflow:
+  1_collect:
+    action: "Rassembler résultats des agents"
+
+  2_consolidate:
+    action: "Fusionner en plan cohérent"
+
+  3_generate:
+    format: "Structured plan document"
+```
+
+**Plan Output Format :**
 
 ```markdown
 # Implementation Plan: <description>
@@ -187,9 +275,11 @@ pattern_consultation:
 <2-3 phrases résumant l'approche>
 
 ## Design Patterns Applied
+
 | Pattern | Category | Justification | Reference |
 |---------|----------|---------------|-----------|
-| <Pattern> | <Category> | <Why> | .claude/docs/<file> |
+| Repository | DDD | Data access abstraction | .claude/docs/ddd/README.md |
+| Factory | Creational | Token creation | .claude/docs/creational/README.md |
 
 ## Prerequisites
 - [ ] <Dépendance ou setup requis>
@@ -208,17 +298,14 @@ pattern_consultation:
 // Example of what will be implemented
 ```
 
-### Step 2: Titre
-
+### Step 2: <Titre>
 ...
 
 ## Testing Strategy
-
 - [ ] Unit tests for `component`
 - [ ] Integration test for `flow`
 
 ## Rollback Plan
-
 Comment annuler si problème
 
 ## Risks & Mitigations
@@ -226,40 +313,28 @@ Comment annuler si problème
 | Risk | Mitigation |
 |------|------------|
 | Risk description | Solution |
-
 ```
 
 ---
 
-### Phase 4 : Écriture du plan
+## Phase 5 : Demande de Validation
 
-**Sauvegarder dans un fichier temporaire :**
-
-```bash
-# Emplacement du plan
-/tmp/.claude-plan-<session>.md
-```
-
-**Ou utiliser EnterPlanMode :**
-
-Le skill peut trigger `EnterPlanMode` pour utiliser le système natif de Claude Code.
-
----
-
-### Phase 5 : Demande de validation
-
-#### Attendre l'approbation utilisateur (OBLIGATOIRE)
+**OBLIGATOIRE : Attendre approbation utilisateur**
 
 ```
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
   Plan ready for review
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
 
   Summary:
     • 4 implementation steps
     • 6 files to modify
     • 2 new files to create
     • 8 tests to add
+
+  Design Patterns:
+    • Repository (DDD)
+    • Factory (Creational)
 
   Estimated complexity: MEDIUM
 
@@ -268,12 +343,12 @@ Le skill peut trigger `EnterPlanMode` pour utiliser le système natif de Claude 
     → Run /apply to execute
     → Or modify the plan manually
 
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Intégration avec autres commandes
+## Intégration avec autres skills
 
 | Avant /plan | Après /plan |
 |-------------|-------------|
@@ -304,27 +379,9 @@ Implémentation exécutée
 
 | Action | Status |
 |--------|--------|
+| Skip Phase 1 (Peek) | ❌ **INTERDIT** |
+| Exploration séquentielle | ❌ **INTERDIT** |
+| Skip Pattern Consultation | ❌ **INTERDIT** |
 | Implémenter sans plan approuvé | ❌ **INTERDIT** |
-| Skip l'analyse du codebase | ❌ **INTERDIT** |
 | Plan sans steps concrets | ❌ **INTERDIT** |
 | Plan sans rollback strategy | ⚠ **WARNING** |
-
----
-
-## Output Format
-
-Le plan doit toujours inclure :
-
-1. **Overview** - Résumé en 2-3 phrases
-2. **Prerequisites** - Ce qui doit exister avant
-3. **Steps** - Actions numérotées avec fichiers
-4. **Testing** - Comment valider
-5. **Risks** - Ce qui peut mal tourner
-
----
-
-## Voir aussi
-
-- `/search <query>` - Recherche documentation avant planning
-- `/apply` - Exécute le plan validé
-- `/review` - Review du code après implémentation
