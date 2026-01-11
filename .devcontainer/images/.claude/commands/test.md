@@ -1,7 +1,7 @@
 ---
 name: test
 description: |
-  E2E and frontend testing with Playwright MCP.
+  E2E and frontend testing with Playwright MCP and RLM decomposition.
   Automates browser interactions, visual testing, and debugging.
   Use when: running E2E tests, debugging frontend, generating test code.
 allowed-tools:
@@ -11,20 +11,26 @@ allowed-tools:
   - "Read(**/*)"
   - "Write(**/*)"
   - "Glob(**/*)"
+  - "Grep(**/*)"
   - "Task(*)"
 ---
 
-# Test - E2E & Frontend Testing (Playwright MCP)
+# /test - E2E & Frontend Testing (RLM Architecture)
 
 $ARGUMENTS
 
 ---
 
-## Description
+## Overview
 
-Tests E2E et debugging frontend via **Playwright MCP**.
+Tests E2E et debugging frontend avec patterns **RLM** :
 
-**Capacités :**
+- **Peek** - Analyser la page avant interaction
+- **Decompose** - Diviser le test en étapes
+- **Parallelize** - Assertions et captures simultanées
+- **Synthesize** - Rapport de test consolidé
+
+**Capacités Playwright MCP :**
 
 - **Navigation** - Ouvrir URLs, naviguer, screenshots
 - **Interaction** - Click, type, select, hover, drag
@@ -53,9 +59,9 @@ Tests E2E et debugging frontend via **Playwright MCP**.
 ## --help
 
 ```
-═══════════════════════════════════════════════
-  /test - E2E & Frontend Testing (Playwright)
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
+  /test - E2E & Frontend Testing (RLM)
+═══════════════════════════════════════════════════════════════
 
 Usage: /test <url|action> [options]
 
@@ -68,15 +74,18 @@ Actions:
   --pdf <url>         Génère un PDF
   --codegen <url>     Génère du code de test
 
-MCP Tools disponibles:
+RLM Patterns:
+  1. Peek       - Analyser la page (snapshot)
+  2. Decompose  - Diviser en étapes de test
+  3. Parallelize - Assertions simultanées
+  4. Synthesize - Rapport consolidé
+
+MCP Tools:
   browser_navigate    Ouvrir une URL
   browser_click       Cliquer sur un élément
   browser_type        Saisir du texte
-  browser_snapshot    Capturer l'état de la page
-  browser_screenshot  Capture d'écran
-  browser_pdf_save    Générer un PDF
-  browser_start_trace Démarrer le tracing
-  browser_stop_trace  Arrêter et sauver la trace
+  browser_snapshot    Capturer l'état
+  browser_expect      Assertions
 
 Exemples:
   /test https://example.com
@@ -84,17 +93,17 @@ Exemples:
   /test --run
   /test --codegen https://myapp.com
 
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Workflow
+## Phase 1 : Peek (RLM Pattern)
 
-### 1. Exploration de page
+**Analyser la page AVANT interaction :**
 
 ```yaml
-workflow_explore:
+peek_workflow:
   1_navigate:
     tool: mcp__playwright__browser_navigate
     params:
@@ -105,66 +114,217 @@ workflow_explore:
     output: "Accessibility tree de la page"
 
   3_analyze:
-    action: "Analyser la structure, identifier les éléments"
+    action: "Identifier les éléments interactifs"
+    extract:
+      - forms: "input, select, textarea"
+      - buttons: "button, [type=submit]"
+      - links: "a[href]"
+      - content: "main content areas"
 ```
 
-### 2. Interaction
+**Output Phase 1 :**
 
-```yaml
-workflow_interact:
-  click:
-    tool: mcp__playwright__browser_click
-    params:
-      element: "Submit button"
-      ref: "<element_ref>"
+```
+═══════════════════════════════════════════════════════════════
+  /test - Peek Analysis
+═══════════════════════════════════════════════════════════════
 
-  type:
-    tool: mcp__playwright__browser_type
-    params:
-      element: "Email input"
-      ref: "<element_ref>"
-      text: "user@example.com"
+  URL: https://myapp.com/login
 
-  select:
-    tool: mcp__playwright__browser_select_option
-    params:
-      element: "Country dropdown"
-      ref: "<element_ref>"
-      values: ["FR"]
+  Page Structure:
+    ├─ Header (nav, logo, menu)
+    ├─ Main
+    │   ├─ Form#login
+    │   │   ├─ Input[email]
+    │   │   ├─ Input[password]
+    │   │   └─ Button[Submit]
+    │   └─ Link[Forgot password]
+    └─ Footer
+
+  Interactive Elements: 5
+  Forms: 1
+  Testable: YES
+
+═══════════════════════════════════════════════════════════════
 ```
 
-### 3. Assertions (--caps testing)
+---
+
+## Phase 2 : Decompose (RLM Pattern)
+
+**Diviser le test en étapes :**
 
 ```yaml
-workflow_assert:
-  expect_visible:
-    tool: mcp__playwright__browser_expect
-    params:
-      expectation: "to_be_visible"
-      ref: "<element_ref>"
+decompose_workflow:
+  example_login_test:
+    steps:
+      - step: "Navigate to login"
+        action: browser_navigate
+        url: "/login"
 
-  expect_text:
-    tool: mcp__playwright__browser_expect
-    params:
-      expectation: "to_have_text"
-      ref: "<element_ref>"
-      expected: "Welcome"
+      - step: "Fill email"
+        action: browser_type
+        element: "Email input"
+        value: "user@test.com"
+
+      - step: "Fill password"
+        action: browser_type
+        element: "Password input"
+        value: "******"
+
+      - step: "Submit form"
+        action: browser_click
+        element: "Submit button"
+
+      - step: "Verify redirect"
+        action: browser_expect
+        expectation: "URL contains /dashboard"
 ```
 
-### 4. Tracing (--caps tracing)
+---
+
+## Phase 3 : Parallelize (RLM Pattern)
+
+**Assertions et captures simultanées :**
 
 ```yaml
-workflow_trace:
-  start:
+parallel_validation:
+  mode: "PARALLEL (single message, multiple MCP calls)"
+
+  actions:
+    - task: "Visibility check"
+      tool: mcp__playwright__browser_expect
+      params:
+        expectation: "to_be_visible"
+        ref: "<dashboard_ref>"
+
+    - task: "Text check"
+      tool: mcp__playwright__browser_expect
+      params:
+        expectation: "to_have_text"
+        ref: "<welcome_ref>"
+        expected: "Welcome"
+
+    - task: "Screenshot"
+      tool: mcp__playwright__browser_screenshot
+      params:
+        fullPage: true
+```
+
+**IMPORTANT** : Lancer TOUTES les assertions dans UN SEUL message.
+
+---
+
+## Phase 4 : Synthesize (RLM Pattern)
+
+**Rapport de test consolidé :**
+
+```yaml
+synthesize_workflow:
+  1_collect:
+    action: "Rassembler tous les résultats"
+    data:
+      - step_results
+      - assertions_passed
+      - screenshots
+      - timing
+
+  2_analyze:
+    action: "Identifier échecs et causes"
+
+  3_generate_report:
+    format: "Structured test report"
+```
+
+**Output Final :**
+
+```
+═══════════════════════════════════════════════════════════════
+  /test - Test Report
+═══════════════════════════════════════════════════════════════
+
+  URL: https://myapp.com/login
+  Scenario: Login flow
+
+  Steps:
+    ✓ Navigate to /login (245ms)
+    ✓ Fill email input (32ms)
+    ✓ Fill password input (28ms)
+    ✓ Click submit button (156ms)
+    ✓ Verify dashboard redirect (1.2s)
+
+  Assertions:
+    ✓ Dashboard visible
+    ✓ Welcome message present
+    ✓ User avatar displayed
+
+  Artifacts:
+    - Screenshot: /tmp/test-login-success.png
+    - Trace: /tmp/trace-login.zip
+
+  Result: PASS (5/5 steps, 3/3 assertions)
+
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Workflows
+
+### --run (Execute project tests)
+
+```yaml
+run_workflow:
+  1_peek:
+    action: "Scan test files"
+    tools: [Glob]
+    patterns: ["**/*.spec.ts", "**/*.test.ts", "**/e2e/**"]
+
+  2_decompose:
+    action: "Categorize tests"
+    categories:
+      - unit: "**/unit/**"
+      - integration: "**/integration/**"
+      - e2e: "**/e2e/**"
+
+  3_parallelize:
+    action: "Run test suites in parallel"
+    tools: [Task agents]
+
+  4_synthesize:
+    action: "Consolidated test report"
+```
+
+### --trace (Debug with tracing)
+
+```yaml
+trace_workflow:
+  1_start:
     tool: mcp__playwright__browser_start_tracing
     params:
       name: "debug-session"
 
-  # ... interactions ...
+  2_interact:
+    action: "Perform interactions"
 
-  stop:
+  3_stop:
     tool: mcp__playwright__browser_stop_tracing
     output: "trace.zip (viewable in trace.playwright.dev)"
+```
+
+### --codegen (Generate test code)
+
+```yaml
+codegen_workflow:
+  1_peek:
+    action: "Analyze page structure"
+
+  2_record:
+    action: "Record interactions"
+
+  3_synthesize:
+    action: "Generate Playwright test code"
+    output: "*.spec.ts file"
 ```
 
 ---
@@ -189,7 +349,6 @@ workflow_trace:
 | `browser_fill` | Remplir un champ |
 | `browser_select_option` | Sélectionner option |
 | `browser_hover` | Survoler élément |
-| `browser_drag` | Glisser-déposer |
 | `browser_press_key` | Appuyer touche |
 
 ### Capture
@@ -209,98 +368,21 @@ workflow_trace:
 | `browser_start_tracing` | Démarrer trace |
 | `browser_stop_tracing` | Arrêter trace |
 
-### Tabs
-
-| Tool | Description |
-|------|-------------|
-| `browser_tab_list` | Lister onglets |
-| `browser_tab_new` | Nouvel onglet |
-| `browser_tab_select` | Changer onglet |
-| `browser_tab_close` | Fermer onglet |
-
 ---
 
-## Exemples d'utilisation
+## GARDE-FOUS (ABSOLUS)
 
-### Test de login
+| Action | Status | Raison |
+|--------|--------|--------|
+| Skip Phase 1 (Peek/Snapshot) | ❌ **INTERDIT** | Analyser page avant interaction |
+| Naviguer vers sites malveillants | ❌ **INTERDIT** | Sécurité |
+| Saisir des credentials réels | ⚠ **WARNING** | Utiliser fixtures |
+| Modifier données en production | ❌ **INTERDIT** | Environnement test only |
 
-```
-/test https://myapp.com/login
+### Parallélisation légitime
 
-→ browser_navigate (url: https://myapp.com/login)
-→ browser_snapshot (analyser le formulaire)
-→ browser_type (email: user@test.com)
-→ browser_type (password: ******)
-→ browser_click (submit button)
-→ browser_expect (dashboard visible)
-```
-
-### Debug avec trace
-
-```
-/test --trace https://myapp.com
-
-→ browser_start_tracing (name: debug)
-→ browser_navigate (url)
-→ ... interactions ...
-→ browser_stop_tracing
-→ Output: trace.zip (open in trace.playwright.dev)
-```
-
-### Générer code de test
-
-```
-/test --codegen https://myapp.com
-
-→ browser_navigate (url)
-→ browser_snapshot
-→ Générer code Playwright basé sur les interactions
-```
-
----
-
-## Configuration
-
-Le MCP Playwright est configuré dans `mcp.json` :
-
-```json
-{
-  "playwright": {
-    "command": "npx",
-    "args": [
-      "-y",
-      "@playwright/mcp@latest",
-      "--headless",
-      "--caps", "core,pdf,testing,tracing"
-    ]
-  }
-}
-```
-
-**Capabilities activées :**
-
-| Cap | Description |
-|-----|-------------|
-| `core` | Navigation, interaction, snapshots |
-| `pdf` | Génération de PDFs |
-| `testing` | Assertions, locator generation |
-| `tracing` | Enregistrement de sessions |
-
----
-
-## GARDE-FOUS
-
-| Action | Status |
-|--------|--------|
-| Naviguer vers sites malveillants | ❌ **INTERDIT** |
-| Saisir des credentials réels | ⚠ **WARNING** |
-| Modifier des données en production | ❌ **INTERDIT** |
-
----
-
-## Voir aussi
-
-- `/review` - Review de code (peut inclure tests visuels)
-- `/plan` - Planifier des tests E2E
-- [Playwright Docs](https://playwright.dev)
-
+| Élément | Parallèle? | Raison |
+|---------|------------|--------|
+| Étapes E2E (navigate→fill→click) | ❌ Séquentiel | Ordre d'interaction requis |
+| Assertions finales indépendantes | ✅ Parallèle | Vérifications sans dépendance |
+| Screenshots + validations | ✅ Parallèle | Opérations indépendantes |

@@ -89,6 +89,17 @@ Source: kodflow/devcontainer-template (main)
 
 ---
 
+## Overview
+
+Mise à jour de l'environnement DevContainer avec patterns **RLM** :
+
+- **Peek** - Vérifier connectivité et versions
+- **Decompose** - Identifier les composants à mettre à jour
+- **Parallelize** - Analyser les 5 composants simultanément
+- **Synthesize** - Appliquer les mises à jour et rapport consolidé
+
+---
+
 ## Configuration
 
 ```yaml
@@ -99,20 +110,36 @@ BASE_URL: "https://raw.githubusercontent.com/${REPO}/${BRANCH}"
 
 ---
 
-## Workflow (RLM Pattern: Partition + Map)
+## Phase 1 : Peek (RLM Pattern)
 
-### Phase 0 : Détection du contexte
+**Vérifications AVANT toute mise à jour :**
 
-1. Vérifier la connectivité GitHub
-2. Récupérer le dernier commit du template
-3. Comparer avec la version locale (si `.devcontainer/.template-version` existe)
+```yaml
+peek_workflow:
+  1_connectivity:
+    action: "Vérifier la connectivité GitHub"
+    tools: [WebFetch, Bash(curl)]
+    check: "API GitHub accessible"
 
-**Output Phase 0 :**
+  2_version_check:
+    action: "Récupérer le dernier commit du template"
+    tools: [WebFetch]
+    url: "https://api.github.com/repos/kodflow/devcontainer-template/commits/main"
+
+  3_local_version:
+    action: "Lire la version locale"
+    tools: [Read]
+    file: ".devcontainer/.template-version"
+```
+
+**Output Phase 1 :**
+
 ```
 ═══════════════════════════════════════════════
-  /update - Context Detection
+  /update - Peek Analysis
 ═══════════════════════════════════════════════
 
+  Connectivity: ✓ GitHub API accessible
   Local version  : abc1234 (2024-01-15)
   Remote version : def5678 (2024-01-20)
 
@@ -123,31 +150,98 @@ BASE_URL: "https://raw.githubusercontent.com/${REPO}/${BRANCH}"
 
 ---
 
-### Phase 1 : Analyse des composants (Parallel)
+## Phase 2 : Decompose (RLM Pattern)
 
-**Lancer 5 Task agents en parallèle pour analyser chaque composant :**
+**Identifier les composants à analyser :**
 
-```
-Task({ prompt: "Compare features/languages/ local vs remote", model: "haiku" })
-Task({ prompt: "Compare .claude/scripts/ local vs remote", model: "haiku" })
-Task({ prompt: "Compare .claude/commands/ local vs remote", model: "haiku" })
-Task({ prompt: "Compare .p10k.zsh local vs remote", model: "haiku" })
-Task({ prompt: "Compare settings.json local vs remote", model: "haiku" })
+```yaml
+decompose_workflow:
+  components:
+    features:
+      path: ".devcontainer/features/languages/"
+      files: ["*/RULES.md"]
+      description: "Language features et conventions"
+
+    hooks:
+      path: ".devcontainer/images/.claude/scripts/"
+      files: ["*.sh"]
+      description: "Scripts Claude (format, lint, security)"
+
+    commands:
+      path: ".devcontainer/images/.claude/commands/"
+      files: ["*.md"]
+      description: "Commandes slash (/git, /search)"
+
+    p10k:
+      path: ".devcontainer/images/.p10k.zsh"
+      files: [".p10k.zsh"]
+      description: "Configuration Powerlevel10k"
+
+    settings:
+      path: ".devcontainer/images/.claude/settings.json"
+      files: ["settings.json"]
+      description: "Configuration Claude"
+
+  output: "5 composants à analyser"
 ```
 
 ---
 
-### Phase 2 : Rapport des différences
+## Phase 3 : Parallelize (RLM Pattern)
 
-**Pour chaque composant, identifier :**
+**Lancer 5 Task agents en PARALLÈLE pour analyser chaque composant :**
 
-- Fichiers ajoutés (nouveau dans template)
-- Fichiers modifiés (diff entre local et remote)
-- Fichiers supprimés (retiré du template)
+```yaml
+parallel_analysis:
+  mode: "PARALLEL (single message, 5 Task calls)"
+
+  agents:
+    - task: "features-analyzer"
+      type: "Explore"
+      model: "haiku"
+      prompt: |
+        Compare features/languages/ local vs remote
+        For each language: check RULES.md differences
+        Return: {language, status, changes[]}
+
+    - task: "hooks-analyzer"
+      type: "Explore"
+      model: "haiku"
+      prompt: |
+        Compare .claude/scripts/ local vs remote
+        For each script: check content differences
+        Return: {script, status, changes[]}
+
+    - task: "commands-analyzer"
+      type: "Explore"
+      model: "haiku"
+      prompt: |
+        Compare .claude/commands/ local vs remote
+        For each command: check content differences
+        Return: {command, status, changes[]}
+
+    - task: "p10k-analyzer"
+      type: "Explore"
+      model: "haiku"
+      prompt: |
+        Compare .p10k.zsh local vs remote
+        Return: {status, changes[]}
+
+    - task: "settings-analyzer"
+      type: "Explore"
+      model: "haiku"
+      prompt: |
+        Compare settings.json local vs remote
+        Return: {status, changes[]}
+```
+
+**IMPORTANT** : Lancer les 5 agents dans UN SEUL message.
+
+**Output Phase 3 :**
 
 ```
 ═══════════════════════════════════════════════
-  Component Analysis
+  Component Analysis (Parallel)
 ═══════════════════════════════════════════════
 
   features:
@@ -172,7 +266,9 @@ Task({ prompt: "Compare settings.json local vs remote", model: "haiku" })
 
 ---
 
-### Phase 3 : Mise à jour (séquentielle)
+## Phase 4 : Synthesize (RLM Pattern)
+
+### 4.1 : Appliquer les mises à jour
 
 **Pour chaque composant avec changements :**
 
@@ -219,19 +315,54 @@ curl -sL "$BASE/.devcontainer/images/.claude/settings.json" \
      -o ".devcontainer/images/.claude/settings.json" 2>/dev/null
 ```
 
----
+### 4.2 : Validation finale
 
-### Phase 4 : Validation
+```yaml
+validation_workflow:
+  1_verify_files:
+    action: "Vérifier que tous les fichiers sont valides"
+    check: "Pas de 404, syntaxe correcte"
 
-1. Vérifier que tous les fichiers sont valides (pas de 404)
-2. Exécuter les hooks pour valider la syntaxe
-3. Mettre à jour `.devcontainer/.template-version`
+  2_run_hooks:
+    action: "Exécuter les hooks pour valider"
+    tools: [Bash]
+
+  3_update_version:
+    action: "Mettre à jour .template-version"
+    tools: [Write]
+```
 
 ```bash
 # Enregistrer la version
 COMMIT=$(curl -sL "https://api.github.com/repos/kodflow/devcontainer-template/commits/main" | jq -r '.sha[:7]')
 DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.template-version
+```
+
+### 4.3 : Rapport consolidé
+
+**Output Final :**
+
+```
+═══════════════════════════════════════════════
+  ✓ DevContainer updated successfully
+═══════════════════════════════════════════════
+
+  Template: kodflow/devcontainer-template
+  Version : def5678 (2024-01-20)
+
+  Updated components:
+    ✓ features    (2 files)
+    ✓ hooks       (5 files)
+    ✓ commands    (1 file)
+    - p10k        (unchanged)
+    ✓ settings    (1 file)
+
+  Total: 9 files updated
+
+  Note: Restart terminal to apply p10k changes.
+
+═══════════════════════════════════════════════
 ```
 
 ---
@@ -291,38 +422,22 @@ Met à jour un seul composant.
 
 ---
 
-## Output final
+## GARDE-FOUS (ABSOLUS)
 
-```
-═══════════════════════════════════════════════
-  ✓ DevContainer updated successfully
-═══════════════════════════════════════════════
+| Action | Status | Raison |
+|--------|--------|--------|
+| Skip Phase 1 (Peek) | ❌ **INTERDIT** | Vérifier versions avant MAJ |
+| Mettre à jour depuis source non-officielle | ❌ **INTERDIT** | Sécurité |
+| Modifier fichiers hors .devcontainer/ | ❌ **INTERDIT** | Scope limité |
+| Écraser fichiers modifiés sans backup | ⚠ WARNING | Afficher diff d'abord |
 
-  Template: kodflow/devcontainer-template
-  Version : def5678 (2024-01-20)
+### Parallélisation légitime
 
-  Updated components:
-    ✓ features    (2 files)
-    ✓ hooks       (5 files)
-    ✓ commands    (1 file)
-    - p10k        (unchanged)
-    ✓ settings    (1 file)
-
-  Total: 9 files updated
-
-  Note: Restart terminal to apply p10k changes.
-═══════════════════════════════════════════════
-```
-
----
-
-## GARDE-FOUS
-
-| Action | Status |
-|--------|--------|
-| Écraser des fichiers locaux modifiés sans backup | ⚠ WARNING (affiche diff) |
-| Mettre à jour depuis une source non-officielle | ❌ INTERDIT |
-| Modifier des fichiers hors .devcontainer/ | ❌ INTERDIT |
+| Élément | Parallèle? | Raison |
+|---------|------------|--------|
+| Analyse des 5 composants | ✅ Parallèle | Comparaisons indépendantes |
+| Application des mises à jour | ❌ Séquentiel | Ordre peut importer |
+| Validation finale | ✅ Parallèle | Checks indépendants |
 
 ---
 
