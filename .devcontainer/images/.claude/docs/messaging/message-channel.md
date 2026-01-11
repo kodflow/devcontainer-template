@@ -606,6 +606,21 @@ func (r *ReliablePubSub) SubscribeWithRecovery(
 
 ---
 
+## Quand utiliser
+
+- Decouplage entre producteurs et consommateurs de messages
+- Distribution asynchrone de messages entre services
+- Besoin de garanties de livraison (at-least-once, at-most-once, exactly-once)
+- Broadcasting d'evenements a plusieurs abonnes
+- Load balancing de messages entre plusieurs consumers
+
+## Patterns lies
+
+- [Dead Letter Channel](./dead-letter.md) - Gestion des messages en echec
+- [Message Router](./message-router.md) - Routage dynamique des messages
+- [Idempotent Receiver](./idempotent-receiver.md) - Traitement idempotent des messages
+- [Transactional Outbox](./transactional-outbox.md) - Fiabilite des publications
+
 ## Patterns complementaires
 
 - **Competing Consumers** - Scale P2P horizontalement

@@ -225,6 +225,15 @@ Phase 4: Découpler les données
 - [ ] Monitoring/Observability en place ?
 - [ ] Expérience systèmes distribués ?
 
+## Patterns liés
+
+| Pattern | Relation |
+|---------|----------|
+| Modular Monolith | Alternative plus simple, préparation aux microservices |
+| Event-Driven | Communication asynchrone entre services |
+| CQRS | Séparation read/write par service |
+| Saga | Gestion des transactions distribuées |
+
 ## Sources
 
 - [microservices.io](https://microservices.io/)

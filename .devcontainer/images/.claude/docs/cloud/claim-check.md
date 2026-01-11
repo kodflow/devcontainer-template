@@ -241,6 +241,14 @@ func generateClaimID() string {
 | Sans retry | Perte de donnees | Retry + DLQ |
 | Cleanup synchrone | Latence | Async/lifecycle rules |
 
+## Quand utiliser
+
+- Messages depassant la limite de taille du broker (typiquement > 256KB)
+- Transfert de fichiers volumineux via file de messages
+- Reduction des couts de messaging en evitant les gros payloads
+- Decouplage du traitement de donnees volumineuses
+- Pipelines ETL ou batch processing avec donnees massives
+
 ## Patterns lies
 
 | Pattern | Relation |

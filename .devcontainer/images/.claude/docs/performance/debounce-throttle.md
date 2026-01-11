@@ -418,6 +418,16 @@ func trackEvent(s string, i int) {}
 
 ---
 
+## Quand utiliser
+
+- Recherche instantanee (autocomplete) avec debounce pour eviter requetes excessives
+- Sauvegarde automatique de formulaires avec debounce pour attendre fin de saisie
+- Gestion du scroll infini avec throttle pour limiter les appels de chargement
+- Tracking analytics avec throttle pour eviter surcharge du serveur
+- Redimensionnement de fenetre avec debounce pour recalculs couteux
+
+---
+
 ## Patterns connexes
 
 | Pattern | Relation |

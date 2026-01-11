@@ -392,6 +392,13 @@ type PaymentResult struct {
 
 Transaction Script est souvent considere comme l'**antithese du DDD**.
 
+## Patterns liés
+
+- [Domain Model](./domain-model.md) - Alternative pour logique metier complexe
+- [Service Layer](./service-layer.md) - Coordination au-dessus de Transaction Script
+- [Table Data Gateway](./gateway.md) - Acces aux donnees simplifie
+- [Active Record](./active-record.md) - Alternative avec persistance integree
+
 ## Sources
 
 - Martin Fowler, PoEAA, Chapter 9: Domain Logic Patterns

@@ -154,6 +154,14 @@ func (cb *CircuitBreaker) State() State {
 | Go | `sony/gobreaker` |
 | Python | `pybreaker` |
 
+## Quand utiliser
+
+- Appels a des services externes pouvant echouer ou etre lents
+- Prevention des pannes en cascade dans les systemes distribues
+- Protection des ressources limitees contre la surcharge
+- Services avec SLA critiques necessitant une degradation gracieuse
+- Systemes necessitant une recuperation automatique apres incident
+
 ## Patterns liés
 
 | Pattern | Relation |

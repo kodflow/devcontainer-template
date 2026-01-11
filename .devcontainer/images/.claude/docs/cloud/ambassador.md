@@ -170,6 +170,14 @@ spec:
 | Logique metier | Couplage fort | Ambassador = cross-cutting seulement |
 | Sans monitoring | Debugging difficile | Toujours exposer des metriques |
 
+## Quand utiliser
+
+- Services legacy necessitant des fonctionnalites cross-cutting sans modification de code
+- Besoin d'ajouter retry, circuit breaker ou logging de maniere transparente
+- Environnements multi-cloud necessitant une abstraction des specificites
+- Migration progressive vers de nouveaux protocoles ou patterns de communication
+- Conformite et audit necessitant un logging centralise des communications
+
 ## Patterns lies
 
 | Pattern | Relation |

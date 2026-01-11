@@ -402,6 +402,13 @@ type Product struct {
 - Equipe junior sans formation DDD
 - Domaine stable et simple
 
+## Patterns liés
+
+- [Service Layer](./service-layer.md) - Orchestration des operations sur Domain Model
+- [Repository](./repository.md) - Persistance des agregats du Domain Model
+- [Data Mapper](./data-mapper.md) - Mapping entre Domain Model et base de donnees
+- [Unit of Work](./unit-of-work.md) - Gestion transactionnelle du Domain Model
+
 ## Sources
 
 - Martin Fowler, PoEAA, Chapter 9

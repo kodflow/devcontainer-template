@@ -296,6 +296,14 @@ spec:
 | Sans isolation | Security risk | Namespaces, network policies |
 | Consolidation statique | Gaspillage off-peak | Autoscaling |
 
+## Quand utiliser
+
+- Workloads avec faible utilisation des ressources individuellement
+- Environnements de developpement et test non-critiques
+- Services complementaires en termes d'utilisation CPU/memoire
+- Reduction des couts d'infrastructure cloud
+- Applications conteneurisees avec des profils de charge previsibles
+
 ## Patterns lies
 
 | Pattern | Relation |

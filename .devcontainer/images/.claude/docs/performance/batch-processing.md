@@ -512,6 +512,16 @@ var (
 
 ---
 
+## Quand utiliser
+
+- Insertions massives en base de donnees (bulk insert)
+- Envoi d'emails ou notifications en masse (email marketing, alertes)
+- Collecte de metriques et analytics (aggregation avant envoi)
+- Synchronisation de donnees entre systemes (ETL, data pipelines)
+- Traitement d'evenements haute frequence (logs, IoT, streaming)
+
+---
+
 ## Patterns connexes
 
 | Pattern | Relation |

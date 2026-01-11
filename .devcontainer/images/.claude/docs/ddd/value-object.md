@@ -1,5 +1,7 @@
 # Value Object Pattern
 
+> Objet domaine immuable défini entièrement par ses attributs, sans identité conceptuelle.
+
 ## Definition
 
 A **Value Object** is an immutable domain object defined entirely by its attributes, with no conceptual identity. Two Value Objects with the same attributes are considered equal.
@@ -333,14 +335,14 @@ func MoneyEqual(m1, m2 Money) bool {
    email1.Equals(email2)
    ```
 
-## When to Use
+## Quand utiliser
 
-- Attribute combinations that appear together (Email, Money, Address)
-- Concepts that are defined by their values, not identity
-- Measurements, quantities, descriptors
-- Whenever you need immutability guarantees
+- Combinaisons d'attributs qui apparaissent ensemble (Email, Money, Address)
+- Concepts définis par leurs valeurs, pas leur identité
+- Mesures, quantités, descripteurs
+- Quand vous avez besoin de garanties d'immuabilité
 
-## See Also
+## Patterns liés
 
 - [Entity](./entity.md) - For objects with identity
 - [Aggregate](./aggregate.md) - Contains Value Objects

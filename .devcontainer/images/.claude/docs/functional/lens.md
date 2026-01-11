@@ -1,5 +1,7 @@
 # Lens Pattern
 
+> Paire getter/setter composable permettant de manipuler des structures de données imbriquées de manière fonctionnelle et immuable.
+
 ## Definition
 
 A **Lens** is a composable getter/setter pair that provides a functional way to focus on and manipulate nested data structures immutably. It solves the problem of updating deeply nested immutable data.
@@ -634,15 +636,15 @@ func lensAdvantages(user User) {
    addr.City = "NYC" // Mutation!
    ```
 
-## When to Use
+## Quand utiliser
 
-- Deeply nested immutable updates
-- Reusable accessor/mutator logic
-- Complex state management
-- Working with immutable data structures
-- Redux reducers with nested state
+- Mises à jour immuables profondément imbriquées
+- Logique accessor/mutator réutilisable
+- Gestion d'état complexe
+- Travail avec des structures de données immuables
+- Reducers Redux avec état imbriqué
 
-## See Also
+## Patterns liés
 
 - [Composition](./composition.md) - Lenses are composable
 - [Option](./option.md) - Optional optics return Option

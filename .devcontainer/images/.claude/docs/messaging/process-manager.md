@@ -826,6 +826,21 @@ func (ps *PostgresProcessStateStore) RecoverStuckProcesses(ctx context.Context, 
 
 ---
 
+## Quand utiliser
+
+- Orchestration de workflows multi-etapes avec gestion d'etat
+- Transactions distribuees necessitant des compensations (Saga pattern)
+- Processus metier complexes avec branchements conditionnels
+- Coordination de services distribues avec suivi de progression
+- Gestion de processus long-running avec reprise apres echec
+
+## Patterns lies
+
+- [Transactional Outbox](./transactional-outbox.md) - Fiabilite des messages
+- [Idempotent Receiver](./idempotent-receiver.md) - Eviter les duplications
+- [Dead Letter Channel](./dead-letter.md) - Gestion des echecs de process
+- [Message Router](./message-router.md) - Routage des etapes du workflow
+
 ## Patterns complementaires
 
 - **Routing Slip** - Workflow dynamique

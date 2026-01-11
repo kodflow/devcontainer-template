@@ -174,6 +174,20 @@ type Database interface {
 - [ ] Que se passe-t-il si on ne le fait pas ?
 - [ ] Peut-on l'ajouter facilement plus tard ?
 
+## Quand utiliser
+
+- Avant d'ajouter une fonctionnalite "au cas ou" ou "pour le futur"
+- Lors de la conception d'une architecture pour un MVP ou un prototype
+- Quand on hesite a ajouter des options de configuration supplementaires
+- Pour evaluer si une abstraction est vraiment necessaire maintenant
+- Lors des revues de code pour challenger les ajouts speculatifs
+
+## Patterns liés
+
+- [KISS](./KISS.md) - Complementaire : YAGNI evite la complexite inutile
+- [DRY](./DRY.md) - Appliquer DRY uniquement aux besoins reels
+- [SOLID](./SOLID.md) - Appliquer progressivement selon les besoins
+
 ## Sources
 
 - [Extreme Programming Explained - Kent Beck](https://www.amazon.com/Extreme-Programming-Explained-Embrace-Change/dp/0321278658)

@@ -1,5 +1,7 @@
 # Domain Event Pattern
 
+> Capture quelque chose de significatif qui s'est produit dans le domaine - un enregistrement immuable d'une occurrence passée qui intéresse les experts du domaine.
+
 ## Definition
 
 A **Domain Event** captures something significant that happened in the domain. It represents a fact - an immutable record of a past occurrence that domain experts care about.
@@ -507,15 +509,15 @@ func (a *EventSourcedAggregate[TID]) MarkEventsAsCommitted() {
    }
    ```
 
-## When to Use
+## Quand utiliser
 
-- Communicate between aggregates
-- Trigger side effects after state changes
-- Build audit trails
-- Implement eventual consistency
-- Enable event sourcing
+- Communication entre agrégats
+- Déclencher des effets de bord après des changements d'état
+- Construire des pistes d'audit
+- Implémenter la cohérence éventuelle
+- Activer l'event sourcing
 
-## See Also
+## Patterns liés
 
 - [Aggregate](./aggregate.md) - Raises domain events
 - [Repository](./repository.md) - Publishes events after save

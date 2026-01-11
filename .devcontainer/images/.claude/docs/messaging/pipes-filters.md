@@ -1,6 +1,6 @@
 # Pipes and Filters Pattern
 
-Pipeline de traitement composable pour les messages.
+> Pipeline de traitement composable pour les messages, où chaque filtre effectue une transformation indépendante.
 
 ## Vue d'ensemble
 
@@ -556,6 +556,21 @@ func (rp *ResilientPipeline[T]) executeWithTimeout(
 **Lie a :** Circuit Breaker, Retry, Bulkhead.
 
 ---
+
+## Quand utiliser
+
+- Traitement de messages en plusieurs etapes independantes et reutilisables
+- Composition flexible de transformations avec separation des responsabilites
+- Pipelines asynchrones haute performance avec parallelisation
+- Traitement de flux de donnees avec filtres conditionnels
+- Architecture modulaire permettant l'ajout/suppression de filtres
+
+## Patterns lies
+
+- [Message Translator](./message-translator.md) - Filtre de transformation
+- [Message Router](./message-router.md) - Routage dans le pipeline
+- [Splitter-Aggregator](./splitter-aggregator.md) - Division et recomposition
+- [Dead Letter Channel](./dead-letter.md) - Gestion des erreurs de pipeline
 
 ## Patterns complementaires
 

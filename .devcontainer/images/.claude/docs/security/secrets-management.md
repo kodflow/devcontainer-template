@@ -670,11 +670,20 @@ checklist:
     - [ ] Expiration si possible
 ```
 
+## Quand utiliser
+
+- Applications manipulant des credentials bases de donnees ou services tiers
+- Microservices necessitant des secrets partages de maniere securisee
+- Environnements multi-tenant avec isolation des secrets par client
+- Systemes soumis a des exigences de conformite (PCI-DSS, SOC2, HIPAA)
+- Infrastructure cloud avec rotation automatique des credentials
+
 ## Patterns lies
 
 - **OAuth 2.0** : Tokens plutot que credentials
 - **JWT** : Signing keys a proteger
 - **Encryption** : Master key management
+- **API Keys** : Gestion des cles d'API comme secrets
 
 ## Sources
 

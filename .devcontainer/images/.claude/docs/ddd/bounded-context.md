@@ -1,5 +1,7 @@
 # Bounded Context Pattern
 
+> Limite sémantique au sein de laquelle un modèle de domaine est défini et applicable, représentant une frontière linguistique avec une terminologie non ambiguë.
+
 ## Definition
 
 A **Bounded Context** is a semantic boundary within which a domain model is defined and applicable. It represents a linguistic boundary where terms have specific, unambiguous meanings, and models are internally consistent.
@@ -533,15 +535,15 @@ src/
    }
    ```
 
-## When to Use
+## Quand utiliser
 
-- Large domains with distinct sub-domains
-- Multiple teams working on same system
-- Different parts of system evolve at different rates
-- Need to integrate with external systems
-- Terms have different meanings in different parts of business
+- Grands domaines avec des sous-domaines distincts
+- Plusieurs équipes travaillant sur le même système
+- Différentes parties du système évoluent à des rythmes différents
+- Besoin d'intégration avec des systèmes externes
+- Les termes ont des significations différentes dans différentes parties du métier
 
-## See Also
+## Patterns liés
 
 - [Aggregate](./aggregate.md) - Lives within bounded context
 - [Domain Event](./domain-event.md) - Cross-context communication

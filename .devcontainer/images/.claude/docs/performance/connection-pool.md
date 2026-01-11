@@ -374,6 +374,16 @@ func main() {
 
 ---
 
+## Quand utiliser
+
+- Applications avec connexions frequentes a une base de donnees
+- Services HTTP/gRPC necessitant des connexions persistantes
+- Systemes avec latence de connexion elevee (TLS handshake, authentication)
+- Applications a fort trafic necessitant une limitation des connexions
+- Microservices communiquant avec des backends externes (cache, queue, DB)
+
+---
+
 ## Patterns connexes
 
 | Pattern | Relation |

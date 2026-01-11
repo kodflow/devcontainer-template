@@ -588,6 +588,21 @@ func (rr *ResilientRouter[T]) RouteWithFallback(ctx context.Context, message T) 
 
 ---
 
+## Quand utiliser
+
+- Routage conditionnel base sur le contenu ou les headers du message
+- Distribution de messages vers differentes destinations selon des regles metier
+- A/B testing ou feature flags avec routage dynamique
+- Multicast vers plusieurs destinataires simultanement
+- Segregation de charge entre differentes queues de traitement
+
+## Patterns lies
+
+- [Message Channel](./message-channel.md) - Canaux de communication cibles
+- [Pipes and Filters](./pipes-filters.md) - Routage dans un pipeline
+- [Scatter-Gather](./scatter-gather.md) - Router puis collecter les reponses
+- [Dead Letter Channel](./dead-letter.md) - Gestion des echecs de routage
+
 ## Patterns complementaires
 
 - **Message Filter** - Filtrer avant routage

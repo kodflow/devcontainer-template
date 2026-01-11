@@ -231,6 +231,14 @@ data:
 | Sans validation | Erreurs runtime | Schema validation |
 | Config trop granulaire | Complexite | Grouper par domaine |
 
+## Quand utiliser
+
+- Applications deployees dans plusieurs environnements (dev, staging, prod)
+- Configuration devant changer sans redeploiement
+- Secrets et credentials necessitant une gestion securisee
+- Microservices partageant une configuration commune
+- Feature flags et toggles pour le deploiement progressif
+
 ## Patterns lies
 
 | Pattern | Relation |

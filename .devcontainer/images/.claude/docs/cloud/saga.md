@@ -155,6 +155,14 @@ func (s *Saga) Compensate(ctx context.Context) error {
 | Scalabilité | Meilleure | Orchestrateur = SPOF |
 | Recommandé | Sagas simples | Sagas complexes |
 
+## Quand utiliser
+
+- Transactions impliquant plusieurs microservices independants
+- Impossibilite d'utiliser des transactions distribuees (2PC)
+- Processus metier longs avec etapes compensables
+- Systemes event-driven necessitant une coherence eventuelle
+- E-commerce, reservations, workflows financiers multi-etapes
+
 ## Implémentation Saga Class
 
 ```go

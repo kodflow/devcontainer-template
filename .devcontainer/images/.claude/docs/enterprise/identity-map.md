@@ -416,6 +416,13 @@ func HandleRequest(req *Request, res *Response) error {
 - Objets immutables (Value Objects)
 - Long-running processes (memoire)
 
+## Patterns liés
+
+- [Unit of Work](./unit-of-work.md) - Gestion transactionnelle avec Identity Map
+- [Repository](./repository.md) - Utilise Identity Map pour le cache
+- [Data Mapper](./data-mapper.md) - Charge les entites dans Identity Map
+- [Lazy Load](./lazy-load.md) - Chargement differe avec cache Identity Map
+
 ## Sources
 
 - Martin Fowler, PoEAA, Chapter 11

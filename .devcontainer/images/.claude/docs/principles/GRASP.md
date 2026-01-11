@@ -600,6 +600,20 @@ type FileStorage interface {
 | Indirection | Adapter, Facade, Proxy |
 | Protected Variations | Abstract Factory, Bridge |
 
+## Quand utiliser
+
+- Lors de la conception de classes et de l'attribution des responsabilites
+- Quand on hesite sur "ou placer cette methode ou ce comportement"
+- Pour evaluer la qualite d'une architecture orientee objet
+- Lors de refactoring pour ameliorer la cohesion et reduire le couplage
+- Avant de creer une nouvelle classe ou interface
+
+## Patterns liés
+
+- [SOLID](./SOLID.md) - Complementaire pour les principes OOP
+- [DRY](./DRY.md) - Pure Fabrication aide a centraliser la logique
+- [Defensive Programming](./defensive.md) - Controller coordonne les validations
+
 ## Sources
 
 - [GRASP - Craig Larman](https://en.wikipedia.org/wiki/GRASP_(object-oriented_design))

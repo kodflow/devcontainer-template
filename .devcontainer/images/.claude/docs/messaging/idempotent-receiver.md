@@ -1,6 +1,6 @@
 # Idempotent Receiver Pattern
 
-Garantir un traitement unique malgre les messages dupliques.
+> Garantir un traitement unique malgré les messages dupliqués en stockant les identifiants des messages déjà traités.
 
 ## Vue d'ensemble
 
@@ -730,9 +730,16 @@ func (j *IdempotencyCleanupJob) Cleanup(ctx context.Context) error {
 
 ---
 
-## Patterns complementaires
+## Quand utiliser
 
-- **At-least-once Delivery** - Necessite idempotence
-- **Transactional Outbox** - Garantit unicite a la source
-- **Deduplication** - Niveau broker
-- **Event Sourcing** - Idempotence native
+- Système de messagerie at-least-once delivery
+- Retries automatiques pouvant causer des duplications
+- Opérations non-idempotentes par nature (paiements, envois email)
+- Besoin de garantir exactement-une-fois sémantique
+- Multi-consumer sur même queue
+
+## Patterns liés
+
+- [Transactional Outbox](./transactional-outbox.md) - Garantit unicité à la source
+- [Event Sourcing](../architectural/event-sourcing.md) - Idempotence native
+- [Dead Letter Channel](./dead-letter.md) - Messages échoués

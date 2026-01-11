@@ -1,5 +1,7 @@
 # Monad Pattern
 
+> Design pattern permettant de structurer des programmes génériquement tout en enchaînant des opérations avec contexte (optionalité, erreurs, async).
+
 ## Definition
 
 A **Monad** is a design pattern that allows structuring programs generically while chaining operations with context. It wraps values in a computational context (like optionality, errors, or async) and provides a way to compose operations on wrapped values.
@@ -552,15 +554,15 @@ func getUserName(id string) Effect[Dependencies, error, string] {
    }
    ```
 
-## When to Use
+## Quand utiliser
 
-- Sequential operations that may fail
-- Handling null/undefined safely
-- Managing side effects explicitly
-- Composing async operations
-- Dependency injection (Reader)
+- Opérations séquentielles pouvant échouer
+- Gestion sécurisée de null/undefined
+- Gestion explicite des effets de bord
+- Composition d'opérations asynchrones
+- Injection de dépendances (Reader)
 
-## See Also
+## Patterns liés
 
 - [Either](./either.md) - Error handling monad
 - [Option](./option.md) - Optional value monad

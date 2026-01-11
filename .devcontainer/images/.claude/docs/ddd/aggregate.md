@@ -1,5 +1,7 @@
 # Aggregate Pattern
 
+> Cluster d'objets domaine traité comme une unité pour les modifications de données, avec une Entity racine qui contrôle l'accès et maintient les invariants.
+
 ## Definition
 
 An **Aggregate** is a cluster of domain objects (Entities and Value Objects) treated as a single unit for data changes. It has a root Entity (Aggregate Root) that controls access and maintains invariants across the cluster.
@@ -451,14 +453,14 @@ func (h *OrderConfirmedHandler) Handle(
    }
    ```
 
-## When to Use
+## Quand utiliser
 
-- Group of objects that change together
-- Business rules span multiple entities
-- Need transactional consistency for a set of objects
-- Complex domain with many relationships
+- Groupe d'objets qui changent ensemble
+- Règles métier qui couvrent plusieurs entités
+- Besoin de cohérence transactionnelle pour un ensemble d'objets
+- Domaine complexe avec de nombreuses relations
 
-## See Also
+## Patterns liés
 
 - [Entity](./entity.md) - Aggregate root is an entity
 - [Value Object](./value-object.md) - Aggregates contain value objects

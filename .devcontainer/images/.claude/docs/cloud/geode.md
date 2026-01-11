@@ -315,6 +315,14 @@ resource "aws_route53_record" "global" {
 | Sans conflict resolution | Perte de donnees | LWW ou CRDT |
 | Geode non-autonome | Dependance inter-region | Self-contained stack |
 
+## Quand utiliser
+
+- Applications globales avec utilisateurs sur plusieurs continents
+- Exigences de latence faible pour toutes les regions
+- Haute disponibilite avec tolerance aux pannes regionales
+- Conformite reglementaire necessitant la residence des donnees
+- Scalabilite horizontale par region geographique
+
 ## Patterns lies
 
 | Pattern | Relation |

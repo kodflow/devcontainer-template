@@ -520,6 +520,16 @@ func (lfb *LockFreeRingBuffer[T]) Read() (T, bool) {
 
 ---
 
+## Quand utiliser
+
+- Traitement de flux de donnees en temps reel (audio, video, capteurs)
+- Systeme de logging avec retention limitee (garder les N derniers logs)
+- Metriques et statistiques sur fenetre glissante (rolling average, percentiles)
+- Communication producteur-consommateur avec taille fixe predictible
+- Applications embarquees ou temps-reel necessitant une memoire bornee
+
+---
+
 ## Patterns connexes
 
 | Pattern | Relation |

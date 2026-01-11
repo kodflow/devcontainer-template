@@ -406,6 +406,13 @@ func (l *BatchLoader[K, V]) executeBatch(ctx context.Context) {
 - N+1 queries problem (batch loading)
 - Contexte deconnecte (DTOs)
 
+## Patterns liés
+
+- [Identity Map](./identity-map.md) - Cache des entites chargees paresseusement
+- [Repository](./repository.md) - Fournit les methodes de chargement
+- [Data Mapper](./data-mapper.md) - Execute le chargement des donnees
+- [Unit of Work](./unit-of-work.md) - Tracking des entites lazy-loaded
+
 ## Sources
 
 - Martin Fowler, PoEAA, Chapter 11

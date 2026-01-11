@@ -607,6 +607,16 @@ func (c *LFUCache[K, V]) Set(key K, value V) {
 
 ---
 
+## Quand utiliser
+
+- Donnees lues frequemment mais modifiees rarement (profils utilisateurs, configurations)
+- APIs avec forte charge de lecture necessitant reduction latence
+- Sessions utilisateurs et tokens d'authentification temporaires
+- Resultats de requetes couteuses (rapports, agregations, recherches)
+- Contenu statique ou semi-statique (pages, assets, metadata)
+
+---
+
 ## Patterns connexes
 
 | Pattern | Relation |

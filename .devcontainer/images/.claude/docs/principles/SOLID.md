@@ -380,8 +380,19 @@ func main() {
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## Quand utiliser
+
+- Lors de la conception de classes et interfaces (SRP, ISP)
+- Quand on ajoute de nouvelles variantes sans modifier l'existant (OCP)
+- Avant d'utiliser l'heritage ou la composition (LSP)
+- Pour decoupler les modules et faciliter les tests (DIP)
+- Lors de revues de code pour evaluer la qualite architecturale
+
 ## Patterns liés
 
+- [GRASP](./GRASP.md) - Complementaire pour l'attribution des responsabilites
+- [DRY](./DRY.md) - SRP aide a centraliser les responsabilites
+- [Defensive Programming](./defensive.md) - DIP facilite l'injection de mocks
 - **Factory** : Respecte OCP pour la création
 - **Strategy** : Respecte OCP pour les algorithmes
 - **Adapter** : Aide à respecter DIP

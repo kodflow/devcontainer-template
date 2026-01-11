@@ -342,6 +342,13 @@ type openWeatherResponse struct {
 - Un seul service externe sans changement prevu
 - Performance ultra-critique (overhead)
 
+## Patterns liés
+
+- [Remote Facade](./remote-facade.md) - Facade coarse-grained pour clients distants
+- [Service Layer](./service-layer.md) - Utilise Gateway pour acces externes
+- [Repository](./repository.md) - Abstraction similaire pour donnees locales
+- [Data Mapper](./data-mapper.md) - Mapping entre systemes
+
 ## Sources
 
 - Martin Fowler, PoEAA, Chapter 18

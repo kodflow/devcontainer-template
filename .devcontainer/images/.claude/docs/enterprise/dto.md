@@ -343,6 +343,13 @@ type OrderDTO struct {
 - Applications simples/CRUD
 - Performance critique (overhead mapping)
 
+## Patterns liés
+
+- [Remote Facade](./remote-facade.md) - Utilise DTO pour transfert coarse-grained
+- [Service Layer](./service-layer.md) - Convertit domaine en DTO
+- [Domain Model](./domain-model.md) - Modele source des DTOs
+- [Data Mapper](./data-mapper.md) - Similaire mais pour persistance
+
 ## Sources
 
 - Martin Fowler, PoEAA, Chapter 15

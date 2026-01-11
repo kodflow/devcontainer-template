@@ -179,6 +179,14 @@ func (ct *CompensatingTransaction) handleCompensationFailure(ctx context.Context
 | Compensation partielle ignoree | Etat inconsistant | Retry + alerting |
 | Ordre incorrect | Dependances cassees | Compensation en ordre inverse |
 
+## Quand utiliser
+
+- Workflows distribues impliquant plusieurs services ou bases de donnees
+- Operations ne pouvant pas utiliser de transactions ACID distribuees
+- Systemes necessitant un rollback semantique plutot que technique
+- Reservation de ressources multi-systemes (voyages, e-commerce)
+- Processus metier long necessitant une annulation partielle
+
 ## Patterns lies
 
 | Pattern | Relation |

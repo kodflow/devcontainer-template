@@ -374,6 +374,13 @@ func (s *PricingDomainService) CalculateDiscount(order *Order, customer *Custome
 - Une seule interface utilisateur
 - Pas de Domain Model
 
+## Patterns liés
+
+- [Domain Model](./domain-model.md) - Contient la logique metier orchestree par Service Layer
+- [Repository](./repository.md) - Acces aux agregats depuis Service Layer
+- [Unit of Work](./unit-of-work.md) - Gestion transactionnelle dans Service Layer
+- [DTO](./dto.md) - Objets de transfert pour les entrees/sorties
+
 ## Sources
 
 - Martin Fowler, PoEAA, Chapter 9

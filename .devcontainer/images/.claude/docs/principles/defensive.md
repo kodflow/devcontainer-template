@@ -888,6 +888,16 @@ func (a *BankAccount) checkInvariant() error {
 
 ---
 
+## Quand utiliser
+
+- Lors du traitement de donnees externes (API, fichiers, saisie utilisateur)
+- Quand les preconditions d'une fonction doivent etre explicitement verifiees
+- Pour proteger les invariants d'un objet ou d'un systeme
+- Lors de l'integration avec des systemes tiers non fiables
+- Quand les erreurs silencieuses pourraient causer des problemes graves en aval
+
+---
+
 ## Tableau de décision
 
 | Problème | Pattern |
@@ -903,6 +913,13 @@ func (a *BankAccount) checkInvariant() error {
 | Modifications accidentelles | Immutability |
 | Dépendances manquantes | Dependency Validation |
 | Garanties formelles | Design by Contract |
+
+## Patterns liés
+
+- [SOLID](./SOLID.md) - DIP facilite l'injection de validateurs
+- [GRASP](./GRASP.md) - Information Expert pour placer les validations
+- [KISS](./KISS.md) - Guard clauses simplifient les conditions imbriquees
+- [Null Object Pattern](../behavioral/README.md) - Alternative aux null checks
 
 ## Sources
 

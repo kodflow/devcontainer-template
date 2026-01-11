@@ -171,6 +171,14 @@ Symptômes :
 | Decorator | Éviter la duplication dans les sous-classes |
 | Factory | Centraliser la logique de création |
 
+## Quand utiliser
+
+- Quand une meme logique metier apparait a plusieurs endroits
+- Lors de la centralisation de constantes ou configurations
+- Pour synchroniser documentation et code (single source of truth)
+- Quand un bug doit etre corrige a plusieurs endroits identiques
+- Apres la 3eme occurrence d'un pattern similaire (regle des 3)
+
 ## Checklist
 
 - [ ] Ce code existe-t-il ailleurs ?

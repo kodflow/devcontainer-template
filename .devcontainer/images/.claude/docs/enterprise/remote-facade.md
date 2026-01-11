@@ -336,6 +336,13 @@ func (s *NotificationService) SendOrderConfirmation(ctx context.Context, orderID
 - Operations simples
 - Besoin de flexibilite maximale (GraphQL)
 
+## Patterns liés
+
+- [DTO](./dto.md) - Objets de transfert pour les operations coarse-grained
+- [Service Layer](./service-layer.md) - Logique metier appelee par Remote Facade
+- [Gateway](./gateway.md) - Acces aux systemes externes
+- [Data Transfer Object](./dto.md) - Transport des donnees agregees
+
 ## Sources
 
 - Martin Fowler, PoEAA, Chapter 15

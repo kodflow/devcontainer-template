@@ -689,6 +689,21 @@ func (fp *FilterPipeline[TInput, TOutput]) Start(ctx context.Context) error {
 
 ---
 
+## Quand utiliser
+
+- Integration de systemes legacy avec des formats de donnees differents
+- Migration progressive entre formats anciens et nouveaux
+- Enrichissement de messages avec donnees externes (clients, produits)
+- Filtrage de donnees sensibles (PII) avant transmission
+- Normalisation de messages provenant de sources heterogenes
+
+## Patterns lies
+
+- [Pipes and Filters](./pipes-filters.md) - Chainer les transformations
+- [Message Channel](./message-channel.md) - Transport des messages transformes
+- [Splitter-Aggregator](./splitter-aggregator.md) - Division et recomposition
+- [Process Manager](./process-manager.md) - Orchestration des transformations
+
 ## Patterns complementaires
 
 - **Normalizer** - Multiples formats vers canonique

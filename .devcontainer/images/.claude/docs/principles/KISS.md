@@ -189,6 +189,20 @@ Dans ces cas, **documenter le pourquoi**.
 - [ ] Y a-t-il une solution plus simple ?
 - [ ] Cette abstraction est-elle vraiment nécessaire ?
 
+## Quand utiliser
+
+- Lors de la conception initiale d'un module ou d'une fonctionnalite
+- Quand le code devient difficile a expliquer ou a comprendre
+- Lors de revues de code pour identifier la complexite accidentelle
+- Avant d'ajouter une abstraction ou un niveau d'indirection
+- Quand on refactorise du code legacy trop complexe
+
+## Patterns liés
+
+- [YAGNI](./YAGNI.md) - Complementaire : eviter la complexite inutile
+- [DRY](./DRY.md) - Attention a ne pas sur-abstraire au nom de DRY
+- [Defensive Programming](./defensive.md) - Guard clauses simplifient les conditions
+
 ## Sources
 
 - [Wikipedia - KISS](https://en.wikipedia.org/wiki/KISS_principle)

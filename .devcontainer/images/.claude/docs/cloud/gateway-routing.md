@@ -180,6 +180,14 @@ func (gr *GatewayRouter) forward(w http.ResponseWriter, r *http.Request, target 
 | Sans fallback | Echec silencieux | Route par defaut + monitoring |
 | Ordre non deterministe | Comportement imprevisible | Priorite explicite |
 
+## Quand utiliser
+
+- Architecture microservices avec point d'entree unique
+- Versionning d'API avec routage vers differentes versions
+- Deploiements canary ou blue-green necessitant du traffic splitting
+- Migration progressive entre systemes legacy et nouveaux services
+- Load balancing intelligent base sur des criteres metier
+
 ## Patterns lies
 
 | Pattern | Relation |

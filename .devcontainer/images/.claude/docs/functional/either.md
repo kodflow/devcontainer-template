@@ -1,5 +1,7 @@
 # Either / Result Pattern
 
+> Type représentant une valeur de succès (Right) ou une valeur d'erreur (Left), fournissant une gestion des erreurs type-safe sans exceptions.
+
 ## Definition
 
 **Either** (also known as Result) is a type that represents one of two possible values: a success value (Right) or an error value (Left). It provides type-safe error handling without exceptions.
@@ -545,15 +547,15 @@ func processOrderFP(order Order) Result[Order, OrderError] {
    Result[User, DomainError] // Specific error types
    ```
 
-## When to Use
+## Quand utiliser
 
-- Functions that can fail predictably
-- Validation logic
-- API responses
-- Domain operations with business errors
-- Anywhere exceptions would be caught
+- Fonctions qui peuvent échouer de manière prévisible
+- Logique de validation
+- Réponses API
+- Opérations du domaine avec erreurs métier
+- Partout où les exceptions seraient interceptées
 
-## See Also
+## Patterns liés
 
 - [Monad](./monad.md) - Either is a monad
 - [Option](./option.md) - For optional values (no error info)

@@ -1,5 +1,7 @@
 # Entity Pattern
 
+> Objet domaine avec une identité distincte qui persiste à travers le temps et les différentes représentations.
+
 ## Definition
 
 An **Entity** is a domain object with a distinct identity that runs through time and different representations. Unlike Value Objects, entities are distinguished by their identity, not their attributes.
@@ -287,14 +289,14 @@ func Deactivate(user User) (User, error) {
    user1.ID().Equals(user2.ID())
    ```
 
-## When to Use
+## Quand utiliser
 
-- Object needs to be tracked through time
-- Object has a lifecycle (create, update, delete)
-- Two objects with same attributes should be distinguishable
-- Business operations depend on object history
+- L'objet doit être suivi dans le temps
+- L'objet a un cycle de vie (création, modification, suppression)
+- Deux objets avec les mêmes attributs doivent être distinguables
+- Les opérations métier dépendent de l'historique de l'objet
 
-## See Also
+## Patterns liés
 
 - [Value Object](./value-object.md) - For objects defined by attributes
 - [Aggregate](./aggregate.md) - For clustering entities

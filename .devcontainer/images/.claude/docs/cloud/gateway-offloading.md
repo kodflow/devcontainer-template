@@ -171,6 +171,14 @@ var AuthMiddleware = OffloadingMiddleware{
 | Sans fallback | Gateway down = tout down | Resilience, multi-instance |
 | Over-caching | Donnees stales | TTL adapte, invalidation |
 
+## Quand utiliser
+
+- Centralisation de la terminaison SSL pour simplifier la gestion des certificats
+- Authentification et autorisation uniformes sur tous les services
+- Rate limiting et protection contre les abus a l'echelle de l'API
+- Logging et tracing centralises pour l'observabilite
+- Services backend devant rester legers et focuses sur la logique metier
+
 ## Patterns lies
 
 | Pattern | Relation |

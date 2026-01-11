@@ -1,5 +1,7 @@
 # Repository Pattern (DDD)
 
+> Médiateur entre le domaine et les couches de mapping de données, agissant comme une collection en mémoire d'objets domaine.
+
 ## Definition
 
 A **Repository** mediates between the domain and data mapping layers, acting as an in-memory collection of domain objects. It encapsulates persistence logic while providing a collection-like interface for accessing aggregates.
@@ -486,14 +488,14 @@ func NewOrderRepository(db *sql.DB, eventBus EventBus) OrderRepository {
    }
    ```
 
-## When to Use
+## Quand utiliser
 
-- Persisting and retrieving aggregate roots
-- Encapsulating complex query logic
-- Abstracting data access technology
-- Testing with in-memory implementations
+- Persistance et récupération des racines d'agrégats
+- Encapsulation de la logique de requêtes complexes
+- Abstraction de la technologie d'accès aux données
+- Tests avec des implémentations en mémoire
 
-## See Also
+## Patterns liés
 
 - [Aggregate](./aggregate.md) - Repository per aggregate root
 - [Specification](./specification.md) - Query composition

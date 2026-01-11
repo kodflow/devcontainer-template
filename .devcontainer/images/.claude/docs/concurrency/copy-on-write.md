@@ -464,6 +464,16 @@ func (um *UndoManager[T]) Current() T {
 
 ---
 
+## Quand utiliser
+
+- Lectures frequentes, ecritures rares (read-heavy workloads)
+- Besoin de snapshots coherents sans bloquer les lecteurs
+- Historique/versioning avec undo/redo
+- Partage de donnees entre threads sans locks en lecture
+- Structures de donnees persistantes/immutables
+
+---
+
 ## Patterns connexes
 
 | Pattern | Relation |

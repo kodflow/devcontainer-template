@@ -1,6 +1,6 @@
 # Scatter-Gather Pattern
 
-Distribuer une requete a plusieurs services et collecter leurs reponses.
+> Distribuer une requête à plusieurs services en parallèle et agréger leurs réponses selon une stratégie définie.
 
 ## Vue d'ensemble
 
@@ -778,9 +778,17 @@ func (r *ResilientScatterGather[T, R]) ScatterWithCircuitBreaker(
 
 ---
 
-## Patterns complementaires
+## Quand utiliser
 
-- **Splitter-Aggregator** - Division/recombinaison
-- **Circuit Breaker** - Protection contre pannes
-- **Timeout** - Limiter attente
-- **Competing Consumers** - Scale les services
+- Comparaison de prix entre plusieurs fournisseurs
+- Recherche fédérée sur plusieurs sources
+- Agrégation de données de plusieurs microservices
+- Requêtes parallèles avec consolidation
+- Systèmes de vote ou consensus
+
+## Patterns liés
+
+- [Splitter-Aggregator](./splitter-aggregator.md) - Division/recombinaison
+- [Circuit Breaker](../cloud/circuit-breaker.md) - Protection contre pannes
+- [Timeout](../resilience/timeout.md) - Limiter attente
+- [Producer-Consumer](../concurrency/producer-consumer.md) - Scale les consumers

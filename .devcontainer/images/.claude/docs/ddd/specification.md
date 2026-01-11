@@ -1,5 +1,7 @@
 # Specification Pattern
 
+> Encapsule des règles métier composables et réutilisables, séparant la logique de correspondance de l'objet candidat lui-même.
+
 ## Definition
 
 A **Specification** encapsulates business rules that can be combined and reused. It separates the statement of how to match a candidate from the candidate object itself, enabling composable and testable query/validation logic.
@@ -305,14 +307,14 @@ func GetEligibleOrders(
    }
    ```
 
-## When to Use
+## Quand utiliser
 
-- Complex business rules that need composition
-- Rules reused for both validation and querying
-- Domain logic that should be testable in isolation
-- Filtering collections by business criteria
+- Règles métier complexes nécessitant une composition
+- Règles réutilisées pour la validation et les requêtes
+- Logique du domaine qui doit être testable isolément
+- Filtrage de collections par critères métier
 
-## See Also
+## Patterns liés
 
 - [Repository](./repository.md) - Uses specifications for queries
 - [Value Object](./value-object.md) - Rules often involve value objects

@@ -501,6 +501,21 @@ func (r *ResilientAggregator[T, R]) handleDuplicate(message SplitResult[T]) {
 
 ---
 
+## Quand utiliser
+
+- Traitement parallele de collections (batch processing)
+- Division de messages composites pour traitement distribue
+- Agregation de resultats provenant de plusieurs sources
+- Fan-out/Fan-in pour acceleration du traitement
+- Decomposition de commandes complexes en sous-taches
+
+## Patterns lies
+
+- [Scatter-Gather](./scatter-gather.md) - Splitter et Aggregator combines
+- [Pipes and Filters](./pipes-filters.md) - Pipeline de traitement
+- [Message Channel](./message-channel.md) - Transport des parties
+- [Idempotent Receiver](./idempotent-receiver.md) - Gestion des duplications
+
 ## Patterns complementaires
 
 - **Scatter-Gather** - Splitter + Aggregator combines

@@ -214,6 +214,14 @@ func (ga *GatewayAggregator) fetchWithTimeout(ctx context.Context, url string, t
 | Trop de services | Fragilite, lenteur | Limiter a 5-7 max |
 | Couplage fort | Gateway dependant du format | Transformation flexible |
 
+## Quand utiliser
+
+- Clients mobiles necessitant une reduction du nombre de requetes reseau
+- Pages ou ecrans aggregeant des donnees de plusieurs microservices
+- APIs publiques necessitant une facade simplifiee
+- Reduction de la latence perçue par aggregation parallele
+- Backend for Frontend (BFF) patterns
+
 ## Patterns lies
 
 | Pattern | Relation |

@@ -1,6 +1,6 @@
 # Dead Letter Channel Pattern
 
-Gestion des messages non traitables.
+> Gestion des messages non traitables via une queue dédiée pour capturer les messages qui échouent après plusieurs tentatives de traitement.
 
 ## Vue d'ensemble
 
@@ -741,9 +741,17 @@ func (m *DLQMonitor) getErrorBreakdown(ctx context.Context) (map[string]int, err
 
 ---
 
-## Patterns complementaires
+## Quand utiliser
 
-- **Retry Pattern** - Avant DLQ
-- **Circuit Breaker** - Prevenir surcharge
-- **Idempotent Receiver** - Retry safe
-- **Process Manager** - Orchestrer remediation
+- Messages non traitables après plusieurs tentatives
+- Erreurs permanentes (données invalides, ressources manquantes)
+- Besoin de conserver les messages échoués pour analyse
+- Système de remediation ou replay requis
+- Audit trail des échecs de traitement
+
+## Patterns liés
+
+- [Retry Pattern](../resilience/retry.md) - Avant DLQ
+- [Circuit Breaker](../cloud/circuit-breaker.md) - Prévenir surcharge
+- [Idempotent Receiver](./idempotent-receiver.md) - Retry safe
+- [Process Manager](./process-manager.md) - Orchestrer remediation

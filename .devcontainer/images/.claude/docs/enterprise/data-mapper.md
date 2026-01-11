@@ -409,6 +409,13 @@ func generateID() string {
 - Performance critique (overhead mapping)
 - Equipe non familiere avec le pattern
 
+## Patterns liés
+
+- [Repository](./repository.md) - Interface collection-like au-dessus de Data Mapper
+- [Unit of Work](./unit-of-work.md) - Coordination des modifications avec Data Mapper
+- [Identity Map](./identity-map.md) - Cache des objets charges par Data Mapper
+- [Domain Model](./domain-model.md) - Objets mappes par Data Mapper
+
 ## Sources
 
 - Martin Fowler, PoEAA, Chapter 10

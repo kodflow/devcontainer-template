@@ -1,6 +1,6 @@
 # Transactional Outbox Pattern
 
-Garantir la fiabilite des messages avec les transactions de base de donnees.
+> Garantir la fiabilité des messages en les stockant dans une table outbox dans la même transaction que les données métier.
 
 ## Vue d'ensemble
 
@@ -792,9 +792,17 @@ func (r *OrderedOutboxRelay) processAggregateMessages(ctx context.Context, aggre
 
 ---
 
-## Patterns complementaires
+## Quand utiliser
 
-- **Idempotent Receiver** - Cote consumer
-- **Event Sourcing** - Alternative complete
-- **Saga** - Transactions distribuees
-- **Dead Letter Channel** - Messages echoues
+- Éviter le dual-write problem (DB + message broker)
+- Garantir cohérence entre données et événements
+- Systèmes event-driven avec transactions ACID
+- Microservices avec communication asynchrone
+- Besoin d'audit trail des événements publiés
+
+## Patterns liés
+
+- [Idempotent Receiver](./idempotent-receiver.md) - Côté consumer
+- [Event Sourcing](../architectural/event-sourcing.md) - Alternative complète
+- [Saga](../cloud/saga.md) - Transactions distribuées
+- [Dead Letter Channel](./dead-letter.md) - Messages échoués

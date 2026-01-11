@@ -363,6 +363,13 @@ Active Record est **deconseille en DDD** car :
 | Django | Python | ORM Models |
 | GORM | Go | Active Record mode |
 
+## Patterns liés
+
+- [Data Mapper](./data-mapper.md) - Alternative avec separation domaine/persistance
+- [Domain Model](./domain-model.md) - Alternative pour logique metier riche
+- [Transaction Script](./transaction-script.md) - Alternative procedurale simple
+- [Repository](./repository.md) - Abstraction de persistance pour Domain Model
+
 ## Sources
 
 - Martin Fowler, PoEAA, Chapter 10

@@ -342,6 +342,13 @@ func (r *InMemoryOrderRepository) Count() int {
 - Queries complexes SQL (utiliser Query Objects)
 - Pas de Domain Model
 
+## Patterns liés
+
+- [Data Mapper](./data-mapper.md) - Mapping entre domaine et base de donnees
+- [Unit of Work](./unit-of-work.md) - Gestion transactionnelle avec Repository
+- [Identity Map](./identity-map.md) - Cache des entites chargees
+- [Domain Model](./domain-model.md) - Agregats accedes via Repository
+
 ## Sources
 
 - Martin Fowler, PoEAA, Chapter 10

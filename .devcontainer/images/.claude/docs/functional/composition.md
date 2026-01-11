@@ -1,5 +1,7 @@
 # Function Composition Pattern
 
+> Combinaison de fonctions simples pour construire des fonctions plus complexes - la sortie d'une fonction devient l'entrée de la suivante.
+
 ## Definition
 
 **Function Composition** is the act of combining simple functions to build more complex ones. The output of one function becomes the input of another, creating a pipeline of transformations.
@@ -558,15 +560,15 @@ func fpExample() {
    }
    ```
 
-## When to Use
+## Quand utiliser
 
-- Data transformation pipelines
-- Building complex operations from simple ones
-- Avoiding intermediate variables
-- Creating reusable function combinations
-- Point-free programming style
+- Pipelines de transformation de données
+- Construction d'opérations complexes à partir de simples
+- Éviter les variables intermédiaires
+- Création de combinaisons de fonctions réutilisables
+- Style de programmation point-free
 
-## See Also
+## Patterns liés
 
 - [Monad](./monad.md) - Monadic composition with flatMap
 - [Either](./either.md) - Composing fallible functions

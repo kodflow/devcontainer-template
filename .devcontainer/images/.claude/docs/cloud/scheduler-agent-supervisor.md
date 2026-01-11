@@ -310,6 +310,14 @@ Success      Failure
 | Tasks non-idempotentes | Retries causent duplications | Design idempotent |
 | Sans timeout | Tasks zombies | Timeout + detection |
 
+## Quand utiliser
+
+- Workflows complexes avec plusieurs etapes dependantes
+- Taches distribuees necessitant une coordination centralisee
+- Systemes de batch processing avec monitoring et recovery
+- Pipelines de traitement avec retry automatique
+- Orchestration de jobs dans un cluster de workers
+
 ## Patterns lies
 
 | Pattern | Relation |
