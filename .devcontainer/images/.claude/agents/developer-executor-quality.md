@@ -12,6 +12,8 @@ tools:
   - mcp__grepai__grepai_search
   - mcp__grepai__grepai_trace_callers
   - mcp__grepai__grepai_trace_callees
+  - mcp__grepai__grepai_trace_graph
+  - mcp__grepai__grepai_index_status
   - Bash
   # Codacy MCP (Quality Analysis)
   - mcp__codacy__codacy_list_repository_issues

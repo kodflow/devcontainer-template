@@ -49,8 +49,11 @@ done
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Downloading scripts..."
 for script in format imports lint post-edit pre-validate security test bash-validate commit-validate post-compact; do
-    curl -sL "$BASE/.claude/scripts/$script.sh" -o "$TARGET/.claude/scripts/$script.sh" 2>/dev/null && \
-    chmod +x "$TARGET/.claude/scripts/$script.sh"
+    if curl -fsL "$BASE/.claude/scripts/$script.sh" -o "$TARGET/.claude/scripts/$script.sh" 2>/dev/null; then
+        chmod +x "$TARGET/.claude/scripts/$script.sh"
+    else
+        echo "  ⚠ Failed to download: $script.sh" >&2
+    fi
 done
 echo "  ✓ hooks (format, lint, security...)"
 
@@ -96,7 +99,7 @@ GREPAI_EXT=""
 
 # Télécharger depuis les releases officielles
 GREPAI_URL="https://github.com/yoanbernabeu/grepai/releases/latest/download/grepai_${GREPAI_OS}_${GREPAI_ARCH}${GREPAI_EXT}"
-if curl -sL "$GREPAI_URL" -o "$HOME/.local/bin/grepai${GREPAI_EXT}" 2>/dev/null; then
+if curl -fsL "$GREPAI_URL" -o "$HOME/.local/bin/grepai${GREPAI_EXT}" 2>/dev/null; then
     chmod +x "$HOME/.local/bin/grepai${GREPAI_EXT}"
     echo "  ✓ grepai (${GREPAI_OS}/${GREPAI_ARCH})"
 else
