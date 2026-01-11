@@ -218,7 +218,7 @@ class HotReloadableRouter extends DynamicRouter {
 
 > Envoie le message a une liste dynamique de destinataires.
 
-### Schema
+### Recipient List Schema
 
 ```
              +------------------+
@@ -231,7 +231,7 @@ Message ---->|                  |
              +------------------+
 ```
 
-### Implementation
+### Recipient List Implementation
 
 ```typescript
 type RecipientResolver<T> = (message: T) => string[];

@@ -204,7 +204,7 @@ class TracingEnvelopeWrapper extends EnvelopeWrapper {
 
 > Ajoute des donnees manquantes depuis des sources externes.
 
-### Schema
+### Enricher Schema
 
 ```
 +----------------+       +----------------+       +------------------+
@@ -222,7 +222,7 @@ class TracingEnvelopeWrapper extends EnvelopeWrapper {
                          +----------------+
 ```
 
-### Implementation
+### Enricher Implementation
 
 ```typescript
 interface EnrichmentSource<TKey, TData> {
