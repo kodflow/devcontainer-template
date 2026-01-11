@@ -13,6 +13,15 @@
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "{{GITHUB_TOKEN}}"
       }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--headless",
+        "--caps", "core,pdf,testing,tracing"
+      ]
     }
   }
 }

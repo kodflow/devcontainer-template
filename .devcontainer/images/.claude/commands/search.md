@@ -1,3 +1,17 @@
+---
+name: search
+description: |
+  Documentation Research with RLM (Recursive Language Model) patterns.
+  Searches official documentation only, cross-validates sources, generates .context.md.
+  Use when: researching technologies, APIs, or best practices before implementation.
+allowed-tools:
+  - "WebSearch(*)"
+  - "WebFetch(*)"
+  - "Read(**/*)"
+  - "Write(.context.md)"
+  - "Task(*)"
+---
+
 # Search - Documentation Research (RLM-Enhanced)
 
 $ARGUMENTS

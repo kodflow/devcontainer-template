@@ -21,7 +21,7 @@ if [[ "$FILE" == *".claude/plans/"* ]] || \
     exit 0
 fi
 
-# === Format/Lint pipeline ===
+# === Format/Lint/Types pipeline ===
 
 # 1. Format
 "$SCRIPT_DIR/format.sh" "$FILE"
@@ -31,5 +31,8 @@ fi
 
 # 3. Lint (with auto-fix)
 "$SCRIPT_DIR/lint.sh" "$FILE"
+
+# 4. Type check (academic rigor)
+"$SCRIPT_DIR/typecheck.sh" "$FILE"
 
 exit 0

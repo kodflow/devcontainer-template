@@ -1,3 +1,17 @@
+---
+name: git
+description: |
+  Workflow Git Automation - commit, push, PR, merge.
+  Handles branch management, conventional commits, and CI validation.
+  Use when: committing changes, creating PRs, or merging with CI checks.
+allowed-tools:
+  - "Bash(git:*)"
+  - "Bash(gh:*)"
+  - "mcp__github__*"
+  - "Read(**/*)"
+  - "Glob(**/*)"
+---
+
 # Git - Workflow Git Automation
 
 $ARGUMENTS
