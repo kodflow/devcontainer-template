@@ -8,7 +8,7 @@
 
 Le pattern Iterator permet de parcourir une collection d'elements sans connaitre sa structure sous-jacente (liste, arbre, graphe, etc.). Go utilise nativement ce pattern avec `range` et les channels.
 
-```
+```text
 ┌────────────────┐      ┌────────────────┐
 │   Collection   │─────▶│    Iterator    │
 │  (CreateIter)  │      │ (Next, HasNext)│

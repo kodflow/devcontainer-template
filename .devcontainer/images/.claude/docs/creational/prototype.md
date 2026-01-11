@@ -8,7 +8,7 @@
 
 Le pattern Prototype permet de copier des objets existants sans rendre le code dependant de leurs classes. Il est particulierement utile quand la creation d'un objet est couteuse ou complexe.
 
-```
+```text
 ┌─────────────┐         ┌─────────────┐
 │  Prototype  │◄────────│   Client    │
 │  (Clone())  │         └─────────────┘

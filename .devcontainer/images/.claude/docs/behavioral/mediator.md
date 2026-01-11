@@ -8,7 +8,7 @@
 
 Le pattern Mediator reduit le couplage entre composants en les faisant communiquer via un intermediaire central plutot qu'en reference directe. Chaque composant ne connait que le mediateur.
 
-```
+```text
 ┌─────────┐     ┌─────────┐
 │Colleague│     │Colleague│
 │    A    │     │    B    │

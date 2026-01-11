@@ -8,7 +8,7 @@
 
 Le pattern Composite permet aux clients de traiter des objets individuels et des compositions d'objets de maniere uniforme. Il est ideal pour les structures arborescentes comme les systemes de fichiers, les menus, ou les organisations.
 
-```
+```text
         ┌────────────┐
         │ Component  │
         │ operation()│

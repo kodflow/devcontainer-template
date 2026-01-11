@@ -8,7 +8,7 @@
 
 Le pattern Interpreter definit une grammaire pour un langage simple et utilise cette grammaire pour interpreter des expressions. Chaque regle de grammaire devient une classe.
 
-```
+```text
 ┌─────────────────┐
 │   Expression    │
 │  Interpret(ctx) │

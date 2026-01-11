@@ -8,7 +8,7 @@
 
 Le pattern Template Method definit la structure d'un algorithme dans une classe de base, tout en permettant aux sous-classes de redefinir certaines etapes sans changer la structure globale.
 
-```
+```text
 ┌─────────────────────┐
 │  AbstractClass      │
 │  ──────────────     │

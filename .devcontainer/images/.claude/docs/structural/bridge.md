@@ -8,7 +8,7 @@
 
 Le pattern Bridge separe une grosse classe ou un ensemble de classes liees en deux hierarchies separees - abstraction et implementation - qui peuvent evoluer independamment l'une de l'autre.
 
-```
+```text
 ┌─────────────────┐           ┌─────────────────┐
 │   Abstraction   │───────────│  Implementor    │
 │  (operation())  │           │  (operationImpl)│

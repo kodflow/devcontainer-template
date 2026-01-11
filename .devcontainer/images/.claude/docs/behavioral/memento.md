@@ -8,7 +8,7 @@
 
 Le pattern Memento permet de sauvegarder et restaurer l'etat d'un objet sans violer son encapsulation. Il est utilise pour implementer les fonctionnalites undo/redo.
 
-```
+```text
 ┌────────────────┐    ┌────────────────┐    ┌────────────────┐
 │  Originator    │───▶│    Memento     │◀───│   Caretaker    │
 │ (createMemento)│    │ (saved state)  │    │ (stores memos) │

@@ -8,7 +8,7 @@
 
 Le pattern Flyweight permet de stocker une seule instance des donnees repetitives (etat intrinseque) et de passer l'etat variable (etat extrinseque) en parametre des operations.
 
-```
+```text
 ┌─────────────────┐
 │ FlyweightFactory│
 │  cache: map     │────────┐

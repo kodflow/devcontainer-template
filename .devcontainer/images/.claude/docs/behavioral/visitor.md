@@ -8,7 +8,7 @@
 
 Le pattern Visitor permet de definir de nouvelles operations sur une structure d'objets sans modifier les classes de ces objets. Le visiteur "visite" chaque element et effectue son operation.
 
-```
+```text
 ┌────────────┐      ┌────────────┐
 │  Element   │◄─────│  Visitor   │
 │ Accept(v)  │      │ VisitA()   │
