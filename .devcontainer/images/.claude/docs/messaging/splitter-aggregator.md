@@ -128,7 +128,7 @@ async function splitAndPublish(order: Order): Promise<void> {
 
 > Combine plusieurs messages relies en un seul.
 
-### Schema
+### Aggregator Schema
 
 ```
 Result A --+
@@ -143,7 +143,7 @@ Result C --+         |
               - First N?
 ```
 
-### Implementation
+### Aggregator Implementation
 
 ```typescript
 interface AggregationContext<T, R> {

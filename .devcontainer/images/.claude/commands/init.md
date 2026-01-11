@@ -25,6 +25,7 @@ allowed-tools:
 ## Overview
 
 Comprehensive project setup verification:
+
 - **Detect** project type and requirements
 - **Verify** tools and dependencies
 - **Check** configuration files

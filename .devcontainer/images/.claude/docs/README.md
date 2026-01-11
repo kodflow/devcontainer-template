@@ -27,7 +27,7 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | 17 | [refactoring/](refactoring/) | 2 | Branch by Abstraction, Strangler Fig |
 | 18 | [integration/](integration/) | 6 | API Gateway, BFF, Service Mesh, Sidecar |
 
-**Total : 155 fichiers markdown - 300+ patterns documentés**
+Total : 155 fichiers markdown - 300+ patterns documentés
 
 ---
 

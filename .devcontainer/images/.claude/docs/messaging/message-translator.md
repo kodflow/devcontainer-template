@@ -109,7 +109,7 @@ const legacyToModernTranslator: MessageTranslator<LegacyOrder, ModernOrder> = {
 
 > Ajoute des metadonnees de transport au message.
 
-### Schema
+### Envelope Schema
 
 ```
 +-------------+          +---------------------------+
@@ -122,7 +122,7 @@ const legacyToModernTranslator: MessageTranslator<LegacyOrder, ModernOrder> = {
                          +---------------------------+
 ```
 
-### Implementation
+### Envelope Implementation
 
 ```typescript
 interface EnvelopeHeader {

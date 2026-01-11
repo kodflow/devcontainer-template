@@ -551,7 +551,7 @@ const policy: PolicyDocument = {
 
 ---
 
-## Security Patterns
+## Implementation Security Patterns
 
 ### 8. Input Validation & Sanitization
 

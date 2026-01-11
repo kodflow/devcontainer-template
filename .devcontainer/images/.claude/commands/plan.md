@@ -208,24 +208,24 @@ pattern_consultation:
 // Example of what will be implemented
 ```
 
-### Step 2: <Titre>
+### Step 2: Titre
 
 ...
 
 ## Testing Strategy
 
-- [ ] Unit tests for <component>
-- [ ] Integration test for <flow>
+- [ ] Unit tests for `component`
+- [ ] Integration test for `flow`
 
 ## Rollback Plan
 
-<Comment annuler si problème>
+Comment annuler si problème
 
 ## Risks & Mitigations
 
 | Risk | Mitigation |
 |------|------------|
-| <Risk> | <Solution> |
+| Risk description | Solution |
 
 ```
 
@@ -248,7 +248,7 @@ Le skill peut trigger `EnterPlanMode` pour utiliser le système natif de Claude 
 
 ### Phase 5 : Demande de validation
 
-**OBLIGATOIRE : Attendre l'approbation utilisateur**
+#### Attendre l'approbation utilisateur (OBLIGATOIRE)
 
 ```
 ═══════════════════════════════════════════════

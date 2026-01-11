@@ -133,7 +133,7 @@ class KafkaContentRouter {
 
 > Destination determinee au runtime depuis une source externe.
 
-### Schema
+### Dynamic Router Schema
 
 ```
              +-------------------+     +----------------+
@@ -146,7 +146,7 @@ Message ---->|                   |     | (DB/Service)   |
       Dest A       Dest B       Dest C
 ```
 
-### Implementation
+### Dynamic Router Implementation
 
 ```typescript
 interface RoutingConfig {

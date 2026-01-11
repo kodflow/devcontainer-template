@@ -249,7 +249,7 @@ Throttle (300ms):
 
 ## Cas d'usage
 
-### Debounce
+### Cas d'usage Debounce
 
 ```typescript
 // Validation de formulaire
@@ -268,7 +268,7 @@ const autoSave = debounce((content: string) => {
 }, 1000);
 ```
 
-### Throttle
+### Cas d'usage Throttle
 
 ```typescript
 // Scroll infini

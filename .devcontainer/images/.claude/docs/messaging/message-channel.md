@@ -134,7 +134,7 @@ class ResilientP2PChannel {
 
 > Un message est envoye a tous les subscribers actifs.
 
-### Schema
+### Pub-Sub Schema
 
 ```
 Producer ---> [ Topic/Exchange ] ---> Subscriber A
@@ -218,7 +218,7 @@ await pubsub.subscribe('orders.*', handleAllOrderEvents);
 await pubsub.subscribe('orders.#', handleOrdersAndSubtopics);
 ```
 
-### Cas d'erreur
+### Pub-Sub Error Handling
 
 ```typescript
 class ReliablePubSub {

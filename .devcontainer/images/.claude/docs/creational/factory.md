@@ -68,12 +68,12 @@ class SMSNotificationFactory extends NotificationFactory {
 
 ## Abstract Factory
 
-### Intention
+### Intention (Abstract Factory)
 
 Fournir une interface pour creer des familles d'objets lies sans specifier
 leurs classes concretes.
 
-### Structure
+### Structure (Abstract Factory)
 
 ```typescript
 // 1. Interfaces produits
@@ -340,12 +340,12 @@ describe('UIFactory', () => {
 
 ## Quand utiliser
 
-### Factory Method
+### Choisir Factory Method
 
 - Creation deleguee aux sous-classes
 - Produit unique avec variantes
 
-### Abstract Factory
+### Choisir Abstract Factory
 
 - Familles d'objets coherents
 - Independance plateforme/theme
