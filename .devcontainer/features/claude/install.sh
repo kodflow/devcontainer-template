@@ -138,7 +138,7 @@ STATUS_EXT=""
 
 # Télécharger depuis les releases officielles
 STATUS_URL="https://github.com/kodflow/status-line/releases/latest/download/status-line-${STATUS_OS}-${STATUS_ARCH}${STATUS_EXT}"
-if curl -sL "$STATUS_URL" -o "$HOME/.local/bin/status-line${STATUS_EXT}" 2>/dev/null; then
+if curl -fsL "$STATUS_URL" -o "$HOME/.local/bin/status-line${STATUS_EXT}" 2>/dev/null; then
     chmod +x "$HOME/.local/bin/status-line${STATUS_EXT}"
     echo "  ✓ status-line (${STATUS_OS}/${STATUS_ARCH})"
 else
