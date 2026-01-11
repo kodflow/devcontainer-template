@@ -17,8 +17,29 @@ Claude Code and MCP servers are included; languages added via features.
     ├── commands/       # Slash commands (/git, /review, etc.)
     ├── scripts/        # Hook scripts
     ├── agents/         # Agent definitions
+    ├── docs/           # Design Patterns Knowledge Base (250+ patterns)
     └── settings.json   # Claude settings
 ```
+
+## Design Patterns Knowledge Base
+
+**Location:** `.claude/docs/`
+
+Base de connaissances exhaustive de 250+ design patterns, consultée automatiquement par les skills `/plan` et `/review`.
+
+| Category | Patterns | Examples |
+|----------|----------|----------|
+| GoF (23) | creational, structural, behavioral | Factory, Observer, Strategy |
+| Performance (12) | performance/ | Object Pool, Cache, Lazy Load |
+| Concurrency (15) | concurrency/ | Thread Pool, Actor, Mutex |
+| Enterprise (40+) | enterprise/ | PoEAA (Martin Fowler) |
+| Messaging (31) | messaging/ | EIP patterns |
+| DDD (14) | ddd/ | Aggregate, Repository, Entity |
+| Functional (15) | functional/ | Monad, Either, Lens |
+| Security (12) | security/ | OAuth, JWT, RBAC |
+| Testing (15) | testing/ | Mock, Stub, Fixture |
+
+**Usage par les agents :** Voir `.claude/docs/CLAUDE.md`
 
 ## Installed Tools
 
@@ -32,10 +53,15 @@ Claude Code and MCP servers are included; languages added via features.
 
 ## MCP Servers (Runtime)
 
-Configured in `mcp.json.tpl`, tokens injected at startup:
+Configured in `mcp.json.tpl`:
 
-- **GitHub** - PR/Issue management
-- **Codacy** - Code quality analysis
+| Server | Package | Usage | Auth |
+|--------|---------|-------|------|
+| **GitHub** | `@modelcontextprotocol/server-github` | PR, Issues, Repos | `GITHUB_TOKEN` |
+| **Codacy** | `@codacy/codacy-mcp` | Code quality, Security | `CODACY_TOKEN` |
+| **Playwright** | `@playwright/mcp` | Browser automation, E2E tests | None |
+
+**Playwright capabilities:** `core`, `pdf`, `testing`, `tracing` (headless mode)
 
 ## Hooks
 

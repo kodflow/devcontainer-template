@@ -1,3 +1,18 @@
+---
+name: update
+description: |
+  DevContainer Environment Update from official template.
+  Updates features, hooks, commands, and settings from kodflow/devcontainer-template.
+  Use when: syncing local devcontainer with latest template improvements.
+allowed-tools:
+  - "Bash(curl:*)"
+  - "Bash(git:*)"
+  - "Read(**/*)"
+  - "Write(.devcontainer/**/*)"
+  - "WebFetch(*)"
+  - "Task(*)"
+---
+
 # Update - DevContainer Environment Update
 
 $ARGUMENTS

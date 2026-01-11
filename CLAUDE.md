@@ -90,6 +90,9 @@ mcp_priority:
     codacy:
       priority: "mcp__codacy__codacy_cli_analyze"
       fallback: "codacy-cli analyze"
+    playwright:
+      priority: "mcp__playwright__browser_navigate"
+      fallback: "npx playwright test"
 ```
 
 **Why MCP-first:**
@@ -135,10 +138,29 @@ Complex request → Peek/Grep → Decompose → Parallel Task agents → Synthes
 | `security.sh` | Secret detection |
 | `test.sh` | Run related tests |
 
+## Project-Specific Commands
+
+### /improve - Documentation QA
+
+Commande spécifique à ce projet pour auditer la base de connaissances Design Patterns.
+
+```
+/improve --help            # Afficher l'aide
+/improve                   # Audit complet
+/improve --check           # Dry-run (sans modification)
+/improve --fix             # Corriger automatiquement
+/improve --missing         # Patterns manquants
+/improve --category <name> # Auditer une catégorie
+```
+
+Cible : `/home/vscode/.claude/docs/` (157 fichiers, 300+ patterns)
+
 ## Context Hierarchy (Funnel Documentation)
 
 ```
 /CLAUDE.md                      # Project overview (this file)
+├── .claude/commands/           # Project-specific commands
+│   └── improve.md              # /improve - docs QA
 ├── .devcontainer/CLAUDE.md     # DevContainer config
 │   ├── features/CLAUDE.md      # Features overview
 │   │   └── kubernetes/CLAUDE.md # K8s details
