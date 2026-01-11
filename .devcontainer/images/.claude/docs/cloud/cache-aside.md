@@ -49,136 +49,127 @@
 | **Write-Through** | Ecriture synchrone cache + DB | Forte |
 | **Write-Behind** | Ecriture asynchrone vers DB | Eventuelle |
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-interface CacheService {
-  get<T>(key: string): Promise<T | null>;
-  set<T>(key: string, value: T, ttlSeconds?: number): Promise<void>;
-  delete(key: string): Promise<void>;
+```go
+package cache
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+// CacheService defines cache operations.
+type CacheService interface {
+	Get(ctx context.Context, key string, dest interface{}) error
+	Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+	Delete(ctx context.Context, key string) error
 }
 
-class UserRepository {
-  constructor(
-    private cache: CacheService,
-    private db: Database,
-    private ttl = 3600, // 1 hour
-  ) {}
+// Database represents database operations.
+type Database interface {
+	FindUserByID(ctx context.Context, id string) (*User, error)
+	UpdateUser(ctx context.Context, id string, data map[string]interface{}) (*User, error)
+	DeleteUser(ctx context.Context, id string) error
+}
 
-  async findById(id: string): Promise<User | null> {
-    const cacheKey = `user:${id}`;
+// User represents a user entity.
+type User struct {
+	ID       string    `json:"id"`
+	Name     string    `json:"name"`
+	Email    string    `json:"email"`
+	CreateAt time.Time `json:"created_at"`
+}
 
-    // 1. Try cache first
-    const cached = await this.cache.get<User>(cacheKey);
-    if (cached) {
-      return cached; // Cache hit
-    }
+// UserRepository implements cache-aside pattern for users.
+type UserRepository struct {
+	cache Cache Service
+	db    Database
+	ttl   time.Duration
+}
 
-    // 2. Cache miss - load from DB
-    const user = await this.db.users.findById(id);
-    if (!user) {
-      return null;
-    }
+// NewUserRepository creates a new UserRepository.
+func NewUserRepository(cache CacheService, db Database, ttl time.Duration) *UserRepository {
+	return &UserRepository{
+		cache: cache,
+		db:    db,
+		ttl:   ttl,
+	}
+}
 
-    // 3. Populate cache for next time
-    await this.cache.set(cacheKey, user, this.ttl);
+// FindByID finds a user by ID using cache-aside pattern.
+func (r *UserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+	cacheKey := fmt.Sprintf("user:%s", id)
 
-    return user;
-  }
+	// 1. Try cache first
+	var user User
+	err := r.cache.Get(ctx, cacheKey, &user)
+	if err == nil {
+		return &user, nil // Cache hit
+	}
 
-  async update(id: string, data: Partial<User>): Promise<User> {
-    // 1. Update database first
-    const user = await this.db.users.update(id, data);
+	// 2. Cache miss - load from DB
+	dbUser, err := r.db.FindUserByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("finding user from db: %w", err)
+	}
+	if dbUser == nil {
+		return nil, nil
+	}
 
-    // 2. Invalidate cache (don't update - avoid race conditions)
-    await this.cache.delete(`user:${id}`);
+	// 3. Populate cache for next time
+	if err := r.cache.Set(ctx, cacheKey, dbUser, r.ttl); err != nil {
+		// Log but don't fail - cache is optional
+		fmt.Printf("failed to cache user %s: %v
+", id, err)
+	}
 
-    return user;
-  }
+	return dbUser, nil
+}
 
-  async delete(id: string): Promise<void> {
-    await this.db.users.delete(id);
-    await this.cache.delete(`user:${id}`);
-  }
+// Update updates a user and invalidates the cache.
+func (r *UserRepository) Update(ctx context.Context, id string, data map[string]interface{}) (*User, error) {
+	// 1. Update database first
+	user, err := r.db.UpdateUser(ctx, id, data)
+	if err != nil {
+		return nil, fmt.Errorf("updating user: %w", err)
+	}
+
+	// 2. Invalidate cache (don't update - avoid race conditions)
+	cacheKey := fmt.Sprintf("user:%s", id)
+	if err := r.cache.Delete(ctx, cacheKey); err != nil {
+		fmt.Printf("failed to invalidate cache for user %s: %v
+", id, err)
+	}
+
+	return user, nil
+}
+
+// Delete deletes a user and invalidates the cache.
+func (r *UserRepository) Delete(ctx context.Context, id string) error {
+	if err := r.db.DeleteUser(ctx, id); err != nil {
+		return fmt.Errorf("deleting user: %w", err)
+	}
+
+	cacheKey := fmt.Sprintf("user:%s", id)
+	if err := r.cache.Delete(ctx, cacheKey); err != nil {
+		fmt.Printf("failed to invalidate cache for user %s: %v
+", id, err)
+	}
+
+	return nil
 }
 ```
 
-## Implementation avec Redis
+## Implementation Redis (Go)
 
-```typescript
-import { Redis } from 'ioredis';
-
-class RedisCacheService implements CacheService {
-  constructor(private redis: Redis) {}
-
-  async get<T>(key: string): Promise<T | null> {
-    const data = await this.redis.get(key);
-    return data ? JSON.parse(data) : null;
-  }
-
-  async set<T>(key: string, value: T, ttlSeconds = 3600): Promise<void> {
-    await this.redis.setex(key, ttlSeconds, JSON.stringify(value));
-  }
-
-  async delete(key: string): Promise<void> {
-    await this.redis.del(key);
-  }
-
-  // Pattern: Cache avec Stale-While-Revalidate
-  async getWithSWR<T>(
-    key: string,
-    fetcher: () => Promise<T>,
-    ttl: number,
-    staleWindow: number,
-  ): Promise<T> {
-    const cached = await this.redis.get(key);
-
-    if (cached) {
-      const { data, timestamp } = JSON.parse(cached);
-      const age = Date.now() - timestamp;
-
-      // Fresh: return immediately
-      if (age < ttl * 1000) {
-        return data;
-      }
-
-      // Stale but within window: return stale, refresh async
-      if (age < (ttl + staleWindow) * 1000) {
-        this.refreshAsync(key, fetcher, ttl); // Fire and forget
-        return data;
-      }
-    }
-
-    // Expired or missing: fetch synchronously
-    return this.fetchAndCache(key, fetcher, ttl);
-  }
-
-  private async refreshAsync<T>(
-    key: string,
-    fetcher: () => Promise<T>,
-    ttl: number,
-  ): Promise<void> {
-    try {
-      await this.fetchAndCache(key, fetcher, ttl);
-    } catch (e) {
-      console.error('Background refresh failed:', e);
-    }
-  }
-
-  private async fetchAndCache<T>(
-    key: string,
-    fetcher: () => Promise<T>,
-    ttl: number,
-  ): Promise<T> {
-    const data = await fetcher();
-    await this.redis.setex(
-      key,
-      ttl,
-      JSON.stringify({ data, timestamp: Date.now() }),
-    );
-    return data;
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Strategies TTL

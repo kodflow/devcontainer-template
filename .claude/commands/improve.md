@@ -3,7 +3,7 @@ name: improve
 description: |
   Documentation Quality Assurance for Design Patterns Knowledge Base.
   Audits pattern documentation for consistency, completeness, and freshness.
-  Scope: /home/vscode/.claude/docs/ directory only.
+  Scope: /workspace/.devcontainer/images/.claude/docs/ directory only.
 allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
@@ -25,7 +25,7 @@ $ARGUMENTS
 
 ```yaml
 # Chemin absolu vers la documentation (après build Docker)
-DOCS_ROOT: /home/vscode/.claude/docs
+DOCS_ROOT: /workspace/.devcontainer/images/.claude/docs
 
 # Structure attendue
 paths:
@@ -56,7 +56,7 @@ paths:
     - "${DOCS_ROOT}/refactoring/"
 ```
 
-**IMPORTANT:** Toutes les opérations DOIVENT utiliser `/home/vscode/.claude/docs/` comme racine.
+**IMPORTANT:** Toutes les opérations DOIVENT utiliser `/workspace/.devcontainer/images/.claude/docs/` comme racine.
 
 ---
 
@@ -106,7 +106,7 @@ Si `--help` est passé en argument, afficher cette aide et s'arrêter :
     F  : <50%     Incomplet
 
   FILES
-    Root:       /home/vscode/.claude/docs/
+    Root:       /workspace/.devcontainer/images/.claude/docs/
     Templates:  TEMPLATE-PATTERN.md, TEMPLATE-README.md
     Config:     CLAUDE.md (instructions agents)
     Index:      README.md (index principal)
@@ -136,9 +136,9 @@ args_parsing:
 # Workflow principal (si pas --help)
 improve_workflow:
   phase_1_inventory:
-    action: "Scanner tous les fichiers .md dans /home/vscode/.claude/docs/"
+    action: "Scanner tous les fichiers .md dans /workspace/.devcontainer/images/.claude/docs/"
     tools: [Glob]
-    path: "/home/vscode/.claude/docs"
+    path: "/workspace/.devcontainer/images/.claude/docs"
     pattern: "**/*.md"
     output: "file_list, category_map"
 
@@ -149,7 +149,7 @@ improve_workflow:
       pattern_files:
         - "Titre H1 présent: ^# .+"
         - "Description blockquote: ^> .+"
-        - "Exemple TypeScript: ```typescript"
+        - "Exemple Go: ```go"
         - "Section Quand: ## Quand ou **Quand**"
         - "Patterns liés: ## Patterns liés ou **Lié à**"
         - "Sources (recommandé): ## Sources"
@@ -185,7 +185,7 @@ improve_workflow:
     action: "Vérifier que les concepts sont à jour"
     method:
       - "WebSearch: '{pattern} best practices 2024 2025'"
-      - "Vérifier syntaxe TypeScript moderne"
+      - "Vérifier syntaxe Go idiomatique (Go 1.24+)"
       - "Comparer avec documentation officielle"
     output: "outdated_patterns[]"
 
@@ -206,7 +206,7 @@ improve_workflow:
 |---------|---------------|-------------|
 | Titre H1 | `^# .+` | ✓ |
 | Description | `^> .+` | ✓ |
-| Exemple TypeScript | ` ```typescript` | ✓ |
+| Exemple Go | ` ```go` | ✓ |
 | Quand utiliser | `## Quand` ou `**Quand**` | ✓ |
 | Patterns liés | `## Patterns liés` ou `**Lié à**` | ✓ |
 | Sources | `## Sources` | Recommandé |
@@ -232,28 +232,28 @@ agents:
   structure-auditor:
     type: "Explore"
     prompt: |
-      Audit structure of all .md files in /home/vscode/.claude/docs/{category}/
-      Check required sections per /home/vscode/.claude/docs/TEMPLATE-PATTERN.md
+      Audit structure of all .md files in /workspace/.devcontainer/images/.claude/docs/{category}/
+      Check required sections per /workspace/.devcontainer/images/.claude/docs/TEMPLATE-PATTERN.md
       Return: {file, issues[], score}
 
   consistency-checker:
     type: "Explore"
     prompt: |
-      Check consistency across pattern files in /home/vscode/.claude/docs/
+      Check consistency across pattern files in /workspace/.devcontainer/images/.claude/docs/
       Verify: table formats, section names, link validity
       Return: {issues[], suggestions[]}
 
   freshness-validator:
     type: "general-purpose"
     prompt: |
-      For each pattern in /home/vscode/.claude/docs/, verify current best practices
+      For each pattern in /workspace/.devcontainer/images/.claude/docs/, verify current best practices
       Use WebSearch for recent updates
       Return: {pattern, status, updates_needed[]}
 
   missing-detector:
     type: "Explore"
     prompt: |
-      Compare documented patterns in /home/vscode/.claude/docs/ against catalogs:
+      Compare documented patterns in /workspace/.devcontainer/images/.claude/docs/ against catalogs:
       - GoF: 23 patterns
       - PoEAA: 40+ patterns
       - EIP: 65 patterns
@@ -375,8 +375,8 @@ stable:            # Rarement modifiés
 
 Utiliser ces templates pour créer/corriger :
 
-- **Nouveau pattern:** Copier `/home/vscode/.claude/docs/TEMPLATE-PATTERN.md`
-- **Nouveau README:** Copier `/home/vscode/.claude/docs/TEMPLATE-README.md`
+- **Nouveau pattern:** Copier `/workspace/.devcontainer/images/.claude/docs/TEMPLATE-PATTERN.md`
+- **Nouveau README:** Copier `/workspace/.devcontainer/images/.claude/docs/TEMPLATE-README.md`
 
 Les templates définissent la structure obligatoire.
 
@@ -386,9 +386,9 @@ Les templates définissent la structure obligatoire.
 
 | Élément | Chemin absolu |
 |---------|---------------|
-| Racine docs | `/home/vscode/.claude/docs/` |
-| Index principal | `/home/vscode/.claude/docs/README.md` |
-| Config agent | `/home/vscode/.claude/docs/CLAUDE.md` |
-| Template pattern | `/home/vscode/.claude/docs/TEMPLATE-PATTERN.md` |
-| Template README | `/home/vscode/.claude/docs/TEMPLATE-README.md` |
-| Catégories | `/home/vscode/.claude/docs/{category}/` |
+| Racine docs | `/workspace/.devcontainer/images/.claude/docs/` |
+| Index principal | `/workspace/.devcontainer/images/.claude/docs/README.md` |
+| Config agent | `/workspace/.devcontainer/images/.claude/docs/CLAUDE.md` |
+| Template pattern | `/workspace/.devcontainer/images/.claude/docs/TEMPLATE-PATTERN.md` |
+| Template README | `/workspace/.devcontainer/images/.claude/docs/TEMPLATE-README.md` |
+| Catégories | `/workspace/.devcontainer/images/.claude/docs/{category}/` |

@@ -13,295 +13,307 @@ Le DTO est un objet simple qui transporte des donnees entre les couches ou les p
 3. **Serialisation** : Format adapte au transfert (JSON, XML)
 4. **Securite** : Ne pas exposer les details internes
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-// DTO de requete (input)
-interface CreateOrderRequest {
-  customerId: string;
-  items: Array<{
-    productId: string;
-    quantity: number;
-  }>;
-  shippingAddress: {
-    street: string;
-    city: string;
-    postalCode: string;
-    country: string;
-  };
-  notes?: string;
+```go
+package dto
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+// CreateOrderRequest is an input DTO.
+type CreateOrderRequest struct {
+	CustomerID      string                `json:"customerId" validate:"required,uuid"`
+	Items           []OrderItemRequest    `json:"items" validate:"required,min=1,dive"`
+	ShippingAddress AddressRequest        `json:"shippingAddress" validate:"required"`
+	Notes           string                `json:"notes,omitempty" validate:"max=500"`
 }
 
-// DTO de reponse (output)
-interface OrderResponse {
-  id: string;
-  status: string;
-  customerName: string;
-  items: OrderItemResponse[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  createdAt: string;
-  estimatedDelivery: string;
+// OrderItemRequest represents an order item.
+type OrderItemRequest struct {
+	ProductID string `json:"productId" validate:"required,uuid"`
+	Quantity  int    `json:"quantity" validate:"required,min=1,max=100"`
 }
 
-interface OrderItemResponse {
-  productId: string;
-  productName: string;
-  quantity: number;
-  unitPrice: number;
-  subtotal: number;
+// AddressRequest represents an address.
+type AddressRequest struct {
+	Street     string `json:"street" validate:"required,max=200"`
+	City       string `json:"city" validate:"required,max=100"`
+	PostalCode string `json:"postalCode" validate:"required"`
+	Country    string `json:"country" validate:"required,iso3166_1_alpha2"`
 }
 
-// DTO avec validation (class-validator)
-class CreateOrderDTO {
-  @IsUUID()
-  customerId: string;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => OrderItemDTO)
-  items: OrderItemDTO[];
-
-  @ValidateNested()
-  @Type(() => AddressDTO)
-  shippingAddress: AddressDTO;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  notes?: string;
+// OrderResponse is an output DTO.
+type OrderResponse struct {
+	ID                string              `json:"id"`
+	Status            string              `json:"status"`
+	CustomerName      string              `json:"customerName"`
+	Items             []OrderItemResponse `json:"items"`
+	Subtotal          float64             `json:"subtotal"`
+	Tax               float64             `json:"tax"`
+	Total             float64             `json:"total"`
+	CreatedAt         time.Time           `json:"createdAt"`
+	EstimatedDelivery time.Time           `json:"estimatedDelivery"`
 }
 
-class OrderItemDTO {
-  @IsUUID()
-  productId: string;
-
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  quantity: number;
+// OrderItemResponse represents an order item response.
+type OrderItemResponse struct {
+	ProductID   string  `json:"productId"`
+	ProductName string  `json:"productName"`
+	Quantity    int     `json:"quantity"`
+	UnitPrice   float64 `json:"unitPrice"`
+	Subtotal    float64 `json:"subtotal"`
 }
 
-class AddressDTO {
-  @IsString()
-  @MaxLength(200)
-  street: string;
+// OrderAssembler converts between domain and DTO.
+type OrderAssembler struct{}
 
-  @IsString()
-  @MaxLength(100)
-  city: string;
-
-  @IsPostalCode('any')
-  postalCode: string;
-
-  @IsISO31661Alpha2()
-  country: string;
-}
-```
-
-## Assembler / Mapper
-
-```typescript
-// Assembler - Convertit Domain <-> DTO
-class OrderAssembler {
-  toDTO(order: Order, customer: Customer): OrderResponse {
-    return {
-      id: order.id,
-      status: order.status,
-      customerName: customer.name,
-      items: order.items.map((item) => this.itemToDTO(item)),
-      subtotal: order.subtotal.amount,
-      tax: order.tax.amount,
-      total: order.total.amount,
-      createdAt: order.createdAt.toISOString(),
-      estimatedDelivery: order.estimatedDelivery.toISOString(),
-    };
-  }
-
-  private itemToDTO(item: OrderItem): OrderItemResponse {
-    return {
-      productId: item.productId,
-      productName: item.productName,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice.amount,
-      subtotal: item.subtotal.amount,
-    };
-  }
-
-  // DTO -> Domain (pour creation)
-  toDomain(dto: CreateOrderDTO): OrderCreationParams {
-    return {
-      customerId: CustomerId.from(dto.customerId),
-      items: dto.items.map((item) => ({
-        productId: ProductId.from(item.productId),
-        quantity: item.quantity,
-      })),
-      shippingAddress: new Address(
-        dto.shippingAddress.street,
-        dto.shippingAddress.city,
-        dto.shippingAddress.postalCode,
-        dto.shippingAddress.country,
-      ),
-      notes: dto.notes,
-    };
-  }
+// NewOrderAssembler creates a new assembler.
+func NewOrderAssembler() *OrderAssembler {
+	return &OrderAssembler{}
 }
 
-// DTOs pour differents use cases
-class OrderSummaryDTO {
-  id: string;
-  status: string;
-  total: number;
-  itemCount: number;
-  createdAt: string;
+// ToDTO converts domain Order to OrderResponse.
+func (a *OrderAssembler) ToDTO(order *Order, customer *Customer) *OrderResponse {
+	items := make([]OrderItemResponse, len(order.Items))
+	for i, item := range order.Items {
+		items[i] = a.itemToDTO(item)
+	}
 
-  static fromDomain(order: Order): OrderSummaryDTO {
-    return {
-      id: order.id,
-      status: order.status,
-      total: order.total.amount,
-      itemCount: order.items.length,
-      createdAt: order.createdAt.toISOString(),
-    };
-  }
+	return &OrderResponse{
+		ID:                order.ID,
+		Status:            order.Status,
+		CustomerName:      customer.Name,
+		Items:             items,
+		Subtotal:          order.Subtotal,
+		Tax:               order.Tax,
+		Total:             order.Total,
+		CreatedAt:         order.CreatedAt,
+		EstimatedDelivery: order.EstimatedDelivery,
+	}
 }
 
-class OrderDetailDTO extends OrderSummaryDTO {
-  customerName: string;
-  customerEmail: string;
-  items: OrderItemResponse[];
-  shippingAddress: AddressDTO;
-  billingAddress: AddressDTO;
-  paymentMethod: string;
-  notes?: string;
-
-  static fromDomain(order: Order, customer: Customer): OrderDetailDTO {
-    return {
-      ...OrderSummaryDTO.fromDomain(order),
-      customerName: customer.name,
-      customerEmail: customer.email.value,
-      items: order.items.map((i) => OrderItemResponse.fromDomain(i)),
-      shippingAddress: AddressDTO.fromDomain(order.shippingAddress),
-      billingAddress: AddressDTO.fromDomain(order.billingAddress),
-      paymentMethod: order.paymentMethod,
-      notes: order.notes,
-    };
-  }
-}
-```
-
-## DTOs dans une API REST
-
-```typescript
-// Controller utilisant les DTOs
-@Controller('/orders')
-class OrderController {
-  constructor(
-    private readonly orderService: OrderApplicationService,
-    private readonly assembler: OrderAssembler,
-  ) {}
-
-  @Post('/')
-  @HttpCode(201)
-  async createOrder(
-    @Body() dto: CreateOrderDTO,
-    @CurrentUser() user: User,
-  ): Promise<OrderResponse> {
-    // Validation automatique via class-validator
-    const params = this.assembler.toDomain(dto);
-    const order = await this.orderService.createOrder(params, user);
-    return this.assembler.toDTO(order);
-  }
-
-  @Get('/:id')
-  async getOrder(
-    @Param('id') id: string,
-    @CurrentUser() user: User,
-  ): Promise<OrderDetailDTO> {
-    const order = await this.orderService.getOrderById(id, user);
-    return OrderDetailDTO.fromDomain(order);
-  }
-
-  @Get('/')
-  async listOrders(
-    @Query() query: ListOrdersQuery,
-    @CurrentUser() user: User,
-  ): Promise<PaginatedResponse<OrderSummaryDTO>> {
-    const result = await this.orderService.listOrders(query, user);
-    return {
-      items: result.items.map(OrderSummaryDTO.fromDomain),
-      total: result.total,
-      page: query.page,
-      pageSize: query.pageSize,
-    };
-  }
-
-  @Patch('/:id')
-  async updateOrder(
-    @Param('id') id: string,
-    @Body() dto: UpdateOrderDTO,
-    @CurrentUser() user: User,
-  ): Promise<OrderResponse> {
-    const order = await this.orderService.updateOrder(id, dto, user);
-    return this.assembler.toDTO(order);
-  }
+func (a *OrderAssembler) itemToDTO(item *OrderItem) OrderItemResponse {
+	return OrderItemResponse{
+		ProductID:   item.ProductID,
+		ProductName: item.ProductName,
+		Quantity:    item.Quantity,
+		UnitPrice:   item.UnitPrice,
+		Subtotal:    item.Subtotal,
+	}
 }
 
-// Query DTO pour filtrage/pagination
-class ListOrdersQuery {
-  @IsOptional()
-  @IsEnum(OrderStatus)
-  status?: OrderStatus;
+// ToDomain converts CreateOrderRequest to domain parameters.
+func (a *OrderAssembler) ToDomain(dto *CreateOrderRequest) *OrderCreationParams {
+	items := make([]OrderItemParams, len(dto.Items))
+	for i, item := range dto.Items {
+		items[i] = OrderItemParams{
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+		}
+	}
 
-  @IsOptional()
-  @IsDateString()
-  fromDate?: string;
+	return &OrderCreationParams{
+		CustomerID: dto.CustomerID,
+		Items:      items,
+		ShippingAddress: Address{
+			Street:     dto.ShippingAddress.Street,
+			City:       dto.ShippingAddress.City,
+			PostalCode: dto.ShippingAddress.PostalCode,
+			Country:    dto.ShippingAddress.Country,
+		},
+		Notes: dto.Notes,
+	}
+}
 
-  @IsOptional()
-  @IsDateString()
-  toDate?: string;
+// OrderSummaryDTO is a lightweight DTO for listings.
+type OrderSummaryDTO struct {
+	ID        string    `json:"id"`
+	Status    string    `json:"status"`
+	Total     float64   `json:"total"`
+	ItemCount int       `json:"itemCount"`
+	CreatedAt time.Time `json:"createdAt"`
+}
 
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  pageSize?: number = 20;
+// FromDomain creates a summary DTO from domain order.
+func OrderSummaryFromDomain(order *Order) *OrderSummaryDTO {
+	return &OrderSummaryDTO{
+		ID:        order.ID,
+		Status:    order.Status,
+		Total:     order.Total,
+		ItemCount: len(order.Items),
+		CreatedAt: order.CreatedAt,
+	}
+}
 
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
+// OrderDetailDTO extends OrderSummaryDTO with more details.
+type OrderDetailDTO struct {
+	OrderSummaryDTO
+	CustomerName    string              `json:"customerName"`
+	CustomerEmail   string              `json:"customerEmail"`
+	Items           []OrderItemResponse `json:"items"`
+	ShippingAddress AddressDTO          `json:"shippingAddress"`
+	BillingAddress  AddressDTO          `json:"billingAddress"`
+	PaymentMethod   string              `json:"paymentMethod"`
+	Notes           string              `json:"notes,omitempty"`
+}
+
+// AddressDTO represents an address DTO.
+type AddressDTO struct {
+	Street     string `json:"street"`
+	City       string `json:"city"`
+	PostalCode string `json:"postalCode"`
+	Country    string `json:"country"`
+}
+
+// FromDomain creates a detail DTO from domain.
+func OrderDetailFromDomain(order *Order, customer *Customer) *OrderDetailDTO {
+	items := make([]OrderItemResponse, len(order.Items))
+	for i, item := range order.Items {
+		items[i] = OrderItemResponse{
+			ProductID:   item.ProductID,
+			ProductName: item.ProductName,
+			Quantity:    item.Quantity,
+			UnitPrice:   item.UnitPrice,
+			Subtotal:    item.Subtotal,
+		}
+	}
+
+	return &OrderDetailDTO{
+		OrderSummaryDTO: *OrderSummaryFromDomain(order),
+		CustomerName:    customer.Name,
+		CustomerEmail:   customer.Email,
+		Items:           items,
+		ShippingAddress: AddressFromDomain(&order.ShippingAddress),
+		BillingAddress:  AddressFromDomain(&order.BillingAddress),
+		PaymentMethod:   order.PaymentMethod,
+		Notes:           order.Notes,
+	}
+}
+
+// AddressFromDomain converts domain address to DTO.
+func AddressFromDomain(addr *Address) AddressDTO {
+	return AddressDTO{
+		Street:     addr.Street,
+		City:       addr.City,
+		PostalCode: addr.PostalCode,
+		Country:    addr.Country,
+	}
+}
+
+// PaginatedResponse represents a paginated result.
+type PaginatedResponse[T any] struct {
+	Items    []T `json:"items"`
+	Total    int `json:"total"`
+	Page     int `json:"page"`
+	PageSize int `json:"pageSize"`
+}
+
+// ListOrdersQuery represents query parameters for listing orders.
+type ListOrdersQuery struct {
+	Status   string `json:"status,omitempty"`
+	FromDate string `json:"fromDate,omitempty" validate:"omitempty,datetime=2006-01-02"`
+	ToDate   string `json:"toDate,omitempty" validate:"omitempty,datetime=2006-01-02"`
+	PageSize int    `json:"pageSize,omitempty" validate:"omitempty,min=1,max=100"`
+	Page     int    `json:"page,omitempty" validate:"omitempty,min=1"`
+}
+
+// Defaults sets default values for the query.
+func (q *ListOrdersQuery) Defaults() {
+	if q.PageSize == 0 {
+		q.PageSize = 20
+	}
+	if q.Page == 0 {
+		q.Page = 1
+	}
+}
+
+// Domain types (for reference)
+type Order struct {
+	ID                string
+	Status            string
+	CustomerID        string
+	Items             []*OrderItem
+	Subtotal          float64
+	Tax               float64
+	Total             float64
+	ShippingAddress   Address
+	BillingAddress    Address
+	PaymentMethod     string
+	Notes             string
+	CreatedAt         time.Time
+	EstimatedDelivery time.Time
+}
+
+type OrderItem struct {
+	ProductID   string
+	ProductName string
+	Quantity    int
+	UnitPrice   float64
+	Subtotal    float64
+}
+
+type Customer struct {
+	ID    string
+	Name  string
+	Email string
+}
+
+type Address struct {
+	Street     string
+	City       string
+	PostalCode string
+	Country    string
+}
+
+type OrderCreationParams struct {
+	CustomerID      string
+	Items           []OrderItemParams
+	ShippingAddress Address
+	Notes           string
+}
+
+type OrderItemParams struct {
+	ProductID string
+	Quantity  int
 }
 ```
 
 ## DTOs vs Domain Objects
 
-```typescript
-// Domain Object - Logique metier, invariants
-class Order {
-  private status: OrderStatus;
-  private items: OrderItem[];
-
-  submit(): void {
-    if (this.items.length === 0) {
-      throw new DomainError('Cannot submit empty order');
-    }
-    this.status = OrderStatus.Submitted;
-  }
-
-  get total(): Money {
-    return this.items.reduce((sum, item) => sum.add(item.subtotal), Money.zero());
-  }
+```go
+// Domain Object - Business logic, invariants
+type DomainOrder struct {
+	status OrderStatus
+	items  []*OrderItem
 }
 
-// DTO - Pas de logique, juste des donnees
-interface OrderDTO {
-  id: string;
-  status: string;
-  items: OrderItemDTO[];
-  total: number;
-  // Pas de methodes metier!
+func (o *DomainOrder) Submit() error {
+	if len(o.items) == 0 {
+		return fmt.Errorf("cannot submit empty order")
+	}
+	o.status = OrderStatusSubmitted
+	return nil
+}
+
+func (o *DomainOrder) Total() float64 {
+	var total float64
+	for _, item := range o.items {
+		total += item.Subtotal()
+	}
+	return total
+}
+
+// DTO - No logic, just data
+type OrderDTO struct {
+	ID     string            `json:"id"`
+	Status string            `json:"status"`
+	Items  []OrderItemDTO    `json:"items"`
+	Total  float64           `json:"total"`
+	// No business methods!
 }
 ```
 
@@ -331,59 +343,12 @@ interface OrderDTO {
 - Applications simples/CRUD
 - Performance critique (overhead mapping)
 
-## Relation avec DDD
+## Patterns liés
 
-Les DTOs vivent dans l'**Application Layer** ou **Interface Layer** :
-
-```
-┌─────────────────────────────────────────────┐
-│              Interface Layer                │
-│   - Controllers recoivent/retournent DTOs   │
-│   - Assemblers convertissent                │
-├─────────────────────────────────────────────┤
-│           Application Layer                 │
-│   - Services utilisent DTOs en entree       │
-│   - Retournent Domain ou DTOs               │
-├─────────────────────────────────────────────┤
-│              Domain Layer                   │
-│   - Entities, Value Objects (pas de DTOs)   │
-│   - Logique metier pure                     │
-├─────────────────────────────────────────────┤
-│          Infrastructure Layer               │
-│   - Peut avoir ses propres DTOs (DB rows)   │
-└─────────────────────────────────────────────┘
-```
-
-## Anti-patterns a eviter
-
-```typescript
-// EVITER: DTO avec logique metier
-class BadOrderDTO {
-  calculateTotal(): number { // Logique dans DTO!
-    return this.items.reduce((s, i) => s + i.price * i.qty, 0);
-  }
-}
-
-// EVITER: Exposer les entites directement
-@Get('/:id')
-async getOrder(@Param('id') id: string): Promise<Order> {
-  return this.orderRepo.findById(id); // Expose le domaine!
-}
-
-// EVITER: Mapper domain -> DTO dans le domaine
-class Order {
-  toDTO(): OrderDTO { // Le domaine ne devrait pas connaitre les DTOs
-    return { ... };
-  }
-}
-```
-
-## Patterns associes
-
-- **Assembler** : Conversion Domain <-> DTO
-- **Remote Facade** : Utilise DTOs pour appels distants
-- **CQRS** : Read Models sont des DTOs specialises
-- **API Gateway** : Aggrege DTOs de plusieurs services
+- [Remote Facade](./remote-facade.md) - Utilise DTO pour transfert coarse-grained
+- [Service Layer](./service-layer.md) - Convertit domaine en DTO
+- [Domain Model](./domain-model.md) - Modele source des DTOs
+- [Data Mapper](./data-mapper.md) - Similaire mais pour persistance
 
 ## Sources
 

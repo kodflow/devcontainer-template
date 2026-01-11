@@ -10,483 +10,697 @@ et passer la requete jusqu'a ce qu'un objet la traite.
 
 ## Structure
 
-```typescript
-// 1. Interface Handler
-interface Handler<T, R> {
-  setNext(handler: Handler<T, R>): Handler<T, R>;
-  handle(request: T): R | null;
+```go
+package main
+
+import (
+	"fmt"
+	"strings"
+	"time"
+)
+
+// Handler defines the interface for handling requests.
+type Handler[T, R any] interface {
+	SetNext(handler Handler[T, R]) Handler[T, R]
+	Handle(request T) (R, error)
 }
 
-// 2. Abstract Handler
-abstract class AbstractHandler<T, R> implements Handler<T, R> {
-  private nextHandler: Handler<T, R> | null = null;
-
-  setNext(handler: Handler<T, R>): Handler<T, R> {
-    this.nextHandler = handler;
-    return handler; // Permet le chainage fluent
-  }
-
-  handle(request: T): R | null {
-    if (this.nextHandler) {
-      return this.nextHandler.handle(request);
-    }
-    return null;
-  }
+// AbstractHandler provides base functionality for handlers.
+type AbstractHandler[T, R any] struct {
+	next Handler[T, R]
 }
 
-// 3. Request type
-interface HttpRequest {
-  method: string;
-  path: string;
-  headers: Record<string, string>;
-  body?: unknown;
-  user?: User;
+// SetNext sets the next handler in the chain.
+func (h *AbstractHandler[T, R]) SetNext(handler Handler[T, R]) Handler[T, R] {
+	h.next = handler
+	return handler
 }
 
-interface HttpResponse {
-  status: number;
-  body: unknown;
+// Handle delegates to the next handler if it exists.
+func (h *AbstractHandler[T, R]) Handle(request T) (R, error) {
+	if h.next != nil {
+		return h.next.Handle(request)
+	}
+	var zero R
+	return zero, nil
 }
 
-// 4. Concrete Handlers (Middleware pattern)
-class AuthenticationHandler extends AbstractHandler<HttpRequest, HttpResponse> {
-  handle(request: HttpRequest): HttpResponse | null {
-    const token = request.headers['authorization']?.replace('Bearer ', '');
-
-    if (!token) {
-      return { status: 401, body: { error: 'No token provided' } };
-    }
-
-    try {
-      request.user = this.verifyToken(token);
-      return super.handle(request); // Passe au suivant
-    } catch {
-      return { status: 401, body: { error: 'Invalid token' } };
-    }
-  }
-
-  private verifyToken(token: string): User {
-    // Verification JWT
-    return { id: '1', role: 'user' };
-  }
+// User represents an authenticated user.
+type User struct {
+	ID   string
+	Role string
 }
 
-class AuthorizationHandler extends AbstractHandler<HttpRequest, HttpResponse> {
-  constructor(private allowedRoles: string[]) {
-    super();
-  }
-
-  handle(request: HttpRequest): HttpResponse | null {
-    if (!request.user) {
-      return { status: 401, body: { error: 'Not authenticated' } };
-    }
-
-    if (!this.allowedRoles.includes(request.user.role)) {
-      return { status: 403, body: { error: 'Access denied' } };
-    }
-
-    return super.handle(request);
-  }
+// HttpRequest represents an HTTP request.
+type HttpRequest struct {
+	Method  string
+	Path    string
+	Headers map[string]string
+	Body    interface{}
+	User    *User
 }
 
-class ValidationHandler extends AbstractHandler<HttpRequest, HttpResponse> {
-  constructor(private schema: Schema) {
-    super();
-  }
-
-  handle(request: HttpRequest): HttpResponse | null {
-    const errors = this.schema.validate(request.body);
-
-    if (errors.length > 0) {
-      return { status: 400, body: { errors } };
-    }
-
-    return super.handle(request);
-  }
+// HttpResponse represents an HTTP response.
+type HttpResponse struct {
+	Status int
+	Body   interface{}
 }
 
-class RateLimitHandler extends AbstractHandler<HttpRequest, HttpResponse> {
-  private requests = new Map<string, number[]>();
-
-  constructor(
-    private limit: number,
-    private windowMs: number,
-  ) {
-    super();
-  }
-
-  handle(request: HttpRequest): HttpResponse | null {
-    const clientId = request.headers['x-client-id'] || 'anonymous';
-    const now = Date.now();
-    const windowStart = now - this.windowMs;
-
-    // Nettoyer les anciennes requetes
-    const clientRequests = (this.requests.get(clientId) || []).filter(
-      time => time > windowStart,
-    );
-
-    if (clientRequests.length >= this.limit) {
-      return {
-        status: 429,
-        body: { error: 'Too many requests' },
-      };
-    }
-
-    clientRequests.push(now);
-    this.requests.set(clientId, clientRequests);
-
-    return super.handle(request);
-  }
+// AuthenticationHandler handles authentication.
+type AuthenticationHandler struct {
+	AbstractHandler[*HttpRequest, *HttpResponse]
 }
 
-class LoggingHandler extends AbstractHandler<HttpRequest, HttpResponse> {
-  handle(request: HttpRequest): HttpResponse | null {
-    console.log(`[${new Date().toISOString()}] ${request.method} ${request.path}`);
+// Handle authenticates the request.
+func (h *AuthenticationHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
+	token, ok := request.Headers["authorization"]
+	if !ok || token == "" {
+		return &HttpResponse{
+			Status: 401,
+			Body:   map[string]string{"error": "No token provided"},
+		}, nil
+	}
 
-    const response = super.handle(request);
+	token = strings.TrimPrefix(token, "Bearer ")
+	user, err := h.verifyToken(token)
+	if err != nil {
+		return &HttpResponse{
+			Status: 401,
+			Body:   map[string]string{"error": "Invalid token"},
+		}, nil
+	}
 
-    if (response) {
-      console.log(`Response: ${response.status}`);
-    }
-
-    return response;
-  }
+	request.User = user
+	return h.AbstractHandler.Handle(request)
 }
 
-// 5. Final Handler (Controller)
-class RequestHandler extends AbstractHandler<HttpRequest, HttpResponse> {
-  constructor(
-    private controller: (req: HttpRequest) => HttpResponse,
-  ) {
-    super();
-  }
+func (h *AuthenticationHandler) verifyToken(token string) (*User, error) {
+	// JWT verification logic
+	return &User{ID: "1", Role: "user"}, nil
+}
 
-  handle(request: HttpRequest): HttpResponse {
-    return this.controller(request);
-  }
+// AuthorizationHandler handles authorization.
+type AuthorizationHandler struct {
+	AbstractHandler[*HttpRequest, *HttpResponse]
+	allowedRoles []string
+}
+
+// NewAuthorizationHandler creates a new authorization handler.
+func NewAuthorizationHandler(allowedRoles []string) *AuthorizationHandler {
+	return &AuthorizationHandler{allowedRoles: allowedRoles}
+}
+
+// Handle checks user authorization.
+func (h *AuthorizationHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
+	if request.User == nil {
+		return &HttpResponse{
+			Status: 401,
+			Body:   map[string]string{"error": "Not authenticated"},
+		}, nil
+	}
+
+	allowed := false
+	for _, role := range h.allowedRoles {
+		if role == request.User.Role {
+			allowed = true
+			break
+		}
+	}
+
+	if !allowed {
+		return &HttpResponse{
+			Status: 403,
+			Body:   map[string]string{"error": "Access denied"},
+		}, nil
+	}
+
+	return h.AbstractHandler.Handle(request)
+}
+
+// Schema represents a validation schema.
+type Schema interface {
+	Validate(body interface{}) []string
+}
+
+// ValidationHandler handles request validation.
+type ValidationHandler struct {
+	AbstractHandler[*HttpRequest, *HttpResponse]
+	schema Schema
+}
+
+// NewValidationHandler creates a new validation handler.
+func NewValidationHandler(schema Schema) *ValidationHandler {
+	return &ValidationHandler{schema: schema}
+}
+
+// Handle validates the request body.
+func (h *ValidationHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
+	errors := h.schema.Validate(request.Body)
+	if len(errors) > 0 {
+		return &HttpResponse{
+			Status: 400,
+			Body:   map[string]interface{}{"errors": errors},
+		}, nil
+	}
+
+	return h.AbstractHandler.Handle(request)
+}
+
+// RateLimitHandler handles rate limiting.
+type RateLimitHandler struct {
+	AbstractHandler[*HttpRequest, *HttpResponse]
+	requests map[string][]int64
+	limit    int
+	windowMs int64
+}
+
+// NewRateLimitHandler creates a new rate limit handler.
+func NewRateLimitHandler(limit int, windowMs int64) *RateLimitHandler {
+	return &RateLimitHandler{
+		requests: make(map[string][]int64),
+		limit:    limit,
+		windowMs: windowMs,
+	}
+}
+
+// Handle checks rate limits.
+func (h *RateLimitHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
+	clientID := request.Headers["x-client-id"]
+	if clientID == "" {
+		clientID = "anonymous"
+	}
+
+	now := time.Now().UnixMilli()
+	windowStart := now - h.windowMs
+
+	// Clean old requests
+	clientRequests := []int64{}
+	for _, reqTime := range h.requests[clientID] {
+		if reqTime > windowStart {
+			clientRequests = append(clientRequests, reqTime)
+		}
+	}
+
+	if len(clientRequests) >= h.limit {
+		return &HttpResponse{
+			Status: 429,
+			Body:   map[string]string{"error": "Too many requests"},
+		}, nil
+	}
+
+	clientRequests = append(clientRequests, now)
+	h.requests[clientID] = clientRequests
+
+	return h.AbstractHandler.Handle(request)
+}
+
+// LoggingHandler handles logging.
+type LoggingHandler struct {
+	AbstractHandler[*HttpRequest, *HttpResponse]
+}
+
+// Handle logs the request and response.
+func (h *LoggingHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
+	fmt.Printf("[%s] %s %s\n", time.Now().Format(time.RFC3339), request.Method, request.Path)
+
+	response, err := h.AbstractHandler.Handle(request)
+	if err != nil {
+		return nil, err
+	}
+
+	if response != nil {
+		fmt.Printf("Response: %d\n", response.Status)
+	}
+
+	return response, nil
+}
+
+// RequestHandler is the final handler that processes the request.
+type RequestHandler struct {
+	AbstractHandler[*HttpRequest, *HttpResponse]
+	controller func(*HttpRequest) (*HttpResponse, error)
+}
+
+// NewRequestHandler creates a new request handler.
+func NewRequestHandler(controller func(*HttpRequest) (*HttpResponse, error)) *RequestHandler {
+	return &RequestHandler{controller: controller}
+}
+
+// Handle executes the controller function.
+func (h *RequestHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
+	return h.controller(request)
 }
 ```
 
 ## Usage
 
-```typescript
-// Configuration de la chaine
-const createUserSchema = { validate: (body: unknown) => [] };
+```go
+// CreateUserSchema is a mock schema.
+type CreateUserSchema struct{}
 
-const chain = new LoggingHandler();
-chain
-  .setNext(new RateLimitHandler(100, 60000))
-  .setNext(new AuthenticationHandler())
-  .setNext(new AuthorizationHandler(['admin']))
-  .setNext(new ValidationHandler(createUserSchema))
-  .setNext(
-    new RequestHandler(req => ({
-      status: 201,
-      body: { message: 'User created', userId: '123' },
-    })),
-  );
+func (s *CreateUserSchema) Validate(body interface{}) []string {
+	return []string{}
+}
 
-// Traitement d'une requete
-const request: HttpRequest = {
-  method: 'POST',
-  path: '/api/users',
-  headers: {
-    authorization: 'Bearer valid-token',
-    'x-client-id': 'client-1',
-  },
-  body: { name: 'John', email: 'john@example.com' },
-};
+func main() {
+	schema := &CreateUserSchema{}
 
-const response = chain.handle(request);
-console.log(response);
+	// Build the chain
+	chain := &LoggingHandler{}
+	chain.
+		SetNext(NewRateLimitHandler(100, 60000)).
+		SetNext(&AuthenticationHandler{}).
+		SetNext(NewAuthorizationHandler([]string{"admin"})).
+		SetNext(NewValidationHandler(schema)).
+		SetNext(NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
+			return &HttpResponse{
+				Status: 201,
+				Body: map[string]interface{}{
+					"message": "User created",
+					"userId":  "123",
+				},
+			}, nil
+		}))
+
+	// Process a request
+	request := &HttpRequest{
+		Method: "POST",
+		Path:   "/api/users",
+		Headers: map[string]string{
+			"authorization": "Bearer valid-token",
+			"x-client-id":   "client-1",
+		},
+		Body: map[string]string{
+			"name":  "John",
+			"email": "john@example.com",
+		},
+	}
+
+	response, err := chain.Handle(request)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	fmt.Printf("Response: %+v\n", response)
+}
 ```
 
 ## Variantes
 
 ### Chain avec fonction next explicite
 
-```typescript
-type Middleware = (
-  request: HttpRequest,
-  response: HttpResponse,
-  next: () => void,
-) => void;
+```go
+// Middleware is a function that processes a request.
+type Middleware func(request *HttpRequest, response *HttpResponse, next func())
 
-class MiddlewareChain {
-  private middlewares: Middleware[] = [];
+// MiddlewareChain manages a chain of middleware.
+type MiddlewareChain struct {
+	middlewares []Middleware
+}
 
-  use(middleware: Middleware): this {
-    this.middlewares.push(middleware);
-    return this;
-  }
+// Use adds a middleware to the chain.
+func (m *MiddlewareChain) Use(middleware Middleware) *MiddlewareChain {
+	m.middlewares = append(m.middlewares, middleware)
+	return m
+}
 
-  execute(request: HttpRequest): HttpResponse {
-    const response: HttpResponse = { status: 200, body: null };
-    let index = 0;
+// Execute runs all middleware in order.
+func (m *MiddlewareChain) Execute(request *HttpRequest) *HttpResponse {
+	response := &HttpResponse{Status: 200, Body: nil}
+	index := 0
 
-    const next = () => {
-      if (index < this.middlewares.length) {
-        const middleware = this.middlewares[index++];
-        middleware(request, response, next);
-      }
-    };
+	var next func()
+	next = func() {
+		if index < len(m.middlewares) {
+			middleware := m.middlewares[index]
+			index++
+			middleware(request, response, next)
+		}
+	}
 
-    next();
-    return response;
-  }
+	next()
+	return response
 }
 
 // Usage Express-like
-const app = new MiddlewareChain();
+func exampleMiddleware() {
+	app := &MiddlewareChain{}
 
-app.use((req, res, next) => {
-  console.log('Logging...');
-  next();
-});
+	app.Use(func(req *HttpRequest, res *HttpResponse, next func()) {
+		fmt.Println("Logging...")
+		next()
+	})
 
-app.use((req, res, next) => {
-  if (!req.headers['authorization']) {
-    res.status = 401;
-    return; // Stop chain
-  }
-  next();
-});
+	app.Use(func(req *HttpRequest, res *HttpResponse, next func()) {
+		if req.Headers["authorization"] == "" {
+			res.Status = 401
+			return // Stop chain
+		}
+		next()
+	})
 
-app.use((req, res, next) => {
-  res.body = { message: 'Success' };
-  next();
-});
+	app.Use(func(req *HttpRequest, res *HttpResponse, next func()) {
+		res.Body = map[string]string{"message": "Success"}
+		next()
+	})
+}
 ```
 
 ### Async Chain
 
-```typescript
-type AsyncHandler<T, R> = (request: T) => Promise<R | null>;
+```go
+import "context"
 
-class AsyncChain<T, R> {
-  private handlers: AsyncHandler<T, R>[] = [];
+// AsyncHandler handles requests asynchronously.
+type AsyncHandler[T, R any] func(ctx context.Context, request T) (R, error)
 
-  use(handler: AsyncHandler<T, R>): this {
-    this.handlers.push(handler);
-    return this;
-  }
+// AsyncChain manages async handlers.
+type AsyncChain[T, R any] struct {
+	handlers []AsyncHandler[T, R]
+}
 
-  async handle(request: T): Promise<R | null> {
-    for (const handler of this.handlers) {
-      const result = await handler(request);
-      if (result !== null) {
-        return result; // Handler a traite la requete
-      }
-    }
-    return null; // Aucun handler n'a traite
-  }
+// Use adds a handler to the chain.
+func (c *AsyncChain[T, R]) Use(handler AsyncHandler[T, R]) *AsyncChain[T, R] {
+	c.handlers = append(c.handlers, handler)
+	return c
+}
+
+// Handle executes handlers until one returns a non-nil result.
+func (c *AsyncChain[T, R]) Handle(ctx context.Context, request T) (R, error) {
+	var zero R
+	for _, handler := range c.handlers {
+		result, err := handler(ctx, request)
+		if err != nil {
+			return zero, err
+		}
+		// Handler a traite la requete
+		if !isZero(result) {
+			return result, nil
+		}
+	}
+	return zero, nil // Aucun handler n'a traite
+}
+
+func isZero[T any](v T) bool {
+	var zero T
+	return fmt.Sprintf("%v", v) == fmt.Sprintf("%v", zero)
 }
 
 // Usage
-const asyncChain = new AsyncChain<HttpRequest, HttpResponse>();
+func asyncExample() {
+	type Cache interface {
+		Get(ctx context.Context, key string) (interface{}, error)
+		Set(ctx context.Context, key string, val interface{}) error
+	}
 
-asyncChain.use(async req => {
-  // Check cache
-  const cached = await cache.get(req.path);
-  return cached ? { status: 200, body: cached } : null;
-});
+	type DB interface {
+		Query(ctx context.Context, path string) (interface{}, error)
+	}
 
-asyncChain.use(async req => {
-  // Fetch from database
-  const data = await db.query(req.path);
-  await cache.set(req.path, data);
-  return { status: 200, body: data };
-});
+	asyncChain := &AsyncChain[*HttpRequest, *HttpResponse]{}
+
+	// Check cache
+	asyncChain.Use(func(ctx context.Context, req *HttpRequest) (*HttpResponse, error) {
+		var cache Cache
+		cached, err := cache.Get(ctx, req.Path)
+		if err == nil && cached != nil {
+			return &HttpResponse{Status: 200, Body: cached}, nil
+		}
+		var zero *HttpResponse
+		return zero, nil
+	})
+
+	// Fetch from database
+	asyncChain.Use(func(ctx context.Context, req *HttpRequest) (*HttpResponse, error) {
+		var db DB
+		var cache Cache
+		data, err := db.Query(ctx, req.Path)
+		if err != nil {
+			return nil, err
+		}
+		cache.Set(ctx, req.Path, data)
+		return &HttpResponse{Status: 200, Body: data}, nil
+	})
+}
 ```
 
 ### Chain avec priorite
 
-```typescript
-interface PriorityHandler<T, R> {
-  priority: number;
-  canHandle(request: T): boolean;
-  handle(request: T): R;
+```go
+// PriorityHandler handles requests with priority.
+type PriorityHandler[T, R any] struct {
+	Priority  int
+	CanHandle func(request T) bool
+	Handle    func(request T) (R, error)
 }
 
-class PriorityChain<T, R> {
-  private handlers: PriorityHandler<T, R>[] = [];
+// PriorityChain manages prioritized handlers.
+type PriorityChain[T, R any] struct {
+	handlers []*PriorityHandler[T, R]
+}
 
-  register(handler: PriorityHandler<T, R>): void {
-    this.handlers.push(handler);
-    this.handlers.sort((a, b) => b.priority - a.priority);
-  }
+// Register adds a handler and sorts by priority.
+func (c *PriorityChain[T, R]) Register(handler *PriorityHandler[T, R]) {
+	c.handlers = append(c.handlers, handler)
+	// Sort by priority (descending)
+	for i := len(c.handlers) - 1; i > 0; i-- {
+		if c.handlers[i].Priority > c.handlers[i-1].Priority {
+			c.handlers[i], c.handlers[i-1] = c.handlers[i-1], c.handlers[i]
+		}
+	}
+}
 
-  handle(request: T): R | null {
-    for (const handler of this.handlers) {
-      if (handler.canHandle(request)) {
-        return handler.handle(request);
-      }
-    }
-    return null;
-  }
+// Handle finds the first handler that can process the request.
+func (c *PriorityChain[T, R]) Handle(request T) (R, error) {
+	var zero R
+	for _, handler := range c.handlers {
+		if handler.CanHandle(request) {
+			return handler.Handle(request)
+		}
+	}
+	return zero, nil
 }
 ```
 
 ## Anti-patterns
 
-```typescript
+```go
 // MAUVAIS: Chaine trop longue
-const chain = new Handler1();
-chain
-  .setNext(new Handler2())
-  .setNext(new Handler3())
-  // ... 20 handlers ...
-  .setNext(new Handler20()); // Difficile a debugger
+func badLongChain() {
+	chain := &Handler1{}
+	chain.
+		SetNext(&Handler2{}).
+		SetNext(&Handler3{}).
+		// ... 20 handlers ...
+		SetNext(&Handler20{}) // Difficile a debugger
+}
 
 // MAUVAIS: Handler qui ne passe jamais au suivant
-class GreedyHandler extends AbstractHandler<Request, Response> {
-  handle(request: Request): Response {
-    // Traite TOUJOURS, ne passe jamais au suivant
-    return { status: 200, body: 'Always me' };
-  }
+type GreedyHandler struct {
+	AbstractHandler[*HttpRequest, *HttpResponse]
+}
+
+func (h *GreedyHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
+	// Traite TOUJOURS, ne passe jamais au suivant
+	return &HttpResponse{Status: 200, Body: "Always me"}, nil
 }
 
 // MAUVAIS: Dependance a l'ordre non documentee
-class OrderDependentHandler extends AbstractHandler<Request, Response> {
-  handle(request: Request): Response | null {
-    // Suppose que AuthHandler a deja ete execute
-    // Sans documentation, c'est fragile
-    const user = request.user!;
-    return super.handle(request);
-  }
+type OrderDependentHandler struct {
+	AbstractHandler[*HttpRequest, *HttpResponse]
+}
+
+func (h *OrderDependentHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
+	// Suppose que AuthHandler a deja ete execute
+	// Sans documentation, c'est fragile
+	user := request.User // Peut être nil!
+	_ = user
+	return h.AbstractHandler.Handle(request)
 }
 
 // MAUVAIS: Modification de la chaine pendant l'execution
-class DynamicHandler extends AbstractHandler<Request, Response> {
-  handle(request: Request): Response | null {
-    if (someCondition) {
-      this.setNext(new AnotherHandler()); // Dangereux!
-    }
-    return super.handle(request);
-  }
+type DynamicHandler struct {
+	AbstractHandler[*HttpRequest, *HttpResponse]
+	someCondition bool
+}
+
+func (h *DynamicHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
+	if h.someCondition {
+		h.SetNext(&AnotherHandler{}) // Dangereux!
+	}
+	return h.AbstractHandler.Handle(request)
+}
+
+type AnotherHandler struct {
+	AbstractHandler[*HttpRequest, *HttpResponse]
 }
 ```
 
 ## Tests unitaires
 
-```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+```go
+package main
 
-describe('Chain of Responsibility', () => {
-  describe('AuthenticationHandler', () => {
-    it('should reject requests without token', () => {
-      const handler = new AuthenticationHandler();
-      const request: HttpRequest = {
-        method: 'GET',
-        path: '/api/data',
-        headers: {},
-      };
+import (
+	"testing"
+)
 
-      const response = handler.handle(request);
+func TestAuthenticationHandler(t *testing.T) {
+	t.Run("should reject requests without token", func(t *testing.T) {
+		handler := &AuthenticationHandler{}
+		request := &HttpRequest{
+			Method:  "GET",
+			Path:    "/api/data",
+			Headers: map[string]string{},
+		}
 
-      expect(response?.status).toBe(401);
-    });
+		response, err := handler.Handle(request)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
-    it('should pass authenticated requests to next', () => {
-      const nextHandler = {
-        handle: vi.fn().mockReturnValue({ status: 200, body: 'ok' }),
-        setNext: vi.fn(),
-      };
+		if response.Status != 401 {
+			t.Errorf("expected status 401, got %d", response.Status)
+		}
+	})
 
-      const handler = new AuthenticationHandler();
-      handler.setNext(nextHandler);
+	t.Run("should pass authenticated requests to next", func(t *testing.T) {
+		nextCalled := false
+		nextHandler := NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
+			nextCalled = true
+			return &HttpResponse{Status: 200, Body: "ok"}, nil
+		})
 
-      const request: HttpRequest = {
-        method: 'GET',
-        path: '/api/data',
-        headers: { authorization: 'Bearer valid-token' },
-      };
+		handler := &AuthenticationHandler{}
+		handler.SetNext(nextHandler)
 
-      handler.handle(request);
+		request := &HttpRequest{
+			Method: "GET",
+			Path:   "/api/data",
+			Headers: map[string]string{
+				"authorization": "Bearer valid-token",
+			},
+		}
 
-      expect(nextHandler.handle).toHaveBeenCalled();
-      expect(request.user).toBeDefined();
-    });
-  });
+		_, err := handler.Handle(request)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
-  describe('RateLimitHandler', () => {
-    it('should allow requests within limit', () => {
-      const handler = new RateLimitHandler(3, 1000);
-      handler.setNext(new RequestHandler(() => ({ status: 200, body: 'ok' })));
+		if !nextCalled {
+			t.Error("next handler was not called")
+		}
 
-      const request: HttpRequest = {
-        method: 'GET',
-        path: '/api',
-        headers: { 'x-client-id': 'test' },
-      };
+		if request.User == nil {
+			t.Error("user should be set")
+		}
+	})
+}
 
-      const r1 = handler.handle(request);
-      const r2 = handler.handle(request);
-      const r3 = handler.handle(request);
+func TestRateLimitHandler(t *testing.T) {
+	t.Run("should allow requests within limit", func(t *testing.T) {
+		handler := NewRateLimitHandler(3, 1000)
+		handler.SetNext(NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
+			return &HttpResponse{Status: 200, Body: "ok"}, nil
+		}))
 
-      expect(r1?.status).toBe(200);
-      expect(r2?.status).toBe(200);
-      expect(r3?.status).toBe(200);
-    });
+		request := &HttpRequest{
+			Method:  "GET",
+			Path:    "/api",
+			Headers: map[string]string{"x-client-id": "test"},
+		}
 
-    it('should reject requests over limit', () => {
-      const handler = new RateLimitHandler(2, 10000);
-      handler.setNext(new RequestHandler(() => ({ status: 200, body: 'ok' })));
+		r1, _ := handler.Handle(request)
+		r2, _ := handler.Handle(request)
+		r3, _ := handler.Handle(request)
 
-      const request: HttpRequest = {
-        method: 'GET',
-        path: '/api',
-        headers: { 'x-client-id': 'test' },
-      };
+		if r1.Status != 200 || r2.Status != 200 || r3.Status != 200 {
+			t.Error("requests within limit should succeed")
+		}
+	})
 
-      handler.handle(request);
-      handler.handle(request);
-      const response = handler.handle(request);
+	t.Run("should reject requests over limit", func(t *testing.T) {
+		handler := NewRateLimitHandler(2, 10000)
+		handler.SetNext(NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
+			return &HttpResponse{Status: 200, Body: "ok"}, nil
+		}))
 
-      expect(response?.status).toBe(429);
-    });
-  });
+		request := &HttpRequest{
+			Method:  "GET",
+			Path:    "/api",
+			Headers: map[string]string{"x-client-id": "test"},
+		}
 
-  describe('Full Chain', () => {
-    it('should process request through all handlers', () => {
-      const chain = new LoggingHandler();
-      const finalHandler = vi.fn().mockReturnValue({ status: 200, body: 'done' });
+		handler.Handle(request)
+		handler.Handle(request)
+		response, _ := handler.Handle(request)
 
-      chain
-        .setNext(new AuthenticationHandler())
-        .setNext(new RequestHandler(finalHandler));
+		if response.Status != 429 {
+			t.Errorf("expected status 429, got %d", response.Status)
+		}
+	})
+}
 
-      const request: HttpRequest = {
-        method: 'GET',
-        path: '/api/data',
-        headers: { authorization: 'Bearer token' },
-      };
+func TestFullChain(t *testing.T) {
+	t.Run("should process request through all handlers", func(t *testing.T) {
+		finalCalled := false
+		finalHandler := NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
+			finalCalled = true
+			return &HttpResponse{Status: 200, Body: "done"}, nil
+		})
 
-      const response = chain.handle(request);
+		chain := &LoggingHandler{}
+		chain.
+			SetNext(&AuthenticationHandler{}).
+			SetNext(finalHandler)
 
-      expect(response?.status).toBe(200);
-      expect(finalHandler).toHaveBeenCalled();
-    });
+		request := &HttpRequest{
+			Method: "GET",
+			Path:   "/api/data",
+			Headers: map[string]string{
+				"authorization": "Bearer token",
+			},
+		}
 
-    it('should stop at first error', () => {
-      const chain = new AuthenticationHandler();
-      const shouldNotBeCalled = vi.fn();
+		response, err := chain.Handle(request)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
-      chain.setNext(new RequestHandler(shouldNotBeCalled));
+		if response.Status != 200 {
+			t.Errorf("expected status 200, got %d", response.Status)
+		}
 
-      const request: HttpRequest = {
-        method: 'GET',
-        path: '/api/data',
-        headers: {}, // No auth
-      };
+		if !finalCalled {
+			t.Error("final handler was not called")
+		}
+	})
 
-      const response = chain.handle(request);
+	t.Run("should stop at first error", func(t *testing.T) {
+		shouldNotBeCalled := false
+		chain := &AuthenticationHandler{}
+		chain.SetNext(NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
+			shouldNotBeCalled = true
+			return &HttpResponse{Status: 200, Body: "ok"}, nil
+		}))
 
-      expect(response?.status).toBe(401);
-      expect(shouldNotBeCalled).not.toHaveBeenCalled();
-    });
-  });
-});
+		request := &HttpRequest{
+			Method:  "GET",
+			Path:    "/api/data",
+			Headers: map[string]string{}, // No auth
+		}
+
+		response, _ := chain.Handle(request)
+
+		if response.Status != 401 {
+			t.Errorf("expected status 401, got %d", response.Status)
+		}
+
+		if shouldNotBeCalled {
+			t.Error("handler should not have been called")
+		}
+	})
+}
 ```
 
 ## Quand utiliser

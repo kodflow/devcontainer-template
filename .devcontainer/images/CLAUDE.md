@@ -21,9 +21,22 @@ Claude Code and MCP servers are included; languages added via features.
     └── settings.json   # Claude settings
 ```
 
+## Container Paths (Runtime)
+
+| Source (Build) | Container Path | Backup Location |
+|----------------|----------------|-----------------|
+| `.claude/` | `/home/vscode/.claude/` | `/etc/claude-defaults/` |
+| `.claude/commands/` | `~/.claude/commands/` | `/etc/claude-defaults/commands/` |
+| `.claude/scripts/` | `~/.claude/scripts/` | `/etc/claude-defaults/scripts/` |
+| `.claude/agents/` | `~/.claude/agents/` | `/etc/claude-defaults/agents/` |
+| `.claude/docs/` | `~/.claude/docs/` | `/etc/claude-defaults/docs/` |
+| `mcp.json.tpl` | `/etc/mcp/mcp.json.tpl` | - |
+
+**Note:** Files are restored from `/etc/claude-defaults/` at each container start via `postStart.sh`.
+
 ## Design Patterns Knowledge Base
 
-**Location:** `.claude/docs/`
+**Container Location:** `~/.claude/docs/` (restored at startup)
 
 Base de connaissances exhaustive de 250+ design patterns, consultée automatiquement par les skills `/plan` et `/review`.
 

@@ -16,245 +16,346 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Basic Snapshots (Jest)
+## Basic Snapshots (cupaloy)
 
-```typescript
-// Component snapshot
-import { render } from '@testing-library/react';
+```go
+package user_test
 
-describe('UserProfile', () => {
-  test('renders correctly', () => {
-    const { container } = render(
-      <UserProfile
-        user={{
-          id: '123',
-          name: 'John Doe',
-          email: 'john@example.com',
-          avatar: 'https://example.com/avatar.jpg',
-        }}
-      />,
-    );
+import (
+	"testing"
 
-    expect(container).toMatchSnapshot();
-  });
+	"github.com/bradleyjkemp/cupaloy/v2"
+)
 
-  test('renders loading state', () => {
-    const { container } = render(<UserProfile loading={true} />);
-    expect(container).toMatchSnapshot();
-  });
+func TestUserProfileSnapshot(t *testing.T) {
+	user := &User{
+		ID:     "123",
+		Name:   "John Doe",
+		Email:  "john@example.com",
+		Avatar: "https://example.com/avatar.jpg",
+	}
 
-  test('renders error state', () => {
-    const { container } = render(
-      <UserProfile error={new Error('Failed to load')} />,
-    );
-    expect(container).toMatchSnapshot();
-  });
-});
+	profile := RenderUserProfile(user)
+
+	// Snapshot the output
+	err := cupaloy.Snapshot(profile)
+	if err != nil {
+		t.Fatalf("snapshot mismatch: %v", err)
+	}
+}
+
+func TestUserProfileLoadingState(t *testing.T) {
+	profile := RenderUserProfile(nil)
+
+	err := cupaloy.Snapshot(profile)
+	if err != nil {
+		t.Fatalf("snapshot mismatch: %v", err)
+	}
+}
+
+func TestUserProfileErrorState(t *testing.T) {
+	profile := RenderUserProfileError("Failed to load")
+
+	err := cupaloy.Snapshot(profile)
+	if err != nil {
+		t.Fatalf("snapshot mismatch: %v", err)
+	}
+}
 ```
 
-Generated snapshot file (`__snapshots__/UserProfile.test.tsx.snap`):
+Generated snapshot file (`.snapshots/TestUserProfileSnapshot`):
 
 ```
-exports[`UserProfile renders correctly 1`] = `
-<div>
-  <div
-    class="profile"
-  >
-    <img
-      alt="John Doe"
-      src="https://example.com/avatar.jpg"
-    />
-    <h1>
-      John Doe
-    </h1>
-    <p>
-      john@example.com
-    </p>
-  </div>
+<div class="profile">
+  <img alt="John Doe" src="https://example.com/avatar.jpg">
+  <h1>John Doe</h1>
+  <p>john@example.com</p>
 </div>
-`;
 ```
 
-## Inline Snapshots
+## Named Snapshots
 
-```typescript
-// Inline snapshots are stored in the test file
-test('formatDate returns expected format', () => {
-  expect(formatDate(new Date('2024-01-15'))).toMatchInlineSnapshot(
-    `"January 15, 2024"`,
-  );
-});
+```go
+package format_test
 
-test('serialize user', () => {
-  const user = { id: '1', name: 'John' };
-  expect(JSON.stringify(user, null, 2)).toMatchInlineSnapshot(`
-    "{
-      \\"id\\": \\"1\\",
-      \\"name\\": \\"John\\"
-    }"
-  `);
-});
+import (
+	"testing"
+	"time"
 
-// Automatically updated when running jest -u
+	"github.com/bradleyjkemp/cupaloy/v2"
+)
+
+func TestFormatDate(t *testing.T) {
+	date := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+	formatted := FormatDate(date)
+
+	// Named snapshot stored in test file
+	snapshotter := cupaloy.New(cupaloy.SnapshotSubdirectory(".snapshots"))
+	err := snapshotter.SnapshotWithName("formatted_date", formatted)
+	if err != nil {
+		t.Fatalf("snapshot mismatch: %v", err)
+	}
+}
+
+func TestSerializeUser(t *testing.T) {
+	user := &User{ID: "1", Name: "John"}
+	serialized := SerializeUser(user)
+
+	snapshotter := cupaloy.New(cupaloy.SnapshotSubdirectory(".snapshots"))
+	err := snapshotter.SnapshotWithName("serialized_user", serialized)
+	if err != nil {
+		t.Fatalf("snapshot mismatch: %v", err)
+	}
+}
 ```
 
 ## API Response Snapshots
 
-```typescript
-describe('API Responses', () => {
-  test('GET /users returns expected structure', async () => {
-    const response = await request(app).get('/users');
+```go
+package api_test
 
-    // Snapshot the structure
-    expect(response.body).toMatchSnapshot({
-      users: expect.arrayContaining([
-        expect.objectContaining({
-          id: expect.any(String),
-          createdAt: expect.any(String),
-        }),
-      ]),
-    });
-  });
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 
-  test('error response format', async () => {
-    const response = await request(app).get('/users/invalid');
+	"github.com/bradleyjkemp/cupaloy/v2"
+)
 
-    expect(response.body).toMatchInlineSnapshot(`
-      {
-        "error": "User not found",
-        "code": "USER_NOT_FOUND",
-        "status": 404
-      }
-    `);
-  });
-});
+func TestGetUsersResponse(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/users", nil)
+	w := httptest.NewRecorder()
+
+	handler := NewUserHandler()
+	handler.ServeHTTP(w, req)
+
+	// Snapshot the response body
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	snapshotter := cupaloy.New(
+		cupaloy.SnapshotSubdirectory(".snapshots"),
+	)
+	err := snapshotter.Snapshot(response)
+	if err != nil {
+		t.Fatalf("snapshot mismatch: %v", err)
+	}
+}
+
+func TestErrorResponse(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/users/invalid", nil)
+	w := httptest.NewRecorder()
+
+	handler := NewUserHandler()
+	handler.ServeHTTP(w, req)
+
+	var response ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	expected := ErrorResponse{
+		Error:  "User not found",
+		Code:   "USER_NOT_FOUND",
+		Status: 404,
+	}
+
+	if response != expected {
+		t.Errorf("response = %+v; want %+v", response, expected)
+	}
+}
 ```
 
-## Property Matchers
+## Dynamic Value Handling
 
-```typescript
-// Handle dynamic values that change between runs
-test('user with dynamic values', () => {
-  const user = createUser();
+```go
+package user_test
 
-  expect(user).toMatchSnapshot({
-    id: expect.any(String), // Ignore actual ID value
-    createdAt: expect.any(Date), // Ignore actual date
-    updatedAt: expect.any(Date),
-  });
-});
+import (
+	"testing"
+	"time"
 
-// Multiple levels
-test('order with dynamic values', () => {
-  const order = createOrder();
+	"github.com/bradleyjkemp/cupaloy/v2"
+)
 
-  expect(order).toMatchSnapshot({
-    id: expect.any(String),
-    createdAt: expect.any(Date),
-    items: expect.arrayContaining([
-      expect.objectContaining({
-        id: expect.any(String),
-      }),
-    ]),
-  });
-});
+func TestUserWithDynamicValues(t *testing.T) {
+	user := CreateUser()
+
+	// Use custom matcher to ignore dynamic fields
+	snapshotter := cupaloy.New(
+		cupaloy.SnapshotSubdirectory(".snapshots"),
+		cupaloy.CreateNewAutomatically(true),
+	)
+
+	// Normalize dynamic values before snapshot
+	normalized := map[string]interface{}{
+		"id":        "[DYNAMIC-ID]",          // Mask ID
+		"name":      user.Name,
+		"email":     user.Email,
+		"createdAt": "[DYNAMIC-TIMESTAMP]",   // Mask timestamp
+	}
+
+	err := snapshotter.Snapshot(normalized)
+	if err != nil {
+		t.Fatalf("snapshot mismatch: %v", err)
+	}
+}
+
+func TestOrderWithDynamicValues(t *testing.T) {
+	order := CreateOrder()
+
+	// Test structure, not exact values
+	structure := map[string]interface{}{
+		"id":        "string",
+		"createdAt": "timestamp",
+		"items": []map[string]interface{}{
+			{
+				"id":       "string",
+				"quantity": order.Items[0].Quantity,
+			},
+		},
+	}
+
+	snapshotter := cupaloy.New(cupaloy.SnapshotSubdirectory(".snapshots"))
+	err := snapshotter.Snapshot(structure)
+	if err != nil {
+		t.Fatalf("snapshot mismatch: %v", err)
+	}
+}
 ```
 
-## Custom Serializers
+## Custom Snapshotter Configuration
 
-```typescript
-// Customize how objects are serialized in snapshots
-expect.addSnapshotSerializer({
-  test: (val) => val instanceof Date,
-  print: (val) => `Date(${(val as Date).toISOString()})`,
-});
+```go
+package config_test
 
-expect.addSnapshotSerializer({
-  test: (val) => val && typeof val === 'object' && 'password' in val,
-  print: (val, print) => {
-    const { password, ...rest } = val as Record<string, unknown>;
-    return print({ ...rest, password: '[REDACTED]' });
-  },
-});
+import (
+	"testing"
 
-// Custom serializer for React components
-import { createSerializer } from '@emotion/jest';
-expect.addSnapshotSerializer(createSerializer());
+	"github.com/bradleyjkemp/cupaloy/v2"
+)
 
-// Usage
-test('component with emotion styles', () => {
-  const { container } = render(<StyledButton>Click me</StyledButton>);
-  expect(container).toMatchSnapshot();
-});
+// Global snapshotter with custom config
+var snapshotter = cupaloy.New(
+	cupaloy.SnapshotSubdirectory(".snapshots"),
+	cupaloy.CreateNewAutomatically(false), // Fail if snapshot doesn't exist
+	cupaloy.FailOnUpdate(true),            // Fail in CI if update needed
+	cupaloy.ShouldUpdate(func() bool {
+		return os.Getenv("UPDATE_SNAPSHOTS") == "true"
+	}),
+)
+
+func TestConfigGeneration(t *testing.T) {
+	config := GenerateConfig(ConfigOptions{Env: "production"})
+
+	err := snapshotter.Snapshot(config)
+	if err != nil {
+		t.Fatalf("snapshot mismatch: %v", err)
+	}
+}
+
+func TestValidationErrors(t *testing.T) {
+	errors := ValidateForm(FormData{
+		Email:    "invalid",
+		Password: "123",
+	})
+
+	expected := []ValidationError{
+		{Field: "email", Message: "Invalid email format"},
+		{Field: "password", Message: "Password must be at least 8 characters"},
+	}
+
+	// Use regular assertion for structured data
+	if len(errors) != len(expected) {
+		t.Errorf("len(errors) = %d; want %d", len(errors), len(expected))
+	}
+	for i, err := range errors {
+		if err != expected[i] {
+			t.Errorf("errors[%d] = %+v; want %+v", i, err, expected[i])
+		}
+	}
+}
 ```
 
-## Snapshot Testing Strategies
+## Table-Driven Snapshot Tests
 
-```typescript
-// 1. Component Snapshots - Full render
-test('full component snapshot', () => {
-  const { container } = render(<ComplexForm />);
-  expect(container).toMatchSnapshot();
-});
+```go
+package format_test
 
-// 2. Partial Snapshots - Specific parts
-test('form fields snapshot', () => {
-  const { getByTestId } = render(<ComplexForm />);
-  expect(getByTestId('email-field')).toMatchSnapshot();
-  expect(getByTestId('password-field')).toMatchSnapshot();
-});
+import (
+	"testing"
 
-// 3. Data Snapshots - API/Config output
-test('config generation', () => {
-  const config = generateConfig({ env: 'production' });
-  expect(config).toMatchSnapshot();
-});
+	"github.com/bradleyjkemp/cupaloy/v2"
+)
 
-// 4. Error Snapshots - Error messages
-test('validation errors', () => {
-  const errors = validateForm({
-    email: 'invalid',
-    password: '123',
-  });
-  expect(errors).toMatchInlineSnapshot(`
-    [
-      {
-        "field": "email",
-        "message": "Invalid email format"
-      },
-      {
-        "field": "password",
-        "message": "Password must be at least 8 characters"
-      }
-    ]
-  `);
-});
+func TestDateFormatting(t *testing.T) {
+	tests := []struct {
+		name string
+		date time.Time
+	}{
+		{"simple", time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)},
+		{"leap_year", time.Date(2024, 2, 29, 0, 0, 0, 0, time.UTC)},
+		{"end_of_year", time.Date(2024, 12, 31, 23, 59, 59, 0, time.UTC)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			formatted := FormatDate(tt.date)
+
+			snapshotter := cupaloy.New(cupaloy.SnapshotSubdirectory(".snapshots"))
+			err := snapshotter.SnapshotWithName(tt.name, formatted)
+			if err != nil {
+				t.Fatalf("snapshot mismatch: %v", err)
+			}
+		})
+	}
+}
 ```
 
-## Vitest Snapshots
+## go-test-diff Alternative
 
-```typescript
-import { describe, expect, test } from 'vitest';
+```go
+package user_test
 
-describe('snapshots with Vitest', () => {
-  test('inline snapshot', () => {
-    expect({ hello: 'world' }).toMatchInlineSnapshot(`
-      {
-        "hello": "world",
-      }
-    `);
-  });
+import (
+	"testing"
 
-  test('file snapshot', () => {
-    expect(renderComponent()).toMatchSnapshot();
-  });
+	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
+)
 
-  // Vitest-specific: toMatchFileSnapshot
-  test('save to specific file', async () => {
-    const output = generateReport();
-    await expect(output).toMatchFileSnapshot('./snapshots/report.txt');
-  });
-});
+func TestUserWithDiff(t *testing.T) {
+	user := CreateUser()
+
+	expected := &User{
+		ID:    "123",
+		Name:  "John Doe",
+		Email: "john@example.com",
+	}
+
+	// Use go-cmp for detailed diff
+	if diff := cmp.Diff(expected, user); diff != "" {
+		t.Errorf("user mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestAPIResponseWithAssert(t *testing.T) {
+	response := GetAPIResponse()
+
+	expected := APIResponse{
+		Status: "success",
+		Data: map[string]interface{}{
+			"count": 10,
+			"items": []string{"a", "b", "c"},
+		},
+	}
+
+	// Use testify for structured comparison
+	assert.Equal(t, expected, response)
+}
 ```
 
 ## CI/CD Integration
@@ -271,17 +372,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
 
       - name: Run tests
-        run: npm test -- --ci
+        run: go test ./... -v
 
       - name: Check for uncommitted snapshot changes
         run: |
-          if [ -n "$(git status --porcelain **/\*.snap)" ]; then
+          if [ -n "$(git status --porcelain **/.snapshots)" ]; then
             echo "Snapshot files have changed. Please update and commit."
-            git diff **/\*.snap
+            git diff **/.snapshots
             exit 1
           fi
 ```
@@ -290,11 +393,10 @@ jobs:
 
 | Package | Usage |
 |---------|-------|
-| `jest` | Built-in snapshot support |
-| `vitest` | Jest-compatible snapshots |
-| `@testing-library/react` | React component testing |
-| `react-test-renderer` | React snapshot rendering |
-| `@emotion/jest` | Emotion CSS serializer |
+| `github.com/bradleyjkemp/cupaloy/v2` | Snapshot testing |
+| `github.com/google/go-cmp/cmp` | Deep comparison |
+| `github.com/stretchr/testify/assert` | Assertions |
+| `github.com/sergi/go-diff/diffmatchpatch` | Diff visualization |
 
 ## Erreurs communes
 
@@ -302,7 +404,7 @@ jobs:
 |--------|--------|----------|
 | Snapshots trop grands | Review difficile | Snapshots partiels |
 | Update sans review | Bugs masques | Review chaque update |
-| Donnees dynamiques | Tests flaky | Property matchers |
+| Donnees dynamiques | Tests flaky | Normaliser avant snapshot |
 | Commit auto-updates | Changements non voulus | CI check strict |
 | Trop de snapshots | Maintenance lourde | Cibler elements stables |
 
@@ -310,7 +412,7 @@ jobs:
 
 | Scenario | Recommande |
 |----------|------------|
-| UI components | Oui |
+| Serialization output | Oui |
 | API response format | Oui |
 | Config/output generation | Oui |
 | Highly dynamic content | Non |
@@ -319,22 +421,31 @@ jobs:
 
 ## Best practices
 
-```typescript
+```go
 // 1. Name snapshots clearly
-test('UserProfile: logged in user with avatar', () => { ... });
+func TestUserProfile_LoggedInWithAvatar(t *testing.T) { ... }
 
 // 2. One concern per snapshot
-test('header renders correctly', () => { ... });
-test('content renders correctly', () => { ... });
+func TestHeader(t *testing.T) { ... }
+func TestContent(t *testing.T) { ... }
 
-// 3. Use inline for small, stable outputs
-expect(result).toMatchInlineSnapshot(`"expected output"`);
+// 3. Use table-driven tests for variations
+func TestFormatting(t *testing.T) {
+	tests := []struct {
+		name string
+		input string
+	}{
+		{"simple", "hello"},
+		{"unicode", "héllo"},
+	}
+	// ...
+}
 
 // 4. Review every snapshot update
 // git diff before committing
 
 // 5. Clean up obsolete snapshots
-// jest --updateSnapshot --testPathPattern=specific-file
+// Remove unused .snapshots files
 ```
 
 ## Patterns lies
@@ -345,6 +456,6 @@ expect(result).toMatchInlineSnapshot(`"expected output"`);
 
 ## Sources
 
-- [Jest Snapshot Testing](https://jestjs.io/docs/snapshot-testing)
+- [Cupaloy Documentation](https://github.com/bradleyjkemp/cupaloy)
 - [Effective Snapshot Testing](https://kentcdodds.com/blog/effective-snapshot-testing)
-- [Vitest Snapshots](https://vitest.dev/guide/snapshot.html)
+- [Go-cmp Guide](https://github.com/google/go-cmp)

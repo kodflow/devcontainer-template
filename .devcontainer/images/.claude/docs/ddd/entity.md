@@ -1,5 +1,7 @@
 # Entity Pattern
 
+> Objet domaine avec une identité distincte qui persiste à travers le temps et les différentes représentations.
+
 ## Definition
 
 An **Entity** is a domain object with a distinct identity that runs through time and different representations. Unlike Value Objects, entities are distinguished by their identity, not their attributes.
@@ -15,125 +17,165 @@ Entity = Identity + State + Behavior + Lifecycle
 - **Lifecycle**: Creation, modification, and potentially deletion
 - **Mutability**: State can change while identity remains constant
 
-## TypeScript Implementation
+## Go Implementation
 
-```typescript
-// Base Entity with identity
-abstract class Entity<TId> {
-  protected readonly _id: TId;
+```go
+package domain
 
-  constructor(id: TId) {
-    this._id = id;
-  }
+import (
+	"errors"
+	"time"
 
-  get id(): TId {
-    return this._id;
-  }
+	"github.com/google/uuid"
+)
 
-  equals(other: Entity<TId>): boolean {
-    if (other === null || other === undefined) return false;
-    if (!(other instanceof Entity)) return false;
-    return this._id === other._id;
-  }
-
-  hashCode(): string {
-    return String(this._id);
-  }
+// Entity is a base type for domain entities with identity.
+type Entity[TID comparable] struct {
+	id TID
 }
 
-// Domain Entity Example
-class User extends Entity<UserId> {
-  private _email: Email;
-  private _name: Name;
-  private _status: UserStatus;
-  private _createdAt: Date;
-  private _updatedAt: Date;
-
-  private constructor(
-    id: UserId,
-    email: Email,
-    name: Name,
-    status: UserStatus
-  ) {
-    super(id);
-    this._email = email;
-    this._name = name;
-    this._status = status;
-    this._createdAt = new Date();
-    this._updatedAt = new Date();
-  }
-
-  // Factory method - encapsulates creation logic
-  static create(email: Email, name: Name): Result<User, ValidationError> {
-    const id = UserId.generate();
-    return Result.ok(new User(id, email, name, UserStatus.Active));
-  }
-
-  // Reconstitution from persistence
-  static reconstitute(
-    id: UserId,
-    email: Email,
-    name: Name,
-    status: UserStatus,
-    createdAt: Date,
-    updatedAt: Date
-  ): User {
-    const user = new User(id, email, name, status);
-    user._createdAt = createdAt;
-    user._updatedAt = updatedAt;
-    return user;
-  }
-
-  // Domain behavior with invariant protection
-  changeEmail(newEmail: Email): Result<void, DomainError> {
-    if (this._status === UserStatus.Deactivated) {
-      return Result.fail(new DomainError('Cannot change email of deactivated user'));
-    }
-    this._email = newEmail;
-    this._updatedAt = new Date();
-    return Result.ok(undefined);
-  }
-
-  deactivate(): Result<void, DomainError> {
-    if (this._status === UserStatus.Deactivated) {
-      return Result.fail(new DomainError('User already deactivated'));
-    }
-    this._status = UserStatus.Deactivated;
-    this._updatedAt = new Date();
-    return Result.ok(undefined);
-  }
-
-  // Getters - expose state without setters
-  get email(): Email { return this._email; }
-  get name(): Name { return this._name; }
-  get status(): UserStatus { return this._status; }
-  get isActive(): boolean { return this._status === UserStatus.Active; }
+// NewEntity creates a new entity with the given ID.
+func NewEntity[TID comparable](id TID) Entity[TID] {
+	return Entity[TID]{id: id}
 }
 
-// Strongly-typed ID (Value Object)
-class UserId {
-  private readonly _value: string;
+// ID returns the entity's identifier.
+func (e Entity[TID]) ID() TID {
+	return e.id
+}
 
-  private constructor(value: string) {
-    this._value = value;
-  }
+// Equals checks if two entities have the same identity.
+func (e Entity[TID]) Equals(other Entity[TID]) bool {
+	return e.id == other.id
+}
 
-  static generate(): UserId {
-    return new UserId(crypto.randomUUID());
-  }
+// UserID is a strongly-typed identifier.
+type UserID struct {
+	value string
+}
 
-  static from(value: string): Result<UserId, ValidationError> {
-    if (!value || value.trim() === '') {
-      return Result.fail(new ValidationError('UserId cannot be empty'));
-    }
-    return Result.ok(new UserId(value));
-  }
+// NewUserID generates a new UserID.
+func NewUserID() UserID {
+	return UserID{value: uuid.New().String()}
+}
 
-  get value(): string { return this._value; }
+// UserIDFrom creates a UserID from a string.
+func UserIDFrom(value string) (UserID, error) {
+	if value == "" {
+		return UserID{}, errors.New("userID cannot be empty")
+	}
+	return UserID{value: value}, nil
+}
 
-  equals(other: UserId): boolean {
-    return this._value === other._value;
-  }
+// Value returns the underlying string value.
+func (id UserID) Value() string {
+	return id.value
+}
+
+// Equals checks UserID equality.
+func (id UserID) Equals(other UserID) bool {
+	return id.value == other.value
+}
+
+// UserStatus represents user account status.
+type UserStatus string
+
+const (
+	UserStatusActive      UserStatus = "active"
+	UserStatusDeactivated UserStatus = "deactivated"
+)
+
+// User is a domain entity with identity and behavior.
+type User struct {
+	Entity[UserID]
+	email     Email
+	name      Name
+	status    UserStatus
+	createdAt time.Time
+	updatedAt time.Time
+}
+
+// NewUser creates a new active user.
+func NewUser(email Email, name Name) User {
+	id := NewUserID()
+	now := time.Now()
+	
+	return User{
+		Entity:    NewEntity(id),
+		email:     email,
+		name:      name,
+		status:    UserStatusActive,
+		createdAt: now,
+		updatedAt: now,
+	}
+}
+
+// Reconstitute recreates a User from persistence.
+func ReconstituteUser(
+	id UserID,
+	email Email,
+	name Name,
+	status UserStatus,
+	createdAt, updatedAt time.Time,
+) User {
+	return User{
+		Entity:    NewEntity(id),
+		email:     email,
+		name:      name,
+		status:    status,
+		createdAt: createdAt,
+		updatedAt: updatedAt,
+	}
+}
+
+// ChangeEmail updates the user's email with invariant protection.
+func (u *User) ChangeEmail(newEmail Email) error {
+	if u.status == UserStatusDeactivated {
+		return errors.New("cannot change email of deactivated user")
+	}
+	u.email = newEmail
+	u.updatedAt = time.Now()
+	return nil
+}
+
+// Deactivate marks the user as deactivated.
+func (u *User) Deactivate() error {
+	if u.status == UserStatusDeactivated {
+		return errors.New("user already deactivated")
+	}
+	u.status = UserStatusDeactivated
+	u.updatedAt = time.Now()
+	return nil
+}
+
+// Email returns the user's email.
+func (u User) Email() Email {
+	return u.email
+}
+
+// Name returns the user's name.
+func (u User) Name() Name {
+	return u.name
+}
+
+// Status returns the user's status.
+func (u User) Status() UserStatus {
+	return u.status
+}
+
+// IsActive checks if the user is active.
+func (u User) IsActive() bool {
+	return u.status == UserStatusActive
+}
+
+// CreatedAt returns when the user was created.
+func (u User) CreatedAt() time.Time {
+	return u.createdAt
+}
+
+// UpdatedAt returns when the user was last updated.
+func (u User) UpdatedAt() time.Time {
+	return u.updatedAt
 }
 ```
 
@@ -146,91 +188,115 @@ class UserId {
 | Behavior | Instance methods | Pure functions |
 | Updates | Mutate in place | Return new instance |
 
-```typescript
-// FP-style Entity using fp-ts
-import { pipe } from 'fp-ts/function';
-import * as E from 'fp-ts/Either';
+```go
+// FP-style Entity using immutable patterns
 
-type User = Readonly<{
-  id: UserId;
-  email: Email;
-  name: Name;
-  status: UserStatus;
-  createdAt: Date;
-  updatedAt: Date;
-}>;
+// User is an immutable record.
+type User struct {
+	ID        UserID
+	Email     Email
+	Name      Name
+	Status    UserStatus
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
 
-const changeEmail = (newEmail: Email) => (user: User): E.Either<DomainError, User> =>
-  user.status === 'deactivated'
-    ? E.left(new DomainError('Cannot change email of deactivated user'))
-    : E.right({ ...user, email: newEmail, updatedAt: new Date() });
+// ChangeEmail returns a new User with updated email.
+func ChangeEmail(user User, newEmail Email) (User, error) {
+	if user.Status == UserStatusDeactivated {
+		return User{}, errors.New("cannot change email of deactivated user")
+	}
+	
+	return User{
+		ID:        user.ID,
+		Email:     newEmail,
+		Name:      user.Name,
+		Status:    user.Status,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: time.Now(),
+	}, nil
+}
 
-const deactivate = (user: User): E.Either<DomainError, User> =>
-  user.status === 'deactivated'
-    ? E.left(new DomainError('User already deactivated'))
-    : E.right({ ...user, status: 'deactivated' as UserStatus, updatedAt: new Date() });
+// Deactivate returns a new User with deactivated status.
+func Deactivate(user User) (User, error) {
+	if user.Status == UserStatusDeactivated {
+		return User{}, errors.New("user already deactivated")
+	}
+	
+	return User{
+		ID:        user.ID,
+		Email:     user.Email,
+		Name:      user.Name,
+		Status:    UserStatusDeactivated,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: time.Now(),
+	}, nil
+}
 ```
 
 ## Recommended Libraries
 
 | Library | Purpose | Link |
 |---------|---------|------|
-| **uuid** | ID generation | `npm i uuid` |
-| **nanoid** | Compact IDs | `npm i nanoid` |
-| **ts-results** | Result type | `npm i ts-results` |
-| **Effect** | Full FP stack | `npm i effect` |
+| **google/uuid** | ID generation | `go get github.com/google/uuid` |
+| **oklog/ulid** | Sortable IDs | `go get github.com/oklog/ulid/v2` |
+| **rs/xid** | Compact IDs | `go get github.com/rs/xid` |
 
 ## Anti-patterns
 
 1. **Anemic Entity**: Entity with only getters/setters, no behavior
 
-   ```typescript
+   ```go
    // BAD - No domain logic
-   class User {
-     id: string;
-     email: string; // Public setter!
-     name: string;
+   type User struct {
+       ID     string
+       Email  string // Public field!
+       Name   string
    }
    ```
 
 2. **Primitive Obsession**: Using primitives instead of Value Objects for identity
 
-   ```typescript
+   ```go
    // BAD
-   class User extends Entity<string> { }
-
+   type User struct {
+       ID string
+   }
+   
    // GOOD
-   class User extends Entity<UserId> { }
+   type User struct {
+       ID UserID
+   }
    ```
 
 3. **Missing Invariant Protection**: Allowing invalid state transitions
 
-   ```typescript
+   ```go
    // BAD - No validation
-   user.status = UserStatus.Deactivated;
-
+   user.Status = UserStatusDeactivated
+   
    // GOOD - Controlled transition
-   user.deactivate();
+   err := user.Deactivate()
    ```
 
 4. **Identity Confusion**: Comparing entities by attributes instead of ID
 
-   ```typescript
+   ```go
    // BAD
-   user1.email === user2.email
-
+   user1.Email == user2.Email
+   
    // GOOD
-   user1.equals(user2) // or user1.id.equals(user2.id)
+   user1.ID().Equals(user2.ID())
    ```
 
-## When to Use
+## Quand utiliser
 
-- Object needs to be tracked through time
-- Object has a lifecycle (create, update, delete)
-- Two objects with same attributes should be distinguishable
-- Business operations depend on object history
+- L'objet doit être suivi dans le temps
+- L'objet a un cycle de vie (création, modification, suppression)
+- Deux objets avec les mêmes attributs doivent être distinguables
+- Les opérations métier dépendent de l'historique de l'objet
 
-## See Also
+## Patterns liés
 
 - [Value Object](./value-object.md) - For objects defined by attributes
 - [Aggregate](./aggregate.md) - For clustering entities

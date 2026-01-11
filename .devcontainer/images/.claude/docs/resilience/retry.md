@@ -36,124 +36,125 @@
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-interface RetryOptions {
-  maxAttempts: number;
-  baseDelay: number;       // Delai initial en ms
-  maxDelay: number;        // Delai maximum en ms
-  backoffMultiplier: number;
-  jitter: boolean;
-  retryableErrors?: (error: Error) => boolean;
+```go
+package retry
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"math/rand"
+	"time"
+)
+
+// RetryError wraps errors after all retry attempts failed.
+type RetryError struct {
+	Attempts  int
+	LastError error
 }
 
-const defaultOptions: RetryOptions = {
-  maxAttempts: 3,
-  baseDelay: 100,
-  maxDelay: 10000,
-  backoffMultiplier: 2,
-  jitter: true,
-};
-
-class RetryError extends Error {
-  constructor(
-    message: string,
-    public readonly attempts: number,
-    public readonly lastError: Error,
-  ) {
-    super(message);
-    this.name = 'RetryError';
-  }
+func (e *RetryError) Error() string {
+	return fmt.Sprintf("failed after %d attempts: %v", e.Attempts, e.LastError)
 }
 
-async function retry<T>(
-  fn: () => Promise<T>,
-  options: Partial<RetryOptions> = {},
-): Promise<T> {
-  const opts = { ...defaultOptions, ...options };
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= opts.maxAttempts; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error as Error;
-
-      // Verifier si l'erreur est retryable
-      if (opts.retryableErrors && !opts.retryableErrors(lastError)) {
-        throw lastError;
-      }
-
-      // Dernier essai: propager l'erreur
-      if (attempt === opts.maxAttempts) {
-        throw new RetryError(
-          `Failed after ${attempt} attempts`,
-          attempt,
-          lastError,
-        );
-      }
-
-      // Calculer le delai avec backoff
-      const delay = calculateDelay(attempt, opts);
-      console.log(`Attempt ${attempt} failed, retrying in ${delay}ms...`);
-      await sleep(delay);
-    }
-  }
-
-  throw lastError;
+func (e *RetryError) Unwrap() error {
+	return e.LastError
 }
 
-function calculateDelay(attempt: number, opts: RetryOptions): number {
-  // Exponential backoff
-  let delay = opts.baseDelay * Math.pow(opts.backoffMultiplier, attempt - 1);
-
-  // Appliquer le maximum
-  delay = Math.min(delay, opts.maxDelay);
-
-  // Ajouter le jitter (±50%)
-  if (opts.jitter) {
-    const jitterFactor = 0.5 + Math.random();
-    delay = Math.floor(delay * jitterFactor);
-  }
-
-  return delay;
+// RetryOptions configures retry behavior.
+type RetryOptions struct {
+	MaxAttempts       int
+	BaseDelay         time.Duration
+	MaxDelay          time.Duration
+	BackoffMultiplier float64
+	Jitter            bool
+	RetryableErrors   func(error) bool
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+// DefaultRetryOptions returns default retry configuration.
+func DefaultRetryOptions() RetryOptions {
+	return RetryOptions{
+		MaxAttempts:       3,
+		BaseDelay:         100 * time.Millisecond,
+		MaxDelay:          10 * time.Second,
+		BackoffMultiplier: 2,
+		Jitter:            true,
+		RetryableErrors:   nil, // Retry all errors by default
+	}
 }
-```
 
----
+// Retry executes fn with exponential backoff.
+func Retry(ctx context.Context, fn func() error, options RetryOptions) error {
+	var lastErr error
 
-## Decorator pour retry
+	for attempt := 1; attempt <= options.MaxAttempts; attempt++ {
+		if err := fn(); err == nil {
+			return nil
+		} else {
+			lastErr = err
 
-```typescript
-function Retryable(options: Partial<RetryOptions> = {}) {
-  return function (
-    target: object,
-    propertyKey: string,
-    descriptor: PropertyDescriptor,
-  ) {
-    const originalMethod = descriptor.value;
+			// Check if error is retryable
+			if options.RetryableErrors != nil && !options.RetryableErrors(err) {
+				return err
+			}
 
-    descriptor.value = async function (...args: unknown[]) {
-      return retry(() => originalMethod.apply(this, args), options);
-    };
+			// Last attempt: return error
+			if attempt == options.MaxAttempts {
+				return &RetryError{
+					Attempts:  attempt,
+					LastError: lastErr,
+				}
+			}
 
-    return descriptor;
-  };
+			// Calculate backoff delay
+			delay := calculateDelay(attempt, options)
+
+			// Wait with context cancellation support
+			select {
+			case <-time.After(delay):
+				// Continue to next attempt
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	}
+
+	return lastErr
+}
+
+func calculateDelay(attempt int, opts RetryOptions) time.Duration {
+	// Exponential backoff
+	delay := float64(opts.BaseDelay) * math.Pow(opts.BackoffMultiplier, float64(attempt-1))
+
+	// Apply max delay
+	if delay > float64(opts.MaxDelay) {
+		delay = float64(opts.MaxDelay)
+	}
+
+	// Add jitter (±50%)
+	if opts.Jitter {
+		jitterFactor := 0.5 + rand.Float64()
+		delay = delay * jitterFactor
+	}
+
+	return time.Duration(delay)
 }
 
 // Usage
-class ApiClient {
-  @Retryable({ maxAttempts: 5, baseDelay: 200 })
-  async fetchUser(id: string): Promise<User> {
-    const response = await fetch(`/api/users/${id}`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
-  }
+func example(ctx context.Context) error {
+	options := RetryOptions{
+		MaxAttempts:       5,
+		BaseDelay:         200 * time.Millisecond,
+		MaxDelay:          10 * time.Second,
+		BackoffMultiplier: 2,
+		Jitter:            true,
+	}
+
+	return Retry(ctx, func() error {
+		return fetchData("https://api.example.com/data")
+	}, options)
 }
 ```
 
@@ -161,71 +162,230 @@ class ApiClient {
 
 ## Erreurs retryables
 
-```typescript
-// Definir quelles erreurs meritent un retry
-const isRetryable = (error: Error): boolean => {
-  // Erreurs reseau
-  if (error.name === 'TypeError' && error.message.includes('fetch')) {
-    return true;
-  }
+```go
+package retry
 
-  // Erreurs HTTP specifiques
-  if (error instanceof HttpError) {
-    const retryableCodes = [408, 429, 500, 502, 503, 504];
-    return retryableCodes.includes(error.status);
-  }
+import (
+	"errors"
+	"fmt"
+	"net/http"
+)
 
-  // Erreurs de timeout
-  if (error.name === 'TimeoutError') {
-    return true;
-  }
+// HTTPError represents an HTTP error.
+type HTTPError struct {
+	Status int
+	Body   string
+}
 
-  // Erreurs de lock/conflit
-  if (error.message.includes('lock') || error.message.includes('conflict')) {
-    return true;
-  }
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("HTTP %d: %s", e.Status, e.Body)
+}
 
-  return false;
-};
+// IsRetryable determines if an error should be retried.
+func IsRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Context errors are not retryable
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return false
+	}
+
+	// HTTP specific errors
+	var httpErr *HTTPError
+	if errors.As(err, &httpErr) {
+		retryableCodes := map[int]bool{
+			http.StatusRequestTimeout:      true, // 408
+			http.StatusTooManyRequests:     true, // 429
+			http.StatusInternalServerError: true, // 500
+			http.StatusBadGateway:          true, // 502
+			http.StatusServiceUnavailable:  true, // 503
+			http.StatusGatewayTimeout:      true, // 504
+		}
+		return retryableCodes[httpErr.Status]
+	}
+
+	// Network errors (simplified check)
+	if errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ETIMEDOUT) {
+		return true
+	}
+
+	// Database lock/conflict errors
+	errMsg := err.Error()
+	if contains(errMsg, "lock") || contains(errMsg, "conflict") || contains(errMsg, "deadlock") {
+		return true
+	}
+
+	return false
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && 
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || 
+		 containsSubstring(s, substr)))
+}
+
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
 
 // Usage
-await retry(
-  () => apiCall(),
-  { retryableErrors: isRetryable },
-);
+func fetchUserWithRetry(ctx context.Context, userID string) (*User, error) {
+	options := DefaultRetryOptions()
+	options.RetryableErrors = IsRetryable
+
+	var user *User
+	err := Retry(ctx, func() error {
+		var err error
+		user, err = apiClient.GetUser(userID)
+		return err
+	}, options)
+
+	return user, err
+}
 ```
 
 ---
 
 ## Retry avec cancellation
 
-```typescript
-async function retryWithAbort<T>(
-  fn: (signal: AbortSignal) => Promise<T>,
-  options: RetryOptions & { signal?: AbortSignal },
-): Promise<T> {
-  const { signal, ...retryOpts } = options;
+```go
+package retry
 
-  return retry(async () => {
-    // Verifier l'annulation avant chaque tentative
-    if (signal?.aborted) {
-      throw new Error('Operation cancelled');
-    }
-    return fn(signal ?? new AbortController().signal);
-  }, retryOpts);
+import (
+	"context"
+	"time"
+)
+
+// RetryWithAbort executes fn with retry and abort support.
+func RetryWithAbort(ctx context.Context, fn func(context.Context) error, options RetryOptions) error {
+	var lastErr error
+
+	for attempt := 1; attempt <= options.MaxAttempts; attempt++ {
+		// Check cancellation before each attempt
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if err := fn(ctx); err == nil {
+			return nil
+		} else {
+			lastErr = err
+
+			if options.RetryableErrors != nil && !options.RetryableErrors(err) {
+				return err
+			}
+
+			if attempt == options.MaxAttempts {
+				return &RetryError{
+					Attempts:  attempt,
+					LastError: lastErr,
+				}
+			}
+
+			delay := calculateDelay(attempt, options)
+
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	}
+
+	return lastErr
 }
 
-// Usage avec timeout global
-const controller = new AbortController();
-const timeout = setTimeout(() => controller.abort(), 30000);
+// Usage with global timeout
+func example() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-try {
-  const result = await retryWithAbort(
-    (signal) => fetch('/api/data', { signal }),
-    { maxAttempts: 5, signal: controller.signal },
-  );
-} finally {
-  clearTimeout(timeout);
+	options := RetryOptions{
+		MaxAttempts: 5,
+		BaseDelay:   200 * time.Millisecond,
+		MaxDelay:    10 * time.Second,
+	}
+
+	return RetryWithAbort(ctx, func(ctx context.Context) error {
+		req, err := http.NewRequestWithContext(ctx, "GET", "/api/data", nil)
+		if err != nil {
+			return err
+		}
+		_, err = http.DefaultClient.Do(req)
+		return err
+	}, options)
+}
+```
+
+---
+
+## Retry avec generics
+
+```go
+package retry
+
+import (
+	"context"
+)
+
+// RetryFunc executes fn with retry and returns the result.
+func RetryFunc[T any](ctx context.Context, fn func() (T, error), options RetryOptions) (T, error) {
+	var (
+		result  T
+		lastErr error
+	)
+
+	for attempt := 1; attempt <= options.MaxAttempts; attempt++ {
+		select {
+		case <-ctx.Done():
+			return result, ctx.Err()
+		default:
+		}
+
+		var err error
+		result, err = fn()
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+
+		if options.RetryableErrors != nil && !options.RetryableErrors(err) {
+			return result, err
+		}
+
+		if attempt == options.MaxAttempts {
+			return result, &RetryError{
+				Attempts:  attempt,
+				LastError: lastErr,
+			}
+		}
+
+		delay := calculateDelay(attempt, options)
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			return result, ctx.Err()
+		}
+	}
+
+	return result, lastErr
+}
+
+// Usage with typed return value
+func fetchUserWithTypedRetry(ctx context.Context, userID string) (*User, error) {
+	return RetryFunc(ctx, func() (*User, error) {
+		return apiClient.GetUser(userID)
+	}, DefaultRetryOptions())
 }
 ```
 

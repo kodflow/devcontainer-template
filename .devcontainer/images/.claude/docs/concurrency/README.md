@@ -8,7 +8,7 @@ Patterns pour la programmation concurrente et parallèle.
 
 > Pool de workers pour exécuter des tâches en parallèle.
 
-```typescript
+```go
 class ThreadPool {
   private workers: Worker[] = [];
   private taskQueue: (() => Promise<any>)[] = [];
@@ -62,7 +62,7 @@ const results = await Promise.all(
 
 > Séparer production et consommation via une queue.
 
-```typescript
+```go
 class ProducerConsumer<T> {
   private queue: T[] = [];
   private consumers: ((item: T) => void)[] = [];
@@ -126,7 +126,7 @@ for (let i = 0; i < 3; i++) {
 
 > Résultat asynchrone différé.
 
-```typescript
+```go
 // Deferred pattern - Promise contrôlable
 class Deferred<T> {
   readonly promise: Promise<T>;
@@ -186,7 +186,7 @@ class CompletableFuture<T> {
 
 > Accès exclusif à une ressource partagée.
 
-```typescript
+```go
 class Mutex {
   private locked = false;
   private waiting: (() => void)[] = [];
@@ -243,7 +243,7 @@ async function increment() {
 
 > Limiter l'accès concurrent à N ressources.
 
-```typescript
+```go
 class Semaphore {
   private permits: number;
   private waiting: (() => void)[] = [];
@@ -301,7 +301,7 @@ async function fetchWithLimit(url: string) {
 
 > Plusieurs lecteurs OU un seul écrivain.
 
-```typescript
+```go
 class ReadWriteLock {
   private readers = 0;
   private writer = false;
@@ -364,7 +364,7 @@ class ReadWriteLock {
 
 > Entités isolées communiquant par messages.
 
-```typescript
+```go
 type Message = { type: string; payload?: any };
 
 abstract class Actor {
@@ -428,7 +428,7 @@ counter.send({
 
 > Découpler invocation et exécution de méthode.
 
-```typescript
+```go
 class ActiveObject<T> {
   private queue: (() => Promise<void>)[] = [];
   private processing = false;
@@ -481,7 +481,7 @@ await activeDb.invoke((db) => db.query('SELECT 1'));
 
 > Synchronisation avec conditions.
 
-```typescript
+```go
 class Monitor {
   private mutex = new Mutex();
   private conditions = new Map<string, (() => void)[]>();
@@ -530,7 +530,7 @@ class Monitor {
 
 > Synchroniser plusieurs threads à un point.
 
-```typescript
+```go
 class Barrier {
   private count: number;
   private waiting: (() => void)[] = [];
@@ -578,7 +578,7 @@ await Promise.all([worker(1), worker(2), worker(3)]);
 
 > Diviser pour régner en parallèle.
 
-```typescript
+```go
 class ForkJoin {
   constructor(private pool: ThreadPool) {}
 
@@ -624,7 +624,7 @@ async function parallelSort(arr: number[]): Promise<number[]> {
 
 > Chaîne de stages de traitement.
 
-```typescript
+```go
 type Stage<I, O> = (input: I) => Promise<O>;
 
 class Pipeline<I, O> {
@@ -670,7 +670,7 @@ const url = await imageProcessor.execute(imageBuffer);
 
 > Planifier l'exécution des tâches.
 
-```typescript
+```go
 interface ScheduledTask {
   id: string;
   execute: () => Promise<void>;
@@ -732,7 +732,7 @@ scheduler.schedule({
 
 > Initialisation thread-safe performante.
 
-```typescript
+```go
 class LazyInitialization<T> {
   private instance: T | null = null;
   private initialized = false;
@@ -777,7 +777,7 @@ const db = await dbConnection.get();
 
 > Queue avec traitement asynchrone ordonné.
 
-```typescript
+```go
 class AsyncQueue<T> {
   private queue: T[] = [];
   private processing = false;

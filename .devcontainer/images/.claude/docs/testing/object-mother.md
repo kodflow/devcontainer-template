@@ -8,360 +8,476 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Object Mother Pattern                       │
 │                                                                  │
-│   UserMother.john()        ──► Predefined "John" user           │
-│   UserMother.admin()       ──► Any admin user                   │
-│   UserMother.random()      ──► Random valid user                │
-│   UserMother.withOrders()  ──► User with related objects        │
+│   UserMother.John()        ──► Predefined "John" user           │
+│   UserMother.Admin()       ──► Any admin user                   │
+│   UserMother.Random()      ──► Random valid user                │
+│   UserMother.WithOrders()  ──► User with related objects        │
 │                                                                  │
 │   Benefits: Named scenarios, Consistent test data, Readable     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-import { faker } from '@faker-js/faker';
+```go
+package testdata
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'admin' | 'member' | 'guest';
-  active: boolean;
-  createdAt: Date;
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// User domain model
+type User struct {
+	ID        string
+	Email     string
+	Name      string
+	Role      string
+	Active    bool
+	CreatedAt time.Time
 }
 
-class UserMother {
-  // Named personas
-  static john(): User {
-    return {
-      id: 'john-id',
-      email: 'john.doe@test.com',
-      name: 'John Doe',
-      role: 'member',
-      active: true,
-      createdAt: new Date('2024-01-01'),
-    };
-  }
+// UserMother provides predefined test users
+type UserMother struct{}
 
-  static jane(): User {
-    return {
-      id: 'jane-id',
-      email: 'jane.smith@test.com',
-      name: 'Jane Smith',
-      role: 'member',
-      active: true,
-      createdAt: new Date('2024-01-02'),
-    };
-  }
+// John returns a predefined "John" user
+func (UserMother) John() *User {
+	return &User{
+		ID:        "john-id",
+		Email:     "john.doe@test.com",
+		Name:      "John Doe",
+		Role:      "member",
+		Active:    true,
+		CreatedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+	}
+}
 
-  // Role-based
-  static admin(): User {
-    return {
-      id: faker.string.uuid(),
-      email: 'admin@test.com',
-      name: 'Admin User',
-      role: 'admin',
-      active: true,
-      createdAt: new Date(),
-    };
-  }
+// Jane returns a predefined "Jane" user
+func (UserMother) Jane() *User {
+	return &User{
+		ID:        "jane-id",
+		Email:     "jane.smith@test.com",
+		Name:      "Jane Smith",
+		Role:      "member",
+		Active:    true,
+		CreatedAt: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
+	}
+}
 
-  static guest(): User {
-    return {
-      id: faker.string.uuid(),
-      email: 'guest@test.com',
-      name: 'Guest User',
-      role: 'guest',
-      active: false,
-      createdAt: new Date(),
-    };
-  }
+// Admin returns an admin user
+func (UserMother) Admin() *User {
+	return &User{
+		ID:        uuid.NewString(),
+		Email:     "admin@test.com",
+		Name:      "Admin User",
+		Role:      "admin",
+		Active:    true,
+		CreatedAt: time.Now(),
+	}
+}
 
-  // State-based
-  static inactive(): User {
-    return {
-      ...this.john(),
-      id: 'inactive-user-id',
-      active: false,
-    };
-  }
+// Guest returns a guest user
+func (UserMother) Guest() *User {
+	return &User{
+		ID:        uuid.NewString(),
+		Email:     "guest@test.com",
+		Name:      "Guest User",
+		Role:      "guest",
+		Active:    false,
+		CreatedAt: time.Now(),
+	}
+}
 
-  static deleted(): User {
-    return {
-      ...this.john(),
-      id: 'deleted-user-id',
-      active: false,
-      deletedAt: new Date(),
-    } as User & { deletedAt: Date };
-  }
+// Inactive returns an inactive user
+func (UserMother) Inactive() *User {
+	john := UserMother{}.John()
+	john.ID = "inactive-user-id"
+	john.Active = false
+	return john
+}
 
-  // Random valid data
-  static random(): User {
-    return {
-      id: faker.string.uuid(),
-      email: faker.internet.email(),
-      name: faker.person.fullName(),
-      role: faker.helpers.arrayElement(['admin', 'member', 'guest']),
-      active: faker.datatype.boolean(),
-      createdAt: faker.date.past(),
-    };
-  }
+// Random returns a random valid user
+func (UserMother) Random() *User {
+	return &User{
+		ID:        uuid.NewString(),
+		Email:     faker.Email(),
+		Name:      faker.Name(),
+		Role:      randomRole(),
+		Active:    randomBool(),
+		CreatedAt: faker.PastTime(),
+	}
+}
 
-  // Multiple users
-  static randomList(count: number): User[] {
-    return Array.from({ length: count }, () => this.random());
-  }
+// RandomList returns multiple random users
+func (UserMother) RandomList(count int) []*User {
+	users := make([]*User, count)
+	for i := 0; i < count; i++ {
+		users[i] = UserMother{}.Random()
+	}
+	return users
+}
 
-  // With customization
-  static with(overrides: Partial<User>): User {
-    return { ...this.john(), ...overrides };
-  }
+// With returns a user with custom overrides
+func (UserMother) With(overrides func(*User)) *User {
+	user := UserMother{}.John()
+	overrides(user)
+	return user
+}
+
+// Helper functions
+func randomRole() string {
+	roles := []string{"admin", "member", "guest"}
+	return roles[rand.Intn(len(roles))]
+}
+
+func randomBool() bool {
+	return rand.Intn(2) == 1
 }
 ```
 
 ## Object Mother with Relationships
 
-```typescript
-interface Order {
-  id: string;
-  userId: string;
-  items: OrderItem[];
-  status: 'pending' | 'confirmed' | 'shipped';
-  total: number;
+```go
+package testdata
+
+import (
+	"github.com/google/uuid"
+)
+
+// Order domain model
+type Order struct {
+	ID     string
+	UserID string
+	Items  []OrderItem
+	Status string
+	Total  float64
 }
 
-interface OrderItem {
-  productId: string;
-  name: string;
-  quantity: number;
-  price: number;
+type OrderItem struct {
+	ProductID string
+	Name      string
+	Quantity  int
+	Price     float64
 }
 
-class ProductMother {
-  static widget(): OrderItem {
-    return {
-      productId: 'widget-id',
-      name: 'Widget',
-      quantity: 1,
-      price: 29.99,
-    };
-  }
+// ProductMother provides predefined products
+type ProductMother struct{}
 
-  static gadget(): OrderItem {
-    return {
-      productId: 'gadget-id',
-      name: 'Gadget',
-      quantity: 1,
-      price: 49.99,
-    };
-  }
-
-  static random(): OrderItem {
-    return {
-      productId: faker.string.uuid(),
-      name: faker.commerce.productName(),
-      quantity: faker.number.int({ min: 1, max: 10 }),
-      price: parseFloat(faker.commerce.price()),
-    };
-  }
+func (ProductMother) Widget() OrderItem {
+	return OrderItem{
+		ProductID: "widget-id",
+		Name:      "Widget",
+		Quantity:  1,
+		Price:     29.99,
+	}
 }
 
-class OrderMother {
-  static pending(): Order {
-    const items = [ProductMother.widget()];
-    return {
-      id: 'pending-order-id',
-      userId: UserMother.john().id,
-      items,
-      status: 'pending',
-      total: items.reduce((sum, i) => sum + i.quantity * i.price, 0),
-    };
-  }
+func (ProductMother) Gadget() OrderItem {
+	return OrderItem{
+		ProductID: "gadget-id",
+		Name:      "Gadget",
+		Quantity:  1,
+		Price:     49.99,
+	}
+}
 
-  static confirmed(): Order {
-    return {
-      ...this.pending(),
-      id: 'confirmed-order-id',
-      status: 'confirmed',
-    };
-  }
+func (ProductMother) Random() OrderItem {
+	return OrderItem{
+		ProductID: uuid.NewString(),
+		Name:      faker.ProductName(),
+		Quantity:  rand.Intn(10) + 1,
+		Price:     faker.Price(),
+	}
+}
 
-  static shipped(): Order {
-    return {
-      ...this.pending(),
-      id: 'shipped-order-id',
-      status: 'shipped',
-    };
-  }
+// OrderMother provides predefined orders
+type OrderMother struct{}
 
-  static forUser(user: User): Order {
-    return {
-      ...this.pending(),
-      id: faker.string.uuid(),
-      userId: user.id,
-    };
-  }
+func (OrderMother) Pending() *Order {
+	items := []OrderItem{ProductMother{}.Widget()}
+	return &Order{
+		ID:     "pending-order-id",
+		UserID: UserMother{}.John().ID,
+		Items:  items,
+		Status: "pending",
+		Total:  calculateTotal(items),
+	}
+}
 
-  static withItems(items: OrderItem[]): Order {
-    return {
-      ...this.pending(),
-      id: faker.string.uuid(),
-      items,
-      total: items.reduce((sum, i) => sum + i.quantity * i.price, 0),
-    };
-  }
+func (OrderMother) Confirmed() *Order {
+	order := OrderMother{}.Pending()
+	order.ID = "confirmed-order-id"
+	order.Status = "confirmed"
+	return order
+}
 
-  static expensive(): Order {
-    const items = Array.from({ length: 10 }, () => ({
-      ...ProductMother.random(),
-      price: 999.99,
-      quantity: 5,
-    }));
-    return this.withItems(items);
-  }
+func (OrderMother) Shipped() *Order {
+	order := OrderMother{}.Pending()
+	order.ID = "shipped-order-id"
+	order.Status = "shipped"
+	return order
+}
+
+func (OrderMother) ForUser(user *User) *Order {
+	order := OrderMother{}.Pending()
+	order.ID = uuid.NewString()
+	order.UserID = user.ID
+	return order
+}
+
+func (OrderMother) WithItems(items []OrderItem) *Order {
+	return &Order{
+		ID:     uuid.NewString(),
+		UserID: UserMother{}.John().ID,
+		Items:  items,
+		Status: "pending",
+		Total:  calculateTotal(items),
+	}
+}
+
+func (OrderMother) Expensive() *Order {
+	items := make([]OrderItem, 10)
+	for i := 0; i < 10; i++ {
+		item := ProductMother{}.Random()
+		item.Price = 999.99
+		item.Quantity = 5
+		items[i] = item
+	}
+	return OrderMother{}.WithItems(items)
+}
+
+func calculateTotal(items []OrderItem) float64 {
+	total := 0.0
+	for _, item := range items {
+		total += float64(item.Quantity) * item.Price
+	}
+	return total
 }
 ```
 
 ## Combining with Builder
 
-```typescript
-class UserMother {
-  private static builder(): UserBuilder {
-    return new UserBuilder();
-  }
+```go
+package testdata
 
-  static john(): User {
-    return this.builder()
-      .withId('john-id')
-      .withEmail('john.doe@test.com')
-      .withName('John Doe')
-      .build();
-  }
+// UserBuilder for flexible construction
+type UserBuilder struct {
+	user *User
+}
 
-  static admin(): User {
-    return this.builder().asAdmin().withName('Admin User').build();
-  }
+func NewUserBuilder() *UserBuilder {
+	return &UserBuilder{
+		user: &User{
+			ID:        uuid.NewString(),
+			Email:     "default@test.com",
+			Name:      "Default User",
+			Role:      "member",
+			Active:    true,
+			CreatedAt: time.Now(),
+		},
+	}
+}
 
-  static johnAsAdmin(): User {
-    return this.builder()
-      .withId('john-id')
-      .withEmail('john.doe@test.com')
-      .withName('John Doe')
-      .asAdmin()
-      .build();
-  }
+func (b *UserBuilder) WithID(id string) *UserBuilder {
+	b.user.ID = id
+	return b
+}
 
-  static custom(): UserBuilder {
-    return this.builder();
-  }
+func (b *UserBuilder) WithEmail(email string) *UserBuilder {
+	b.user.Email = email
+	return b
+}
+
+func (b *UserBuilder) WithName(name string) *UserBuilder {
+	b.user.Name = name
+	return b
+}
+
+func (b *UserBuilder) AsAdmin() *UserBuilder {
+	b.user.Role = "admin"
+	return b
+}
+
+func (b *UserBuilder) Build() *User {
+	return b.user
+}
+
+// Enhanced UserMother using Builder
+func (UserMother) Builder() *UserBuilder {
+	return NewUserBuilder()
+}
+
+func (UserMother) JohnAsAdmin() *User {
+	return NewUserBuilder().
+		WithID("john-id").
+		WithEmail("john.doe@test.com").
+		WithName("John Doe").
+		AsAdmin().
+		Build()
+}
+
+func (UserMother) Custom() *UserBuilder {
+	return NewUserBuilder()
 }
 
 // Usage
-const admin = UserMother.admin();
-const customUser = UserMother.custom().withEmail('custom@test.com').inactive().build();
+func TestWithCustomUser(t *testing.T) {
+	admin := UserMother{}.Admin()
+	customUser := UserMother{}.Custom().
+		WithEmail("custom@test.com").
+		AsAdmin().
+		Build()
+	
+	// ...
+}
 ```
 
 ## Scenario-Based Mothers
 
-```typescript
-class ScenarioMother {
-  // Complete scenario with all related objects
-  static userWithPendingOrders() {
-    const user = UserMother.john();
-    const orders = [OrderMother.forUser(user), OrderMother.forUser(user)];
+```go
+package testdata
 
-    return { user, orders };
-  }
+// ScenarioMother provides complete test scenarios
+type ScenarioMother struct{}
 
-  static userWithNoOrders() {
-    const user = UserMother.jane();
-    return { user, orders: [] };
-  }
+// UserWithPendingOrders returns a user with pending orders
+func (ScenarioMother) UserWithPendingOrders() (user *User, orders []*Order) {
+	user = UserMother{}.John()
+	orders = []*Order{
+		OrderMother{}.ForUser(user),
+		OrderMother{}.ForUser(user),
+	}
+	return
+}
 
-  static adminWithFullAccess() {
-    const user = UserMother.admin();
-    const permissions = ['read', 'write', 'delete', 'admin'];
-    const accessToken = 'admin-token-123';
+// UserWithNoOrders returns a user with no orders
+func (ScenarioMother) UserWithNoOrders() (user *User, orders []*Order) {
+	user = UserMother{}.Jane()
+	orders = []*Order{}
+	return
+}
 
-    return { user, permissions, accessToken };
-  }
+// AdminWithFullAccess returns an admin with all permissions
+func (ScenarioMother) AdminWithFullAccess() (user *User, permissions []string, token string) {
+	user = UserMother{}.Admin()
+	permissions = []string{"read", "write", "delete", "admin"}
+	token = "admin-token-123"
+	return
+}
 
-  static expiredSession() {
-    const user = UserMother.john();
-    const session = {
-      id: 'expired-session',
-      userId: user.id,
-      expiresAt: new Date(Date.now() - 1000), // Expired
-    };
-
-    return { user, session };
-  }
+// ExpiredSession returns a user with expired session
+func (ScenarioMother) ExpiredSession() (user *User, session *Session) {
+	user = UserMother{}.John()
+	session = &Session{
+		ID:        "expired-session",
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(-time.Hour), // Expired
+	}
+	return
 }
 
 // Usage in tests
-describe('OrderService', () => {
-  test('should list user orders', async () => {
-    const { user, orders } = ScenarioMother.userWithPendingOrders();
+func TestOrderService(t *testing.T) {
+	t.Run("should list user orders", func(t *testing.T) {
+		user, orders := ScenarioMother{}.UserWithPendingOrders()
 
-    // Setup
-    await userRepo.save(user);
-    for (const order of orders) {
-      await orderRepo.save(order);
-    }
+		// Setup
+		for _, order := range orders {
+			_ = orderRepo.Save(context.Background(), order)
+		}
 
-    const service = new OrderService(orderRepo);
-    const result = await service.listForUser(user.id);
+		service := NewOrderService(orderRepo)
+		result, err := service.ListForUser(context.Background(), user.ID)
 
-    expect(result).toHaveLength(2);
-  });
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result) != 2 {
+			t.Errorf("len(result) = %d; want 2", len(result))
+		}
+	})
 
-  test('should return empty for user with no orders', async () => {
-    const { user, orders } = ScenarioMother.userWithNoOrders();
+	t.Run("should return empty for user with no orders", func(t *testing.T) {
+		user, _ := ScenarioMother{}.UserWithNoOrders()
 
-    await userRepo.save(user);
+		service := NewOrderService(orderRepo)
+		result, err := service.ListForUser(context.Background(), user.ID)
 
-    const service = new OrderService(orderRepo);
-    const result = await service.listForUser(user.id);
-
-    expect(result).toHaveLength(0);
-  });
-});
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result) != 0 {
+			t.Errorf("len(result) = %d; want 0", len(result))
+		}
+	})
+}
 ```
 
 ## Database Seeding with Mothers
 
-```typescript
-class TestDatabaseSeeder {
-  constructor(
-    private userRepo: UserRepository,
-    private orderRepo: OrderRepository,
-  ) {}
+```go
+package testutil
 
-  async seedBasic(): Promise<void> {
-    await this.userRepo.save(UserMother.john());
-    await this.userRepo.save(UserMother.jane());
-    await this.userRepo.save(UserMother.admin());
-  }
+import (
+	"context"
+)
 
-  async seedWithOrders(): Promise<void> {
-    await this.seedBasic();
+// TestDatabaseSeeder seeds test data using Object Mothers
+type TestDatabaseSeeder struct {
+	userRepo  UserRepository
+	orderRepo OrderRepository
+}
 
-    const john = UserMother.john();
-    await this.orderRepo.save(OrderMother.forUser(john));
-    await this.orderRepo.save(OrderMother.forUser(john));
-  }
+func NewTestDatabaseSeeder(userRepo UserRepository, orderRepo OrderRepository) *TestDatabaseSeeder {
+	return &TestDatabaseSeeder{
+		userRepo:  userRepo,
+		orderRepo: orderRepo,
+	}
+}
 
-  async seedStressTest(): Promise<void> {
-    const users = UserMother.randomList(100);
-    for (const user of users) {
-      await this.userRepo.save(user);
-      const orderCount = faker.number.int({ min: 0, max: 10 });
-      for (let i = 0; i < orderCount; i++) {
-        await this.orderRepo.save(OrderMother.forUser(user));
-      }
-    }
-  }
+func (s *TestDatabaseSeeder) SeedBasic(ctx context.Context) error {
+	if err := s.userRepo.Save(ctx, UserMother{}.John()); err != nil {
+		return err
+	}
+	if err := s.userRepo.Save(ctx, UserMother{}.Jane()); err != nil {
+		return err
+	}
+	if err := s.userRepo.Save(ctx, UserMother{}.Admin()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *TestDatabaseSeeder) SeedWithOrders(ctx context.Context) error {
+	if err := s.SeedBasic(ctx); err != nil {
+		return err
+	}
+
+	john := UserMother{}.John()
+	if err := s.orderRepo.Save(ctx, OrderMother{}.ForUser(john)); err != nil {
+		return err
+	}
+	if err := s.orderRepo.Save(ctx, OrderMother{}.ForUser(john)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *TestDatabaseSeeder) SeedStressTest(ctx context.Context) error {
+	users := UserMother{}.RandomList(100)
+	for _, user := range users {
+		if err := s.userRepo.Save(ctx, user); err != nil {
+			return err
+		}
+		orderCount := rand.Intn(11) // 0-10 orders
+		for i := 0; i < orderCount; i++ {
+			if err := s.orderRepo.Save(ctx, OrderMother{}.ForUser(user)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 ```
 
@@ -369,9 +485,9 @@ class TestDatabaseSeeder {
 
 | Package | Usage |
 |---------|-------|
-| `@faker-js/faker` | Donnees aleatoires realistes |
-| `fishery` | Factory with traits |
-| `factory-girl` | ActiveRecord-style factories |
+| `github.com/google/uuid` | UUID generation |
+| `github.com/brianvoe/gofakeit/v6` | Fake data generation |
+| `github.com/icrowley/fake` | Alternative faker |
 
 ## Erreurs communes
 
@@ -391,7 +507,7 @@ class TestDatabaseSeeder {
 | Scenarios metier types | Oui |
 | Donnees de test coherentes | Oui |
 | Objets tres variables | Builder prefere |
-| Donnees uniques par test | random() methods |
+| Donnees uniques par test | Random() methods |
 
 ## Patterns lies
 

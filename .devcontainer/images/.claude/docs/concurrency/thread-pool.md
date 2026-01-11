@@ -37,305 +37,361 @@ Pattern de gestion d'un pool de workers pour executer des taches en parallele.
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
 ### ThreadPool basique
 
-```typescript
-class ThreadPool {
-  private taskQueue: Array<() => Promise<void>> = [];
-  private activeWorkers = 0;
-  private readonly maxWorkers: number;
+```go
+package pool
 
-  constructor(maxWorkers: number = navigator.hardwareConcurrency || 4) {
-    this.maxWorkers = maxWorkers;
-  }
+import (
+	"context"
+	"fmt"
+	"runtime"
+	"sync"
+)
 
-  async execute<T>(task: () => Promise<T>): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      const wrappedTask = async () => {
-        try {
-          const result = await task();
-          resolve(result);
-        } catch (error) {
-          reject(error);
-        }
-      };
+// Task represents a unit of work.
+type Task func(ctx context.Context) error
 
-      this.taskQueue.push(wrappedTask);
-      this.processQueue();
-    });
-  }
-
-  private async processQueue(): Promise<void> {
-    if (this.activeWorkers >= this.maxWorkers) {
-      return;
-    }
-
-    const task = this.taskQueue.shift();
-    if (!task) {
-      return;
-    }
-
-    this.activeWorkers++;
-
-    try {
-      await task();
-    } finally {
-      this.activeWorkers--;
-      this.processQueue(); // Traiter la tache suivante
-    }
-  }
-
-  get stats() {
-    return {
-      active: this.activeWorkers,
-      queued: this.taskQueue.length,
-      maxWorkers: this.maxWorkers,
-    };
-  }
+// Pool manages a pool of workers.
+type Pool struct {
+	tasks       chan Task
+	workers     int
+	wg          sync.WaitGroup
+	ctx         context.Context
+	cancel      context.CancelFunc
+	activeCount int
+	mu          sync.Mutex
 }
 
-// Usage
-const pool = new ThreadPool(4);
+// NewPool creates a new worker pool.
+func NewPool(workers int) *Pool {
+	if workers <= 0 {
+		workers = runtime.NumCPU()
+	}
 
-const results = await Promise.all(
-  urls.map((url) => pool.execute(() => fetch(url).then((r) => r.json()))),
-);
-```
+	ctx, cancel := context.WithCancel(context.Background())
 
-### ThreadPool avec priorite
+	p := &Pool{
+		tasks:   make(chan Task, workers*2),
+		workers: workers,
+		ctx:     ctx,
+		cancel:  cancel,
+	}
 
-```typescript
-interface PriorityTask<T> {
-  priority: number;
-  task: () => Promise<T>;
-  resolve: (value: T) => void;
-  reject: (error: Error) => void;
+	// Start workers
+	for i := 0; i < workers; i++ {
+		p.wg.Add(1)
+		go p.worker(i)
+	}
+
+	return p
 }
 
-class PriorityThreadPool {
-  private queue: PriorityTask<unknown>[] = [];
-  private activeWorkers = 0;
+// worker processes tasks from the queue.
+func (p *Pool) worker(id int) {
+	defer p.wg.Done()
 
-  constructor(private maxWorkers: number) {}
+	for {
+		select {
+		case <-p.ctx.Done():
+			return
+		case task, ok := <-p.tasks:
+			if !ok {
+				return
+			}
 
-  async execute<T>(
-    task: () => Promise<T>,
-    priority: number = 0,
-  ): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      const priorityTask: PriorityTask<T> = {
-        priority,
-        task,
-        resolve,
-        reject,
-      };
+			p.mu.Lock()
+			p.activeCount++
+			p.mu.Unlock()
 
-      // Inserer par priorite (plus haut = plus prioritaire)
-      const index = this.queue.findIndex((t) => t.priority < priority);
-      if (index === -1) {
-        this.queue.push(priorityTask as PriorityTask<unknown>);
-      } else {
-        this.queue.splice(index, 0, priorityTask as PriorityTask<unknown>);
-      }
+			if err := task(p.ctx); err != nil {
+				fmt.Printf("Worker %d error: %v\n", id, err)
+			}
 
-      this.processQueue();
-    });
-  }
+			p.mu.Lock()
+			p.activeCount--
+			p.mu.Unlock()
+		}
+	}
+}
 
-  private async processQueue(): Promise<void> {
-    if (this.activeWorkers >= this.maxWorkers) return;
+// Submit adds a task to the pool.
+func (p *Pool) Submit(task Task) error {
+	select {
+	case <-p.ctx.Done():
+		return fmt.Errorf("pool is closed")
+	case p.tasks <- task:
+		return nil
+	}
+}
 
-    const item = this.queue.shift();
-    if (!item) return;
+// Shutdown gracefully stops the pool.
+func (p *Pool) Shutdown() {
+	close(p.tasks)
+	p.wg.Wait()
+	p.cancel()
+}
 
-    this.activeWorkers++;
+// Stats returns pool statistics.
+type Stats struct {
+	Active  int
+	Queued  int
+	Workers int
+}
 
-    try {
-      const result = await item.task();
-      item.resolve(result);
-    } catch (error) {
-      item.reject(error as Error);
-    } finally {
-      this.activeWorkers--;
-      this.processQueue();
-    }
-  }
+// Stats returns current pool statistics.
+func (p *Pool) Stats() Stats {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return Stats{
+		Active:  p.activeCount,
+		Queued:  len(p.tasks),
+		Workers: p.workers,
+	}
 }
 ```
 
-### ThreadPool avec timeout et abort
+**Usage:**
 
-```typescript
-class RobustThreadPool {
-  private queue: Array<{
-    task: () => Promise<unknown>;
-    resolve: (value: unknown) => void;
-    reject: (error: Error) => void;
-    timeout?: number;
-    signal?: AbortSignal;
-  }> = [];
-  private activeWorkers = 0;
+```go
+package main
 
-  constructor(private maxWorkers: number) {}
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"time"
+)
 
-  async execute<T>(
-    task: () => Promise<T>,
-    options: { timeout?: number; signal?: AbortSignal } = {},
-  ): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      // Verifier abort avant meme de queuer
-      if (options.signal?.aborted) {
-        reject(new Error('Aborted'));
-        return;
-      }
+func main() {
+	pool := NewPool(4)
+	defer pool.Shutdown()
 
-      this.queue.push({
-        task,
-        resolve: resolve as (v: unknown) => void,
-        reject,
-        ...options,
-      });
+	urls := []string{
+		"https://api.example.com/1",
+		"https://api.example.com/2",
+		"https://api.example.com/3",
+	}
 
-      this.processQueue();
-    });
-  }
+	for _, url := range urls {
+		url := url // Capture for closure
+		pool.Submit(func(ctx context.Context) error {
+			resp, err := http.Get(url)
+			if err != nil {
+				return fmt.Errorf("fetching %s: %w", url, err)
+			}
+			defer resp.Body.Close()
 
-  private async processQueue(): Promise<void> {
-    if (this.activeWorkers >= this.maxWorkers) return;
+			fmt.Printf("Fetched %s: %d\n", url, resp.StatusCode)
+			return nil
+		})
+	}
 
-    const item = this.queue.shift();
-    if (!item) return;
-
-    // Verifier abort
-    if (item.signal?.aborted) {
-      item.reject(new Error('Aborted'));
-      this.processQueue();
-      return;
-    }
-
-    this.activeWorkers++;
-
-    try {
-      const result = await this.executeWithTimeout(
-        item.task,
-        item.timeout,
-        item.signal,
-      );
-      item.resolve(result);
-    } catch (error) {
-      item.reject(error as Error);
-    } finally {
-      this.activeWorkers--;
-      this.processQueue();
-    }
-  }
-
-  private async executeWithTimeout<T>(
-    task: () => Promise<T>,
-    timeout?: number,
-    signal?: AbortSignal,
-  ): Promise<T> {
-    if (!timeout) {
-      return task();
-    }
-
-    return Promise.race([
-      task(),
-      new Promise<T>((_, reject) => {
-        const timer = setTimeout(() => {
-          reject(new Error('Task timeout'));
-        }, timeout);
-
-        signal?.addEventListener('abort', () => {
-          clearTimeout(timer);
-          reject(new Error('Aborted'));
-        });
-      }),
-    ]);
-  }
+	time.Sleep(5 * time.Second)
+	stats := pool.Stats()
+	fmt.Printf("Active: %d, Queued: %d\n", stats.Active, stats.Queued)
 }
 ```
 
 ---
 
-## Web Workers Pool
+### ThreadPool avec priorite
 
-```typescript
-class WorkerPool {
-  private workers: Worker[] = [];
-  private available: Worker[] = [];
-  private pending: Array<{
-    task: unknown;
-    resolve: (result: unknown) => void;
-    reject: (error: Error) => void;
-  }> = [];
+```go
+package pool
 
-  constructor(
-    workerScript: string,
-    size: number = navigator.hardwareConcurrency,
-  ) {
-    for (let i = 0; i < size; i++) {
-      const worker = new Worker(workerScript);
-      this.workers.push(worker);
-      this.available.push(worker);
-    }
-  }
+import (
+	"container/heap"
+	"context"
+	"sync"
+)
 
-  async execute<T>(task: unknown): Promise<T> {
-    return new Promise((resolve, reject) => {
-      const worker = this.available.pop();
+// PriorityTask represents a task with priority.
+type PriorityTask struct {
+	Task     Task
+	Priority int
+	index    int
+}
 
-      if (worker) {
-        this.runOnWorker(worker, task, resolve, reject);
-      } else {
-        this.pending.push({ task, resolve, reject });
-      }
-    });
-  }
+// PriorityQueue implements heap.Interface.
+type PriorityQueue []*PriorityTask
 
-  private runOnWorker(
-    worker: Worker,
-    task: unknown,
-    resolve: (result: unknown) => void,
-    reject: (error: Error) => void,
-  ): void {
-    const handler = (e: MessageEvent) => {
-      worker.removeEventListener('message', handler);
-      worker.removeEventListener('error', errorHandler);
+func (pq PriorityQueue) Len() int { return len(pq) }
 
-      resolve(e.data);
-      this.releaseWorker(worker);
-    };
+func (pq PriorityQueue) Less(i, j int) bool {
+	return pq[i].Priority > pq[j].Priority // Higher priority first
+}
 
-    const errorHandler = (e: ErrorEvent) => {
-      worker.removeEventListener('message', handler);
-      worker.removeEventListener('error', errorHandler);
+func (pq PriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
+}
 
-      reject(new Error(e.message));
-      this.releaseWorker(worker);
-    };
+func (pq *PriorityQueue) Push(x interface{}) {
+	n := len(*pq)
+	item := x.(*PriorityTask)
+	item.index = n
+	*pq = append(*pq, item)
+}
 
-    worker.addEventListener('message', handler);
-    worker.addEventListener('error', errorHandler);
-    worker.postMessage(task);
-  }
+func (pq *PriorityQueue) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil
+	item.index = -1
+	*pq = old[0 : n-1]
+	return item
+}
 
-  private releaseWorker(worker: Worker): void {
-    const pending = this.pending.shift();
-    if (pending) {
-      this.runOnWorker(worker, pending.task, pending.resolve, pending.reject);
-    } else {
-      this.available.push(worker);
-    }
-  }
+// PriorityPool manages tasks with priority.
+type PriorityPool struct {
+	queue   PriorityQueue
+	mu      sync.Mutex
+	cond    *sync.Cond
+	workers int
+	wg      sync.WaitGroup
+	ctx     context.Context
+	cancel  context.CancelFunc
+}
 
-  terminate(): void {
-    this.workers.forEach((w) => w.terminate());
-    this.workers = [];
-    this.available = [];
-  }
+// NewPriorityPool creates a priority-based pool.
+func NewPriorityPool(workers int) *PriorityPool {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	p := &PriorityPool{
+		queue:   make(PriorityQueue, 0),
+		workers: workers,
+		ctx:     ctx,
+		cancel:  cancel,
+	}
+	p.cond = sync.NewCond(&p.mu)
+
+	heap.Init(&p.queue)
+
+	for i := 0; i < workers; i++ {
+		p.wg.Add(1)
+		go p.worker()
+	}
+
+	return p
+}
+
+// worker processes tasks by priority.
+func (p *PriorityPool) worker() {
+	defer p.wg.Done()
+
+	for {
+		p.mu.Lock()
+		for p.queue.Len() == 0 {
+			select {
+			case <-p.ctx.Done():
+				p.mu.Unlock()
+				return
+			default:
+				p.cond.Wait()
+				if p.ctx.Err() != nil {
+					p.mu.Unlock()
+					return
+				}
+			}
+		}
+
+		item := heap.Pop(&p.queue).(*PriorityTask)
+		p.mu.Unlock()
+
+		if err := item.Task(p.ctx); err != nil {
+			// Log error
+		}
+	}
+}
+
+// Submit adds a task with priority.
+func (p *PriorityPool) Submit(task Task, priority int) error {
+	select {
+	case <-p.ctx.Done():
+		return fmt.Errorf("pool is closed")
+	default:
+		p.mu.Lock()
+		heap.Push(&p.queue, &PriorityTask{
+			Task:     task,
+			Priority: priority,
+		})
+		p.cond.Signal()
+		p.mu.Unlock()
+		return nil
+	}
+}
+
+// Shutdown stops the pool.
+func (p *PriorityPool) Shutdown() {
+	p.cancel()
+	p.cond.Broadcast()
+	p.wg.Wait()
+}
+```
+
+---
+
+### ThreadPool avec timeout et context
+
+```go
+package pool
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// RobustPool handles timeouts and cancellation.
+type RobustPool struct {
+	*Pool
+	timeout time.Duration
+}
+
+// NewRobustPool creates a pool with timeout support.
+func NewRobustPool(workers int, timeout time.Duration) *RobustPool {
+	return &RobustPool{
+		Pool:    NewPool(workers),
+		timeout: timeout,
+	}
+}
+
+// SubmitWithTimeout submits a task with a timeout.
+func (p *RobustPool) SubmitWithTimeout(ctx context.Context, task Task) error {
+	if p.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, p.timeout)
+		defer cancel()
+	}
+
+	wrappedTask := func(workerCtx context.Context) error {
+		// Create a context that respects both worker and caller contexts
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		done := make(chan error, 1)
+
+		go func() {
+			done <- task(ctx)
+		}()
+
+		select {
+		case <-workerCtx.Done():
+			return workerCtx.Err()
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-done:
+			return err
+		}
+	}
+
+	return p.Pool.Submit(wrappedTask)
 }
 ```
 
@@ -368,7 +424,7 @@ class WorkerPool {
 | Situation | Recommande |
 |-----------|------------|
 | Requetes HTTP paralleles | Oui |
-| Calculs CPU-intensive | Oui (Worker Pool) |
+| Calculs CPU-intensive | Oui |
 | Traitement batch | Oui |
 | Taches dependantes entre elles | Prudence (deadlock) |
 
@@ -387,6 +443,6 @@ class WorkerPool {
 
 ## Sources
 
+- [Go Concurrency Patterns](https://go.dev/blog/pipelines)
 - [Java ThreadPoolExecutor](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ThreadPoolExecutor.html)
-- [Node.js Worker Threads](https://nodejs.org/api/worker_threads.html)
-- [Web Workers API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API)
+- [sync.Pool Documentation](https://pkg.go.dev/sync#Pool)

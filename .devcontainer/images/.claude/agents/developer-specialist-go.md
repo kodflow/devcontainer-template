@@ -39,7 +39,7 @@ Expert Go developer enforcing **idiomatic Go patterns**. Code must follow Effect
 
 ```yaml
 error_handling:
-  - "ALWAYS handle errors - never ignore"
+  - "ALWAYS check errors BEFORE using return values (Go 1.25 nil-check fix)"
   - "Wrap errors with context: fmt.Errorf"
   - "Custom error types with errors.Is/As support"
   - "Never panic for recoverable errors"
@@ -47,10 +47,12 @@ error_handling:
 
 concurrency:
   - "Context as first parameter"
-  - "WaitGroup for goroutine synchronization"
-  - "Channels for communication"
-  - "Mutex for shared state only"
+  - "Use wg.Go() for finite tasks (Go 1.25) - NOT wg.Add(1) + go func()"
+  - "Use wg.Add(1)/Done() only for permanent workers (servers, pools)"
+  - "sync.OnceValue/OnceValues for type-safe singletons (Go 1.21+)"
+  - "Channels for communication, Mutex for shared state only"
   - "Race detector must pass: go test -race"
+  - "testing/synctest for concurrent testing (Go 1.25)"
 
 documentation:
   - "Package comment on package line"
@@ -63,6 +65,12 @@ design_patterns:
   - "Interface segregation (small interfaces)"
   - "Dependency injection via interfaces"
   - "Table-driven tests"
+
+go_1_25_features:
+  - "Container-aware GOMAXPROCS (auto-detects cgroup limits)"
+  - "FlightRecorder for lightweight tracing"
+  - "GOEXPERIMENT=jsonv2 for faster JSON (experimental)"
+  - "GOEXPERIMENT=greenteagc for improved GC (10-40% reduction)"
 ```
 
 ## Validation Checklist
@@ -116,6 +124,91 @@ issues:
 ```
 
 ## Code Patterns (Required)
+
+### WaitGroup.Go() (Go 1.25 - REQUIRED for finite tasks)
+
+```go
+// ✅ CORRECT: Go 1.25 pattern for finite tasks
+var wg sync.WaitGroup
+for i := 0; i < 10; i++ {
+    n := i // Capture for closure
+    wg.Go(func() { // Handles Add/Done internally
+        process(n)
+    })
+}
+wg.Wait()
+
+// ❌ WRONG: Old pattern (only for permanent workers)
+// wg.Add(1)
+// go func() {
+//     defer wg.Done()
+//     process(n)
+// }()
+```
+
+### sync.OnceValue (Go 1.21+ - REQUIRED for singletons)
+
+```go
+// ✅ CORRECT: Type-safe singleton
+var GetDB = sync.OnceValue(func() *Database {
+    return &Database{conn: connect()}
+})
+
+// With error handling
+var GetConfig = sync.OnceValues(func() (*Config, error) {
+    return loadConfig()
+})
+
+// ❌ WRONG: Old pattern
+// var instance *Database
+// var once sync.Once
+// func GetDB() *Database {
+//     once.Do(func() { instance = &Database{} })
+//     return instance
+// }
+```
+
+### Error Handling (Go 1.25 nil-check fix)
+
+```go
+// ✅ CORRECT: Check error BEFORE using value
+f, err := os.Open("file.txt")
+if err != nil {
+    return fmt.Errorf("opening file: %w", err)
+}
+defer f.Close()
+name := f.Name() // Safe - error was checked
+
+// ❌ WRONG: Using value before error check (PANICS in Go 1.25)
+// f, err := os.Open("file.txt")
+// name := f.Name() // PANIC if err != nil
+// if err != nil {
+//     return err
+// }
+```
+
+### testing/synctest (Go 1.25 - concurrent testing)
+
+```go
+import "testing/synctest"
+
+func TestConcurrent(t *testing.T) {
+    synctest.Test(t, func(ctx context.Context) {
+        var result atomic.Int64
+
+        go func() {
+            time.Sleep(time.Second) // Virtual time
+            result.Store(42)
+        }()
+
+        synctest.Wait() // Wait for goroutines to block
+
+        if result.Load() != 42 {
+            t.Error("expected 42")
+        }
+    })
+}
+```
 
 ### Functional Options
 
@@ -235,6 +328,11 @@ func TestAdd(t *testing.T) {
 | `init()` functions | Hidden initialization | Explicit init |
 | Global mutable state | Race conditions | Dependency injection |
 | `go func()` without sync | Leaked goroutines | WaitGroup or context |
+| `wg.Add(1)` for finite tasks | Verbose, error-prone | `wg.Go()` (Go 1.25) |
+| `sync.Once` + variable | Not type-safe | `sync.OnceValue` (Go 1.21+) |
+| Use value before error check | Panics in Go 1.25 | Check error first |
+| `go/ast.Package` | Deprecated | Use type checker |
+| Manual GOMAXPROCS in K8s | Ignores cgroups | Let runtime auto-detect |
 
 ## Output Format (JSON)
 

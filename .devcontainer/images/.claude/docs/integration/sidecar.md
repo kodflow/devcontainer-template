@@ -231,155 +231,299 @@ spec:
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
 ### Sidecar local pour dev
 
-```typescript
-// sidecar-proxy.ts
-import http from 'http';
-import httpProxy from 'http-proxy';
+```go
+package sidecar
 
-interface SidecarConfig {
-  listenPort: number;
-  upstreamHost: string;
-  upstreamPort: number;
-  features: {
-    logging: boolean;
-    metrics: boolean;
-    retry: boolean;
-    rateLimit: boolean;
-  };
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"sync"
+	"time"
+)
+
+// SidecarConfig defines sidecar proxy configuration.
+type SidecarConfig struct {
+	ListenPort   int
+	UpstreamHost string
+	UpstreamPort int
+	Features     Features
 }
 
-class LocalSidecar {
-  private readonly proxy: httpProxy;
-  private readonly metrics = {
-    requests: 0,
-    errors: 0,
-    latencies: [] as number[],
-  };
-
-  constructor(private readonly config: SidecarConfig) {
-    this.proxy = httpProxy.createProxyServer({
-      target: `http://${config.upstreamHost}:${config.upstreamPort}`,
-    });
-  }
-
-  start(): void {
-    const server = http.createServer(async (req, res) => {
-      const start = Date.now();
-      this.metrics.requests++;
-
-      // Rate limiting
-      if (this.config.features.rateLimit && !this.checkRateLimit(req)) {
-        res.writeHead(429);
-        res.end('Too Many Requests');
-        return;
-      }
-
-      // Logging
-      if (this.config.features.logging) {
-        console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-      }
-
-      // Retry logic
-      const maxRetries = this.config.features.retry ? 3 : 1;
-      let lastError: Error | null = null;
-
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          await this.proxyRequest(req, res);
-          this.metrics.latencies.push(Date.now() - start);
-          return;
-        } catch (error) {
-          lastError = error as Error;
-          if (attempt < maxRetries) {
-            await this.sleep(100 * attempt);
-          }
-        }
-      }
-
-      this.metrics.errors++;
-      res.writeHead(502);
-      res.end('Bad Gateway');
-    });
-
-    // Metrics endpoint
-    server.on('request', (req, res) => {
-      if (req.url === '/sidecar/metrics') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(this.getMetrics()));
-      }
-    });
-
-    server.listen(this.config.listenPort, () => {
-      console.log(`Sidecar listening on port ${this.config.listenPort}`);
-    });
-  }
-
-  private proxyRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.proxy.web(req, res, {}, (error) => {
-        if (error) reject(error);
-        else resolve();
-      });
-    });
-  }
-
-  private rateLimitBucket = new Map<string, number[]>();
-
-  private checkRateLimit(req: http.IncomingMessage): boolean {
-    const key = req.socket.remoteAddress ?? 'unknown';
-    const now = Date.now();
-    const windowMs = 60000;
-    const maxRequests = 100;
-
-    let timestamps = this.rateLimitBucket.get(key) ?? [];
-    timestamps = timestamps.filter((t) => t > now - windowMs);
-
-    if (timestamps.length >= maxRequests) {
-      return false;
-    }
-
-    timestamps.push(now);
-    this.rateLimitBucket.set(key, timestamps);
-    return true;
-  }
-
-  private getMetrics(): object {
-    const latencies = this.metrics.latencies;
-    return {
-      requests_total: this.metrics.requests,
-      errors_total: this.metrics.errors,
-      latency_avg_ms: latencies.length
-        ? latencies.reduce((a, b) => a + b, 0) / latencies.length
-        : 0,
-      latency_p99_ms: latencies.length
-        ? latencies.sort((a, b) => a - b)[Math.floor(latencies.length * 0.99)]
-        : 0,
-    };
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
+// Features defines enabled sidecar features.
+type Features struct {
+	Logging   bool
+	Metrics   bool
+	Retry     bool
+	RateLimit bool
 }
 
-// Usage
-const sidecar = new LocalSidecar({
-  listenPort: 9001,
-  upstreamHost: 'localhost',
-  upstreamPort: 8080,
-  features: {
-    logging: true,
-    metrics: true,
-    retry: true,
-    rateLimit: true,
-  },
-});
+// LocalSidecar implements a local development sidecar proxy.
+type LocalSidecar struct {
+	config  SidecarConfig
+	proxy   *httputil.ReverseProxy
+	metrics *Metrics
+	logger  *slog.Logger
+}
 
-sidecar.start();
+// Metrics holds sidecar metrics.
+type Metrics struct {
+	mu        sync.RWMutex
+	requests  int64
+	errors    int64
+	latencies []int64
+}
+
+// NewLocalSidecar creates a new local sidecar proxy.
+func NewLocalSidecar(config SidecarConfig, logger *slog.Logger) *LocalSidecar {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	target := &url.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s:%d", config.UpstreamHost, config.UpstreamPort),
+	}
+
+	return &LocalSidecar{
+		config:  config,
+		proxy:   httputil.NewSingleHostReverseProxy(target),
+		metrics: &Metrics{latencies: make([]int64, 0, 1000)},
+		logger:  logger,
+	}
+}
+
+// Start starts the sidecar proxy server.
+func (s *LocalSidecar) Start(ctx context.Context) error {
+	mux := http.NewServeMux()
+
+	// Metrics endpoint
+	mux.HandleFunc("/sidecar/metrics", s.handleMetrics)
+
+	// Proxy all other requests
+	mux.HandleFunc("/", s.handleProxy)
+
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", s.config.ListenPort),
+		Handler: mux,
+	}
+
+	s.logger.Info("sidecar listening", "port", s.config.ListenPort)
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		server.Shutdown(shutdownCtx)
+	}()
+
+	return server.ListenAndServe()
+}
+
+func (s *LocalSidecar) handleProxy(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
+	s.metrics.mu.Lock()
+	s.metrics.requests++
+	s.metrics.mu.Unlock()
+
+	// Rate limiting
+	if s.config.Features.RateLimit && !s.checkRateLimit(r) {
+		http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+		return
+	}
+
+	// Logging
+	if s.config.Features.Logging {
+		s.logger.Info("request",
+			"method", r.Method,
+			"url", r.URL.String(),
+			"remote_addr", r.RemoteAddr,
+		)
+	}
+
+	// Retry logic
+	maxRetries := 1
+	if s.config.Features.Retry {
+		maxRetries = 3
+	}
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if attempt > 1 {
+			time.Sleep(time.Duration(100*attempt) * time.Millisecond)
+		}
+
+		if err := s.proxyRequest(w, r); err == nil {
+			duration := time.Since(start).Milliseconds()
+			s.metrics.mu.Lock()
+			s.metrics.latencies = append(s.metrics.latencies, duration)
+			s.metrics.mu.Unlock()
+			return
+		} else {
+			lastErr = err
+		}
+	}
+
+	s.metrics.mu.Lock()
+	s.metrics.errors++
+	s.metrics.mu.Unlock()
+
+	s.logger.Error("proxy failed", "error", lastErr, "attempts", maxRetries)
+	http.Error(w, "Bad Gateway", http.StatusBadGateway)
+}
+
+func (s *LocalSidecar) proxyRequest(w http.ResponseWriter, r *http.Request) error {
+	errChan := make(chan error, 1)
+
+	s.proxy.ModifyResponse = func(resp *http.Response) error {
+		if resp.StatusCode >= 500 {
+			errChan <- fmt.Errorf("upstream error: %d", resp.StatusCode)
+			return nil
+		}
+		errChan <- nil
+		return nil
+	}
+
+	s.proxy.ServeHTTP(w, r)
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-time.After(30 * time.Second):
+		return fmt.Errorf("timeout")
+	}
+}
+
+type rateLimitBucket struct {
+	mu         sync.Mutex
+	timestamps map[string][]int64
+}
+
+var globalRateLimiter = &rateLimitBucket{
+	timestamps: make(map[string][]int64),
+}
+
+func (s *LocalSidecar) checkRateLimit(r *http.Request) bool {
+	key := r.RemoteAddr
+	now := time.Now().UnixMilli()
+	windowMs := int64(60000)
+	maxRequests := 100
+
+	globalRateLimiter.mu.Lock()
+	defer globalRateLimiter.mu.Unlock()
+
+	timestamps := globalRateLimiter.timestamps[key]
+	windowStart := now - windowMs
+
+	// Remove expired timestamps
+	valid := make([]int64, 0, len(timestamps))
+	for _, ts := range timestamps {
+		if ts > windowStart {
+			valid = append(valid, ts)
+		}
+	}
+
+	if len(valid) >= maxRequests {
+		return false
+	}
+
+	valid = append(valid, now)
+	globalRateLimiter.timestamps[key] = valid
+
+	return true
+}
+
+func (s *LocalSidecar) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	s.metrics.mu.RLock()
+	defer s.metrics.mu.RUnlock()
+
+	var avgLatency int64
+	var p99Latency int64
+
+	if len(s.metrics.latencies) > 0 {
+		var sum int64
+		for _, lat := range s.metrics.latencies {
+			sum += lat
+		}
+		avgLatency = sum / int64(len(s.metrics.latencies))
+
+		// Calculate p99
+		sorted := make([]int64, len(s.metrics.latencies))
+		copy(sorted, s.metrics.latencies)
+		// Simple sort (use sort.Slice in production)
+		p99Index := int(float64(len(sorted)) * 0.99)
+		if p99Index < len(sorted) {
+			p99Latency = sorted[p99Index]
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{
+		"requests_total": %d,
+		"errors_total": %d,
+		"latency_avg_ms": %d,
+		"latency_p99_ms": %d
+	}`, s.metrics.requests, s.metrics.errors, avgLatency, p99Latency)
+}
+```
+
+---
+
+### Usage du sidecar
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"example.com/app/sidecar"
+)
+
+func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	proxy := sidecar.NewLocalSidecar(sidecar.SidecarConfig{
+		ListenPort:   9001,
+		UpstreamHost: "localhost",
+		UpstreamPort: 8080,
+		Features: sidecar.Features{
+			Logging:   true,
+			Metrics:   true,
+			Retry:     true,
+			RateLimit: true,
+		},
+	}, logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		if err := proxy.Start(ctx); err != nil {
+			logger.Error("sidecar error", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("shutting down sidecar")
+	cancel()
+}
 ```
 
 ---

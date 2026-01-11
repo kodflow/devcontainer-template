@@ -26,294 +26,471 @@
 
 ## Dummy
 
-```typescript
-// Dummy - Placeholder for unused dependencies
-class DummyLogger implements Logger {
-  log(message: string): void {
-    // Does nothing - parameter required but not used in test
-  }
-  error(message: string): void {}
-  warn(message: string): void {}
+```go
+package calculator_test
+
+import (
+	"testing"
+)
+
+// Logger interface
+type Logger interface {
+	Log(message string)
+	Error(message string)
+	Warn(message string)
 }
 
+// DummyLogger - Placeholder for unused dependencies
+type DummyLogger struct{}
+
+func (d *DummyLogger) Log(message string)   {}
+func (d *DummyLogger) Error(message string) {}
+func (d *DummyLogger) Warn(message string)  {}
+
 // Usage
-test('should calculate total without logging', () => {
-  const calculator = new Calculator(new DummyLogger());
-  expect(calculator.add(2, 3)).toBe(5);
-  // Logger is required by constructor but not relevant for this test
-});
+func TestCalculateWithoutLogging(t *testing.T) {
+	calc := NewCalculator(&DummyLogger{})
+	result := calc.Add(2, 3)
+
+	if result != 5 {
+		t.Errorf("Add(2, 3) = %d; want 5", result)
+	}
+	// Logger is required by constructor but not relevant for this test
+}
 ```
 
 ## Stub
 
-```typescript
-// Stub - Returns predefined values
-class StubUserRepository implements UserRepository {
-  private users: User[] = [];
+```go
+package profile_test
 
-  setUsers(users: User[]): void {
-    this.users = users;
-  }
+import (
+	"context"
+	"testing"
+)
 
-  async findById(id: string): Promise<User | null> {
-    return this.users.find((u) => u.id === id) || null;
-  }
+// User domain model
+type User struct {
+	ID    string
+	Name  string
+	Email string
+}
 
-  async findByEmail(email: string): Promise<User | null> {
-    return this.users.find((u) => u.email === email) || null;
-  }
+// UserRepository interface
+type UserRepository interface {
+	FindByID(ctx context.Context, id string) (*User, error)
+	FindByEmail(ctx context.Context, email string) (*User, error)
+	Save(ctx context.Context, user *User) error
+}
 
-  async save(user: User): Promise<void> {
-    this.users.push(user);
-  }
+// StubUserRepository - Returns predefined values
+type StubUserRepository struct {
+	users []*User
+}
+
+func (s *StubUserRepository) SetUsers(users []*User) {
+	s.users = users
+}
+
+func (s *StubUserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+	for _, u := range s.users {
+		if u.ID == id {
+			return u, nil
+		}
+	}
+	return nil, nil
+}
+
+func (s *StubUserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	for _, u := range s.users {
+		if u.Email == email {
+			return u, nil
+		}
+	}
+	return nil, nil
+}
+
+func (s *StubUserRepository) Save(ctx context.Context, user *User) error {
+	s.users = append(s.users, user)
+	return nil
 }
 
 // Usage
-test('should return user profile when user exists', async () => {
-  const stub = new StubUserRepository();
-  stub.setUsers([{ id: '1', name: 'John', email: 'john@test.com' }]);
+func TestGetProfileWhenUserExists(t *testing.T) {
+	stub := &StubUserRepository{}
+	stub.SetUsers([]*User{
+		{ID: "1", Name: "John", Email: "john@test.com"},
+	})
 
-  const service = new ProfileService(stub);
-  const profile = await service.getProfile('1');
+	service := NewProfileService(stub)
+	profile, err := service.GetProfile(context.Background(), "1")
 
-  expect(profile.name).toBe('John');
-});
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if profile.Name != "John" {
+		t.Errorf("profile.Name = %q; want %q", profile.Name, "John")
+	}
+}
 
-// Jest stub
-test('with Jest stub', async () => {
-  const repo = {
-    findById: jest.fn().mockResolvedValue({ id: '1', name: 'John' }),
-  };
+// testify/mock alternative
+import (
+	"github.com/stretchr/testify/mock"
+)
 
-  const service = new ProfileService(repo as any);
-  const profile = await service.getProfile('1');
+type MockUserRepository struct {
+	mock.Mock
+}
 
-  expect(profile.name).toBe('John');
-});
+func (m *MockUserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+	args := m.Called(ctx, id)
+	if user := args.Get(0); user != nil {
+		return user.(*User), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func TestWithTestifyMock(t *testing.T) {
+	repo := new(MockUserRepository)
+	repo.On("FindByID", mock.Anything, "1").Return(&User{ID: "1", Name: "John"}, nil)
+
+	service := NewProfileService(repo)
+	profile, _ := service.GetProfile(context.Background(), "1")
+
+	if profile.Name != "John" {
+		t.Errorf("profile.Name = %q; want %q", profile.Name, "John")
+	}
+}
 ```
 
 ## Spy
 
-```typescript
-// Manual Spy - Records calls while using real implementation
-function createSpy<T extends (...args: any[]) => any>(
-  fn: T,
-): T & { calls: Parameters<T>[]; callCount: number } {
-  const calls: Parameters<T>[] = [];
+```go
+package profile_test
 
-  const spy = ((...args: Parameters<T>) => {
-    calls.push(args);
-    return fn(...args);
-  }) as T & { calls: Parameters<T>[]; callCount: number };
+import (
+	"context"
+	"testing"
+)
 
-  Object.defineProperty(spy, 'calls', { get: () => calls });
-  Object.defineProperty(spy, 'callCount', { get: () => calls.length });
+// SpyUserRepository - Records calls while using real implementation
+type SpyUserRepository struct {
+	RealRepo       UserRepository
+	FindByIDCalls  []string
+	CallCount      int
+}
 
-  return spy;
+func (s *SpyUserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+	s.FindByIDCalls = append(s.FindByIDCalls, id)
+	s.CallCount++
+	return s.RealRepo.FindByID(ctx, id)
+}
+
+func (s *SpyUserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	return s.RealRepo.FindByEmail(ctx, email)
+}
+
+func (s *SpyUserRepository) Save(ctx context.Context, user *User) error {
+	return s.RealRepo.Save(ctx, user)
 }
 
 // Usage
-test('should call repository with correct id', async () => {
-  const realRepo = new UserRepository(db);
-  const findByIdSpy = createSpy(realRepo.findById.bind(realRepo));
-  realRepo.findById = findByIdSpy;
+func TestCallsRepositoryWithCorrectID(t *testing.T) {
+	realRepo := &StubUserRepository{}
+	realRepo.SetUsers([]*User{{ID: "123", Name: "John"}})
 
-  const service = new ProfileService(realRepo);
-  await service.getProfile('123');
+	spy := &SpyUserRepository{RealRepo: realRepo}
+	service := NewProfileService(spy)
 
-  expect(findByIdSpy.callCount).toBe(1);
-  expect(findByIdSpy.calls[0][0]).toBe('123');
-});
+	_, _ = service.GetProfile(context.Background(), "123")
 
-// Jest spy
-test('with Jest spy', async () => {
-  const repo = new UserRepository(db);
-  const spy = jest.spyOn(repo, 'findById');
+	if spy.CallCount != 1 {
+		t.Errorf("CallCount = %d; want 1", spy.CallCount)
+	}
+	if len(spy.FindByIDCalls) != 1 || spy.FindByIDCalls[0] != "123" {
+		t.Errorf("FindByIDCalls = %v; want [\"123\"]", spy.FindByIDCalls)
+	}
+}
 
-  const service = new ProfileService(repo);
-  await service.getProfile('123');
+// testify/mock spy alternative
+func TestWithTestifySpy(t *testing.T) {
+	repo := new(MockUserRepository)
+	repo.On("FindByID", mock.Anything, "123").Return(&User{ID: "123", Name: "John"}, nil)
 
-  expect(spy).toHaveBeenCalledWith('123');
-  expect(spy).toHaveBeenCalledTimes(1);
-});
+	service := NewProfileService(repo)
+	_, _ = service.GetProfile(context.Background(), "123")
+
+	repo.AssertCalled(t, "FindByID", mock.Anything, "123")
+	repo.AssertNumberOfCalls(t, "FindByID", 1)
+}
 ```
 
 ## Mock
 
-```typescript
-// Manual Mock - Verifies interactions
-class MockEmailService implements EmailService {
-  private expectations: Array<{
-    method: string;
-    args?: any[];
-    called: boolean;
-  }> = [];
+```go
+package user_test
 
-  async send(to: string, subject: string, body: string): Promise<void> {
-    const expectation = this.expectations.find(
-      (e) => e.method === 'send' && !e.called,
-    );
-    if (expectation) {
-      expectation.called = true;
-    }
-  }
+import (
+	"context"
+	"errors"
+	"testing"
+)
 
-  expectSend(to: string, subject: string): this {
-    this.expectations.push({
-      method: 'send',
-      args: [to, subject],
-      called: false,
-    });
-    return this;
-  }
+// EmailService interface
+type EmailService interface {
+	Send(ctx context.Context, to, subject, body string) error
+}
 
-  verify(): void {
-    const unmet = this.expectations.filter((e) => !e.called);
-    if (unmet.length > 0) {
-      throw new Error(`Unmet expectations: ${JSON.stringify(unmet)}`);
-    }
-  }
+// MockEmailService - Verifies interactions
+type MockEmailService struct {
+	expectations []expectation
+	t            *testing.T
+}
+
+type expectation struct {
+	method string
+	args   []interface{}
+	called bool
+}
+
+func NewMockEmailService(t *testing.T) *MockEmailService {
+	return &MockEmailService{t: t}
+}
+
+func (m *MockEmailService) ExpectSend(to, subject string) *MockEmailService {
+	m.expectations = append(m.expectations, expectation{
+		method: "Send",
+		args:   []interface{}{to, subject},
+		called: false,
+	})
+	return m
+}
+
+func (m *MockEmailService) Send(ctx context.Context, to, subject, body string) error {
+	for i := range m.expectations {
+		exp := &m.expectations[i]
+		if exp.method == "Send" && !exp.called {
+			exp.called = true
+			return nil
+		}
+	}
+	return nil
+}
+
+func (m *MockEmailService) Verify() {
+	for _, exp := range m.expectations {
+		if !exp.called {
+			m.t.Errorf("Unmet expectation: %s with args %v", exp.method, exp.args)
+		}
+	}
 }
 
 // Usage
-test('should send welcome email on registration', async () => {
-  const mockEmail = new MockEmailService();
-  mockEmail.expectSend('user@test.com', 'Welcome!');
+func TestSendWelcomeEmailOnRegistration(t *testing.T) {
+	mockEmail := NewMockEmailService(t)
+	mockEmail.ExpectSend("user@test.com", "Welcome!")
 
-  const service = new UserService(mockEmail);
-  await service.register({ email: 'user@test.com', name: 'John' });
+	service := NewUserService(mockEmail)
+	err := service.Register(context.Background(), &User{Email: "user@test.com", Name: "John"})
 
-  mockEmail.verify(); // Throws if expectation not met
-});
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	mockEmail.Verify() // Throws if expectation not met
+}
 
-// Jest mock
-test('with Jest mock', async () => {
-  const mockEmail = {
-    send: jest.fn().mockResolvedValue(undefined),
-  };
+// testify/mock alternative
+func TestWithTestifyMock(t *testing.T) {
+	mockEmail := new(MockEmailService)
+	mockEmail.On("Send", mock.Anything, "user@test.com", "Welcome!", mock.AnythingOfType("string")).
+		Return(nil)
 
-  const service = new UserService(mockEmail as any);
-  await service.register({ email: 'user@test.com', name: 'John' });
+	service := NewUserService(mockEmail)
+	_ = service.Register(context.Background(), &User{Email: "user@test.com", Name: "John"})
 
-  expect(mockEmail.send).toHaveBeenCalledWith(
-    'user@test.com',
-    'Welcome!',
-    expect.stringContaining('Thank you'),
-  );
-});
+	mockEmail.AssertExpectations(t)
+}
 ```
 
 ## Fake
 
-```typescript
-// Fake - Simplified working implementation
-class FakeUserRepository implements UserRepository {
-  private users = new Map<string, User>();
-  private emailIndex = new Map<string, string>();
+```go
+package user_test
 
-  async findById(id: string): Promise<User | null> {
-    return this.users.get(id) || null;
-  }
+import (
+	"context"
+	"sync"
+	"testing"
+)
 
-  async findByEmail(email: string): Promise<User | null> {
-    const id = this.emailIndex.get(email);
-    return id ? this.users.get(id) || null : null;
-  }
+// FakeUserRepository - Simplified working implementation
+type FakeUserRepository struct {
+	mu         sync.RWMutex
+	users      map[string]*User
+	emailIndex map[string]string
+}
 
-  async save(user: User): Promise<void> {
-    this.users.set(user.id, { ...user });
-    this.emailIndex.set(user.email, user.id);
-  }
+func NewFakeUserRepository() *FakeUserRepository {
+	return &FakeUserRepository{
+		users:      make(map[string]*User),
+		emailIndex: make(map[string]string),
+	}
+}
 
-  async delete(id: string): Promise<void> {
-    const user = this.users.get(id);
-    if (user) {
-      this.emailIndex.delete(user.email);
-      this.users.delete(id);
-    }
-  }
+func (f *FakeUserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 
-  // Test helpers
-  clear(): void {
-    this.users.clear();
-    this.emailIndex.clear();
-  }
+	user, exists := f.users[id]
+	if !exists {
+		return nil, nil
+	}
+	// Return copy to avoid mutation
+	userCopy := *user
+	return &userCopy, nil
+}
 
-  seed(users: User[]): void {
-    users.forEach((u) => this.save(u));
-  }
+func (f *FakeUserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	id, exists := f.emailIndex[email]
+	if !exists {
+		return nil, nil
+	}
+	user := f.users[id]
+	userCopy := *user
+	return &userCopy, nil
+}
+
+func (f *FakeUserRepository) Save(ctx context.Context, user *User) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	userCopy := *user
+	f.users[user.ID] = &userCopy
+	f.emailIndex[user.Email] = user.ID
+	return nil
+}
+
+func (f *FakeUserRepository) Delete(ctx context.Context, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	user, exists := f.users[id]
+	if exists {
+		delete(f.emailIndex, user.Email)
+		delete(f.users, id)
+	}
+	return nil
+}
+
+// Test helpers
+func (f *FakeUserRepository) Clear() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.users = make(map[string]*User)
+	f.emailIndex = make(map[string]string)
+}
+
+func (f *FakeUserRepository) Seed(users []*User) error {
+	for _, u := range users {
+		if err := f.Save(context.Background(), u); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Usage - Fake behaves like real implementation
-test('should create and retrieve user', async () => {
-  const fake = new FakeUserRepository();
-  const service = new UserService(fake);
+func TestCreateAndRetrieveUser(t *testing.T) {
+	fake := NewFakeUserRepository()
+	service := NewUserService(fake)
 
-  await service.createUser({ id: '1', email: 'test@test.com', name: 'Test' });
-  const user = await service.getUser('1');
+	err := service.CreateUser(context.Background(), &User{ID: "1", Email: "test@test.com", Name: "Test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-  expect(user?.email).toBe('test@test.com');
-});
+	user, err := service.GetUser(context.Background(), "1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if user.Email != "test@test.com" {
+		t.Errorf("user.Email = %q; want %q", user.Email, "test@test.com")
+	}
+}
 ```
 
-## Comparaison Jest
+## Comparaison avec testify
 
-```typescript
+```go
+package order_test
+
+import (
+	"context"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
 // Complete example with all types
-describe('OrderService', () => {
-  // Dummy
-  const dummyLogger = { log: () => {}, error: () => {} };
+func TestOrderService(t *testing.T) {
+	t.Run("should log order creation", func(t *testing.T) {
+		stubInventory := new(MockInventoryService)
+		stubInventory.On("CheckStock", mock.Anything, "1").Return(true, nil)
+		stubInventory.On("Reserve", mock.Anything, "1", 1).Return("reservation-123", nil)
 
-  // Stub
-  const stubInventory = {
-    checkStock: jest.fn().mockResolvedValue(true),
-    reserve: jest.fn().mockResolvedValue('reservation-123'),
-  };
+		var loggedMessages []string
+		spyLogger := func(msg string) {
+			loggedMessages = append(loggedMessages, msg)
+		}
 
-  // Spy
-  test('should log order creation', async () => {
-    const spy = jest.spyOn(console, 'log');
-    const service = new OrderService(stubInventory, console);
+		service := NewOrderService(stubInventory, spyLogger)
+		_, err := service.CreateOrder(context.Background(), &OrderRequest{ProductID: "1", Quantity: 1})
 
-    await service.createOrder({ productId: '1', quantity: 1 });
+		assert.NoError(t, err)
+		assert.Contains(t, loggedMessages[0], "Order created")
+	})
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Order created'));
-  });
+	t.Run("should send confirmation email", func(t *testing.T) {
+		mockEmail := new(MockEmailService)
+		mockEmail.On("Send", mock.Anything, mock.MatchedBy(func(req EmailRequest) bool {
+			return req.Type == "order_confirmation"
+		})).Return(nil)
 
-  // Mock with verification
-  test('should send confirmation email', async () => {
-    const mockEmail = { send: jest.fn() };
-    const service = new OrderService(stubInventory, dummyLogger, mockEmail);
+		service := NewOrderServiceWithEmail(mockEmail)
+		_, err := service.CreateOrder(context.Background(), &OrderRequest{ProductID: "1", Quantity: 1})
 
-    await service.createOrder({ productId: '1', quantity: 1 });
+		assert.NoError(t, err)
+		mockEmail.AssertExpectations(t)
+	})
 
-    expect(mockEmail.send).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'order_confirmation' }),
-    );
-  });
+	t.Run("integration with fake repository", func(t *testing.T) {
+		fakeRepo := NewFakeOrderRepository()
+		service := NewOrderServiceWithRepo(fakeRepo)
 
-  // Fake
-  test('integration with fake repository', async () => {
-    const fakeRepo = new FakeOrderRepository();
-    const service = new OrderService(fakeRepo);
+		orderID, err := service.CreateOrder(context.Background(), &OrderRequest{ProductID: "1", Quantity: 1})
+		assert.NoError(t, err)
 
-    const orderId = await service.createOrder({ productId: '1', quantity: 1 });
-    const order = await service.getOrder(orderId);
-
-    expect(order.status).toBe('pending');
-  });
-});
+		order, err := service.GetOrder(context.Background(), orderID)
+		assert.NoError(t, err)
+		assert.Equal(t, "pending", order.Status)
+	})
+}
 ```
 
 ## Librairies recommandees
 
 | Package | Usage |
 |---------|-------|
-| `jest` | Built-in mocking |
-| `vitest` | Jest-compatible, faster |
-| `sinon` | Standalone mocking library |
-| `ts-mockito` | Type-safe mocking |
-| `testdouble` | Modern test double library |
+| `testing` | Built-in testing package |
+| `github.com/stretchr/testify/mock` | Mocking framework |
+| `github.com/stretchr/testify/assert` | Assertion helpers |
+| `github.com/golang/mock/gomock` | Code generation for mocks |
+| `github.com/maxbrunsfeld/counterfeiter/v6` | Interface fake generator |
 
 ## Erreurs communes
 

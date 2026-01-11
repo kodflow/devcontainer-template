@@ -19,319 +19,493 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## fast-check Basics
+## gopter Basics
 
-```typescript
-import fc from 'fast-check';
+```go
+package string_test
 
-describe('String operations', () => {
-  // Property: reverse(reverse(s)) === s
-  test('reverse is its own inverse', () => {
-    fc.assert(
-      fc.property(fc.string(), (s) => {
-        const reversed = s.split('').reverse().join('');
-        const doubleReversed = reversed.split('').reverse().join('');
-        return doubleReversed === s;
-      }),
-    );
-  });
+import (
+	"strings"
+	"testing"
 
-  // Property: length is preserved
-  test('reverse preserves length', () => {
-    fc.assert(
-      fc.property(fc.string(), (s) => {
-        return s.split('').reverse().join('').length === s.length;
-      }),
-    );
-  });
-});
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
+)
 
-describe('Math operations', () => {
-  // Property: addition is commutative
-  test('a + b === b + a', () => {
-    fc.assert(
-      fc.property(fc.integer(), fc.integer(), (a, b) => {
-        return a + b === b + a;
-      }),
-    );
-  });
+func TestStringOperations(t *testing.T) {
+	properties := gopter.NewProperties(nil)
 
-  // Property: addition is associative
-  test('(a + b) + c === a + (b + c)', () => {
-    fc.assert(
-      fc.property(fc.integer(), fc.integer(), fc.integer(), (a, b, c) => {
-        return (a + b) + c === a + (b + c);
-      }),
-    );
-  });
+	// Property: reverse(reverse(s)) === s
+	properties.Property("reverse is its own inverse", prop.ForAll(
+		func(s string) bool {
+			reversed := reverseString(s)
+			doubleReversed := reverseString(reversed)
+			return doubleReversed == s
+		},
+		gen.AnyString(),
+	))
 
-  // Property: zero is identity
-  test('a + 0 === a', () => {
-    fc.assert(
-      fc.property(fc.integer(), (a) => {
-        return a + 0 === a;
-      }),
-    );
-  });
-});
+	// Property: length is preserved
+	properties.Property("reverse preserves length", prop.ForAll(
+		func(s string) bool {
+			reversed := reverseString(s)
+			return len(reversed) == len(s)
+		},
+		gen.AnyString(),
+	))
+
+	properties.TestingRun(t)
+}
+
+func TestMathOperations(t *testing.T) {
+	properties := gopter.NewProperties(nil)
+
+	// Property: addition is commutative
+	properties.Property("a + b === b + a", prop.ForAll(
+		func(a, b int) bool {
+			return a+b == b+a
+		},
+		gen.Int(),
+		gen.Int(),
+	))
+
+	// Property: addition is associative
+	properties.Property("(a + b) + c === a + (b + c)", prop.ForAll(
+		func(a, b, c int) bool {
+			return (a+b)+c == a+(b+c)
+		},
+		gen.Int(),
+		gen.Int(),
+		gen.Int(),
+	))
+
+	// Property: zero is identity
+	properties.Property("a + 0 === a", prop.ForAll(
+		func(a int) bool {
+			return a+0 == a
+		},
+		gen.Int(),
+	))
+
+	properties.TestingRun(t)
+}
+
+func reverseString(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}
 ```
 
-## Arbitraries (Generators)
+## Generators
 
-```typescript
-import fc from 'fast-check';
+```go
+package gen_test
 
-// Built-in arbitraries
-fc.integer(); // Any integer
-fc.integer({ min: 0, max: 100 }); // Range
-fc.nat(); // Natural numbers (>= 0)
-fc.float(); // Floating point
-fc.string(); // Any string
-fc.string({ minLength: 1, maxLength: 10 }); // Constrained
-fc.boolean(); // true/false
-fc.date(); // Date objects
-fc.uuid(); // UUIDs
-fc.emailAddress(); // Valid emails
-fc.ipV4(); // IP addresses
+import (
+	"testing"
 
-// Arrays and objects
-fc.array(fc.integer()); // Array of integers
-fc.array(fc.string(), { minLength: 1, maxLength: 5 }); // Constrained array
-fc.record({ name: fc.string(), age: fc.nat() }); // Object
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
+)
 
-// Custom arbitrary
-const userArbitrary = fc.record({
-  id: fc.uuid(),
-  email: fc.emailAddress(),
-  name: fc.string({ minLength: 2, maxLength: 50 }),
-  age: fc.integer({ min: 0, max: 120 }),
-  role: fc.constantFrom('admin', 'member', 'guest'),
-});
+func TestGenerators(t *testing.T) {
+	properties := gopter.NewProperties(nil)
 
-// Transformed arbitrary
-const positiveEvenArbitrary = fc
-  .nat()
-  .filter((n) => n > 0)
-  .map((n) => n * 2);
+	// Built-in generators
+	_ = gen.Int()                              // Any integer
+	_ = gen.IntRange(0, 100)                   // Range
+	_ = gen.UInt()                             // Unsigned integers
+	_ = gen.Float64()                          // Floating point
+	_ = gen.AnyString()                        // Any string
+	_ = gen.Identifier()                       // Valid identifiers
+	_ = gen.Bool()                             // true/false
+	_ = gen.Time()                             // Time values
+	_ = gen.UUID()                             // UUIDs
 
-// Dependent arbitrary
-const arrayWithIndex = fc.array(fc.string(), { minLength: 1 }).chain((arr) =>
-  fc.record({
-    array: fc.constant(arr),
-    index: fc.integer({ min: 0, max: arr.length - 1 }),
-  }),
-);
+	// Slices and maps
+	_ = gen.SliceOf(gen.Int())                 // Slice of integers
+	_ = gen.SliceOfN(10, gen.String())         // Fixed size
+	_ = gen.MapOf(gen.String(), gen.Int())     // Map
+
+	// Structs
+	userGen := gen.Struct(reflect.TypeOf(&User{}), map[string]gopter.Gen{
+		"ID":    gen.UUID(),
+		"Email": gen.RegexMatch(`[a-z]+@[a-z]+\.[a-z]+`),
+		"Name":  gen.Identifier(),
+		"Age":   gen.IntRange(0, 120),
+		"Role":  gen.OneConstOf("admin", "member", "guest"),
+	})
+
+	properties.Property("user has valid age", prop.ForAll(
+		func(user *User) bool {
+			return user.Age >= 0 && user.Age <= 120
+		},
+		userGen,
+	))
+
+	properties.TestingRun(t)
+}
+
+// Custom generators
+func genPositiveEven() gopter.Gen {
+	return gen.IntRange(1, 1000).
+		SuchThat(func(v interface{}) bool {
+			return v.(int) > 0
+		}).
+		Map(func(v interface{}) interface{} {
+			return v.(int) * 2
+		})
+}
+
+func genSliceWithIndex() gopter.Gen {
+	return gen.SliceOf(gen.AnyString(), reflect.TypeOf([]string{})).
+		SuchThat(func(v interface{}) bool {
+			return len(v.([]string)) > 0
+		}).
+		FlatMap(func(v interface{}) gopter.Gen {
+			arr := v.([]string)
+			return gen.Struct(reflect.TypeOf(&SliceWithIndex{}), map[string]gopter.Gen{
+				"Slice": gen.Const(arr),
+				"Index": gen.IntRange(0, len(arr)-1),
+			})
+		}, reflect.TypeOf(&SliceWithIndex{}))
+}
+
+type SliceWithIndex struct {
+	Slice []string
+	Index int
+}
 ```
 
 ## Common Properties
 
-```typescript
-import fc from 'fast-check';
+```go
+package properties_test
 
-// 1. Roundtrip / Serialization
-describe('JSON serialization', () => {
-  test('parse(stringify(x)) === x', () => {
-    fc.assert(
-      fc.property(fc.jsonValue(), (value) => {
-        const serialized = JSON.stringify(value);
-        const parsed = JSON.parse(serialized);
-        return JSON.stringify(parsed) === serialized;
-      }),
-    );
-  });
-});
+import (
+	"encoding/json"
+	"testing"
 
-// 2. Idempotence
-describe('sort function', () => {
-  test('sort is idempotent', () => {
-    fc.assert(
-      fc.property(fc.array(fc.integer()), (arr) => {
-        const sorted1 = [...arr].sort((a, b) => a - b);
-        const sorted2 = [...sorted1].sort((a, b) => a - b);
-        return JSON.stringify(sorted1) === JSON.stringify(sorted2);
-      }),
-    );
-  });
-});
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
+)
 
-// 3. Invariants
-describe('array operations', () => {
-  test('push increases length by 1', () => {
-    fc.assert(
-      fc.property(fc.array(fc.integer()), fc.integer(), (arr, elem) => {
-        const originalLength = arr.length;
-        const newArr = [...arr, elem];
-        return newArr.length === originalLength + 1;
-      }),
-    );
-  });
+func TestCommonProperties(t *testing.T) {
+	properties := gopter.NewProperties(nil)
 
-  test('filter result is subset', () => {
-    fc.assert(
-      fc.property(fc.array(fc.integer()), (arr) => {
-        const filtered = arr.filter((x) => x > 0);
-        return filtered.every((x) => arr.includes(x));
-      }),
-    );
-  });
-});
+	// 1. Roundtrip / Serialization
+	properties.Property("parse(stringify(x)) === x", prop.ForAll(
+		func(data map[string]interface{}) bool {
+			serialized, err := json.Marshal(data)
+			if err != nil {
+				return false
+			}
+			var parsed map[string]interface{}
+			if err := json.Unmarshal(serialized, &parsed); err != nil {
+				return false
+			}
+			reserialized, _ := json.Marshal(parsed)
+			return string(serialized) == string(reserialized)
+		},
+		gen.MapOf(gen.Identifier(), gen.OneGenOf(
+			gen.Int(),
+			gen.String(),
+			gen.Bool(),
+		)),
+	))
 
-// 4. Oracle / Reference implementation
-describe('binary search', () => {
-  test('finds same result as linear search', () => {
-    fc.assert(
-      fc.property(
-        fc.array(fc.integer()).map((arr) => arr.sort((a, b) => a - b)),
-        fc.integer(),
-        (sortedArr, target) => {
-          const binaryResult = binarySearch(sortedArr, target);
-          const linearResult = sortedArr.indexOf(target);
-          return binaryResult === linearResult;
-        },
-      ),
-    );
-  });
-});
+	// 2. Idempotence
+	properties.Property("sort is idempotent", prop.ForAll(
+		func(arr []int) bool {
+			sorted1 := make([]int, len(arr))
+			copy(sorted1, arr)
+			sort.Ints(sorted1)
 
-// 5. Metamorphic testing
-describe('calculator', () => {
-  test('multiply by 2 equals add to self', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: -1000, max: 1000 }), (n) => {
-        return n * 2 === n + n;
-      }),
-    );
-  });
-});
+			sorted2 := make([]int, len(sorted1))
+			copy(sorted2, sorted1)
+			sort.Ints(sorted2)
+
+			return slicesEqual(sorted1, sorted2)
+		},
+		gen.SliceOf(gen.Int()),
+	))
+
+	// 3. Invariants
+	properties.Property("push increases length by 1", prop.ForAll(
+		func(arr []int, elem int) bool {
+			originalLength := len(arr)
+			newArr := append(arr, elem)
+			return len(newArr) == originalLength+1
+		},
+		gen.SliceOf(gen.Int()),
+		gen.Int(),
+	))
+
+	properties.Property("filter result is subset", prop.ForAll(
+		func(arr []int) bool {
+			filtered := filterPositive(arr)
+			for _, v := range filtered {
+				if !contains(arr, v) {
+					return false
+				}
+			}
+			return true
+		},
+		gen.SliceOf(gen.Int()),
+	))
+
+	// 4. Oracle / Reference implementation
+	properties.Property("binary search finds same as linear", prop.ForAll(
+		func(arr []int, target int) bool {
+			sorted := make([]int, len(arr))
+			copy(sorted, arr)
+			sort.Ints(sorted)
+
+			binaryResult := binarySearch(sorted, target)
+			linearResult := linearSearch(sorted, target)
+			return binaryResult == linearResult
+		},
+		gen.SliceOf(gen.Int()),
+		gen.Int(),
+	))
+
+	// 5. Metamorphic testing
+	properties.Property("multiply by 2 equals add to self", prop.ForAll(
+		func(n int) bool {
+			// Avoid overflow
+			if n > 100000 || n < -100000 {
+				return true
+			}
+			return n*2 == n+n
+		},
+		gen.IntRange(-1000, 1000),
+	))
+
+	properties.TestingRun(t)
+}
+
+func filterPositive(arr []int) []int {
+	var result []int
+	for _, v := range arr {
+		if v > 0 {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
+func contains(arr []int, elem int) bool {
+	for _, v := range arr {
+		if v == elem {
+			return true
+		}
+	}
+	return false
+}
+
+func slicesEqual(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
 ```
 
 ## Domain-Specific Generators
 
-```typescript
-import fc from 'fast-check';
+```go
+package ecommerce_test
+
+import (
+	"testing"
+
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
+)
 
 // E-commerce domain
-const productArbitrary = fc.record({
-  id: fc.uuid(),
-  name: fc.string({ minLength: 1, maxLength: 100 }),
-  price: fc.float({ min: 0.01, max: 10000, noNaN: true }),
-  stock: fc.nat({ max: 1000 }),
-  category: fc.constantFrom('electronics', 'clothing', 'food'),
-});
+func genProduct() gopter.Gen {
+	return gen.Struct(reflect.TypeOf(&Product{}), map[string]gopter.Gen{
+		"ID":       gen.UUID(),
+		"Name":     gen.Identifier(),
+		"Price":    gen.Float64Range(0.01, 10000),
+		"Stock":    gen.IntRange(0, 1000),
+		"Category": gen.OneConstOf("electronics", "clothing", "food"),
+	})
+}
 
-const orderItemArbitrary = fc.record({
-  productId: fc.uuid(),
-  quantity: fc.integer({ min: 1, max: 100 }),
-  unitPrice: fc.float({ min: 0.01, max: 10000, noNaN: true }),
-});
+func genOrderItem() gopter.Gen {
+	return gen.Struct(reflect.TypeOf(&OrderItem{}), map[string]gopter.Gen{
+		"ProductID": gen.UUID(),
+		"Quantity":  gen.IntRange(1, 100),
+		"UnitPrice": gen.Float64Range(0.01, 10000),
+	})
+}
 
-const orderArbitrary = fc.record({
-  id: fc.uuid(),
-  userId: fc.uuid(),
-  items: fc.array(orderItemArbitrary, { minLength: 1, maxLength: 20 }),
-  status: fc.constantFrom('pending', 'confirmed', 'shipped', 'delivered'),
-  createdAt: fc.date(),
-});
+func genOrder() gopter.Gen {
+	return gen.Struct(reflect.TypeOf(&Order{}), map[string]gopter.Gen{
+		"ID":        gen.UUID(),
+		"UserID":    gen.UUID(),
+		"Items":     gen.SliceOfN(5, genOrderItem()),
+		"Status":    gen.OneConstOf("pending", "confirmed", "shipped", "delivered"),
+		"CreatedAt": gen.Time(),
+	})
+}
 
-// Test order total calculation
-test('order total equals sum of items', () => {
-  fc.assert(
-    fc.property(orderArbitrary, (order) => {
-      const calculatedTotal = order.items.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
-        0,
-      );
-      // Allow small floating point differences
-      const orderTotal = calculateOrderTotal(order);
-      return Math.abs(calculatedTotal - orderTotal) < 0.01;
-    }),
-  );
-});
+func TestOrderTotal(t *testing.T) {
+	properties := gopter.NewProperties(nil)
+
+	properties.Property("order total equals sum of items", prop.ForAll(
+		func(order *Order) bool {
+			calculatedTotal := 0.0
+			for _, item := range order.Items {
+				calculatedTotal += float64(item.Quantity) * item.UnitPrice
+			}
+
+			orderTotal := CalculateOrderTotal(order)
+			
+			// Allow small floating point differences
+			diff := calculatedTotal - orderTotal
+			if diff < 0 {
+				diff = -diff
+			}
+			return diff < 0.01
+		},
+		genOrder(),
+	))
+
+	properties.TestingRun(t)
+}
 ```
 
 ## Shrinking
 
-```typescript
-import fc from 'fast-check';
+```go
+package shrink_test
 
-// fast-check automatically shrinks failing cases
-test('example with shrinking', () => {
-  fc.assert(
-    fc.property(fc.array(fc.integer()), (arr) => {
-      // This will fail for arrays with negative numbers
-      return arr.every((x) => x >= 0);
-    }),
-    {
-      // Shrinking tries to find minimal failing case
-      // e.g., [1, -1, 2, 3, 4] shrinks to [-1]
-    },
-  );
-});
+import (
+	"testing"
 
-// Custom shrinking
-const customIntArbitrary = fc.integer().map((n, { context }) => ({
-  value: n,
-  shrinker: () => [0, 1, -1].filter((x) => Math.abs(x) < Math.abs(n)),
-}));
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
+)
 
-// Report configuration
-fc.assert(
-  fc.property(fc.string(), (s) => s.length < 10),
-  {
-    verbose: true, // Show failing examples
-    numRuns: 1000, // Run 1000 tests
-    seed: 42, // Reproducible runs
-  },
-);
+func TestShrinking(t *testing.T) {
+	properties := gopter.NewProperties(nil)
+
+	// gopter automatically shrinks failing cases
+	properties.Property("all elements are non-negative", prop.ForAll(
+		func(arr []int) bool {
+			// This will fail for arrays with negative numbers
+			for _, v := range arr {
+				if v < 0 {
+					return false
+				}
+			}
+			return true
+		},
+		gen.SliceOf(gen.Int()),
+	))
+
+	// Shrinking tries to find minimal failing case
+	// e.g., [1, -1, 2, 3, 4] shrinks to [-1]
+	properties.TestingRun(t)
+}
+
+func TestWithCustomParameters(t *testing.T) {
+	params := gopter.DefaultTestParameters()
+	params.MinSuccessfulTests = 1000 // Run 1000 tests
+	params.MaxSize = 100              // Max size for collections
+	params.Rng.Seed(42)               // Reproducible runs
+
+	properties := gopter.NewProperties(params)
+
+	properties.Property("string length < 10", prop.ForAll(
+		func(s string) bool {
+			return len(s) < 10
+		},
+		gen.AnyString(),
+	))
+
+	properties.TestingRun(t)
+}
 ```
 
-## Async Properties
+## rapid Alternative
 
-```typescript
-import fc from 'fast-check';
+```go
+package rapid_test
 
-describe('async operations', () => {
-  test('database roundtrip', async () => {
-    await fc.assert(
-      fc.asyncProperty(userArbitrary, async (user) => {
-        await userRepo.save(user);
-        const retrieved = await userRepo.findById(user.id);
-        return retrieved?.email === user.email;
-      }),
-    );
-  });
+import (
+	"testing"
 
-  test('API response validation', async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.uuid(),
-        async (userId) => {
-          const response = await api.getUser(userId);
-          return response.status === 200 || response.status === 404;
-        },
-      ),
-      { numRuns: 50 }, // Fewer runs for API tests
-    );
-  });
-});
+	"pgregory.net/rapid"
+)
+
+func TestWithRapid(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		// Generate random string
+		s := rapid.String().Draw(t, "s")
+
+		// Property: reverse is its own inverse
+		reversed := reverseString(s)
+		doubleReversed := reverseString(reversed)
+
+		if doubleReversed != s {
+			t.Fatalf("reverse(reverse(%q)) = %q; want %q", s, doubleReversed, s)
+		}
+	})
+}
+
+func TestDatabaseRoundtrip(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		// Generate random user
+		user := &User{
+			ID:    rapid.String().Draw(t, "id"),
+			Name:  rapid.String().Draw(t, "name"),
+			Email: rapid.String().Draw(t, "email"),
+			Age:   rapid.IntRange(0, 120).Draw(t, "age"),
+		}
+
+		// Test roundtrip
+		saved := saveUser(user)
+		retrieved := getUser(saved.ID)
+
+		if retrieved.Email != user.Email {
+			t.Fatalf("email mismatch: got %q, want %q", retrieved.Email, user.Email)
+		}
+	})
+}
 ```
 
 ## Librairies recommandees
 
 | Package | Usage |
 |---------|-------|
-| `fast-check` | Property-based testing JS/TS |
-| `jsverify` | Alternative (less maintained) |
-| `@fast-check/jest` | Jest integration |
-| `@fast-check/vitest` | Vitest integration |
+| `github.com/leanovate/gopter` | Property-based testing |
+| `pgregory.net/rapid` | Alternative, simpler API |
+| `github.com/flyingmutant/rapid` | Another alternative |
 
 ## Erreurs communes
 
 | Erreur | Impact | Solution |
 |--------|--------|----------|
-| Arbitraires trop larges | Tests lents, faux positifs | Constraindre les domaines |
+| Generateurs trop larges | Tests lents, faux positifs | Constraindre les domaines |
 | Ignorer shrinking | Debug difficile | Analyser minimal cases |
-| Trop de numRuns | Tests lents | 100-1000 suffit souvent |
+| Trop de tests | Tests lents | 100-1000 suffit souvent |
 | Proprietes triviales | Tests inutiles | Tester vraies invariantes |
 | Oublier edge cases | Bugs manques | Combiner avec example-based |
 
@@ -354,6 +528,6 @@ describe('async operations', () => {
 
 ## Sources
 
-- [fast-check Documentation](https://fast-check.dev/)
-- [Property-Based Testing with PropEr, Erlang, and Elixir](https://pragprog.com/titles/fhproper/property-based-testing-with-proper-erlang-and-elixir/)
-- [Choosing Properties for Property-Based Testing](https://fsharpforfunandprofit.com/posts/property-based-testing-2/)
+- [gopter Documentation](https://github.com/leanovate/gopter)
+- [rapid Documentation](https://pkg.go.dev/pgregory.net/rapid)
+- [Property-Based Testing Guide](https://fsharpforfunandprofit.com/posts/property-based-testing-2/)

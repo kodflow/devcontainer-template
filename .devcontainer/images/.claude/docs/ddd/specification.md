@@ -1,5 +1,7 @@
 # Specification Pattern
 
+> Encapsule des règles métier composables et réutilisables, séparant la logique de correspondance de l'objet candidat lui-même.
+
 ## Definition
 
 A **Specification** encapsulates business rules that can be combined and reused. It separates the statement of how to match a candidate from the candidate object itself, enabling composable and testable query/validation logic.
@@ -16,344 +18,303 @@ Specification = Business Rule + Composability + Reusability + Testability
 - **Testable**: Rules isolated and unit-testable
 - **Domain-focused**: Named in ubiquitous language
 
-## TypeScript Implementation
+## Go Implementation
 
-```typescript
-// Base Specification Interface
-interface Specification<T> {
-  isSatisfiedBy(candidate: T): boolean;
-  and(other: Specification<T>): Specification<T>;
-  or(other: Specification<T>): Specification<T>;
-  not(): Specification<T>;
+```go
+package domain
+
+// Specification defines a business rule that can be evaluated.
+type Specification[T any] interface {
+	IsSatisfiedBy(candidate T) bool
+	And(other Specification[T]) Specification[T]
+	Or(other Specification[T]) Specification[T]
+	Not() Specification[T]
 }
 
-// Abstract Base Class
-abstract class CompositeSpecification<T> implements Specification<T> {
-  abstract isSatisfiedBy(candidate: T): boolean;
-
-  and(other: Specification<T>): Specification<T> {
-    return new AndSpecification(this, other);
-  }
-
-  or(other: Specification<T>): Specification<T> {
-    return new OrSpecification(this, other);
-  }
-
-  not(): Specification<T> {
-    return new NotSpecification(this);
-  }
+// BaseSpecification provides common composition operations.
+type BaseSpecification[T any] struct {
+	isSatisfiedBy func(T) bool
 }
 
-// Composite Operators
-class AndSpecification<T> extends CompositeSpecification<T> {
-  constructor(
-    private readonly left: Specification<T>,
-    private readonly right: Specification<T>
-  ) {
-    super();
-  }
-
-  isSatisfiedBy(candidate: T): boolean {
-    return this.left.isSatisfiedBy(candidate) &&
-           this.right.isSatisfiedBy(candidate);
-  }
+// NewSpecification creates a new specification from a predicate.
+func NewSpecification[T any](fn func(T) bool) Specification[T] {
+	return &BaseSpecification[T]{isSatisfiedBy: fn}
 }
 
-class OrSpecification<T> extends CompositeSpecification<T> {
-  constructor(
-    private readonly left: Specification<T>,
-    private readonly right: Specification<T>
-  ) {
-    super();
-  }
-
-  isSatisfiedBy(candidate: T): boolean {
-    return this.left.isSatisfiedBy(candidate) ||
-           this.right.isSatisfiedBy(candidate);
-  }
+// IsSatisfiedBy checks if the candidate satisfies the specification.
+func (s *BaseSpecification[T]) IsSatisfiedBy(candidate T) bool {
+	return s.isSatisfiedBy(candidate)
 }
 
-class NotSpecification<T> extends CompositeSpecification<T> {
-  constructor(private readonly spec: Specification<T>) {
-    super();
-  }
-
-  isSatisfiedBy(candidate: T): boolean {
-    return !this.spec.isSatisfiedBy(candidate);
-  }
+// And combines two specifications with logical AND.
+func (s *BaseSpecification[T]) And(other Specification[T]) Specification[T] {
+	return &andSpecification[T]{left: s, right: other}
 }
 
-// Domain Specifications - Order Example
-class OrderIsConfirmedSpec extends CompositeSpecification<Order> {
-  isSatisfiedBy(order: Order): boolean {
-    return order.status === OrderStatus.Confirmed;
-  }
+// Or combines two specifications with logical OR.
+func (s *BaseSpecification[T]) Or(other Specification[T]) Specification[T] {
+	return &orSpecification[T]{left: s, right: other}
 }
 
-class OrderHasMinimumValueSpec extends CompositeSpecification<Order> {
-  constructor(private readonly minimumValue: Money) {
-    super();
-  }
-
-  isSatisfiedBy(order: Order): boolean {
-    return order.totalAmount.isGreaterThanOrEqual(this.minimumValue);
-  }
+// Not negates the specification.
+func (s *BaseSpecification[T]) Not() Specification[T] {
+	return &notSpecification[T]{spec: s}
 }
 
-class OrderIsFromPremiumCustomerSpec extends CompositeSpecification<Order> {
-  constructor(private readonly customerRepository: CustomerRepository) {
-    super();
-  }
-
-  isSatisfiedBy(order: Order): boolean {
-    const customer = this.customerRepository.findById(order.customerId);
-    return customer?.tier === CustomerTier.Premium;
-  }
+// andSpecification combines two specs with AND.
+type andSpecification[T any] struct {
+	left, right Specification[T]
 }
 
-class OrderIsEligibleForFreeShippingSpec extends CompositeSpecification<Order> {
-  constructor(private readonly customerRepository: CustomerRepository) {
-    super();
-  }
+func (s *andSpecification[T]) IsSatisfiedBy(candidate T) bool {
+	return s.left.IsSatisfiedBy(candidate) && s.right.IsSatisfiedBy(candidate)
+}
 
-  isSatisfiedBy(order: Order): boolean {
-    // Compose existing specifications
-    const hasMinValue = new OrderHasMinimumValueSpec(Money.create(100, 'USD'));
-    const isPremium = new OrderIsFromPremiumCustomerSpec(this.customerRepository);
+func (s *andSpecification[T]) And(other Specification[T]) Specification[T] {
+	return &andSpecification[T]{left: s, right: other}
+}
 
-    // Free shipping: order >= $100 OR premium customer
-    return hasMinValue.or(isPremium).isSatisfiedBy(order);
-  }
+func (s *andSpecification[T]) Or(other Specification[T]) Specification[T] {
+	return &orSpecification[T]{left: s, right: other}
+}
+
+func (s *andSpecification[T]) Not() Specification[T] {
+	return &notSpecification[T]{spec: s}
+}
+
+// orSpecification combines two specs with OR.
+type orSpecification[T any] struct {
+	left, right Specification[T]
+}
+
+func (s *orSpecification[T]) IsSatisfiedBy(candidate T) bool {
+	return s.left.IsSatisfiedBy(candidate) || s.right.IsSatisfiedBy(candidate)
+}
+
+func (s *orSpecification[T]) And(other Specification[T]) Specification[T] {
+	return &andSpecification[T]{left: s, right: other}
+}
+
+func (s *orSpecification[T]) Or(other Specification[T]) Specification[T] {
+	return &orSpecification[T]{left: s, right: other}
+}
+
+func (s *orSpecification[T]) Not() Specification[T] {
+	return &notSpecification[T]{spec: s}
+}
+
+// notSpecification negates a spec.
+type notSpecification[T any] struct {
+	spec Specification[T]
+}
+
+func (s *notSpecification[T]) IsSatisfiedBy(candidate T) bool {
+	return !s.spec.IsSatisfiedBy(candidate)
+}
+
+func (s *notSpecification[T]) And(other Specification[T]) Specification[T] {
+	return &andSpecification[T]{left: s, right: other}
+}
+
+func (s *notSpecification[T]) Or(other Specification[T]) Specification[T] {
+	return &orSpecification[T]{left: s, right: other}
+}
+
+func (s *notSpecification[T]) Not() Specification[T] {
+	return &notSpecification[T]{spec: s}
+}
+
+// Domain Specifications - Order Examples
+
+// OrderIsConfirmedSpec checks if order is confirmed.
+type OrderIsConfirmedSpec struct {
+	BaseSpecification[*Order]
+}
+
+// NewOrderIsConfirmedSpec creates a new specification.
+func NewOrderIsConfirmedSpec() Specification[*Order] {
+	return NewSpecification(func(order *Order) bool {
+		return order.Status() == OrderStatusConfirmed
+	})
+}
+
+// OrderHasMinimumValueSpec checks minimum order value.
+type OrderHasMinimumValueSpec struct {
+	minimumValue Money
+}
+
+// NewOrderHasMinimumValueSpec creates a new specification.
+func NewOrderHasMinimumValueSpec(minimumValue Money) Specification[*Order] {
+	spec := &OrderHasMinimumValueSpec{minimumValue: minimumValue}
+	return NewSpecification(spec.isSatisfiedBy)
+}
+
+func (s *OrderHasMinimumValueSpec) isSatisfiedBy(order *Order) bool {
+	total := order.TotalAmount()
+	return total.Amount() >= s.minimumValue.Amount()
+}
+
+// OrderIsFromPremiumCustomerSpec checks customer tier.
+type OrderIsFromPremiumCustomerSpec struct {
+	customerRepo CustomerRepository
+}
+
+// NewOrderIsFromPremiumCustomerSpec creates a new specification.
+func NewOrderIsFromPremiumCustomerSpec(
+	customerRepo CustomerRepository,
+) Specification[*Order] {
+	spec := &OrderIsFromPremiumCustomerSpec{customerRepo: customerRepo}
+	return NewSpecification(spec.isSatisfiedBy)
+}
+
+func (s *OrderIsFromPremiumCustomerSpec) isSatisfiedBy(order *Order) bool {
+	customer, err := s.customerRepo.FindByID(context.Background(), order.CustomerID())
+	if err != nil {
+		return false
+	}
+	return customer.Tier() == CustomerTierPremium
+}
+
+// OrderIsEligibleForFreeShippingSpec composes multiple specs.
+type OrderIsEligibleForFreeShippingSpec struct {
+	customerRepo CustomerRepository
+}
+
+// NewOrderIsEligibleForFreeShippingSpec creates a new specification.
+func NewOrderIsEligibleForFreeShippingSpec(
+	customerRepo CustomerRepository,
+) Specification[*Order] {
+	hasMinValue := NewOrderHasMinimumValueSpec(NewMoney(100, CurrencyUSD))
+	isPremium := NewOrderIsFromPremiumCustomerSpec(customerRepo)
+	
+	// Free shipping: order >= $100 OR premium customer
+	return hasMinValue.Or(isPremium)
 }
 
 // Product Specifications
-class ProductIsInStockSpec extends CompositeSpecification<Product> {
-  isSatisfiedBy(product: Product): boolean {
-    return product.stockQuantity > 0;
-  }
+
+// ProductIsInStockSpec checks if product has stock.
+func NewProductIsInStockSpec() Specification[*Product] {
+	return NewSpecification(func(product *Product) bool {
+		return product.StockQuantity() > 0
+	})
 }
 
-class ProductIsInCategorySpec extends CompositeSpecification<Product> {
-  constructor(private readonly categoryId: CategoryId) {
-    super();
-  }
-
-  isSatisfiedBy(product: Product): boolean {
-    return product.categoryId.equals(this.categoryId);
-  }
+// ProductIsInCategorySpec checks product category.
+func NewProductIsInCategorySpec(categoryID CategoryID) Specification[*Product] {
+	return NewSpecification(func(product *Product) bool {
+		return product.CategoryID().Equals(categoryID)
+	})
 }
 
-class ProductPriceInRangeSpec extends CompositeSpecification<Product> {
-  constructor(
-    private readonly minPrice: Money,
-    private readonly maxPrice: Money
-  ) {
-    super();
-  }
-
-  isSatisfiedBy(product: Product): boolean {
-    return product.price.isGreaterThanOrEqual(this.minPrice) &&
-           product.price.isLessThanOrEqual(this.maxPrice);
-  }
+// ProductPriceInRangeSpec checks price range.
+func NewProductPriceInRangeSpec(minPrice, maxPrice Money) Specification[*Product] {
+	return NewSpecification(func(product *Product) bool {
+		price := product.Price()
+		return price.Amount() >= minPrice.Amount() &&
+			price.Amount() <= maxPrice.Amount()
+	})
 }
 ```
 
 ## Usage Examples
 
-```typescript
+```go
 // In-memory filtering
-const orders: Order[] = await orderRepository.findAll();
-
-const eligibleForShipping = new OrderIsConfirmedSpec()
-  .and(new OrderHasMinimumValueSpec(Money.create(50, 'USD')));
-
-const readyToShip = orders.filter(o => eligibleForShipping.isSatisfiedBy(o));
+func FilterOrders(orders []*Order, spec Specification[*Order]) []*Order {
+	var result []*Order
+	for _, order := range orders {
+		if spec.IsSatisfiedBy(order) {
+			result = append(result, order)
+		}
+	}
+	return result
+}
 
 // Validation
-class OrderService {
-  private readonly freeShippingSpec: OrderIsEligibleForFreeShippingSpec;
+type OrderService struct {
+	freeShippingSpec Specification[*Order]
+}
 
-  calculateShipping(order: Order): Money {
-    if (this.freeShippingSpec.isSatisfiedBy(order)) {
-      return Money.zero('USD');
-    }
-    return this.calculateStandardShipping(order);
-  }
+func (s *OrderService) CalculateShipping(order *Order) Money {
+	if s.freeShippingSpec.IsSatisfiedBy(order) {
+		return NewMoney(0, CurrencyUSD)
+	}
+	return s.calculateStandardShipping(order)
 }
 
 // Complex business rule
-const premiumDiscount = new OrderIsConfirmedSpec()
-  .and(new OrderHasMinimumValueSpec(Money.create(200, 'USD')))
-  .and(new OrderIsFromPremiumCustomerSpec(customerRepo));
-
-if (premiumDiscount.isSatisfiedBy(order)) {
-  order.applyDiscount(Percentage.create(15));
+func GetEligibleOrders(
+	orders []*Order,
+	customerRepo CustomerRepository,
+) []*Order {
+	confirmed := NewOrderIsConfirmedSpec()
+	minValue := NewOrderHasMinimumValueSpec(NewMoney(200, CurrencyUSD))
+	premium := NewOrderIsFromPremiumCustomerSpec(customerRepo)
+	
+	// Complex rule: confirmed AND (value >= $200 AND premium customer)
+	spec := confirmed.And(minValue.And(premium))
+	
+	return FilterOrders(orders, spec)
 }
-```
-
-## Query Specification (Repository Integration)
-
-```typescript
-// Specification that can be converted to query
-interface QuerySpecification<T> extends Specification<T> {
-  toQueryCriteria(): QueryCriteria;
-}
-
-abstract class QueryableSpecification<T>
-  extends CompositeSpecification<T>
-  implements QuerySpecification<T> {
-
-  abstract toQueryCriteria(): QueryCriteria;
-}
-
-// Example with TypeORM
-class OrderIsConfirmedQuerySpec extends QueryableSpecification<Order> {
-  isSatisfiedBy(order: Order): boolean {
-    return order.status === OrderStatus.Confirmed;
-  }
-
-  toQueryCriteria(): QueryCriteria {
-    return { status: OrderStatus.Confirmed };
-  }
-}
-
-class OrderHasMinimumValueQuerySpec extends QueryableSpecification<Order> {
-  constructor(private readonly minimumValue: Money) {
-    super();
-  }
-
-  isSatisfiedBy(order: Order): boolean {
-    return order.totalAmount.isGreaterThanOrEqual(this.minimumValue);
-  }
-
-  toQueryCriteria(): QueryCriteria {
-    return {
-      totalAmount: { $gte: this.minimumValue.amount }
-    };
-  }
-}
-
-// Repository using specification
-class TypeOrmOrderRepository {
-  async findBySpecification(spec: QuerySpecification<Order>): Promise<Order[]> {
-    const criteria = spec.toQueryCriteria();
-
-    const entities = await this.repository.find({
-      where: criteria
-    });
-
-    // Double-check in memory (for complex specs)
-    return entities
-      .map(e => this.toDomain(e))
-      .filter(o => spec.isSatisfiedBy(o));
-  }
-}
-```
-
-## OOP vs FP Comparison
-
-```typescript
-// FP-style Specification using predicates
-import { pipe } from 'fp-ts/function';
-import * as A from 'fp-ts/Array';
-import * as P from 'fp-ts/Predicate';
-
-type Spec<T> = (t: T) => boolean;
-
-// Combinators
-const and = <T>(...specs: Spec<T>[]): Spec<T> =>
-  (t) => specs.every(s => s(t));
-
-const or = <T>(...specs: Spec<T>[]): Spec<T> =>
-  (t) => specs.some(s => s(t));
-
-const not = <T>(spec: Spec<T>): Spec<T> =>
-  (t) => !spec(t);
-
-// Domain specifications as functions
-const isConfirmed: Spec<Order> = (o) => o.status === OrderStatus.Confirmed;
-
-const hasMinValue = (min: Money): Spec<Order> =>
-  (o) => o.totalAmount.isGreaterThanOrEqual(min);
-
-const isPremiumCustomer = (repo: CustomerRepository): Spec<Order> =>
-  (o) => repo.findById(o.customerId)?.tier === CustomerTier.Premium;
-
-// Composition
-const eligibleForDiscount = and(
-  isConfirmed,
-  hasMinValue(Money.create(200, 'USD')),
-  isPremiumCustomer(customerRepo)
-);
-
-// Usage with fp-ts
-const discountedOrders = pipe(
-  orders,
-  A.filter(eligibleForDiscount)
-);
 ```
 
 ## Recommended Libraries
 
 | Library | Purpose | Link |
 |---------|---------|------|
-| **fp-ts** | Predicate combinators | `npm i fp-ts` |
-| **Effect** | Functional specs | `npm i effect` |
-| **class-validator** | Validation specs | `npm i class-validator` |
-| **zod** | Schema validation | `npm i zod` |
+| **samber/lo** | Functional helpers | `go get github.com/samber/lo` |
+| **go-playground/validator** | Validation | `go get github.com/go-playground/validator/v10` |
 
 ## Anti-patterns
 
 1. **God Specification**: Too many rules in one spec
 
-   ```typescript
+   ```go
    // BAD
-   class OrderIsValidSpec {
-     isSatisfiedBy(order: Order): boolean {
-       return order.status === 'confirmed' &&
-              order.total > 0 &&
-              order.items.length > 0 &&
+   func (s *OrderSpec) IsSatisfiedBy(order *Order) bool {
+       return order.Status == "confirmed" &&
+              order.Total > 0 &&
+              len(order.Items) > 0
               // ... 20 more conditions
-     }
    }
    ```
 
 2. **Leaking Implementation**: Exposing internal details
 
-   ```typescript
+   ```go
    // BAD
-   class OrderSpec {
-     getStatusToCheck(): OrderStatus { } // Exposes internals
+   type OrderSpec struct {
+       statusToCheck OrderStatus // Exposed!
    }
    ```
 
 3. **Non-Composable**: Specifications that can't be combined
 
-   ```typescript
+   ```go
    // BAD - No composition support
-   class OrderSpec {
-     check(order: Order): boolean { return true; }
-   }
+   type OrderSpec struct{}
+   func (s *OrderSpec) Check(order *Order) bool { return true }
    ```
 
 4. **Side Effects**: Modifying state in specification
 
-   ```typescript
+   ```go
    // BAD
-   isSatisfiedBy(order: Order): boolean {
-     order.markAsChecked(); // Side effect!
-     return order.isValid;
+   func (s *Spec) IsSatisfiedBy(order *Order) bool {
+       order.MarkAsChecked() // Side effect!
+       return order.IsValid
    }
    ```
 
-## When to Use
+## Quand utiliser
 
-- Complex business rules that need composition
-- Rules reused for both validation and querying
-- Domain logic that should be testable in isolation
-- Filtering collections by business criteria
+- Règles métier complexes nécessitant une composition
+- Règles réutilisées pour la validation et les requêtes
+- Logique du domaine qui doit être testable isolément
+- Filtrage de collections par critères métier
 
-## See Also
+## Patterns liés
 
 - [Repository](./repository.md) - Uses specifications for queries
 - [Value Object](./value-object.md) - Rules often involve value objects

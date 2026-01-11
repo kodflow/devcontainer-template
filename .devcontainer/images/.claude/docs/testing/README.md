@@ -8,7 +8,7 @@ Patterns pour les tests automatisés.
 
 > Objet qui vérifie les interactions.
 
-```typescript
+```go
 // Manual mock
 class MockEmailService implements EmailService {
   private calls: Array<{ to: string; subject: string; body: string }> = [];
@@ -63,7 +63,7 @@ test('should send welcome email', async () => {
 
 > Objet qui retourne des valeurs prédéfinies.
 
-```typescript
+```go
 // Stub with fixed response
 class StubUserRepository implements UserRepository {
   private users: User[] = [];
@@ -115,7 +115,7 @@ jest.spyOn(userRepo, 'findById').mockResolvedValue({
 
 > Implémentation simplifiée fonctionnelle.
 
-```typescript
+```go
 // In-memory database fake
 class FakeUserRepository implements UserRepository {
   private users = new Map<string, User>();
@@ -176,7 +176,7 @@ class FakeHttpClient implements HttpClient {
 
 > Wrapper qui enregistre les appels.
 
-```typescript
+```go
 // Manual spy
 function createSpy<T extends (...args: any[]) => any>(fn: T): T & {
   calls: Array<{ args: Parameters<T>; result: ReturnType<T> }>;
@@ -228,7 +228,7 @@ expect(spy).toHaveBeenCalled();
 
 > Objet qui remplit un paramètre sans être utilisé.
 
-```typescript
+```go
 // Dummy object - never actually used
 class DummyLogger implements Logger {
   log(message: string): void {
@@ -268,7 +268,7 @@ test('should process order without logging', () => {
 
 > Structure claire des tests.
 
-```typescript
+```go
 test('should apply discount to order total', () => {
   // Arrange - Setup
   const order = new Order();
@@ -311,7 +311,7 @@ test('should fetch user profile', async () => {
 
 > Style behavior-driven.
 
-```typescript
+```go
 describe('Shopping Cart', () => {
   describe('given an empty cart', () => {
     let cart: ShoppingCart;
@@ -369,7 +369,7 @@ describe('Shopping Cart', () => {
 
 > Construction fluide de données de test.
 
-```typescript
+```go
 class UserBuilder {
   private user: Partial<User> = {
     id: 'default-id',
@@ -445,7 +445,7 @@ const createUser = (overrides: Partial<User> = {}): User => ({
 
 > Factory pour objets de test pré-configurés.
 
-```typescript
+```go
 class UserMother {
   static john(): User {
     return new UserBuilder()
@@ -517,7 +517,7 @@ test('should not allow inactive users to place orders', () => {
 
 > Données de test partagées.
 
-```typescript
+```go
 // Fixture class
 class TestFixture {
   db: Database;
@@ -583,7 +583,7 @@ async function loadFixture<T>(name: string): Promise<T> {
 
 > Même test avec différentes données.
 
-```typescript
+```go
 // Jest each
 describe('Calculator', () => {
   const calculator = new Calculator();
@@ -630,7 +630,7 @@ testCases.forEach(({ input, expected }) => {
 
 > Générer des cas de test automatiquement.
 
-```typescript
+```go
 import fc from 'fast-check';
 
 describe('String operations', () => {
@@ -689,7 +689,7 @@ test('user serialization roundtrip', () => {
 
 > Comparer avec une sortie sauvegardée.
 
-```typescript
+```go
 // Jest snapshots
 test('renders user profile', () => {
   const component = render(<UserProfile user={UserMother.john()} />);
@@ -724,7 +724,7 @@ expect.addSnapshotSerializer({
 
 > Vérifier les contrats entre services.
 
-```typescript
+```go
 // Consumer side - Pact
 import { Pact } from '@pact-foundation/pact';
 
@@ -783,7 +783,7 @@ describe('User Service Provider', () => {
 
 > Infrastructure réelle dans des containers.
 
-```typescript
+```go
 import { GenericContainer, StartedTestContainer } from 'testcontainers';
 
 describe('Database Integration', () => {

@@ -13,341 +13,307 @@ Le Gateway est un objet qui encapsule l'acces a un systeme externe ou une ressou
 3. **Service Gateway** : Acces a un service externe
 4. **Messaging Gateway** : Acces a un systeme de messaging
 
-## Service Gateway - Implementation TypeScript
+## Service Gateway - Implementation Go
 
-```typescript
-// Interface Gateway - Abstraction du service externe
-interface PaymentGateway {
-  charge(amount: Money, paymentMethod: PaymentMethod): Promise<PaymentResult>;
-  refund(transactionId: string, amount?: Money): Promise<RefundResult>;
-  getTransaction(transactionId: string): Promise<Transaction>;
+```go
+package gateway
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// Money represents a monetary value.
+type Money struct {
+	Amount   int64  // In cents
+	Currency string
 }
 
-// Implementation concrete - Stripe
-class StripePaymentGateway implements PaymentGateway {
-  private client: Stripe;
-
-  constructor(apiKey: string) {
-    this.client = new Stripe(apiKey, { apiVersion: '2023-10-16' });
-  }
-
-  async charge(amount: Money, paymentMethod: PaymentMethod): Promise<PaymentResult> {
-    try {
-      const paymentIntent = await this.client.paymentIntents.create({
-        amount: amount.toCents(),
-        currency: amount.currency.toLowerCase(),
-        payment_method: paymentMethod.token,
-        confirm: true,
-        return_url: 'https://example.com/return',
-      });
-
-      return {
-        success: paymentIntent.status === 'succeeded',
-        transactionId: paymentIntent.id,
-        status: this.mapStatus(paymentIntent.status),
-        raw: paymentIntent,
-      };
-    } catch (error) {
-      if (error instanceof Stripe.errors.StripeCardError) {
-        return {
-          success: false,
-          error: error.message,
-          code: error.code,
-        };
-      }
-      throw new PaymentGatewayError('Stripe charge failed', error);
-    }
-  }
-
-  async refund(transactionId: string, amount?: Money): Promise<RefundResult> {
-    try {
-      const refund = await this.client.refunds.create({
-        payment_intent: transactionId,
-        amount: amount?.toCents(),
-      });
-
-      return {
-        success: refund.status === 'succeeded',
-        refundId: refund.id,
-        amount: Money.fromCents(refund.amount, refund.currency),
-      };
-    } catch (error) {
-      throw new PaymentGatewayError('Stripe refund failed', error);
-    }
-  }
-
-  async getTransaction(transactionId: string): Promise<Transaction> {
-    const intent = await this.client.paymentIntents.retrieve(transactionId);
-    return this.mapToTransaction(intent);
-  }
-
-  private mapStatus(stripeStatus: string): PaymentStatus {
-    const mapping: Record<string, PaymentStatus> = {
-      succeeded: PaymentStatus.Completed,
-      processing: PaymentStatus.Pending,
-      requires_action: PaymentStatus.RequiresAction,
-      canceled: PaymentStatus.Cancelled,
-    };
-    return mapping[stripeStatus] || PaymentStatus.Unknown;
-  }
-
-  private mapToTransaction(intent: Stripe.PaymentIntent): Transaction {
-    return {
-      id: intent.id,
-      amount: Money.fromCents(intent.amount, intent.currency),
-      status: this.mapStatus(intent.status),
-      createdAt: new Date(intent.created * 1000),
-      metadata: intent.metadata,
-    };
-  }
+// PaymentMethod represents a payment method.
+type PaymentMethod struct {
+	Token string
+	Type  string
 }
 
-// Implementation alternative - PayPal
-class PayPalPaymentGateway implements PaymentGateway {
-  private client: PayPalClient;
-
-  constructor(clientId: string, clientSecret: string, sandbox: boolean) {
-    this.client = new PayPalClient(clientId, clientSecret, sandbox);
-  }
-
-  async charge(amount: Money, paymentMethod: PaymentMethod): Promise<PaymentResult> {
-    const order = await this.client.orders.create({
-      intent: 'CAPTURE',
-      purchase_units: [
-        {
-          amount: {
-            currency_code: amount.currency,
-            value: amount.toString(),
-          },
-        },
-      ],
-    });
-
-    const capture = await this.client.orders.capture(order.id);
-
-    return {
-      success: capture.status === 'COMPLETED',
-      transactionId: capture.id,
-      status: this.mapStatus(capture.status),
-    };
-  }
-
-  // ... autres methodes
-}
-```
-
-## Gateway avec Resilience
-
-```typescript
-// Gateway avec Circuit Breaker et Retry
-class ResilientPaymentGateway implements PaymentGateway {
-  private circuitBreaker: CircuitBreaker;
-  private retryPolicy: RetryPolicy;
-
-  constructor(
-    private readonly innerGateway: PaymentGateway,
-    options: ResilienceOptions = {},
-  ) {
-    this.circuitBreaker = new CircuitBreaker({
-      failureThreshold: options.failureThreshold || 5,
-      resetTimeout: options.resetTimeout || 30000,
-    });
-
-    this.retryPolicy = new RetryPolicy({
-      maxRetries: options.maxRetries || 3,
-      backoff: 'exponential',
-      retryableErrors: [NetworkError, TimeoutError],
-    });
-  }
-
-  async charge(amount: Money, paymentMethod: PaymentMethod): Promise<PaymentResult> {
-    return this.circuitBreaker.execute(async () => {
-      return this.retryPolicy.execute(async () => {
-        return this.innerGateway.charge(amount, paymentMethod);
-      });
-    });
-  }
-
-  async refund(transactionId: string, amount?: Money): Promise<RefundResult> {
-    return this.circuitBreaker.execute(async () => {
-      return this.retryPolicy.execute(async () => {
-        return this.innerGateway.refund(transactionId, amount);
-      });
-    });
-  }
-
-  async getTransaction(transactionId: string): Promise<Transaction> {
-    return this.circuitBreaker.execute(async () => {
-      return this.innerGateway.getTransaction(transactionId);
-    });
-  }
-
-  getCircuitState(): CircuitState {
-    return this.circuitBreaker.getState();
-  }
-}
-```
-
-## Messaging Gateway
-
-```typescript
-// Interface Messaging Gateway
-interface MessagingGateway {
-  publish<T>(topic: string, message: T): Promise<void>;
-  subscribe<T>(topic: string, handler: (message: T) => Promise<void>): Promise<void>;
-  unsubscribe(topic: string): Promise<void>;
+// PaymentResult represents a payment result.
+type PaymentResult struct {
+	Success       bool
+	TransactionID string
+	Status        string
+	Error         string
+	Code          string
+	Raw           any
 }
 
-// Implementation Kafka
-class KafkaMessagingGateway implements MessagingGateway {
-  private producer: KafkaProducer;
-  private consumer: KafkaConsumer;
-  private subscriptions = new Map<string, KafkaConsumer>();
-
-  constructor(brokers: string[], clientId: string) {
-    const kafka = new Kafka({ brokers, clientId });
-    this.producer = kafka.producer();
-    this.consumer = kafka.consumer({ groupId: `${clientId}-group` });
-  }
-
-  async connect(): Promise<void> {
-    await this.producer.connect();
-    await this.consumer.connect();
-  }
-
-  async publish<T>(topic: string, message: T): Promise<void> {
-    await this.producer.send({
-      topic,
-      messages: [
-        {
-          key: message.id || crypto.randomUUID(),
-          value: JSON.stringify(message),
-          timestamp: Date.now().toString(),
-        },
-      ],
-    });
-  }
-
-  async subscribe<T>(
-    topic: string,
-    handler: (message: T) => Promise<void>,
-  ): Promise<void> {
-    await this.consumer.subscribe({ topic, fromBeginning: false });
-
-    await this.consumer.run({
-      eachMessage: async ({ topic, partition, message }) => {
-        const parsed = JSON.parse(message.value!.toString()) as T;
-        await handler(parsed);
-      },
-    });
-  }
-
-  async unsubscribe(topic: string): Promise<void> {
-    // Implementation specifique Kafka
-  }
-
-  async disconnect(): Promise<void> {
-    await this.producer.disconnect();
-    await this.consumer.disconnect();
-  }
+// Transaction represents a transaction.
+type Transaction struct {
+	ID        string
+	Amount    Money
+	Status    string
+	CreatedAt time.Time
+	Metadata  map[string]string
 }
 
-// Implementation RabbitMQ
-class RabbitMQMessagingGateway implements MessagingGateway {
-  private connection: Connection;
-  private channel: Channel;
-
-  constructor(private readonly url: string) {}
-
-  async connect(): Promise<void> {
-    this.connection = await amqp.connect(this.url);
-    this.channel = await this.connection.createChannel();
-  }
-
-  async publish<T>(exchange: string, message: T): Promise<void> {
-    await this.channel.assertExchange(exchange, 'topic', { durable: true });
-    this.channel.publish(
-      exchange,
-      '',
-      Buffer.from(JSON.stringify(message)),
-      { persistent: true },
-    );
-  }
-
-  // ... autres methodes
-}
-```
-
-## HTTP Gateway
-
-```typescript
-// Gateway pour API externe
-interface WeatherGateway {
-  getCurrentWeather(city: string): Promise<Weather>;
-  getForecast(city: string, days: number): Promise<Forecast>;
+// PaymentGateway defines the payment gateway interface.
+type PaymentGateway interface {
+	Charge(ctx context.Context, amount Money, method PaymentMethod) (*PaymentResult, error)
+	Refund(ctx context.Context, transactionID string, amount *Money) (*RefundResult, error)
+	GetTransaction(ctx context.Context, transactionID string) (*Transaction, error)
 }
 
-class OpenWeatherGateway implements WeatherGateway {
-  private httpClient: HttpClient;
-  private cache: Cache;
+// RefundResult represents a refund result.
+type RefundResult struct {
+	Success  bool
+	RefundID string
+	Amount   Money
+}
 
-  constructor(
-    private readonly apiKey: string,
-    private readonly baseUrl: string = 'https://api.openweathermap.org/data/2.5',
-  ) {
-    this.httpClient = new HttpClient({
-      timeout: 5000,
-      retries: 3,
-    });
-    this.cache = new Cache({ ttl: 600 }); // 10 min
-  }
+// StripePaymentGateway implements PaymentGateway for Stripe.
+type StripePaymentGateway struct {
+	client *stripe.Client
+}
 
-  async getCurrentWeather(city: string): Promise<Weather> {
-    const cacheKey = `weather:${city}`;
-    const cached = await this.cache.get<Weather>(cacheKey);
-    if (cached) return cached;
+// NewStripePaymentGateway creates a new Stripe gateway.
+func NewStripePaymentGateway(apiKey string) *StripePaymentGateway {
+	return &StripePaymentGateway{
+		client: stripe.NewClient(apiKey),
+	}
+}
 
-    const response = await this.httpClient.get<OpenWeatherResponse>(
-      `${this.baseUrl}/weather`,
-      {
-        params: {
-          q: city,
-          appid: this.apiKey,
-          units: 'metric',
-        },
-      },
-    );
+// Charge processes a payment.
+func (g *StripePaymentGateway) Charge(ctx context.Context, amount Money, method PaymentMethod) (*PaymentResult, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amount.Amount),
+		Currency:      stripe.String(amount.Currency),
+		PaymentMethod: stripe.String(method.Token),
+		Confirm:       stripe.Bool(true),
+	}
 
-    const weather = this.mapToWeather(response);
-    await this.cache.set(cacheKey, weather);
-    return weather;
-  }
+	intent, err := g.client.PaymentIntents.New(params)
+	if err != nil {
+		if stripeErr, ok := err.(*stripe.Error); ok {
+			return &PaymentResult{
+				Success: false,
+				Error:   stripeErr.Msg,
+				Code:    string(stripeErr.Code),
+			}, nil
+		}
+		return nil, fmt.Errorf("stripe charge: %w", err)
+	}
 
-  async getForecast(city: string, days: number): Promise<Forecast> {
-    const response = await this.httpClient.get<OpenWeatherForecastResponse>(
-      `${this.baseUrl}/forecast`,
-      {
-        params: {
-          q: city,
-          appid: this.apiKey,
-          units: 'metric',
-          cnt: days * 8, // 3h intervals
-        },
-      },
-    );
+	return &PaymentResult{
+		Success:       intent.Status == "succeeded",
+		TransactionID: intent.ID,
+		Status:        g.mapStatus(intent.Status),
+		Raw:           intent,
+	}, nil
+}
 
-    return this.mapToForecast(response);
-  }
+// Refund processes a refund.
+func (g *StripePaymentGateway) Refund(ctx context.Context, transactionID string, amount *Money) (*RefundResult, error) {
+	params := &stripe.RefundParams{
+		PaymentIntent: stripe.String(transactionID),
+	}
 
-  private mapToWeather(response: OpenWeatherResponse): Weather {
-    return {
-      temperature: response.main.temp,
-      humidity: response.main.humidity,
-      description: response.weather[0].description,
-      windSpeed: response.wind.speed,
-      timestamp: new Date(),
-    };
-  }
+	if amount != nil {
+		params.Amount = stripe.Int64(amount.Amount)
+	}
+
+	refund, err := g.client.Refunds.New(params)
+	if err != nil {
+		return nil, fmt.Errorf("stripe refund: %w", err)
+	}
+
+	return &RefundResult{
+		Success:  refund.Status == "succeeded",
+		RefundID: refund.ID,
+		Amount: Money{
+			Amount:   refund.Amount,
+			Currency: refund.Currency,
+		},
+	}, nil
+}
+
+// GetTransaction retrieves a transaction.
+func (g *StripePaymentGateway) GetTransaction(ctx context.Context, transactionID string) (*Transaction, error) {
+	intent, err := g.client.PaymentIntents.Get(transactionID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get payment intent: %w", err)
+	}
+
+	return &Transaction{
+		ID:        intent.ID,
+		Amount:    Money{Amount: intent.Amount, Currency: intent.Currency},
+		Status:    g.mapStatus(intent.Status),
+		CreatedAt: time.Unix(intent.Created, 0),
+		Metadata:  intent.Metadata,
+	}, nil
+}
+
+func (g *StripePaymentGateway) mapStatus(status string) string {
+	mapping := map[string]string{
+		"succeeded":       "completed",
+		"processing":      "pending",
+		"requires_action": "requires_action",
+		"canceled":        "cancelled",
+	}
+	if mapped, ok := mapping[status]; ok {
+		return mapped
+	}
+	return "unknown"
+}
+
+// PayPalPaymentGateway implements PaymentGateway for PayPal.
+type PayPalPaymentGateway struct {
+	client *paypal.Client
+}
+
+// NewPayPalPaymentGateway creates a new PayPal gateway.
+func NewPayPalPaymentGateway(clientID, clientSecret string, sandbox bool) *PayPalPaymentGateway {
+	client := paypal.NewClient(clientID, clientSecret, sandbox)
+	return &PayPalPaymentGateway{client: client}
+}
+
+// Charge processes a payment.
+func (g *PayPalPaymentGateway) Charge(ctx context.Context, amount Money, method PaymentMethod) (*PaymentResult, error) {
+	order, err := g.client.CreateOrder(ctx, paypal.OrderRequest{
+		Intent: "CAPTURE",
+		PurchaseUnits: []paypal.PurchaseUnit{
+			{
+				Amount: paypal.Amount{
+					Currency: amount.Currency,
+					Value:    fmt.Sprintf("%.2f", float64(amount.Amount)/100),
+				},
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create order: %w", err)
+	}
+
+	capture, err := g.client.CaptureOrder(ctx, order.ID)
+	if err != nil {
+		return nil, fmt.Errorf("capture order: %w", err)
+	}
+
+	return &PaymentResult{
+		Success:       capture.Status == "COMPLETED",
+		TransactionID: capture.ID,
+		Status:        g.mapStatus(capture.Status),
+	}, nil
+}
+
+func (g *PayPalPaymentGateway) mapStatus(status string) string {
+	mapping := map[string]string{
+		"COMPLETED": "completed",
+		"PENDING":   "pending",
+		"CANCELED":  "cancelled",
+	}
+	if mapped, ok := mapping[status]; ok {
+		return mapped
+	}
+	return "unknown"
+}
+
+// HTTP Gateway Example
+type WeatherGateway interface {
+	GetCurrentWeather(ctx context.Context, city string) (*Weather, error)
+	GetForecast(ctx context.Context, city string, days int) (*Forecast, error)
+}
+
+type Weather struct {
+	Temperature float64
+	Humidity    int
+	Description string
+	WindSpeed   float64
+	Timestamp   time.Time
+}
+
+type Forecast struct {
+	City  string
+	Days  []DayForecast
+}
+
+type DayForecast struct {
+	Date        time.Time
+	Temperature float64
+	Description string
+}
+
+type OpenWeatherGateway struct {
+	httpClient *http.Client
+	cache      *Cache
+	apiKey     string
+	baseURL    string
+}
+
+func NewOpenWeatherGateway(apiKey string) *OpenWeatherGateway {
+	return &OpenWeatherGateway{
+		httpClient: &http.Client{Timeout: 5 * time.Second},
+		cache:      NewCache(10 * time.Minute),
+		apiKey:     apiKey,
+		baseURL:    "https://api.openweathermap.org/data/2.5",
+	}
+}
+
+func (g *OpenWeatherGateway) GetCurrentWeather(ctx context.Context, city string) (*Weather, error) {
+	cacheKey := fmt.Sprintf("weather:%s", city)
+
+	// Check cache
+	if cached, ok := g.cache.Get(cacheKey); ok {
+		return cached.(*Weather), nil
+	}
+
+	// Make HTTP request
+	url := fmt.Sprintf("%s/weather?q=%s&appid=%s&units=metric", g.baseURL, city, g.apiKey)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := g.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("http status: %d", resp.StatusCode)
+	}
+
+	var apiResp openWeatherResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	weather := g.mapToWeather(apiResp)
+	g.cache.Set(cacheKey, weather)
+
+	return weather, nil
+}
+
+func (g *OpenWeatherGateway) mapToWeather(resp openWeatherResponse) *Weather {
+	return &Weather{
+		Temperature: resp.Main.Temp,
+		Humidity:    resp.Main.Humidity,
+		Description: resp.Weather[0].Description,
+		WindSpeed:   resp.Wind.Speed,
+		Timestamp:   time.Now(),
+	}
+}
+
+type openWeatherResponse struct {
+	Main struct {
+		Temp     float64 `json:"temp"`
+		Humidity int     `json:"humidity"`
+	} `json:"main"`
+	Weather []struct {
+		Description string `json:"description"`
+	} `json:"weather"`
+	Wind struct {
+		Speed float64 `json:"speed"`
+	} `json:"wind"`
 }
 ```
 
@@ -376,30 +342,12 @@ class OpenWeatherGateway implements WeatherGateway {
 - Un seul service externe sans changement prevu
 - Performance ultra-critique (overhead)
 
-## Relation avec DDD
+## Patterns liés
 
-Le Gateway vit dans l'**Infrastructure Layer** et implemente une interface du domaine :
-
-```
-┌─────────────────────────────────────────────┐
-│              Domain Layer                   │
-│   - Interface PaymentGateway (Port)         │
-├─────────────────────────────────────────────┤
-│          Infrastructure Layer               │
-│   - StripePaymentGateway (Adapter)          │
-│   - PayPalPaymentGateway (Adapter)          │
-└─────────────────────────────────────────────┘
-```
-
-C'est le pattern **Ports & Adapters** (Hexagonal Architecture).
-
-## Patterns associes
-
-- **Adapter** : Convertit interfaces incompatibles
-- **Facade** : Simplifie l'acces (interne)
-- **Proxy** : Controle l'acces
-- **Anti-Corruption Layer** : Isole du legacy
-- **Circuit Breaker** : Resilience
+- [Remote Facade](./remote-facade.md) - Facade coarse-grained pour clients distants
+- [Service Layer](./service-layer.md) - Utilise Gateway pour acces externes
+- [Repository](./repository.md) - Abstraction similaire pour donnees locales
+- [Data Mapper](./data-mapper.md) - Mapping entre systemes
 
 ## Sources
 

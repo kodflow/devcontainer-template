@@ -1,5 +1,7 @@
 # Lens Pattern
 
+> Paire getter/setter composable permettant de manipuler des structures de données imbriquées de manière fonctionnelle et immuable.
+
 ## Definition
 
 A **Lens** is a composable getter/setter pair that provides a functional way to focus on and manipulate nested data structures immutably. It solves the problem of updating deeply nested immutable data.
@@ -27,198 +29,468 @@ Lens<S, A> = {
 
 ## TypeScript Implementation
 
-```typescript
-// Basic Lens type
-interface Lens<S, A> {
-  get: (s: S) => A;
-  set: (a: A) => (s: S) => S;
+```go
+package lens
+
+// Lens represents a composable getter/setter pair
+type Lens[S, A any] struct {
+	Get func(S) A
+	Set func(A) func(S) S
 }
 
-// Lens creation helper
-const lens = <S, A>(
-  get: (s: S) => A,
-  set: (a: A) => (s: S) => S
-): Lens<S, A> => ({ get, set });
+// NewLens creates a new Lens
+func NewLens[S, A any](
+	get func(S) A,
+	set func(A) func(S) S,
+) Lens[S, A] {
+	return Lens[S, A]{
+		Get: get,
+		Set: set,
+	}
+}
 
-// Modify using lens
-const modify = <S, A>(
-  lens: Lens<S, A>,
-  f: (a: A) => A
-) => (s: S): S =>
-  lens.set(f(lens.get(s)))(s);
+// Modify applies a function through the lens
+func Modify[S, A any](lens Lens[S, A], f func(A) A) func(S) S {
+	return func(s S) S {
+		return lens.Set(f(lens.Get(s)))(s)
+	}
+}
 
-// Compose lenses
-const compose = <A, B, C>(
-  outer: Lens<A, B>,
-  inner: Lens<B, C>
-): Lens<A, C> => lens(
-  (a: A) => inner.get(outer.get(a)),
-  (c: C) => (a: A) => outer.set(inner.set(c)(outer.get(a)))(a)
-);
+// Compose combines two lenses
+func Compose[A, B, C any](
+	outer Lens[A, B],
+	inner Lens[B, C],
+) Lens[A, C] {
+	return NewLens(
+		func(a A) C {
+			return inner.Get(outer.Get(a))
+		},
+		func(c C) func(A) A {
+			return func(a A) A {
+				b := outer.Get(a)
+				newB := inner.Set(c)(b)
+				return outer.Set(newB)(a)
+			}
+		},
+	)
+}
 
-// Prop lens - create lens for object property
-const prop = <S, K extends keyof S>(key: K): Lens<S, S[K]> => lens(
-  (s) => s[key],
-  (a) => (s) => ({ ...s, [key]: a })
-);
+// Prop creates a lens for a struct field using getter/setter functions
+func Prop[S, A any](
+	get func(*S) A,
+	set func(*S, A),
+) Lens[*S, A] {
+	return NewLens(
+		func(s *S) A {
+			return get(s)
+		},
+		func(a A) func(*S) *S {
+			return func(s *S) *S {
+				// Create a copy
+				newS := new(S)
+				*newS = *s
+				set(newS, a)
+				return newS
+			}
+		},
+	)
+}
 
-// Index lens - create lens for array index
-const index = <A>(i: number): Lens<A[], A | undefined> => lens(
-  (arr) => arr[i],
-  (a) => (arr) => a === undefined
-    ? [...arr.slice(0, i), ...arr.slice(i + 1)]
-    : [...arr.slice(0, i), a, ...arr.slice(i + 1)]
-);
+// Index creates a lens for slice element
+func Index[A any](i int) Lens[[]A, A] {
+	return NewLens(
+		func(arr []A) A {
+			if i < 0 || i >= len(arr) {
+				var zero A
+				return zero
+			}
+			return arr[i]
+		},
+		func(a A) func([]A) []A {
+			return func(arr []A) []A {
+				if i < 0 || i >= len(arr) {
+					return arr
+				}
+				newArr := make([]A, len(arr))
+				copy(newArr, arr)
+				newArr[i] = a
+				return newArr
+			}
+		},
+	)
+}
 ```
 
 ## Usage Examples
 
-```typescript
+```go
+package main
+
 // Domain types
-interface Address {
-  street: string;
-  city: string;
-  country: string;
+type Address struct {
+	Street  string
+	City    string
+	Country string
 }
 
-interface Company {
-  name: string;
-  address: Address;
+type Company struct {
+	Name    string
+	Address Address
 }
 
-interface User {
-  id: string;
-  name: string;
-  company: Company;
+type User struct {
+	ID      string
+	Name    string
+	Company Company
 }
 
-// Create lenses
-const userCompanyLens = prop<User, 'company'>('company');
-const companyAddressLens = prop<Company, 'address'>('address');
-const addressCityLens = prop<Address, 'city'>('city');
+// Create lenses using Prop helper
+func userCompanyLens() Lens[*User, Company] {
+	return Prop(
+		func(u *User) Company { return u.Company },
+		func(u *User, c Company) { u.Company = c },
+	)
+}
 
-// Compose for deep access
-const userCityLens = compose(
-  compose(userCompanyLens, companyAddressLens),
-  addressCityLens
-);
+func companyAddressLens() Lens[*Company, Address] {
+	return Prop(
+		func(c *Company) Address { return c.Address },
+		func(c *Company, a Address) { c.Address = a },
+	)
+}
 
-// Usage
-const user: User = {
-  id: '1',
-  name: 'Alice',
-  company: {
-    name: 'Acme',
-    address: {
-      street: '123 Main',
-      city: 'Boston',
-      country: 'USA'
-    }
-  }
-};
+func addressCityLens() Lens[*Address, string] {
+	return Prop(
+		func(a *Address) string { return a.City },
+		func(a *Address, city string) { a.City = city },
+	)
+}
 
-// Get nested value
-const city = userCityLens.get(user); // 'Boston'
+// Note: For Go, composition of pointer lenses requires wrapper functions
+// This is a simplified example - production code would need careful handling
 
-// Set nested value (returns new user)
-const updatedUser = userCityLens.set('New York')(user);
-// user.company.address.city is still 'Boston'
-// updatedUser.company.address.city is 'New York'
-
-// Modify nested value
-const uppercaseCity = modify(userCityLens, city => city.toUpperCase())(user);
-// uppercaseCity.company.address.city is 'BOSTON'
+func example() {
+	user := &User{
+		ID:   "1",
+		Name: "Alice",
+		Company: Company{
+			Name: "Acme",
+			Address: Address{
+				Street:  "123 Main",
+				City:    "Boston",
+				Country: "USA",
+			},
+		},
+	}
+	
+	// For simple cases in Go, direct field access is more idiomatic
+	// But lenses shine when you need reusable, composable accessors
+	
+	// Get nested value (direct access)
+	city := user.Company.Address.City // "Boston"
+	
+	// Set nested value immutably (requires copy)
+	updatedUser := *user
+	updatedUser.Company.Address.City = "New York"
+	
+	// Modify nested value
+	modifiedUser := *user
+	modifiedUser.Company.Address.City = "BOSTON"
+}
 ```
 
 ## Using monocle-ts
 
-```typescript
-import { Lens, Optional, Prism } from 'monocle-ts';
-import { pipe } from 'fp-ts/function';
-import * as O from 'fp-ts/Option';
+```go
+package main
 
-// Create lenses with fromProp
-const userCompany = Lens.fromProp<User>()('company');
-const companyAddress = Lens.fromProp<Company>()('address');
-const addressCity = Lens.fromProp<Address>()('city');
+import "strings"
 
-// Compose with .compose()
-const userCity = userCompany.compose(companyAddress).compose(addressCity);
+// Lens operations in Go style
+type UserLens struct{}
+
+func (UserLens) Company() Lens[User, Company] {
+	return NewLens(
+		func(u User) Company { return u.Company },
+		func(c Company) func(User) User {
+			return func(u User) User {
+				u.Company = c
+				return u
+			}
+		},
+	)
+}
+
+type CompanyLens struct{}
+
+func (CompanyLens) Address() Lens[Company, Address] {
+	return NewLens(
+		func(c Company) Address { return c.Address },
+		func(a Address) func(Company) Company {
+			return func(c Company) Company {
+				c.Address = a
+				return c
+			}
+		},
+	)
+}
+
+type AddressLens struct{}
+
+func (AddressLens) City() Lens[Address, string] {
+	return NewLens(
+		func(a Address) string { return a.City },
+		func(city string) func(Address) Address {
+			return func(a Address) Address {
+				a.City = city
+				return a
+			}
+		},
+	)
+}
+
+// Compose lenses
+func userCityLens() Lens[User, string] {
+	userCompany := UserLens{}.Company()
+	companyAddr := CompanyLens{}.Address()
+	addrCity := AddressLens{}.City()
+	
+	return Compose(Compose(userCompany, companyAddr), addrCity)
+}
 
 // Operations
-const getCity = userCity.get(user);
-const setCity = userCity.set('Chicago')(user);
-const modifyCity = userCity.modify(c => c.toUpperCase())(user);
+func lensOperations() {
+	user := User{
+		ID:   "1",
+		Name: "Alice",
+		Company: Company{
+			Name: "Acme",
+			Address: Address{
+				Street:  "123 Main",
+				City:    "Boston",
+				Country: "USA",
+			},
+		},
+	}
+	
+	cityLens := userCityLens()
+	
+	getCity := cityLens.Get(user)                              // "Boston"
+	setCity := cityLens.Set("Chicago")(user)                   // New user with Chicago
+	modifyCity := Modify(cityLens, strings.ToUpper)(user)      // New user with BOSTON
+}
 
-// Optional - for potentially missing values
-interface Profile { nickname?: string }
-interface Account { profile?: Profile }
+// Optional - for potentially missing values (using pointers)
+type Profile struct {
+	Nickname *string
+}
 
-const accountProfile = Optional.fromNullableProp<Account>()('profile');
-const profileNickname = Optional.fromNullableProp<Profile>()('nickname');
+type Account struct {
+	Profile *Profile
+}
 
-const accountNickname = accountProfile.compose(profileNickname);
+// Optional lens that handles nil values
+type Optional[S, A any] struct {
+	GetOption func(S) *A
+	Set       func(A) func(S) S
+}
 
-const account: Account = { profile: { nickname: 'bob' } };
-const nickname = accountNickname.getOption(account); // O.some('bob')
+func accountProfileOptional() Optional[Account, Profile] {
+	return Optional[Account, Profile]{
+		GetOption: func(a Account) *Profile {
+			return a.Profile
+		},
+		Set: func(p Profile) func(Account) Account {
+			return func(a Account) Account {
+				a.Profile = &p
+				return a
+			}
+		},
+	}
+}
 
-const emptyAccount: Account = {};
-const noNickname = accountNickname.getOption(emptyAccount); // O.none
+func profileNicknameOptional() Optional[Profile, string] {
+	return Optional[Profile, string]{
+		GetOption: func(p Profile) *string {
+			return p.Nickname
+		},
+		Set: func(n string) func(Profile) Profile {
+			return func(p Profile) Profile {
+				p.Nickname = &n
+				return p
+			}
+		},
+	}
+}
 
-// Prism - for sum types
-type Shape =
-  | { type: 'circle'; radius: number }
-  | { type: 'rectangle'; width: number; height: number };
+func optionalExample() {
+	bob := "bob"
+	account := Account{Profile: &Profile{Nickname: &bob}}
+	
+	profileOpt := accountProfileOptional()
+	if profile := profileOpt.GetOption(account); profile != nil {
+		nicknameOpt := profileNicknameOptional()
+		if nickname := nicknameOpt.GetOption(*profile); nickname != nil {
+			// Use nickname
+		}
+	}
+	
+	emptyAccount := Account{}
+	profile := accountProfileOptional().GetOption(emptyAccount) // nil
+}
 
-const circlePrism = Prism.fromPredicate<Shape, Extract<Shape, { type: 'circle' }>>(
-  (s): s is Extract<Shape, { type: 'circle' }> => s.type === 'circle'
-);
+// Prism - for sum types (using type switches)
+type Shape interface {
+	isShape()
+}
 
-const shapes: Shape[] = [
-  { type: 'circle', radius: 10 },
-  { type: 'rectangle', width: 5, height: 3 }
-];
+type Circle struct {
+	Radius float64
+}
 
-// Get only circles
-const circles = shapes.map(s => circlePrism.getOption(s)).filter(O.isSome);
+func (Circle) isShape() {}
+
+type Rectangle struct {
+	Width  float64
+	Height float64
+}
+
+func (Rectangle) isShape() {}
+
+type Prism[S, A any] struct {
+	GetOption func(S) *A
+	Reverseget func(A) S
+}
+
+func circlePrism() Prism[Shape, Circle] {
+	return Prism[Shape, Circle]{
+		GetOption: func(s Shape) *Circle {
+			if c, ok := s.(Circle); ok {
+				return &c
+			}
+			return nil
+		},
+		Reverseget: func(c Circle) Shape {
+			return c
+		},
+	}
+}
+
+func prismExample() {
+	shapes := []Shape{
+		Circle{Radius: 10},
+		Rectangle{Width: 5, Height: 3},
+	}
+	
+	prism := circlePrism()
+	
+	// Get only circles
+	circles := []Circle{}
+	for _, s := range shapes {
+		if c := prism.GetOption(s); c != nil {
+			circles = append(circles, *c)
+		}
+	}
+}
 ```
 
 ## Using Effect (Optics)
 
-```typescript
-import { Optic, pipe } from 'effect';
+```go
+package main
 
-// Create optics
-const user = Optic.id<User>();
-const company = user.at('company');
-const address = company.at('address');
-const city = address.at('city');
-
-// Get value
-const cityValue = Optic.get(city)(user);
-
-// Set value
-const updatedUser = Optic.replace(city)('Chicago')(user);
-
-// Modify value
-const modifiedUser = Optic.modify(city)(c => c.toUpperCase())(user);
-
-// Optional access
-interface Config {
-  database?: {
-    host?: string;
-    port?: number;
-  };
+// Optic-style API in Go
+type OpticBuilder[S any] struct {
+	value S
 }
 
-const config = Optic.id<Config>();
-const dbHost = config.at('database').at('host');
+func ID[S any]() OpticBuilder[S] {
+	return OpticBuilder[S]{}
+}
 
-// Safe access to optional fields
-const host = pipe(
-  { database: { host: 'localhost' } },
-  Optic.getOption(dbHost)
-); // Option.some('localhost')
+// Get field value
+func Get[S, A any](lens Lens[S, A]) func(S) A {
+	return lens.Get
+}
+
+// Replace field value
+func Replace[S, A any](lens Lens[S, A]) func(A) func(S) S {
+	return lens.Set
+}
+
+// Modify field value
+func ModifyField[S, A any](lens Lens[S, A]) func(func(A) A) func(S) S {
+	return func(f func(A) A) func(S) S {
+		return Modify(lens, f)
+	}
+}
+
+func effectStyleExample() {
+	user := User{
+		ID:   "1",
+		Name: "Alice",
+		Company: Company{
+			Name: "Acme",
+			Address: Address{
+				Street:  "123 Main",
+				City:    "Boston",
+				Country: "USA",
+			},
+		},
+	}
+	
+	cityLens := userCityLens()
+	
+	// Get value
+	cityValue := Get(cityLens)(user)
+	
+	// Set value
+	updatedUser := Replace(cityLens)("Chicago")(user)
+	
+	// Modify value
+	modifiedUser := ModifyField(cityLens)(strings.ToUpper)(user)
+}
+
+// Optional access with pointers
+type Config struct {
+	Database *Database
+}
+
+type Database struct {
+	Host *string
+	Port *int
+}
+
+func configDatabaseLens() Lens[Config, *Database] {
+	return NewLens(
+		func(c Config) *Database { return c.Database },
+		func(db *Database) func(Config) Config {
+			return func(c Config) Config {
+				c.Database = db
+				return c
+			}
+		},
+	)
+}
+
+func optionalAccessExample() {
+	localhost := "localhost"
+	port := 5432
+	
+	config := Config{
+		Database: &Database{
+			Host: &localhost,
+			Port: &port,
+		},
+	}
+	
+	dbLens := configDatabaseLens()
+	db := dbLens.Get(config)
+	
+	if db != nil && db.Host != nil {
+		host := *db.Host // "localhost"
+	}
+}
 ```
 
 ## Optic Types
@@ -231,27 +503,53 @@ const host = pipe(
 | **Iso** | Always | Always | Isomorphic types |
 | **Traversal** | Multiple | Multiple | Collections |
 
-```typescript
+```go
+package main
+
 // Traversal - focus on multiple elements
-import { Traversal } from 'monocle-ts';
-
-interface Order {
-  items: OrderItem[];
+type Traversal[S, A any] struct {
+	ModifyAll func(func(A) A) func(S) S
 }
 
-interface OrderItem {
-  price: number;
+type Order struct {
+	Items []OrderItem
 }
 
-const orderItems = Lens.fromProp<Order>()('items');
-const itemsTraversal = Traversal.fromTraversable(A.Traversable)<OrderItem>();
-const itemPrice = Lens.fromProp<OrderItem>()('price');
+type OrderItem struct {
+	Price float64
+}
 
-// Compose lens + traversal + lens
-const allPrices = orderItems.composeTraversal(itemsTraversal).composeLens(itemPrice);
+func orderItemsTraversal() Traversal[Order, float64] {
+	return Traversal[Order, float64]{
+		ModifyAll: func(f func(float64) float64) func(Order) Order {
+			return func(o Order) Order {
+				newItems := make([]OrderItem, len(o.Items))
+				for i, item := range o.Items {
+					newItems[i] = OrderItem{Price: f(item.Price)}
+				}
+				o.Items = newItems
+				return o
+			}
+		},
+	}
+}
 
 // Modify all prices
-const discountedOrder = allPrices.modify(p => p * 0.9)(order);
+func traversalExample() {
+	order := Order{
+		Items: []OrderItem{
+			{Price: 100},
+			{Price: 200},
+		},
+	}
+	
+	traversal := orderItemsTraversal()
+	
+	// Apply 10% discount
+	discountedOrder := traversal.ModifyAll(func(p float64) float64 {
+		return p * 0.9
+	})(order)
+}
 ```
 
 ## Recommended Libraries
@@ -266,70 +564,87 @@ const discountedOrder = allPrices.modify(p => p * 0.9)(order);
 
 ## Lens vs Spread Operator
 
-```typescript
+```go
+package main
+
 // Without lens - deeply nested update
-const updateCity = (user: User, newCity: string): User => ({
-  ...user,
-  company: {
-    ...user.company,
-    address: {
-      ...user.company.address,
-      city: newCity
-    }
-  }
-});
+func updateCity(user User, newCity string) User {
+	user.Company.Address.City = newCity
+	return user
+}
+
+// Note: Go encourages direct field access for simplicity
+// Lenses are most valuable when you need:
+// - Reusable accessor/mutator logic
+// - Composition of nested access
+// - Functional programming style
 
 // With lens - clean and reusable
-const updateCity = (user: User, newCity: string): User =>
-  userCityLens.set(newCity)(user);
+func updateCityWithLens(user User, newCity string) User {
+	return userCityLens().Set(newCity)(user)
+}
 
 // Lens advantage: reusable for multiple operations
-const getCity = userCityLens.get(user);
-const setCity = userCityLens.set('NYC')(user);
-const upperCity = modify(userCityLens, s => s.toUpperCase())(user);
+func lensAdvantages(user User) {
+	cityLens := userCityLens()
+	
+	getCity := cityLens.Get(user)
+	setCity := cityLens.Set("NYC")(user)
+	upperCity := Modify(cityLens, strings.ToUpper)(user)
+}
 ```
 
 ## Anti-patterns
 
 1. **Creating Lenses Inline**: Loses reusability
 
-   ```typescript
-   // BAD
-   lens(u => u.company.address.city, c => u => ({ ...u, ... }))(user)
-
-   // GOOD
-   const userCityLens = compose(userCompany, companyAddress, addressCity);
-   userCityLens.get(user);
+   ```go
+   // BAD - Creating lens inline
+   NewLens(
+   	func(u User) string { return u.Company.Address.City },
+   	func(c string) func(User) User { /* complex copy logic */ },
+   )(user)
+   
+   // GOOD - Reusable lens
+   cityLens := userCityLens()
+   city := cityLens.Get(user)
    ```
 
 2. **Over-using for Simple Cases**: Unnecessary complexity
 
-   ```typescript
+   ```go
    // BAD - Overkill for single property
-   const nameLens = prop<User, 'name'>('name');
-   nameLens.set('Bob')(user);
-
-   // OK for simple cases
-   const updated = { ...user, name: 'Bob' };
+   nameLens := NewLens(
+   	func(u User) string { return u.Name },
+   	func(n string) func(User) User {
+   		return func(u User) User {
+   			u.Name = n
+   			return u
+   		}
+   	},
+   )
+   
+   // OK for simple cases in Go
+   user.Name = "Bob"
    ```
 
 3. **Mutating Through Lens**: Breaking immutability
 
-   ```typescript
+   ```go
    // BAD
-   const address = addressLens.get(user);
-   address.city = 'NYC'; // Mutation!
+   addr := addressLens.Get(&user)
+   addr.City = "NYC" // Mutation!
    ```
 
-## When to Use
+## Quand utiliser
 
-- Deeply nested immutable updates
-- Reusable accessor/mutator logic
-- Complex state management
-- Working with immutable data structures
-- Redux reducers with nested state
+- Mises à jour immuables profondément imbriquées
+- Logique accessor/mutator réutilisable
+- Gestion d'état complexe
+- Travail avec des structures de données immuables
+- Reducers Redux avec état imbriqué
 
-## See Also
+## Patterns liés
 
 - [Composition](./composition.md) - Lenses are composable
 - [Option](./option.md) - Optional optics return Option

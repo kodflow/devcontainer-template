@@ -55,111 +55,152 @@
 | **Time-based** | Partager selon horaires | Batch + interactive |
 | **Resource Ratio** | Equilibrer CPU/RAM | Mix workloads |
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-interface Workload {
-  id: string;
-  name: string;
-  cpuRequest: number; // millicores
-  memoryRequest: number; // MB
-  priority: 'critical' | 'standard' | 'low';
-  affinityRules?: AffinityRule[];
+```go
+package consolidation
+
+import (
+	"sort"
+)
+
+// Workload represents a workload to be scheduled.
+type Workload struct {
+	ID         string
+	Name       string
+	CPURequest int // millicores
+	MemRequest int // MB
+	Priority   string
 }
 
-interface Node {
-  id: string;
-  cpuCapacity: number;
-  memoryCapacity: number;
-  cpuAllocated: number;
-  memoryAllocated: number;
-  workloads: Workload[];
+// Node represents a compute node.
+type Node struct {
+	ID            string
+	CPUCapacity   int
+	MemCapacity   int
+	CPUAllocated  int
+	MemAllocated  int
+	Workloads     []Workload
 }
 
-class ResourceConsolidator {
-  constructor(
-    private readonly targetUtilization = 0.7, // 70%
-    private readonly minNodes = 1,
-  ) {}
+// ResourceConsolidator consolidates workloads onto nodes.
+type ResourceConsolidator struct {
+	targetUtilization float64
+	minNodes          int
+}
 
-  consolidate(nodes: Node[], workloads: Workload[]): Map<string, string[]> {
-    const allocation = new Map<string, string[]>();
+// NewResourceConsolidator creates a new ResourceConsolidator.
+func NewResourceConsolidator(targetUtil float64, minNodes int) *ResourceConsolidator {
+	return &ResourceConsolidator{
+		targetUtilization: targetUtil,
+		minNodes:          minNodes,
+	}
+}
 
-    // Sort workloads by size (largest first for bin packing)
-    const sortedWorkloads = [...workloads].sort(
-      (a, b) => b.cpuRequest + b.memoryRequest - (a.cpuRequest + a.memoryRequest),
-    );
+// Consolidate consolidates workloads onto nodes using bin packing.
+func (rc *ResourceConsolidator) Consolidate(nodes []Node, workloads []Workload) map[string][]string {
+	allocation := make(map[string][]string)
 
-    // Sort nodes by available capacity
-    const availableNodes = [...nodes].sort(
-      (a, b) => this.getAvailableScore(b) - this.getAvailableScore(a),
-    );
+	// Sort workloads by size (largest first for bin packing)
+	sortedWorkloads := make([]Workload, len(workloads))
+	copy(sortedWorkloads, workloads)
+	sort.Slice(sortedWorkloads, func(i, j int) bool {
+		sizeI := sortedWorkloads[i].CPURequest + sortedWorkloads[i].MemRequest
+		sizeJ := sortedWorkloads[j].CPURequest + sortedWorkloads[j].MemRequest
+		return sizeI > sizeJ
+	})
 
-    for (const workload of sortedWorkloads) {
-      const targetNode = this.findBestNode(workload, availableNodes);
+	// Sort nodes by available capacity
+	availableNodes := make([]Node, len(nodes))
+	copy(availableNodes, nodes)
+	sort.Slice(availableNodes, func(i, j int) bool {
+		return rc.getAvailableScore(&availableNodes[i]) > rc.getAvailableScore(&availableNodes[j])
+	})
 
-      if (targetNode) {
-        this.allocate(targetNode, workload);
+	for _, workload := range sortedWorkloads {
+		targetNode := rc.findBestNode(workload, availableNodes)
+		
+		if targetNode != nil {
+			rc.allocate(targetNode, workload)
+			
+			nodeAlloc := allocation[targetNode.ID]
+			nodeAlloc = append(nodeAlloc, workload.ID)
+			allocation[targetNode.ID] = nodeAlloc
+		}
+	}
 
-        const nodeAllocation = allocation.get(targetNode.id) ?? [];
-        nodeAllocation.push(workload.id);
-        allocation.set(targetNode.id, nodeAllocation);
-      } else {
-        console.warn(`No suitable node for workload: ${workload.id}`);
-      }
-    }
+	return allocation
+}
 
-    return allocation;
-  }
+func (rc *ResourceConsolidator) findBestNode(workload Workload, nodes []Node) *Node {
+	for i := range nodes {
+		node := &nodes[i]
+		
+		cpuAvail := node.CPUCapacity - node.CPUAllocated
+		memAvail := node.MemCapacity - node.MemAllocated
 
-  private findBestNode(workload: Workload, nodes: Node[]): Node | undefined {
-    return nodes.find((node) => {
-      const cpuAvailable = node.cpuCapacity - node.cpuAllocated;
-      const memAvailable = node.memoryCapacity - node.memoryAllocated;
+		cpuFits := cpuAvail >= workload.CPURequest
+		memFits := memAvail >= workload.MemRequest
 
-      const cpuFits = cpuAvailable >= workload.cpuRequest;
-      const memFits = memAvailable >= workload.memoryRequest;
+		// Check utilization target
+		projectedCPUUtil := float64(node.CPUAllocated+workload.CPURequest) / float64(node.CPUCapacity)
+		projectedMemUtil := float64(node.MemAllocated+workload.MemRequest) / float64(node.MemCapacity)
 
-      // Check utilization target
-      const projectedCpuUtil =
-        (node.cpuAllocated + workload.cpuRequest) / node.cpuCapacity;
-      const projectedMemUtil =
-        (node.memoryAllocated + workload.memoryRequest) / node.memoryCapacity;
+		withinTarget := projectedCPUUtil <= rc.targetUtilization && 
+		                projectedMemUtil <= rc.targetUtilization
 
-      const withinTarget =
-        projectedCpuUtil <= this.targetUtilization &&
-        projectedMemUtil <= this.targetUtilization;
+		if cpuFits && memFits && withinTarget {
+			return node
+		}
+	}
+	
+	return nil
+}
 
-      return cpuFits && memFits && withinTarget;
-    });
-  }
+func (rc *ResourceConsolidator) allocate(node *Node, workload Workload) {
+	node.CPUAllocated += workload.CPURequest
+	node.MemAllocated += workload.MemRequest
+	node.Workloads = append(node.Workloads, workload)
+}
 
-  private allocate(node: Node, workload: Workload): void {
-    node.cpuAllocated += workload.cpuRequest;
-    node.memoryAllocated += workload.memoryRequest;
-    node.workloads.push(workload);
-  }
+func (rc *ResourceConsolidator) getAvailableScore(node *Node) float64 {
+	cpuAvail := float64(node.CPUCapacity-node.CPUAllocated) / float64(node.CPUCapacity)
+	memAvail := float64(node.MemCapacity-node.MemAllocated) / float64(node.MemCapacity)
+	return cpuAvail + memAvail
+}
 
-  private getAvailableScore(node: Node): number {
-    const cpuAvailable = (node.cpuCapacity - node.cpuAllocated) / node.cpuCapacity;
-    const memAvailable =
-      (node.memoryCapacity - node.memoryAllocated) / node.memoryCapacity;
-    return cpuAvailable + memAvailable;
-  }
-
-  recommendScaleDown(nodes: Node[]): Node[] {
-    const emptyNodes = nodes.filter((n) => n.workloads.length === 0);
-    const underutilized = nodes.filter((n) => {
-      const cpuUtil = n.cpuAllocated / n.cpuCapacity;
-      const memUtil = n.memoryAllocated / n.memoryCapacity;
-      return cpuUtil < 0.2 && memUtil < 0.2 && n.workloads.length > 0;
-    });
-
-    return [...emptyNodes, ...underutilized].slice(
-      0,
-      Math.max(0, nodes.length - this.minNodes),
-    );
-  }
+// RecommendScaleDown recommends nodes to remove.
+func (rc *ResourceConsolidator) RecommendScaleDown(nodes []Node) []Node {
+	var recommendations []Node
+	
+	// Empty nodes
+	for _, node := range nodes {
+		if len(node.Workloads) == 0 {
+			recommendations = append(recommendations, node)
+		}
+	}
+	
+	// Underutilized nodes
+	for _, node := range nodes {
+		cpuUtil := float64(node.CPUAllocated) / float64(node.CPUCapacity)
+		memUtil := float64(node.MemAllocated) / float64(node.MemCapacity)
+		
+		if cpuUtil < 0.2 && memUtil < 0.2 && len(node.Workloads) > 0 {
+			recommendations = append(recommendations, node)
+		}
+	}
+	
+	// Respect minimum nodes
+	maxRemove := len(nodes) - rc.minNodes
+	if maxRemove < 0 {
+		maxRemove = 0
+	}
+	
+	if len(recommendations) > maxRemove {
+		recommendations = recommendations[:maxRemove]
+	}
+	
+	return recommendations
 }
 ```
 
@@ -230,56 +271,20 @@ spec:
 
 ## Metriques de consolidation
 
-```typescript
-interface ConsolidationMetrics {
-  totalNodes: number;
-  activeNodes: number;
-  avgCpuUtilization: number;
-  avgMemoryUtilization: number;
-  estimatedSavings: number;
-}
-
-function calculateMetrics(nodes: Node[]): ConsolidationMetrics {
-  const activeNodes = nodes.filter((n) => n.workloads.length > 0);
-
-  const avgCpu =
-    activeNodes.reduce((sum, n) => sum + n.cpuAllocated / n.cpuCapacity, 0) /
-    activeNodes.length;
-
-  const avgMem =
-    activeNodes.reduce(
-      (sum, n) => sum + n.memoryAllocated / n.memoryCapacity,
-      0,
-    ) / activeNodes.length;
-
-  const idleNodes = nodes.length - activeNodes.length;
-  const estimatedSavings = idleNodes * 100; // $100/node/month estimate
-
-  return {
-    totalNodes: nodes.length,
-    activeNodes: activeNodes.length,
-    avgCpuUtilization: avgCpu * 100,
-    avgMemoryUtilization: avgMem * 100,
-    estimatedSavings,
-  };
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Time-based Consolidation
 
-```typescript
-// Partage de ressources selon horaires
-const scheduleConfig = {
-  batchJobs: {
-    schedule: '0 2 * * *', // 2h du matin
-    duration: 4 * 60 * 60 * 1000, // 4 heures
-    resources: { cpu: '4', memory: '8Gi' },
-  },
-  interactiveServices: {
-    schedule: '0 8 * * 1-5', // 8h-18h semaine
-    resources: { cpu: '2', memory: '4Gi' },
-  },
-};
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Anti-patterns
@@ -290,6 +295,14 @@ const scheduleConfig = {
 | Noisy neighbors | Performance degradee | Resource limits + QoS |
 | Sans isolation | Security risk | Namespaces, network policies |
 | Consolidation statique | Gaspillage off-peak | Autoscaling |
+
+## Quand utiliser
+
+- Workloads avec faible utilisation des ressources individuellement
+- Environnements de developpement et test non-critiques
+- Services complementaires en termes d'utilisation CPU/memoire
+- Reduction des couts d'infrastructure cloud
+- Applications conteneurisees avec des profils de charge previsibles
 
 ## Patterns lies
 

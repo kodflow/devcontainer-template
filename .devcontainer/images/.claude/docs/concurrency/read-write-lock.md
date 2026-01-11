@@ -44,145 +44,60 @@ Pattern permettant plusieurs lecteurs simultanes mais un seul ecrivain exclusif.
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
-### ReadWriteLock basique
+### ReadWriteLock avec sync.RWMutex
 
-```typescript
-class ReadWriteLock {
-  private readers = 0;
-  private writer = false;
-  private writerWaiting = 0;
-  private readerQueue: Array<() => void> = [];
-  private writerQueue: Array<() => void> = [];
+```go
+package rwlock
 
-  async acquireRead(): Promise<void> {
-    // Attendre si un writer est actif ou en attente
-    if (this.writer || this.writerWaiting > 0) {
-      await new Promise<void>((resolve) => {
-        this.readerQueue.push(resolve);
-      });
-    }
-    this.readers++;
-  }
+import (
+	"context"
+	"sync"
+)
 
-  releaseRead(): void {
-    this.readers--;
-
-    // Si plus de readers et writers en attente, en reveiller un
-    if (this.readers === 0 && this.writerQueue.length > 0) {
-      this.writer = true;
-      this.writerWaiting--;
-      const next = this.writerQueue.shift()!;
-      next();
-    }
-  }
-
-  async acquireWrite(): Promise<void> {
-    this.writerWaiting++;
-
-    // Attendre que tous les readers et le writer actuel finissent
-    if (this.readers > 0 || this.writer) {
-      await new Promise<void>((resolve) => {
-        this.writerQueue.push(resolve);
-      });
-    } else {
-      this.writerWaiting--;
-      this.writer = true;
-    }
-  }
-
-  releaseWrite(): void {
-    this.writer = false;
-
-    // Priorite aux readers en attente (reader preference)
-    if (this.readerQueue.length > 0) {
-      const readers = this.readerQueue;
-      this.readerQueue = [];
-      readers.forEach((resolve) => resolve());
-    } else if (this.writerQueue.length > 0) {
-      this.writer = true;
-      this.writerWaiting--;
-      const next = this.writerQueue.shift()!;
-      next();
-    }
-  }
-
-  async withRead<T>(fn: () => T | Promise<T>): Promise<T> {
-    await this.acquireRead();
-    try {
-      return await fn();
-    } finally {
-      this.releaseRead();
-    }
-  }
-
-  async withWrite<T>(fn: () => T | Promise<T>): Promise<T> {
-    await this.acquireWrite();
-    try {
-      return await fn();
-    } finally {
-      this.releaseWrite();
-    }
-  }
+// RWLock wraps sync.RWMutex with context support.
+type RWLock struct {
+	mu sync.RWMutex
 }
-```
 
-### Writer Preference (evite writer starvation)
+// NewRWLock creates a new read-write lock.
+func NewRWLock() *RWLock {
+	return &RWLock{}
+}
 
-```typescript
-class WriterPreferenceRWLock {
-  private readers = 0;
-  private writer = false;
-  private writerWaiting = 0;
-  private readerQueue: Array<() => void> = [];
-  private writerQueue: Array<() => void> = [];
+// RLock acquires a read lock.
+func (rw *RWLock) RLock() {
+	rw.mu.RLock()
+}
 
-  async acquireRead(): Promise<void> {
-    // Bloquer si writer actif OU writers en attente
-    while (this.writer || this.writerWaiting > 0) {
-      await new Promise<void>((resolve) => {
-        this.readerQueue.push(resolve);
-      });
-    }
-    this.readers++;
-  }
+// RUnlock releases a read lock.
+func (rw *RWLock) RUnlock() {
+	rw.mu.RUnlock()
+}
 
-  releaseRead(): void {
-    this.readers--;
-    this.notifyNext();
-  }
+// Lock acquires a write lock.
+func (rw *RWLock) Lock() {
+	rw.mu.Lock()
+}
 
-  async acquireWrite(): Promise<void> {
-    this.writerWaiting++;
+// Unlock releases a write lock.
+func (rw *RWLock) Unlock() {
+	rw.mu.Unlock()
+}
 
-    while (this.readers > 0 || this.writer) {
-      await new Promise<void>((resolve) => {
-        this.writerQueue.push(resolve);
-      });
-    }
+// WithRead executes fn with a read lock.
+func (rw *RWLock) WithRead(fn func() error) error {
+	rw.mu.RLock()
+	defer rw.mu.RUnlock()
+	return fn()
+}
 
-    this.writerWaiting--;
-    this.writer = true;
-  }
-
-  releaseWrite(): void {
-    this.writer = false;
-    this.notifyNext();
-  }
-
-  private notifyNext(): void {
-    // Priorite aux writers
-    if (this.writerQueue.length > 0 && this.readers === 0) {
-      const next = this.writerQueue.shift()!;
-      next();
-    } else if (this.writerWaiting === 0) {
-      // Liberer tous les readers
-      const readers = this.readerQueue;
-      this.readerQueue = [];
-      readers.forEach((r) => r());
-    }
-  }
+// WithWrite executes fn with a write lock.
+func (rw *RWLock) WithWrite(fn func() error) error {
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+	return fn()
 }
 ```
 
@@ -190,112 +105,141 @@ class WriterPreferenceRWLock {
 
 ## Cas d'usage: Cache Thread-Safe
 
-```typescript
-class ThreadSafeCache<K, V> {
-  private cache = new Map<K, V>();
-  private lock = new ReadWriteLock();
+```go
+package cache
 
-  async get(key: K): Promise<V | undefined> {
-    return this.lock.withRead(() => {
-      return this.cache.get(key);
-    });
-  }
+import (
+	"context"
+	"sync"
+)
 
-  async set(key: K, value: V): Promise<void> {
-    await this.lock.withWrite(() => {
-      this.cache.set(key, value);
-    });
-  }
+// ThreadSafeCache is a concurrent-safe cache.
+type ThreadSafeCache[K comparable, V any] struct {
+	data map[K]V
+	mu   sync.RWMutex
+}
 
-  async getOrSet(key: K, factory: () => V | Promise<V>): Promise<V> {
-    // D'abord essayer en lecture
-    const existing = await this.get(key);
-    if (existing !== undefined) {
-      return existing;
-    }
+// NewThreadSafeCache creates a new thread-safe cache.
+func NewThreadSafeCache[K comparable, V any]() *ThreadSafeCache[K, V] {
+	return &ThreadSafeCache[K, V]{
+		data: make(map[K]V),
+	}
+}
 
-    // Sinon, ecriture
-    return this.lock.withWrite(async () => {
-      // Double-check apres acquisition du write lock
-      const current = this.cache.get(key);
-      if (current !== undefined) {
-        return current;
-      }
+// Get retrieves a value from the cache.
+func (c *ThreadSafeCache[K, V]) Get(key K) (V, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
-      const value = await factory();
-      this.cache.set(key, value);
-      return value;
-    });
-  }
+	val, ok := c.data[key]
+	return val, ok
+}
 
-  async delete(key: K): Promise<boolean> {
-    return this.lock.withWrite(() => {
-      return this.cache.delete(key);
-    });
-  }
+// Set stores a value in the cache.
+func (c *ThreadSafeCache[K, V]) Set(key K, value V) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-  async size(): Promise<number> {
-    return this.lock.withRead(() => {
-      return this.cache.size;
-    });
-  }
+	c.data[key] = value
+}
+
+// GetOrSet retrieves or creates a value.
+func (c *ThreadSafeCache[K, V]) GetOrSet(
+	ctx context.Context,
+	key K,
+	factory func(context.Context) (V, error),
+) (V, error) {
+	// Try read first
+	c.mu.RLock()
+	val, ok := c.data[key]
+	c.mu.RUnlock()
+
+	if ok {
+		return val, nil
+	}
+
+	// Upgrade to write lock
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Double-check after acquiring write lock
+	if val, ok := c.data[key]; ok {
+		return val, ok
+	}
+
+	// Create new value
+	val, err := factory(ctx)
+	if err != nil {
+		var zero V
+		return zero, err
+	}
+
+	c.data[key] = val
+	return val, nil
+}
+
+// Delete removes a value from the cache.
+func (c *ThreadSafeCache[K, V]) Delete(key K) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	_, ok := c.data[key]
+	delete(c.data, key)
+	return ok
+}
+
+// Size returns the number of cached items.
+func (c *ThreadSafeCache[K, V]) Size() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return len(c.data)
+}
+
+// Clear removes all items.
+func (c *ThreadSafeCache[K, V]) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.data = make(map[K]V)
 }
 ```
 
----
+**Usage:**
 
-## Upgradeable Read Lock
+```go
+package main
 
-```typescript
-class UpgradeableRWLock {
-  private rwLock = new ReadWriteLock();
-  private upgradeLock = new Mutex();
+import (
+	"context"
+	"fmt"
+	"time"
+)
 
-  async acquireRead(): Promise<void> {
-    await this.rwLock.acquireRead();
-  }
+func main() {
+	cache := NewThreadSafeCache[string, string]()
 
-  releaseRead(): void {
-    this.rwLock.releaseRead();
-  }
+	// Concurrent writes
+	for i := 0; i < 10; i++ {
+		i := i
+		go cache.Set(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i))
+	}
 
-  async acquireUpgradeable(): Promise<void> {
-    await this.upgradeLock.acquire();
-    await this.rwLock.acquireRead();
-  }
+	time.Sleep(100 * time.Millisecond)
 
-  async upgradeToWrite(): Promise<void> {
-    // Deja tient upgradeLock, donc seul a pouvoir upgrader
-    this.rwLock.releaseRead();
-    await this.rwLock.acquireWrite();
-  }
+	// Concurrent reads
+	for i := 0; i < 10; i++ {
+		i := i
+		go func() {
+			val, ok := cache.Get(fmt.Sprintf("key%d", i))
+			if ok {
+				fmt.Printf("key%d = %s\n", i, val)
+			}
+		}()
+	}
 
-  releaseUpgradeable(): void {
-    this.rwLock.releaseRead();
-    this.upgradeLock.release();
-  }
-
-  releaseWrite(): void {
-    this.rwLock.releaseWrite();
-    this.upgradeLock.release();
-  }
-}
-
-// Usage
-const lock = new UpgradeableRWLock();
-
-await lock.acquireUpgradeable();
-try {
-  const value = readValue();
-  if (needsUpdate(value)) {
-    await lock.upgradeToWrite();
-    updateValue();
-    lock.releaseWrite();
-  } else {
-    lock.releaseUpgradeable();
-  }
-} catch (e) {
-  lock.releaseUpgradeable();
+	time.Sleep(100 * time.Millisecond)
+	fmt.Printf("Cache size: %d\n", cache.Size())
 }
 ```
 
@@ -304,7 +248,7 @@ try {
 ## Comparaison des strategies
 
 ```
-Reader Preference:
+Reader Preference (sync.RWMutex default):
   Readers: ========    ========    ========
   Writers:         ====        ====
   (Writers peuvent starve si lectures continues)
@@ -326,15 +270,16 @@ Fair (FIFO):
 
 | Operation | Complexite |
 |-----------|------------|
-| acquireRead (no contention) | O(1) |
-| acquireWrite (no contention) | O(1) |
-| release | O(waiting) |
+| RLock (no contention) | O(1) |
+| Lock (no contention) | O(1) |
+| Unlock | O(1) |
 
 ### Avantages
 
 - Throughput lecture maximise
 - Consistance ecriture garantie
 - Meilleur que mutex pour read-heavy
+- Native dans la stdlib Go
 
 ### Inconvenients
 
@@ -363,12 +308,12 @@ Fair (FIFO):
 | **Mutex** | Cas special avec 1 reader/writer |
 | **Semaphore** | RWLock = Semaphore specialise |
 | **Copy-on-Write** | Alternative sans locks |
-| **MVCC** | Multi-version pour eviter locks |
+| **sync.Map** | Alternative pour cas simples |
 
 ---
 
 ## Sources
 
-- [Wikipedia - Readers-Writer Lock](https://en.wikipedia.org/wiki/Readers%E2%80%93writer_lock)
-- [Java ReentrantReadWriteLock](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/locks/ReentrantReadWriteLock.html)
 - [Go sync.RWMutex](https://pkg.go.dev/sync#RWMutex)
+- [Wikipedia - Readers-Writer Lock](https://en.wikipedia.org/wiki/Readers%E2%80%93writer_lock)
+- [Effective Go - Share by Communicating](https://go.dev/doc/effective_go#sharing)

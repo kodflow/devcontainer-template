@@ -51,39 +51,92 @@
 ┌──────────────────────────────────────────────────────────┐
 │                    Synchrone                              │
 │  ┌─────────┐        REST/gRPC         ┌─────────┐        │
-│  │Service A│ ─────────────────────▶  │Service B│        │
+│  │Service A│ ─────────────────────►  │Service B│        │
 │  └─────────┘                          └─────────┘        │
 └──────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────┐
 │                    Asynchrone                             │
 │  ┌─────────┐     ┌─────────┐          ┌─────────┐        │
-│  │Service A│ ──▶ │  Queue  │ ──▶     │Service B│        │
+│  │Service A│ ──► │  Queue  │ ──►     │Service B│        │
 │  └─────────┘     └─────────┘          └─────────┘        │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ### Service Discovery
 
-```typescript
-// Consul, Kubernetes DNS, etc.
-const userService = await discovery.getService('user-service');
-const response = await fetch(`${userService.url}/users/${id}`);
+```go
+package discovery
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+)
+
+// ServiceDiscovery discovers services (Consul, Kubernetes DNS, etc.).
+type ServiceDiscovery interface {
+	GetService(ctx context.Context, name string) (*ServiceInfo, error)
+}
+
+// ServiceInfo contains service location information.
+type ServiceInfo struct {
+	Name string
+	URL  string
+	Port int
+}
+
+// Example usage
+func CallUserService(ctx context.Context, discovery ServiceDiscovery, userID string) error {
+	userService, err := discovery.GetService(ctx, "user-service")
+	if err != nil {
+		return fmt.Errorf("discovering user-service: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/users/%s", userService.URL, userID)
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("calling user service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	return nil
+}
 ```
 
 ### Circuit Breaker
 
-```typescript
-// Voir cloud/circuit-breaker.md
-const breaker = new CircuitBreaker(callUserService);
-const user = await breaker.fire(userId);
+```go
+package resilience
+
+// Voir cloud/circuit-breaker.md pour l'implémentation complète
+
+// CircuitBreaker prevents cascading failures.
+type CircuitBreaker struct {
+	// Implementation details
+}
+
+// Example usage
+func UseCircuitBreaker() error {
+	breaker := NewCircuitBreaker(/* config */)
+	
+	result, err := breaker.Execute(func() (interface{}, error) {
+		return callUserService()
+	})
+	
+	if err != nil {
+		return err
+	}
+	
+	// Use result
+	return nil
+}
 ```
 
 ### Saga Pattern
 
-```typescript
-// Transactions distribuées
-// Voir cloud/saga.md
+```go
+// Voir cloud/saga.md pour l'implémentation complète
 ```
 
 ## Structure d'un microservice
@@ -94,13 +147,13 @@ user-service/
 │   ├── domain/           # Logique métier
 │   ├── application/      # Use cases
 │   ├── infrastructure/   # DB, HTTP, Messaging
-│   └── main.ts
+│   └── main.go
 ├── Dockerfile
 ├── k8s/
 │   ├── deployment.yaml
 │   └── service.yaml
 ├── tests/
-└── package.json
+└── go.mod
 ```
 
 ## Anti-patterns
@@ -111,7 +164,7 @@ user-service/
 ❌ Services trop couplés = pire que monolith
 
 ┌─────────┐   sync   ┌─────────┐   sync   ┌─────────┐
-│Service A│ ◀──────▶ │Service B│ ◀──────▶ │Service C│
+│Service A│ ◄──────► │Service B│ ◄──────► │Service C│
 └─────────┘          └─────────┘          └─────────┘
      │                    │                    │
      └────────────────────┴────────────────────┘
@@ -171,6 +224,15 @@ Phase 4: Découpler les données
 - [ ] CI/CD mature ?
 - [ ] Monitoring/Observability en place ?
 - [ ] Expérience systèmes distribués ?
+
+## Patterns liés
+
+| Pattern | Relation |
+|---------|----------|
+| Modular Monolith | Alternative plus simple, préparation aux microservices |
+| Event-Driven | Communication asynchrone entre services |
+| CQRS | Séparation read/write par service |
+| Saga | Gestion des transactions distribuées |
 
 ## Sources
 

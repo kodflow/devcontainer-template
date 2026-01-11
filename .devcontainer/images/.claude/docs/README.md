@@ -152,7 +152,6 @@ Total : 155 fichiers markdown - 300+ patterns documentés
 | Geode | cloud | Multi-région |
 | GitOps | devops | Git = source de vérité |
 | Guaranteed Delivery | messaging | Livraison garantie |
-| Guard Clause | principles | Validation early return |
 
 ### H
 

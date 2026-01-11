@@ -8,232 +8,369 @@ Le Domain Model est un modele objet qui represente les concepts metier avec leur
 
 ## Rich vs Anemic Domain Model
 
-```typescript
+```go
 // ANTI-PATTERN: Anemic Domain Model
-// Entite sans comportement = simple structure de donnees
-class AnemicOrder {
-  id: string;
-  items: OrderItem[];
-  status: string;
-  total: number;
+// Entity without behavior = simple data structure
+type AnemicOrder struct {
+	ID     string
+	Items  []*OrderItem
+	Status string
+	Total  float64
 }
 
-// Logique externe dans un service
-class OrderService {
-  addItem(order: AnemicOrder, product: Product, qty: number) {
-    order.items.push({ product, qty });
-    order.total = this.recalculate(order);
-  }
+// Business logic external in a service
+type OrderService struct{}
+
+func (s *OrderService) AddItem(order *AnemicOrder, product *Product, qty int) {
+	order.Items = append(order.Items, &OrderItem{Product: product, Qty: qty})
+	order.Total = s.recalculate(order)
 }
 
 // CORRECT: Rich Domain Model
-// Entite avec comportement et invariants
-class Order {
-  private readonly items: OrderItem[] = [];
-  private status: OrderStatus = OrderStatus.Draft;
+// Entity with behavior and invariants
+type Order struct {
+	items  []*OrderItem
+	status OrderStatus
+}
 
-  addItem(product: Product, quantity: number): void {
-    this.ensureDraft();
-    this.ensureValidQuantity(quantity);
+func (o *Order) AddItem(product *Product, quantity int) error {
+	if err := o.ensureDraft(); err != nil {
+		return err
+	}
+	if err := o.ensureValidQuantity(quantity); err != nil {
+		return err
+	}
 
-    const existing = this.findItem(product.id);
-    if (existing) {
-      existing.increaseQuantity(quantity);
-    } else {
-      this.items.push(OrderItem.create(product, quantity));
-    }
-  }
+	existing := o.findItem(product.ID)
+	if existing != nil {
+		existing.IncreaseQuantity(quantity)
+	} else {
+		o.items = append(o.items, NewOrderItem(product, quantity))
+	}
 
-  private ensureDraft(): void {
-    if (this.status !== OrderStatus.Draft) {
-      throw new DomainError('Cannot modify non-draft order');
-    }
-  }
+	return nil
+}
+
+func (o *Order) ensureDraft() error {
+	if o.status != OrderStatusDraft {
+		return fmt.Errorf("cannot modify non-draft order")
+	}
+	return nil
 }
 ```
 
-## Implementation TypeScript Complete
+## Implementation Go Complete
 
-```typescript
-// Value Objects - Immutables, compares par valeur
-class Money {
-  private constructor(
-    public readonly amount: number,
-    public readonly currency: string,
-  ) {
-    if (amount < 0) throw new DomainError('Amount cannot be negative');
-  }
+```go
+package domain
 
-  static of(amount: number, currency = 'EUR'): Money {
-    return new Money(amount, currency);
-  }
+import (
+	"fmt"
+	"time"
 
-  static zero(currency = 'EUR'): Money {
-    return new Money(0, currency);
-  }
+	"github.com/google/uuid"
+)
 
-  add(other: Money): Money {
-    this.ensureSameCurrency(other);
-    return new Money(this.amount + other.amount, this.currency);
-  }
-
-  multiply(factor: number): Money {
-    return new Money(this.amount * factor, this.currency);
-  }
-
-  equals(other: Money): boolean {
-    return this.amount === other.amount && this.currency === other.currency;
-  }
-
-  private ensureSameCurrency(other: Money): void {
-    if (this.currency !== other.currency) {
-      throw new DomainError('Currency mismatch');
-    }
-  }
+// Money is a value object (immutable, compared by value).
+type Money struct {
+	amount   int64  // In cents
+	currency string
 }
 
-// Entity - Identite unique, mutable
-class OrderItem {
-  private constructor(
-    public readonly id: string,
-    public readonly productId: string,
-    public readonly productName: string,
-    private _quantity: number,
-    public readonly unitPrice: Money,
-  ) {}
-
-  static create(product: Product, quantity: number): OrderItem {
-    return new OrderItem(
-      crypto.randomUUID(),
-      product.id,
-      product.name,
-      quantity,
-      product.price,
-    );
-  }
-
-  get quantity(): number {
-    return this._quantity;
-  }
-
-  get subtotal(): Money {
-    return this.unitPrice.multiply(this._quantity);
-  }
-
-  increaseQuantity(amount: number): void {
-    if (amount <= 0) throw new DomainError('Amount must be positive');
-    this._quantity += amount;
-  }
-
-  decreaseQuantity(amount: number): void {
-    if (amount <= 0) throw new DomainError('Amount must be positive');
-    if (amount > this._quantity) {
-      throw new DomainError('Cannot decrease below zero');
-    }
-    this._quantity -= amount;
-  }
+// NewMoney creates a new money value.
+func NewMoney(amount int64, currency string) (*Money, error) {
+	if amount < 0 {
+		return nil, fmt.Errorf("amount cannot be negative")
+	}
+	return &Money{amount: amount, currency: currency}, nil
 }
 
-// Aggregate Root - Point d'entree, protege les invariants
-class Order {
-  private readonly items: OrderItem[] = [];
-  private status: OrderStatus = OrderStatus.Draft;
-  private readonly events: DomainEvent[] = [];
-
-  private constructor(
-    public readonly id: string,
-    public readonly customerId: string,
-    public readonly createdAt: Date,
-  ) {}
-
-  static create(customerId: string): Order {
-    const order = new Order(crypto.randomUUID(), customerId, new Date());
-    order.events.push(new OrderCreated(order.id, customerId));
-    return order;
-  }
-
-  // Comportements metier
-  addItem(product: Product, quantity: number): void {
-    this.ensureDraft();
-    if (quantity <= 0) {
-      throw new DomainError('Quantity must be positive');
-    }
-    if (!product.isAvailable) {
-      throw new DomainError(`Product ${product.name} is not available`);
-    }
-
-    const existing = this.items.find((i) => i.productId === product.id);
-    if (existing) {
-      existing.increaseQuantity(quantity);
-    } else {
-      this.items.push(OrderItem.create(product, quantity));
-    }
-
-    this.events.push(new ItemAddedToOrder(this.id, product.id, quantity));
-  }
-
-  removeItem(productId: string): void {
-    this.ensureDraft();
-    const index = this.items.findIndex((i) => i.productId === productId);
-    if (index === -1) throw new DomainError('Item not found');
-    this.items.splice(index, 1);
-  }
-
-  submit(): void {
-    this.ensureDraft();
-    if (this.items.length === 0) {
-      throw new DomainError('Cannot submit empty order');
-    }
-    this.status = OrderStatus.Submitted;
-    this.events.push(new OrderSubmitted(this.id, this.total));
-  }
-
-  cancel(reason: string): void {
-    if (this.status === OrderStatus.Shipped) {
-      throw new DomainError('Cannot cancel shipped order');
-    }
-    this.status = OrderStatus.Cancelled;
-    this.events.push(new OrderCancelled(this.id, reason));
-  }
-
-  // Calculs derives
-  get total(): Money {
-    return this.items.reduce(
-      (sum, item) => sum.add(item.subtotal),
-      Money.zero(),
-    );
-  }
-
-  get itemCount(): number {
-    return this.items.reduce((sum, item) => sum + item.quantity, 0);
-  }
-
-  get isDraft(): boolean {
-    return this.status === OrderStatus.Draft;
-  }
-
-  // Protection des invariants
-  private ensureDraft(): void {
-    if (!this.isDraft) {
-      throw new DomainError('Order is not in draft status');
-    }
-  }
-
-  // Domain Events
-  pullEvents(): DomainEvent[] {
-    const events = [...this.events];
-    this.events.length = 0;
-    return events;
-  }
+// Zero returns zero money.
+func Zero(currency string) *Money {
+	return &Money{amount: 0, currency: currency}
 }
 
-enum OrderStatus {
-  Draft = 'draft',
-  Submitted = 'submitted',
-  Paid = 'paid',
-  Shipped = 'shipped',
-  Delivered = 'delivered',
-  Cancelled = 'cancelled',
+// Amount returns the amount.
+func (m *Money) Amount() int64 { return m.amount }
+
+// Currency returns the currency.
+func (m *Money) Currency() string { return m.currency }
+
+// Add adds two money values.
+func (m *Money) Add(other *Money) (*Money, error) {
+	if err := m.ensureSameCurrency(other); err != nil {
+		return nil, err
+	}
+	return &Money{amount: m.amount + other.amount, currency: m.currency}, nil
+}
+
+// Multiply multiplies money by a factor.
+func (m *Money) Multiply(factor int) *Money {
+	return &Money{amount: m.amount * int64(factor), currency: m.currency}
+}
+
+// Equals checks if two money values are equal.
+func (m *Money) Equals(other *Money) bool {
+	return m.amount == other.amount && m.currency == other.currency
+}
+
+func (m *Money) ensureSameCurrency(other *Money) error {
+	if m.currency != other.currency {
+		return fmt.Errorf("currency mismatch: %s vs %s", m.currency, other.currency)
+	}
+	return nil
+}
+
+// OrderItem is an entity (unique identity, mutable).
+type OrderItem struct {
+	id          string
+	productID   string
+	productName string
+	quantity    int
+	unitPrice   *Money
+}
+
+// NewOrderItem creates a new order item.
+func NewOrderItem(product *Product, quantity int) *OrderItem {
+	return &OrderItem{
+		id:          uuid.New().String(),
+		productID:   product.ID,
+		productName: product.Name,
+		quantity:    quantity,
+		unitPrice:   product.Price,
+	}
+}
+
+// ID returns the item ID.
+func (i *OrderItem) ID() string { return i.id }
+
+// Quantity returns the quantity.
+func (i *OrderItem) Quantity() int { return i.quantity }
+
+// Subtotal calculates the item subtotal.
+func (i *OrderItem) Subtotal() *Money {
+	return i.unitPrice.Multiply(i.quantity)
+}
+
+// IncreaseQuantity increases the item quantity.
+func (i *OrderItem) IncreaseQuantity(amount int) error {
+	if amount <= 0 {
+		return fmt.Errorf("amount must be positive")
+	}
+	i.quantity += amount
+	return nil
+}
+
+// DecreaseQuantity decreases the item quantity.
+func (i *OrderItem) DecreaseQuantity(amount int) error {
+	if amount <= 0 {
+		return fmt.Errorf("amount must be positive")
+	}
+	if amount > i.quantity {
+		return fmt.Errorf("cannot decrease below zero")
+	}
+	i.quantity -= amount
+	return nil
+}
+
+// OrderStatus represents order status.
+type OrderStatus string
+
+const (
+	OrderStatusDraft     OrderStatus = "draft"
+	OrderStatusSubmitted OrderStatus = "submitted"
+	OrderStatusPaid      OrderStatus = "paid"
+	OrderStatusShipped   OrderStatus = "shipped"
+	OrderStatusDelivered OrderStatus = "delivered"
+	OrderStatusCancelled OrderStatus = "cancelled"
+)
+
+// DomainEvent represents a domain event.
+type DomainEvent interface {
+	EventType() string
+	OccurredAt() time.Time
+}
+
+// OrderCreated event.
+type OrderCreated struct {
+	OrderID    string
+	CustomerID string
+	occurredAt time.Time
+}
+
+func (e OrderCreated) EventType() string      { return "OrderCreated" }
+func (e OrderCreated) OccurredAt() time.Time  { return e.occurredAt }
+
+// ItemAddedToOrder event.
+type ItemAddedToOrder struct {
+	OrderID    string
+	ProductID  string
+	Quantity   int
+	occurredAt time.Time
+}
+
+func (e ItemAddedToOrder) EventType() string     { return "ItemAddedToOrder" }
+func (e ItemAddedToOrder) OccurredAt() time.Time { return e.occurredAt }
+
+// OrderSubmitted event.
+type OrderSubmitted struct {
+	OrderID    string
+	Total      *Money
+	occurredAt time.Time
+}
+
+func (e OrderSubmitted) EventType() string     { return "OrderSubmitted" }
+func (e OrderSubmitted) OccurredAt() time.Time { return e.occurredAt }
+
+// Order is an aggregate root (entry point, protects invariants).
+type Order struct {
+	id         string
+	customerID string
+	items      []*OrderItem
+	status     OrderStatus
+	createdAt  time.Time
+	events     []DomainEvent
+}
+
+// NewOrder creates a new order.
+func NewOrder(customerID string) *Order {
+	order := &Order{
+		id:         uuid.New().String(),
+		customerID: customerID,
+		items:      make([]*OrderItem, 0),
+		status:     OrderStatusDraft,
+		createdAt:  time.Now(),
+		events:     make([]DomainEvent, 0),
+	}
+
+	order.events = append(order.events, OrderCreated{
+		OrderID:    order.id,
+		CustomerID: customerID,
+		occurredAt: time.Now(),
+	})
+
+	return order
+}
+
+// ID returns the order ID.
+func (o *Order) ID() string { return o.id }
+
+// Status returns the order status.
+func (o *Order) Status() OrderStatus { return o.status }
+
+// IsDraft checks if the order is in draft status.
+func (o *Order) IsDraft() bool { return o.status == OrderStatusDraft }
+
+// AddItem adds an item to the order.
+func (o *Order) AddItem(product *Product, quantity int) error {
+	if err := o.ensureDraft(); err != nil {
+		return err
+	}
+	if quantity <= 0 {
+		return fmt.Errorf("quantity must be positive")
+	}
+	if !product.IsAvailable {
+		return fmt.Errorf("product %s is not available", product.Name)
+	}
+
+	// Check if item already exists
+	for _, item := range o.items {
+		if item.productID == product.ID {
+			if err := item.IncreaseQuantity(quantity); err != nil {
+				return err
+			}
+			return nil
+		}
+	}
+
+	// Add new item
+	o.items = append(o.items, NewOrderItem(product, quantity))
+
+	o.events = append(o.events, ItemAddedToOrder{
+		OrderID:    o.id,
+		ProductID:  product.ID,
+		Quantity:   quantity,
+		occurredAt: time.Now(),
+	})
+
+	return nil
+}
+
+// RemoveItem removes an item from the order.
+func (o *Order) RemoveItem(productID string) error {
+	if err := o.ensureDraft(); err != nil {
+		return err
+	}
+
+	for i, item := range o.items {
+		if item.productID == productID {
+			o.items = append(o.items[:i], o.items[i+1:]...)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("item not found")
+}
+
+// Submit submits the order.
+func (o *Order) Submit() error {
+	if err := o.ensureDraft(); err != nil {
+		return err
+	}
+	if len(o.items) == 0 {
+		return fmt.Errorf("cannot submit empty order")
+	}
+
+	o.status = OrderStatusSubmitted
+
+	o.events = append(o.events, OrderSubmitted{
+		OrderID:    o.id,
+		Total:      o.Total(),
+		occurredAt: time.Now(),
+	})
+
+	return nil
+}
+
+// Total calculates the order total.
+func (o *Order) Total() *Money {
+	total := Zero("USD")
+	for _, item := range o.items {
+		subtotal := item.Subtotal()
+		total, _ = total.Add(subtotal)
+	}
+	return total
+}
+
+// ItemCount returns the total number of items.
+func (o *Order) ItemCount() int {
+	count := 0
+	for _, item := range o.items {
+		count += item.Quantity()
+	}
+	return count
+}
+
+// PullEvents returns and clears domain events.
+func (o *Order) PullEvents() []DomainEvent {
+	events := o.events
+	o.events = make([]DomainEvent, 0)
+	return events
+}
+
+func (o *Order) ensureDraft() error {
+	if !o.IsDraft() {
+		return fmt.Errorf("order is not in draft status")
+	}
+	return nil
+}
+
+// Product represents a product.
+type Product struct {
+	ID          string
+	Name        string
+	Price       *Money
+	IsAvailable bool
 }
 ```
 
@@ -265,38 +402,12 @@ enum OrderStatus {
 - Equipe junior sans formation DDD
 - Domaine stable et simple
 
-## Relation avec DDD
+## Patterns liés
 
-Le Domain Model est le **coeur du DDD** :
-
-```typescript
-// Building Blocks DDD
-// 1. Value Object - Money, Address, Email
-// 2. Entity - Order, Customer, Product
-// 3. Aggregate - Order (root) + OrderItems (enfants)
-// 4. Domain Event - OrderSubmitted, PaymentReceived
-// 5. Domain Service - PricingService (logique cross-aggregate)
-
-// Le Domain Model implemente ces concepts
-class Order /* Aggregate Root */ {
-  // Contient des Value Objects
-  private shippingAddress: Address;
-
-  // Contient des Entities enfants
-  private items: OrderItem[];
-
-  // Emet des Domain Events
-  private events: DomainEvent[];
-}
-```
-
-## Patterns associes
-
-- **Repository** : Persistance du Domain Model
-- **Unit of Work** : Gestion des transactions
-- **Data Mapper** : Mapping objet-relationnel
-- **Factory** : Creation complexe d'agregats
-- **Domain Events** : Communication entre agregats
+- [Service Layer](./service-layer.md) - Orchestration des operations sur Domain Model
+- [Repository](./repository.md) - Persistance des agregats du Domain Model
+- [Data Mapper](./data-mapper.md) - Mapping entre Domain Model et base de donnees
+- [Unit of Work](./unit-of-work.md) - Gestion transactionnelle du Domain Model
 
 ## Sources
 

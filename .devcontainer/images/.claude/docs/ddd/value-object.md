@@ -1,5 +1,7 @@
 # Value Object Pattern
 
+> Objet domaine immuable défini entièrement par ses attributs, sans identité conceptuelle.
+
 ## Definition
 
 A **Value Object** is an immutable domain object defined entirely by its attributes, with no conceptual identity. Two Value Objects with the same attributes are considered equal.
@@ -16,170 +18,217 @@ Value Object = Attributes + Immutability + Equality by Value + Self-Validation
 - **Side-effect free**: Operations return new instances
 - **Replaceability**: Can be freely substituted when equal
 
-## TypeScript Implementation
+## Go Implementation
 
-```typescript
-// Base Value Object
-abstract class ValueObject<T extends Record<string, unknown>> {
-  protected readonly props: Readonly<T>;
+```go
+package domain
 
-  protected constructor(props: T) {
-    this.props = Object.freeze(props);
-  }
+import (
+	"errors"
+	"fmt"
+	"regexp"
+	"strings"
+)
 
-  equals(other: ValueObject<T>): boolean {
-    if (other === null || other === undefined) return false;
-    return JSON.stringify(this.props) === JSON.stringify(other.props);
-  }
-
-  // Deep equality for complex objects
-  protected deepEquals(other: ValueObject<T>): boolean {
-    return this.hashCode() === other.hashCode();
-  }
-
-  hashCode(): string {
-    return JSON.stringify(this.props);
-  }
+// Email is a value object representing an email address.
+type Email struct {
+	value string
 }
 
-// Email Value Object
-class Email extends ValueObject<{ value: string }> {
-  private static readonly EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+var emailRegex = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
 
-  private constructor(value: string) {
-    super({ value });
-  }
+// NewEmail creates a validated Email value object.
+func NewEmail(value string) (Email, error) {
+	if value == "" {
+		return Email{}, errors.New("email cannot be empty")
+	}
 
-  static create(value: string): Result<Email, ValidationError> {
-    if (!value || value.trim() === '') {
-      return Result.fail(new ValidationError('Email cannot be empty'));
-    }
+	normalized := strings.ToLower(strings.TrimSpace(value))
 
-    const normalized = value.toLowerCase().trim();
+	if !emailRegex.MatchString(normalized) {
+		return Email{}, errors.New("invalid email format")
+	}
 
-    if (!Email.EMAIL_REGEX.test(normalized)) {
-      return Result.fail(new ValidationError('Invalid email format'));
-    }
-
-    return Result.ok(new Email(normalized));
-  }
-
-  get value(): string {
-    return this.props.value;
-  }
-
-  get domain(): string {
-    return this.props.value.split('@')[1];
-  }
-
-  // Returns new instance - immutable operation
-  changeDomain(newDomain: string): Result<Email, ValidationError> {
-    const localPart = this.props.value.split('@')[0];
-    return Email.create(`${localPart}@${newDomain}`);
-  }
+	return Email{value: normalized}, nil
 }
 
-// Money Value Object - Complex example
-class Money extends ValueObject<{ amount: number; currency: Currency }> {
-  private constructor(amount: number, currency: Currency) {
-    super({ amount, currency });
-  }
-
-  static create(amount: number, currency: Currency): Result<Money, ValidationError> {
-    if (!Number.isFinite(amount)) {
-      return Result.fail(new ValidationError('Amount must be a finite number'));
-    }
-
-    // Round to currency precision
-    const precision = currency.decimalPlaces;
-    const rounded = Math.round(amount * 10 ** precision) / 10 ** precision;
-
-    return Result.ok(new Money(rounded, currency));
-  }
-
-  static zero(currency: Currency): Money {
-    return new Money(0, currency);
-  }
-
-  get amount(): number { return this.props.amount; }
-  get currency(): Currency { return this.props.currency; }
-
-  add(other: Money): Result<Money, DomainError> {
-    if (!this.props.currency.equals(other.currency)) {
-      return Result.fail(new DomainError('Cannot add different currencies'));
-    }
-    return Money.create(this.props.amount + other.amount, this.props.currency);
-  }
-
-  subtract(other: Money): Result<Money, DomainError> {
-    if (!this.props.currency.equals(other.currency)) {
-      return Result.fail(new DomainError('Cannot subtract different currencies'));
-    }
-    return Money.create(this.props.amount - other.amount, this.props.currency);
-  }
-
-  multiply(factor: number): Result<Money, ValidationError> {
-    return Money.create(this.props.amount * factor, this.props.currency);
-  }
-
-  isPositive(): boolean { return this.props.amount > 0; }
-  isNegative(): boolean { return this.props.amount < 0; }
-  isZero(): boolean { return this.props.amount === 0; }
-
-  format(): string {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: this.props.currency.code,
-    }).format(this.props.amount);
-  }
+// Value returns the email value.
+func (e Email) Value() string {
+	return e.value
 }
 
-// Address Value Object - Composite
-class Address extends ValueObject<{
-  street: string;
-  city: string;
-  postalCode: string;
-  country: Country;
-}> {
-  private constructor(
-    street: string,
-    city: string,
-    postalCode: string,
-    country: Country
-  ) {
-    super({ street, city, postalCode, country });
-  }
+// Domain returns the domain part of the email.
+func (e Email) Domain() string {
+	parts := strings.Split(e.value, "@")
+	if len(parts) == 2 {
+		return parts[1]
+	}
+	return ""
+}
 
-  static create(
-    street: string,
-    city: string,
-    postalCode: string,
-    country: Country
-  ): Result<Address, ValidationError> {
-    const errors: string[] = [];
+// ChangeDomain returns a new Email with a different domain.
+func (e Email) ChangeDomain(newDomain string) (Email, error) {
+	localPart := strings.Split(e.value, "@")[0]
+	return NewEmail(fmt.Sprintf("%s@%s", localPart, newDomain))
+}
 
-    if (!street?.trim()) errors.push('Street is required');
-    if (!city?.trim()) errors.push('City is required');
-    if (!postalCode?.trim()) errors.push('Postal code is required');
-    if (!country.validatePostalCode(postalCode)) {
-      errors.push('Invalid postal code for country');
-    }
+// Equals compares two Email value objects by value.
+func (e Email) Equals(other Email) bool {
+	return e.value == other.value
+}
 
-    if (errors.length > 0) {
-      return Result.fail(new ValidationError(errors.join('; ')));
-    }
+// Money is a value object representing monetary amounts.
+type Money struct {
+	amount   float64
+	currency Currency
+}
 
-    return Result.ok(new Address(street.trim(), city.trim(), postalCode.trim(), country));
-  }
+// NewMoney creates a validated Money value object.
+func NewMoney(amount float64, currency Currency) (Money, error) {
+	if !isFinite(amount) {
+		return Money{}, errors.New("amount must be a finite number")
+	}
 
-  get street(): string { return this.props.street; }
-  get city(): string { return this.props.city; }
-  get postalCode(): string { return this.props.postalCode; }
-  get country(): Country { return this.props.country; }
+	// Round to currency precision
+	precision := currency.DecimalPlaces()
+	multiplier := math.Pow(10, float64(precision))
+	rounded := math.Round(amount*multiplier) / multiplier
 
-  format(): string {
-    return `${this.street}, ${this.city} ${this.postalCode}, ${this.country.name}`;
-  }
+	return Money{
+		amount:   rounded,
+		currency: currency,
+	}, nil
+}
+
+// Zero creates a zero Money value for the given currency.
+func Zero(currency Currency) Money {
+	return Money{amount: 0, currency: currency}
+}
+
+// Amount returns the monetary amount.
+func (m Money) Amount() float64 {
+	return m.amount
+}
+
+// Currency returns the currency.
+func (m Money) Currency() Currency {
+	return m.currency
+}
+
+// Add returns a new Money with the sum of two amounts.
+func (m Money) Add(other Money) (Money, error) {
+	if m.currency != other.currency {
+		return Money{}, errors.New("cannot add different currencies")
+	}
+	return NewMoney(m.amount+other.amount, m.currency)
+}
+
+// Subtract returns a new Money with the difference.
+func (m Money) Subtract(other Money) (Money, error) {
+	if m.currency != other.currency {
+		return Money{}, errors.New("cannot subtract different currencies")
+	}
+	return NewMoney(m.amount-other.amount, m.currency)
+}
+
+// Multiply returns a new Money multiplied by a factor.
+func (m Money) Multiply(factor float64) (Money, error) {
+	return NewMoney(m.amount*factor, m.currency)
+}
+
+// IsPositive checks if amount is positive.
+func (m Money) IsPositive() bool {
+	return m.amount > 0
+}
+
+// IsNegative checks if amount is negative.
+func (m Money) IsNegative() bool {
+	return m.amount < 0
+}
+
+// IsZero checks if amount is zero.
+func (m Money) IsZero() bool {
+	return m.amount == 0
+}
+
+// Equals compares two Money value objects.
+func (m Money) Equals(other Money) bool {
+	return m.amount == other.amount && m.currency == other.currency
+}
+
+// Address is a composite value object.
+type Address struct {
+	street     string
+	city       string
+	postalCode string
+	country    Country
+}
+
+// NewAddress creates a validated Address value object.
+func NewAddress(street, city, postalCode string, country Country) (Address, error) {
+	var errs []string
+
+	if strings.TrimSpace(street) == "" {
+		errs = append(errs, "street is required")
+	}
+	if strings.TrimSpace(city) == "" {
+		errs = append(errs, "city is required")
+	}
+	if strings.TrimSpace(postalCode) == "" {
+		errs = append(errs, "postal code is required")
+	}
+	if !country.ValidatePostalCode(postalCode) {
+		errs = append(errs, "invalid postal code for country")
+	}
+
+	if len(errs) > 0 {
+		return Address{}, errors.New(strings.Join(errs, "; "))
+	}
+
+	return Address{
+		street:     strings.TrimSpace(street),
+		city:       strings.TrimSpace(city),
+		postalCode: strings.TrimSpace(postalCode),
+		country:    country,
+	}, nil
+}
+
+// Street returns the street.
+func (a Address) Street() string {
+	return a.street
+}
+
+// City returns the city.
+func (a Address) City() string {
+	return a.city
+}
+
+// PostalCode returns the postal code.
+func (a Address) PostalCode() string {
+	return a.postalCode
+}
+
+// Country returns the country.
+func (a Address) Country() Country {
+	return a.country
+}
+
+// Format returns a formatted address string.
+func (a Address) Format() string {
+	return fmt.Sprintf("%s, %s %s, %s",
+		a.street, a.city, a.postalCode, a.country.Name())
+}
+
+// Equals compares two Address value objects.
+func (a Address) Equals(other Address) bool {
+	return a.street == other.street &&
+		a.city == other.city &&
+		a.postalCode == other.postalCode &&
+		a.country.Equals(other.country)
+}
+
+func isFinite(f float64) bool {
+	return !math.IsInf(f, 0) && !math.IsNaN(f)
 }
 ```
 
@@ -192,98 +241,108 @@ class Address extends ValueObject<{
 | Operations | Instance methods | Pure functions |
 | Composition | Inheritance | Type composition |
 
-```typescript
-// FP-style Value Object using Effect
-import { Brand, Data } from 'effect';
-import * as S from '@effect/schema/Schema';
+```go
+// FP-style Value Object using functional patterns
 
-// Branded type for type safety
-type Email = string & Brand.Brand<'Email'>;
+// Email is a branded type (string with compile-time guarantees).
+type Email string
 
-const EmailSchema = S.String.pipe(
-  S.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
-  S.brand('Email')
-);
-
-const createEmail = S.decodeUnknown(EmailSchema);
-
-// Using Data for structural equality
-class Money extends Data.Class<{ amount: number; currency: string }> {
-  add(other: Money): Money {
-    if (this.currency !== other.currency) {
-      throw new Error('Currency mismatch');
-    }
-    return new Money({ amount: this.amount + other.amount, currency: this.currency });
-  }
+// CreateEmail is a smart constructor that validates.
+func CreateEmail(value string) (Email, error) {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if !emailRegex.MatchString(normalized) {
+		return "", errors.New("invalid email format")
+	}
+	return Email(normalized), nil
 }
 
-// Automatic equality
-const m1 = new Money({ amount: 100, currency: 'USD' });
-const m2 = new Money({ amount: 100, currency: 'USD' });
-console.log(m1 === m2); // false (reference)
-console.log(Data.equals(m1, m2)); // true (structural)
+// Money with structural equality
+type Money struct {
+	Amount   float64
+	Currency string
+}
+
+// Add is a pure function returning a new Money.
+func AddMoney(m1, m2 Money) (Money, error) {
+	if m1.Currency != m2.Currency {
+		return Money{}, errors.New("currency mismatch")
+	}
+	return Money{
+		Amount:   m1.Amount + m2.Amount,
+		Currency: m1.Currency,
+	}, nil
+}
+
+// Equality is automatic with struct comparison
+func MoneyEqual(m1, m2 Money) bool {
+	return m1 == m2 // Structural equality
+}
 ```
 
 ## Recommended Libraries
 
 | Library | Purpose | Link |
 |---------|---------|------|
-| **Effect** | Branded types, Data | `npm i effect` |
-| **@effect/schema** | Validation schemas | `npm i @effect/schema` |
-| **zod** | Runtime validation | `npm i zod` |
-| **io-ts** | Codec validation | `npm i io-ts` |
-| **neverthrow** | Result type | `npm i neverthrow` |
+| **google/uuid** | ID generation | `go get github.com/google/uuid` |
+| **shopspring/decimal** | Precise decimal math | `go get github.com/shopspring/decimal` |
+| **go-playground/validator** | Struct validation | `go get github.com/go-playground/validator/v10` |
 
 ## Anti-patterns
 
 1. **Mutable Value Object**: Adding setters breaks immutability
 
-   ```typescript
+   ```go
    // BAD
-   class Email {
-     private value: string;
-     setValue(v: string) { this.value = v; } // Mutation!
+   type Email struct {
+       value string
+   }
+   
+   func (e *Email) SetValue(v string) { // Mutation!
+       e.value = v
    }
    ```
 
 2. **Invalid Construction**: Allowing invalid state
 
-   ```typescript
+   ```go
    // BAD - No validation
-   const email = new Email('not-an-email');
-
+   email := Email{value: "not-an-email"}
+   
    // GOOD - Factory with validation
-   const email = Email.create('user@example.com');
+   email, err := NewEmail("user@example.com")
+   if err != nil {
+       // Handle error
+   }
    ```
 
 3. **Primitive Obsession**: Using primitives instead of Value Objects
 
-   ```typescript
+   ```go
    // BAD
-   function sendEmail(to: string, amount: number, currency: string) {}
-
+   func SendEmail(to string, amount float64, currency string) {}
+   
    // GOOD
-   function sendEmail(to: Email, amount: Money) {}
+   func SendEmail(to Email, amount Money) error {}
    ```
 
 4. **Missing Equality**: Not implementing proper equality
 
-   ```typescript
-   // BAD - Reference comparison
-   email1 === email2
-
+   ```go
+   // BAD - Pointer comparison
+   &email1 == &email2
+   
    // GOOD - Value comparison
-   email1.equals(email2)
+   email1.Equals(email2)
    ```
 
-## When to Use
+## Quand utiliser
 
-- Attribute combinations that appear together (Email, Money, Address)
-- Concepts that are defined by their values, not identity
-- Measurements, quantities, descriptors
-- Whenever you need immutability guarantees
+- Combinaisons d'attributs qui apparaissent ensemble (Email, Money, Address)
+- Concepts définis par leurs valeurs, pas leur identité
+- Mesures, quantités, descripteurs
+- Quand vous avez besoin de garanties d'immuabilité
 
-## See Also
+## Patterns liés
 
 - [Entity](./entity.md) - For objects with identity
 - [Aggregate](./aggregate.md) - Contains Value Objects

@@ -39,53 +39,82 @@
 
 ## Implementation Token Bucket
 
-```typescript
-class TokenBucket {
-  private tokens: number;
-  private lastRefill: number;
+```go
+package ratelimiting
 
-  constructor(
-    private readonly capacity: number,      // Nombre max de tokens
-    private readonly refillRate: number,    // Tokens par seconde
-  ) {
-    this.tokens = capacity;
-    this.lastRefill = Date.now();
-  }
+import (
+	"sync"
+	"time"
+)
 
-  tryConsume(tokensNeeded = 1): boolean {
-    this.refill();
+// TokenBucket implements token bucket rate limiting.
+type TokenBucket struct {
+	mu         sync.Mutex
+	tokens     float64
+	lastRefill time.Time
+	capacity   float64  // Max tokens
+	refillRate float64  // Tokens per second
+}
 
-    if (this.tokens >= tokensNeeded) {
-      this.tokens -= tokensNeeded;
-      return true;
-    }
+// NewTokenBucket creates a token bucket rate limiter.
+func NewTokenBucket(capacity, refillRate float64) *TokenBucket {
+	return &TokenBucket{
+		tokens:     capacity,
+		lastRefill: time.Now(),
+		capacity:   capacity,
+		refillRate: refillRate,
+	}
+}
 
-    return false;
-  }
+// TryConsume attempts to consume tokens.
+func (tb *TokenBucket) TryConsume(tokensNeeded float64) bool {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
 
-  private refill(): void {
-    const now = Date.now();
-    const elapsed = (now - this.lastRefill) / 1000;
-    const tokensToAdd = elapsed * this.refillRate;
+	tb.refill()
 
-    this.tokens = Math.min(this.capacity, this.tokens + tokensToAdd);
-    this.lastRefill = now;
-  }
+	if tb.tokens >= tokensNeeded {
+		tb.tokens -= tokensNeeded
+		return true
+	}
 
-  getAvailableTokens(): number {
-    this.refill();
-    return Math.floor(this.tokens);
-  }
+	return false
+}
+
+func (tb *TokenBucket) refill() {
+	now := time.Now()
+	elapsed := now.Sub(tb.lastRefill).Seconds()
+	tokensToAdd := elapsed * tb.refillRate
+
+	tb.tokens = min(tb.capacity, tb.tokens+tokensToAdd)
+	tb.lastRefill = now
+}
+
+// GetAvailableTokens returns available tokens.
+func (tb *TokenBucket) GetAvailableTokens() int {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+
+	tb.refill()
+	return int(tb.tokens)
+}
+
+func min(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // Usage
-const bucket = new TokenBucket(100, 10); // 100 tokens max, 10/s refill
-
-function handleRequest(request: Request): Response {
-  if (!bucket.tryConsume()) {
-    return new Response('Too Many Requests', { status: 429 });
-  }
-  return processRequest(request);
+func handleRequest(bucket *TokenBucket, req *Request) *Response {
+	if !bucket.TryConsume(1) {
+		return &Response{
+			Status: 429,
+			Body:   "Too Many Requests",
+		}
+	}
+	return processRequest(req)
 }
 ```
 
@@ -93,50 +122,107 @@ function handleRequest(request: Request): Response {
 
 ## Implementation Sliding Window
 
-```typescript
-class SlidingWindowRateLimiter {
-  private readonly requests: Map<string, number[]> = new Map();
+```go
+package ratelimiting
 
-  constructor(
-    private readonly windowMs: number,     // Fenetre en ms
-    private readonly maxRequests: number,  // Max requetes par fenetre
-  ) {}
+import (
+	"sync"
+	"time"
+)
 
-  isAllowed(key: string): boolean {
-    const now = Date.now();
-    const windowStart = now - this.windowMs;
+// SlidingWindowRateLimiter implements sliding window rate limiting.
+type SlidingWindowRateLimiter struct {
+	mu          sync.RWMutex
+	requests    map[string][]int64
+	windowMs    int64
+	maxRequests int
+}
 
-    // Recuperer ou initialiser le log
-    let timestamps = this.requests.get(key) ?? [];
+// NewSlidingWindowRateLimiter creates a sliding window rate limiter.
+func NewSlidingWindowRateLimiter(windowMs int64, maxRequests int) *SlidingWindowRateLimiter {
+	return &SlidingWindowRateLimiter{
+		requests:    make(map[string][]int64),
+		windowMs:    windowMs,
+		maxRequests: maxRequests,
+	}
+}
 
-    // Supprimer les requetes hors fenetre
-    timestamps = timestamps.filter((ts) => ts > windowStart);
+// IsAllowed checks if a request is allowed.
+func (s *SlidingWindowRateLimiter) IsAllowed(key string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-    if (timestamps.length >= this.maxRequests) {
-      return false;
-    }
+	now := time.Now().UnixMilli()
+	windowStart := now - s.windowMs
 
-    // Ajouter la requete courante
-    timestamps.push(now);
-    this.requests.set(key, timestamps);
+	// Get or initialize timestamps
+	timestamps := s.requests[key]
 
-    return true;
-  }
+	// Filter out old requests
+	validTimestamps := make([]int64, 0, len(timestamps))
+	for _, ts := range timestamps {
+		if ts > windowStart {
+			validTimestamps = append(validTimestamps, ts)
+		}
+	}
 
-  getRemainingRequests(key: string): number {
-    const now = Date.now();
-    const windowStart = now - this.windowMs;
-    const timestamps = this.requests.get(key) ?? [];
-    const validRequests = timestamps.filter((ts) => ts > windowStart);
-    return Math.max(0, this.maxRequests - validRequests.length);
-  }
+	if len(validTimestamps) >= s.maxRequests {
+		s.requests[key] = validTimestamps
+		return false
+	}
 
-  getResetTime(key: string): number {
-    const timestamps = this.requests.get(key) ?? [];
-    if (timestamps.length === 0) return 0;
-    const oldest = Math.min(...timestamps);
-    return Math.max(0, oldest + this.windowMs - Date.now());
-  }
+	// Add current request
+	validTimestamps = append(validTimestamps, now)
+	s.requests[key] = validTimestamps
+
+	return true
+}
+
+// GetRemainingRequests returns remaining requests for a key.
+func (s *SlidingWindowRateLimiter) GetRemainingRequests(key string) int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	now := time.Now().UnixMilli()
+	windowStart := now - s.windowMs
+
+	timestamps := s.requests[key]
+	validCount := 0
+	for _, ts := range timestamps {
+		if ts > windowStart {
+			validCount++
+		}
+	}
+
+	remaining := s.maxRequests - validCount
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
+}
+
+// GetResetTime returns milliseconds until window resets.
+func (s *SlidingWindowRateLimiter) GetResetTime(key string) int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	timestamps := s.requests[key]
+	if len(timestamps) == 0 {
+		return 0
+	}
+
+	oldest := timestamps[0]
+	for _, ts := range timestamps {
+		if ts < oldest {
+			oldest = ts
+		}
+	}
+
+	resetTime := oldest + s.windowMs - time.Now().UnixMilli()
+	if resetTime < 0 {
+		return 0
+	}
+	return resetTime
 }
 ```
 
@@ -144,85 +230,119 @@ class SlidingWindowRateLimiter {
 
 ## Rate Limiter multi-niveau
 
-```typescript
-interface RateLimitConfig {
-  perSecond?: number;
-  perMinute?: number;
-  perHour?: number;
-  perDay?: number;
+```go
+package ratelimiting
+
+import (
+	"time"
+)
+
+// RateLimitConfig defines rate limit configuration.
+type RateLimitConfig struct {
+	PerSecond int
+	PerMinute int
+	PerHour   int
+	PerDay    int
 }
 
-class MultiLevelRateLimiter {
-  private readonly limiters: Array<{
-    limiter: SlidingWindowRateLimiter;
-    windowMs: number;
-    max: number;
-  }> = [];
+// MultiLevelRateLimiter implements multi-level rate limiting.
+type MultiLevelRateLimiter struct {
+	limiters []struct {
+		limiter  *SlidingWindowRateLimiter
+		windowMs int64
+		max      int
+	}
+}
 
-  constructor(config: RateLimitConfig) {
-    if (config.perSecond) {
-      this.limiters.push({
-        limiter: new SlidingWindowRateLimiter(1000, config.perSecond),
-        windowMs: 1000,
-        max: config.perSecond,
-      });
-    }
-    if (config.perMinute) {
-      this.limiters.push({
-        limiter: new SlidingWindowRateLimiter(60000, config.perMinute),
-        windowMs: 60000,
-        max: config.perMinute,
-      });
-    }
-    if (config.perHour) {
-      this.limiters.push({
-        limiter: new SlidingWindowRateLimiter(3600000, config.perHour),
-        windowMs: 3600000,
-        max: config.perHour,
-      });
-    }
-    if (config.perDay) {
-      this.limiters.push({
-        limiter: new SlidingWindowRateLimiter(86400000, config.perDay),
-        windowMs: 86400000,
-        max: config.perDay,
-      });
-    }
-  }
+// NewMultiLevelRateLimiter creates a multi-level rate limiter.
+func NewMultiLevelRateLimiter(config RateLimitConfig) *MultiLevelRateLimiter {
+	ml := &MultiLevelRateLimiter{}
 
-  isAllowed(key: string): { allowed: boolean; retryAfter?: number } {
-    for (const { limiter, windowMs } of this.limiters) {
-      if (!limiter.isAllowed(key)) {
-        return {
-          allowed: false,
-          retryAfter: limiter.getResetTime(key),
-        };
-      }
-    }
-    return { allowed: true };
-  }
+	if config.PerSecond > 0 {
+		ml.limiters = append(ml.limiters, struct {
+			limiter  *SlidingWindowRateLimiter
+			windowMs int64
+			max      int
+		}{
+			limiter:  NewSlidingWindowRateLimiter(1000, config.PerSecond),
+			windowMs: 1000,
+			max:      config.PerSecond,
+		})
+	}
+
+	if config.PerMinute > 0 {
+		ml.limiters = append(ml.limiters, struct {
+			limiter  *SlidingWindowRateLimiter
+			windowMs int64
+			max      int
+		}{
+			limiter:  NewSlidingWindowRateLimiter(60000, config.PerMinute),
+			windowMs: 60000,
+			max:      config.PerMinute,
+		})
+	}
+
+	if config.PerHour > 0 {
+		ml.limiters = append(ml.limiters, struct {
+			limiter  *SlidingWindowRateLimiter
+			windowMs int64
+			max      int
+		}{
+			limiter:  NewSlidingWindowRateLimiter(3600000, config.PerHour),
+			windowMs: 3600000,
+			max:      config.PerHour,
+		})
+	}
+
+	if config.PerDay > 0 {
+		ml.limiters = append(ml.limiters, struct {
+			limiter  *SlidingWindowRateLimiter
+			windowMs int64
+			max      int
+		}{
+			limiter:  NewSlidingWindowRateLimiter(86400000, config.PerDay),
+			windowMs: 86400000,
+			max:      config.PerDay,
+		})
+	}
+
+	return ml
+}
+
+// RateLimitResult represents rate limit result.
+type RateLimitResult struct {
+	Allowed    bool
+	RetryAfter int64
+}
+
+// IsAllowed checks if request is allowed across all levels.
+func (ml *MultiLevelRateLimiter) IsAllowed(key string) RateLimitResult {
+	for _, limiter := range ml.limiters {
+		if !limiter.limiter.IsAllowed(key) {
+			return RateLimitResult{
+				Allowed:    false,
+				RetryAfter: limiter.limiter.GetResetTime(key),
+			}
+		}
+	}
+	return RateLimitResult{Allowed: true}
 }
 
 // Usage
-const limiter = new MultiLevelRateLimiter({
-  perSecond: 10,
-  perMinute: 100,
-  perHour: 1000,
-});
+func handleAPIRequest(limiter *MultiLevelRateLimiter, userID string, req *Request) *Response {
+	result := limiter.IsAllowed(userID)
 
-function handleApiRequest(userId: string, request: Request): Response {
-  const result = limiter.isAllowed(userId);
+	if !result.Allowed {
+		return &Response{
+			Status: 429,
+			Body:   "Too Many Requests",
+			Headers: map[string]string{
+				"Retry-After": fmt.Sprintf("%d", result.RetryAfter/1000),
+			},
+		}
+	}
 
-  if (!result.allowed) {
-    return new Response('Too Many Requests', {
-      status: 429,
-      headers: {
-        'Retry-After': String(Math.ceil((result.retryAfter ?? 0) / 1000)),
-      },
-    });
-  }
-
-  return processRequest(request);
+	return processRequest(req)
 }
 ```
 
@@ -230,115 +350,159 @@ function handleApiRequest(userId: string, request: Request): Response {
 
 ## Rate Limiter distribue (Redis)
 
-```typescript
-class RedisRateLimiter {
-  constructor(
-    private readonly redis: RedisClient,
-    private readonly keyPrefix: string,
-    private readonly windowMs: number,
-    private readonly maxRequests: number,
-  ) {}
+```go
+package ratelimiting
 
-  async isAllowed(key: string): Promise<{
-    allowed: boolean;
-    remaining: number;
-    resetAt: number;
-  }> {
-    const fullKey = `${this.keyPrefix}:${key}`;
-    const now = Date.now();
-    const windowStart = now - this.windowMs;
+import (
+	"context"
+	"fmt"
+	"math/rand"
+	"time"
 
-    // Script Lua pour atomicite
-    const script = `
-      local key = KEYS[1]
-      local windowStart = tonumber(ARGV[1])
-      local now = tonumber(ARGV[2])
-      local maxRequests = tonumber(ARGV[3])
-      local windowMs = tonumber(ARGV[4])
+	"github.com/redis/go-redis/v9"
+)
 
-      -- Supprimer les anciennes entrees
-      redis.call('ZREMRANGEBYSCORE', key, '-inf', windowStart)
+// RedisRateLimiter implements distributed rate limiting using Redis.
+type RedisRateLimiter struct {
+	client    *redis.Client
+	keyPrefix string
+	windowMs  int64
+	maxRequests int
+}
 
-      -- Compter les requetes dans la fenetre
-      local count = redis.call('ZCARD', key)
+// NewRedisRateLimiter creates a Redis-based rate limiter.
+func NewRedisRateLimiter(client *redis.Client, keyPrefix string, windowMs int64, maxRequests int) *RedisRateLimiter {
+	return &RedisRateLimiter{
+		client:      client,
+		keyPrefix:   keyPrefix,
+		windowMs:    windowMs,
+		maxRequests: maxRequests,
+	}
+}
 
-      if count < maxRequests then
-        -- Ajouter la requete courante
-        redis.call('ZADD', key, now, now .. ':' .. math.random())
-        redis.call('PEXPIRE', key, windowMs)
-        return {1, maxRequests - count - 1, 0}
-      else
-        -- Trouver le temps de reset
-        local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
-        local resetAt = oldest[2] + windowMs - now
-        return {0, 0, resetAt}
-      end
-    `;
+// RedisResult represents rate limit result from Redis.
+type RedisResult struct {
+	Allowed   bool
+	Remaining int
+	ResetAt   int64
+}
 
-    const result = await this.redis.eval(
-      script,
-      1,
-      fullKey,
-      windowStart,
-      now,
-      this.maxRequests,
-      this.windowMs,
-    ) as [number, number, number];
+// IsAllowed checks if request is allowed using Redis Lua script.
+func (r *RedisRateLimiter) IsAllowed(ctx context.Context, key string) (RedisResult, error) {
+	fullKey := fmt.Sprintf("%s:%s", r.keyPrefix, key)
+	now := time.Now().UnixMilli()
+	windowStart := now - r.windowMs
 
-    return {
-      allowed: result[0] === 1,
-      remaining: result[1],
-      resetAt: result[2],
-    };
-  }
+	script := redis.NewScript(`
+		local key = KEYS[1]
+		local windowStart = tonumber(ARGV[1])
+		local now = tonumber(ARGV[2])
+		local maxRequests = tonumber(ARGV[3])
+		local windowMs = tonumber(ARGV[4])
+
+		-- Remove old entries
+		redis.call('ZREMRANGEBYSCORE', key, '-inf', windowStart)
+
+		-- Count requests in window
+		local count = redis.call('ZCARD', key)
+
+		if count < maxRequests then
+			-- Add current request
+			redis.call('ZADD', key, now, now .. ':' .. math.random())
+			redis.call('PEXPIRE', key, windowMs)
+			return {1, maxRequests - count - 1, 0}
+		else
+			-- Find reset time
+			local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+			local resetAt = tonumber(oldest[2]) + windowMs - now
+			return {0, 0, resetAt}
+		end
+	`)
+
+	result, err := script.Run(ctx, r.client, []string{fullKey},
+		windowStart, now, r.maxRequests, r.windowMs).Result()
+	if err != nil {
+		return RedisResult{}, fmt.Errorf("executing Lua script: %w", err)
+	}
+
+	res := result.([]interface{})
+	return RedisResult{
+		Allowed:   res[0].(int64) == 1,
+		Remaining: int(res[1].(int64)),
+		ResetAt:   res[2].(int64),
+	}, nil
 }
 ```
 
 ---
 
-## Middleware Express
+## Middleware HTTP
 
-```typescript
-import { Request, Response, NextFunction } from 'express';
+```go
+package ratelimiting
 
-function rateLimitMiddleware(
-  limiter: SlidingWindowRateLimiter,
-  keyExtractor: (req: Request) => string = (req) => req.ip,
-) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const key = keyExtractor(req);
+import (
+	"fmt"
+	"net/http"
+)
 
-    if (!limiter.isAllowed(key)) {
-      const remaining = limiter.getRemainingRequests(key);
-      const resetTime = limiter.getResetTime(key);
+// RateLimitMiddleware creates HTTP middleware for rate limiting.
+func RateLimitMiddleware(limiter *SlidingWindowRateLimiter, keyExtractor func(*http.Request) string) func(http.Handler) http.Handler {
+	if keyExtractor == nil {
+		keyExtractor = func(r *http.Request) string {
+			return r.RemoteAddr
+		}
+	}
 
-      res.set({
-        'X-RateLimit-Limit': String(limiter.maxRequests),
-        'X-RateLimit-Remaining': String(remaining),
-        'X-RateLimit-Reset': String(Math.ceil(resetTime / 1000)),
-        'Retry-After': String(Math.ceil(resetTime / 1000)),
-      });
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			key := keyExtractor(r)
 
-      return res.status(429).json({
-        error: 'Too Many Requests',
-        retryAfter: Math.ceil(resetTime / 1000),
-      });
-    }
+			if !limiter.IsAllowed(key) {
+				remaining := limiter.GetRemainingRequests(key)
+				resetTime := limiter.GetResetTime(key)
 
-    next();
-  };
+				w.Header().Set("X-RateLimit-Limit", fmt.Sprintf("%d", limiter.maxRequests))
+				w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
+				w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", resetTime/1000))
+				w.Header().Set("Retry-After", fmt.Sprintf("%d", resetTime/1000))
+
+				w.WriteHeader(http.StatusTooManyRequests)
+				w.Write([]byte(`{"error":"Too Many Requests"}`))
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // Usage
-const apiLimiter = new SlidingWindowRateLimiter(60000, 100);
+func setupRouter() *http.ServeMux {
+	mux := http.NewServeMux()
+	
+	apiLimiter := NewSlidingWindowRateLimiter(60000, 100)
+	
+	// Apply rate limiting middleware
+	mux.Handle("/api/", RateLimitMiddleware(apiLimiter, nil)(
+		http.HandlerFunc(apiHandler),
+	))
 
-app.use('/api', rateLimitMiddleware(apiLimiter));
+	// Premium users with higher limits
+	premiumLimiter := NewSlidingWindowRateLimiter(60000, 1000)
+	mux.Handle("/api/premium/", RateLimitMiddleware(premiumLimiter, func(r *http.Request) string {
+		// Extract user ID from request
+		userID := r.Header.Get("X-User-ID")
+		if userID == "" {
+			return r.RemoteAddr
+		}
+		return userID
+	})(
+		http.HandlerFunc(premiumAPIHandler),
+	))
 
-// Rate limit par utilisateur
-app.use('/api/premium', rateLimitMiddleware(
-  new SlidingWindowRateLimiter(60000, 1000),
-  (req) => req.user?.id ?? req.ip,
-));
+	return mux
+}
 ```
 
 ---

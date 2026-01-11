@@ -54,159 +54,173 @@
    - Donnees potentiellement stale
 ```
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-interface OrderStats {
-  userId: string;
-  totalOrders: number;
-  totalAmount: number;
-  averageOrderValue: number;
-  lastOrderDate: Date;
+```go
+package materializedview
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+// OrderStats represents aggregated order statistics for a user.
+type OrderStats struct {
+	UserID            string    `json:"userId"`
+	TotalOrders       int       `json:"totalOrders"`
+	TotalAmount       float64   `json:"totalAmount"`
+	AverageOrderValue float64   `json:"averageOrderValue"`
+	LastOrderDate     time.Time `json:"lastOrderDate"`
 }
 
-class MaterializedViewService {
-  constructor(
-    private db: Database,
-    private cache: Redis,
-  ) {}
+// Database defines database operations.
+type Database interface {
+	Query(ctx context.Context, query string, args ...interface{}) ([]map[string]interface{}, error)
+	Exec(ctx context.Context, query string, args ...interface{}) error
+}
 
-  // Refresh complet
-  async refreshUserOrderStats(): Promise<void> {
-    const stats = await this.db.query<OrderStats[]>(`
-      SELECT
-        user_id as "userId",
-        COUNT(*) as "totalOrders",
-        SUM(amount) as "totalAmount",
-        AVG(amount) as "averageOrderValue",
-        MAX(created_at) as "lastOrderDate"
-      FROM orders
-      WHERE status = 'completed'
-      GROUP BY user_id
-    `);
+// Cache defines cache operations.
+type Cache interface {
+	HSet(ctx context.Context, key string, values map[string]interface{}) error
+	HGetAll(ctx context.Context, key string) (map[string]string, error)
+	HIncrBy(ctx context.Context, key, field string, increment int64) error
+	HIncrByFloat(ctx context.Context, key, field string, increment float64) error
+}
 
-    // Store in Redis as hash
-    const pipeline = this.cache.pipeline();
-    for (const stat of stats) {
-      pipeline.hset(
-        `user_stats:${stat.userId}`,
-        'totalOrders',
-        stat.totalOrders,
-        'totalAmount',
-        stat.totalAmount,
-        'averageOrderValue',
-        stat.averageOrderValue,
-        'lastOrderDate',
-        stat.lastOrderDate.toISOString(),
-      );
-    }
-    await pipeline.exec();
-  }
+// MaterializedViewService manages materialized views.
+type MaterializedViewService struct {
+	db    Database
+	cache Cache
+}
 
-  // Lecture rapide
-  async getUserStats(userId: string): Promise<OrderStats | null> {
-    const data = await this.cache.hgetall(`user_stats:${userId}`);
-    if (!Object.keys(data).length) return null;
+// NewMaterializedViewService creates a new MaterializedViewService.
+func NewMaterializedViewService(db Database, cache Cache) *MaterializedViewService {
+	return &MaterializedViewService{
+		db:    db,
+		cache: cache,
+	}
+}
 
-    return {
-      userId,
-      totalOrders: parseInt(data.totalOrders),
-      totalAmount: parseFloat(data.totalAmount),
-      averageOrderValue: parseFloat(data.averageOrderValue),
-      lastOrderDate: new Date(data.lastOrderDate),
-    };
-  }
+// RefreshUserOrderStats refreshes user order statistics (complete refresh).
+func (mvs *MaterializedViewService) RefreshUserOrderStats(ctx context.Context) error {
+	query := `
+		SELECT
+			user_id,
+			COUNT(*) as total_orders,
+			SUM(amount) as total_amount,
+			AVG(amount) as average_order_value,
+			MAX(created_at) as last_order_date
+		FROM orders
+		WHERE status = 'completed'
+		GROUP BY user_id
+	`
 
-  // Refresh incremental apres commande
-  async onOrderCompleted(order: Order): Promise<void> {
-    const key = `user_stats:${order.userId}`;
+	rows, err := mvs.db.Query(ctx, query)
+	if err != nil {
+		return fmt.Errorf("querying order stats: %w", err)
+	}
 
-    // Atomic increment
-    await this.cache.hincrby(key, 'totalOrders', 1);
-    await this.cache.hincrbyfloat(key, 'totalAmount', order.amount);
-    await this.cache.hset(key, 'lastOrderDate', order.createdAt.toISOString());
+	// Store in cache
+	for _, row := range rows {
+		userID := row["user_id"].(string)
+		key := fmt.Sprintf("user_stats:%s", userID)
+		
+		values := map[string]interface{}{
+			"totalOrders":       row["total_orders"],
+			"totalAmount":       row["total_amount"],
+			"averageOrderValue": row["average_order_value"],
+			"lastOrderDate":     row["last_order_date"].(time.Time).Format(time.RFC3339),
+		}
+		
+		if err := mvs.cache.HSet(ctx, key, values); err != nil {
+			return fmt.Errorf("caching stats for user %s: %w", userID, err)
+		}
+	}
 
-    // Recalculate average
-    const stats = await this.cache.hgetall(key);
-    const newAvg =
-      parseFloat(stats.totalAmount) / parseInt(stats.totalOrders);
-    await this.cache.hset(key, 'averageOrderValue', newAvg);
-  }
+	return nil
+}
+
+// GetUserStats retrieves user statistics from cache.
+func (mvs *MaterializedViewService) GetUserStats(ctx context.Context, userID string) (*OrderStats, error) {
+	key := fmt.Sprintf("user_stats:%s", userID)
+	
+	data, err := mvs.cache.HGetAll(ctx, key)
+	if err != nil {
+		return nil, fmt.Errorf("getting stats from cache: %w", err)
+	}
+
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	lastOrderDate, err := time.Parse(time.RFC3339, data["lastOrderDate"])
+	if err != nil {
+		return nil, fmt.Errorf("parsing last order date: %w", err)
+	}
+
+	stats := &OrderStats{
+		UserID:        userID,
+		LastOrderDate: lastOrderDate,
+	}
+	
+	// Parse numeric fields
+	fmt.Sscanf(data["totalOrders"], "%d", &stats.TotalOrders)
+	fmt.Sscanf(data["totalAmount"], "%f", &stats.TotalAmount)
+	fmt.Sscanf(data["averageOrderValue"], "%f", &stats.AverageOrderValue)
+
+	return stats, nil
+}
+
+// OnOrderCompleted updates stats incrementally after order completion.
+func (mvs *MaterializedViewService) OnOrderCompleted(ctx context.Context, userID string, amount float64, createdAt time.Time) error {
+	key := fmt.Sprintf("user_stats:%s", userID)
+
+	// Atomic increment
+	if err := mvs.cache.HIncrBy(ctx, key, "totalOrders", 1); err != nil {
+		return fmt.Errorf("incrementing total orders: %w", err)
+	}
+
+	if err := mvs.cache.HIncrByFloat(ctx, key, "totalAmount", amount); err != nil {
+		return fmt.Errorf("incrementing total amount: %w", err)
+	}
+
+	// Update last order date
+	values := map[string]interface{}{
+		"lastOrderDate": createdAt.Format(time.RFC3339),
+	}
+	if err := mvs.cache.HSet(ctx, key, values); err != nil {
+		return fmt.Errorf("updating last order date: %w", err)
+	}
+
+	// Recalculate average
+	stats, err := mvs.GetUserStats(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("getting user stats: %w", err)
+	}
+
+	if stats != nil && stats.TotalOrders > 0 {
+		newAvg := stats.TotalAmount / float64(stats.TotalOrders)
+		avgValues := map[string]interface{}{
+			"averageOrderValue": fmt.Sprintf("%f", newAvg),
+		}
+		if err := mvs.cache.HSet(ctx, key, avgValues); err != nil {
+			return fmt.Errorf("updating average: %w", err)
+		}
+	}
+
+	return nil
 }
 ```
 
-## Implementation avec table DB
+## Implementation DB (Go)
 
-```typescript
-class ProductSearchView {
-  constructor(private db: Database) {}
-
-  // Vue materialisee comme table
-  async createView(): Promise<void> {
-    await this.db.query(`
-      CREATE TABLE IF NOT EXISTS product_search_view (
-        product_id UUID PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        category_name TEXT,
-        brand_name TEXT,
-        price DECIMAL(10,2),
-        avg_rating DECIMAL(3,2),
-        review_count INT,
-        stock_quantity INT,
-        search_vector TSVECTOR,
-        updated_at TIMESTAMP DEFAULT NOW()
-      );
-
-      CREATE INDEX idx_product_search_vector
-        ON product_search_view USING GIN(search_vector);
-    `);
-  }
-
-  async refreshView(): Promise<void> {
-    await this.db.query(`
-      TRUNCATE product_search_view;
-
-      INSERT INTO product_search_view
-      SELECT
-        p.id as product_id,
-        p.name,
-        p.description,
-        c.name as category_name,
-        b.name as brand_name,
-        p.price,
-        COALESCE(AVG(r.rating), 0) as avg_rating,
-        COUNT(r.id) as review_count,
-        COALESCE(s.quantity, 0) as stock_quantity,
-        to_tsvector('french',
-          p.name || ' ' ||
-          COALESCE(p.description, '') || ' ' ||
-          c.name || ' ' ||
-          b.name
-        ) as search_vector,
-        NOW() as updated_at
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      LEFT JOIN brands b ON p.brand_id = b.id
-      LEFT JOIN reviews r ON r.product_id = p.id
-      LEFT JOIN stock s ON s.product_id = p.id
-      GROUP BY p.id, c.name, b.name, s.quantity
-    `);
-  }
-
-  async search(query: string, limit = 20): Promise<Product[]> {
-    // Requete ultra-rapide sur vue pre-calculee
-    return this.db.query(
-      `
-      SELECT * FROM product_search_view
-      WHERE search_vector @@ plainto_tsquery('french', $1)
-      ORDER BY ts_rank(search_vector, plainto_tsquery('french', $1)) DESC
-      LIMIT $2
-    `,
-      [query, limit],
-    );
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Comparaison strategies

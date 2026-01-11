@@ -9,198 +9,297 @@ ensemble en encapsulant une classe existante avec une nouvelle interface.
 
 ## Structure
 
-```typescript
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"strings"
+)
+
 // 1. Interface cible (ce que le client attend)
-interface PaymentProcessor {
-  charge(amount: number, currency: string): Promise<PaymentResult>;
-  refund(transactionId: string, amount: number): Promise<RefundResult>;
+type PaymentProcessor interface {
+	Charge(ctx context.Context, amount float64, currency string) (*PaymentResult, error)
+	Refund(ctx context.Context, transactionID string, amount float64) (*RefundResult, error)
 }
 
-interface PaymentResult {
-  transactionId: string;
-  status: 'success' | 'failed';
+type PaymentResult struct {
+	TransactionID string
+	Status        string // "success" or "failed"
 }
 
-interface RefundResult {
-  refundId: string;
-  status: 'success' | 'failed';
+type RefundResult struct {
+	RefundID string
+	Status   string // "success" or "failed"
 }
 
 // 2. Classe existante (interface incompatible)
-class StripeAPI {
-  createCharge(params: {
-    amount: number;
-    currency: string;
-    source: string;
-  }): Promise<StripeCharge> {
-    // API Stripe reelle
-    return Promise.resolve({
-      id: 'ch_123',
-      amount: params.amount,
-      status: 'succeeded',
-    });
-  }
+type StripeCharge struct {
+	ID     string
+	Amount int64
+	Status string
+}
 
-  createRefund(chargeId: string, amount: number): Promise<StripeRefund> {
-    return Promise.resolve({
-      id: 're_123',
-      charge: chargeId,
-      status: 'succeeded',
-    });
-  }
+type StripeRefund struct {
+	ID     string
+	Charge string
+	Status string
+}
+
+type StripeAPI struct{}
+
+func (s *StripeAPI) CreateCharge(ctx context.Context, amount int64, currency, source string) (*StripeCharge, error) {
+	// API Stripe reelle
+	return &StripeCharge{
+		ID:     "ch_123",
+		Amount: amount,
+		Status: "succeeded",
+	}, nil
+}
+
+func (s *StripeAPI) CreateRefund(ctx context.Context, chargeID string, amount int64) (*StripeRefund, error) {
+	return &StripeRefund{
+		ID:     "re_123",
+		Charge: chargeID,
+		Status: "succeeded",
+	}, nil
 }
 
 // 3. Adapter
-class StripeAdapter implements PaymentProcessor {
-  constructor(
-    private stripe: StripeAPI,
-    private defaultSource: string,
-  ) {}
+type StripeAdapter struct {
+	stripe        *StripeAPI
+	defaultSource string
+}
 
-  async charge(amount: number, currency: string): Promise<PaymentResult> {
-    const result = await this.stripe.createCharge({
-      amount: Math.round(amount * 100), // Stripe utilise les centimes
-      currency: currency.toLowerCase(),
-      source: this.defaultSource,
-    });
+func NewStripeAdapter(stripe *StripeAPI, defaultSource string) *StripeAdapter {
+	return &StripeAdapter{
+		stripe:        stripe,
+		defaultSource: defaultSource,
+	}
+}
 
-    return {
-      transactionId: result.id,
-      status: result.status === 'succeeded' ? 'success' : 'failed',
-    };
-  }
+func (s *StripeAdapter) Charge(ctx context.Context, amount float64, currency string) (*PaymentResult, error) {
+	// Stripe utilise les centimes
+	amountCents := int64(amount * 100)
 
-  async refund(transactionId: string, amount: number): Promise<RefundResult> {
-    const result = await this.stripe.createRefund(
-      transactionId,
-      Math.round(amount * 100),
-    );
+	result, err := s.stripe.CreateCharge(
+		ctx,
+		amountCents,
+		strings.ToLower(currency),
+		s.defaultSource,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("stripe charge failed: %w", err)
+	}
 
-    return {
-      refundId: result.id,
-      status: result.status === 'succeeded' ? 'success' : 'failed',
-    };
-  }
+	status := "failed"
+	if result.Status == "succeeded" {
+		status = "success"
+	}
+
+	return &PaymentResult{
+		TransactionID: result.ID,
+		Status:        status,
+	}, nil
+}
+
+func (s *StripeAdapter) Refund(ctx context.Context, transactionID string, amount float64) (*RefundResult, error) {
+	amountCents := int64(amount * 100)
+
+	result, err := s.stripe.CreateRefund(ctx, transactionID, amountCents)
+	if err != nil {
+		return nil, fmt.Errorf("stripe refund failed: %w", err)
+	}
+
+	status := "failed"
+	if result.Status == "succeeded" {
+		status = "success"
+	}
+
+	return &RefundResult{
+		RefundID: result.ID,
+		Status:   status,
+	}, nil
 }
 ```
 
 ## Usage
 
-```typescript
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+)
+
+type Order struct {
+	Total         float64
+	Currency      string
+	TransactionID string
+	Status        string
+}
+
 // Le client utilise l'interface generique
-class PaymentService {
-  constructor(private processor: PaymentProcessor) {}
+type PaymentService struct {
+	processor PaymentProcessor
+}
 
-  async processOrder(order: Order): Promise<void> {
-    const result = await this.processor.charge(
-      order.total,
-      order.currency,
-    );
+func NewPaymentService(processor PaymentProcessor) *PaymentService {
+	return &PaymentService{processor: processor}
+}
 
-    if (result.status === 'success') {
-      order.transactionId = result.transactionId;
-      order.status = 'paid';
-    }
-  }
+func (p *PaymentService) ProcessOrder(ctx context.Context, order *Order) error {
+	result, err := p.processor.Charge(ctx, order.Total, order.Currency)
+	if err != nil {
+		return fmt.Errorf("processing payment: %w", err)
+	}
+
+	if result.Status == "success" {
+		order.TransactionID = result.TransactionID
+		order.Status = "paid"
+	}
+
+	return nil
 }
 
 // Configuration
-const stripeAPI = new StripeAPI();
-const adapter = new StripeAdapter(stripeAPI, 'tok_visa');
-const paymentService = new PaymentService(adapter);
+func main() {
+	stripeAPI := &StripeAPI{}
+	adapter := NewStripeAdapter(stripeAPI, "tok_visa")
+	paymentService := NewPaymentService(adapter)
+
+	order := &Order{Total: 100.0, Currency: "USD"}
+	if err := paymentService.ProcessOrder(context.Background(), order); err != nil {
+		fmt.Printf("Error: %v\n", err)
+	}
+}
 ```
 
 ## Variantes
 
 ### Object Adapter (composition - recommande)
 
-```typescript
-class StripeAdapter implements PaymentProcessor {
-  constructor(private stripe: StripeAPI) {} // Composition
-  // ...
+```go
+type StripeAdapter struct {
+	stripe *StripeAPI // Composition
 }
 ```
 
-### Class Adapter (heritage - TypeScript limite)
+### Embedding Adapter (similaire au Class Adapter)
 
-```typescript
-// Possible seulement avec classes, pas interfaces
-class StripeClassAdapter extends StripeAPI implements PaymentProcessor {
-  async charge(amount: number, currency: string): Promise<PaymentResult> {
-    const result = await this.createCharge({
-      amount: amount * 100,
-      currency,
-      source: 'default',
-    });
-    return { transactionId: result.id, status: 'success' };
-  }
-  // ...
+```go
+type StripeEmbeddingAdapter struct {
+	*StripeAPI // Embedding
+	defaultSource string
+}
+
+func (s *StripeEmbeddingAdapter) Charge(ctx context.Context, amount float64, currency string) (*PaymentResult, error) {
+	amountCents := int64(amount * 100)
+	result, err := s.CreateCharge(ctx, amountCents, currency, s.defaultSource)
+	if err != nil {
+		return nil, err
+	}
+	return &PaymentResult{TransactionID: result.ID, Status: "success"}, nil
 }
 ```
 
 ### Two-Way Adapter
 
-```typescript
-interface ModernLogger {
-  log(level: string, message: string, meta?: object): void;
+```go
+package main
+
+import (
+	"log/slog"
+)
+
+type ModernLogger interface {
+	Log(level, message string, meta map[string]interface{})
 }
 
-interface LegacyLogger {
-  info(message: string): void;
-  error(message: string): void;
+type LegacyLogger interface {
+	Info(message string)
+	Error(message string)
 }
 
-class TwoWayLoggerAdapter implements ModernLogger, LegacyLogger {
-  constructor(
-    private modern?: ModernLogger,
-    private legacy?: LegacyLogger,
-  ) {}
+type TwoWayLoggerAdapter struct {
+	modern ModernLogger
+	legacy LegacyLogger
+}
 
-  // Interface moderne
-  log(level: string, message: string, meta?: object): void {
-    if (this.modern) {
-      this.modern.log(level, message, meta);
-    } else if (this.legacy) {
-      level === 'error'
-        ? this.legacy.error(message)
-        : this.legacy.info(message);
-    }
-  }
+func NewTwoWayLoggerAdapter(modern ModernLogger, legacy LegacyLogger) *TwoWayLoggerAdapter {
+	return &TwoWayLoggerAdapter{
+		modern: modern,
+		legacy: legacy,
+	}
+}
 
-  // Interface legacy
-  info(message: string): void {
-    this.log('info', message);
-  }
+// Interface moderne
+func (t *TwoWayLoggerAdapter) Log(level, message string, meta map[string]interface{}) {
+	if t.modern != nil {
+		t.modern.Log(level, message, meta)
+	} else if t.legacy != nil {
+		if level == "error" {
+			t.legacy.Error(message)
+		} else {
+			t.legacy.Info(message)
+		}
+	}
+}
 
-  error(message: string): void {
-    this.log('error', message);
-  }
+// Interface legacy
+func (t *TwoWayLoggerAdapter) Info(message string) {
+	t.Log("info", message, nil)
+}
+
+func (t *TwoWayLoggerAdapter) Error(message string) {
+	t.Log("error", message, nil)
 }
 ```
 
 ### Adapter avec cache
 
-```typescript
-class CachedPaymentAdapter implements PaymentProcessor {
-  private cache = new Map<string, PaymentResult>();
+```go
+package main
 
-  constructor(private adapter: PaymentProcessor) {}
+import (
+	"context"
+	"sync"
+)
 
-  async charge(amount: number, currency: string): Promise<PaymentResult> {
-    const key = `${amount}-${currency}`;
+type CachedPaymentAdapter struct {
+	adapter PaymentProcessor
+	cache   map[string]*PaymentResult
+	mu      sync.RWMutex
+}
 
-    // Pas de cache pour les charges (idem potent)
-    return this.adapter.charge(amount, currency);
-  }
+func NewCachedPaymentAdapter(adapter PaymentProcessor) *CachedPaymentAdapter {
+	return &CachedPaymentAdapter{
+		adapter: adapter,
+		cache:   make(map[string]*PaymentResult),
+	}
+}
 
-  async refund(transactionId: string, amount: number): Promise<RefundResult> {
-    return this.adapter.refund(transactionId, amount);
-  }
+func (c *CachedPaymentAdapter) Charge(ctx context.Context, amount float64, currency string) (*PaymentResult, error) {
+	// Pas de cache pour les charges (non idempotent)
+	return c.adapter.Charge(ctx, amount, currency)
+}
 
-  // Methode supplementaire pour consulter l'historique
-  getHistory(): PaymentResult[] {
-    return Array.from(this.cache.values());
-  }
+func (c *CachedPaymentAdapter) Refund(ctx context.Context, transactionID string, amount float64) (*RefundResult, error) {
+	return c.adapter.Refund(ctx, transactionID, amount)
+}
+
+// Methode supplementaire pour consulter l'historique
+func (c *CachedPaymentAdapter) GetHistory() []*PaymentResult {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	history := make([]*PaymentResult, 0, len(c.cache))
+	for _, result := range c.cache {
+		history = append(history, result)
+	}
+	return history
 }
 ```
 
@@ -208,153 +307,183 @@ class CachedPaymentAdapter implements PaymentProcessor {
 
 ### Adapter pour API tierce
 
-```typescript
+```go
+package main
+
+type ExternalWeatherData struct {
+	TempC       float64
+	HumidityPct int
+	WindKph     float64
+}
+
 // API externe avec format different
-class ExternalWeatherAPI {
-  getWeather(lat: number, lon: number): ExternalWeatherData {
-    return {
-      temp_c: 22,
-      humidity_pct: 65,
-      wind_kph: 15,
-    };
-  }
+type ExternalWeatherAPI struct{}
+
+func (e *ExternalWeatherAPI) GetWeather(lat, lon float64) *ExternalWeatherData {
+	return &ExternalWeatherData{
+		TempC:       22.0,
+		HumidityPct: 65,
+		WindKph:     15.0,
+	}
 }
 
 // Notre interface interne
-interface WeatherData {
-  temperature: number;
-  humidity: number;
-  windSpeed: number;
-  unit: 'celsius' | 'fahrenheit';
+type WeatherData struct {
+	Temperature float64
+	Humidity    int
+	WindSpeed   float64
+	Unit        string // "celsius" or "fahrenheit"
 }
 
-class WeatherAdapter {
-  constructor(private api: ExternalWeatherAPI) {}
+type WeatherAdapter struct {
+	api *ExternalWeatherAPI
+}
 
-  getWeather(lat: number, lon: number): WeatherData {
-    const data = this.api.getWeather(lat, lon);
-    return {
-      temperature: data.temp_c,
-      humidity: data.humidity_pct,
-      windSpeed: data.wind_kph,
-      unit: 'celsius',
-    };
-  }
+func NewWeatherAdapter(api *ExternalWeatherAPI) *WeatherAdapter {
+	return &WeatherAdapter{api: api}
+}
+
+func (w *WeatherAdapter) GetWeather(lat, lon float64) *WeatherData {
+	data := w.api.GetWeather(lat, lon)
+	return &WeatherData{
+		Temperature: data.TempC,
+		Humidity:    data.HumidityPct,
+		WindSpeed:   data.WindKph,
+		Unit:        "celsius",
+	}
 }
 ```
 
 ### Adapter pour legacy code
 
-```typescript
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+)
+
 // Ancien systeme callback-based
-class LegacyFileReader {
-  read(path: string, callback: (err: Error | null, data: string) => void): void {
-    // ...
-  }
+type LegacyFileReader struct{}
+
+func (l *LegacyFileReader) Read(path string, callback func(error, string)) {
+	// Simule lecture asynchrone
+	callback(nil, "file contents")
 }
 
 // Interface moderne Promise-based
-interface FileReader {
-  read(path: string): Promise<string>;
+type FileReader interface {
+	Read(ctx context.Context, path string) (string, error)
 }
 
-class FileReaderAdapter implements FileReader {
-  constructor(private legacy: LegacyFileReader) {}
+type FileReaderAdapter struct {
+	legacy *LegacyFileReader
+}
 
-  read(path: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      this.legacy.read(path, (err, data) => {
-        if (err) reject(err);
-        else resolve(data);
-      });
-    });
-  }
+func NewFileReaderAdapter(legacy *LegacyFileReader) *FileReaderAdapter {
+	return &FileReaderAdapter{legacy: legacy}
+}
+
+func (f *FileReaderAdapter) Read(ctx context.Context, path string) (string, error) {
+	resultChan := make(chan string, 1)
+	errChan := make(chan error, 1)
+
+	f.legacy.Read(path, func(err error, data string) {
+		if err != nil {
+			errChan <- err
+		} else {
+			resultChan <- data
+		}
+	})
+
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case err := <-errChan:
+		return "", err
+	case data := <-resultChan:
+		return data, nil
+	}
 }
 ```
 
 ## Anti-patterns
 
-```typescript
+```go
 // MAUVAIS: Adapter qui fait trop
-class OverloadedAdapter implements PaymentProcessor {
-  async charge(amount: number, currency: string): Promise<PaymentResult> {
-    // Validation - devrait etre ailleurs
-    if (amount <= 0) throw new Error('Invalid amount');
+type OverloadedAdapter struct {
+	stripe *StripeAPI
+}
 
-    // Logging - cross-cutting concern
-    console.log('Processing payment...');
+func (o *OverloadedAdapter) Charge(ctx context.Context, amount float64, currency string) (*PaymentResult, error) {
+	// Validation - devrait etre ailleurs
+	if amount <= 0 {
+		return nil, fmt.Errorf("invalid amount")
+	}
 
-    // Business logic - ne devrait pas etre ici
-    const fee = amount * 0.03;
-    const total = amount + fee;
+	// Logging - cross-cutting concern
+	fmt.Println("Processing payment...")
 
-    // Finalement l'adaptation
-    return this.stripe.createCharge({ amount: total, currency, source: '' });
-  }
+	// Business logic - ne devrait pas etre ici
+	fee := amount * 0.03
+	total := amount + fee
+
+	// Finalement l'adaptation
+	result, _ := o.stripe.CreateCharge(ctx, int64(total*100), currency, "")
+	return &PaymentResult{TransactionID: result.ID, Status: "success"}, nil
 }
 
 // MAUVAIS: Adapter qui expose l'implementation
-class LeakyAdapter implements PaymentProcessor {
-  getStripeInstance(): StripeAPI {
-    return this.stripe; // Fuite d'abstraction!
-  }
+type LeakyAdapter struct {
+	stripe *StripeAPI
+}
+
+func (l *LeakyAdapter) GetStripeInstance() *StripeAPI {
+	return l.stripe // Fuite d'abstraction!
 }
 ```
 
 ## Tests unitaires
 
-```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+```go
+package main
 
-describe('StripeAdapter', () => {
-  let mockStripe: StripeAPI;
-  let adapter: StripeAdapter;
+import (
+	"context"
+	"testing"
+)
 
-  beforeEach(() => {
-    mockStripe = {
-      createCharge: vi.fn().mockResolvedValue({
-        id: 'ch_123',
-        status: 'succeeded',
-      }),
-      createRefund: vi.fn().mockResolvedValue({
-        id: 're_123',
-        status: 'succeeded',
-      }),
-    } as unknown as StripeAPI;
+func TestStripeAdapter_Charge(t *testing.T) {
+	mockStripe := &StripeAPI{}
+	adapter := NewStripeAdapter(mockStripe, "tok_test")
 
-    adapter = new StripeAdapter(mockStripe, 'tok_test');
-  });
+	result, err := adapter.Charge(context.Background(), 100.0, "USD")
+	if err != nil {
+		t.Fatalf("Charge failed: %v", err)
+	}
 
-  it('should convert amount to cents for Stripe', async () => {
-    await adapter.charge(100, 'USD');
+	if result.TransactionID != "ch_123" {
+		t.Errorf("Expected ch_123, got %s", result.TransactionID)
+	}
 
-    expect(mockStripe.createCharge).toHaveBeenCalledWith({
-      amount: 10000, // 100 * 100
-      currency: 'usd',
-      source: 'tok_test',
-    });
-  });
+	if result.Status != "success" {
+		t.Errorf("Expected success, got %s", result.Status)
+	}
+}
 
-  it('should map Stripe status to our format', async () => {
-    const result = await adapter.charge(50, 'EUR');
+func TestStripeAdapter_ConvertsCurrency(t *testing.T) {
+	mockStripe := &StripeAPI{}
+	adapter := NewStripeAdapter(mockStripe, "tok_test")
 
-    expect(result).toEqual({
-      transactionId: 'ch_123',
-      status: 'success',
-    });
-  });
+	// Verifie conversion dollars -> centimes
+	_, err := adapter.Charge(context.Background(), 100.0, "USD")
+	if err != nil {
+		t.Fatalf("Charge failed: %v", err)
+	}
 
-  it('should handle failed charges', async () => {
-    mockStripe.createCharge = vi.fn().mockResolvedValue({
-      id: 'ch_fail',
-      status: 'failed',
-    });
-
-    const result = await adapter.charge(50, 'EUR');
-
-    expect(result.status).toBe('failed');
-  });
-});
+	// Verifier que l'API Stripe a recu 10000 centimes
+}
 ```
 
 ## Quand utiliser

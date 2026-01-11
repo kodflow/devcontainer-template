@@ -177,6 +177,7 @@ RUN mkdir -p /etc/claude-defaults
 COPY --chown=root:root .claude/commands/ /etc/claude-defaults/commands/
 COPY --chown=root:root .claude/scripts/ /etc/claude-defaults/scripts/
 COPY --chown=root:root .claude/agents/ /etc/claude-defaults/agents/
+COPY --chown=root:root .claude/docs/ /etc/claude-defaults/docs/
 COPY --chown=root:root .claude/settings.json /etc/claude-defaults/settings.json
 RUN chmod -R 755 /etc/claude-defaults/
 USER vscode
@@ -190,29 +191,29 @@ COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
 USER vscode
 
 # =============================================================================
-# Status Line & ktn-linter (installed directly to ~/.local/bin/)
-# Pinned versions + checksum verification for supply-chain security
+# Status Line (pinned version with checksum verification)
 # =============================================================================
 ARG STATUS_LINE_VERSION=v0.6.2
-ARG KTN_LINTER_VERSION=v1.3.90
-# Checksums for supply-chain verification (from official releases)
 ARG STATUS_LINE_SHA256_AMD64=6ba6b53162444fbc87f40e76b236e459ac6f88b99d2bdc183379a693592240a3
 ARG STATUS_LINE_SHA256_ARM64=8bfd15968a836276a075fd6dd5b86f075ff3a7eb11dec8e3c5733bcef83ece74
-ARG KTN_LINTER_SHA256_AMD64=152bdc455eaf119b7e52c72d8b3f0804ec94586e934afc6ce758995dc69b2f6f
-ARG KTN_LINTER_SHA256_ARM64=a48bfd057d405ae3727a43b20926dd9641837af268b216e1e4dace5560a24b48
 RUN mkdir -p ~/.local/bin && \
     ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
-    # status-line with checksum verification
     curl -fsSL "https://github.com/kodflow/status-line/releases/download/${STATUS_LINE_VERSION}/status-line-linux-${ARCH}" \
       -o ~/.local/bin/status-line && \
     EXPECTED_SL_SHA=$([ "$ARCH" = "arm64" ] && echo "$STATUS_LINE_SHA256_ARM64" || echo "$STATUS_LINE_SHA256_AMD64") && \
     echo "$EXPECTED_SL_SHA  $HOME/.local/bin/status-line" | sha256sum -c - && \
-    chmod +x ~/.local/bin/status-line && \
-    # ktn-linter with checksum verification
-    curl -fsSL "https://github.com/kodflow/ktn-linter/releases/download/${KTN_LINTER_VERSION}/ktn-linter-linux-${ARCH}" \
+    chmod +x ~/.local/bin/status-line
+
+# =============================================================================
+# ktn-linter (always fetches latest release)
+# =============================================================================
+# Note: No checksum verification as version is dynamic
+# CACHE_BUST_DYNAMIC ensures latest is pulled during scheduled builds
+RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+    KTN_LATEST=$(curl -fsSL "https://api.github.com/repos/kodflow/ktn-linter/releases/latest" | jq -r '.tag_name') && \
+    echo "Installing ktn-linter ${KTN_LATEST}..." && \
+    curl -fsSL "https://github.com/kodflow/ktn-linter/releases/download/${KTN_LATEST}/ktn-linter-linux-${ARCH}" \
       -o ~/.local/bin/ktn-linter && \
-    EXPECTED_KTN_SHA=$([ "$ARCH" = "arm64" ] && echo "$KTN_LINTER_SHA256_ARM64" || echo "$KTN_LINTER_SHA256_AMD64") && \
-    echo "$EXPECTED_KTN_SHA  $HOME/.local/bin/ktn-linter" | sha256sum -c - && \
     chmod +x ~/.local/bin/ktn-linter
 
 # =============================================================================

@@ -41,116 +41,78 @@ Pattern separant production et consommation de donnees via une queue.
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
-### Queue basique
+### Queue basique avec channels
 
-```typescript
-class ProducerConsumerQueue<T> {
-  private queue: T[] = [];
-  private waiting: Array<(item: T) => void> = [];
-  private closed = false;
+```go
+package queue
 
-  produce(item: T): void {
-    if (this.closed) {
-      throw new Error('Queue is closed');
-    }
+import (
+	"context"
+	"sync"
+)
 
-    const waiter = this.waiting.shift();
-    if (waiter) {
-      waiter(item);
-    } else {
-      this.queue.push(item);
-    }
-  }
-
-  async consume(): Promise<T | null> {
-    if (this.queue.length > 0) {
-      return this.queue.shift()!;
-    }
-
-    if (this.closed) {
-      return null;
-    }
-
-    return new Promise((resolve) => {
-      this.waiting.push(resolve);
-    });
-  }
-
-  close(): void {
-    this.closed = true;
-    // Liberer tous les consommateurs en attente
-    this.waiting.forEach((resolve) => resolve(null as T));
-    this.waiting = [];
-  }
-
-  get size(): number {
-    return this.queue.length;
-  }
+// Queue is a producer-consumer queue.
+type Queue[T any] struct {
+	ch     chan T
+	closed bool
+	mu     sync.RWMutex
 }
-```
 
-### Bounded Queue (avec backpressure)
+// NewQueue creates a new unbounded queue.
+func NewQueue[T any](bufferSize int) *Queue[T] {
+	return &Queue[T]{
+		ch: make(chan T, bufferSize),
+	}
+}
 
-```typescript
-class BoundedQueue<T> {
-  private queue: T[] = [];
-  private consumers: Array<(item: T | null) => void> = [];
-  private producers: Array<() => void> = [];
-  private closed = false;
+// Produce sends an item to the queue.
+func (q *Queue[T]) Produce(ctx context.Context, item T) error {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
 
-  constructor(private maxSize: number) {}
+	if q.closed {
+		return fmt.Errorf("queue is closed")
+	}
 
-  async produce(item: T): Promise<void> {
-    if (this.closed) {
-      throw new Error('Queue is closed');
-    }
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case q.ch <- item:
+		return nil
+	}
+}
 
-    // Attendre si la queue est pleine (backpressure)
-    while (this.queue.length >= this.maxSize && !this.closed) {
-      await new Promise<void>((resolve) => {
-        this.producers.push(resolve);
-      });
-    }
+// Consume receives an item from the queue.
+func (q *Queue[T]) Consume(ctx context.Context) (T, error) {
+	select {
+	case <-ctx.Done():
+		var zero T
+		return zero, ctx.Err()
+	case item, ok := <-q.ch:
+		if !ok {
+			var zero T
+			return zero, fmt.Errorf("queue is closed")
+		}
+		return item, nil
+	}
+}
 
-    if (this.closed) {
-      throw new Error('Queue is closed');
-    }
+// Close closes the queue.
+func (q *Queue[T]) Close() {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 
-    const consumer = this.consumers.shift();
-    if (consumer) {
-      consumer(item);
-    } else {
-      this.queue.push(item);
-    }
-  }
+	if !q.closed {
+		q.closed = true
+		close(q.ch)
+	}
+}
 
-  async consume(): Promise<T | null> {
-    if (this.queue.length > 0) {
-      const item = this.queue.shift()!;
-      // Debloquer un producteur en attente
-      const producer = this.producers.shift();
-      producer?.();
-      return item;
-    }
-
-    if (this.closed) {
-      return null;
-    }
-
-    return new Promise((resolve) => {
-      this.consumers.push(resolve);
-    });
-  }
-
-  close(): void {
-    this.closed = true;
-    this.consumers.forEach((c) => c(null));
-    this.producers.forEach((p) => p());
-    this.consumers = [];
-    this.producers = [];
-  }
+// Size returns the current queue size.
+func (q *Queue[T]) Size() int {
+	return len(q.ch)
 }
 ```
 
@@ -158,136 +120,172 @@ class BoundedQueue<T> {
 
 ## Multi-Consumer Pattern
 
-```typescript
-class WorkerPool<T, R> {
-  private queue: BoundedQueue<T | null>;
-  private results: R[] = [];
-  private workers: Promise<void>[] = [];
+```go
+package worker
 
-  constructor(
-    private processor: (item: T) => Promise<R>,
-    private numWorkers: number,
-    queueSize: number,
-  ) {
-    this.queue = new BoundedQueue(queueSize);
-  }
+import (
+	"context"
+	"fmt"
+	"sync"
+)
 
-  async start(): Promise<void> {
-    // Demarrer les workers
-    for (let i = 0; i < this.numWorkers; i++) {
-      this.workers.push(this.worker(i));
-    }
-  }
-
-  private async worker(id: number): Promise<void> {
-    while (true) {
-      const item = await this.queue.consume();
-      if (item === null) break; // Poison pill
-
-      try {
-        const result = await this.processor(item);
-        this.results.push(result);
-      } catch (error) {
-        console.error(`Worker ${id} error:`, error);
-      }
-    }
-  }
-
-  async produce(item: T): Promise<void> {
-    await this.queue.produce(item);
-  }
-
-  async shutdown(): Promise<R[]> {
-    // Envoyer poison pills
-    for (let i = 0; i < this.numWorkers; i++) {
-      await this.queue.produce(null as T);
-    }
-
-    // Attendre tous les workers
-    await Promise.all(this.workers);
-
-    return this.results;
-  }
+// Task represents a unit of work.
+type Task[T, R any] struct {
+	Input  T
+	Result chan<- R
+	Err    chan<- error
 }
 
-// Usage
-const pool = new WorkerPool<string, Response>(
-  async (url) => fetch(url),
-  4, // 4 workers
-  100, // queue max 100
-);
-
-await pool.start();
-
-for (const url of urls) {
-  await pool.produce(url);
+// WorkerPool processes tasks concurrently.
+type WorkerPool[T, R any] struct {
+	tasks      chan Task[T, R]
+	processor  func(context.Context, T) (R, error)
+	numWorkers int
+	wg         sync.WaitGroup
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
-const results = await pool.shutdown();
+// NewWorkerPool creates a worker pool.
+func NewWorkerPool[T, R any](
+	numWorkers int,
+	queueSize int,
+	processor func(context.Context, T) (R, error),
+) *WorkerPool[T, R] {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	wp := &WorkerPool[T, R]{
+		tasks:      make(chan Task[T, R], queueSize),
+		processor:  processor,
+		numWorkers: numWorkers,
+		ctx:        ctx,
+		cancel:     cancel,
+	}
+
+	// Start workers
+	for i := 0; i < numWorkers; i++ {
+		wp.wg.Add(1)
+		go wp.worker(i)
+	}
+
+	return wp
+}
+
+// worker processes tasks.
+func (wp *WorkerPool[T, R]) worker(id int) {
+	defer wp.wg.Done()
+
+	for {
+		select {
+		case <-wp.ctx.Done():
+			return
+		case task, ok := <-wp.tasks:
+			if !ok {
+				return
+			}
+
+			result, err := wp.processor(wp.ctx, task.Input)
+			if err != nil {
+				select {
+				case task.Err <- err:
+				case <-wp.ctx.Done():
+				}
+			} else {
+				select {
+				case task.Result <- result:
+				case <-wp.ctx.Done():
+				}
+			}
+		}
+	}
+}
+
+// Submit submits a task to the pool.
+func (wp *WorkerPool[T, R]) Submit(ctx context.Context, input T) (R, error) {
+	resultCh := make(chan R, 1)
+	errCh := make(chan error, 1)
+
+	task := Task[T, R]{
+		Input:  input,
+		Result: resultCh,
+		Err:    errCh,
+	}
+
+	select {
+	case <-ctx.Done():
+		var zero R
+		return zero, ctx.Err()
+	case <-wp.ctx.Done():
+		var zero R
+		return zero, fmt.Errorf("pool is closed")
+	case wp.tasks <- task:
+	}
+
+	select {
+	case <-ctx.Done():
+		var zero R
+		return zero, ctx.Err()
+	case result := <-resultCh:
+		return result, nil
+	case err := <-errCh:
+		var zero R
+		return zero, err
+	}
+}
+
+// Shutdown gracefully stops the pool.
+func (wp *WorkerPool[T, R]) Shutdown() {
+	close(wp.tasks)
+	wp.wg.Wait()
+	wp.cancel()
+}
 ```
 
----
+**Usage:**
 
-## AsyncIterable Pattern
+```go
+package main
 
-```typescript
-class AsyncQueue<T> implements AsyncIterable<T> {
-  private queue: T[] = [];
-  private resolvers: Array<(value: IteratorResult<T>) => void> = [];
-  private closed = false;
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"time"
+)
 
-  push(item: T): void {
-    if (this.closed) return;
+func main() {
+	// Create worker pool for fetching URLs
+	pool := NewWorkerPool(
+		4, // 4 workers
+		100, // queue size
+		func(ctx context.Context, url string) (*http.Response, error) {
+			req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+			if err != nil {
+				return nil, err
+			}
+			return http.DefaultClient.Do(req)
+		},
+	)
+	defer pool.Shutdown()
 
-    const resolver = this.resolvers.shift();
-    if (resolver) {
-      resolver({ value: item, done: false });
-    } else {
-      this.queue.push(item);
-    }
-  }
+	urls := []string{
+		"https://api.example.com/1",
+		"https://api.example.com/2",
+		"https://api.example.com/3",
+	}
 
-  close(): void {
-    this.closed = true;
-    this.resolvers.forEach((r) => r({ value: undefined, done: true }));
-    this.resolvers = [];
-  }
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-  async *[Symbol.asyncIterator](): AsyncIterator<T> {
-    while (true) {
-      if (this.queue.length > 0) {
-        yield this.queue.shift()!;
-        continue;
-      }
-
-      if (this.closed) {
-        return;
-      }
-
-      const result = await new Promise<IteratorResult<T>>((resolve) => {
-        this.resolvers.push(resolve);
-      });
-
-      if (result.done) return;
-      yield result.value;
-    }
-  }
-}
-
-// Usage avec for-await
-const queue = new AsyncQueue<number>();
-
-// Producer
-setTimeout(() => {
-  queue.push(1);
-  queue.push(2);
-  queue.push(3);
-  queue.close();
-}, 100);
-
-// Consumer
-for await (const item of queue) {
-  console.log('Received:', item);
+	for _, url := range urls {
+		resp, err := pool.Submit(ctx, url)
+		if err != nil {
+			fmt.Printf("Error fetching %s: %v\n", url, err)
+			continue
+		}
+		resp.Body.Close()
+		fmt.Printf("Fetched %s: %d\n", url, resp.StatusCode)
+	}
 }
 ```
 
@@ -312,6 +310,66 @@ for await (const item of queue) {
    Messages routes selon leur type
 ```
 
+### Fan-Out Implementation
+
+```go
+package fanout
+
+import (
+	"context"
+	"sync"
+)
+
+// FanOut distributes items to multiple consumers.
+type FanOut[T any] struct {
+	outputs []chan T
+	mu      sync.RWMutex
+}
+
+// NewFanOut creates a fan-out distributor.
+func NewFanOut[T any]() *FanOut[T] {
+	return &FanOut[T]{
+		outputs: make([]chan T, 0),
+	}
+}
+
+// AddConsumer registers a new consumer.
+func (f *FanOut[T]) AddConsumer(bufferSize int) <-chan T {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	ch := make(chan T, bufferSize)
+	f.outputs = append(f.outputs, ch)
+	return ch
+}
+
+// Send broadcasts item to all consumers.
+func (f *FanOut[T]) Send(ctx context.Context, item T) error {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	for _, out := range f.outputs {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case out <- item:
+		}
+	}
+
+	return nil
+}
+
+// Close closes all output channels.
+func (f *FanOut[T]) Close() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for _, out := range f.outputs {
+		close(out)
+	}
+}
+```
+
 ---
 
 ## Complexite et Trade-offs
@@ -327,6 +385,7 @@ for await (const item of queue) {
 - Decouplage temporel
 - Absorption des pics
 - Scalabilite independante
+- Channels natifs en Go
 
 ### Inconvenients
 
@@ -353,13 +412,13 @@ for await (const item of queue) {
 |---------|----------|
 | **Thread Pool** | Consumers = workers du pool |
 | **Buffer** | Queue = buffer |
-| **Observer** | Push-based vs pull-based |
 | **Pipeline** | Chaine de producer-consumer |
+| **Fan-Out/Fan-In** | Distribution/agregation |
 
 ---
 
 ## Sources
 
+- [Go Concurrency Patterns](https://go.dev/blog/pipelines)
 - [Enterprise Integration Patterns](https://www.enterpriseintegrationpatterns.com/)
-- [RabbitMQ Tutorials](https://www.rabbitmq.com/getstarted.html)
-- [Kafka Documentation](https://kafka.apache.org/documentation/)
+- [Effective Go - Channels](https://go.dev/doc/effective_go#channels)

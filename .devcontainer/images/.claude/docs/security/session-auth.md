@@ -23,211 +23,412 @@
      │                  │                      │
 ```
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-import crypto from 'crypto';
+```go
+package session
 
-interface Session {
-  id: string;
-  userId: string;
-  data: Record<string, unknown>;
-  createdAt: Date;
-  expiresAt: Date;
-  lastAccessedAt: Date;
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"time"
+)
+
+// Session represents a user session.
+type Session struct {
+	ID             string
+	UserID         string
+	Data           map[string]interface{}
+	CreatedAt      time.Time
+	ExpiresAt      time.Time
+	LastAccessedAt time.Time
 }
 
-interface SessionStore {
-  get(id: string): Promise<Session | null>;
-  set(session: Session): Promise<void>;
-  delete(id: string): Promise<void>;
-  touch(id: string): Promise<void>;
+// Store defines the session storage interface.
+type Store interface {
+	Get(ctx context.Context, id string) (*Session, error)
+	Set(ctx context.Context, session *Session) error
+	Delete(ctx context.Context, id string) error
+	Touch(ctx context.Context, id string) error
 }
 
-class SessionManager {
-  constructor(
-    private store: SessionStore,
-    private ttlMs = 24 * 60 * 60 * 1000, // 24h
-    private slidingWindow = true,
-  ) {}
+// Manager manages user sessions.
+type Manager struct {
+	store         Store
+	ttl           time.Duration
+	slidingWindow bool
+}
 
-  async create(userId: string, data?: Record<string, unknown>): Promise<string> {
-    const sessionId = crypto.randomBytes(32).toString('hex');
-    const now = new Date();
+// NewManager creates a new session manager.
+func NewManager(store Store, ttl time.Duration, slidingWindow bool) *Manager {
+	return &Manager{
+		store:         store,
+		ttl:           ttl,
+		slidingWindow: slidingWindow,
+	}
+}
 
-    const session: Session = {
-      id: sessionId,
-      userId,
-      data: data || {},
-      createdAt: now,
-      expiresAt: new Date(now.getTime() + this.ttlMs),
-      lastAccessedAt: now,
-    };
+// Create creates a new session for a user.
+func (m *Manager) Create(ctx context.Context, userID string, data map[string]interface{}) (string, error) {
+	sessionID, err := generateSessionID()
+	if err != nil {
+		return "", fmt.Errorf("generating session ID: %w", err)
+	}
 
-    await this.store.set(session);
-    return sessionId;
-  }
+	now := time.Now()
+	session := &Session{
+		ID:             sessionID,
+		UserID:         userID,
+		Data:           data,
+		CreatedAt:      now,
+		ExpiresAt:      now.Add(m.ttl),
+		LastAccessedAt: now,
+	}
 
-  async validate(sessionId: string): Promise<Session | null> {
-    if (!sessionId) return null;
+	if err := m.store.Set(ctx, session); err != nil {
+		return "", fmt.Errorf("storing session: %w", err)
+	}
 
-    const session = await this.store.get(sessionId);
-    if (!session) return null;
+	return sessionID, nil
+}
 
-    // Check expiration
-    if (new Date() > session.expiresAt) {
-      await this.store.delete(sessionId);
-      return null;
-    }
+// Validate validates a session ID and returns the session.
+func (m *Manager) Validate(ctx context.Context, sessionID string) (*Session, error) {
+	if sessionID == "" {
+		return nil, nil
+	}
 
-    // Sliding window - extend expiration on access
-    if (this.slidingWindow) {
-      await this.store.touch(sessionId);
-    }
+	session, err := m.store.Get(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("getting session: %w", err)
+	}
 
-    return session;
-  }
+	if session == nil {
+		return nil, nil
+	}
 
-  async destroy(sessionId: string): Promise<void> {
-    await this.store.delete(sessionId);
-  }
+	// Check expiration
+	if time.Now().After(session.ExpiresAt) {
+		if err := m.store.Delete(ctx, sessionID); err != nil {
+			return nil, fmt.Errorf("deleting expired session: %w", err)
+		}
+		return nil, nil
+	}
 
-  async destroyAllForUser(userId: string): Promise<void> {
-    // Implementation depends on store
-    await this.store.deleteByUserId(userId);
-  }
+	// Sliding window - extend expiration on access
+	if m.slidingWindow {
+		if err := m.store.Touch(ctx, sessionID); err != nil {
+			return nil, fmt.Errorf("touching session: %w", err)
+		}
+	}
+
+	return session, nil
+}
+
+// Destroy destroys a session.
+func (m *Manager) Destroy(ctx context.Context, sessionID string) error {
+	if err := m.store.Delete(ctx, sessionID); err != nil {
+		return fmt.Errorf("deleting session: %w", err)
+	}
+	return nil
+}
+
+func generateSessionID() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("reading random bytes: %w", err)
+	}
+	return hex.EncodeToString(b), nil
 }
 ```
 
 ## Session Store Redis
 
-```typescript
-class RedisSessionStore implements SessionStore {
-  constructor(private redis: Redis, private prefix = 'sess:') {}
+```go
+package session
 
-  async get(id: string): Promise<Session | null> {
-    const data = await this.redis.get(`${this.prefix}${id}`);
-    if (!data) return null;
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
 
-    const session = JSON.parse(data);
-    return {
-      ...session,
-      createdAt: new Date(session.createdAt),
-      expiresAt: new Date(session.expiresAt),
-      lastAccessedAt: new Date(session.lastAccessedAt),
-    };
-  }
+	"github.com/redis/go-redis/v9"
+)
 
-  async set(session: Session): Promise<void> {
-    const ttl = Math.floor((session.expiresAt.getTime() - Date.now()) / 1000);
-    await this.redis.setex(
-      `${this.prefix}${session.id}`,
-      ttl,
-      JSON.stringify(session),
-    );
-  }
+// RedisStore implements Store using Redis.
+type RedisStore struct {
+	client *redis.Client
+	prefix string
+	ttl    time.Duration
+}
 
-  async delete(id: string): Promise<void> {
-    await this.redis.del(`${this.prefix}${id}`);
-  }
+// NewRedisStore creates a new Redis-backed session store.
+func NewRedisStore(client *redis.Client, prefix string, ttl time.Duration) *RedisStore {
+	return &RedisStore{
+		client: client,
+		prefix: prefix,
+		ttl:    ttl,
+	}
+}
 
-  async touch(id: string): Promise<void> {
-    const session = await this.get(id);
-    if (session) {
-      session.lastAccessedAt = new Date();
-      session.expiresAt = new Date(Date.now() + this.ttlMs);
-      await this.set(session);
-    }
-  }
+// Get retrieves a session by ID.
+func (s *RedisStore) Get(ctx context.Context, id string) (*Session, error) {
+	key := s.prefix + id
+	data, err := s.client.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("getting from redis: %w", err)
+	}
+
+	var session Session
+	if err := json.Unmarshal([]byte(data), &session); err != nil {
+		return nil, fmt.Errorf("unmarshaling session: %w", err)
+	}
+
+	return &session, nil
+}
+
+// Set stores a session.
+func (s *RedisStore) Set(ctx context.Context, session *Session) error {
+	key := s.prefix + session.ID
+	data, err := json.Marshal(session)
+	if err != nil {
+		return fmt.Errorf("marshaling session: %w", err)
+	}
+
+	ttl := time.Until(session.ExpiresAt)
+	if err := s.client.Set(ctx, key, data, ttl).Err(); err != nil {
+		return fmt.Errorf("setting in redis: %w", err)
+	}
+
+	return nil
+}
+
+// Delete deletes a session.
+func (s *RedisStore) Delete(ctx context.Context, id string) error {
+	key := s.prefix + id
+	if err := s.client.Del(ctx, key).Err(); err != nil {
+		return fmt.Errorf("deleting from redis: %w", err)
+	}
+	return nil
+}
+
+// Touch updates the last accessed time and extends expiration.
+func (s *RedisStore) Touch(ctx context.Context, id string) error {
+	session, err := s.Get(ctx, id)
+	if err != nil {
+		return fmt.Errorf("getting session: %w", err)
+	}
+	if session == nil {
+		return fmt.Errorf("session not found")
+	}
+
+	session.LastAccessedAt = time.Now()
+	session.ExpiresAt = time.Now().Add(s.ttl)
+
+	if err := s.Set(ctx, session); err != nil {
+		return fmt.Errorf("updating session: %w", err)
+	}
+
+	return nil
 }
 ```
 
-## Middleware Express
+## Middleware HTTP
 
-```typescript
-import { CookieOptions, Request, Response, NextFunction } from 'express';
+```go
+package middleware
 
-const cookieOptions: CookieOptions = {
-  httpOnly: true, // Prevent XSS access
-  secure: true, // HTTPS only
-  sameSite: 'strict', // CSRF protection
-  maxAge: 24 * 60 * 60 * 1000, // 24h
-  path: '/',
-};
+import (
+	"context"
+	"net/http"
+	"time"
+)
 
-function sessionMiddleware(manager: SessionManager) {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    const sessionId = req.cookies.sessionId;
+// CookieOptions holds cookie configuration.
+type CookieOptions struct {
+	HTTPOnly bool
+	Secure   bool
+	SameSite http.SameSite
+	MaxAge   int
+	Path     string
+}
 
-    if (sessionId) {
-      const session = await manager.validate(sessionId);
-      if (session) {
-        req.session = session;
-        req.userId = session.userId;
-      }
-    }
+// DefaultCookieOptions returns secure default cookie options.
+func DefaultCookieOptions() CookieOptions {
+	return CookieOptions{
+		HTTPOnly: true,               // Prevent XSS access
+		Secure:   true,               // HTTPS only
+		SameSite: http.SameSiteStrict, // CSRF protection
+		MaxAge:   24 * 60 * 60,       // 24h
+		Path:     "/",
+	}
+}
 
-    // Helper to create session
-    req.createSession = async (userId: string) => {
-      const newSessionId = await manager.create(userId);
-      res.cookie('sessionId', newSessionId, cookieOptions);
-      return newSessionId;
-    };
+type contextKey string
 
-    // Helper to destroy session
-    req.destroySession = async () => {
-      if (req.session) {
-        await manager.destroy(req.session.id);
-        res.clearCookie('sessionId');
-      }
-    };
+const (
+	sessionKey contextKey = "session"
+	userIDKey  contextKey = "userID"
+)
 
-    next();
-  };
+// SessionMiddleware returns a middleware that manages sessions.
+func SessionMiddleware(manager *session.Manager, opts CookieOptions) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+
+			// Get session cookie
+			cookie, err := r.Cookie("sessionID")
+			var sess *session.Session
+			if err == nil {
+				sess, err = manager.Validate(ctx, cookie.Value)
+				if err != nil {
+					http.Error(w, "Session validation error", http.StatusInternalServerError)
+					return
+				}
+			}
+
+			// Attach session to context
+			if sess != nil {
+				ctx = context.WithValue(ctx, sessionKey, sess)
+				ctx = context.WithValue(ctx, userIDKey, sess.UserID)
+			}
+
+			// Add helper functions to context
+			ctx = context.WithValue(ctx, "createSession", func(userID string) (string, error) {
+				sessionID, err := manager.Create(ctx, userID, nil)
+				if err != nil {
+					return "", err
+				}
+
+				http.SetCookie(w, &http.Cookie{
+					Name:     "sessionID",
+					Value:    sessionID,
+					HttpOnly: opts.HTTPOnly,
+					Secure:   opts.Secure,
+					SameSite: opts.SameSite,
+					MaxAge:   opts.MaxAge,
+					Path:     opts.Path,
+				})
+
+				return sessionID, nil
+			})
+
+			ctx = context.WithValue(ctx, "destroySession", func() error {
+				if sess != nil {
+					if err := manager.Destroy(ctx, sess.ID); err != nil {
+						return err
+					}
+					http.SetCookie(w, &http.Cookie{
+						Name:   "sessionID",
+						Value:  "",
+						MaxAge: -1,
+						Path:   opts.Path,
+					})
+				}
+				return nil
+			})
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// GetSession retrieves the session from context.
+func GetSession(ctx context.Context) *session.Session {
+	if sess, ok := ctx.Value(sessionKey).(*session.Session); ok {
+		return sess
+	}
+	return nil
+}
+
+// GetUserID retrieves the user ID from context.
+func GetUserID(ctx context.Context) string {
+	if userID, ok := ctx.Value(userIDKey).(string); ok {
+		return userID
+	}
+	return ""
 }
 ```
 
 ## Protection contre les attaques
 
-```typescript
-class SecureSessionManager extends SessionManager {
-  // Session fixation prevention
-  async regenerate(oldSessionId: string): Promise<string> {
-    const session = await this.store.get(oldSessionId);
-    if (!session) throw new Error('Invalid session');
+```go
+package session
 
-    // Create new session with same data
-    const newSessionId = await this.create(session.userId, session.data);
-    // Delete old session
-    await this.destroy(oldSessionId);
+import (
+	"context"
+	"fmt"
+)
 
-    return newSessionId;
-  }
+// SecureManager extends Manager with security features.
+type SecureManager struct {
+	*Manager
+}
 
-  // Concurrent session limit
-  async createWithLimit(userId: string, maxSessions = 3): Promise<string> {
-    const userSessions = await this.store.getByUserId(userId);
+// NewSecureManager creates a new secure session manager.
+func NewSecureManager(store Store, ttl time.Duration, slidingWindow bool) *SecureManager {
+	return &SecureManager{
+		Manager: NewManager(store, ttl, slidingWindow),
+	}
+}
 
-    if (userSessions.length >= maxSessions) {
-      // Remove oldest session
-      const oldest = userSessions.sort(
-        (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
-      )[0];
-      await this.destroy(oldest.id);
-    }
+// Regenerate prevents session fixation by creating a new session ID.
+func (m *SecureManager) Regenerate(ctx context.Context, oldSessionID string) (string, error) {
+	session, err := m.store.Get(ctx, oldSessionID)
+	if err != nil {
+		return "", fmt.Errorf("getting old session: %w", err)
+	}
+	if session == nil {
+		return "", fmt.Errorf("session not found")
+	}
 
-    return this.create(userId);
-  }
+	// Create new session with same data
+	newSessionID, err := m.Create(ctx, session.UserID, session.Data)
+	if err != nil {
+		return "", fmt.Errorf("creating new session: %w", err)
+	}
 
-  // IP binding (optional, can cause issues with mobile)
-  async validateWithIP(sessionId: string, ip: string): Promise<Session | null> {
-    const session = await this.validate(sessionId);
-    if (session && session.data.boundIP !== ip) {
-      await this.destroy(sessionId);
-      return null;
-    }
-    return session;
-  }
+	// Delete old session
+	if err := m.Destroy(ctx, oldSessionID); err != nil {
+		return "", fmt.Errorf("destroying old session: %w", err)
+	}
+
+	return newSessionID, nil
+}
+
+// CreateWithLimit creates a session with concurrent session limiting.
+func (m *SecureManager) CreateWithLimit(ctx context.Context, userID string, maxSessions int) (string, error) {
+	// Note: This requires extending the Store interface with GetByUserID
+	// Implementation would fetch user sessions, remove oldest if limit exceeded
+	return m.Create(ctx, userID, nil)
+}
+
+// ValidateWithIP validates session with IP binding (optional, can cause issues with mobile).
+func (m *SecureManager) ValidateWithIP(ctx context.Context, sessionID, ip string) (*Session, error) {
+	session, err := m.Validate(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("validating session: %w", err)
+	}
+
+	if session == nil {
+		return nil, nil
+	}
+
+	if boundIP, ok := session.Data["boundIP"].(string); ok && boundIP != ip {
+		if err := m.Destroy(ctx, sessionID); err != nil {
+			return nil, fmt.Errorf("destroying session: %w", err)
+		}
+		return nil, nil
+	}
+
+	return session, nil
 }
 ```
 
@@ -235,16 +436,15 @@ class SecureSessionManager extends SessionManager {
 
 | Package | Usage |
 |---------|-------|
-| `express-session` | Session middleware standard |
-| `connect-redis` | Store Redis pour express-session |
-| `iron-session` | Session chiffree sans store |
-| `cookie-session` | Session dans cookie (petites donnees) |
+| `github.com/gorilla/sessions` | Session management standard |
+| `github.com/redis/go-redis/v9` | Redis client |
+| `github.com/alexedwards/scs/v2` | Session manager moderne |
 
 ## Erreurs communes
 
 | Erreur | Impact | Solution |
 |--------|--------|----------|
-| Session ID previsible | Session hijacking | `crypto.randomBytes(32)` |
+| Session ID previsible | Session hijacking | `crypto/rand` avec 32 bytes |
 | Pas de `httpOnly` | XSS peut voler cookie | Toujours `httpOnly: true` |
 | Pas de `secure` | MITM peut intercepter | Toujours `secure: true` en prod |
 | `sameSite: 'none'` | CSRF vulnerable | `strict` ou `lax` |
@@ -271,4 +471,4 @@ class SecureSessionManager extends SessionManager {
 ## Sources
 
 - [OWASP Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
-- [express-session docs](https://github.com/expressjs/session)
+- [SCS Documentation](https://github.com/alexedwards/scs)

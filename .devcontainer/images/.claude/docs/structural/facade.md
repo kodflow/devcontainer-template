@@ -10,407 +10,576 @@ plus facile a utiliser.
 
 ## Structure
 
-```typescript
+```go
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"strings"
+)
+
 // 1. Sous-systeme complexe
-class VideoFile {
-  constructor(public filename: string) {}
+type VideoFile struct {
+	Filename string
 }
 
-class VideoCodec {
-  decode(file: VideoFile): Buffer {
-    console.log('Decoding video...');
-    return Buffer.alloc(0);
-  }
+func NewVideoFile(filename string) *VideoFile {
+	return &VideoFile{Filename: filename}
 }
 
-class AudioCodec {
-  decode(file: VideoFile): Buffer {
-    console.log('Decoding audio...');
-    return Buffer.alloc(0);
-  }
+type VideoCodec struct{}
+
+func (v *VideoCodec) Decode(file *VideoFile) *bytes.Buffer {
+	fmt.Println("Decoding video...")
+	return bytes.NewBuffer(nil)
 }
 
-class VideoMixer {
-  mix(video: Buffer, audio: Buffer): Buffer {
-    console.log('Mixing video and audio...');
-    return Buffer.concat([video, audio]);
-  }
+type AudioCodec struct{}
+
+func (a *AudioCodec) Decode(file *VideoFile) *bytes.Buffer {
+	fmt.Println("Decoding audio...")
+	return bytes.NewBuffer(nil)
 }
 
-class Encoder {
-  encode(data: Buffer, format: string): Buffer {
-    console.log(`Encoding to ${format}...`);
-    return data;
-  }
+type VideoMixer struct{}
+
+func (v *VideoMixer) Mix(video, audio *bytes.Buffer) *bytes.Buffer {
+	fmt.Println("Mixing video and audio...")
+	return bytes.NewBuffer(append(video.Bytes(), audio.Bytes()...))
 }
 
-class FileWriter {
-  write(data: Buffer, filename: string): void {
-    console.log(`Writing to ${filename}...`);
-  }
+type Encoder struct{}
+
+func (e *Encoder) Encode(data *bytes.Buffer, format string) *bytes.Buffer {
+	fmt.Printf("Encoding to %s...\n", format)
+	return data
+}
+
+type FileWriter struct{}
+
+func (f *FileWriter) Write(data *bytes.Buffer, filename string) {
+	fmt.Printf("Writing to %s...\n", filename)
 }
 
 // 2. Facade
-class VideoConverter {
-  private videoCodec = new VideoCodec();
-  private audioCodec = new AudioCodec();
-  private mixer = new VideoMixer();
-  private encoder = new Encoder();
-  private writer = new FileWriter();
+type VideoConverter struct {
+	videoCodec *VideoCodec
+	audioCodec *AudioCodec
+	mixer      *VideoMixer
+	encoder    *Encoder
+	writer     *FileWriter
+}
 
-  convert(filename: string, format: string): void {
-    console.log(`Converting ${filename} to ${format}`);
+func NewVideoConverter() *VideoConverter {
+	return &VideoConverter{
+		videoCodec: &VideoCodec{},
+		audioCodec: &AudioCodec{},
+		mixer:      &VideoMixer{},
+		encoder:    &Encoder{},
+		writer:     &FileWriter{},
+	}
+}
 
-    const file = new VideoFile(filename);
-    const video = this.videoCodec.decode(file);
-    const audio = this.audioCodec.decode(file);
-    const mixed = this.mixer.mix(video, audio);
-    const encoded = this.encoder.encode(mixed, format);
+func (v *VideoConverter) Convert(filename, format string) {
+	fmt.Printf("Converting %s to %s\n", filename, format)
 
-    const outputName = filename.replace(/\.[^.]+$/, `.${format}`);
-    this.writer.write(encoded, outputName);
+	file := NewVideoFile(filename)
+	video := v.videoCodec.Decode(file)
+	audio := v.audioCodec.Decode(file)
+	mixed := v.mixer.Mix(video, audio)
+	encoded := v.encoder.Encode(mixed, format)
 
-    console.log('Conversion complete!');
-  }
+	outputName := strings.TrimSuffix(filename, ".avi") + "." + format
+	v.writer.Write(encoded, outputName)
+
+	fmt.Println("Conversion complete!")
 }
 
 // Usage simplifie
-const converter = new VideoConverter();
-converter.convert('movie.avi', 'mp4');
+func main() {
+	converter := NewVideoConverter()
+	converter.Convert("movie.avi", "mp4")
+}
 ```
 
 ## Cas d'usage concrets
 
 ### Facade pour E-commerce
 
-```typescript
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+)
+
+// Types de donnees
+type Card struct {
+	Number string
+	CVV    string
+}
+
+type Address struct {
+	Street  string
+	City    string
+	Country string
+}
+
+type OrderItem struct {
+	ProductID string
+	Quantity  int
+}
+
+type Customer struct {
+	Email string
+	Phone string
+}
+
+type Order struct {
+	ID            string
+	Items         []OrderItem
+	Total         float64
+	Card          Card
+	Address       Address
+	Customer      Customer
+	TransactionID string
+	Status        string
+}
+
+type OrderResult struct {
+	Success    bool
+	OrderID    string
+	TrackingID string
+}
+
+type OrderStatus struct {
+	Status string
+}
+
 // Sous-systemes
-class InventoryService {
-  checkStock(productId: string): boolean { return true; }
-  reserveStock(productId: string, qty: number): void {}
-  releaseStock(productId: string, qty: number): void {}
+type InventoryService struct{}
+
+func (i *InventoryService) CheckStock(productID string) bool { return true }
+func (i *InventoryService) ReserveStock(productID string, qty int) {
+	fmt.Printf("Reserved %d of %s\n", qty, productID)
+}
+func (i *InventoryService) ReleaseStock(productID string, qty int) {
+	fmt.Printf("Released %d of %s\n", qty, productID)
 }
 
-class PaymentService {
-  authorize(amount: number, card: Card): string { return 'auth_123'; }
-  capture(authId: string): void {}
-  refund(authId: string): void {}
+type PaymentService struct{}
+
+func (p *PaymentService) Authorize(amount float64, card Card) string {
+	return "auth_123"
+}
+func (p *PaymentService) Capture(authID string) {
+	fmt.Printf("Captured payment %s\n", authID)
+}
+func (p *PaymentService) Refund(authID string) {
+	fmt.Printf("Refunded %s\n", authID)
 }
 
-class ShippingService {
-  calculateCost(address: Address): number { return 10; }
-  createLabel(order: Order): string { return 'SHIP_123'; }
-  schedulePickup(labelId: string): void {}
+type ShippingService struct{}
+
+func (s *ShippingService) CalculateCost(address Address) float64 { return 10.0 }
+func (s *ShippingService) CreateLabel(order *Order) string       { return "SHIP_123" }
+func (s *ShippingService) SchedulePickup(labelID string) {
+	fmt.Printf("Scheduled pickup for %s\n", labelID)
 }
 
-class NotificationService {
-  sendEmail(to: string, template: string, data: object): void {}
-  sendSMS(phone: string, message: string): void {}
+type NotificationService struct{}
+
+func (n *NotificationService) SendEmail(to, template string, data map[string]string) {
+	fmt.Printf("Email sent to %s\n", to)
+}
+func (n *NotificationService) SendSMS(phone, message string) {
+	fmt.Printf("SMS sent to %s\n", phone)
 }
 
 // Facade
-class OrderFacade {
-  constructor(
-    private inventory: InventoryService,
-    private payment: PaymentService,
-    private shipping: ShippingService,
-    private notification: NotificationService,
-  ) {}
+type OrderFacade struct {
+	inventory    *InventoryService
+	payment      *PaymentService
+	shipping     *ShippingService
+	notification *NotificationService
+}
 
-  async placeOrder(order: Order): Promise<OrderResult> {
-    // 1. Verifier stock
-    for (const item of order.items) {
-      if (!this.inventory.checkStock(item.productId)) {
-        throw new Error(`Out of stock: ${item.productId}`);
-      }
-    }
+func NewOrderFacade(
+	inventory *InventoryService,
+	payment *PaymentService,
+	shipping *ShippingService,
+	notification *NotificationService,
+) *OrderFacade {
+	return &OrderFacade{
+		inventory:    inventory,
+		payment:      payment,
+		shipping:     shipping,
+		notification: notification,
+	}
+}
 
-    // 2. Reserver stock
-    for (const item of order.items) {
-      this.inventory.reserveStock(item.productId, item.quantity);
-    }
+func (o *OrderFacade) PlaceOrder(ctx context.Context, order *Order) (*OrderResult, error) {
+	// 1. Verifier stock
+	for _, item := range order.Items {
+		if !o.inventory.CheckStock(item.ProductID) {
+			return nil, fmt.Errorf("out of stock: %s", item.ProductID)
+		}
+	}
 
-    try {
-      // 3. Paiement
-      const authId = this.payment.authorize(order.total, order.card);
-      this.payment.capture(authId);
+	// 2. Reserver stock
+	for _, item := range order.Items {
+		o.inventory.ReserveStock(item.ProductID, item.Quantity)
+	}
 
-      // 4. Livraison
-      const shippingCost = this.shipping.calculateCost(order.address);
-      const labelId = this.shipping.createLabel(order);
-      this.shipping.schedulePickup(labelId);
+	// 3. Paiement
+	authID := o.payment.Authorize(order.Total, order.Card)
+	if authID == "" {
+		// Rollback
+		for _, item := range order.Items {
+			o.inventory.ReleaseStock(item.ProductID, item.Quantity)
+		}
+		return nil, fmt.Errorf("payment authorization failed")
+	}
+	o.payment.Capture(authID)
 
-      // 5. Notifications
-      this.notification.sendEmail(
-        order.customer.email,
-        'order_confirmation',
-        { orderId: order.id, trackingId: labelId },
-      );
+	// 4. Livraison
+	shippingCost := o.shipping.CalculateCost(order.Address)
+	_ = shippingCost // Utilise si necessaire
+	labelID := o.shipping.CreateLabel(order)
+	o.shipping.SchedulePickup(labelID)
 
-      return {
-        success: true,
-        orderId: order.id,
-        trackingId: labelId,
-      };
-    } catch (error) {
-      // Rollback
-      for (const item of order.items) {
-        this.inventory.releaseStock(item.productId, item.quantity);
-      }
-      throw error;
-    }
-  }
+	// 5. Notifications
+	o.notification.SendEmail(
+		order.Customer.Email,
+		"order_confirmation",
+		map[string]string{
+			"orderId":    order.ID,
+			"trackingId": labelID,
+		},
+	)
 
-  async cancelOrder(orderId: string): Promise<void> {
-    // Logique complexe simplifiee
-  }
+	return &OrderResult{
+		Success:    true,
+		OrderID:    order.ID,
+		TrackingID: labelID,
+	}, nil
+}
 
-  async getOrderStatus(orderId: string): Promise<OrderStatus> {
-    // Agregation de plusieurs services
-    return { status: 'processing' };
-  }
+func (o *OrderFacade) CancelOrder(ctx context.Context, orderID string) error {
+	// Logique complexe simplifiee
+	return nil
+}
+
+func (o *OrderFacade) GetOrderStatus(ctx context.Context, orderID string) (*OrderStatus, error) {
+	// Agregation de plusieurs services
+	return &OrderStatus{Status: "processing"}, nil
 }
 ```
 
 ### Facade pour API Client
 
-```typescript
+```go
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+)
+
 // Sous-systemes
-class AuthClient {
-  async getToken(): Promise<string> { return 'token'; }
-  async refreshToken(): Promise<string> { return 'new_token'; }
+type AuthClient struct {
+	token string
 }
 
-class HttpClient {
-  async request(config: RequestConfig): Promise<Response> {
-    return fetch(config.url, config);
-  }
+func (a *AuthClient) GetToken(ctx context.Context) (string, error) {
+	return a.token, nil
 }
 
-class RetryPolicy {
-  async execute<T>(fn: () => Promise<T>): Promise<T> {
-    // Logique de retry
-    return fn();
-  }
+func (a *AuthClient) RefreshToken(ctx context.Context) (string, error) {
+	return "new_token", nil
 }
 
-class CircuitBreaker {
-  async execute<T>(fn: () => Promise<T>): Promise<T> {
-    // Logique circuit breaker
-    return fn();
-  }
+type RequestConfig struct {
+	Method  string
+	URL     string
+	Headers map[string]string
+	Body    io.Reader
+}
+
+type HTTPClient struct {
+	client *http.Client
+}
+
+func (h *HTTPClient) Request(ctx context.Context, config RequestConfig) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, config.Method, config.URL, config.Body)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	for k, v := range config.Headers {
+		req.Header.Set(k, v)
+	}
+
+	return h.client.Do(req)
+}
+
+type RetryPolicy struct{}
+
+func (r *RetryPolicy) Execute(ctx context.Context, fn func() error) error {
+	// Logique de retry
+	return fn()
+}
+
+type CircuitBreaker struct{}
+
+func (c *CircuitBreaker) Execute(ctx context.Context, fn func() error) error {
+	// Logique circuit breaker
+	return fn()
 }
 
 // Facade
-class ApiClient {
-  private auth = new AuthClient();
-  private http = new HttpClient();
-  private retry = new RetryPolicy();
-  private circuit = new CircuitBreaker();
+type APIClient struct {
+	auth    *AuthClient
+	http    *HTTPClient
+	retry   *RetryPolicy
+	circuit *CircuitBreaker
+}
 
-  async get<T>(path: string): Promise<T> {
-    return this.request<T>('GET', path);
-  }
+func NewAPIClient() *APIClient {
+	return &APIClient{
+		auth:    &AuthClient{token: "initial_token"},
+		http:    &HTTPClient{client: http.DefaultClient},
+		retry:   &RetryPolicy{},
+		circuit: &CircuitBreaker{},
+	}
+}
 
-  async post<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>('POST', path, body);
-  }
+func (a *APIClient) Get(ctx context.Context, path string, result interface{}) error {
+	return a.request(ctx, "GET", path, nil, result)
+}
 
-  private async request<T>(
-    method: string,
-    path: string,
-    body?: unknown,
-  ): Promise<T> {
-    return this.circuit.execute(() =>
-      this.retry.execute(async () => {
-        const token = await this.auth.getToken();
+func (a *APIClient) Post(ctx context.Context, path string, body, result interface{}) error {
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("marshaling body: %w", err)
+	}
+	return a.request(ctx, "POST", path, strings.NewReader(string(bodyBytes)), result)
+}
 
-        const response = await this.http.request({
-          method,
-          url: `https://api.example.com${path}`,
-          headers: { Authorization: `Bearer ${token}` },
-          body: body ? JSON.stringify(body) : undefined,
-        });
+func (a *APIClient) request(ctx context.Context, method, path string, body io.Reader, result interface{}) error {
+	return a.circuit.Execute(ctx, func() error {
+		return a.retry.Execute(ctx, func() error {
+			token, err := a.auth.GetToken(ctx)
+			if err != nil {
+				return fmt.Errorf("getting token: %w", err)
+			}
 
-        if (!response.ok) {
-          throw new Error(`API Error: ${response.status}`);
-        }
+			response, err := a.http.Request(ctx, RequestConfig{
+				Method: method,
+				URL:    "https://api.example.com" + path,
+				Headers: map[string]string{
+					"Authorization": "Bearer " + token,
+					"Content-Type":  "application/json",
+				},
+				Body: body,
+			})
+			if err != nil {
+				return fmt.Errorf("making request: %w", err)
+			}
+			defer response.Body.Close()
 
-        return response.json();
-      }),
-    );
-  }
+			if response.StatusCode >= 400 {
+				return fmt.Errorf("API error: %d", response.StatusCode)
+			}
+
+			if result != nil {
+				if err := json.NewDecoder(response.Body).Decode(result); err != nil {
+					return fmt.Errorf("decoding response: %w", err)
+				}
+			}
+
+			return nil
+		})
+	})
 }
 
 // Usage simple
-const api = new ApiClient();
-const users = await api.get<User[]>('/users');
+type User struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+func main() {
+	api := NewAPIClient()
+	var users []User
+	if err := api.Get(context.Background(), "/users", &users); err != nil {
+		fmt.Printf("Error: %v\n", err)
+	}
+}
 ```
 
 ## Variantes
 
 ### Facade avec options
 
-```typescript
-interface ConverterOptions {
-  quality?: 'low' | 'medium' | 'high';
-  watermark?: string;
-  outputDir?: string;
+```go
+package main
+
+type ConverterQuality string
+
+const (
+	QualityLow    ConverterQuality = "low"
+	QualityMedium ConverterQuality = "medium"
+	QualityHigh   ConverterQuality = "high"
+)
+
+type ConverterOptions struct {
+	Quality   ConverterQuality
+	Watermark string
+	OutputDir string
 }
 
-class ConfigurableVideoConverter {
-  private options: Required<ConverterOptions>;
+type ConfigurableVideoConverter struct {
+	options ConverterOptions
+}
 
-  constructor(options: ConverterOptions = {}) {
-    this.options = {
-      quality: options.quality ?? 'medium',
-      watermark: options.watermark ?? '',
-      outputDir: options.outputDir ?? './output',
-    };
-  }
+func NewConfigurableVideoConverter(opts ConverterOptions) *ConfigurableVideoConverter {
+	// Valeurs par defaut
+	if opts.Quality == "" {
+		opts.Quality = QualityMedium
+	}
+	if opts.OutputDir == "" {
+		opts.OutputDir = "./output"
+	}
 
-  convert(filename: string, format: string): void {
-    // Utilise this.options
-  }
+	return &ConfigurableVideoConverter{
+		options: opts,
+	}
+}
+
+func (c *ConfigurableVideoConverter) Convert(filename, format string) {
+	// Utilise c.options
 }
 ```
 
 ### Facade avec acces aux sous-systemes
 
-```typescript
-class VideoConverter {
-  // Sous-systemes exposes pour cas avances
-  public readonly encoder: Encoder;
-  public readonly mixer: VideoMixer;
+```go
+package main
 
-  constructor() {
-    this.encoder = new Encoder();
-    this.mixer = new VideoMixer();
-  }
+type VideoConverter2 struct {
+	// Sous-systemes exposes pour cas avances
+	Encoder *Encoder
+	Mixer   *VideoMixer
 
-  // Methodes simplifiees pour cas courants
-  convert(filename: string, format: string): void {
-    // ...
-  }
-
-  // Les utilisateurs avances peuvent acceder directement
-  // aux sous-systemes si necessaire
+	// Prives
+	videoCodec *VideoCodec
+	audioCodec *AudioCodec
+	writer     *FileWriter
 }
+
+func NewVideoConverter2() *VideoConverter2 {
+	return &VideoConverter2{
+		Encoder:    &Encoder{},
+		Mixer:      &VideoMixer{},
+		videoCodec: &VideoCodec{},
+		audioCodec: &AudioCodec{},
+		writer:     &FileWriter{},
+	}
+}
+
+// Methodes simplifiees pour cas courants
+func (v *VideoConverter2) Convert(filename, format string) {
+	// ...
+}
+
+// Les utilisateurs avances peuvent acceder directement
+// aux sous-systemes si necessaire
 ```
 
 ## Anti-patterns
 
-```typescript
+```go
 // MAUVAIS: Facade qui devient God Object
-class GodFacade {
-  // Trop de responsabilites
-  createUser() {}
-  processPayment() {}
-  sendNotification() {}
-  generateReport() {}
-  backupDatabase() {}
-  // ...50 autres methodes
+type GodFacade struct {
+	// Trop de responsabilites
 }
 
+func (g *GodFacade) CreateUser() {}
+func (g *GodFacade) ProcessPayment() {}
+func (g *GodFacade) SendNotification() {}
+func (g *GodFacade) GenerateReport() {}
+func (g *GodFacade) BackupDatabase() {}
+// ...50 autres methodes
+
 // MAUVAIS: Facade qui expose trop de details
-class LeakyFacade {
-  getInventoryService(): InventoryService {
-    return this.inventory; // Fuite d'abstraction
-  }
+type LeakyFacade struct {
+	inventory *InventoryService
+}
+
+func (l *LeakyFacade) GetInventoryService() *InventoryService {
+	return l.inventory // Fuite d'abstraction
 }
 
 // MAUVAIS: Facade sans valeur ajoutee
-class UselessFacade {
-  doSomething() {
-    this.service.doSomething(); // Simple delegation
-  }
+type UselessFacade struct {
+	service *SomeService
+}
+
+func (u *UselessFacade) DoSomething() {
+	u.service.DoSomething() // Simple delegation
 }
 ```
 
 ## Tests unitaires
 
-```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+```go
+package main
 
-describe('OrderFacade', () => {
-  let facade: OrderFacade;
-  let mockInventory: InventoryService;
-  let mockPayment: PaymentService;
-  let mockShipping: ShippingService;
-  let mockNotification: NotificationService;
+import (
+	"context"
+	"testing"
+)
 
-  beforeEach(() => {
-    mockInventory = {
-      checkStock: vi.fn().mockReturnValue(true),
-      reserveStock: vi.fn(),
-      releaseStock: vi.fn(),
-    };
-    mockPayment = {
-      authorize: vi.fn().mockReturnValue('auth_123'),
-      capture: vi.fn(),
-      refund: vi.fn(),
-    };
-    mockShipping = {
-      calculateCost: vi.fn().mockReturnValue(10),
-      createLabel: vi.fn().mockReturnValue('SHIP_123'),
-      schedulePickup: vi.fn(),
-    };
-    mockNotification = {
-      sendEmail: vi.fn(),
-      sendSMS: vi.fn(),
-    };
+func TestOrderFacade_PlaceOrder(t *testing.T) {
+	facade := NewOrderFacade(
+		&InventoryService{},
+		&PaymentService{},
+		&ShippingService{},
+		&NotificationService{},
+	)
 
-    facade = new OrderFacade(
-      mockInventory,
-      mockPayment,
-      mockShipping,
-      mockNotification,
-    );
-  });
+	order := &Order{
+		ID:    "order_1",
+		Total: 100.0,
+		Items: []OrderItem{{ProductID: "prod_1", Quantity: 2}},
+		Customer: Customer{Email: "test@example.com"},
+	}
 
-  it('should orchestrate order placement', async () => {
-    const order = createTestOrder();
+	result, err := facade.PlaceOrder(context.Background(), order)
+	if err != nil {
+		t.Fatalf("PlaceOrder failed: %v", err)
+	}
 
-    const result = await facade.placeOrder(order);
+	if !result.Success {
+		t.Error("Expected success")
+	}
+	if result.OrderID != "order_1" {
+		t.Errorf("Expected order_1, got %s", result.OrderID)
+	}
+}
 
-    expect(result.success).toBe(true);
-    expect(mockInventory.checkStock).toHaveBeenCalled();
-    expect(mockPayment.authorize).toHaveBeenCalled();
-    expect(mockShipping.createLabel).toHaveBeenCalled();
-    expect(mockNotification.sendEmail).toHaveBeenCalled();
-  });
-
-  it('should rollback on payment failure', async () => {
-    mockPayment.authorize = vi.fn().mockImplementation(() => {
-      throw new Error('Payment failed');
-    });
-
-    const order = createTestOrder();
-
-    await expect(facade.placeOrder(order)).rejects.toThrow('Payment failed');
-    expect(mockInventory.releaseStock).toHaveBeenCalled();
-  });
-
-  it('should reject out of stock items', async () => {
-    mockInventory.checkStock = vi.fn().mockReturnValue(false);
-
-    const order = createTestOrder();
-
-    await expect(facade.placeOrder(order)).rejects.toThrow('Out of stock');
-    expect(mockPayment.authorize).not.toHaveBeenCalled();
-  });
-});
-
-describe('VideoConverter', () => {
-  it('should convert video files', () => {
-    const consoleSpy = vi.spyOn(console, 'log');
-    const converter = new VideoConverter();
-
-    converter.convert('test.avi', 'mp4');
-
-    expect(consoleSpy).toHaveBeenCalledWith('Conversion complete!');
-  });
-});
+func TestVideoConverter_Convert(t *testing.T) {
+	converter := NewVideoConverter()
+	converter.Convert("test.avi", "mp4")
+	// Verifier les logs ou le comportement
+}
 ```
 
 ## Quand utiliser

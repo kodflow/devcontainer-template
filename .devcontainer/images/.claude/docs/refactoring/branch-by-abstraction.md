@@ -68,34 +68,50 @@ main:     A──B──C──D──E──F──G──H──I──J──
 
 ### Étape 1 : Créer l'abstraction
 
-```typescript
+```go
 // AVANT - Couplage direct
-class OrderService {
-  private paymentProcessor = new StripeProcessor();
+type OrderService struct {
+	paymentProcessor *StripeProcessor
+}
 
-  async processPayment(order: Order) {
-    return this.paymentProcessor.charge(order.total);
-  }
+func (s *OrderService) ProcessPayment(ctx context.Context, order *Order) (*PaymentResult, error) {
+	return s.paymentProcessor.Charge(ctx, order.Total)
 }
 
 // APRÈS Étape 1 - Interface créée
-interface PaymentProcessor {
-  charge(amount: Money): Promise<PaymentResult>;
-  refund(transactionId: string): Promise<void>;
+type PaymentProcessor interface {
+	Charge(ctx context.Context, amount Money) (*PaymentResult, error)
+	Refund(ctx context.Context, transactionID string) error
 }
 
 // L'ancienne implémentation implémente l'interface
-class StripeProcessor implements PaymentProcessor {
-  async charge(amount: Money) { /* existing code */ }
-  async refund(transactionId: string) { /* existing code */ }
+type StripeProcessor struct {
+	client *stripe.Client
 }
 
-class OrderService {
-  constructor(private paymentProcessor: PaymentProcessor) {}
+func (p *StripeProcessor) Charge(ctx context.Context, amount Money) (*PaymentResult, error) {
+	// existing code
+	return &PaymentResult{}, nil
+}
 
-  async processPayment(order: Order) {
-    return this.paymentProcessor.charge(order.total);
-  }
+func (p *StripeProcessor) Refund(ctx context.Context, transactionID string) error {
+	// existing code
+	return nil
+}
+
+// Service avec injection de dépendance
+type OrderService struct {
+	processor PaymentProcessor
+}
+
+func NewOrderService(processor PaymentProcessor) *OrderService {
+	return &OrderService{
+		processor: processor,
+	}
+}
+
+func (s *OrderService) ProcessPayment(ctx context.Context, order *Order) (*PaymentResult, error) {
+	return s.processor.Charge(ctx, order.Total)
 }
 ```
 
@@ -105,21 +121,36 @@ class OrderService {
 
 ### Étape 2 : Créer la nouvelle implémentation
 
-```typescript
+```go
 // Nouvelle implémentation (peut être incomplète)
-class AdyenProcessor implements PaymentProcessor {
-  async charge(amount: Money) {
-    // Nouvelle implémentation
-    return this.adyenClient.authorizePayment({
-      amount: amount.cents,
-      currency: amount.currency,
-    });
-  }
+type AdyenProcessor struct {
+	client *adyen.Client
+}
 
-  async refund(transactionId: string) {
-    // TODO: implement
-    throw new Error('Not implemented yet');
-  }
+func NewAdyenProcessor(client *adyen.Client) *AdyenProcessor {
+	return &AdyenProcessor{
+		client: client,
+	}
+}
+
+func (p *AdyenProcessor) Charge(ctx context.Context, amount Money) (*PaymentResult, error) {
+	// Nouvelle implémentation
+	result, err := p.client.AuthorizePayment(ctx, &adyen.PaymentRequest{
+		Amount:   amount.Cents,
+		Currency: amount.Currency,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("adyen charge: %w", err)
+	}
+	return &PaymentResult{
+		TransactionID: result.ID,
+		Status:        result.Status,
+	}, nil
+}
+
+func (p *AdyenProcessor) Refund(ctx context.Context, transactionID string) error {
+	// TODO: implement
+	return fmt.Errorf("refund not implemented yet")
 }
 ```
 
@@ -129,37 +160,52 @@ class AdyenProcessor implements PaymentProcessor {
 
 ### Étape 3 : Router vers la nouvelle implémentation
 
-```typescript
+```go
 // Feature toggle pour router
-class PaymentProcessorFactory {
-  static create(context: PaymentContext): PaymentProcessor {
-    // Toggle progressif
-    if (features.isEnabled('adyen-payments', context)) {
-      return new AdyenProcessor();
-    }
-    return new StripeProcessor();
-  }
+type PaymentProcessorFactory struct {
+	features FeatureFlags
+}
+
+func NewPaymentProcessorFactory(features FeatureFlags) *PaymentProcessorFactory {
+	return &PaymentProcessorFactory{
+		features: features,
+	}
+}
+
+func (f *PaymentProcessorFactory) Create(ctx context.Context, context PaymentContext) PaymentProcessor {
+	// Toggle progressif
+	if f.features.IsEnabled(ctx, "adyen-payments", context) {
+		return NewAdyenProcessor(adyen.NewClient())
+	}
+	return NewStripeProcessor(stripe.NewClient())
 }
 
 // Ou migration par méthode
-class HybridProcessor implements PaymentProcessor {
-  constructor(
-    private legacy: StripeProcessor,
-    private modern: AdyenProcessor,
-  ) {}
+type HybridProcessor struct {
+	legacy   *StripeProcessor
+	modern   *AdyenProcessor
+	features FeatureFlags
+}
 
-  async charge(amount: Money) {
-    // Nouvelle implémentation pour charge
-    if (features.isEnabled('adyen-charge')) {
-      return this.modern.charge(amount);
-    }
-    return this.legacy.charge(amount);
-  }
+func NewHybridProcessor(legacy *StripeProcessor, modern *AdyenProcessor, features FeatureFlags) *HybridProcessor {
+	return &HybridProcessor{
+		legacy:   legacy,
+		modern:   modern,
+		features: features,
+	}
+}
 
-  async refund(transactionId: string) {
-    // Encore l'ancienne pour refund
-    return this.legacy.refund(transactionId);
-  }
+func (p *HybridProcessor) Charge(ctx context.Context, amount Money) (*PaymentResult, error) {
+	// Nouvelle implémentation pour charge
+	if p.features.IsEnabled(ctx, "adyen-charge", nil) {
+		return p.modern.Charge(ctx, amount)
+	}
+	return p.legacy.Charge(ctx, amount)
+}
+
+func (p *HybridProcessor) Refund(ctx context.Context, transactionID string) error {
+	// Encore l'ancienne pour refund
+	return p.legacy.Refund(ctx, transactionID)
 }
 ```
 
@@ -173,11 +219,11 @@ class HybridProcessor implements PaymentProcessor {
 
 ### Étape 4 : Supprimer l'ancienne implémentation
 
-```typescript
+```go
 // Une fois la migration complète et stable
 
 // Supprimer:
-// - StripeProcessor class
+// - StripeProcessor struct
 // - Feature toggles
 // - Code de routing
 
@@ -196,31 +242,40 @@ class HybridProcessor implements PaymentProcessor {
 
 > Étrangler progressivement l'ancien système.
 
-```typescript
+```go
 // Pour migrer un monolithe vers microservices
 
-class OrderFacade {
-  constructor(
-    private legacyOrderService: LegacyOrderService,
-    private newOrderService: OrderMicroservice,
-  ) {}
+type OrderFacade struct {
+	legacyService *LegacyOrderService
+	newService    *OrderMicroservice
+	features      FeatureFlags
+}
 
-  async createOrder(data: OrderData) {
-    // Route vers le nouveau service progressivement
-    if (this.shouldUseNewService(data)) {
-      return this.newOrderService.create(data);
-    }
-    return this.legacyOrderService.create(data);
-  }
+func NewOrderFacade(
+	legacy *LegacyOrderService,
+	modern *OrderMicroservice,
+	features FeatureFlags,
+) *OrderFacade {
+	return &OrderFacade{
+		legacyService: legacy,
+		newService:    modern,
+		features:      features,
+	}
+}
 
-  private shouldUseNewService(data: OrderData): boolean {
-    // Critères de migration
-    return (
-      data.region === 'EU' && // Europe d'abord
-      data.total.amount < 10000 && // Petites commandes
-      features.isEnabled('new-order-service')
-    );
-  }
+func (f *OrderFacade) CreateOrder(ctx context.Context, data *OrderData) (*Order, error) {
+	// Route vers le nouveau service progressivement
+	if f.shouldUseNewService(ctx, data) {
+		return f.newService.Create(ctx, data)
+	}
+	return f.legacyService.Create(ctx, data)
+}
+
+func (f *OrderFacade) shouldUseNewService(ctx context.Context, data *OrderData) bool {
+	// Critères de migration
+	return data.Region == "EU" && // Europe d'abord
+		data.Total.Amount < 10000 && // Petites commandes
+		f.features.IsEnabled(ctx, "new-order-service", data)
 }
 ```
 
@@ -228,32 +283,69 @@ class OrderFacade {
 
 > Exécuter les deux implémentations et comparer.
 
-```typescript
-class ParallelPaymentProcessor implements PaymentProcessor {
-  constructor(
-    private primary: PaymentProcessor,
-    private shadow: PaymentProcessor,
-    private comparator: ResultComparator,
-  ) {}
+```go
+type ParallelPaymentProcessor struct {
+	primary    PaymentProcessor
+	shadow     PaymentProcessor
+	comparator ResultComparator
+	logger     *slog.Logger
+}
 
-  async charge(amount: Money) {
-    // Exécuter en parallèle
-    const [primaryResult, shadowResult] = await Promise.allSettled([
-      this.primary.charge(amount),
-      this.shadow.charge(amount),
-    ]);
+func NewParallelPaymentProcessor(
+	primary PaymentProcessor,
+	shadow PaymentProcessor,
+	comparator ResultComparator,
+	logger *slog.Logger,
+) *ParallelPaymentProcessor {
+	return &ParallelPaymentProcessor{
+		primary:    primary,
+		shadow:     shadow,
+		comparator: comparator,
+		logger:     logger,
+	}
+}
 
-    // Comparer (async, non-bloquant)
-    this.comparator.compare(primaryResult, shadowResult).catch(err => {
-      this.logger.warn('Shadow comparison failed', err);
-    });
+func (p *ParallelPaymentProcessor) Charge(ctx context.Context, amount Money) (*PaymentResult, error) {
+	type result struct {
+		val *PaymentResult
+		err error
+	}
 
-    // Retourner seulement le résultat primary
-    if (primaryResult.status === 'fulfilled') {
-      return primaryResult.value;
-    }
-    throw primaryResult.reason;
-  }
+	// Canaux pour recevoir les résultats
+	primaryCh := make(chan result, 1)
+	shadowCh := make(chan result, 1)
+
+	// Exécuter en parallèle
+	go func() {
+		val, err := p.primary.Charge(ctx, amount)
+		primaryCh <- result{val: val, err: err}
+	}()
+
+	go func() {
+		val, err := p.shadow.Charge(ctx, amount)
+		shadowCh <- result{val: val, err: err}
+	}()
+
+	// Attendre les résultats
+	primaryResult := <-primaryCh
+	shadowResult := <-shadowCh
+
+	// Comparer (async, non-bloquant)
+	go func() {
+		if err := p.comparator.Compare(ctx, primaryResult, shadowResult); err != nil {
+			p.logger.WarnContext(ctx, "Shadow comparison failed", "error", err)
+		}
+	}()
+
+	// Retourner seulement le résultat primary
+	if primaryResult.err != nil {
+		return nil, primaryResult.err
+	}
+	return primaryResult.val, nil
+}
+
+func (p *ParallelPaymentProcessor) Refund(ctx context.Context, transactionID string) error {
+	return p.primary.Refund(ctx, transactionID)
 }
 ```
 
@@ -261,27 +353,64 @@ class ParallelPaymentProcessor implements PaymentProcessor {
 
 > Nouvelle implémentation activée mais résultat ignoré.
 
-```typescript
-class DarkLaunchProcessor implements PaymentProcessor {
-  async charge(amount: Money) {
-    // Toujours utiliser legacy pour le résultat réel
-    const result = await this.legacy.charge(amount);
+```go
+type DarkLaunchProcessor struct {
+	legacy  PaymentProcessor
+	modern  PaymentProcessor
+	metrics MetricsRecorder
+	logger  *slog.Logger
+}
 
-    // Tester le nouveau en arrière-plan
-    this.modern.charge(amount)
-      .then(modernResult => {
-        this.metrics.record('dark-launch-success');
-        if (!this.resultsMatch(result, modernResult)) {
-          this.logger.warn('Dark launch mismatch', { result, modernResult });
-        }
-      })
-      .catch(err => {
-        this.metrics.record('dark-launch-failure');
-        this.logger.error('Dark launch error', err);
-      });
+func NewDarkLaunchProcessor(
+	legacy PaymentProcessor,
+	modern PaymentProcessor,
+	metrics MetricsRecorder,
+	logger *slog.Logger,
+) *DarkLaunchProcessor {
+	return &DarkLaunchProcessor{
+		legacy:  legacy,
+		modern:  modern,
+		metrics: metrics,
+		logger:  logger,
+	}
+}
 
-    return result;
-  }
+func (p *DarkLaunchProcessor) Charge(ctx context.Context, amount Money) (*PaymentResult, error) {
+	// Toujours utiliser legacy pour le résultat réel
+	result, err := p.legacy.Charge(ctx, amount)
+
+	// Tester le nouveau en arrière-plan
+	go func() {
+		modernResult, modernErr := p.modern.Charge(ctx, amount)
+		if modernErr != nil {
+			p.metrics.Record(ctx, "dark-launch-failure", 1)
+			p.logger.ErrorContext(ctx, "Dark launch error", "error", modernErr)
+			return
+		}
+
+		p.metrics.Record(ctx, "dark-launch-success", 1)
+		if !p.resultsMatch(result, modernResult) {
+			p.logger.WarnContext(ctx, "Dark launch mismatch",
+				"legacy", result,
+				"modern", modernResult)
+		}
+	}()
+
+	return result, err
+}
+
+func (p *DarkLaunchProcessor) Refund(ctx context.Context, transactionID string) error {
+	return p.legacy.Refund(ctx, transactionID)
+}
+
+func (p *DarkLaunchProcessor) resultsMatch(a, b *PaymentResult) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.TransactionID == b.TransactionID && a.Status == b.Status
 }
 ```
 
@@ -289,81 +418,230 @@ class DarkLaunchProcessor implements PaymentProcessor {
 
 ## Exemple complet : Migration de base de données
 
-```typescript
+```go
 // Migration de MySQL vers PostgreSQL
 
 // Étape 1: Abstraction
-interface UserRepository {
-  findById(id: string): Promise<User | null>;
-  save(user: User): Promise<void>;
-  findByEmail(email: string): Promise<User | null>;
+type UserRepository interface {
+	FindByID(ctx context.Context, id string) (*User, error)
+	Save(ctx context.Context, user *User) error
+	FindByEmail(ctx context.Context, email string) (*User, error)
 }
 
 // Étape 2: Implémentations
-class MySQLUserRepository implements UserRepository {
-  // Implémentation existante MySQL
+type MySQLUserRepository struct {
+	db *sql.DB
 }
 
-class PostgresUserRepository implements UserRepository {
-  // Nouvelle implémentation Postgres
+func NewMySQLUserRepository(db *sql.DB) *MySQLUserRepository {
+	return &MySQLUserRepository{db: db}
+}
+
+func (r *MySQLUserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+	// Implémentation existante MySQL
+	var user User
+	err := r.db.QueryRowContext(ctx, "SELECT * FROM users WHERE id = ?", id).Scan(&user)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("mysql find by id: %w", err)
+	}
+	return &user, nil
+}
+
+func (r *MySQLUserRepository) Save(ctx context.Context, user *User) error {
+	_, err := r.db.ExecContext(ctx, "INSERT INTO users (...) VALUES (?)", user)
+	if err != nil {
+		return fmt.Errorf("mysql save: %w", err)
+	}
+	return nil
+}
+
+func (r *MySQLUserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	// Implementation
+	return nil, nil
+}
+
+type PostgresUserRepository struct {
+	db *sql.DB
+}
+
+func NewPostgresUserRepository(db *sql.DB) *PostgresUserRepository {
+	return &PostgresUserRepository{db: db}
+}
+
+func (r *PostgresUserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+	// Nouvelle implémentation Postgres
+	var user User
+	err := r.db.QueryRowContext(ctx, "SELECT * FROM users WHERE id = $1", id).Scan(&user)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("postgres find by id: %w", err)
+	}
+	return &user, nil
+}
+
+func (r *PostgresUserRepository) Save(ctx context.Context, user *User) error {
+	_, err := r.db.ExecContext(ctx, "INSERT INTO users (...) VALUES ($1)", user)
+	if err != nil {
+		return fmt.Errorf("postgres save: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresUserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	// Implementation
+	return nil, nil
 }
 
 // Étape 3: Double-write pour migration
-class MigratingUserRepository implements UserRepository {
-  constructor(
-    private mysql: MySQLUserRepository,
-    private postgres: PostgresUserRepository,
-    private migrationState: MigrationState,
-  ) {}
+type MigratingUserRepository struct {
+	mysql          *MySQLUserRepository
+	postgres       *PostgresUserRepository
+	migrationState *MigrationState
+	logger         *slog.Logger
+}
 
-  async save(user: User): Promise<void> {
-    // Écrire dans les deux
-    await Promise.all([
-      this.mysql.save(user),
-      this.postgres.save(user),
-    ]);
-  }
+func NewMigratingUserRepository(
+	mysql *MySQLUserRepository,
+	postgres *PostgresUserRepository,
+	state *MigrationState,
+	logger *slog.Logger,
+) *MigratingUserRepository {
+	return &MigratingUserRepository{
+		mysql:          mysql,
+		postgres:       postgres,
+		migrationState: state,
+		logger:         logger,
+	}
+}
 
-  async findById(id: string): Promise<User | null> {
-    // Lire du primary selon l'état de migration
-    if (this.migrationState.isComplete()) {
-      return this.postgres.findById(id);
-    }
+func (r *MigratingUserRepository) Save(ctx context.Context, user *User) error {
+	// Écrire dans les deux
+	var wg sync.WaitGroup
+	errCh := make(chan error, 2)
 
-    // Pendant migration: lire de MySQL, vérifier Postgres
-    const mysqlUser = await this.mysql.findById(id);
-    const postgresUser = await this.postgres.findById(id);
+	wg.Go(func() {
+		if err := r.mysql.Save(ctx, user); err != nil {
+			errCh <- fmt.Errorf("mysql save: %w", err)
+		}
+	})
 
-    if (!this.usersMatch(mysqlUser, postgresUser)) {
-      this.logger.warn('Data mismatch during migration', { id });
-      // Self-heal: copier de MySQL vers Postgres
-      if (mysqlUser) {
-        await this.postgres.save(mysqlUser);
-      }
-    }
+	wg.Go(func() {
+		if err := r.postgres.Save(ctx, user); err != nil {
+			errCh <- fmt.Errorf("postgres save: %w", err)
+		}
+	})
 
-    return mysqlUser; // MySQL reste primary pendant migration
-  }
+	wg.Wait()
+	close(errCh)
+
+	// Retourner la première erreur si présente
+	for err := range errCh {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *MigratingUserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+	// Lire du primary selon l'état de migration
+	if r.migrationState.IsComplete() {
+		return r.postgres.FindByID(ctx, id)
+	}
+
+	// Pendant migration: lire de MySQL, vérifier Postgres
+	mysqlUser, err := r.mysql.FindByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("mysql find: %w", err)
+	}
+
+	postgresUser, err := r.postgres.FindByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("postgres find: %w", err)
+	}
+
+	if !r.usersMatch(mysqlUser, postgresUser) {
+		r.logger.WarnContext(ctx, "Data mismatch during migration", "id", id)
+		// Self-heal: copier de MySQL vers Postgres
+		if mysqlUser != nil {
+			if err := r.postgres.Save(ctx, mysqlUser); err != nil {
+				r.logger.ErrorContext(ctx, "Failed to heal data", "error", err)
+			}
+		}
+	}
+
+	return mysqlUser, nil // MySQL reste primary pendant migration
+}
+
+func (r *MigratingUserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	// Similar to FindByID
+	return nil, nil
+}
+
+func (r *MigratingUserRepository) usersMatch(a, b *User) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.ID == b.ID && a.Email == b.Email
 }
 
 // Étape 4: Cutover progressif
-class MigrationState {
-  private readFromPostgres = 0; // 0-100%
+type MigrationState struct {
+	mu               sync.RWMutex
+	readFromPostgres int // 0-100%
+}
 
-  isComplete(): boolean {
-    return this.readFromPostgres === 100;
-  }
+func NewMigrationState() *MigrationState {
+	return &MigrationState{
+		readFromPostgres: 0,
+	}
+}
 
-  shouldReadFromPostgres(userId: string): boolean {
-    // Canary basé sur hash du userId
-    const hash = this.hashCode(userId);
-    return (hash % 100) < this.readFromPostgres;
-  }
+func (m *MigrationState) IsComplete() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.readFromPostgres == 100
+}
 
-  async incrementPercentage(increment: number) {
-    this.readFromPostgres = Math.min(100, this.readFromPostgres + increment);
-    await this.persist();
-  }
+func (m *MigrationState) ShouldReadFromPostgres(userID string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Canary basé sur hash du userID
+	hash := m.hashCode(userID)
+	return (hash % 100) < m.readFromPostgres
+}
+
+func (m *MigrationState) IncrementPercentage(increment int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.readFromPostgres = min(100, m.readFromPostgres+increment)
+	return m.persist()
+}
+
+func (m *MigrationState) hashCode(s string) int {
+	h := 0
+	for _, c := range s {
+		h = 31*h + int(c)
+	}
+	if h < 0 {
+		h = -h
+	}
+	return h
+}
+
+func (m *MigrationState) persist() error {
+	// Persister l'état dans une config
+	return nil
 }
 ```
 

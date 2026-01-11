@@ -128,39 +128,70 @@ spec:
 
 ## Métriques de décision
 
-```typescript
-interface CanaryMetrics {
-  // Métriques de base
-  errorRate: number;        // < 1%
-  latencyP99: number;       // < 500ms
-  successRate: number;      // > 99%
+```go
+package canary
 
-  // Métriques business
-  conversionRate?: number;  // Stable ou mieux
-  revenuePerUser?: number;  // Stable ou mieux
+import (
+	"fmt"
+)
+
+// CanaryMetrics holds key metrics for canary evaluation.
+type CanaryMetrics struct {
+	ErrorRate      float64  `json:"error_rate"`       // Should be < 0.01 (1%)
+	LatencyP99     float64  `json:"latency_p99"`      // Should be < 500ms
+	SuccessRate    float64  `json:"success_rate"`     // Should be > 0.99 (99%)
+	ConversionRate *float64 `json:"conversion_rate,omitempty"`
+	RevenuePerUser *float64 `json:"revenue_per_user,omitempty"`
 }
 
-interface CanaryDecision {
-  action: 'promote' | 'pause' | 'rollback';
-  reason: string;
+// Action defines the canary deployment action.
+type Action string
+
+const (
+	ActionPromote  Action = "promote"
+	ActionPause    Action = "pause"
+	ActionRollback Action = "rollback"
+)
+
+// Decision represents a canary deployment decision.
+type Decision struct {
+	Action Action `json:"action"`
+	Reason string `json:"reason"`
 }
 
-function evaluateCanary(
-  canaryMetrics: CanaryMetrics,
-  baselineMetrics: CanaryMetrics
-): CanaryDecision {
-  // Échec si error rate > 1%
-  if (canaryMetrics.errorRate > 0.01) {
-    return { action: 'rollback', reason: 'Error rate too high' };
-  }
+// EvaluateCanary determines the action based on metrics comparison.
+func EvaluateCanary(canaryMetrics, baselineMetrics CanaryMetrics) Decision {
+	// Rollback if error rate too high
+	if canaryMetrics.ErrorRate > 0.01 {
+		return Decision{
+			Action: ActionRollback,
+			Reason: fmt.Sprintf("Error rate too high: %.2f%%", canaryMetrics.ErrorRate*100),
+		}
+	}
 
-  // Pause si latence dégradée
-  if (canaryMetrics.latencyP99 > baselineMetrics.latencyP99 * 1.2) {
-    return { action: 'pause', reason: 'Latency degraded 20%' };
-  }
+	// Pause if latency degraded significantly
+	threshold := baselineMetrics.LatencyP99 * 1.2
+	if canaryMetrics.LatencyP99 > threshold {
+		degradation := ((canaryMetrics.LatencyP99 - baselineMetrics.LatencyP99) / baselineMetrics.LatencyP99) * 100
+		return Decision{
+			Action: ActionPause,
+			Reason: fmt.Sprintf("Latency degraded %.1f%% (threshold: 20%%)", degradation),
+		}
+	}
 
-  // Promote si tout OK
-  return { action: 'promote', reason: 'All metrics healthy' };
+	// Rollback if success rate too low
+	if canaryMetrics.SuccessRate < 0.99 {
+		return Decision{
+			Action: ActionRollback,
+			Reason: fmt.Sprintf("Success rate too low: %.2f%%", canaryMetrics.SuccessRate*100),
+		}
+	}
+
+	// Promote if all metrics healthy
+	return Decision{
+		Action: ActionPromote,
+		Reason: "All metrics healthy",
+	}
 }
 ```
 

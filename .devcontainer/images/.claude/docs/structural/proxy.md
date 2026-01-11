@@ -11,234 +11,365 @@ reduire le cout, ou ajouter des fonctionnalites sans modifier l'objet original.
 
 ### 1. Virtual Proxy (Lazy Loading)
 
-```typescript
-interface Image {
-  display(): void;
-  getSize(): { width: number; height: number };
+```go
+package main
+
+import (
+	"fmt"
+)
+
+type Image interface {
+	Display()
+	GetSize() (width, height int)
 }
 
-class RealImage implements Image {
-  private data: Buffer;
-
-  constructor(private filename: string) {
-    this.loadFromDisk(); // Couteux!
-  }
-
-  private loadFromDisk(): void {
-    console.log(`Loading image: ${this.filename}`);
-    // Simulation chargement lourd
-    this.data = Buffer.alloc(1024 * 1024 * 10); // 10MB
-  }
-
-  display(): void {
-    console.log(`Displaying: ${this.filename}`);
-  }
-
-  getSize(): { width: number; height: number } {
-    return { width: 1920, height: 1080 };
-  }
+type RealImage struct {
+	filename string
+	data     []byte
 }
 
-class ImageProxy implements Image {
-  private realImage: RealImage | null = null;
+func NewRealImage(filename string) *RealImage {
+	img := &RealImage{filename: filename}
+	img.loadFromDisk()
+	return img
+}
 
-  constructor(private filename: string) {}
+func (r *RealImage) loadFromDisk() {
+	fmt.Printf("Loading image: %s\n", r.filename)
+	// Simulation chargement lourd
+	r.data = make([]byte, 1024*1024*10) // 10MB
+}
 
-  private ensureLoaded(): RealImage {
-    if (!this.realImage) {
-      this.realImage = new RealImage(this.filename);
-    }
-    return this.realImage;
-  }
+func (r *RealImage) Display() {
+	fmt.Printf("Displaying: %s\n", r.filename)
+}
 
-  display(): void {
-    this.ensureLoaded().display();
-  }
+func (r *RealImage) GetSize() (width, height int) {
+	return 1920, 1080
+}
 
-  // Metadata accessible sans charger l'image
-  getSize(): { width: number; height: number } {
-    // Lire seulement les headers du fichier
-    return { width: 1920, height: 1080 };
-  }
+type ImageProxy struct {
+	filename  string
+	realImage *RealImage
+}
+
+func NewImageProxy(filename string) *ImageProxy {
+	return &ImageProxy{filename: filename}
+}
+
+func (i *ImageProxy) ensureLoaded() *RealImage {
+	if i.realImage == nil {
+		i.realImage = NewRealImage(i.filename)
+	}
+	return i.realImage
+}
+
+func (i *ImageProxy) Display() {
+	i.ensureLoaded().Display()
+}
+
+// Metadata accessible sans charger l'image
+func (i *ImageProxy) GetSize() (width, height int) {
+	// Lire seulement les headers du fichier
+	return 1920, 1080
 }
 ```
 
 ### 2. Protection Proxy (Controle d'acces)
 
-```typescript
-interface Document {
-  read(): string;
-  write(content: string): void;
-  delete(): void;
+```go
+package main
+
+import (
+	"fmt"
+)
+
+type Document interface {
+	Read() string
+	Write(content string) error
+	Delete() error
 }
 
-interface User {
-  id: string;
-  role: 'admin' | 'editor' | 'viewer';
+type UserRole string
+
+const (
+	RoleAdmin  UserRole = "admin"
+	RoleEditor UserRole = "editor"
+	RoleViewer UserRole = "viewer"
+)
+
+type User struct {
+	ID   string
+	Role UserRole
 }
 
-class RealDocument implements Document {
-  constructor(
-    private id: string,
-    private content: string,
-  ) {}
-
-  read(): string {
-    return this.content;
-  }
-
-  write(content: string): void {
-    this.content = content;
-  }
-
-  delete(): void {
-    console.log(`Document ${this.id} deleted`);
-  }
+type RealDocument struct {
+	id      string
+	content string
 }
 
-class ProtectedDocument implements Document {
-  constructor(
-    private document: Document,
-    private currentUser: User,
-  ) {}
+func NewRealDocument(id, content string) *RealDocument {
+	return &RealDocument{id: id, content: content}
+}
 
-  read(): string {
-    // Tout le monde peut lire
-    return this.document.read();
-  }
+func (r *RealDocument) Read() string {
+	return r.content
+}
 
-  write(content: string): void {
-    if (this.currentUser.role === 'viewer') {
-      throw new Error('Permission denied: viewers cannot write');
-    }
-    this.document.write(content);
-  }
+func (r *RealDocument) Write(content string) error {
+	r.content = content
+	return nil
+}
 
-  delete(): void {
-    if (this.currentUser.role !== 'admin') {
-      throw new Error('Permission denied: only admins can delete');
-    }
-    this.document.delete();
-  }
+func (r *RealDocument) Delete() error {
+	fmt.Printf("Document %s deleted\n", r.id)
+	return nil
+}
+
+type ProtectedDocument struct {
+	document    Document
+	currentUser *User
+}
+
+func NewProtectedDocument(doc Document, user *User) *ProtectedDocument {
+	return &ProtectedDocument{
+		document:    doc,
+		currentUser: user,
+	}
+}
+
+func (p *ProtectedDocument) Read() string {
+	// Tout le monde peut lire
+	return p.document.Read()
+}
+
+func (p *ProtectedDocument) Write(content string) error {
+	if p.currentUser.Role == RoleViewer {
+		return fmt.Errorf("permission denied: viewers cannot write")
+	}
+	return p.document.Write(content)
+}
+
+func (p *ProtectedDocument) Delete() error {
+	if p.currentUser.Role != RoleAdmin {
+		return fmt.Errorf("permission denied: only admins can delete")
+	}
+	return p.document.Delete()
 }
 ```
 
 ### 3. Remote Proxy (RPC/API)
 
-```typescript
-interface UserService {
-  getUser(id: string): Promise<User>;
-  updateUser(id: string, data: Partial<User>): Promise<User>;
+```go
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+)
+
+type UserService interface {
+	GetUser(ctx context.Context, id string) (*User, error)
+	UpdateUser(ctx context.Context, id string, data map[string]interface{}) (*User, error)
 }
 
-class RemoteUserService implements UserService {
-  constructor(private baseUrl: string) {}
+type User struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
 
-  async getUser(id: string): Promise<User> {
-    const response = await fetch(`${this.baseUrl}/users/${id}`);
-    if (!response.ok) {
-      throw new Error(`User not found: ${id}`);
-    }
-    return response.json();
-  }
+type RemoteUserService struct {
+	baseURL string
+	client  *http.Client
+}
 
-  async updateUser(id: string, data: Partial<User>): Promise<User> {
-    const response = await fetch(`${this.baseUrl}/users/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    return response.json();
-  }
+func NewRemoteUserService(baseURL string) *RemoteUserService {
+	return &RemoteUserService{
+		baseURL: baseURL,
+		client:  http.DefaultClient,
+	}
+}
+
+func (r *RemoteUserService) GetUser(ctx context.Context, id string) (*User, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/users/%s", r.baseURL, id), nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	resp, err := r.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("making request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("user not found: %s", id)
+	}
+
+	var user User
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+
+	return &user, nil
+}
+
+func (r *RemoteUserService) UpdateUser(ctx context.Context, id string, data map[string]interface{}) (*User, error) {
+	// Implementation similaire
+	return &User{ID: id}, nil
 }
 
 // Le client utilise l'interface comme si c'etait local
-class UserController {
-  constructor(private userService: UserService) {}
+type UserController struct {
+	userService UserService
+}
 
-  async showProfile(userId: string): Promise<void> {
-    const user = await this.userService.getUser(userId);
-    console.log(`Profile: ${user.name}`);
-  }
+func NewUserController(service UserService) *UserController {
+	return &UserController{userService: service}
+}
+
+func (u *UserController) ShowProfile(ctx context.Context, userID string) error {
+	user, err := u.userService.GetUser(ctx, userID)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Profile: %s\n", user.Name)
+	return nil
 }
 ```
 
 ### 4. Cache Proxy
 
-```typescript
-interface DataService {
-  fetchData(key: string): Promise<Data>;
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+)
+
+type Data struct {
+	Value string
 }
 
-class CachedDataService implements DataService {
-  private cache = new Map<string, { data: Data; expires: number }>();
+type DataService interface {
+	FetchData(ctx context.Context, key string) (*Data, error)
+}
 
-  constructor(
-    private service: DataService,
-    private ttl: number = 60000,
-  ) {}
+type cacheEntry struct {
+	data    *Data
+	expires time.Time
+}
 
-  async fetchData(key: string): Promise<Data> {
-    const cached = this.cache.get(key);
+type CachedDataService struct {
+	service DataService
+	ttl     time.Duration
+	cache   map[string]*cacheEntry
+	mu      sync.RWMutex
+}
 
-    if (cached && cached.expires > Date.now()) {
-      console.log(`Cache hit: ${key}`);
-      return cached.data;
-    }
+func NewCachedDataService(service DataService, ttl time.Duration) *CachedDataService {
+	if ttl == 0 {
+		ttl = 60 * time.Second
+	}
+	return &CachedDataService{
+		service: service,
+		ttl:     ttl,
+		cache:   make(map[string]*cacheEntry),
+	}
+}
 
-    console.log(`Cache miss: ${key}`);
-    const data = await this.service.fetchData(key);
+func (c *CachedDataService) FetchData(ctx context.Context, key string) (*Data, error) {
+	c.mu.RLock()
+	cached, found := c.cache[key]
+	c.mu.RUnlock()
 
-    this.cache.set(key, {
-      data,
-      expires: Date.now() + this.ttl,
-    });
+	if found && cached.expires.After(time.Now()) {
+		fmt.Printf("Cache hit: %s\n", key)
+		return cached.data, nil
+	}
 
-    return data;
-  }
+	fmt.Printf("Cache miss: %s\n", key)
+	data, err := c.service.FetchData(ctx, key)
+	if err != nil {
+		return nil, err
+	}
 
-  invalidate(key: string): void {
-    this.cache.delete(key);
-  }
+	c.mu.Lock()
+	c.cache[key] = &cacheEntry{
+		data:    data,
+		expires: time.Now().Add(c.ttl),
+	}
+	c.mu.Unlock()
 
-  clear(): void {
-    this.cache.clear();
-  }
+	return data, nil
+}
+
+func (c *CachedDataService) Invalidate(key string) {
+	c.mu.Lock()
+	delete(c.cache, key)
+	c.mu.Unlock()
+}
+
+func (c *CachedDataService) Clear() {
+	c.mu.Lock()
+	c.cache = make(map[string]*cacheEntry)
+	c.mu.Unlock()
 }
 ```
 
 ### 5. Logging Proxy
 
-```typescript
-interface Database {
-  query(sql: string): Promise<Result>;
-  execute(sql: string): Promise<number>;
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"time"
+)
+
+type Database interface {
+	Query(ctx context.Context, sql string) (interface{}, error)
+	Execute(ctx context.Context, sql string) (int, error)
 }
 
-class LoggingDatabaseProxy implements Database {
-  constructor(
-    private db: Database,
-    private logger: Logger,
-  ) {}
+type LoggingDatabaseProxy struct {
+	db     Database
+	logger *slog.Logger
+}
 
-  async query(sql: string): Promise<Result> {
-    const start = Date.now();
-    this.logger.debug(`Query: ${sql}`);
+func NewLoggingDatabaseProxy(db Database, logger *slog.Logger) *LoggingDatabaseProxy {
+	return &LoggingDatabaseProxy{
+		db:     db,
+		logger: logger,
+	}
+}
 
-    try {
-      const result = await this.db.query(sql);
-      this.logger.info(`Query completed in ${Date.now() - start}ms`);
-      return result;
-    } catch (error) {
-      this.logger.error(`Query failed: ${error}`);
-      throw error;
-    }
-  }
+func (l *LoggingDatabaseProxy) Query(ctx context.Context, sql string) (interface{}, error) {
+	start := time.Now()
+	l.logger.Debug("Query", "sql", sql)
 
-  async execute(sql: string): Promise<number> {
-    this.logger.debug(`Execute: ${sql}`);
-    return this.db.execute(sql);
-  }
+	result, err := l.db.Query(ctx, sql)
+	duration := time.Since(start)
+
+	if err != nil {
+		l.logger.Error("Query failed", "error", err, "sql", sql)
+		return nil, err
+	}
+
+	l.logger.Info("Query completed", "duration_ms", duration.Milliseconds())
+	return result, nil
+}
+
+func (l *LoggingDatabaseProxy) Execute(ctx context.Context, sql string) (int, error) {
+	l.logger.Debug("Execute", "sql", sql)
+	return l.db.Execute(ctx, sql)
 }
 ```
 
@@ -246,193 +377,239 @@ class LoggingDatabaseProxy implements Database {
 
 ### Smart Reference Proxy
 
-```typescript
-class SmartReference<T extends object> {
-  private references = 0;
-  private instance: T | null = null;
+```go
+package main
 
-  constructor(private factory: () => T) {}
+import (
+	"fmt"
+	"sync"
+)
 
-  acquire(): T {
-    if (!this.instance) {
-      this.instance = this.factory();
-    }
-    this.references++;
-    return this.instance;
-  }
-
-  release(): void {
-    this.references--;
-    if (this.references === 0 && this.instance) {
-      console.log('No more references, cleaning up');
-      this.instance = null;
-    }
-  }
-}
-```
-
-### ES6 Proxy (JavaScript natif)
-
-```typescript
-function createLoggingProxy<T extends object>(target: T): T {
-  return new Proxy(target, {
-    get(obj, prop) {
-      console.log(`Accessing: ${String(prop)}`);
-      const value = Reflect.get(obj, prop);
-      return typeof value === 'function' ? value.bind(obj) : value;
-    },
-
-    set(obj, prop, value) {
-      console.log(`Setting: ${String(prop)} = ${value}`);
-      return Reflect.set(obj, prop, value);
-    },
-  });
+type SmartReference[T any] struct {
+	factory    func() T
+	instance   *T
+	references int
+	mu         sync.Mutex
 }
 
-const user = createLoggingProxy({ name: 'John', age: 30 });
-console.log(user.name); // Logs: Accessing: name
-user.age = 31; // Logs: Setting: age = 31
+func NewSmartReference[T any](factory func() T) *SmartReference[T] {
+	return &SmartReference[T]{
+		factory: factory,
+	}
+}
+
+func (s *SmartReference[T]) Acquire() T {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.instance == nil {
+		instance := s.factory()
+		s.instance = &instance
+	}
+	s.references++
+	return *s.instance
+}
+
+func (s *SmartReference[T]) Release() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.references--
+	if s.references == 0 && s.instance != nil {
+		fmt.Println("No more references, cleaning up")
+		s.instance = nil
+	}
+}
 ```
 
 ### Validation Proxy
 
-```typescript
-interface Schema {
-  [key: string]: {
-    type: 'string' | 'number' | 'boolean';
-    required?: boolean;
-    min?: number;
-    max?: number;
-  };
+```go
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type Validator interface {
+	Validate(field string, value interface{}) error
 }
 
-function createValidatingProxy<T extends object>(target: T, schema: Schema): T {
-  return new Proxy(target, {
-    set(obj, prop, value) {
-      const rule = schema[String(prop)];
+type FieldRule struct {
+	Type     string
+	Required bool
+	Min      *int
+	Max      *int
+}
 
-      if (rule) {
-        if (rule.required && (value === null || value === undefined)) {
-          throw new Error(`${String(prop)} is required`);
-        }
+type Schema map[string]FieldRule
 
-        if (typeof value !== rule.type) {
-          throw new Error(
-            `${String(prop)} must be ${rule.type}, got ${typeof value}`,
-          );
-        }
+type ValidatingProxy struct {
+	target interface{}
+	schema Schema
+}
 
-        if (rule.type === 'number') {
-          if (rule.min !== undefined && value < rule.min) {
-            throw new Error(`${String(prop)} must be >= ${rule.min}`);
-          }
-          if (rule.max !== undefined && value > rule.max) {
-            throw new Error(`${String(prop)} must be <= ${rule.max}`);
-          }
-        }
-      }
+func NewValidatingProxy(target interface{}, schema Schema) *ValidatingProxy {
+	return &ValidatingProxy{
+		target: target,
+		schema: schema,
+	}
+}
 
-      return Reflect.set(obj, prop, value);
-    },
-  });
+func (v *ValidatingProxy) Set(field string, value interface{}) error {
+	rule, exists := v.schema[field]
+	if !exists {
+		return fmt.Errorf("unknown field: %s", field)
+	}
+
+	if rule.Required && value == nil {
+		return fmt.Errorf("%s is required", field)
+	}
+
+	valueType := reflect.TypeOf(value).Kind().String()
+	if valueType != rule.Type {
+		return fmt.Errorf("%s must be %s, got %s", field, rule.Type, valueType)
+	}
+
+	if rule.Type == "int" {
+		intVal := value.(int)
+		if rule.Min != nil && intVal < *rule.Min {
+			return fmt.Errorf("%s must be >= %d", field, *rule.Min)
+		}
+		if rule.Max != nil && intVal > *rule.Max {
+			return fmt.Errorf("%s must be <= %d", field, *rule.Max)
+		}
+	}
+
+	// Set value using reflection
+	return nil
 }
 ```
 
 ## Anti-patterns
 
-```typescript
+```go
 // MAUVAIS: Proxy qui change le comportement
-class BadProxy implements UserService {
-  async getUser(id: string): Promise<User> {
-    // Modifie les donnees = pas un proxy!
-    const user = await this.service.getUser(id);
-    user.name = user.name.toUpperCase(); // Transformation
-    return user;
-  }
+type BadProxy struct {
+	service UserService
+}
+
+func (b *BadProxy) GetUser(ctx context.Context, id string) (*User, error) {
+	// Modifie les donnees = pas un proxy!
+	user, err := b.service.GetUser(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	user.Name = fmt.Sprintf("Modified: %s", user.Name) // Transformation
+	return user, nil
 }
 
 // MAUVAIS: Proxy avec logique metier
-class BusinessLogicProxy implements OrderService {
-  async createOrder(order: Order): Promise<Order> {
-    // Calcul de prix = logique metier, pas proxy
-    order.total = order.items.reduce((sum, i) => sum + i.price, 0);
-    return this.service.createOrder(order);
-  }
+type Order struct {
+	Items []OrderItem
+	Total float64
+}
+
+type OrderItem struct {
+	Price float64
+}
+
+type OrderService interface {
+	CreateOrder(ctx context.Context, order *Order) (*Order, error)
+}
+
+type BusinessLogicProxy struct {
+	service OrderService
+}
+
+func (b *BusinessLogicProxy) CreateOrder(ctx context.Context, order *Order) (*Order, error) {
+	// Calcul de prix = logique metier, pas proxy
+	var total float64
+	for _, item := range order.Items {
+		total += item.Price
+	}
+	order.Total = total
+	return b.service.CreateOrder(ctx, order)
 }
 ```
 
 ## Tests unitaires
 
-```typescript
-import { describe, it, expect, vi } from 'vitest';
+```go
+package main
 
-describe('ImageProxy', () => {
-  it('should lazy load real image', () => {
-    const loadSpy = vi.spyOn(RealImage.prototype, 'display');
-    const proxy = new ImageProxy('test.jpg');
+import (
+	"context"
+	"testing"
+)
 
-    // Pas encore charge
-    expect(loadSpy).not.toHaveBeenCalled();
+func TestImageProxy_LazyLoad(t *testing.T) {
+	proxy := NewImageProxy("test.jpg")
 
-    // Charge au premier acces
-    proxy.display();
-    expect(loadSpy).toHaveBeenCalled();
-  });
+	// Pas encore charge - verifier avec un compteur dans RealImage
 
-  it('should return metadata without loading', () => {
-    const proxy = new ImageProxy('test.jpg');
-    const size = proxy.getSize();
+	// Charge au premier acces
+	proxy.Display()
+}
 
-    expect(size).toEqual({ width: 1920, height: 1080 });
-  });
-});
+func TestImageProxy_Metadata(t *testing.T) {
+	proxy := NewImageProxy("test.jpg")
+	width, height := proxy.GetSize()
 
-describe('ProtectedDocument', () => {
-  it('should allow viewers to read', () => {
-    const doc = new RealDocument('1', 'content');
-    const viewer: User = { id: '1', role: 'viewer' };
-    const protected = new ProtectedDocument(doc, viewer);
+	if width != 1920 || height != 1080 {
+		t.Errorf("Expected 1920x1080, got %dx%d", width, height)
+	}
+}
 
-    expect(protected.read()).toBe('content');
-  });
+func TestProtectedDocument_ViewerCanRead(t *testing.T) {
+	doc := NewRealDocument("1", "content")
+	viewer := &User{ID: "1", Role: RoleViewer}
+	protected := NewProtectedDocument(doc, viewer)
 
-  it('should deny viewers write access', () => {
-    const doc = new RealDocument('1', 'content');
-    const viewer: User = { id: '1', role: 'viewer' };
-    const protected = new ProtectedDocument(doc, viewer);
+	content := protected.Read()
+	if content != "content" {
+		t.Errorf("Expected 'content', got %s", content)
+	}
+}
 
-    expect(() => protected.write('new')).toThrow('Permission denied');
-  });
-});
+func TestProtectedDocument_ViewerCannotWrite(t *testing.T) {
+	doc := NewRealDocument("1", "content")
+	viewer := &User{ID: "1", Role: RoleViewer}
+	protected := NewProtectedDocument(doc, viewer)
 
-describe('CachedDataService', () => {
-  it('should cache responses', async () => {
-    const mockService: DataService = {
-      fetchData: vi.fn().mockResolvedValue({ id: '1' }),
-    };
-    const cached = new CachedDataService(mockService, 10000);
+	err := protected.Write("new content")
+	if err == nil {
+		t.Error("Expected error for viewer writing")
+	}
+}
 
-    await cached.fetchData('key');
-    await cached.fetchData('key');
+func TestCachedDataService_CachesResponses(t *testing.T) {
+	callCount := 0
+	mockService := &mockDataService{
+		fetchFunc: func(ctx context.Context, key string) (*Data, error) {
+			callCount++
+			return &Data{Value: "test"}, nil
+		},
+	}
 
-    expect(mockService.fetchData).toHaveBeenCalledTimes(1);
-  });
+	cached := NewCachedDataService(mockService, 10*time.Second)
 
-  it('should refresh expired cache', async () => {
-    vi.useFakeTimers();
-    const mockService: DataService = {
-      fetchData: vi.fn().mockResolvedValue({ id: '1' }),
-    };
-    const cached = new CachedDataService(mockService, 1000);
+	_, _ = cached.FetchData(context.Background(), "key1")
+	_, _ = cached.FetchData(context.Background(), "key1")
 
-    await cached.fetchData('key');
-    vi.advanceTimersByTime(2000);
-    await cached.fetchData('key');
+	if callCount != 1 {
+		t.Errorf("Expected 1 call, got %d", callCount)
+	}
+}
 
-    expect(mockService.fetchData).toHaveBeenCalledTimes(2);
-    vi.useRealTimers();
-  });
-});
+type mockDataService struct {
+	fetchFunc func(context.Context, string) (*Data, error)
+}
+
+func (m *mockDataService) FetchData(ctx context.Context, key string) (*Data, error) {
+	return m.fetchFunc(ctx, key)
+}
 ```
 
 ## Quand utiliser

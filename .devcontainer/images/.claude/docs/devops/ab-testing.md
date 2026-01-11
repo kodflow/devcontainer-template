@@ -77,217 +77,511 @@
 
 ### Service d'expérimentation
 
-```typescript
-interface Experiment {
-  id: string;
-  name: string;
-  hypothesis: string;
-  variants: Variant[];
-  metrics: Metric[];
-  audience?: AudienceRule[];
-  startDate: Date;
-  endDate?: Date;
-  status: 'draft' | 'running' | 'paused' | 'completed';
+```go
+package experiment
+
+import (
+	"context"
+	"fmt"
+	"hash/fnv"
+	"sync"
+	"time"
+)
+
+// ExperimentStatus represents the current state of an experiment.
+type ExperimentStatus string
+
+const (
+	StatusDraft     ExperimentStatus = "draft"
+	StatusRunning   ExperimentStatus = "running"
+	StatusPaused    ExperimentStatus = "paused"
+	StatusCompleted ExperimentStatus = "completed"
+)
+
+// Variant represents a single variant in an experiment.
+type Variant struct {
+	Name   string                 `json:"name"`
+	Weight int                    `json:"weight"` // 0-100
+	Config map[string]interface{} `json:"config,omitempty"`
 }
 
-interface Variant {
-  name: string;
-  weight: number;  // 0-100
-  config?: Record<string, unknown>;
+// MetricType defines the type of metric being tracked.
+type MetricType string
+
+const (
+	MetricConversion MetricType = "conversion"
+	MetricRevenue    MetricType = "revenue"
+	MetricEngagement MetricType = "engagement"
+	MetricRetention  MetricType = "retention"
+)
+
+// MetricGoal defines whether the metric should increase or decrease.
+type MetricGoal string
+
+const (
+	GoalIncrease MetricGoal = "increase"
+	GoalDecrease MetricGoal = "decrease"
+)
+
+// Metric represents a tracked metric for an experiment.
+type Metric struct {
+	Name string     `json:"name"`
+	Type MetricType `json:"type"`
+	Goal MetricGoal `json:"goal"`
 }
 
-interface Metric {
-  name: string;
-  type: 'conversion' | 'revenue' | 'engagement' | 'retention';
-  goal: 'increase' | 'decrease';
+// AudienceRule defines targeting rules for experiments.
+type AudienceRule struct {
+	Country    []string `json:"country,omitempty"`
+	Device     string   `json:"device,omitempty"`
+	UserPlan   string   `json:"user_plan,omitempty"`
+	Percentage int      `json:"percentage,omitempty"`
 }
 
-class ExperimentService {
-  private experiments: Map<string, Experiment> = new Map();
-  private assignments: Map<string, Map<string, string>> = new Map();
+// Experiment represents a complete A/B test configuration.
+type Experiment struct {
+	ID         string           `json:"id"`
+	Name       string           `json:"name"`
+	Hypothesis string           `json:"hypothesis"`
+	Variants   []Variant        `json:"variants"`
+	Metrics    []Metric         `json:"metrics"`
+	Audience   []AudienceRule   `json:"audience,omitempty"`
+	StartDate  time.Time        `json:"start_date"`
+	EndDate    *time.Time       `json:"end_date,omitempty"`
+	Status     ExperimentStatus `json:"status"`
+}
 
-  getVariant(userId: string, experimentId: string): string | null {
-    const experiment = this.experiments.get(experimentId);
-    if (!experiment || experiment.status !== 'running') {
-      return null;
-    }
+// Service manages A/B experiments.
+type Service struct {
+	mu          sync.RWMutex
+	experiments map[string]*Experiment
+	assignments map[string]map[string]string // userID -> experimentID -> variant
+}
 
-    // Vérifier audience
-    if (!this.matchesAudience(userId, experiment.audience)) {
-      return null;
-    }
+// NewService creates a new experiment service.
+func NewService() *Service {
+	return &Service{
+		experiments: make(map[string]*Experiment),
+		assignments: make(map[string]map[string]string),
+	}
+}
 
-    // Assignation consistante (sticky)
-    const cached = this.getAssignment(userId, experimentId);
-    if (cached) return cached;
+// GetVariant returns the assigned variant for a user in an experiment.
+func (s *Service) GetVariant(ctx context.Context, userID, experimentID string) (string, error) {
+	s.mu.RLock()
+	experiment, exists := s.experiments[experimentID]
+	s.mu.RUnlock()
 
-    // Hash déterministe pour répartition
-    const hash = this.hashUserId(userId, experimentId);
-    const variant = this.selectVariant(hash, experiment.variants);
+	if !exists || experiment.Status != StatusRunning {
+		return "", nil
+	}
 
-    this.saveAssignment(userId, experimentId, variant);
-    this.trackExposure(userId, experimentId, variant);
+	// Check audience targeting
+	if !s.matchesAudience(ctx, userID, experiment.Audience) {
+		return "", nil
+	}
 
-    return variant;
-  }
+	// Check for existing assignment (sticky)
+	if cached := s.getAssignment(userID, experimentID); cached != "" {
+		return cached, nil
+	}
 
-  private hashUserId(userId: string, experimentId: string): number {
-    const combined = `${userId}:${experimentId}`;
-    let hash = 0;
-    for (let i = 0; i < combined.length; i++) {
-      const char = combined.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash) % 100;
-  }
+	// Hash-based deterministic assignment
+	hash := s.hashUserID(userID, experimentID)
+	variant := s.selectVariant(hash, experiment.Variants)
 
-  private selectVariant(hash: number, variants: Variant[]): string {
-    let cumulative = 0;
-    for (const variant of variants) {
-      cumulative += variant.weight;
-      if (hash < cumulative) {
-        return variant.name;
-      }
-    }
-    return variants[0].name;
-  }
+	s.saveAssignment(userID, experimentID, variant)
+	s.trackExposure(ctx, userID, experimentID, variant)
+
+	return variant, nil
+}
+
+// hashUserID generates a deterministic hash for user assignment.
+func (s *Service) hashUserID(userID, experimentID string) uint32 {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(userID + ":" + experimentID))
+	return h.Sum32()
+}
+
+// selectVariant selects a variant based on hash and weights.
+func (s *Service) selectVariant(hash uint32, variants []Variant) string {
+	if len(variants) == 0 {
+		return ""
+	}
+
+	bucket := int(hash % 100)
+	cumulative := 0
+
+	for _, variant := range variants {
+		cumulative += variant.Weight
+		if bucket < cumulative {
+			return variant.Name
+		}
+	}
+
+	return variants[0].Name
+}
+
+// getAssignment retrieves a cached assignment.
+func (s *Service) getAssignment(userID, experimentID string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if userAssignments, ok := s.assignments[userID]; ok {
+		return userAssignments[experimentID]
+	}
+	return ""
+}
+
+// saveAssignment stores an assignment.
+func (s *Service) saveAssignment(userID, experimentID, variant string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.assignments[userID]; !ok {
+		s.assignments[userID] = make(map[string]string)
+	}
+	s.assignments[userID][experimentID] = variant
+}
+
+// matchesAudience checks if user matches audience rules.
+func (s *Service) matchesAudience(ctx context.Context, userID string, rules []AudienceRule) bool {
+	// Placeholder - implement based on your user context
+	return true
+}
+
+// trackExposure records user exposure to variant.
+func (s *Service) trackExposure(ctx context.Context, userID, experimentID, variant string) {
+	// Placeholder - integrate with your analytics system
+	fmt.Printf("Exposure: user=%s experiment=%s variant=%s\n", userID, experimentID, variant)
 }
 ```
 
 ### Tracking des métriques
 
-```typescript
-interface TrackingEvent {
-  userId: string;
-  experimentId: string;
-  variant: string;
-  eventType: 'exposure' | 'conversion' | 'custom';
-  eventName?: string;
-  value?: number;
-  timestamp: Date;
-  metadata?: Record<string, unknown>;
+```go
+package analytics
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"sync"
+	"time"
+)
+
+// EventType defines the type of tracking event.
+type EventType string
+
+const (
+	EventExposure   EventType = "exposure"
+	EventConversion EventType = "conversion"
+	EventCustom     EventType = "custom"
+)
+
+// TrackingEvent represents a single tracking event.
+type TrackingEvent struct {
+	UserID       string                 `json:"user_id"`
+	ExperimentID string                 `json:"experiment_id"`
+	Variant      string                 `json:"variant"`
+	EventType    EventType              `json:"event_type"`
+	EventName    string                 `json:"event_name,omitempty"`
+	Value        float64                `json:"value,omitempty"`
+	Timestamp    time.Time              `json:"timestamp"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	SessionID    string                 `json:"session_id,omitempty"`
 }
 
-class AnalyticsService {
-  async trackEvent(event: TrackingEvent): Promise<void> {
-    await this.eventStore.insert({
-      ...event,
-      timestamp: new Date(),
-      sessionId: this.getSessionId(event.userId),
-    });
-  }
+// VariantData holds aggregated metrics for a variant.
+type VariantData struct {
+	Exposures   int
+	Conversions int
+}
 
-  async getExperimentResults(experimentId: string): Promise<ExperimentResults> {
-    const events = await this.eventStore.query({
-      experimentId,
-      eventType: { $in: ['exposure', 'conversion'] },
-    });
+// VariantResults represents the results for a single variant.
+type VariantResults struct {
+	Name           string  `json:"name"`
+	Exposures      int     `json:"exposures"`
+	Conversions    int     `json:"conversions"`
+	ConversionRate float64 `json:"conversion_rate"`
+	Confidence     float64 `json:"confidence"`
+}
 
-    const byVariant = this.groupByVariant(events);
+// ExperimentResults represents complete experiment results.
+type ExperimentResults struct {
+	Variants                   []VariantResults `json:"variants"`
+	Winner                     string           `json:"winner"`
+	StatisticalSignificance    bool             `json:"statistical_significance"`
+}
 
-    return {
-      variants: Object.entries(byVariant).map(([variant, data]) => ({
-        name: variant,
-        exposures: data.exposures,
-        conversions: data.conversions,
-        conversionRate: data.conversions / data.exposures,
-        confidence: this.calculateConfidence(data, byVariant.control),
-      })),
-      winner: this.determineWinner(byVariant),
-      statisticalSignificance: this.isSignificant(byVariant),
-    };
-  }
+// Service handles analytics tracking and analysis.
+type Service struct {
+	mu     sync.RWMutex
+	events []TrackingEvent
+}
 
-  private calculateConfidence(
-    variant: VariantData,
-    control: VariantData
-  ): number {
-    // Z-test pour proportions
-    const p1 = variant.conversions / variant.exposures;
-    const p2 = control.conversions / control.exposures;
-    const n1 = variant.exposures;
-    const n2 = control.exposures;
+// NewService creates a new analytics service.
+func NewService() *Service {
+	return &Service{
+		events: make([]TrackingEvent, 0),
+	}
+}
 
-    const pooledP = (variant.conversions + control.conversions) / (n1 + n2);
-    const se = Math.sqrt(pooledP * (1 - pooledP) * (1/n1 + 1/n2));
-    const z = (p1 - p2) / se;
+// TrackEvent records a tracking event.
+func (s *Service) TrackEvent(ctx context.Context, event TrackingEvent) error {
+	event.Timestamp = time.Now()
 
-    // Convertir z-score en confiance
-    return this.zToConfidence(z);
-  }
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.events = append(s.events, event)
+	return nil
+}
+
+// GetExperimentResults calculates results for an experiment.
+func (s *Service) GetExperimentResults(ctx context.Context, experimentID string) (*ExperimentResults, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	byVariant := s.groupByVariant(experimentID)
+
+	results := &ExperimentResults{
+		Variants: make([]VariantResults, 0, len(byVariant)),
+	}
+
+	controlData, hasControl := byVariant["control"]
+
+	for variant, data := range byVariant {
+		convRate := 0.0
+		if data.Exposures > 0 {
+			convRate = float64(data.Conversions) / float64(data.Exposures)
+		}
+
+		confidence := 0.0
+		if hasControl && variant != "control" {
+			confidence = s.calculateConfidence(data, controlData)
+		}
+
+		results.Variants = append(results.Variants, VariantResults{
+			Name:           variant,
+			Exposures:      data.Exposures,
+			Conversions:    data.Conversions,
+			ConversionRate: convRate,
+			Confidence:     confidence,
+		})
+	}
+
+	results.Winner = s.determineWinner(byVariant)
+	results.StatisticalSignificance = s.isSignificant(byVariant)
+
+	return results, nil
+}
+
+// groupByVariant aggregates events by variant.
+func (s *Service) groupByVariant(experimentID string) map[string]VariantData {
+	grouped := make(map[string]VariantData)
+
+	for _, event := range s.events {
+		if event.ExperimentID != experimentID {
+			continue
+		}
+
+		data := grouped[event.Variant]
+
+		if event.EventType == EventExposure {
+			data.Exposures++
+		} else if event.EventType == EventConversion {
+			data.Conversions++
+		}
+
+		grouped[event.Variant] = data
+	}
+
+	return grouped
+}
+
+// calculateConfidence performs Z-test for proportions.
+func (s *Service) calculateConfidence(variant, control VariantData) float64 {
+	if variant.Exposures == 0 || control.Exposures == 0 {
+		return 0.0
+	}
+
+	p1 := float64(variant.Conversions) / float64(variant.Exposures)
+	p2 := float64(control.Conversions) / float64(control.Exposures)
+	n1 := float64(variant.Exposures)
+	n2 := float64(control.Exposures)
+
+	pooledP := (float64(variant.Conversions) + float64(control.Conversions)) / (n1 + n2)
+	se := math.Sqrt(pooledP * (1 - pooledP) * (1/n1 + 1/n2))
+
+	if se == 0 {
+		return 0.0
+	}
+
+	z := (p1 - p2) / se
+	return s.zToConfidence(z)
+}
+
+// zToConfidence converts z-score to confidence level.
+func (s *Service) zToConfidence(z float64) float64 {
+	// Simplified - use proper statistical library for production
+	absZ := math.Abs(z)
+	if absZ > 2.58 {
+		return 0.99
+	} else if absZ > 1.96 {
+		return 0.95
+	} else if absZ > 1.645 {
+		return 0.90
+	}
+	return 0.50
+}
+
+// determineWinner identifies the winning variant.
+func (s *Service) determineWinner(byVariant map[string]VariantData) string {
+	winner := ""
+	maxRate := 0.0
+
+	for variant, data := range byVariant {
+		if data.Exposures == 0 {
+			continue
+		}
+		rate := float64(data.Conversions) / float64(data.Exposures)
+		if rate > maxRate {
+			maxRate = rate
+			winner = variant
+		}
+	}
+
+	return winner
+}
+
+// isSignificant determines if results are statistically significant.
+func (s *Service) isSignificant(byVariant map[string]VariantData) bool {
+	controlData, hasControl := byVariant["control"]
+	if !hasControl {
+		return false
+	}
+
+	for variant, data := range byVariant {
+		if variant == "control" {
+			continue
+		}
+		confidence := s.calculateConfidence(data, controlData)
+		if confidence >= 0.95 {
+			return true
+		}
+	}
+
+	return false
 }
 ```
 
 ### Usage côté client
 
-```typescript
-// React Hook
-function useExperiment(experimentId: string) {
-  const [variant, setVariant] = useState<string | null>(null);
-  const { userId } = useAuth();
+```go
+package client
 
-  useEffect(() => {
-    async function fetchVariant() {
-      const result = await experimentService.getVariant(userId, experimentId);
-      setVariant(result);
-    }
-    fetchVariant();
-  }, [userId, experimentId]);
+import (
+	"context"
+	"fmt"
+)
 
-  return {
-    variant,
-    isLoading: variant === null,
-    isControl: variant === 'control',
-  };
+// ExperimentClient wraps experiment service for client use.
+type ExperimentClient struct {
+	service ExperimentService
 }
 
-// Usage
-function CheckoutButton() {
-  const { variant, isLoading } = useExperiment('checkout-button-color');
+// ExperimentService defines the interface for experiment operations.
+type ExperimentService interface {
+	GetVariant(ctx context.Context, userID, experimentID string) (string, error)
+}
 
-  if (isLoading) return <ButtonSkeleton />;
+// NewExperimentClient creates a new client.
+func NewExperimentClient(service ExperimentService) *ExperimentClient {
+	return &ExperimentClient{
+		service: service,
+	}
+}
 
-  return (
-    <Button
-      color={variant === 'green_button' ? 'green' : 'blue'}
-      onClick={() => {
-        trackConversion('checkout-button-color', 'click');
-        handleCheckout();
-      }}
-    >
-      Checkout
-    </Button>
-  );
+// UseExperiment fetches the variant for a user.
+func (c *ExperimentClient) UseExperiment(ctx context.Context, userID, experimentID string) (string, bool, error) {
+	variant, err := c.service.GetVariant(ctx, userID, experimentID)
+	if err != nil {
+		return "", false, fmt.Errorf("getting variant: %w", err)
+	}
+
+	isLoading := variant == ""
+	isControl := variant == "control"
+
+	return variant, isControl && !isLoading, nil
+}
+
+// Example usage in HTTP handler
+func CheckoutButtonHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID := getUserID(r) // Your auth logic
+
+	client := NewExperimentClient(experimentService)
+	variant, isControl, err := client.UseExperiment(ctx, userID, "checkout-button-color")
+	if err != nil {
+		// Handle error, fallback to control
+		variant = "control"
+	}
+
+	color := "blue"
+	if variant == "green_button" {
+		color = "green"
+	}
+
+	// Render button with appropriate color
+	renderButton(w, color)
 }
 ```
 
 ## Calcul de taille d'échantillon
 
-```typescript
-function calculateSampleSize(
-  baselineConversion: number,
-  minimumDetectableEffect: number,  // ex: 0.05 = 5% lift
-  power: number = 0.8,
-  significance: number = 0.05
-): number {
-  const p1 = baselineConversion;
-  const p2 = baselineConversion * (1 + minimumDetectableEffect);
+```go
+package stats
 
-  const zAlpha = 1.96;  // 95% significance
-  const zBeta = 0.84;   // 80% power
+import (
+	"math"
+)
 
-  const pooledP = (p1 + p2) / 2;
-  const effect = Math.abs(p2 - p1);
+// CalculateSampleSize computes required sample size for A/B test.
+func CalculateSampleSize(
+	baselineConversion float64,
+	minimumDetectableEffect float64, // e.g., 0.05 = 5% lift
+	power float64,
+	significance float64,
+) int {
+	if power == 0 {
+		power = 0.8
+	}
+	if significance == 0 {
+		significance = 0.05
+	}
 
-  const n = 2 * pooledP * (1 - pooledP) *
-    Math.pow((zAlpha + zBeta) / effect, 2);
+	p1 := baselineConversion
+	p2 := baselineConversion * (1 + minimumDetectableEffect)
 
-  return Math.ceil(n);
+	zAlpha := 1.96 // 95% significance
+	zBeta := 0.84  // 80% power
+
+	pooledP := (p1 + p2) / 2
+	effect := math.Abs(p2 - p1)
+
+	if effect == 0 {
+		return 0
+	}
+
+	n := 2 * pooledP * (1 - pooledP) *
+		math.Pow((zAlpha+zBeta)/effect, 2)
+
+	return int(math.Ceil(n))
 }
 
-// Exemple: 2% conversion, détect 10% lift
-// calculateSampleSize(0.02, 0.10) ≈ 15,000 users per variant
+// Example: 2% conversion, detect 10% lift
+// CalculateSampleSize(0.02, 0.10, 0.8, 0.05) ≈ 15,000 users per variant
 ```
 
 ## Quand utiliser

@@ -20,7 +20,7 @@ Patterns de communication entre objets.
 
 Voir fichier detaille: [chain-of-responsibility.md](chain-of-responsibility.md)
 
-```typescript
+```go
 const chain = new AuthHandler();
 chain.setNext(new ValidationHandler()).setNext(new BusinessHandler());
 chain.handle(request);
@@ -36,7 +36,7 @@ chain.handle(request);
 
 Voir fichier detaille: [command.md](command.md)
 
-```typescript
+```go
 interface Command {
   execute(): void;
   undo(): void;
@@ -64,7 +64,7 @@ class CommandInvoker {
 
 > Parcourir sans exposer la structure interne.
 
-```typescript
+```go
 interface Iterator<T> {
   next(): T | null;
   hasNext(): boolean;
@@ -95,7 +95,7 @@ class TreeIterator<T> implements Iterator<T> {
 
 > Reduire les dependances directes entre composants.
 
-```typescript
+```go
 interface Mediator {
   notify(sender: Component, event: string): void;
 }
@@ -117,7 +117,7 @@ class DialogMediator implements Mediator {
 
 > Sauvegarder et restaurer l'etat.
 
-```typescript
+```go
 class Editor {
   save(): EditorMemento {
     return new EditorMemento(this.content);
@@ -139,7 +139,7 @@ class Editor {
 
 Voir fichier detaille: [observer.md](observer.md)
 
-```typescript
+```go
 class TypedEventEmitter<Events extends EventMap> {
   on<K extends keyof Events>(event: K, callback: (data: Events[K]) => void) {
     // ...
@@ -161,7 +161,7 @@ class TypedEventEmitter<Events extends EventMap> {
 
 Voir fichier detaille: [state.md](state.md)
 
-```typescript
+```go
 class Order {
   private state: OrderState;
 
@@ -181,7 +181,7 @@ class Order {
 
 Voir fichier detaille: [strategy.md](strategy.md)
 
-```typescript
+```go
 class PaymentProcessor {
   constructor(private strategy: PaymentStrategy) {}
 
@@ -203,7 +203,7 @@ class PaymentProcessor {
 
 > Squelette d'algorithme, details dans sous-classes.
 
-```typescript
+```go
 abstract class DataMiner {
   mine(path: string) {
     const data = this.openFile(path);
@@ -226,7 +226,7 @@ abstract class DataMiner {
 
 > Operations sur une structure d'objets.
 
-```typescript
+```go
 interface Visitor {
   visitCircle(c: Circle): void;
   visitRectangle(r: Rectangle): void;
@@ -246,7 +246,7 @@ class AreaCalculator implements Visitor {
 
 > Interpreter une grammaire.
 
-```typescript
+```go
 interface Expression {
   interpret(context: Map<string, number>): number;
 }

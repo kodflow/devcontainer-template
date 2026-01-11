@@ -8,39 +8,39 @@ Patterns de programmation fonctionnelle.
 
 > Fonction sans effets de bord, même entrée = même sortie.
 
-```typescript
+```go
 // Pure - no side effects, deterministic
-function add(a: number, b: number): number {
-  return a + b;
+func Add(a, b int) int {
+    return a + b
 }
 
-function calculateDiscount(price: number, rate: number): number {
-  return price * (1 - rate);
+func CalculateDiscount(price, rate float64) float64 {
+    return price * (1 - rate)
 }
 
 // Impure - side effects
-let total = 0;
-function addToTotal(n: number): void {
-  total += n; // Mutation!
+var total int
+
+func AddToTotal(n int) {
+    total += n // Mutation!
 }
 
-function getRandomDiscount(price: number): number {
-  return price * Math.random(); // Non-deterministic!
+func GetRandomDiscount(price float64) float64 {
+    return price * rand.Float64() // Non-deterministic!
 }
 
-function logPrice(price: number): number {
-  console.log(price); // Side effect!
-  return price;
+func LogPrice(price float64) float64 {
+    fmt.Println(price) // Side effect!
+    return price
 }
 
 // Making impure code pure with dependency injection
-function calculateWithLogging(
-  price: number,
-  logger: (msg: string) => void,
-): number {
-  const result = price * 0.9;
-  logger(`Calculated: ${result}`); // Effect handled by caller
-  return result;
+type Logger func(msg string)
+
+func CalculateWithLogging(price float64, logger Logger) float64 {
+    result := price * 0.9
+    logger(fmt.Sprintf("Calculated: %f", result)) // Effect handled by caller
+    return result
 }
 ```
 
@@ -53,53 +53,59 @@ function calculateWithLogging(
 
 > Ne jamais modifier, toujours créer une nouvelle version.
 
-```typescript
+```go
 // Mutable - BAD
-const user = { name: 'John', age: 30 };
-user.age = 31; // Mutation!
+type User struct {
+    Name string
+    Age  int
+}
+
+user := User{Name: "John", Age: 30}
+user.Age = 31 // Mutation!
 
 // Immutable - GOOD
-const user1 = { name: 'John', age: 30 };
-const user2 = { ...user1, age: 31 }; // New object
+user1 := User{Name: "John", Age: 30}
+user2 := User{Name: user1.Name, Age: 31} // New struct
 
-// Immutable array operations
-const numbers = [1, 2, 3];
+// Immutable slice operations
+numbers := []int{1, 2, 3}
 
 // BAD
-numbers.push(4); // Mutates
+numbers = append(numbers, 4) // May mutate if capacity allows
 
 // GOOD
-const newNumbers = [...numbers, 4]; // New array
+newNumbers := append([]int{}, numbers...) // Copy
+newNumbers = append(newNumbers, 4)        // Then append
 
-// Deep immutability
-interface User {
-  readonly name: string;
-  readonly address: {
-    readonly street: string;
-    readonly city: string;
-  };
+// Deep immutability with helper
+type Address struct {
+    Street string
+    City   string
 }
 
-function updateCity(user: User, city: string): User {
-  return {
-    ...user,
-    address: {
-      ...user.address,
-      city,
-    },
-  };
+type UserWithAddress struct {
+    Name    string
+    Address Address
 }
 
-// With Immer for complex updates
-import produce from 'immer';
+func UpdateCity(user UserWithAddress, city string) UserWithAddress {
+    return UserWithAddress{
+        Name: user.Name,
+        Address: Address{
+            Street: user.Address.Street,
+            City:   city,
+        },
+    }
+}
 
-const nextState = produce(user, (draft) => {
-  draft.address.city = 'Paris'; // Looks mutable, but creates new object
-});
+// Using value receivers ensures immutability
+func (u User) WithAge(age int) User {
+    return User{Name: u.Name, Age: age}
+}
 ```
 
 **Avantages :** Pas de surprises, time-travel, concurrency safe.
-**Quand :** État partagé, React/Redux, données critiques.
+**Quand :** État partagé, données critiques, concurrence.
 
 ---
 
@@ -107,50 +113,68 @@ const nextState = produce(user, (draft) => {
 
 > Fonctions qui prennent/retournent des fonctions.
 
-```typescript
+```go
 // Function that returns a function
-function multiply(factor: number): (n: number) => number {
-  return (n: number) => n * factor;
-}
-
-const double = multiply(2);
-const triple = multiply(3);
-console.log(double(5)); // 10
-console.log(triple(5)); // 15
-
-// Function that takes a function
-function map<T, U>(arr: T[], fn: (item: T) => U): U[] {
-  const result: U[] = [];
-  for (const item of arr) {
-    result.push(fn(item));
-  }
-  return result;
-}
-
-function filter<T>(arr: T[], predicate: (item: T) => boolean): T[] {
-  const result: T[] = [];
-  for (const item of arr) {
-    if (predicate(item)) {
-      result.push(item);
+func Multiply(factor int) func(int) int {
+    return func(n int) int {
+        return n * factor
     }
-  }
-  return result;
 }
 
-function reduce<T, U>(arr: T[], fn: (acc: U, item: T) => U, initial: U): U {
-  let result = initial;
-  for (const item of arr) {
-    result = fn(result, item);
-  }
-  return result;
+double := Multiply(2)
+triple := Multiply(3)
+fmt.Println(double(5)) // 10
+fmt.Println(triple(5)) // 15
+
+// Generic function that takes a function
+func Map[T, U any](arr []T, fn func(T) U) []U {
+    result := make([]U, len(arr))
+    for i, item := range arr {
+        result[i] = fn(item)
+    }
+    return result
+}
+
+func Filter[T any](arr []T, predicate func(T) bool) []T {
+    result := make([]T, 0, len(arr))
+    for _, item := range arr {
+        if predicate(item) {
+            result = append(result, item)
+        }
+    }
+    return result
+}
+
+func Reduce[T, U any](arr []T, fn func(U, T) U, initial U) U {
+    result := initial
+    for _, item := range arr {
+        result = fn(result, item)
+    }
+    return result
 }
 
 // Composition
-const processUsers = pipe(
-  filter((u: User) => u.active),
-  map((u) => u.name),
-  reduce((acc, name) => `${acc}, ${name}`, ''),
-);
+type User struct {
+    Name   string
+    Active bool
+}
+
+func ProcessUsers(users []User) string {
+    return Pipe(
+        Filter(users, func(u User) bool { return u.Active }),
+        func(users []User) []string {
+            return Map(users, func(u User) string { return u.Name })
+        },
+        func(names []string) string {
+            return Reduce(names, func(acc, name string) string {
+                if acc == "" {
+                    return name
+                }
+                return acc + ", " + name
+            }, "")
+        },
+    )
+}
 ```
 
 **Quand :** Abstraction de comportement, callbacks, composition.
@@ -162,50 +186,66 @@ const processUsers = pipe(
 
 > Transformer f(a, b, c) en f(a)(b)(c).
 
-```typescript
+```go
 // Regular function
-function add(a: number, b: number, c: number): number {
-  return a + b + c;
+func Add(a, b, c int) int {
+    return a + b + c
 }
 
 // Curried version
-function curriedAdd(a: number) {
-  return function (b: number) {
-    return function (c: number) {
-      return a + b + c;
-    };
-  };
+func CurriedAdd(a int) func(int) func(int) int {
+    return func(b int) func(int) int {
+        return func(c int) int {
+            return a + b + c
+        }
+    }
 }
 
-// Arrow syntax
-const curriedAdd2 = (a: number) => (b: number) => (c: number) => a + b + c;
-
 // Usage - partial application
-const add5 = curriedAdd(5);
-const add5and10 = add5(10);
-console.log(add5and10(3)); // 18
+add5 := CurriedAdd(5)
+add5and10 := add5(10)
+fmt.Println(add5and10(3)) // 18
 
-// Generic curry utility
-function curry<T extends (...args: any[]) => any>(fn: T) {
-  return function curried(...args: any[]): any {
-    if (args.length >= fn.length) {
-      return fn(...args);
+// Practical example with HTTP client
+type HTTPMethod string
+
+const (
+    POST HTTPMethod = "POST"
+    GET  HTTPMethod = "GET"
+)
+
+func CurriedFetch(method HTTPMethod) func(string) func(any) (*http.Response, error) {
+    return func(url string) func(any) (*http.Response, error) {
+        return func(body any) (*http.Response, error) {
+            data, _ := json.Marshal(body)
+            req, _ := http.NewRequest(string(method), url, bytes.NewBuffer(data))
+            return http.DefaultClient.Do(req)
+        }
     }
-    return (...moreArgs: any[]) => curried(...args, ...moreArgs);
-  };
 }
 
 // Usage
-const curriedFetch = curry(
-  (method: string, url: string, body: object) => fetch(url, { method, body: JSON.stringify(body) }),
-);
+postTo := CurriedFetch(POST)
+postToUsers := postTo("https://api.example.com/users")
+resp, _ := postToUsers(map[string]string{"name": "John"})
 
-const postTo = curriedFetch('POST');
-const postToUsers = postTo('/api/users');
-await postToUsers({ name: 'John' });
+// Functional options pattern (idiomatic Go currying)
+type ServerOption func(*Server)
+
+func WithTimeout(d time.Duration) ServerOption {
+    return func(s *Server) {
+        s.timeout = d
+    }
+}
+
+func WithLogger(l *slog.Logger) ServerOption {
+    return func(s *Server) {
+        s.logger = l
+    }
+}
 ```
 
-**Quand :** Configuration partielle, composition, point-free style.
+**Quand :** Configuration partielle, composition, functional options.
 **Lié à :** Partial Application.
 
 ---
@@ -214,52 +254,82 @@ await postToUsers({ name: 'John' });
 
 > Combiner des fonctions simples en complexes.
 
-```typescript
+```go
 // Basic composition
-function compose<A, B, C>(f: (b: B) => C, g: (a: A) => B): (a: A) => C {
-  return (a: A) => f(g(a));
+func Compose[A, B, C any](f func(B) C, g func(A) B) func(A) C {
+    return func(a A) C {
+        return f(g(a))
+    }
 }
 
-// Pipe (left to right)
-function pipe<T>(...fns: Array<(arg: T) => T>): (arg: T) => T {
-  return (arg: T) => fns.reduce((acc, fn) => fn(acc), arg);
+// Pipe (left to right) - variadic version
+func Pipe[T any](initial T, fns ...func(T) T) T {
+    result := initial
+    for _, fn := range fns {
+        result = fn(result)
+    }
+    return result
 }
 
-// Variadic pipe with type safety
-type Pipe = {
-  <A, B>(f1: (a: A) => B): (a: A) => B;
-  <A, B, C>(f1: (a: A) => B, f2: (b: B) => C): (a: A) => C;
-  <A, B, C, D>(f1: (a: A) => B, f2: (b: B) => C, f3: (c: C) => D): (a: A) => D;
-  // ... more overloads
-};
+// Type-safe pipe builder
+type PipeBuilder[T any] struct {
+    fns []func(T) T
+}
+
+func NewPipe[T any]() *PipeBuilder[T] {
+    return &PipeBuilder[T]{fns: make([]func(T) T, 0)}
+}
+
+func (p *PipeBuilder[T]) Then(fn func(T) T) *PipeBuilder[T] {
+    p.fns = append(p.fns, fn)
+    return p
+}
+
+func (p *PipeBuilder[T]) Execute(input T) T {
+    return Pipe(input, p.fns...)
+}
 
 // Usage
-const processOrder = pipe(
-  validateOrder,
-  calculateTax,
-  applyDiscount,
-  formatForDisplay,
-);
+type Order struct {
+    Total    float64
+    Tax      float64
+    Discount float64
+    Display  string
+}
 
-const result = processOrder(order);
+validateOrder := func(o Order) Order { /* ... */ return o }
+calculateTax := func(o Order) Order { o.Tax = o.Total * 0.2; return o }
+applyDiscount := func(o Order) Order { o.Discount = o.Total * 0.1; return o }
+formatForDisplay := func(o Order) Order {
+    o.Display = fmt.Sprintf("$%.2f", o.Total+o.Tax-o.Discount)
+    return o
+}
 
-// Async composition
-const pipeAsync = <T>(...fns: Array<(arg: T) => Promise<T> | T>) => {
-  return async (arg: T): Promise<T> => {
-    let result = arg;
-    for (const fn of fns) {
-      result = await fn(result);
+processOrder := NewPipe[Order]().
+    Then(validateOrder).
+    Then(calculateTax).
+    Then(applyDiscount).
+    Then(formatForDisplay)
+
+result := processOrder.Execute(Order{Total: 100})
+
+// Async composition with context
+func PipeAsync[T any](ctx context.Context, initial T, fns ...func(context.Context, T) (T, error)) (T, error) {
+    result := initial
+    for _, fn := range fns {
+        var err error
+        result, err = fn(ctx, result)
+        if err != nil {
+            return result, fmt.Errorf("pipe step failed: %w", err)
+        }
     }
-    return result;
-  };
-};
+    return result, nil
+}
 
-const processAsync = pipeAsync(
-  fetchUser,
-  validatePermissions,
-  loadUserData,
-  formatResponse,
-);
+// Usage
+fetchUser := func(ctx context.Context, id string) (User, error) { /* ... */ }
+validatePermissions := func(ctx context.Context, u User) (User, error) { /* ... */ }
+loadUserData := func(ctx context.Context, u User) (User, error) { /* ... */ }
 ```
 
 **Quand :** Pipelines de données, transformations, middleware.
@@ -273,75 +343,90 @@ const processAsync = pipeAsync(
 
 > Représenter l'absence de valeur de manière safe.
 
-```typescript
-type Option<T> = Some<T> | None;
-
-class Some<T> {
-  readonly _tag = 'Some';
-  constructor(readonly value: T) {}
-
-  map<U>(fn: (value: T) => U): Option<U> {
-    return new Some(fn(this.value));
-  }
-
-  flatMap<U>(fn: (value: T) => Option<U>): Option<U> {
-    return fn(this.value);
-  }
-
-  getOrElse(_default: T): T {
-    return this.value;
-  }
-
-  fold<U>(onNone: () => U, onSome: (value: T) => U): U {
-    return onSome(this.value);
-  }
+```go
+// Option represents an optional value
+type Option[T any] interface {
+    IsSome() bool
+    IsNone() bool
+    Unwrap() T
+    UnwrapOr(defaultValue T) T
+    Map(fn func(T) T) Option[T]
+    FlatMap(fn func(T) Option[T]) Option[T]
+    Filter(predicate func(T) bool) Option[T]
 }
 
-class None {
-  readonly _tag = 'None';
-
-  map<U>(_fn: (value: never) => U): Option<U> {
-    return this;
-  }
-
-  flatMap<U>(_fn: (value: never) => Option<U>): Option<U> {
-    return this;
-  }
-
-  getOrElse<T>(defaultValue: T): T {
-    return defaultValue;
-  }
-
-  fold<U>(onNone: () => U, _onSome: (value: never) => U): U {
-    return onNone();
-  }
+// Some contains a value
+type Some[T any] struct {
+    value T
 }
 
-const none: None = new None();
+func (s Some[T]) IsSome() bool                             { return true }
+func (s Some[T]) IsNone() bool                             { return false }
+func (s Some[T]) Unwrap() T                                { return s.value }
+func (s Some[T]) UnwrapOr(_ T) T                           { return s.value }
+func (s Some[T]) Map(fn func(T) T) Option[T]               { return NewSome(fn(s.value)) }
+func (s Some[T]) FlatMap(fn func(T) Option[T]) Option[T]   { return fn(s.value) }
+func (s Some[T]) Filter(predicate func(T) bool) Option[T] {
+    if predicate(s.value) {
+        return s
+    }
+    return None[T]()
+}
 
-function some<T>(value: T): Option<T> {
-  return new Some(value);
+// None represents absence of value
+type none[T any] struct{}
+
+func (n none[T]) IsSome() bool                             { return false }
+func (n none[T]) IsNone() bool                             { return true }
+func (n none[T]) Unwrap() T                                { panic("called Unwrap on None") }
+func (n none[T]) UnwrapOr(defaultValue T) T                { return defaultValue }
+func (n none[T]) Map(_ func(T) T) Option[T]                { return n }
+func (n none[T]) FlatMap(_ func(T) Option[T]) Option[T]    { return n }
+func (n none[T]) Filter(_ func(T) bool) Option[T]          { return n }
+
+// Constructors
+func NewSome[T any](value T) Option[T] {
+    return Some[T]{value: value}
+}
+
+func None[T any]() Option[T] {
+    return none[T]{}
+}
+
+// FromPointer converts *T to Option[T]
+func FromPointer[T any](ptr *T) Option[T] {
+    if ptr == nil {
+        return None[T]()
+    }
+    return NewSome(*ptr)
 }
 
 // Usage
-function findUser(id: string): Option<User> {
-  const user = db.get(id);
-  return user ? some(user) : none;
+func FindUser(id string) Option[User] {
+    user := db.Get(id)
+    if user == nil {
+        return None[User]()
+    }
+    return NewSome(*user)
 }
 
-const userName = findUser('123')
-  .map((user) => user.name)
-  .getOrElse('Unknown');
+userName := FindUser("123").
+    Map(func(u User) User { return u }).
+    UnwrapOr(User{Name: "Unknown"}).
+    Name
 
 // Chaining
-const email = findUser('123')
-  .flatMap((user) => findAddress(user.addressId))
-  .map((address) => address.email)
-  .getOrElse('no-email@example.com');
+email := FindUser("123").
+    FlatMap(func(u User) Option[Address] {
+        return FindAddress(u.AddressID)
+    }).
+    Map(func(a Address) Address { return a }).
+    UnwrapOr(Address{Email: "no-email@example.com"}).
+    Email
 ```
 
 **Quand :** Valeurs potentiellement absentes, éviter null checks.
-**Lié à :** Either, Monad.
+**Lié à :** Either, Result.
 
 ---
 
@@ -349,88 +434,104 @@ const email = findUser('123')
 
 > Représenter succès ou échec avec contexte.
 
-```typescript
-type Either<L, R> = Left<L> | Right<R>;
-
-class Left<L> {
-  readonly _tag = 'Left';
-  constructor(readonly value: L) {}
-
-  map<U>(_fn: (value: never) => U): Either<L, U> {
-    return this as any;
-  }
-
-  flatMap<U>(_fn: (value: never) => Either<L, U>): Either<L, U> {
-    return this as any;
-  }
-
-  mapLeft<U>(fn: (value: L) => U): Either<U, never> {
-    return new Left(fn(this.value));
-  }
-
-  fold<U>(onLeft: (l: L) => U, _onRight: (r: never) => U): U {
-    return onLeft(this.value);
-  }
+```go
+// Either represents a value that can be Left (error) or Right (success)
+type Either[L, R any] interface {
+    IsLeft() bool
+    IsRight() bool
+    Left() L
+    Right() R
+    Map(fn func(R) R) Either[L, R]
+    MapLeft(fn func(L) L) Either[L, R]
+    FlatMap(fn func(R) Either[L, R]) Either[L, R]
+    Fold(onLeft func(L) any, onRight func(R) any) any
 }
 
-class Right<R> {
-  readonly _tag = 'Right';
-  constructor(readonly value: R) {}
-
-  map<U>(fn: (value: R) => U): Either<never, U> {
-    return new Right(fn(this.value));
-  }
-
-  flatMap<L, U>(fn: (value: R) => Either<L, U>): Either<L, U> {
-    return fn(this.value);
-  }
-
-  mapLeft<U>(_fn: (value: never) => U): Either<U, R> {
-    return this as any;
-  }
-
-  fold<U>(_onLeft: (l: never) => U, onRight: (r: R) => U): U {
-    return onRight(this.value);
-  }
+// Left represents an error
+type left[L, R any] struct {
+    value L
 }
 
-function left<L>(value: L): Either<L, never> {
-  return new Left(value);
+func (l left[L, R]) IsLeft() bool                                    { return true }
+func (l left[L, R]) IsRight() bool                                   { return false }
+func (l left[L, R]) Left() L                                         { return l.value }
+func (l left[L, R]) Right() R                                        { var zero R; return zero }
+func (l left[L, R]) Map(_ func(R) R) Either[L, R]                    { return l }
+func (l left[L, R]) MapLeft(fn func(L) L) Either[L, R]               { return NewLeft[L, R](fn(l.value)) }
+func (l left[L, R]) FlatMap(_ func(R) Either[L, R]) Either[L, R]    { return l }
+func (l left[L, R]) Fold(onLeft func(L) any, _ func(R) any) any     { return onLeft(l.value) }
+
+// Right represents success
+type right[L, R any] struct {
+    value R
 }
 
-function right<R>(value: R): Either<never, R> {
-  return new Right(value);
+func (r right[L, R]) IsLeft() bool                                   { return false }
+func (r right[L, R]) IsRight() bool                                  { return true }
+func (r right[L, R]) Left() L                                        { var zero L; return zero }
+func (r right[L, R]) Right() R                                       { return r.value }
+func (r right[L, R]) Map(fn func(R) R) Either[L, R]                  { return NewRight[L, R](fn(r.value)) }
+func (r right[L, R]) MapLeft(_ func(L) L) Either[L, R]               { return r }
+func (r right[L, R]) FlatMap(fn func(R) Either[L, R]) Either[L, R]  { return fn(r.value) }
+func (r right[L, R]) Fold(_ func(L) any, onRight func(R) any) any   { return onRight(r.value) }
+
+// Constructors
+func NewLeft[L, R any](value L) Either[L, R] {
+    return left[L, R]{value: value}
+}
+
+func NewRight[L, R any](value R) Either[L, R] {
+    return right[L, R]{value: value}
 }
 
 // Usage
-type ValidationError = { field: string; message: string };
-
-function validateEmail(email: string): Either<ValidationError, string> {
-  if (!email.includes('@')) {
-    return left({ field: 'email', message: 'Invalid email' });
-  }
-  return right(email);
+type ValidationError struct {
+    Field   string
+    Message string
 }
 
-function validateAge(age: number): Either<ValidationError, number> {
-  if (age < 0 || age > 150) {
-    return left({ field: 'age', message: 'Invalid age' });
-  }
-  return right(age);
+func ValidateEmail(email string) Either[ValidationError, string] {
+    if !strings.Contains(email, "@") {
+        return NewLeft[ValidationError, string](ValidationError{
+            Field:   "email",
+            Message: "Invalid email",
+        })
+    }
+    return NewRight[ValidationError, string](email)
+}
+
+func ValidateAge(age int) Either[ValidationError, int] {
+    if age < 0 || age > 150 {
+        return NewLeft[ValidationError, int](ValidationError{
+            Field:   "age",
+            Message: "Invalid age",
+        })
+    }
+    return NewRight[ValidationError, int](age)
 }
 
 // Chaining validations
-const result = validateEmail('john@example.com')
-  .flatMap((email) =>
-    validateAge(30).map((age) => ({
-      email,
-      age,
-    })),
-  )
-  .fold(
-    (error) => `Error in ${error.field}: ${error.message}`,
-    (user) => `Valid user: ${user.email}, ${user.age}`,
-  );
+type ValidUser struct {
+    Email string
+    Age   int
+}
+
+result := ValidateEmail("john@example.com").
+    FlatMap(func(email string) Either[ValidationError, ValidUser] {
+        return ValidateAge(30).Map(func(age int) int {
+            return age
+        }).Map(func(age int) ValidUser {
+            return ValidUser{Email: email, Age: age}
+        }).(Either[ValidationError, ValidUser])
+    }).
+    Fold(
+        func(err ValidationError) any {
+            return fmt.Sprintf("Error in %s: %s", err.Field, err.Message)
+        },
+        func(user ValidUser) any {
+            return fmt.Sprintf("Valid user: %s, %d", user.Email, user.Age)
+        },
+    )
 ```
 
 **Quand :** Gestion d'erreurs, validation, résultats avec contexte.
@@ -442,99 +543,169 @@ const result = validateEmail('john@example.com')
 
 > Encapsuler les opérations qui peuvent échouer.
 
-```typescript
-type Result<T, E = Error> = Ok<T> | Err<E>;
-
-class Ok<T> {
-  readonly _tag = 'Ok';
-  constructor(readonly value: T) {}
-
-  isOk(): this is Ok<T> {
-    return true;
-  }
-
-  isErr(): boolean {
-    return false;
-  }
-
-  map<U>(fn: (value: T) => U): Result<U, never> {
-    return new Ok(fn(this.value));
-  }
-
-  flatMap<U, E>(fn: (value: T) => Result<U, E>): Result<U, E> {
-    return fn(this.value);
-  }
-
-  unwrap(): T {
-    return this.value;
-  }
-
-  unwrapOr(_default: T): T {
-    return this.value;
-  }
+```go
+// Result represents the result of an operation that may fail
+type Result[T any] struct {
+    value T
+    err   error
 }
 
-class Err<E> {
-  readonly _tag = 'Err';
-  constructor(readonly error: E) {}
-
-  isOk(): boolean {
-    return false;
-  }
-
-  isErr(): this is Err<E> {
-    return true;
-  }
-
-  map<U>(_fn: (value: never) => U): Result<U, E> {
-    return this as any;
-  }
-
-  flatMap<U>(_fn: (value: never) => Result<U, E>): Result<U, E> {
-    return this as any;
-  }
-
-  unwrap(): never {
-    throw this.error;
-  }
-
-  unwrapOr<T>(defaultValue: T): T {
-    return defaultValue;
-  }
+// Ok creates a successful Result
+func Ok[T any](value T) Result[T] {
+    return Result[T]{value: value, err: nil}
 }
 
-function ok<T>(value: T): Result<T, never> {
-  return new Ok(value);
+// Err creates a failed Result
+func Err[T any](err error) Result[T] {
+    var zero T
+    return Result[T]{value: zero, err: err}
 }
 
-function err<E>(error: E): Result<never, E> {
-  return new Err(error);
+// IsOk returns true if the result is successful
+func (r Result[T]) IsOk() bool {
+    return r.err == nil
 }
 
-// Try wrapper for exceptions
-function tryCatch<T>(fn: () => T): Result<T, Error> {
-  try {
-    return ok(fn());
-  } catch (e) {
-    return err(e instanceof Error ? e : new Error(String(e)));
-  }
+// IsErr returns true if the result is an error
+func (r Result[T]) IsErr() bool {
+    return r.err != nil
 }
 
-// Async version
-async function tryCatchAsync<T>(fn: () => Promise<T>): Promise<Result<T, Error>> {
-  try {
-    return ok(await fn());
-  } catch (e) {
-    return err(e instanceof Error ? e : new Error(String(e)));
-  }
+// Unwrap returns the value or panics
+func (r Result[T]) Unwrap() T {
+    if r.err != nil {
+        panic(fmt.Sprintf("called Unwrap on Err: %v", r.err))
+    }
+    return r.value
+}
+
+// UnwrapOr returns the value or a default
+func (r Result[T]) UnwrapOr(defaultValue T) T {
+    if r.err != nil {
+        return defaultValue
+    }
+    return r.value
+}
+
+// Error returns the error or nil
+func (r Result[T]) Error() error {
+    return r.err
+}
+
+// Map transforms the value if Ok
+func (r Result[T]) Map(fn func(T) T) Result[T] {
+    if r.err != nil {
+        return r
+    }
+    return Ok(fn(r.value))
+}
+
+// FlatMap chains operations that return Result
+func (r Result[T]) FlatMap(fn func(T) Result[T]) Result[T] {
+    if r.err != nil {
+        return r
+    }
+    return fn(r.value)
+}
+
+// MapErr transforms the error if Err
+func (r Result[T]) MapErr(fn func(error) error) Result[T] {
+    if r.err == nil {
+        return r
+    }
+    return Err[T](fn(r.err))
+}
+
+// Try wraps a function that may panic
+func Try[T any](fn func() T) Result[T] {
+    var result T
+    var err error
+    func() {
+        defer func() {
+            if r := recover(); r != nil {
+                err = fmt.Errorf("panic: %v", r)
+            }
+        }()
+        result = fn()
+    }()
+    if err != nil {
+        return Err[T](err)
+    }
+    return Ok(result)
+}
+
+// TryCatch wraps a function that returns (T, error)
+func TryCatch[T any](fn func() (T, error)) Result[T] {
+    value, err := fn()
+    if err != nil {
+        return Err[T](err)
+    }
+    return Ok(value)
+}
+
+// TryAsync wraps an async function
+func TryAsync[T any](ctx context.Context, fn func() (T, error)) Result[T] {
+    type resultPair struct {
+        value T
+        err   error
+    }
+    
+    ch := make(chan resultPair, 1)
+    go func() {
+        value, err := fn()
+        ch <- resultPair{value: value, err: err}
+    }()
+    
+    select {
+    case <-ctx.Done():
+        return Err[T](ctx.Err())
+    case pair := <-ch:
+        if pair.err != nil {
+            return Err[T](pair.err)
+        }
+        return Ok(pair.value)
+    }
 }
 
 // Usage
-const parseResult = tryCatch(() => JSON.parse(jsonString));
+parseResult := Try(func() map[string]any {
+    var data map[string]any
+    if err := json.Unmarshal([]byte(jsonString), &data); err != nil {
+        panic(err)
+    }
+    return data
+})
 
-const data = parseResult
-  .map((json) => json.data)
-  .unwrapOr({ default: true });
+data := parseResult.
+    Map(func(j map[string]any) map[string]any {
+        if val, ok := j["data"]; ok {
+            return val.(map[string]any)
+        }
+        return map[string]any{"default": true}
+    }).
+    UnwrapOr(map[string]any{"default": true})
+
+// Chaining with error handling
+result := TryCatch(func() (string, error) {
+    return readFile("config.json")
+}).
+    FlatMap(func(content string) Result[Config] {
+        return TryCatch(func() (Config, error) {
+            return parseConfig(content)
+        })
+    }).
+    FlatMap(func(cfg Config) Result[Config] {
+        return TryCatch(func() (Config, error) {
+            return validateConfig(cfg)
+        })
+    })
+
+if result.IsErr() {
+    log.Printf("Configuration error: %v", result.Error())
+} else {
+    config := result.Unwrap()
+    // Use config
+}
 ```
 
 **Quand :** Exceptions, parsing, I/O, operations risquées.
@@ -548,67 +719,119 @@ const data = parseResult
 
 > Container avec flatMap pour chaînage.
 
-```typescript
-interface Monad<T> {
-  map<U>(fn: (value: T) => U): Monad<U>;
-  flatMap<U>(fn: (value: T) => Monad<U>): Monad<U>;
+```go
+// Monad interface (not idiomatic Go, but shown for educational purposes)
+type Monad[T any] interface {
+    Map(fn func(T) T) Monad[T]
+    FlatMap(fn func(T) Monad[T]) Monad[T]
 }
 
-// Identity Monad
-class Identity<T> implements Monad<T> {
-  constructor(private readonly value: T) {}
-
-  static of<T>(value: T): Identity<T> {
-    return new Identity(value);
-  }
-
-  map<U>(fn: (value: T) => U): Identity<U> {
-    return new Identity(fn(this.value));
-  }
-
-  flatMap<U>(fn: (value: T) => Identity<U>): Identity<U> {
-    return fn(this.value);
-  }
-
-  get(): T {
-    return this.value;
-  }
+// Identity Monad - simple wrapper
+type Identity[T any] struct {
+    value T
 }
 
-// IO Monad - defer side effects
-class IO<T> {
-  constructor(private readonly effect: () => T) {}
-
-  static of<T>(value: T): IO<T> {
-    return new IO(() => value);
-  }
-
-  map<U>(fn: (value: T) => U): IO<U> {
-    return new IO(() => fn(this.effect()));
-  }
-
-  flatMap<U>(fn: (value: T) => IO<U>): IO<U> {
-    return new IO(() => fn(this.effect()).run());
-  }
-
-  run(): T {
-    return this.effect();
-  }
+func NewIdentity[T any](value T) Identity[T] {
+    return Identity[T]{value: value}
 }
 
-// Usage
-const readFile = (path: string): IO<string> =>
-  new IO(() => fs.readFileSync(path, 'utf-8'));
+func (i Identity[T]) Map(fn func(T) T) Identity[T] {
+    return Identity[T]{value: fn(i.value)}
+}
 
-const writeFile = (path: string, content: string): IO<void> =>
-  new IO(() => fs.writeFileSync(path, content));
+func (i Identity[T]) FlatMap(fn func(T) Identity[T]) Identity[T] {
+    return fn(i.value)
+}
 
-const program = readFile('input.txt')
-  .map((content) => content.toUpperCase())
-  .flatMap((content) => writeFile('output.txt', content));
+func (i Identity[T]) Get() T {
+    return i.value
+}
+
+// IO Monad - defer side effects (Go-idiomatic version using closures)
+type IO[T any] struct {
+    effect func() (T, error)
+}
+
+func NewIO[T any](effect func() (T, error)) IO[T] {
+    return IO[T]{effect: effect}
+}
+
+func (io IO[T]) Map(fn func(T) T) IO[T] {
+    return IO[T]{
+        effect: func() (T, error) {
+            value, err := io.effect()
+            if err != nil {
+                var zero T
+                return zero, err
+            }
+            return fn(value), nil
+        },
+    }
+}
+
+func (io IO[T]) FlatMap(fn func(T) IO[T]) IO[T] {
+    return IO[T]{
+        effect: func() (T, error) {
+            value, err := io.effect()
+            if err != nil {
+                var zero T
+                return zero, err
+            }
+            return fn(value).Run()
+        },
+    }
+}
+
+func (io IO[T]) Run() (T, error) {
+    return io.effect()
+}
+
+// Usage with defer pattern
+func ReadFile(path string) IO[string] {
+    return NewIO(func() (string, error) {
+        data, err := os.ReadFile(path)
+        if err != nil {
+            return "", err
+        }
+        return string(data), nil
+    })
+}
+
+func WriteFile(path string, content string) IO[struct{}] {
+    return NewIO(func() (struct{}, error) {
+        return struct{}{}, os.WriteFile(path, []byte(content), 0644)
+    })
+}
+
+// Compose IO operations
+program := ReadFile("input.txt").
+    Map(func(content string) string {
+        return strings.ToUpper(content)
+    }).
+    FlatMap(func(content string) IO[struct{}] {
+        return WriteFile("output.txt", content)
+    })
 
 // Nothing happens until:
-program.run();
+if _, err := program.Run(); err != nil {
+    log.Fatal(err)
+}
+
+// Go-idiomatic alternative: use context and closures
+type Effect func(context.Context) error
+
+func (e Effect) Then(next Effect) Effect {
+    return func(ctx context.Context) error {
+        if err := e(ctx); err != nil {
+            return err
+        }
+        return next(ctx)
+    }
+}
+
+func (e Effect) Run(ctx context.Context) error {
+    return e(ctx)
+}
 ```
 
 **Lois monadiques :**
@@ -626,63 +849,142 @@ program.run();
 
 > Injection de dépendances fonctionnelle.
 
-```typescript
-class Reader<E, A> {
-  constructor(readonly run: (env: E) => A) {}
-
-  static of<E, A>(value: A): Reader<E, A> {
-    return new Reader(() => value);
-  }
-
-  static ask<E>(): Reader<E, E> {
-    return new Reader((env) => env);
-  }
-
-  map<B>(fn: (a: A) => B): Reader<E, B> {
-    return new Reader((env) => fn(this.run(env)));
-  }
-
-  flatMap<B>(fn: (a: A) => Reader<E, B>): Reader<E, B> {
-    return new Reader((env) => fn(this.run(env)).run(env));
-  }
+```go
+// Reader represents a computation that depends on an environment
+type Reader[E, A any] struct {
+    run func(E) A
 }
 
-// Dependencies
-interface Env {
-  logger: { log: (msg: string) => void };
-  db: { query: (sql: string) => Promise<any[]> };
-  config: { apiUrl: string };
+// NewReader creates a Reader from a function
+func NewReader[E, A any](fn func(E) A) Reader[E, A] {
+    return Reader[E, A]{run: fn}
+}
+
+// Of creates a Reader that returns a constant value
+func Of[E, A any](value A) Reader[E, A] {
+    return Reader[E, A]{
+        run: func(_ E) A {
+            return value
+        },
+    }
+}
+
+// Ask returns a Reader that returns the environment
+func Ask[E any]() Reader[E, E] {
+    return Reader[E, E]{
+        run: func(env E) E {
+            return env
+        },
+    }
+}
+
+// Map transforms the result
+func (r Reader[E, A]) Map(fn func(A) A) Reader[E, A] {
+    return Reader[E, A]{
+        run: func(env E) A {
+            return fn(r.run(env))
+        },
+    }
+}
+
+// FlatMap chains computations
+func (r Reader[E, A]) FlatMap(fn func(A) Reader[E, A]) Reader[E, A] {
+    return Reader[E, A]{
+        run: func(env E) A {
+            a := r.run(env)
+            return fn(a).run(env)
+        },
+    }
+}
+
+// Run executes the Reader with an environment
+func (r Reader[E, A]) Run(env E) A {
+    return r.run(env)
+}
+
+// Example: Dependencies
+type Env struct {
+    Logger *slog.Logger
+    DB     *sql.DB
+    Config Config
+}
+
+type Config struct {
+    APIURL string
 }
 
 // Functions using Reader
-const logMessage = (msg: string): Reader<Env, void> =>
-  Reader.ask<Env>().map((env) => env.logger.log(msg));
+func LogMessage(msg string) Reader[Env, struct{}] {
+    return Ask[Env]().Map(func(env Env) struct{} {
+        env.Logger.Info(msg)
+        return struct{}{}
+    })
+}
 
-const getUsers = (): Reader<Env, Promise<User[]>> =>
-  Reader.ask<Env>().map((env) => env.db.query('SELECT * FROM users'));
+func GetUsers() Reader[Env, []User] {
+    return Ask[Env]().Map(func(env Env) []User {
+        rows, _ := env.DB.Query("SELECT * FROM users")
+        defer rows.Close()
+        
+        var users []User
+        for rows.Next() {
+            var u User
+            rows.Scan(&u.ID, &u.Name)
+            users = append(users, u)
+        }
+        return users
+    })
+}
 
-const fetchFromApi = (path: string): Reader<Env, Promise<Response>> =>
-  Reader.ask<Env>().map((env) => fetch(`${env.config.apiUrl}${path}`));
+func FetchFromAPI(path string) Reader[Env, *http.Response] {
+    return Ask[Env]().Map(func(env Env) *http.Response {
+        resp, _ := http.Get(env.Config.APIURL + path)
+        return resp
+    })
+}
 
 // Compose
-const program = logMessage('Starting')
-  .flatMap(() => getUsers())
-  .flatMap((usersPromise) =>
-    Reader.ask<Env>().map(async (env) => {
-      const users = await usersPromise;
-      env.logger.log(`Found ${users.length} users`);
-      return users;
-    }),
-  );
+program := LogMessage("Starting").FlatMap(func(_ struct{}) Reader[Env, []User] {
+    return GetUsers()
+}).FlatMap(func(users []User) Reader[Env, struct{}] {
+    return Ask[Env]().Map(func(env Env) struct{} {
+        env.Logger.Info(fmt.Sprintf("Found %d users", len(users)))
+        return struct{}{}
+    })
+})
 
 // Run with environment
-const env: Env = {
-  logger: console,
-  db: myDatabase,
-  config: { apiUrl: 'https://api.example.com' },
-};
+env := Env{
+    Logger: slog.Default(),
+    DB:     myDatabase,
+    Config: Config{APIURL: "https://api.example.com"},
+}
 
-program.run(env);
+program.Run(env)
+
+// Go-idiomatic alternative: use context for dependency injection
+type contextKey string
+
+const (
+    loggerKey contextKey = "logger"
+    dbKey     contextKey = "db"
+    configKey contextKey = "config"
+)
+
+func WithLogger(ctx context.Context, logger *slog.Logger) context.Context {
+    return context.WithValue(ctx, loggerKey, logger)
+}
+
+func GetLogger(ctx context.Context) *slog.Logger {
+    return ctx.Value(loggerKey).(*slog.Logger)
+}
+
+// Then use context throughout the application
+func ProcessRequest(ctx context.Context) error {
+    logger := GetLogger(ctx)
+    logger.Info("processing request")
+    return nil
+}
 ```
 
 **Quand :** Configuration, dependency injection, environnement.
@@ -694,78 +996,143 @@ program.run(env);
 
 > Gérer l'état de manière pure.
 
-```typescript
-class State<S, A> {
-  constructor(readonly runState: (state: S) => [A, S]) {}
+```go
+// State represents a stateful computation
+type State[S, A any] struct {
+    runState func(S) (A, S)
+}
 
-  static of<S, A>(value: A): State<S, A> {
-    return new State((state) => [value, state]);
-  }
+// NewState creates a State from a function
+func NewState[S, A any](fn func(S) (A, S)) State[S, A] {
+    return State[S, A]{runState: fn}
+}
 
-  static get<S>(): State<S, S> {
-    return new State((state) => [state, state]);
-  }
+// Of creates a State that returns a value without changing state
+func StateOf[S, A any](value A) State[S, A] {
+    return State[S, A]{
+        runState: func(state S) (A, S) {
+            return value, state
+        },
+    }
+}
 
-  static put<S>(newState: S): State<S, void> {
-    return new State(() => [undefined as any, newState]);
-  }
+// Get returns the current state as the value
+func GetState[S any]() State[S, S] {
+    return State[S, S]{
+        runState: func(state S) (S, S) {
+            return state, state
+        },
+    }
+}
 
-  static modify<S>(fn: (state: S) => S): State<S, void> {
-    return new State((state) => [undefined as any, fn(state)]);
-  }
+// Put replaces the state
+func PutState[S any](newState S) State[S, struct{}] {
+    return State[S, struct{}]{
+        runState: func(_ S) (struct{}, S) {
+            return struct{}{}, newState
+        },
+    }
+}
 
-  map<B>(fn: (a: A) => B): State<S, B> {
-    return new State((state) => {
-      const [a, newState] = this.runState(state);
-      return [fn(a), newState];
-    });
-  }
+// Modify transforms the state
+func ModifyState[S any](fn func(S) S) State[S, struct{}] {
+    return State[S, struct{}]{
+        runState: func(state S) (struct{}, S) {
+            return struct{}{}, fn(state)
+        },
+    }
+}
 
-  flatMap<B>(fn: (a: A) => State<S, B>): State<S, B> {
-    return new State((state) => {
-      const [a, newState] = this.runState(state);
-      return fn(a).runState(newState);
-    });
-  }
+// Map transforms the value
+func (s State[S, A]) Map(fn func(A) A) State[S, A] {
+    return State[S, A]{
+        runState: func(state S) (A, S) {
+            a, newState := s.runState(state)
+            return fn(a), newState
+        },
+    }
+}
 
-  run(initialState: S): [A, S] {
-    return this.runState(initialState);
-  }
+// FlatMap chains stateful computations
+func (s State[S, A]) FlatMap(fn func(A) State[S, A]) State[S, A] {
+    return State[S, A]{
+        runState: func(state S) (A, S) {
+            a, newState := s.runState(state)
+            return fn(a).runState(newState)
+        },
+    }
+}
 
-  eval(initialState: S): A {
-    return this.run(initialState)[0];
-  }
+// Run executes the stateful computation
+func (s State[S, A]) Run(initialState S) (A, S) {
+    return s.runState(initialState)
+}
 
-  exec(initialState: S): S {
-    return this.run(initialState)[1];
-  }
+// Eval returns only the value
+func (s State[S, A]) Eval(initialState S) A {
+    value, _ := s.Run(initialState)
+    return value
+}
+
+// Exec returns only the final state
+func (s State[S, A]) Exec(initialState S) S {
+    _, state := s.Run(initialState)
+    return state
 }
 
 // Example: Counter
-interface CounterState {
-  count: number;
-  log: string[];
+type CounterState struct {
+    Count int
+    Log   []string
 }
 
-const increment = (): State<CounterState, number> =>
-  State.get<CounterState>().flatMap((state) =>
-    State.put({ ...state, count: state.count + 1 }).map(() => state.count + 1),
-  );
+func Increment() State[CounterState, int] {
+    return GetState[CounterState]().FlatMap(func(state CounterState) State[CounterState, int] {
+        newCount := state.Count + 1
+        return PutState(CounterState{
+            Count: newCount,
+            Log:   state.Log,
+        }).Map(func(_ struct{}) int {
+            return newCount
+        })
+    })
+}
 
-const log = (msg: string): State<CounterState, void> =>
-  State.modify<CounterState>((state) => ({
-    ...state,
-    log: [...state.log, msg],
-  }));
+func Log(msg string) State[CounterState, struct{}] {
+    return ModifyState(func(state CounterState) CounterState {
+        return CounterState{
+            Count: state.Count,
+            Log:   append(state.Log, msg),
+        }
+    })
+}
 
-const program = log('Starting')
-  .flatMap(() => increment())
-  .flatMap((n) => log(`Count is ${n}`))
-  .flatMap(() => increment())
-  .flatMap((n) => log(`Count is ${n}`));
+program := Log("Starting").
+    FlatMap(func(_ struct{}) State[CounterState, int] {
+        return Increment()
+    }).
+    FlatMap(func(n int) State[CounterState, struct{}] {
+        return Log(fmt.Sprintf("Count is %d", n))
+    }).
+    FlatMap(func(_ struct{}) State[CounterState, int] {
+        return Increment()
+    }).
+    FlatMap(func(n int) State[CounterState, struct{}] {
+        return Log(fmt.Sprintf("Count is %d", n))
+    })
 
-const [result, finalState] = program.run({ count: 0, log: [] });
-// finalState = { count: 2, log: ['Starting', 'Count is 1', 'Count is 2'] }
+_, finalState := program.Run(CounterState{Count: 0, Log: []string{}})
+// finalState = CounterState{Count: 2, Log: []string{"Starting", "Count is 1", "Count is 2"}}
+
+// Go-idiomatic alternative: pass state explicitly
+type StateTransform[S, A any] func(S) (A, S)
+
+func Chain[S, A, B any](f StateTransform[S, A], g func(A) StateTransform[S, B]) StateTransform[S, B] {
+    return func(state S) (B, S) {
+        a, newState := f(state)
+        return g(a)(newState)
+    }
+}
 ```
 
 **Quand :** État dans contexte pur, simulations, parsers.
@@ -779,64 +1146,103 @@ const [result, finalState] = program.run({ count: 0, log: [] });
 
 > Accès et modification immutable de structures imbriquées.
 
-```typescript
-interface Lens<S, A> {
-  get: (s: S) => A;
-  set: (a: A) => (s: S) => S;
+```go
+// Lens provides functional access to nested immutable data
+type Lens[S, A any] struct {
+    Get func(S) A
+    Set func(A) func(S) S
 }
 
-const lens = <S, A>(
-  get: (s: S) => A,
-  set: (a: A) => (s: S) => S,
-): Lens<S, A> => ({
-  get,
-  set,
-});
+// NewLens creates a new Lens
+func NewLens[S, A any](get func(S) A, set func(A) func(S) S) Lens[S, A] {
+    return Lens[S, A]{
+        Get: get,
+        Set: set,
+    }
+}
 
-// Compose lenses
-const compose = <S, A, B>(outer: Lens<S, A>, inner: Lens<A, B>): Lens<S, B> =>
-  lens(
-    (s) => inner.get(outer.get(s)),
-    (b) => (s) => outer.set(inner.set(b)(outer.get(s)))(s),
-  );
+// Compose combines two lenses
+func ComposeLens[S, A, B any](outer Lens[S, A], inner Lens[A, B]) Lens[S, B] {
+    return Lens[S, B]{
+        Get: func(s S) B {
+            return inner.Get(outer.Get(s))
+        },
+        Set: func(b B) func(S) S {
+            return func(s S) S {
+                return outer.Set(inner.Set(b)(outer.Get(s)))(s)
+            }
+        },
+    }
+}
 
-// Modify through lens
-const over = <S, A>(l: Lens<S, A>, fn: (a: A) => A) => (s: S): S =>
-  l.set(fn(l.get(s)))(s);
+// Over modifies a value through a lens
+func Over[S, A any](l Lens[S, A], fn func(A) A) func(S) S {
+    return func(s S) S {
+        return l.Set(fn(l.Get(s)))(s)
+    }
+}
 
 // Example
-interface Address {
-  street: string;
-  city: string;
+type Address struct {
+    Street string
+    City   string
 }
 
-interface Person {
-  name: string;
-  address: Address;
+type Person struct {
+    Name    string
+    Address Address
 }
 
-const addressLens: Lens<Person, Address> = lens(
-  (p) => p.address,
-  (a) => (p) => ({ ...p, address: a }),
-);
+var AddressLens = NewLens(
+    func(p Person) Address { return p.Address },
+    func(a Address) func(Person) Person {
+        return func(p Person) Person {
+            return Person{Name: p.Name, Address: a}
+        }
+    },
+)
 
-const cityLens: Lens<Address, string> = lens(
-  (a) => a.city,
-  (c) => (a) => ({ ...a, city: c }),
-);
+var CityLens = NewLens(
+    func(a Address) string { return a.City },
+    func(c string) func(Address) Address {
+        return func(a Address) Address {
+            return Address{Street: a.Street, City: c}
+        }
+    },
+)
 
-const personCityLens = compose(addressLens, cityLens);
+var PersonCityLens = ComposeLens(AddressLens, CityLens)
 
-const person: Person = {
-  name: 'John',
-  address: { street: '123 Main', city: 'Paris' },
-};
+person := Person{
+    Name:    "John",
+    Address: Address{Street: "123 Main", City: "Paris"},
+}
 
-const newPerson = personCityLens.set('London')(person);
-// { name: 'John', address: { street: '123 Main', city: 'London' } }
+newPerson := PersonCityLens.Set("London")(person)
+// Person{Name: "John", Address: Address{Street: "123 Main", City: "London"}}
+
+// Update using Over
+upperCity := Over(PersonCityLens, strings.ToUpper)
+shoutingPerson := upperCity(person)
+// Person{Name: "John", Address: Address{Street: "123 Main", City: "PARIS"}}
+
+// Go-idiomatic alternative: use functional update methods
+func (p Person) WithCity(city string) Person {
+    return Person{
+        Name: p.Name,
+        Address: Address{
+            Street: p.Address.Street,
+            City:   city,
+        },
+    }
+}
+
+func (p Person) UpdateCity(fn func(string) string) Person {
+    return p.WithCity(fn(p.Address.City))
+}
 ```
 
-**Quand :** Immutabilité profonde, Redux, état complexe.
+**Quand :** Immutabilité profonde, état complexe, updates fonctionnels.
 **Lié à :** Immutability.
 
 ---
@@ -845,36 +1251,94 @@ const newPerson = personCityLens.set('London')(person);
 
 > Container qui supporte map.
 
-```typescript
-interface Functor<T> {
-  map<U>(fn: (value: T) => U): Functor<U>;
+```go
+// Functor interface
+type Functor[T any] interface {
+    Map(fn func(T) T) Functor[T]
 }
 
-// Array is a functor
-[1, 2, 3].map((x) => x * 2); // [2, 4, 6]
+// Slice is a functor
+func MapSlice[T any](slice []T, fn func(T) T) []T {
+    result := make([]T, len(slice))
+    for i, v := range slice {
+        result[i] = fn(v)
+    }
+    return result
+}
 
-// Promise is a functor
-Promise.resolve(5).then((x) => x * 2); // Promise<10>
+// Example: MapSlice([]int{1, 2, 3}, func(x int) int { return x * 2 }) // [2, 4, 6]
 
-// Custom functor
-class Box<T> implements Functor<T> {
-  constructor(private readonly value: T) {}
+// Context with value is a functor (conceptually)
+type ContextValue[T any] struct {
+    ctx   context.Context
+    value T
+}
 
-  map<U>(fn: (value: T) => U): Box<U> {
-    return new Box(fn(this.value));
-  }
+func (cv ContextValue[T]) Map(fn func(T) T) ContextValue[T] {
+    return ContextValue[T]{
+        ctx:   cv.ctx,
+        value: fn(cv.value),
+    }
+}
 
-  fold<U>(fn: (value: T) => U): U {
-    return fn(this.value);
-  }
+// Channel is a functor
+func MapChannel[T any](ctx context.Context, input <-chan T, fn func(T) T) <-chan T {
+    output := make(chan T)
+    go func() {
+        defer close(output)
+        for {
+            select {
+            case <-ctx.Done():
+                return
+            case v, ok := <-input:
+                if !ok {
+                    return
+                }
+                select {
+                case output <- fn(v):
+                case <-ctx.Done():
+                    return
+                }
+            }
+        }
+    }()
+    return output
+}
+
+// Box functor
+type Box[T any] struct {
+    value T
+}
+
+func NewBox[T any](value T) Box[T] {
+    return Box[T]{value: value}
+}
+
+func (b Box[T]) Map(fn func(T) T) Box[T] {
+    return Box[T]{value: fn(b.value)}
+}
+
+func (b Box[T]) Fold(fn func(T) any) any {
+    return fn(b.value)
 }
 
 // Usage
-const result = new Box(5)
-  .map((x) => x * 2)
-  .map((x) => x + 1)
-  .fold((x) => `Result: ${x}`);
+result := NewBox(5).
+    Map(func(x int) int { return x * 2 }).
+    Map(func(x int) int { return x + 1 }).
+    Fold(func(x int) any { return fmt.Sprintf("Result: %d", x) })
 // "Result: 11"
+
+// Generic functor with Go 1.23+ iter
+func MapIter[T any](seq iter.Seq[T], fn func(T) T) iter.Seq[T] {
+    return func(yield func(T) bool) {
+        for v := range seq {
+            if !yield(fn(v)) {
+                return
+            }
+        }
+    }
+}
 ```
 
 **Lois :**
@@ -891,55 +1355,132 @@ const result = new Box(5)
 
 > Functor avec application dans contexte.
 
-```typescript
-interface Applicative<T> extends Functor<T> {
-  ap<U>(fn: Applicative<(value: T) => U>): Applicative<U>;
+```go
+// Applicative extends Functor with the ability to apply wrapped functions
+type Applicative[T any] interface {
+    Map(fn func(T) T) Applicative[T]
+    Apply(fn Applicative[func(T) T]) Applicative[T]
 }
 
-// Option as Applicative
-class Some<T> implements Applicative<T> {
-  constructor(readonly value: T) {}
+// ApplicativeOption implements Applicative for Option
+type ApplicativeOption[T any] struct {
+    value Option[T]
+}
 
-  map<U>(fn: (value: T) => U): Some<U> {
-    return new Some(fn(this.value));
-  }
+func NewApplicativeOption[T any](opt Option[T]) ApplicativeOption[T] {
+    return ApplicativeOption[T]{value: opt}
+}
 
-  ap<U>(fn: Applicative<(value: T) => U>): Applicative<U> {
-    if (fn instanceof Some) {
-      return new Some(fn.value(this.value));
+func ApplicativeOf[T any](value T) ApplicativeOption[T] {
+    return ApplicativeOption[T]{value: NewSome(value)}
+}
+
+func (a ApplicativeOption[T]) Map(fn func(T) T) ApplicativeOption[T] {
+    return ApplicativeOption[T]{value: a.value.Map(fn)}
+}
+
+func (a ApplicativeOption[T]) Apply(fn ApplicativeOption[func(T) T]) ApplicativeOption[T] {
+    if fn.value.IsNone() || a.value.IsNone() {
+        return ApplicativeOption[T]{value: None[T]()}
     }
-    return none;
-  }
-
-  static of<T>(value: T): Some<T> {
-    return new Some(value);
-  }
+    
+    f := fn.value.Unwrap()
+    return ApplicativeOption[T]{value: NewSome(f(a.value.Unwrap()))}
 }
 
-// Lift function to work with Applicatives
-function liftA2<A, B, C>(
-  fn: (a: A) => (b: B) => C,
-  fa: Applicative<A>,
-  fb: Applicative<B>,
-): Applicative<C> {
-  return fb.ap(fa.map(fn));
+// LiftA2 lifts a binary function to work with Applicatives
+func LiftA2[A, B, C any](
+    fn func(A) func(B) C,
+    fa ApplicativeOption[A],
+    fb ApplicativeOption[B],
+) ApplicativeOption[C] {
+    // fa.Map(fn) gives ApplicativeOption[func(B) C]
+    // We need to apply this to fb
+    mapped := fa.Map(func(a A) func(B) C {
+        return fn(a)
+    })
+    
+    // Convert to applicative function
+    if mapped.value.IsNone() {
+        return ApplicativeOption[C]{value: None[C]()}
+    }
+    
+    fnWrapped := mapped.value.Unwrap()
+    if fb.value.IsNone() {
+        return ApplicativeOption[C]{value: None[C]()}
+    }
+    
+    return ApplicativeOption[C]{value: NewSome(fnWrapped(fb.value.Unwrap()))}
 }
 
 // Usage - combine two Options
-const add = (a: number) => (b: number) => a + b;
+add := func(a int) func(int) int {
+    return func(b int) int {
+        return a + b
+    }
+}
 
-const result = liftA2(
-  add,
-  Some.of(5),
-  Some.of(3),
-); // Some(8)
+result := LiftA2(
+    add,
+    ApplicativeOf(5),
+    ApplicativeOf(3),
+) // Some(8)
 
-// Validation with multiple errors
-const validateForm = liftA2(
-  (name: string) => (email: string) => ({ name, email }),
-  validateName(form.name),
-  validateEmail(form.email),
-);
+// Validation with multiple errors (using Either)
+type ValidationResult[T any] struct {
+    value  T
+    errors []string
+}
+
+func ValidateForm(name, email string) ValidationResult[ValidUser] {
+    var errors []string
+    var user ValidUser
+    
+    if len(name) < 3 {
+        errors = append(errors, "name too short")
+    } else {
+        user.Name = name
+    }
+    
+    if !strings.Contains(email, "@") {
+        errors = append(errors, "invalid email")
+    } else {
+        user.Email = email
+    }
+    
+    return ValidationResult[ValidUser]{
+        value:  user,
+        errors: errors,
+    }
+}
+
+// Go-idiomatic alternative: use errgroup for concurrent validation
+func ValidateFormConcurrent(ctx context.Context, name, email string) (*ValidUser, error) {
+    var g errgroup.Group
+    var nameErr, emailErr error
+    
+    g.Go(func() error {
+        if len(name) < 3 {
+            nameErr = errors.New("name too short")
+        }
+        return nil
+    })
+    
+    g.Go(func() error {
+        if !strings.Contains(email, "@") {
+            emailErr = errors.New("invalid email")
+        }
+        return nil
+    })
+    
+    g.Wait()
+    
+    if nameErr != nil || emailErr != nil {
+        return nil, errors.Join(nameErr, emailErr)
+    }
+    
+    return &ValidUser{Name: name, Email: email}, nil
+}
 ```
 
 **Quand :** Combiner plusieurs contextes, validation parallèle.
@@ -951,63 +1492,174 @@ const validateForm = liftA2(
 
 > Composition de transformations réutilisables.
 
-```typescript
-type Reducer<A, B> = (acc: A, value: B) => A;
-type Transducer<A, B> = <R>(reducer: Reducer<R, B>) => Reducer<R, A>;
+```go
+// Reducer combines an accumulator with a value
+type Reducer[A, B any] func(acc A, value B) A
 
-// Basic transducers
-const map =
-  <A, B>(fn: (a: A) => B): Transducer<A, B> =>
-  <R>(reducer: Reducer<R, B>): Reducer<R, A> =>
-    (acc, value) => reducer(acc, fn(value));
+// Transducer transforms one reducer into another
+type Transducer[A, B any] func(Reducer[any, B]) Reducer[any, A]
 
-const filter =
-  <A>(predicate: (a: A) => boolean): Transducer<A, A> =>
-  <R>(reducer: Reducer<R, A>): Reducer<R, A> =>
-    (acc, value) => (predicate(value) ? reducer(acc, value) : acc);
+// Map creates a mapping transducer
+func MapTransducer[A, B any](fn func(A) B) Transducer[A, B] {
+    return func(reducer Reducer[any, B]) Reducer[any, A] {
+        return func(acc any, value A) any {
+            return reducer(acc, fn(value))
+        }
+    }
+}
 
-const take =
-  <A>(n: number): Transducer<A, A> =>
-  <R>(reducer: Reducer<R, A>): Reducer<R, A> => {
-    let taken = 0;
-    return (acc, value) => {
-      if (taken < n) {
-        taken++;
-        return reducer(acc, value);
-      }
-      return acc;
-    };
-  };
+// Filter creates a filtering transducer
+func FilterTransducer[A any](predicate func(A) bool) Transducer[A, A] {
+    return func(reducer Reducer[any, A]) Reducer[any, A] {
+        return func(acc any, value A) any {
+            if predicate(value) {
+                return reducer(acc, value)
+            }
+            return acc
+        }
+    }
+}
 
-// Compose transducers
-const compose = <A, B, C>(t1: Transducer<A, B>, t2: Transducer<B, C>): Transducer<A, C> =>
-  <R>(reducer: Reducer<R, C>) => t1(t2(reducer));
+// Take creates a transducer that takes n elements
+func TakeTransducer[A any](n int) Transducer[A, A] {
+    return func(reducer Reducer[any, A]) Reducer[any, A] {
+        taken := 0
+        return func(acc any, value A) any {
+            if taken < n {
+                taken++
+                return reducer(acc, value)
+            }
+            return acc
+        }
+    }
+}
+
+// ComposeTransducers composes two transducers
+func ComposeTransducers[A, B, C any](t1 Transducer[A, B], t2 Transducer[B, C]) Transducer[A, C] {
+    return func(reducer Reducer[any, C]) Reducer[any, A] {
+        return t1(t2(reducer))
+    }
+}
+
+// Transduce applies a transducer to a collection
+func Transduce[A, B any](
+    transducer Transducer[A, B],
+    reducer Reducer[[]B, B],
+    initial []B,
+    collection []A,
+) []B {
+    xf := transducer(func(acc any, value B) any {
+        slice := acc.([]B)
+        return append(slice, value)
+    })
+    
+    var acc any = initial
+    for _, item := range collection {
+        acc = xf(acc, item)
+    }
+    return acc.([]B)
+}
 
 // Usage
-const transducer = compose(
-  filter((x: number) => x % 2 === 0),
-  map((x: number) => x * 2),
-);
+transducer := ComposeTransducers(
+    FilterTransducer(func(x int) bool { return x%2 == 0 }),
+    MapTransducer(func(x int) int { return x * 2 }),
+)
 
-const result = [1, 2, 3, 4, 5].reduce(
-  transducer((acc: number[], x) => [...acc, x]),
-  [],
-);
+result := Transduce(
+    transducer,
+    func(acc []int, x int) []int { return append(acc, x) },
+    []int{},
+    []int{1, 2, 3, 4, 5},
+)
 // [4, 8]
 
-// Works with any collection/stream
-function transduce<A, B, R>(
-  transducer: Transducer<A, B>,
-  reducer: Reducer<R, B>,
-  initial: R,
-  collection: Iterable<A>,
-): R {
-  const xf = transducer(reducer);
-  let acc = initial;
-  for (const item of collection) {
-    acc = xf(acc, item);
-  }
-  return acc;
+// Go-idiomatic alternative: use channel pipelines
+func MapChan[T, U any](ctx context.Context, in <-chan T, fn func(T) U) <-chan U {
+    out := make(chan U)
+    go func() {
+        defer close(out)
+        for v := range in {
+            select {
+            case out <- fn(v):
+            case <-ctx.Done():
+                return
+            }
+        }
+    }()
+    return out
+}
+
+func FilterChan[T any](ctx context.Context, in <-chan T, predicate func(T) bool) <-chan T {
+    out := make(chan T)
+    go func() {
+        defer close(out)
+        for v := range in {
+            if predicate(v) {
+                select {
+                case out <- v:
+                case <-ctx.Done():
+                    return
+                }
+            }
+        }
+    }()
+    return out
+}
+
+func TakeChan[T any](ctx context.Context, in <-chan T, n int) <-chan T {
+    out := make(chan T)
+    go func() {
+        defer close(out)
+        count := 0
+        for v := range in {
+            if count >= n {
+                return
+            }
+            select {
+            case out <- v:
+                count++
+            case <-ctx.Done():
+                return
+            }
+        }
+    }()
+    return out
+}
+
+// Pipeline composition
+ctx := context.Background()
+input := make(chan int)
+
+pipeline := TakeChan(ctx,
+    MapChan(ctx,
+        FilterChan(ctx, input, func(x int) bool { return x%2 == 0 }),
+        func(x int) int { return x * 2 },
+    ),
+    10,
+)
+
+// Using Go 1.23+ iter for lazy evaluation
+func MapSeq[T, U any](seq iter.Seq[T], fn func(T) U) iter.Seq[U] {
+    return func(yield func(U) bool) {
+        for v := range seq {
+            if !yield(fn(v)) {
+                return
+            }
+        }
+    }
+}
+
+func FilterSeq[T any](seq iter.Seq[T], predicate func(T) bool) iter.Seq[T] {
+    return func(yield func(T) bool) {
+        for v := range seq {
+            if predicate(v) {
+                if !yield(v) {
+                    return
+                }
+            }
+        }
+    }
 }
 ```
 
@@ -1023,13 +1675,13 @@ function transduce<A, B, R>(
 | Éviter null | Option/Maybe |
 | Succès ou erreur | Either/Result |
 | Chaîner contextes | Monad |
-| Dependency injection | Reader |
+| Dependency injection | Reader, Context |
 | État pur | State |
 | Modification imbriquée | Lens |
 | Transformer dans contexte | Functor |
 | Combiner contextes | Applicative |
-| Pipelines efficaces | Transducer |
-| Configuration partielle | Currying |
+| Pipelines efficaces | Transducer, Channels |
+| Configuration partielle | Currying, Functional Options |
 | Combiner fonctions | Composition |
 
 ## Sources
@@ -1037,3 +1689,5 @@ function transduce<A, B, R>(
 - [Professor Frisby's Guide to FP](https://mostly-adequate.gitbook.io/mostly-adequate-guide/)
 - [Functional Programming in TypeScript](https://github.com/gcanti/fp-ts)
 - [Learn You a Haskell](http://learnyouahaskell.com/)
+- Go Generics (1.18+)
+- Go iter package (1.23+)

@@ -9,412 +9,598 @@ changement d'etat de l'objet qu'ils observent.
 
 ## Structure classique
 
-```typescript
-// 1. Interface Observer
-interface Observer<T> {
-  update(data: T): void;
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+// Observer is notified of changes.
+type Observer[T any] interface {
+	Update(data T)
 }
 
-// 2. Interface Subject
-interface Subject<T> {
-  subscribe(observer: Observer<T>): void;
-  unsubscribe(observer: Observer<T>): void;
-  notify(data: T): void;
+// Subject manages observers and notifies them.
+type Subject[T any] interface {
+	Subscribe(observer Observer[T])
+	Unsubscribe(observer Observer[T])
+	Notify(data T)
 }
 
-// 3. Concrete Subject
-class EventEmitter<T> implements Subject<T> {
-  private observers: Set<Observer<T>> = new Set();
-
-  subscribe(observer: Observer<T>): void {
-    this.observers.add(observer);
-  }
-
-  unsubscribe(observer: Observer<T>): void {
-    this.observers.delete(observer);
-  }
-
-  notify(data: T): void {
-    this.observers.forEach(observer => observer.update(data));
-  }
+// EventEmitter is a basic subject implementation.
+type EventEmitter[T any] struct {
+	mu        sync.RWMutex
+	observers map[Observer[T]]struct{}
 }
 
-// 4. Concrete Observer
-class PriceDisplay implements Observer<number> {
-  constructor(private name: string) {}
-
-  update(price: number): void {
-    console.log(`${this.name}: Price updated to $${price}`);
-  }
+// NewEventEmitter creates a new event emitter.
+func NewEventEmitter[T any]() *EventEmitter[T] {
+	return &EventEmitter[T]{
+		observers: make(map[Observer[T]]struct{}),
+	}
 }
 
-// 5. Observable avec etat
-class Stock extends EventEmitter<number> {
-  private _price: number = 0;
+// Subscribe adds an observer.
+func (e *EventEmitter[T]) Subscribe(observer Observer[T]) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.observers[observer] = struct{}{}
+}
 
-  get price(): number {
-    return this._price;
-  }
+// Unsubscribe removes an observer.
+func (e *EventEmitter[T]) Unsubscribe(observer Observer[T]) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	delete(e.observers, observer)
+}
 
-  set price(value: number) {
-    this._price = value;
-    this.notify(value);
-  }
+// Notify sends data to all observers.
+func (e *EventEmitter[T]) Notify(data T) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	for observer := range e.observers {
+		observer.Update(data)
+	}
+}
+
+// PriceDisplay observes price changes.
+type PriceDisplay struct {
+	name string
+}
+
+// NewPriceDisplay creates a new price display.
+func NewPriceDisplay(name string) *PriceDisplay {
+	return &PriceDisplay{name: name}
+}
+
+// Update handles price updates.
+func (p *PriceDisplay) Update(price float64) {
+	fmt.Printf("%s: Price updated to $%.2f\n", p.name, price)
+}
+
+// Stock is an observable with state.
+type Stock struct {
+	*EventEmitter[float64]
+	price float64
+}
+
+// NewStock creates a new stock.
+func NewStock() *Stock {
+	return &Stock{
+		EventEmitter: NewEventEmitter[float64](),
+	}
+}
+
+// Price returns the current price.
+func (s *Stock) Price() float64 {
+	return s.price
+}
+
+// SetPrice updates the price and notifies observers.
+func (s *Stock) SetPrice(value float64) {
+	s.price = value
+	s.Notify(value)
 }
 
 // Usage
-const apple = new Stock();
-const display1 = new PriceDisplay('Terminal 1');
-const display2 = new PriceDisplay('Terminal 2');
+func classicExample() {
+	apple := NewStock()
+	display1 := NewPriceDisplay("Terminal 1")
+	display2 := NewPriceDisplay("Terminal 2")
 
-apple.subscribe(display1);
-apple.subscribe(display2);
-apple.price = 150; // Les deux displays sont notifies
+	apple.Subscribe(display1)
+	apple.Subscribe(display2)
+	apple.SetPrice(150) // Les deux displays sont notifies
+}
 ```
 
-## Event Emitter moderne (TypeScript)
+## Event Emitter moderne (type-safe)
 
-```typescript
-type EventMap = Record<string, unknown>;
-type EventCallback<T> = (data: T) => void;
+```go
+// EventCallback is a typed event callback.
+type EventCallback[T any] func(data T)
 
-class TypedEventEmitter<Events extends EventMap> {
-  private listeners = new Map<keyof Events, Set<EventCallback<unknown>>>();
-
-  on<K extends keyof Events>(
-    event: K,
-    callback: EventCallback<Events[K]>,
-  ): () => void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
-    }
-    this.listeners.get(event)!.add(callback as EventCallback<unknown>);
-
-    // Retourne fonction de desinscription
-    return () => this.off(event, callback);
-  }
-
-  off<K extends keyof Events>(
-    event: K,
-    callback: EventCallback<Events[K]>,
-  ): void {
-    this.listeners.get(event)?.delete(callback as EventCallback<unknown>);
-  }
-
-  emit<K extends keyof Events>(event: K, data: Events[K]): void {
-    this.listeners.get(event)?.forEach(callback => callback(data));
-  }
-
-  once<K extends keyof Events>(
-    event: K,
-    callback: EventCallback<Events[K]>,
-  ): () => void {
-    const wrapper: EventCallback<Events[K]> = data => {
-      this.off(event, wrapper);
-      callback(data);
-    };
-    return this.on(event, wrapper);
-  }
+// TypedEventEmitter manages typed events.
+type TypedEventEmitter[K comparable, V any] struct {
+	mu        sync.RWMutex
+	listeners map[K][]EventCallback[V]
 }
 
-// Usage avec types
-interface UserEvents {
-  login: { userId: string; timestamp: Date };
-  logout: { userId: string };
-  'profile:update': { userId: string; changes: Partial<User> };
+// NewTypedEventEmitter creates a new typed event emitter.
+func NewTypedEventEmitter[K comparable, V any]() *TypedEventEmitter[K, V] {
+	return &TypedEventEmitter[K, V]{
+		listeners: make(map[K][]EventCallback[V]),
+	}
 }
 
-const userEvents = new TypedEventEmitter<UserEvents>();
+// On registers an event listener and returns an unsubscribe function.
+func (e *TypedEventEmitter[K, V]) On(event K, callback EventCallback[V]) func() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 
-// TypeScript verifie les types
-userEvents.on('login', ({ userId, timestamp }) => {
-  console.log(`User ${userId} logged in at ${timestamp}`);
-});
+	e.listeners[event] = append(e.listeners[event], callback)
 
-userEvents.emit('login', {
-  userId: '123',
-  timestamp: new Date(),
-});
+	// Return unsubscribe function
+	return func() {
+		e.Off(event, callback)
+	}
+}
+
+// Off removes an event listener.
+func (e *TypedEventEmitter[K, V]) Off(event K, callback EventCallback[V]) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	callbacks := e.listeners[event]
+	for i, cb := range callbacks {
+		// Note: Function comparison in Go is limited
+		// This is a simplified version
+		if &cb == &callback {
+			e.listeners[event] = append(callbacks[:i], callbacks[i+1:]...)
+			break
+		}
+	}
+}
+
+// Emit triggers all listeners for an event.
+func (e *TypedEventEmitter[K, V]) Emit(event K, data V) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	for _, callback := range e.listeners[event] {
+		callback(data)
+	}
+}
+
+// Once registers a one-time listener.
+func (e *TypedEventEmitter[K, V]) Once(event K, callback EventCallback[V]) func() {
+	var unsubscribe func()
+	wrapper := func(data V) {
+		unsubscribe()
+		callback(data)
+	}
+	unsubscribe = e.On(event, wrapper)
+	return unsubscribe
+}
+
+// Usage with types
+type UserLoginData struct {
+	UserID    string
+	Timestamp string
+}
+
+type UserLogoutData struct {
+	UserID string
+}
+
+func typedExample() {
+	userEvents := NewTypedEventEmitter[string, interface{}]()
+
+	userEvents.On("login", func(data interface{}) {
+		if loginData, ok := data.(UserLoginData); ok {
+			fmt.Printf("User %s logged in at %s\n", loginData.UserID, loginData.Timestamp)
+		}
+	})
+
+	userEvents.Emit("login", UserLoginData{
+		UserID:    "123",
+		Timestamp: "2025-01-11T10:00:00Z",
+	})
+}
 ```
 
 ## Observable (RxJS-like)
 
-```typescript
-type Subscriber<T> = {
-  next: (value: T) => void;
-  error?: (err: Error) => void;
-  complete?: () => void;
-};
+```go
+import "context"
 
-type Unsubscribe = () => void;
-
-class Observable<T> {
-  constructor(
-    private producer: (subscriber: Subscriber<T>) => Unsubscribe | void,
-  ) {}
-
-  subscribe(subscriber: Subscriber<T>): Unsubscribe {
-    const cleanup = this.producer(subscriber);
-    return cleanup ?? (() => {});
-  }
-
-  // Operateurs
-  map<R>(fn: (value: T) => R): Observable<R> {
-    return new Observable(subscriber => {
-      return this.subscribe({
-        next: value => subscriber.next(fn(value)),
-        error: subscriber.error,
-        complete: subscriber.complete,
-      });
-    });
-  }
-
-  filter(predicate: (value: T) => boolean): Observable<T> {
-    return new Observable(subscriber => {
-      return this.subscribe({
-        next: value => {
-          if (predicate(value)) subscriber.next(value);
-        },
-        error: subscriber.error,
-        complete: subscriber.complete,
-      });
-    });
-  }
-
-  debounce(ms: number): Observable<T> {
-    return new Observable(subscriber => {
-      let timeoutId: NodeJS.Timeout;
-
-      const unsubscribe = this.subscribe({
-        next: value => {
-          clearTimeout(timeoutId);
-          timeoutId = setTimeout(() => subscriber.next(value), ms);
-        },
-        error: subscriber.error,
-        complete: subscriber.complete,
-      });
-
-      return () => {
-        clearTimeout(timeoutId);
-        unsubscribe();
-      };
-    });
-  }
+// Subscriber handles observable values.
+type Subscriber[T any] struct {
+	Next     func(value T)
+	Error    func(err error)
+	Complete func()
 }
 
-// Factory functions
-function fromEvent<T>(
-  element: EventTarget,
-  eventName: string,
-): Observable<T> {
-  return new Observable(subscriber => {
-    const handler = (event: Event) => subscriber.next(event as unknown as T);
-    element.addEventListener(eventName, handler);
-    return () => element.removeEventListener(eventName, handler);
-  });
+// Unsubscribe is a function to cancel a subscription.
+type Unsubscribe func()
+
+// Observable represents a stream of values.
+type Observable[T any] struct {
+	producer func(subscriber *Subscriber[T]) Unsubscribe
 }
 
-function interval(ms: number): Observable<number> {
-  return new Observable(subscriber => {
-    let count = 0;
-    const id = setInterval(() => subscriber.next(count++), ms);
-    return () => clearInterval(id);
-  });
+// NewObservable creates a new observable.
+func NewObservable[T any](producer func(*Subscriber[T]) Unsubscribe) *Observable[T] {
+	return &Observable[T]{producer: producer}
 }
 
-// Usage
-const clicks = fromEvent<MouseEvent>(document, 'click')
-  .map(e => ({ x: e.clientX, y: e.clientY }))
-  .filter(pos => pos.x > 100)
-  .debounce(300);
+// Subscribe subscribes to the observable.
+func (o *Observable[T]) Subscribe(subscriber *Subscriber[T]) Unsubscribe {
+	if cleanup := o.producer(subscriber); cleanup != nil {
+		return cleanup
+	}
+	return func() {}
+}
 
-const unsubscribe = clicks.subscribe({
-  next: pos => console.log(`Clicked at ${pos.x}, ${pos.y}`),
-});
+// Map transforms values.
+func (o *Observable[T]) Map[R any](fn func(T) R) *Observable[R] {
+	return NewObservable(func(subscriber *Subscriber[R]) Unsubscribe {
+		return o.Subscribe(&Subscriber[T]{
+			Next: func(value T) {
+				subscriber.Next(fn(value))
+			},
+			Error:    subscriber.Error,
+			Complete: subscriber.Complete,
+		})
+	})
+}
+
+// Filter filters values.
+func (o *Observable[T]) Filter(predicate func(T) bool) *Observable[T] {
+	return NewObservable(func(subscriber *Subscriber[T]) Unsubscribe {
+		return o.Subscribe(&Subscriber[T]{
+			Next: func(value T) {
+				if predicate(value) {
+					subscriber.Next(value)
+				}
+			},
+			Error:    subscriber.Error,
+			Complete: subscriber.Complete,
+		})
+	})
+}
+
+// Debounce debounces values.
+func (o *Observable[T]) Debounce(ctx context.Context, duration int64) *Observable[T] {
+	return NewObservable(func(subscriber *Subscriber[T]) Unsubscribe {
+		var timer *time.Timer
+
+		unsubscribe := o.Subscribe(&Subscriber[T]{
+			Next: func(value T) {
+				if timer != nil {
+					timer.Stop()
+				}
+				timer = time.AfterFunc(time.Duration(duration)*time.Millisecond, func() {
+					subscriber.Next(value)
+				})
+			},
+			Error:    subscriber.Error,
+			Complete: subscriber.Complete,
+		})
+
+		return func() {
+			if timer != nil {
+				timer.Stop()
+			}
+			unsubscribe()
+		}
+	})
+}
+
+// Interval creates an observable that emits values at intervals.
+func Interval(ctx context.Context, ms int64) *Observable[int] {
+	return NewObservable(func(subscriber *Subscriber[int]) Unsubscribe {
+		count := 0
+		ticker := time.NewTicker(time.Duration(ms) * time.Millisecond)
+
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					subscriber.Next(count)
+					count++
+				case <-ctx.Done():
+					ticker.Stop()
+					subscriber.Complete()
+					return
+				}
+			}
+		}()
+
+		return func() {
+			ticker.Stop()
+		}
+	})
+}
 ```
 
 ## PubSub (decouple)
 
-```typescript
-class PubSub {
-  private static channels = new Map<string, Set<Function>>();
+```go
+// PubSub provides publish-subscribe functionality.
+type PubSub struct {
+	mu       sync.RWMutex
+	channels map[string][]func(interface{})
+}
 
-  static subscribe<T>(channel: string, callback: (data: T) => void): () => void {
-    if (!this.channels.has(channel)) {
-      this.channels.set(channel, new Set());
-    }
-    this.channels.get(channel)!.add(callback);
+// NewPubSub creates a new pub/sub instance.
+func NewPubSub() *PubSub {
+	return &PubSub{
+		channels: make(map[string][]func(interface{})),
+	}
+}
 
-    return () => this.unsubscribe(channel, callback);
-  }
+// Subscribe registers a callback for a channel.
+func (p *PubSub) Subscribe(channel string, callback func(interface{})) func() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-  static unsubscribe(channel: string, callback: Function): void {
-    this.channels.get(channel)?.delete(callback);
-  }
+	p.channels[channel] = append(p.channels[channel], callback)
 
-  static publish<T>(channel: string, data: T): void {
-    this.channels.get(channel)?.forEach(callback => callback(data));
-  }
+	return func() {
+		p.Unsubscribe(channel, callback)
+	}
+}
 
-  static clear(channel?: string): void {
-    if (channel) {
-      this.channels.delete(channel);
-    } else {
-      this.channels.clear();
-    }
-  }
+// Unsubscribe removes a callback from a channel.
+func (p *PubSub) Unsubscribe(channel string, callback func(interface{})) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	callbacks := p.channels[channel]
+	for i, cb := range callbacks {
+		if &cb == &callback {
+			p.channels[channel] = append(callbacks[:i], callbacks[i+1:]...)
+			break
+		}
+	}
+}
+
+// Publish sends data to all subscribers of a channel.
+func (p *PubSub) Publish(channel string, data interface{}) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	for _, callback := range p.channels[channel] {
+		callback(data)
+	}
+}
+
+// Clear removes all subscribers from a channel or all channels.
+func (p *PubSub) Clear(channel string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if channel != "" {
+		delete(p.channels, channel)
+	} else {
+		p.channels = make(map[string][]func(interface{}))
+	}
 }
 
 // Usage - composants decouple
-// Component A
-PubSub.publish('user:updated', { id: '123', name: 'John' });
+func pubsubExample() {
+	ps := NewPubSub()
 
-// Component B (ne connait pas A)
-PubSub.subscribe('user:updated', (user) => {
-  console.log('User updated:', user);
-});
+	// Component A
+	ps.Publish("user:updated", map[string]string{"id": "123", "name": "John"})
+
+	// Component B (ne connait pas A)
+	ps.Subscribe("user:updated", func(data interface{}) {
+		if user, ok := data.(map[string]string); ok {
+			fmt.Printf("User updated: %+v\n", user)
+		}
+	})
+}
 ```
 
 ## Anti-patterns
 
-```typescript
+```go
 // MAUVAIS: Observer qui modifie le subject
-class BadObserver implements Observer<number> {
-  constructor(private stock: Stock) {}
+type BadObserver struct {
+	stock *Stock
+}
 
-  update(price: number): void {
-    if (price > 100) {
-      this.stock.price = 100; // Boucle infinie potentielle!
-    }
-  }
+func (o *BadObserver) Update(price float64) {
+	if price > 100 {
+		o.stock.SetPrice(100) // Boucle infinie potentielle!
+	}
 }
 
 // MAUVAIS: Memory leak - oublier unsubscribe
-class LeakyComponent {
-  constructor(emitter: EventEmitter<string>) {
-    emitter.subscribe(this); // Jamais unsubscribe = fuite memoire
-  }
+type LeakyComponent struct{}
+
+func NewLeakyComponent(emitter *EventEmitter[string]) *LeakyComponent {
+	comp := &LeakyComponent{}
+	emitter.Subscribe(comp) // Jamais unsubscribe = fuite memoire
+	return comp
 }
 
+func (l *LeakyComponent) Update(data string) {}
+
 // MAUVAIS: Ordre de notification important
-class OrderDependentObserver {
-  update(data: unknown): void {
-    // Depend d'un autre observer execute avant
-    // L'ordre n'est pas garanti!
-  }
+type OrderDependentObserver struct{}
+
+func (o *OrderDependentObserver) Update(data interface{}) {
+	// Depend d'un autre observer execute avant
+	// L'ordre n'est pas garanti!
 }
 
 // MAUVAIS: Observer synchrone bloquant
-class SlowObserver implements Observer<unknown> {
-  update(data: unknown): void {
-    // Bloque tous les autres observers
-    heavyComputation(); // 5 secondes...
-  }
+type SlowObserver struct{}
+
+func (o *SlowObserver) Update(data interface{}) {
+	// Bloque tous les autres observers
+	time.Sleep(5 * time.Second) // 5 secondes...
 }
 ```
 
 ## Tests unitaires
 
-```typescript
-import { describe, it, expect, vi } from 'vitest';
+```go
+package main
 
-describe('EventEmitter', () => {
-  it('should notify all subscribers', () => {
-    const emitter = new EventEmitter<string>();
-    const callback1 = vi.fn();
-    const callback2 = vi.fn();
+import (
+	"testing"
+)
 
-    emitter.subscribe({ update: callback1 });
-    emitter.subscribe({ update: callback2 });
-    emitter.notify('hello');
+func TestEventEmitter(t *testing.T) {
+	t.Run("should notify all subscribers", func(t *testing.T) {
+		emitter := NewEventEmitter[string]()
+		called1 := false
+		called2 := false
 
-    expect(callback1).toHaveBeenCalledWith('hello');
-    expect(callback2).toHaveBeenCalledWith('hello');
-  });
+		observer1 := &testObserver{callback: func(s string) { called1 = true }}
+		observer2 := &testObserver{callback: func(s string) { called2 = true }}
 
-  it('should allow unsubscribe', () => {
-    const emitter = new EventEmitter<string>();
-    const callback = vi.fn();
-    const observer = { update: callback };
+		emitter.Subscribe(observer1)
+		emitter.Subscribe(observer2)
+		emitter.Notify("hello")
 
-    emitter.subscribe(observer);
-    emitter.unsubscribe(observer);
-    emitter.notify('hello');
+		if !called1 || !called2 {
+			t.Error("all observers should be notified")
+		}
+	})
 
-    expect(callback).not.toHaveBeenCalled();
-  });
-});
+	t.Run("should allow unsubscribe", func(t *testing.T) {
+		emitter := NewEventEmitter[string]()
+		called := false
 
-describe('TypedEventEmitter', () => {
-  it('should handle typed events', () => {
-    interface Events {
-      message: string;
-      count: number;
-    }
-    const emitter = new TypedEventEmitter<Events>();
-    const callback = vi.fn();
+		observer := &testObserver{callback: func(s string) { called = true }}
 
-    emitter.on('message', callback);
-    emitter.emit('message', 'hello');
+		emitter.Subscribe(observer)
+		emitter.Unsubscribe(observer)
+		emitter.Notify("hello")
 
-    expect(callback).toHaveBeenCalledWith('hello');
-  });
+		if called {
+			t.Error("unsubscribed observer should not be notified")
+		}
+	})
+}
 
-  it('should return unsubscribe function', () => {
-    const emitter = new TypedEventEmitter<{ test: string }>();
-    const callback = vi.fn();
+type testObserver struct {
+	callback func(string)
+}
 
-    const unsubscribe = emitter.on('test', callback);
-    unsubscribe();
-    emitter.emit('test', 'data');
+func (t *testObserver) Update(data string) {
+	t.callback(data)
+}
 
-    expect(callback).not.toHaveBeenCalled();
-  });
+func TestTypedEventEmitter(t *testing.T) {
+	t.Run("should handle typed events", func(t *testing.T) {
+		emitter := NewTypedEventEmitter[string, string]()
+		received := ""
 
-  it('should support once', () => {
-    const emitter = new TypedEventEmitter<{ test: string }>();
-    const callback = vi.fn();
+		emitter.On("message", func(data string) {
+			received = data
+		})
 
-    emitter.once('test', callback);
-    emitter.emit('test', 'first');
-    emitter.emit('test', 'second');
+		emitter.Emit("message", "hello")
 
-    expect(callback).toHaveBeenCalledTimes(1);
-    expect(callback).toHaveBeenCalledWith('first');
-  });
-});
+		if received != "hello" {
+			t.Errorf("expected 'hello', got '%s'", received)
+		}
+	})
 
-describe('Observable', () => {
-  it('should support map operator', () => {
-    const results: number[] = [];
+	t.Run("should return unsubscribe function", func(t *testing.T) {
+		emitter := NewTypedEventEmitter[string, string]()
+		called := false
 
-    const source = new Observable<number>(subscriber => {
-      subscriber.next(1);
-      subscriber.next(2);
-      subscriber.next(3);
-    });
+		unsubscribe := emitter.On("test", func(data string) {
+			called = true
+		})
 
-    source.map(x => x * 2).subscribe({
-      next: value => results.push(value),
-    });
+		unsubscribe()
+		emitter.Emit("test", "data")
 
-    expect(results).toEqual([2, 4, 6]);
-  });
+		if called {
+			t.Error("unsubscribed callback should not be called")
+		}
+	})
 
-  it('should support filter operator', () => {
-    const results: number[] = [];
+	t.Run("should support once", func(t *testing.T) {
+		emitter := NewTypedEventEmitter[string, string]()
+		count := 0
 
-    const source = new Observable<number>(subscriber => {
-      [1, 2, 3, 4, 5].forEach(n => subscriber.next(n));
-    });
+		emitter.Once("test", func(data string) {
+			count++
+		})
 
-    source.filter(x => x % 2 === 0).subscribe({
-      next: value => results.push(value),
-    });
+		emitter.Emit("test", "first")
+		emitter.Emit("test", "second")
 
-    expect(results).toEqual([2, 4]);
-  });
-});
+		if count != 1 {
+			t.Errorf("expected 1 call, got %d", count)
+		}
+	})
+}
+
+func TestObservable(t *testing.T) {
+	t.Run("should support map operator", func(t *testing.T) {
+		results := []int{}
+
+		source := NewObservable(func(subscriber *Subscriber[int]) Unsubscribe {
+			subscriber.Next(1)
+			subscriber.Next(2)
+			subscriber.Next(3)
+			return nil
+		})
+
+		source.Map(func(x int) int {
+			return x * 2
+		}).Subscribe(&Subscriber[int]{
+			Next: func(value int) {
+				results = append(results, value)
+			},
+		})
+
+		expected := []int{2, 4, 6}
+		for i, v := range results {
+			if v != expected[i] {
+				t.Errorf("expected %d, got %d at index %d", expected[i], v, i)
+			}
+		}
+	})
+
+	t.Run("should support filter operator", func(t *testing.T) {
+		results := []int{}
+
+		source := NewObservable(func(subscriber *Subscriber[int]) Unsubscribe {
+			for i := 1; i <= 5; i++ {
+				subscriber.Next(i)
+			}
+			return nil
+		})
+
+		source.Filter(func(x int) bool {
+			return x%2 == 0
+		}).Subscribe(&Subscriber[int]{
+			Next: func(value int) {
+				results = append(results, value)
+			},
+		})
+
+		expected := []int{2, 4}
+		for i, v := range results {
+			if v != expected[i] {
+				t.Errorf("expected %d, got %d at index %d", expected[i], v, i)
+			}
+		}
+	})
+}
 ```
 
 ## Quand utiliser

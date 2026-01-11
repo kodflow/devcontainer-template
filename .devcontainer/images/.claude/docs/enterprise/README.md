@@ -8,7 +8,7 @@ Patterns de Martin Fowler - Patterns of Enterprise Application Architecture.
 
 > Procédure qui gère une transaction métier complète.
 
-```typescript
+```go
 class OrderService {
   async placeOrder(customerId: string, items: OrderItem[]) {
     // Tout le logic dans une procédure
@@ -42,7 +42,7 @@ class OrderService {
 
 > Objets métier avec comportements et règles.
 
-```typescript
+```go
 class Order {
   private items: OrderItem[] = [];
   private status: OrderStatus = 'draft';
@@ -84,7 +84,7 @@ class Order {
 
 > Une classe par table avec méthodes.
 
-```typescript
+```go
 class ProductTable {
   constructor(private db: Database) {}
 
@@ -116,7 +116,7 @@ class ProductTable {
 
 > Couche de coordination des opérations métier.
 
-```typescript
+```go
 class OrderApplicationService {
   constructor(
     private orderRepo: OrderRepository,
@@ -158,7 +158,7 @@ class OrderApplicationService {
 
 > Une classe par table pour CRUD.
 
-```typescript
+```go
 class ProductGateway {
   constructor(private db: Database) {}
 
@@ -200,7 +200,7 @@ class ProductGateway {
 
 > Un objet par ligne avec persistence.
 
-```typescript
+```go
 class ProductRow {
   constructor(
     private db: Database,
@@ -237,7 +237,7 @@ class ProductRow {
 
 > Objet qui encapsule ligne + logique métier + persistence.
 
-```typescript
+```go
 class User extends ActiveRecord {
   @Column() email: string;
   @Column() passwordHash: string;
@@ -276,7 +276,7 @@ await user.save();
 
 > Sépare complètement objet et persistence.
 
-```typescript
+```go
 // Domain object - aucune dépendance sur la DB
 class Product {
   constructor(
@@ -328,7 +328,7 @@ class ProductMapper {
 
 > Maintient la liste des objets modifiés pour une transaction.
 
-```typescript
+```go
 class UnitOfWork {
   private newObjects = new Set<Entity>();
   private dirtyObjects = new Set<Entity>();
@@ -386,7 +386,7 @@ class UnitOfWork {
 
 > Cache des objets chargés par identité.
 
-```typescript
+```go
 class IdentityMap<T extends { id: string }> {
   private map = new Map<string, T>();
 
@@ -434,7 +434,7 @@ class ProductRepository {
 
 > Charger les données à la demande.
 
-```typescript
+```go
 // Virtual Proxy
 class LazyProduct {
   private _details: ProductDetails | null = null;
@@ -491,7 +491,7 @@ class Product {
 
 > Mapper les relations via foreign keys.
 
-```typescript
+```go
 class OrderMapper {
   async find(id: string): Promise<Order> {
     const row = await this.db.query('SELECT * FROM orders WHERE id = ?', [id]);
@@ -530,7 +530,7 @@ class OrderMapper {
 
 > Table de jonction pour relations N-N.
 
-```typescript
+```go
 class ProductCategoryMapper {
   async findCategoriesForProduct(productId: string): Promise<Category[]> {
     const rows = await this.db.query(`
@@ -566,7 +566,7 @@ class ProductCategoryMapper {
 
 > Mapper un value object dans les colonnes de la table parente.
 
-```typescript
+```go
 // Value Object
 class Address {
   constructor(
@@ -623,7 +623,7 @@ class CustomerMapper {
 
 > Sérialiser un graphe d'objets dans un champ.
 
-```typescript
+```go
 class ProductMapper {
   async find(id: string): Promise<Product> {
     const row = await this.db.query('SELECT * FROM products WHERE id = ?', [id]);
@@ -659,7 +659,7 @@ class ProductMapper {
 
 > Trois stratégies pour mapper l'héritage.
 
-```typescript
+```go
 // Single Table Inheritance
 // Une seule table avec discriminator
 // employees(id, name, type, salary, hourly_rate)
@@ -712,7 +712,7 @@ class EmployeeMapper {
 
 > Séparer données, présentation, et contrôle.
 
-```typescript
+```go
 // Model
 class UserModel {
   constructor(
@@ -756,7 +756,7 @@ class UserController {
 
 > Un controller par page/action.
 
-```typescript
+```go
 // /users/show.ts
 class ShowUserController {
   async handle(req: Request, res: Response) {
@@ -789,7 +789,7 @@ class EditUserController {
 
 > Point d'entrée unique pour toutes les requêtes.
 
-```typescript
+```go
 class FrontController {
   private routes = new Map<string, Controller>();
 
@@ -830,7 +830,7 @@ class FrontController {
 
 > HTML avec placeholders.
 
-```typescript
+```go
 // template.html
 // <h1>{{title}}</h1>
 // <ul>
@@ -863,7 +863,7 @@ const html = view.render('product/list', {
 
 > Transformer les données en sortie (XSLT, JSON, etc.).
 
-```typescript
+```go
 class JsonTransformView {
   transform(data: any): string {
     return JSON.stringify(data, null, 2);
@@ -905,7 +905,7 @@ class XmlTransformView {
 
 > Interface simplifiée pour appels distants.
 
-```typescript
+```go
 // Fine-grained domain objects
 class Order { /* many methods */ }
 class OrderItem { /* many methods */ }
@@ -938,7 +938,7 @@ class OrderFacade {
 
 > Objet pour transférer des données entre couches.
 
-```typescript
+```go
 // DTOs - no behavior, just data
 class OrderDTO {
   id: string;
@@ -982,7 +982,7 @@ class OrderItemDTO {
 
 > Détecter les conflits au moment de la sauvegarde.
 
-```typescript
+```go
 class ProductMapper {
   async update(product: Product): Promise<void> {
     const result = await this.db.execute(`
@@ -1020,7 +1020,7 @@ try {
 
 > Verrouiller la ressource avant modification.
 
-```typescript
+```go
 class LockManager {
   private locks = new Map<string, { userId: string; expires: Date }>();
 
@@ -1062,7 +1062,7 @@ class LockManager {
 
 > Verrouiller un agrégat entier.
 
-```typescript
+```go
 class OrderLock {
   constructor(private lockManager: LockManager) {}
 
@@ -1096,7 +1096,7 @@ class OrderLock {
 
 > État stocké côté client.
 
-```typescript
+```go
 // JWT Token
 class ClientSessionState {
   createToken(user: User): string {
@@ -1138,7 +1138,7 @@ class CookieSession {
 
 > État stocké côté serveur.
 
-```typescript
+```go
 class ServerSessionState {
   private sessions = new Map<string, SessionData>();
 
@@ -1186,7 +1186,7 @@ class RedisSessionState {
 
 > État stocké en base de données.
 
-```typescript
+```go
 class DatabaseSessionState {
   async create(data: SessionData): Promise<string> {
     const sessionId = crypto.randomUUID();

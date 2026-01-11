@@ -38,130 +38,209 @@ Pattern de cache des resultats de fonctions pour eviter les recalculs.
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
 ### Memoize simple
 
-```typescript
-function memoize<TArgs extends unknown[], TResult>(
-  fn: (...args: TArgs) => TResult,
-): (...args: TArgs) => TResult {
-  const cache = new Map<string, TResult>();
+```go
+package memoize
 
-  return (...args: TArgs): TResult => {
-    const key = JSON.stringify(args);
+import (
+	"fmt"
+	"sync"
+)
 
-    if (cache.has(key)) {
-      return cache.get(key)!;
-    }
+// Func1 represents a function with one parameter.
+type Func1[T, R any] func(T) R
 
-    const result = fn(...args);
-    cache.set(key, result);
-    return result;
-  };
+// Memoize1 memoizes a function with one parameter.
+func Memoize1[T comparable, R any](fn Func1[T, R]) Func1[T, R] {
+	cache := make(map[T]R)
+	var mu sync.RWMutex
+
+	return func(arg T) R {
+		mu.RLock()
+		if result, ok := cache[arg]; ok {
+			mu.RUnlock()
+			return result
+		}
+		mu.RUnlock()
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		// Double-check after acquiring write lock
+		if result, ok := cache[arg]; ok {
+			return result
+		}
+
+		result := fn(arg)
+		cache[arg] = result
+		return result
+	}
 }
 
 // Usage
-const factorial = memoize((n: number): number => {
-  if (n <= 1) return 1;
-  return n * factorial(n - 1);
-});
+func Factorial(n int) int {
+	if n <= 1 {
+		return 1
+	}
+	return n * FactorialMemo(n-1)
+}
 
-factorial(100); // Calcule
-factorial(100); // Cache hit
-factorial(99);  // Cache hit (calcule lors de factorial(100))
+var FactorialMemo = Memoize1(Factorial)
+
+// Example
+// FactorialMemo(100) // Calcule
+// FactorialMemo(100) // Cache hit
+// FactorialMemo(99)  // Cache hit (calcule lors de FactorialMemo(100))
 ```
 
 ### Memoize avec options
 
-```typescript
-interface MemoizeOptions {
-  maxSize?: number;
-  ttl?: number;
-  keyResolver?: (...args: unknown[]) => string;
+```go
+package memoize
+
+import (
+	"sync"
+	"time"
+)
+
+// Options configure memoization behavior.
+type Options struct {
+	MaxSize int
+	TTL     time.Duration
 }
 
-function memoizeAdvanced<TArgs extends unknown[], TResult>(
-  fn: (...args: TArgs) => TResult,
-  options: MemoizeOptions = {},
-): (...args: TArgs) => TResult {
-  const {
-    maxSize = Infinity,
-    ttl,
-    keyResolver = (...args) => JSON.stringify(args),
-  } = options;
-
-  const cache = new Map<string, { value: TResult; timestamp: number }>();
-
-  return (...args: TArgs): TResult => {
-    const key = keyResolver(...args);
-    const cached = cache.get(key);
-
-    // Verifier TTL
-    if (cached) {
-      if (!ttl || Date.now() - cached.timestamp < ttl) {
-        return cached.value;
-      }
-      cache.delete(key);
-    }
-
-    const result = fn(...args);
-
-    // Eviction LRU si maxSize atteint
-    if (cache.size >= maxSize) {
-      const firstKey = cache.keys().next().value;
-      cache.delete(firstKey);
-    }
-
-    cache.set(key, { value: result, timestamp: Date.now() });
-    return result;
-  };
+// Cache entry with timestamp.
+type entry[R any] struct {
+	value     R
+	timestamp time.Time
 }
 
-// Usage avec TTL
-const fetchUserCached = memoizeAdvanced(
-  async (id: string) => api.getUser(id),
-  { ttl: 60_000 }, // Cache 1 minute
-);
+// MemoizeWithOptions memoizes with TTL and size limits.
+func MemoizeWithOptions[T comparable, R any](
+	fn Func1[T, R],
+	opts Options,
+) Func1[T, R] {
+	cache := make(map[T]entry[R])
+	var mu sync.RWMutex
+
+	return func(arg T) R {
+		mu.RLock()
+		if e, ok := cache[arg]; ok {
+			if opts.TTL == 0 || time.Since(e.timestamp) < opts.TTL {
+				mu.RUnlock()
+				return e.value
+			}
+		}
+		mu.RUnlock()
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		// Double-check
+		if e, ok := cache[arg]; ok {
+			if opts.TTL == 0 || time.Since(e.timestamp) < opts.TTL {
+				return e.value
+			}
+			delete(cache, arg)
+		}
+
+		result := fn(arg)
+
+		// LRU eviction if needed
+		if opts.MaxSize > 0 && len(cache) >= opts.MaxSize {
+			// Remove oldest entry (simple FIFO for example)
+			for k := range cache {
+				delete(cache, k)
+				break
+			}
+		}
+
+		cache[arg] = entry[R]{
+			value:     result,
+			timestamp: time.Now(),
+		}
+
+		return result
+	}
+}
+
+// Usage with TTL
+// fetchUserCached := MemoizeWithOptions(
+//     fetchUser,
+//     Options{TTL: 60 * time.Second},
+// )
 ```
 
 ### Memoize async
 
-```typescript
-function memoizeAsync<TArgs extends unknown[], TResult>(
-  fn: (...args: TArgs) => Promise<TResult>,
-): (...args: TArgs) => Promise<TResult> {
-  const cache = new Map<string, Promise<TResult>>();
+```go
+package memoize
 
-  return (...args: TArgs): Promise<TResult> => {
-    const key = JSON.stringify(args);
+import (
+	"context"
+	"sync"
+)
 
-    if (cache.has(key)) {
-      return cache.get(key)!;
-    }
+// AsyncFunc1 represents an async function with one parameter.
+type AsyncFunc1[T, R any] func(context.Context, T) (R, error)
 
-    const promise = fn(...args).catch((err) => {
-      // Supprimer du cache en cas d'erreur
-      cache.delete(key);
-      throw err;
-    });
+// MemoizeAsync memoizes an async function.
+func MemoizeAsync[T comparable, R any](
+	fn AsyncFunc1[T, R],
+) AsyncFunc1[T, R] {
+	type result struct {
+		value R
+		err   error
+	}
+	type pending struct {
+		done chan struct{}
+		res  result
+	}
 
-    cache.set(key, promise);
-    return promise;
-  };
+	cache := make(map[T]*pending)
+	var mu sync.Mutex
+
+	return func(ctx context.Context, arg T) (R, error) {
+		mu.Lock()
+		if p, ok := cache[arg]; ok {
+			mu.Unlock()
+			<-p.done
+			return p.res.value, p.res.err
+		}
+
+		p := &pending{
+			done: make(chan struct{}),
+		}
+		cache[arg] = p
+		mu.Unlock()
+
+		// Compute
+		value, err := fn(ctx, arg)
+		p.res = result{value: value, err: err}
+
+		// Clean up on error
+		if err != nil {
+			mu.Lock()
+			delete(cache, arg)
+			mu.Unlock()
+		}
+
+		close(p.done)
+		return value, err
+	}
 }
 
 // Usage
-const getUserProfile = memoizeAsync(async (userId: string) => {
-  const response = await fetch(`/api/users/${userId}`);
-  return response.json();
-});
-
+// getUserProfile := MemoizeAsync(func(ctx context.Context, userID string) (*User, error) {
+//     return api.GetUser(ctx, userID)
+// })
+//
 // Deux appels simultanes = une seule requete
-const [profile1, profile2] = await Promise.all([
-  getUserProfile('123'),
-  getUserProfile('123'),
-]);
+// profile1, _ := getUserProfile(ctx, "123")
+// profile2, _ := getUserProfile(ctx, "123")
 ```
 
 ---
@@ -170,41 +249,104 @@ const [profile1, profile2] = await Promise.all([
 
 ### Fibonacci
 
-```typescript
-const fibonacci = memoize((n: number): number => {
-  if (n <= 1) return n;
-  return fibonacci(n - 1) + fibonacci(n - 2);
-});
+```go
+package main
+
+import "fmt"
+
+func fibonacci(n int) int {
+	if n <= 1 {
+		return n
+	}
+	return fibonacciMemo(n-1) + fibonacciMemo(n-2)
+}
+
+var fibonacciMemo = memoize.Memoize1(fibonacci)
 
 // Sans memoization: O(2^n)
 // Avec memoization: O(n)
-fibonacci(50); // Instantane
+func main() {
+	fmt.Println(fibonacciMemo(50)) // Instantane
+}
 ```
 
 ### Parsing couteux
 
-```typescript
-const parseMarkdown = memoize((content: string): HTMLElement => {
-  // Parsing couteux
-  return markdownParser.parse(content);
-});
+```go
+package parser
+
+import "html"
+
+func parseMarkdown(content string) string {
+	// Parsing couteux
+	return html.EscapeString(content)
+}
+
+var ParseMarkdownMemo = memoize.Memoize1(parseMarkdown)
 ```
 
 ### Calculs derives
 
-```typescript
-class DataProcessor {
-  private computeStats = memoize((data: number[]): Stats => {
-    return {
-      mean: this.mean(data),
-      median: this.median(data),
-      stdDev: this.standardDeviation(data),
-    };
-  });
+```go
+package stats
 
-  getStats(data: number[]): Stats {
-    return this.computeStats(data);
-  }
+import "math"
+
+// Stats represents statistical measures.
+type Stats struct {
+	Mean   float64
+	Median float64
+	StdDev float64
+}
+
+// DataProcessor computes statistics.
+type DataProcessor struct {
+	computeStats func([]float64) Stats
+}
+
+// NewDataProcessor creates a new processor with memoization.
+func NewDataProcessor() *DataProcessor {
+	return &DataProcessor{
+		computeStats: memoize.MemoizeWithOptions(
+			computeStatsImpl,
+			memoize.Options{MaxSize: 100},
+		),
+	}
+}
+
+func computeStatsImpl(data []float64) Stats {
+	return Stats{
+		Mean:   mean(data),
+		Median: median(data),
+		StdDev: stdDev(data),
+	}
+}
+
+func mean(data []float64) float64 {
+	var sum float64
+	for _, v := range data {
+		sum += v
+	}
+	return sum / float64(len(data))
+}
+
+func median(data []float64) float64 {
+	// Implementation
+	return 0
+}
+
+func stdDev(data []float64) float64 {
+	m := mean(data)
+	var variance float64
+	for _, v := range data {
+		variance += math.Pow(v-m, 2)
+	}
+	return math.Sqrt(variance / float64(len(data)))
+}
+
+// GetStats returns cached statistics.
+func (dp *DataProcessor) GetStats(data []float64) Stats {
+	return dp.computeStats(data)
 }
 ```
 

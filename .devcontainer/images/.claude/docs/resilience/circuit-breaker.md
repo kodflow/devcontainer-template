@@ -37,105 +37,173 @@
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+```go
+package circuitbreaker
 
-class CircuitBreakerError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'CircuitBreakerError';
-  }
+import (
+	"errors"
+	"fmt"
+	"sync"
+	"time"
+)
+
+// State represents circuit breaker state.
+type State int
+
+const (
+	StateClosed State = iota
+	StateOpen
+	StateHalfOpen
+)
+
+func (s State) String() string {
+	switch s {
+	case StateClosed:
+		return "CLOSED"
+	case StateOpen:
+		return "OPEN"
+	case StateHalfOpen:
+		return "HALF_OPEN"
+	default:
+		return "UNKNOWN"
+	}
 }
 
-interface CircuitBreakerOptions {
-  failureThreshold: number;    // Echecs avant ouverture
-  successThreshold: number;    // Succes pour fermer
-  timeout: number;             // Temps avant HALF_OPEN (ms)
-  halfOpenRequests: number;    // Requetes test en HALF_OPEN
+// ErrCircuitOpen is returned when circuit is open.
+var ErrCircuitOpen = errors.New("circuit breaker is open")
+
+// CircuitBreakerError wraps circuit breaker errors.
+type CircuitBreakerError struct {
+	Message string
 }
 
-class CircuitBreaker {
-  private state: CircuitState = 'CLOSED';
-  private failures = 0;
-  private successes = 0;
-  private lastFailureTime: number | null = null;
-  private halfOpenAttempts = 0;
+func (e *CircuitBreakerError) Error() string {
+	return e.Message
+}
 
-  constructor(private readonly options: CircuitBreakerOptions) {}
+// Options configures circuit breaker behavior.
+type Options struct {
+	FailureThreshold  int           // Failures before opening
+	SuccessThreshold  int           // Successes to close from half-open
+	Timeout           time.Duration // Time before half-open
+	HalfOpenRequests  int           // Max requests in half-open
+}
 
-  async execute<T>(fn: () => Promise<T>): Promise<T> {
-    if (!this.canExecute()) {
-      throw new CircuitBreakerError('Circuit is OPEN');
-    }
+// CircuitBreaker implements the circuit breaker pattern.
+type CircuitBreaker struct {
+	mu               sync.RWMutex
+	state            State
+	failures         int
+	successes        int
+	lastFailureTime  time.Time
+	halfOpenAttempts int
+	options          Options
+}
 
-    try {
-      const result = await fn();
-      this.onSuccess();
-      return result;
-    } catch (error) {
-      this.onFailure();
-      throw error;
-    }
-  }
+// NewCircuitBreaker creates a new circuit breaker.
+func NewCircuitBreaker(options Options) *CircuitBreaker {
+	return &CircuitBreaker{
+		state:   StateClosed,
+		options: options,
+	}
+}
 
-  private canExecute(): boolean {
-    if (this.state === 'CLOSED') {
-      return true;
-    }
+// Execute runs fn through the circuit breaker.
+func (cb *CircuitBreaker) Execute(fn func() error) error {
+	if !cb.canExecute() {
+		return ErrCircuitOpen
+	}
 
-    if (this.state === 'OPEN') {
-      const elapsed = Date.now() - (this.lastFailureTime ?? 0);
-      if (elapsed >= this.options.timeout) {
-        this.transitionTo('HALF_OPEN');
-        return true;
-      }
-      return false;
-    }
+	err := fn()
+	if err != nil {
+		cb.onFailure()
+		return err
+	}
 
-    // HALF_OPEN: permettre un nombre limite de requetes
-    return this.halfOpenAttempts < this.options.halfOpenRequests;
-  }
+	cb.onSuccess()
+	return nil
+}
 
-  private onSuccess(): void {
-    if (this.state === 'HALF_OPEN') {
-      this.successes++;
-      if (this.successes >= this.options.successThreshold) {
-        this.transitionTo('CLOSED');
-      }
-    } else {
-      this.failures = 0;
-    }
-  }
+func (cb *CircuitBreaker) canExecute() bool {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
 
-  private onFailure(): void {
-    this.failures++;
-    this.lastFailureTime = Date.now();
+	switch cb.state {
+	case StateClosed:
+		return true
 
-    if (this.state === 'HALF_OPEN') {
-      this.transitionTo('OPEN');
-    } else if (this.failures >= this.options.failureThreshold) {
-      this.transitionTo('OPEN');
-    }
-  }
+	case StateOpen:
+		elapsed := time.Since(cb.lastFailureTime)
+		if elapsed >= cb.options.Timeout {
+			cb.transitionTo(StateHalfOpen)
+			return true
+		}
+		return false
 
-  private transitionTo(newState: CircuitState): void {
-    console.log(`Circuit: ${this.state} → ${newState}`);
-    this.state = newState;
+	case StateHalfOpen:
+		if cb.halfOpenAttempts < cb.options.HalfOpenRequests {
+			cb.halfOpenAttempts++
+			return true
+		}
+		return false
 
-    if (newState === 'CLOSED') {
-      this.failures = 0;
-      this.successes = 0;
-    } else if (newState === 'HALF_OPEN') {
-      this.halfOpenAttempts = 0;
-      this.successes = 0;
-    }
-  }
+	default:
+		return false
+	}
+}
 
-  getState(): CircuitState {
-    return this.state;
-  }
+func (cb *CircuitBreaker) onSuccess() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	if cb.state == StateHalfOpen {
+		cb.successes++
+		if cb.successes >= cb.options.SuccessThreshold {
+			cb.transitionTo(StateClosed)
+		}
+	} else {
+		cb.failures = 0
+	}
+}
+
+func (cb *CircuitBreaker) onFailure() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	cb.failures++
+	cb.lastFailureTime = time.Now()
+
+	if cb.state == StateHalfOpen {
+		cb.transitionTo(StateOpen)
+	} else if cb.failures >= cb.options.FailureThreshold {
+		cb.transitionTo(StateOpen)
+	}
+}
+
+func (cb *CircuitBreaker) transitionTo(newState State) {
+	oldState := cb.state
+	cb.state = newState
+
+	if newState == StateClosed {
+		cb.failures = 0
+		cb.successes = 0
+		cb.halfOpenAttempts = 0
+	} else if newState == StateHalfOpen {
+		cb.halfOpenAttempts = 0
+		cb.successes = 0
+	}
+
+	// Log state transition
+	log.Printf("Circuit breaker: %s → %s", oldState, newState)
+}
+
+// GetState returns current circuit state.
+func (cb *CircuitBreaker) GetState() State {
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	return cb.state
 }
 ```
 
@@ -143,28 +211,59 @@ class CircuitBreaker {
 
 ## Usage avec fallback
 
-```typescript
-const circuitBreaker = new CircuitBreaker({
-  failureThreshold: 5,
-  successThreshold: 2,
-  timeout: 30000,
-  halfOpenRequests: 3,
-});
+```go
+package circuitbreaker
 
-async function getUserWithFallback(userId: string): Promise<User> {
-  try {
-    return await circuitBreaker.execute(async () => {
-      const response = await fetch(`https://api.example.com/users/${userId}`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
-    });
-  } catch (error) {
-    if (error instanceof CircuitBreakerError) {
-      // Circuit ouvert: utiliser le cache
-      return getCachedUser(userId);
-    }
-    throw error;
-  }
+import (
+	"context"
+	"fmt"
+)
+
+// Usage example with fallback
+func getUserWithFallback(ctx context.Context, userID string) (*User, error) {
+	cb := NewCircuitBreaker(Options{
+		FailureThreshold: 5,
+		SuccessThreshold: 2,
+		Timeout:          30 * time.Second,
+		HalfOpenRequests: 3,
+	})
+
+	var user *User
+	err := cb.Execute(func() error {
+		var err error
+		user, err = fetchUserFromAPI(ctx, userID)
+		return err
+	})
+
+	if err != nil {
+		if errors.Is(err, ErrCircuitOpen) {
+			// Circuit is open, use cache
+			return getCachedUser(userID)
+		}
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func fetchUserFromAPI(ctx context.Context, userID string) (*User, error) {
+	// HTTP call to external API
+	resp, err := http.Get(fmt.Sprintf("https://api.example.com/users/%s", userID))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	var user User
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }
 ```
 

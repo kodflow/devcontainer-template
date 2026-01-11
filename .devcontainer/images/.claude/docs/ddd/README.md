@@ -8,7 +8,7 @@ Patterns tactiques et stratégiques de DDD - Eric Evans.
 
 > Objet avec identité unique et cycle de vie.
 
-```typescript
+```go
 abstract class Entity<T> {
   protected readonly _id: T;
 
@@ -68,7 +68,7 @@ class User extends Entity<UserId> {
 
 > Objet immutable défini par ses attributs.
 
-```typescript
+```go
 class Money {
   private constructor(
     public readonly amount: number,
@@ -142,7 +142,7 @@ class Address {
 
 > Cluster d'objets avec une racine cohérente.
 
-```typescript
+```go
 // Aggregate Root
 class Order extends Entity<OrderId> {
   private _items: OrderItem[] = [];
@@ -232,7 +232,7 @@ class OrderItem {
 
 > Abstraction de la persistence des agrégats.
 
-```typescript
+```go
 interface Repository<T extends Entity<ID>, ID> {
   findById(id: ID): Promise<T | null>;
   save(entity: T): Promise<void>;
@@ -290,7 +290,7 @@ class PostgresOrderRepository implements OrderRepository {
 
 > Logique métier qui n'appartient à aucune entité.
 
-```typescript
+```go
 class TransferService {
   constructor(
     private accountRepo: AccountRepository,
@@ -355,7 +355,7 @@ class PricingService {
 
 > Notification d'un fait significatif du domaine.
 
-```typescript
+```go
 interface DomainEvent {
   readonly occurredAt: Date;
   readonly aggregateId: string;
@@ -421,7 +421,7 @@ class DomainEventPublisher {
 
 > Création d'objets complexes du domaine.
 
-```typescript
+```go
 class OrderFactory {
   create(customerId: CustomerId, items: CreateOrderItem[]): Order {
     const orderId = OrderId.generate();
@@ -471,7 +471,7 @@ class User extends Entity<UserId> {
 
 > Encapsuler une règle métier réutilisable.
 
-```typescript
+```go
 interface Specification<T> {
   isSatisfiedBy(candidate: T): boolean;
   and(other: Specification<T>): Specification<T>;
@@ -540,7 +540,7 @@ class CustomersByCountry extends CompositeSpecification<Customer> {
 
 > Limite explicite où un modèle s'applique.
 
-```typescript
+```go
 // Sales Context
 namespace SalesContext {
   class Customer {
@@ -590,7 +590,7 @@ namespace ShippingContext {
 
 > Relations entre bounded contexts.
 
-```typescript
+```go
 // Different relationship types:
 
 // 1. Shared Kernel - Shared code between contexts
@@ -644,7 +644,7 @@ namespace OrderContext {
 
 > Couche de traduction entre contextes.
 
-```typescript
+```go
 // External/Legacy system
 namespace LegacySystem {
   interface LegacyCustomer {
@@ -714,7 +714,7 @@ class LegacyCustomerAdapter {
 
 > Événements pour communication inter-contextes.
 
-```typescript
+```go
 // Integration Event (cross-context)
 interface IntegrationEvent {
   eventId: string;
@@ -776,7 +776,7 @@ class ShippingContext {
 
 > Stocker les événements au lieu de l'état.
 
-```typescript
+```go
 interface EventStore {
   append(aggregateId: string, events: DomainEvent[], expectedVersion: number): Promise<void>;
   getEvents(aggregateId: string): Promise<DomainEvent[]>;
@@ -877,7 +877,7 @@ class EventSourcedOrderRepository {
 
 > Séparer lectures et écritures.
 
-```typescript
+```go
 // Command side
 interface Command {
   execute(): Promise<void>;

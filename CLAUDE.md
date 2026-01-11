@@ -153,7 +153,7 @@ Commande spécifique à ce projet pour auditer la base de connaissances Design P
 /improve --category <name> # Auditer une catégorie
 ```
 
-Cible : `/home/vscode/.claude/docs/` (157 fichiers, 300+ patterns)
+Cible : `/workspace/.devcontainer/images/.claude/docs/`
 
 ## Context Hierarchy (Funnel Documentation)
 

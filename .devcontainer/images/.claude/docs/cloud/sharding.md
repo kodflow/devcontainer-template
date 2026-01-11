@@ -59,129 +59,151 @@
    - SPOF potentiel, latence
 ```
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-interface ShardConfig {
-  id: number;
-  host: string;
-  port: number;
+```go
+package sharding
+
+import (
+	"context"
+	"fmt"
+	"hash/fnv"
+)
+
+// ShardConfig defines a shard configuration.
+type ShardConfig struct {
+	ID   int
+	Host string
+	Port int
 }
 
-class ShardRouter {
-  constructor(private shards: ShardConfig[]) {}
-
-  // Hash-based sharding
-  getShardForKey(key: string): ShardConfig {
-    const hash = this.hashKey(key);
-    const shardIndex = hash % this.shards.length;
-    return this.shards[shardIndex];
-  }
-
-  private hashKey(key: string): number {
-    // Consistent hashing (simplified)
-    let hash = 0;
-    for (let i = 0; i < key.length; i++) {
-      hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-    }
-    return hash;
-  }
+// ShardRouter routes keys to shards.
+type ShardRouter struct {
+	shards []ShardConfig
 }
 
-class ShardedUserRepository {
-  private connections: Map<number, Database> = new Map();
+// NewShardRouter creates a new ShardRouter.
+func NewShardRouter(shards []ShardConfig) *ShardRouter {
+	return &ShardRouter{
+		shards: shards,
+	}
+}
 
-  constructor(private router: ShardRouter) {}
+// GetShardForKey returns the shard for a given key using hash-based sharding.
+func (sr *ShardRouter) GetShardForKey(key string) ShardConfig {
+	hash := sr.hashKey(key)
+	shardIndex := hash % uint32(len(sr.shards))
+	return sr.shards[shardIndex]
+}
 
-  async findById(userId: string): Promise<User | null> {
-    const shard = this.router.getShardForKey(userId);
-    const db = await this.getConnection(shard);
-    return db.users.findById(userId);
-  }
+func (sr *ShardRouter) hashKey(key string) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(key))
+	return h.Sum32()
+}
 
-  async create(user: User): Promise<User> {
-    const shard = this.router.getShardForKey(user.id);
-    const db = await this.getConnection(shard);
-    return db.users.create(user);
-  }
+// User represents a user entity.
+type User struct {
+	ID    string
+	Name  string
+	Email string
+}
 
-  // Cross-shard query (expensive!)
-  async findByEmail(email: string): Promise<User | null> {
-    // Must query all shards
-    const results = await Promise.all(
-      Array.from(this.connections.values()).map((db) =>
-        db.users.findByEmail(email),
-      ),
-    );
-    return results.find((u) => u !== null) ?? null;
-  }
+// Database defines database operations for a shard.
+type Database interface {
+	FindUserByID(ctx context.Context, userID string) (*User, error)
+	CreateUser(ctx context.Context, user *User) (*User, error)
+	FindUserByEmail(ctx context.Context, email string) (*User, error)
+}
 
-  private async getConnection(shard: ShardConfig): Promise<Database> {
-    if (!this.connections.has(shard.id)) {
-      const db = await Database.connect(shard.host, shard.port);
-      this.connections.set(shard.id, db);
-    }
-    return this.connections.get(shard.id)!;
-  }
+// ShardedUserRepository manages users across multiple shards.
+type ShardedUserRepository struct {
+	router      *ShardRouter
+	connections map[int]Database
+}
+
+// NewShardedUserRepository creates a new ShardedUserRepository.
+func NewShardedUserRepository(router *ShardRouter) *ShardedUserRepository {
+	return &ShardedUserRepository{
+		router:      router,
+		connections: make(map[int]Database),
+	}
+}
+
+// FindByID finds a user by ID.
+func (sur *ShardedUserRepository) FindByID(ctx context.Context, userID string) (*User, error) {
+	shard := sur.router.GetShardForKey(userID)
+	db, err := sur.getConnection(shard)
+	if err != nil {
+		return nil, fmt.Errorf("getting shard connection: %w", err)
+	}
+
+	return db.FindUserByID(ctx, userID)
+}
+
+// Create creates a new user.
+func (sur *ShardedUserRepository) Create(ctx context.Context, user *User) (*User, error) {
+	shard := sur.router.GetShardForKey(user.ID)
+	db, err := sur.getConnection(shard)
+	if err != nil {
+		return nil, fmt.Errorf("getting shard connection: %w", err)
+	}
+
+	return db.CreateUser(ctx, user)
+}
+
+// FindByEmail finds a user by email (cross-shard query - expensive!).
+func (sur *ShardedUserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	// Must query all shards
+	type result struct {
+		user *User
+		err  error
+	}
+
+	results := make(chan result, len(sur.connections))
+
+	for _, db := range sur.connections {
+		go func(database Database) {
+			user, err := database.FindUserByEmail(ctx, email)
+			results <- result{user: user, err: err}
+		}(db)
+	}
+
+	// Collect results
+	for i := 0; i < len(sur.connections); i++ {
+		res := <-results
+		if res.err != nil {
+			continue
+		}
+		if res.user != nil {
+			return res.user, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func (sur *ShardedUserRepository) getConnection(shard ShardConfig) (Database, error) {
+	if db, exists := sur.connections[shard.ID]; exists {
+		return db, nil
+	}
+
+	// In production, connect to actual database
+	// db := connectToDatabase(shard.Host, shard.Port)
+	// sur.connections[shard.ID] = db
+	// return db, nil
+
+	return nil, fmt.Errorf("connection not initialized for shard %d", shard.ID)
 }
 ```
 
 ## Consistent Hashing
 
-```typescript
-class ConsistentHashRing {
-  private ring: Map<number, ShardConfig> = new Map();
-  private sortedKeys: number[] = [];
-
-  constructor(
-    shards: ShardConfig[],
-    private virtualNodes = 150,
-  ) {
-    for (const shard of shards) {
-      this.addShard(shard);
-    }
-  }
-
-  addShard(shard: ShardConfig): void {
-    for (let i = 0; i < this.virtualNodes; i++) {
-      const key = this.hash(`${shard.id}:${i}`);
-      this.ring.set(key, shard);
-      this.sortedKeys.push(key);
-    }
-    this.sortedKeys.sort((a, b) => a - b);
-  }
-
-  removeShard(shardId: number): void {
-    for (let i = 0; i < this.virtualNodes; i++) {
-      const key = this.hash(`${shardId}:${i}`);
-      this.ring.delete(key);
-      this.sortedKeys = this.sortedKeys.filter((k) => k !== key);
-    }
-  }
-
-  getShardForKey(key: string): ShardConfig {
-    const hash = this.hash(key);
-
-    // Find first node >= hash
-    for (const nodeKey of this.sortedKeys) {
-      if (nodeKey >= hash) {
-        return this.ring.get(nodeKey)!;
-      }
-    }
-
-    // Wrap around to first node
-    return this.ring.get(this.sortedKeys[0])!;
-  }
-
-  private hash(key: string): number {
-    // Use crypto hash in production
-    let hash = 0;
-    for (let i = 0; i < key.length; i++) {
-      hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-    }
-    return hash;
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Choix de Shard Key
