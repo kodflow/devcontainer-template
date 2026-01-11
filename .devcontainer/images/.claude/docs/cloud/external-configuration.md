@@ -43,146 +43,147 @@
 | **Kubernetes ConfigMaps** | K8s config | Oui | Non |
 | **Kubernetes Secrets** | K8s secrets | Oui | Oui |
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-interface ConfigSource {
-  name: string;
-  priority: number;
-  load(): Promise<Record<string, any>>;
-  watch?(callback: (key: string, value: any) => void): void;
+```go
+package externalconfig
+
+import (
+	"context"
+	"fmt"
+	"sync"
+)
+
+// ConfigSource defines a configuration source.
+type ConfigSource interface {
+	Name() string
+	Priority() int
+	Load(ctx context.Context) (map[string]interface{}, error)
+	Watch(ctx context.Context, callback func(key string, value interface{})) error
 }
 
-class ConfigurationManager {
-  private config: Map<string, any> = new Map();
-  private sources: ConfigSource[] = [];
-  private watchers: ((key: string, value: any) => void)[] = [];
+// WatchCallback is called when configuration changes.
+type WatchCallback func(key string, value interface{})
 
-  addSource(source: ConfigSource): this {
-    this.sources.push(source);
-    this.sources.sort((a, b) => b.priority - a.priority);
-    return this;
-  }
-
-  async load(): Promise<void> {
-    for (const source of this.sources) {
-      try {
-        const values = await source.load();
-        for (const [key, value] of Object.entries(values)) {
-          if (!this.config.has(key)) {
-            this.config.set(key, value);
-          }
-        }
-
-        // Setup watching si supporte
-        source.watch?.((key, value) => {
-          this.config.set(key, value);
-          this.notifyWatchers(key, value);
-        });
-      } catch (error) {
-        console.error(`Failed to load config from ${source.name}:`, error);
-      }
-    }
-  }
-
-  get<T>(key: string, defaultValue?: T): T {
-    return this.config.get(key) ?? defaultValue;
-  }
-
-  getRequired<T>(key: string): T {
-    if (!this.config.has(key)) {
-      throw new Error(`Required config key missing: ${key}`);
-    }
-    return this.config.get(key);
-  }
-
-  watch(callback: (key: string, value: any) => void): void {
-    this.watchers.push(callback);
-  }
-
-  private notifyWatchers(key: string, value: any): void {
-    this.watchers.forEach(w => w(key, value));
-  }
+// ConfigurationManager manages configuration from multiple sources.
+type ConfigurationManager struct {
+	mu       sync.RWMutex
+	config   map[string]interface{}
+	sources  []ConfigSource
+	watchers []WatchCallback
 }
 
-// Sources implementations
-const envSource: ConfigSource = {
-  name: 'environment',
-  priority: 100,
-  async load() {
-    return Object.fromEntries(
-      Object.entries(process.env)
-        .filter(([k]) => k.startsWith('APP_'))
-        .map(([k, v]) => [k.replace('APP_', '').toLowerCase(), v])
-    );
-  },
-};
+// NewConfigurationManager creates a new ConfigurationManager.
+func NewConfigurationManager() *ConfigurationManager {
+	return &ConfigurationManager{
+		config:   make(map[string]interface{}),
+		sources:  make([]ConfigSource, 0),
+		watchers: make([]WatchCallback, 0),
+	}
+}
 
-const consulSource: ConfigSource = {
-  name: 'consul',
-  priority: 50,
-  async load() {
-    const response = await fetch(`${CONSUL_URL}/v1/kv/app?recurse=true`);
-    const data = await response.json();
-    return data.reduce((acc: Record<string, any>, item: any) => {
-      acc[item.Key.replace('app/', '')] = atob(item.Value);
-      return acc;
-    }, {});
-  },
-  watch(callback) {
-    // Long polling Consul
-    const poll = async (index: number) => {
-      const response = await fetch(
-        `${CONSUL_URL}/v1/kv/app?recurse=true&index=${index}`
-      );
-      const newIndex = parseInt(response.headers.get('X-Consul-Index') ?? '0');
-      const data = await response.json();
+// AddSource adds a configuration source.
+func (cm *ConfigurationManager) AddSource(source ConfigSource) *ConfigurationManager {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	
+	cm.sources = append(cm.sources, source)
+	
+	// Sort by priority (highest first)
+	for i := 0; i < len(cm.sources); i++ {
+		for j := i + 1; j < len(cm.sources); j++ {
+			if cm.sources[i].Priority() < cm.sources[j].Priority() {
+				cm.sources[i], cm.sources[j] = cm.sources[j], cm.sources[i]
+			}
+		}
+	}
+	
+	return cm
+}
 
-      data.forEach((item: any) => {
-        callback(item.Key.replace('app/', ''), atob(item.Value));
-      });
+// Load loads configuration from all sources.
+func (cm *ConfigurationManager) Load(ctx context.Context) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	
+	for _, source := range cm.sources {
+		values, err := source.Load(ctx)
+		if err != nil {
+			fmt.Printf("Failed to load config from %s: %v
+", source.Name(), err)
+			continue
+		}
+		
+		// Only set if not already set (higher priority sources win)
+		for key, value := range values {
+			if _, exists := cm.config[key]; !exists {
+				cm.config[key] = value
+			}
+		}
+		
+		// Setup watching if supported
+		go func(s ConfigSource) {
+			s.Watch(ctx, func(key string, value interface{}) {
+				cm.mu.Lock()
+				cm.config[key] = value
+				cm.mu.Unlock()
+				cm.notifyWatchers(key, value)
+			})
+		}(source)
+	}
+	
+	return nil
+}
 
-      poll(newIndex);
-    };
-    poll(0);
-  },
-};
+// Get returns a configuration value with optional default.
+func (cm *ConfigurationManager) Get(key string, defaultValue interface{}) interface{} {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	
+	if value, exists := cm.config[key]; exists {
+		return value
+	}
+	return defaultValue
+}
 
-const vaultSource: ConfigSource = {
-  name: 'vault',
-  priority: 200, // Highest priority for secrets
-  async load() {
-    const response = await fetch(`${VAULT_URL}/v1/secret/data/app`, {
-      headers: { 'X-Vault-Token': VAULT_TOKEN },
-    });
-    const data = await response.json();
-    return data.data.data;
-  },
-};
+// GetRequired returns a required configuration value or panics.
+func (cm *ConfigurationManager) GetRequired(key string) interface{} {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	
+	value, exists := cm.config[key]
+	if !exists {
+		panic(fmt.Sprintf("Required config key missing: %s", key))
+	}
+	return value
+}
+
+// Watch registers a callback for configuration changes.
+func (cm *ConfigurationManager) Watch(callback WatchCallback) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.watchers = append(cm.watchers, callback)
+}
+
+func (cm *ConfigurationManager) notifyWatchers(key string, value interface{}) {
+	cm.mu.RLock()
+	watchers := make([]WatchCallback, len(cm.watchers))
+	copy(watchers, cm.watchers)
+	cm.mu.RUnlock()
+	
+	for _, watcher := range watchers {
+		watcher(key, value)
+	}
+}
 ```
 
 ## Usage
 
-```typescript
-// Initialisation
-const config = new ConfigurationManager()
-  .addSource(vaultSource)    // Priority 200 - secrets
-  .addSource(envSource)      // Priority 100 - overrides
-  .addSource(consulSource);  // Priority 50  - base config
-
-await config.load();
-
-// Usage
-const dbHost = config.get('database_host', 'localhost');
-const dbPassword = config.getRequired<string>('database_password');
-const maxConnections = config.get<number>('max_connections', 10);
-
-// Reactive config
-config.watch((key, value) => {
-  if (key === 'log_level') {
-    logger.setLevel(value);
-  }
-});
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Configuration Kubernetes

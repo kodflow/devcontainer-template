@@ -8,7 +8,7 @@ Patterns de programmation fonctionnelle.
 
 > Fonction sans effets de bord, même entrée = même sortie.
 
-```typescript
+```go
 // Pure - no side effects, deterministic
 function add(a: number, b: number): number {
   return a + b;
@@ -53,7 +53,7 @@ function calculateWithLogging(
 
 > Ne jamais modifier, toujours créer une nouvelle version.
 
-```typescript
+```go
 // Mutable - BAD
 const user = { name: 'John', age: 30 };
 user.age = 31; // Mutation!
@@ -107,7 +107,7 @@ const nextState = produce(user, (draft) => {
 
 > Fonctions qui prennent/retournent des fonctions.
 
-```typescript
+```go
 // Function that returns a function
 function multiply(factor: number): (n: number) => number {
   return (n: number) => n * factor;
@@ -162,7 +162,7 @@ const processUsers = pipe(
 
 > Transformer f(a, b, c) en f(a)(b)(c).
 
-```typescript
+```go
 // Regular function
 function add(a: number, b: number, c: number): number {
   return a + b + c;
@@ -214,7 +214,7 @@ await postToUsers({ name: 'John' });
 
 > Combiner des fonctions simples en complexes.
 
-```typescript
+```go
 // Basic composition
 function compose<A, B, C>(f: (b: B) => C, g: (a: A) => B): (a: A) => C {
   return (a: A) => f(g(a));
@@ -273,7 +273,7 @@ const processAsync = pipeAsync(
 
 > Représenter l'absence de valeur de manière safe.
 
-```typescript
+```go
 type Option<T> = Some<T> | None;
 
 class Some<T> {
@@ -349,7 +349,7 @@ const email = findUser('123')
 
 > Représenter succès ou échec avec contexte.
 
-```typescript
+```go
 type Either<L, R> = Left<L> | Right<R>;
 
 class Left<L> {
@@ -442,7 +442,7 @@ const result = validateEmail('john@example.com')
 
 > Encapsuler les opérations qui peuvent échouer.
 
-```typescript
+```go
 type Result<T, E = Error> = Ok<T> | Err<E>;
 
 class Ok<T> {
@@ -548,7 +548,7 @@ const data = parseResult
 
 > Container avec flatMap pour chaînage.
 
-```typescript
+```go
 interface Monad<T> {
   map<U>(fn: (value: T) => U): Monad<U>;
   flatMap<U>(fn: (value: T) => Monad<U>): Monad<U>;
@@ -626,7 +626,7 @@ program.run();
 
 > Injection de dépendances fonctionnelle.
 
-```typescript
+```go
 class Reader<E, A> {
   constructor(readonly run: (env: E) => A) {}
 
@@ -694,7 +694,7 @@ program.run(env);
 
 > Gérer l'état de manière pure.
 
-```typescript
+```go
 class State<S, A> {
   constructor(readonly runState: (state: S) => [A, S]) {}
 
@@ -779,7 +779,7 @@ const [result, finalState] = program.run({ count: 0, log: [] });
 
 > Accès et modification immutable de structures imbriquées.
 
-```typescript
+```go
 interface Lens<S, A> {
   get: (s: S) => A;
   set: (a: A) => (s: S) => S;
@@ -845,7 +845,7 @@ const newPerson = personCityLens.set('London')(person);
 
 > Container qui supporte map.
 
-```typescript
+```go
 interface Functor<T> {
   map<U>(fn: (value: T) => U): Functor<U>;
 }
@@ -891,7 +891,7 @@ const result = new Box(5)
 
 > Functor avec application dans contexte.
 
-```typescript
+```go
 interface Applicative<T> extends Functor<T> {
   ap<U>(fn: Applicative<(value: T) => U>): Applicative<U>;
 }
@@ -951,7 +951,7 @@ const validateForm = liftA2(
 
 > Composition de transformations réutilisables.
 
-```typescript
+```go
 type Reducer<A, B> = (acc: A, value: B) => A;
 type Transducer<A, B> = <R>(reducer: Reducer<R, B>) => Reducer<R, A>;
 

@@ -16,251 +16,312 @@ Domain Service = Stateless + Domain Logic + Cross-Entity Operations
 - **Cross-aggregate**: Coordinates between multiple aggregates
 - **Interface-driven**: Often defined as interfaces for DI
 
-## TypeScript Implementation
+## Go Implementation
 
-```typescript
-// Domain Service Interface
-interface TransferService {
-  transfer(
-    from: Account,
-    to: Account,
-    amount: Money
-  ): Result<Transfer, TransferError>;
+```go
+package domain
+
+import (
+	"context"
+	"errors"
+	"fmt"
+)
+
+// TransferService handles money transfers between accounts.
+type TransferService interface {
+	Transfer(ctx context.Context, from, to *Account, amount Money) (*Transfer, error)
 }
 
-// Domain Service Implementation
-class MoneyTransferService implements TransferService {
-  constructor(
-    private readonly exchangeRateService: ExchangeRateService,
-    private readonly transferPolicyService: TransferPolicyService
-  ) {}
-
-  transfer(
-    from: Account,
-    to: Account,
-    amount: Money
-  ): Result<Transfer, TransferError> {
-    // Validate transfer policy
-    const policyResult = this.transferPolicyService.validate(from, to, amount);
-    if (policyResult.isFailure) {
-      return Result.fail(policyResult.error);
-    }
-
-    // Handle currency conversion if needed
-    let transferAmount = amount;
-    if (!from.currency.equals(to.currency)) {
-      const convertResult = this.exchangeRateService.convert(
-        amount,
-        to.currency
-      );
-      if (convertResult.isFailure) {
-        return Result.fail(new TransferError('Currency conversion failed'));
-      }
-      transferAmount = convertResult.value;
-    }
-
-    // Perform the transfer (domain logic)
-    const debitResult = from.debit(amount);
-    if (debitResult.isFailure) {
-      return Result.fail(debitResult.error);
-    }
-
-    const creditResult = to.credit(transferAmount);
-    if (creditResult.isFailure) {
-      // Rollback debit
-      from.credit(amount);
-      return Result.fail(creditResult.error);
-    }
-
-    // Create transfer record
-    return Transfer.create(from.id, to.id, amount, transferAmount);
-  }
+// MoneyTransferService implements TransferService.
+type MoneyTransferService struct {
+	exchangeRateService  ExchangeRateService
+	transferPolicyService TransferPolicyService
 }
 
-// Order Pricing Domain Service
-interface PricingService {
-  calculateTotal(order: Order, customer: Customer): Result<Money, PricingError>;
-  applyDiscount(
-    order: Order,
-    discountCode: DiscountCode
-  ): Result<Money, PricingError>;
+// NewMoneyTransferService creates a new transfer service.
+func NewMoneyTransferService(
+	exchangeRateService ExchangeRateService,
+	transferPolicyService TransferPolicyService,
+) *MoneyTransferService {
+	return &MoneyTransferService{
+		exchangeRateService:  exchangeRateService,
+		transferPolicyService: transferPolicyService,
+	}
 }
 
-class OrderPricingService implements PricingService {
-  constructor(
-    private readonly discountRepository: DiscountRepository,
-    private readonly taxService: TaxService
-  ) {}
-
-  calculateTotal(order: Order, customer: Customer): Result<Money, PricingError> {
-    let total = order.subtotal;
-
-    // Apply customer tier discount
-    const tierDiscount = this.calculateTierDiscount(customer.tier, total);
-    total = total.subtract(tierDiscount).value!;
-
-    // Apply bulk discount
-    if (order.itemCount >= 10) {
-      const bulkDiscount = total.multiply(0.05).value!;
-      total = total.subtract(bulkDiscount).value!;
-    }
-
-    // Calculate tax
-    const taxResult = this.taxService.calculate(total, customer.address);
-    if (taxResult.isFailure) {
-      return Result.fail(new PricingError('Tax calculation failed'));
-    }
-
-    total = total.add(taxResult.value).value!;
-
-    return Result.ok(total);
-  }
-
-  async applyDiscount(
-    order: Order,
-    discountCode: DiscountCode
-  ): Promise<Result<Money, PricingError>> {
-    const discount = await this.discountRepository.findByCode(discountCode);
-
-    if (!discount) {
-      return Result.fail(new PricingError('Invalid discount code'));
-    }
-
-    if (discount.isExpired()) {
-      return Result.fail(new PricingError('Discount code expired'));
-    }
-
-    if (!discount.isApplicableTo(order)) {
-      return Result.fail(new PricingError('Discount not applicable to order'));
-    }
-
-    const discountAmount = discount.calculate(order.subtotal);
-    return Result.ok(order.subtotal.subtract(discountAmount).value!);
-  }
-
-  private calculateTierDiscount(tier: CustomerTier, amount: Money): Money {
-    const rates: Record<CustomerTier, number> = {
-      [CustomerTier.Bronze]: 0,
-      [CustomerTier.Silver]: 0.05,
-      [CustomerTier.Gold]: 0.10,
-      [CustomerTier.Platinum]: 0.15,
-    };
-
-    return amount.multiply(rates[tier]).value!;
-  }
+// Transfer executes a money transfer with domain validation.
+func (s *MoneyTransferService) Transfer(
+	ctx context.Context,
+	from, to *Account,
+	amount Money,
+) (*Transfer, error) {
+	// Validate transfer policy
+	if err := s.transferPolicyService.Validate(ctx, from, to, amount); err != nil {
+		return nil, fmt.Errorf("policy validation failed: %w", err)
+	}
+	
+	// Handle currency conversion if needed
+	transferAmount := amount
+	if from.Currency() != to.Currency() {
+		converted, err := s.exchangeRateService.Convert(ctx, amount, to.Currency())
+		if err != nil {
+			return nil, fmt.Errorf("currency conversion failed: %w", err)
+		}
+		transferAmount = converted
+	}
+	
+	// Perform the transfer (domain logic)
+	if err := from.Debit(amount); err != nil {
+		return nil, fmt.Errorf("debit failed: %w", err)
+	}
+	
+	if err := to.Credit(transferAmount); err != nil {
+		// Rollback debit
+		_ = from.Credit(amount)
+		return nil, fmt.Errorf("credit failed: %w", err)
+	}
+	
+	// Create transfer record
+	return NewTransfer(from.ID(), to.ID(), amount, transferAmount)
 }
 
-// Inventory Allocation Domain Service
-interface InventoryAllocationService {
-  allocate(
-    order: Order,
-    inventory: Inventory
-  ): Result<Allocation[], AllocationError>;
-
-  deallocate(allocation: Allocation): Result<void, AllocationError>;
+// PricingService calculates order totals and discounts.
+type PricingService interface {
+	CalculateTotal(ctx context.Context, order *Order, customer *Customer) (Money, error)
+	ApplyDiscount(ctx context.Context, order *Order, code DiscountCode) (Money, error)
 }
 
-class FIFOInventoryAllocationService implements InventoryAllocationService {
-  allocate(
-    order: Order,
-    inventory: Inventory
-  ): Result<Allocation[], AllocationError> {
-    const allocations: Allocation[] = [];
+// OrderPricingService implements PricingService.
+type OrderPricingService struct {
+	discountRepo DiscountRepository
+	taxService   TaxService
+}
 
-    for (const item of order.items) {
-      const batches = inventory.getBatchesForProduct(item.productId);
-      let remainingQuantity = item.quantity.value;
+// NewOrderPricingService creates a new pricing service.
+func NewOrderPricingService(
+	discountRepo DiscountRepository,
+	taxService TaxService,
+) *OrderPricingService {
+	return &OrderPricingService{
+		discountRepo: discountRepo,
+		taxService:   taxService,
+	}
+}
 
-      // FIFO allocation strategy
-      for (const batch of batches.sortByDate('asc')) {
-        if (remainingQuantity <= 0) break;
+// CalculateTotal computes the total order price with discounts and tax.
+func (s *OrderPricingService) CalculateTotal(
+	ctx context.Context,
+	order *Order,
+	customer *Customer,
+) (Money, error) {
+	total := order.Subtotal()
+	
+	// Apply customer tier discount
+	tierDiscount := s.calculateTierDiscount(customer.Tier(), total)
+	total, err := total.Subtract(tierDiscount)
+	if err != nil {
+		return Money{}, err
+	}
+	
+	// Apply bulk discount
+	if order.ItemCount() >= 10 {
+		bulkDiscount, err := total.Multiply(0.05)
+		if err != nil {
+			return Money{}, err
+		}
+		total, err = total.Subtract(bulkDiscount)
+		if err != nil {
+			return Money{}, err
+		}
+	}
+	
+	// Calculate tax
+	tax, err := s.taxService.Calculate(ctx, total, customer.Address())
+	if err != nil {
+		return Money{}, fmt.Errorf("tax calculation failed: %w", err)
+	}
+	
+	total, err = total.Add(tax)
+	if err != nil {
+		return Money{}, err
+	}
+	
+	return total, nil
+}
 
-        const allocateQty = Math.min(remainingQuantity, batch.availableQuantity);
+// ApplyDiscount validates and applies a discount code.
+func (s *OrderPricingService) ApplyDiscount(
+	ctx context.Context,
+	order *Order,
+	code DiscountCode,
+) (Money, error) {
+	discount, err := s.discountRepo.FindByCode(ctx, code)
+	if err != nil {
+		return Money{}, errors.New("invalid discount code")
+	}
+	
+	if discount.IsExpired() {
+		return Money{}, errors.New("discount code expired")
+	}
+	
+	if !discount.IsApplicableTo(order) {
+		return Money{}, errors.New("discount not applicable to order")
+	}
+	
+	discountAmount := discount.Calculate(order.Subtotal())
+	return order.Subtotal().Subtract(discountAmount)
+}
 
-        const allocationResult = Allocation.create(
-          order.id,
-          batch.id,
-          item.productId,
-          Quantity.create(allocateQty).value!
-        );
+func (s *OrderPricingService) calculateTierDiscount(
+	tier CustomerTier,
+	amount Money,
+) Money {
+	rates := map[CustomerTier]float64{
+		CustomerTierBronze:   0,
+		CustomerTierSilver:   0.05,
+		CustomerTierGold:     0.10,
+		CustomerTierPlatinum: 0.15,
+	}
+	
+	rate := rates[tier]
+	discount, _ := amount.Multiply(rate)
+	return discount
+}
 
-        if (allocationResult.isFailure) {
-          // Rollback previous allocations
-          allocations.forEach(a => this.deallocate(a));
-          return Result.fail(allocationResult.error);
-        }
+// InventoryAllocationService allocates inventory to orders.
+type InventoryAllocationService interface {
+	Allocate(ctx context.Context, order *Order, inventory *Inventory) ([]*Allocation, error)
+	Deallocate(ctx context.Context, allocation *Allocation) error
+}
 
-        batch.reserve(allocateQty);
-        allocations.push(allocationResult.value);
-        remainingQuantity -= allocateQty;
-      }
+// FIFOInventoryAllocationService uses First-In-First-Out strategy.
+type FIFOInventoryAllocationService struct{}
 
-      if (remainingQuantity > 0) {
-        // Rollback and fail
-        allocations.forEach(a => this.deallocate(a));
-        return Result.fail(
-          new AllocationError(`Insufficient stock for ${item.productId.value}`)
-        );
-      }
-    }
+// NewFIFOInventoryAllocationService creates a new allocation service.
+func NewFIFOInventoryAllocationService() *FIFOInventoryAllocationService {
+	return &FIFOInventoryAllocationService{}
+}
 
-    return Result.ok(allocations);
-  }
+// Allocate assigns inventory batches to order items using FIFO.
+func (s *FIFOInventoryAllocationService) Allocate(
+	ctx context.Context,
+	order *Order,
+	inventory *Inventory,
+) ([]*Allocation, error) {
+	var allocations []*Allocation
+	
+	for _, item := range order.Items() {
+		batches := inventory.GetBatchesForProduct(item.ProductID())
+		remainingQty := item.Quantity().Value()
+		
+		// FIFO allocation strategy
+		for _, batch := range batches {
+			if remainingQty <= 0 {
+				break
+			}
+			
+			allocateQty := min(remainingQty, batch.AvailableQuantity())
+			
+			quantity, err := NewQuantity(allocateQty)
+			if err != nil {
+				// Rollback previous allocations
+				s.rollbackAllocations(ctx, allocations)
+				return nil, err
+			}
+			
+			allocation, err := NewAllocation(
+				order.ID(),
+				batch.ID(),
+				item.ProductID(),
+				quantity,
+			)
+			if err != nil {
+				s.rollbackAllocations(ctx, allocations)
+				return nil, err
+			}
+			
+			if err := batch.Reserve(allocateQty); err != nil {
+				s.rollbackAllocations(ctx, allocations)
+				return nil, err
+			}
+			
+			allocations = append(allocations, allocation)
+			remainingQty -= allocateQty
+		}
+		
+		if remainingQty > 0 {
+			s.rollbackAllocations(ctx, allocations)
+			return nil, fmt.Errorf("insufficient stock for %s", item.ProductID().Value())
+		}
+	}
+	
+	return allocations, nil
+}
 
-  deallocate(allocation: Allocation): Result<void, AllocationError> {
-    allocation.batch.release(allocation.quantity.value);
-    return Result.ok(undefined);
-  }
+// Deallocate releases an allocation.
+func (s *FIFOInventoryAllocationService) Deallocate(
+	ctx context.Context,
+	allocation *Allocation,
+) error {
+	return allocation.Batch().Release(allocation.Quantity().Value())
+}
+
+func (s *FIFOInventoryAllocationService) rollbackAllocations(
+	ctx context.Context,
+	allocations []*Allocation,
+) {
+	for _, a := range allocations {
+		_ = s.Deallocate(ctx, a)
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 ```
 
 ## OOP vs FP Comparison
 
-```typescript
-// FP-style Domain Service using Effect
-import { Effect, pipe } from 'effect';
+```go
+// FP-style Domain Service using pure functions
 
-// Pure function approach
-const transfer = (
-  exchangeRateService: ExchangeRateService,
-  transferPolicyService: TransferPolicyService
-) => (
-  from: Account,
-  to: Account,
-  amount: Money
-): Effect.Effect<Transfer, TransferError> =>
-  pipe(
-    // Validate policy
-    transferPolicyService.validate(from, to, amount),
-    Effect.flatMap(() =>
-      // Convert currency if needed
-      from.currency.equals(to.currency)
-        ? Effect.succeed(amount)
-        : exchangeRateService.convert(amount, to.currency)
-    ),
-    Effect.flatMap(transferAmount =>
-      pipe(
-        // Debit and credit
-        Effect.all([
-          Effect.try(() => from.debit(amount)),
-          Effect.try(() => to.credit(transferAmount))
-        ]),
-        Effect.flatMap(() => Transfer.create(from.id, to.id, amount, transferAmount))
-      )
-    )
-  );
-
-// Using Effect Service pattern
-class TransferService extends Effect.Tag('TransferService')<
-  TransferService,
-  {
-    transfer: (
-      from: Account,
-      to: Account,
-      amount: Money
-    ) => Effect.Effect<Transfer, TransferError>;
-  }
->() {}
+// Transfer executes a pure transfer operation.
+func Transfer(
+	exchangeRate func(Money, Currency) (Money, error),
+	validatePolicy func(*Account, *Account, Money) error,
+) func(*Account, *Account, Money) (*Transfer, error) {
+	return func(from, to *Account, amount Money) (*Transfer, error) {
+		// Validate policy
+		if err := validatePolicy(from, to, amount); err != nil {
+			return nil, err
+		}
+		
+		// Convert currency if needed
+		transferAmount := amount
+		if from.Currency() != to.Currency() {
+			converted, err := exchangeRate(amount, to.Currency())
+			if err != nil {
+				return nil, err
+			}
+			transferAmount = converted
+		}
+		
+		// Debit and credit
+		if err := from.Debit(amount); err != nil {
+			return nil, err
+		}
+		
+		if err := to.Credit(transferAmount); err != nil {
+			_ = from.Credit(amount) // Rollback
+			return nil, err
+		}
+		
+		return NewTransfer(from.ID(), to.ID(), amount, transferAmount)
+	}
+}
 ```
 
 ## Domain Service vs Application Service
@@ -273,33 +334,45 @@ class TransferService extends Effect.Tag('TransferService')<
 | Stateless | Yes | Yes |
 | Example | `PricingService` | `OrderApplicationService` |
 
-```typescript
+```go
 // Application Service (uses Domain Service)
-class OrderApplicationService {
-  constructor(
-    private readonly orderRepo: OrderRepository,
-    private readonly customerRepo: CustomerRepository,
-    private readonly pricingService: PricingService, // Domain Service
-    private readonly eventBus: EventBus
-  ) {}
+type OrderApplicationService struct {
+	orderRepo    OrderRepository
+	customerRepo CustomerRepository
+	pricingService PricingService // Domain Service
+	eventBus     EventBus
+}
 
-  async checkout(orderId: OrderId): Promise<Result<void, CheckoutError>> {
-    const order = await this.orderRepo.findById(orderId);
-    const customer = await this.customerRepo.findById(order.customerId);
-
-    // Delegate to domain service
-    const totalResult = this.pricingService.calculateTotal(order, customer);
-    if (totalResult.isFailure) {
-      return Result.fail(totalResult.error);
-    }
-
-    order.setTotal(totalResult.value);
-    order.confirm();
-
-    await this.orderRepo.save(order);
-
-    return Result.ok(undefined);
-  }
+// Checkout orchestrates the checkout use case.
+func (s *OrderApplicationService) Checkout(
+	ctx context.Context,
+	orderID OrderID,
+) error {
+	order, err := s.orderRepo.FindByID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("finding order: %w", err)
+	}
+	
+	customer, err := s.customerRepo.FindByID(ctx, order.CustomerID())
+	if err != nil {
+		return fmt.Errorf("finding customer: %w", err)
+	}
+	
+	// Delegate to domain service
+	total, err := s.pricingService.CalculateTotal(ctx, order, customer)
+	if err != nil {
+		return fmt.Errorf("calculating total: %w", err)
+	}
+	
+	if err := order.SetTotal(total); err != nil {
+		return err
+	}
+	
+	if err := order.Confirm(); err != nil {
+		return err
+	}
+	
+	return s.orderRepo.Save(ctx, order)
 }
 ```
 
@@ -307,54 +380,48 @@ class OrderApplicationService {
 
 | Library | Purpose | Link |
 |---------|---------|------|
-| **Effect** | Functional services | `npm i effect` |
-| **inversify** | DI container | `npm i inversify` |
-| **tsyringe** | Lightweight DI | `npm i tsyringe` |
-| **neverthrow** | Result type | `npm i neverthrow` |
+| **uber-go/fx** | Dependency injection | `go get go.uber.org/fx` |
+| **google/wire** | Compile-time DI | `go get github.com/google/wire` |
 
 ## Anti-patterns
 
 1. **Stateful Service**: Maintaining internal state
 
-   ```typescript
+   ```go
    // BAD
-   class PricingService {
-     private cachedRates: Map<string, number>; // State!
+   type PricingService struct {
+       cachedRates map[string]float64 // State!
    }
    ```
 
 2. **Anemic Service**: Just delegates to entities
 
-   ```typescript
+   ```go
    // BAD - No actual domain logic
-   class OrderService {
-     addItem(order: Order, item: Item) {
-       order.addItem(item); // Just delegation
-     }
+   func (s *OrderService) AddItem(order *Order, item *Item) {
+       order.AddItem(item) // Just delegation
    }
    ```
 
 3. **Infrastructure in Domain Service**: Database or API calls
 
-   ```typescript
+   ```go
    // BAD - Infrastructure concern
-   class PricingService {
-     async calculate(order: Order) {
-       const rates = await fetch('/api/rates'); // Infrastructure!
-     }
+   func (s *PricingService) Calculate(order *Order) (Money, error) {
+       resp, err := http.Get("/api/rates") // Infrastructure!
+       // ...
    }
    ```
 
 4. **God Service**: Too many responsibilities
 
-   ```typescript
+   ```go
    // BAD - Too broad
-   class OrderDomainService {
-     calculatePrice() { }
-     validateInventory() { }
-     processPayment() { }
-     sendNotification() { }
-   }
+   type OrderDomainService struct{}
+   func (s *OrderDomainService) CalculatePrice() {}
+   func (s *OrderDomainService) ValidateInventory() {}
+   func (s *OrderDomainService) ProcessPayment() {}
+   func (s *OrderDomainService) SendNotification() {}
    ```
 
 ## When to Use

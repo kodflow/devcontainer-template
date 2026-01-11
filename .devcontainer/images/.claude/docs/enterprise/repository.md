@@ -13,233 +13,306 @@ Le Repository agit comme une collection en memoire d'objets du domaine. Il cache
 3. **Encapsulation** : Cache les details de persistance
 4. **Un par Aggregate** : En DDD, un Repository par Aggregate Root
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-// Interface Repository - Contrat abstrait
-interface Repository<T, ID> {
-  findById(id: ID): Promise<T | null>;
-  findAll(): Promise<T[]>;
-  save(entity: T): Promise<void>;
-  delete(entity: T): Promise<void>;
-  exists(id: ID): Promise<boolean>;
+```go
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+)
+
+// Repository is a generic repository interface.
+type Repository[T Entity, ID comparable] interface {
+	FindByID(ctx context.Context, id ID) (T, error)
+	FindAll(ctx context.Context) ([]T, error)
+	Save(ctx context.Context, entity T) error
+	Delete(ctx context.Context, entity T) error
+	Exists(ctx context.Context, id ID) (bool, error)
 }
 
-// Repository specifique au domaine
-interface OrderRepository extends Repository<Order, OrderId> {
-  findByCustomerId(customerId: CustomerId): Promise<Order[]>;
-  findByStatus(status: OrderStatus): Promise<Order[]>;
-  findPendingOlderThan(date: Date): Promise<Order[]>;
-  nextId(): OrderId;
+// Entity represents a domain entity.
+type Entity interface {
+	GetID() string
 }
 
-// Implementation concrete
-class PostgresOrderRepository implements OrderRepository {
-  constructor(
-    private readonly db: Database,
-    private readonly mapper: OrderDataMapper,
-    private readonly identityMap: IdentityMap<Order>,
-  ) {}
-
-  async findById(id: OrderId): Promise<Order | null> {
-    // Check identity map first
-    const cached = this.identityMap.get(id.value);
-    if (cached) return cached;
-
-    // Load from DB
-    const order = await this.mapper.findById(id.value);
-    if (order) {
-      this.identityMap.add(order);
-    }
-    return order;
-  }
-
-  async findAll(): Promise<Order[]> {
-    return this.mapper.findAll();
-  }
-
-  async findByCustomerId(customerId: CustomerId): Promise<Order[]> {
-    return this.mapper.findByCustomerId(customerId.value);
-  }
-
-  async findByStatus(status: OrderStatus): Promise<Order[]> {
-    return this.mapper.findByStatus(status);
-  }
-
-  async findPendingOlderThan(date: Date): Promise<Order[]> {
-    const rows = await this.db.query(
-      `SELECT * FROM orders
-       WHERE status = 'pending' AND created_at < ?`,
-      [date],
-    );
-    return Promise.all(rows.map((r) => this.mapper.toDomain(r)));
-  }
-
-  async save(order: Order): Promise<void> {
-    const exists = await this.exists(OrderId.from(order.id));
-    if (exists) {
-      await this.mapper.update(order);
-    } else {
-      await this.mapper.insert(order);
-    }
-    this.identityMap.add(order);
-  }
-
-  async delete(order: Order): Promise<void> {
-    await this.mapper.delete(order.id);
-    this.identityMap.remove(order.id);
-  }
-
-  async exists(id: OrderId): Promise<boolean> {
-    const result = await this.db.queryOne(
-      'SELECT 1 FROM orders WHERE id = ?',
-      [id.value],
-    );
-    return result !== null;
-  }
-
-  nextId(): OrderId {
-    return OrderId.generate();
-  }
-}
-```
-
-## Repository avec Specification Pattern
-
-```typescript
-// Specification pattern pour queries complexes
-interface Specification<T> {
-  isSatisfiedBy(entity: T): boolean;
-  toSql(): { where: string; params: any[] };
+// OrderID represents an order identifier.
+type OrderID struct {
+	value string
 }
 
-class OrderByCustomerSpec implements Specification<Order> {
-  constructor(private readonly customerId: CustomerId) {}
-
-  isSatisfiedBy(order: Order): boolean {
-    return order.customerId.equals(this.customerId);
-  }
-
-  toSql(): { where: string; params: any[] } {
-    return {
-      where: 'customer_id = ?',
-      params: [this.customerId.value],
-    };
-  }
+// NewOrderID creates a new order ID.
+func NewOrderID(value string) OrderID {
+	return OrderID{value: value}
 }
 
-class OrderMinAmountSpec implements Specification<Order> {
-  constructor(private readonly minAmount: Money) {}
+func (id OrderID) String() string { return id.value }
 
-  isSatisfiedBy(order: Order): boolean {
-    return order.total.isGreaterThanOrEqual(this.minAmount);
-  }
+// OrderStatus represents an order status.
+type OrderStatus string
 
-  toSql(): { where: string; params: any[] } {
-    return {
-      where: 'total_amount >= ?',
-      params: [this.minAmount.amount],
-    };
-  }
+const (
+	OrderStatusDraft     OrderStatus = "draft"
+	OrderStatusSubmitted OrderStatus = "submitted"
+	OrderStatusPaid      OrderStatus = "paid"
+)
+
+// OrderRepository is a domain-specific repository.
+type OrderRepository interface {
+	FindByID(ctx context.Context, id OrderID) (*Order, error)
+	FindAll(ctx context.Context) ([]*Order, error)
+	FindByCustomerID(ctx context.Context, customerID CustomerID) ([]*Order, error)
+	FindByStatus(ctx context.Context, status OrderStatus) ([]*Order, error)
+	FindPendingOlderThan(ctx context.Context, date time.Time) ([]*Order, error)
+	Save(ctx context.Context, order *Order) error
+	Delete(ctx context.Context, order *Order) error
+	Exists(ctx context.Context, id OrderID) (bool, error)
+	NextID() OrderID
 }
 
-// Composite specifications
-class AndSpec<T> implements Specification<T> {
-  constructor(
-    private readonly left: Specification<T>,
-    private readonly right: Specification<T>,
-  ) {}
-
-  isSatisfiedBy(entity: T): boolean {
-    return this.left.isSatisfiedBy(entity) && this.right.isSatisfiedBy(entity);
-  }
-
-  toSql(): { where: string; params: any[] } {
-    const l = this.left.toSql();
-    const r = this.right.toSql();
-    return {
-      where: `(${l.where}) AND (${r.where})`,
-      params: [...l.params, ...r.params],
-    };
-  }
+// PostgresOrderRepository is a PostgreSQL implementation.
+type PostgresOrderRepository struct {
+	db          *sql.DB
+	mapper      *OrderDataMapper
+	identityMap *IdentityMap[*Order]
 }
 
-// Repository avec Specification
-interface OrderRepository {
-  findSatisfying(spec: Specification<Order>): Promise<Order[]>;
+// NewPostgresOrderRepository creates a new PostgreSQL order repository.
+func NewPostgresOrderRepository(
+	db *sql.DB,
+	mapper *OrderDataMapper,
+	identityMap *IdentityMap[*Order],
+) *PostgresOrderRepository {
+	return &PostgresOrderRepository{
+		db:          db,
+		mapper:      mapper,
+		identityMap: identityMap,
+	}
 }
 
-class PostgresOrderRepository {
-  async findSatisfying(spec: Specification<Order>): Promise<Order[]> {
-    const { where, params } = spec.toSql();
-    const rows = await this.db.query(
-      `SELECT * FROM orders WHERE ${where}`,
-      params,
-    );
-    return Promise.all(rows.map((r) => this.mapper.toDomain(r)));
-  }
+// FindByID finds an order by ID.
+func (r *PostgresOrderRepository) FindByID(ctx context.Context, id OrderID) (*Order, error) {
+	// Check identity map first
+	if order, ok := r.identityMap.Get(id.String()); ok {
+		return order, nil
+	}
+
+	// Load from database
+	order, err := r.mapper.FindByID(ctx, id.String())
+	if err != nil {
+		return nil, fmt.Errorf("mapper find by id: %w", err)
+	}
+	if order == nil {
+		return nil, nil
+	}
+
+	r.identityMap.Add(order)
+	return order, nil
 }
 
-// Usage
-const spec = new AndSpec(
-  new OrderByCustomerSpec(customerId),
-  new OrderMinAmountSpec(Money.of(100)),
-);
-const orders = await orderRepository.findSatisfying(spec);
-```
+// FindAll returns all orders.
+func (r *PostgresOrderRepository) FindAll(ctx context.Context) ([]*Order, error) {
+	return r.mapper.FindAll(ctx)
+}
 
-## Repository en memoire pour tests
+// FindByCustomerID finds orders by customer ID.
+func (r *PostgresOrderRepository) FindByCustomerID(ctx context.Context, customerID CustomerID) ([]*Order, error) {
+	return r.mapper.FindByCustomerID(ctx, customerID.String())
+}
 
-```typescript
-class InMemoryOrderRepository implements OrderRepository {
-  private orders = new Map<string, Order>();
-  private idCounter = 0;
+// FindByStatus finds orders by status.
+func (r *PostgresOrderRepository) FindByStatus(ctx context.Context, status OrderStatus) ([]*Order, error) {
+	return r.mapper.FindByStatus(ctx, status)
+}
 
-  async findById(id: OrderId): Promise<Order | null> {
-    return this.orders.get(id.value) || null;
-  }
+// FindPendingOlderThan finds pending orders older than a date.
+func (r *PostgresOrderRepository) FindPendingOlderThan(ctx context.Context, date time.Time) ([]*Order, error) {
+	query := `SELECT * FROM orders WHERE status = 'pending' AND created_at < ?`
+	rows, err := r.db.QueryContext(ctx, query, date)
+	if err != nil {
+		return nil, fmt.Errorf("query: %w", err)
+	}
+	defer rows.Close()
 
-  async findAll(): Promise<Order[]> {
-    return Array.from(this.orders.values());
-  }
+	var orders []*Order
+	for rows.Next() {
+		order, err := r.mapper.ScanRow(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan row: %w", err)
+		}
+		orders = append(orders, order)
+	}
 
-  async findByCustomerId(customerId: CustomerId): Promise<Order[]> {
-    return Array.from(this.orders.values()).filter((o) =>
-      o.customerId.equals(customerId),
-    );
-  }
+	return orders, rows.Err()
+}
 
-  async findByStatus(status: OrderStatus): Promise<Order[]> {
-    return Array.from(this.orders.values()).filter((o) =>
-      o.status === status,
-    );
-  }
+// Save saves an order.
+func (r *PostgresOrderRepository) Save(ctx context.Context, order *Order) error {
+	exists, err := r.Exists(ctx, NewOrderID(order.GetID()))
+	if err != nil {
+		return fmt.Errorf("check exists: %w", err)
+	}
 
-  async save(order: Order): Promise<void> {
-    this.orders.set(order.id, order);
-  }
+	if exists {
+		if err := r.mapper.Update(ctx, order); err != nil {
+			return fmt.Errorf("update: %w", err)
+		}
+	} else {
+		if err := r.mapper.Insert(ctx, order); err != nil {
+			return fmt.Errorf("insert: %w", err)
+		}
+	}
 
-  async delete(order: Order): Promise<void> {
-    this.orders.delete(order.id);
-  }
+	r.identityMap.Add(order)
+	return nil
+}
 
-  async exists(id: OrderId): Promise<boolean> {
-    return this.orders.has(id.value);
-  }
+// Delete deletes an order.
+func (r *PostgresOrderRepository) Delete(ctx context.Context, order *Order) error {
+	if err := r.mapper.Delete(ctx, order.GetID()); err != nil {
+		return fmt.Errorf("mapper delete: %w", err)
+	}
+	r.identityMap.Remove(order.GetID())
+	return nil
+}
 
-  nextId(): OrderId {
-    return OrderId.from(`order-${++this.idCounter}`);
-  }
+// Exists checks if an order exists.
+func (r *PostgresOrderRepository) Exists(ctx context.Context, id OrderID) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM orders WHERE id = ?)`,
+		id.String(),
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("query exists: %w", err)
+	}
+	return exists, nil
+}
 
-  // Test helpers
-  clear(): void {
-    this.orders.clear();
-    this.idCounter = 0;
-  }
+// NextID generates a new order ID.
+func (r *PostgresOrderRepository) NextID() OrderID {
+	return NewOrderID(uuid.New().String())
+}
 
-  count(): number {
-    return this.orders.size;
-  }
+// InMemoryOrderRepository is an in-memory implementation for testing.
+type InMemoryOrderRepository struct {
+	orders    map[string]*Order
+	idCounter int
+	mu        sync.RWMutex
+}
+
+// NewInMemoryOrderRepository creates a new in-memory repository.
+func NewInMemoryOrderRepository() *InMemoryOrderRepository {
+	return &InMemoryOrderRepository{
+		orders: make(map[string]*Order),
+	}
+}
+
+// FindByID finds an order by ID.
+func (r *InMemoryOrderRepository) FindByID(ctx context.Context, id OrderID) (*Order, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	order, ok := r.orders[id.String()]
+	if !ok {
+		return nil, nil
+	}
+	return order, nil
+}
+
+// FindAll returns all orders.
+func (r *InMemoryOrderRepository) FindAll(ctx context.Context) ([]*Order, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	orders := make([]*Order, 0, len(r.orders))
+	for _, order := range r.orders {
+		orders = append(orders, order)
+	}
+	return orders, nil
+}
+
+// FindByCustomerID finds orders by customer ID.
+func (r *InMemoryOrderRepository) FindByCustomerID(ctx context.Context, customerID CustomerID) ([]*Order, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var orders []*Order
+	for _, order := range r.orders {
+		if order.CustomerID() == customerID.String() {
+			orders = append(orders, order)
+		}
+	}
+	return orders, nil
+}
+
+// FindByStatus finds orders by status.
+func (r *InMemoryOrderRepository) FindByStatus(ctx context.Context, status OrderStatus) ([]*Order, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var orders []*Order
+	for _, order := range r.orders {
+		if order.Status() == status {
+			orders = append(orders, order)
+		}
+	}
+	return orders, nil
+}
+
+// Save saves an order.
+func (r *InMemoryOrderRepository) Save(ctx context.Context, order *Order) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.orders[order.GetID()] = order
+	return nil
+}
+
+// Delete deletes an order.
+func (r *InMemoryOrderRepository) Delete(ctx context.Context, order *Order) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.orders, order.GetID())
+	return nil
+}
+
+// Exists checks if an order exists.
+func (r *InMemoryOrderRepository) Exists(ctx context.Context, id OrderID) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	_, exists := r.orders[id.String()]
+	return exists, nil
+}
+
+// NextID generates a new order ID.
+func (r *InMemoryOrderRepository) NextID() OrderID {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.idCounter++
+	return NewOrderID(fmt.Sprintf("order-%d", r.idCounter))
+}
+
+// Clear clears all orders (test helper).
+func (r *InMemoryOrderRepository) Clear() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.orders = make(map[string]*Order)
+	r.idCounter = 0
+}
+
+// Count returns the number of orders (test helper).
+func (r *InMemoryOrderRepository) Count() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return len(r.orders)
 }
 ```
 
@@ -268,61 +341,6 @@ class InMemoryOrderRepository implements OrderRepository {
 - CRUD simple (overkill)
 - Queries complexes SQL (utiliser Query Objects)
 - Pas de Domain Model
-
-## Relation avec DDD
-
-Le Repository est un **building block DDD essentiel** :
-
-```
-┌─────────────────────────────────────────────┐
-│              Application Layer              │
-│   (Uses Repository interface)               │
-├─────────────────────────────────────────────┤
-│              Domain Layer                   │
-│   - Repository Interface (contrat)          │
-│   - Aggregate Roots                         │
-├─────────────────────────────────────────────┤
-│          Infrastructure Layer               │
-│   - Repository Implementation               │
-│   - Data Mapper, ORM                        │
-└─────────────────────────────────────────────┘
-```
-
-**Regles DDD :**
-
-1. Un Repository par Aggregate Root
-2. Interface dans le Domain Layer
-3. Implementation dans l'Infrastructure Layer
-4. Retourne des Aggregates complets
-
-## Anti-patterns a eviter
-
-```typescript
-// EVITER: Repository generique qui expose tout
-interface BadRepository<T> {
-  query(sql: string): Promise<T[]>; // Fuite d'abstraction
-}
-
-// EVITER: Repository pour entites non-root
-interface OrderItemRepository {} // OrderItem n'est pas un Aggregate Root
-
-// EVITER: Business logic dans le repository
-class BadOrderRepository {
-  async submitOrder(id: string) {
-    const order = await this.findById(id);
-    order.status = 'submitted'; // Logique metier hors du domaine!
-    await this.save(order);
-  }
-}
-```
-
-## Patterns associes
-
-- **Data Mapper** : Implementation sous-jacente
-- **Unit of Work** : Tracking des changements
-- **Identity Map** : Cache des objets
-- **Specification** : Queries complexes
-- **Query Object** : Alternative pour queries reporting
 
 ## Sources
 

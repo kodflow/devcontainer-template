@@ -8,218 +8,306 @@ Remote Facade est une interface simplifiee qui expose des operations coarse-grai
 
 ## Probleme resolu
 
-```typescript
+```go
 // PROBLEME: Fine-grained API = nombreux appels reseau
-const customer = await api.getCustomer(id);           // Call 1
-const address = await api.getAddress(customer.addressId); // Call 2
-const orders = await api.getOrders(customer.id);      // Call 3
-const items = await Promise.all(                      // Call 4..N
-  orders.map(o => api.getOrderItems(o.id))
-);
+customer := api.GetCustomer(ctx, id)                    // Call 1
+address := api.GetAddress(ctx, customer.AddressID)      // Call 2
+orders := api.GetOrders(ctx, customer.ID)               // Call 3
+// ... N more calls
 
 // SOLUTION: Coarse-grained Remote Facade
-const customerProfile = await api.getCustomerProfile(id); // 1 seul appel
+customerProfile := api.GetCustomerProfile(ctx, id)      // 1 seul appel
 // Contient: customer, address, recentOrders, etc.
 ```
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-// Fine-grained domain services (internes)
-class OrderService {
-  async create(customerId: string): Promise<Order> { ... }
-  async addItem(orderId: string, productId: string, qty: number): Promise<void> { ... }
-  async removeItem(orderId: string, itemId: string): Promise<void> { ... }
-  async updateQuantity(orderId: string, itemId: string, qty: number): Promise<void> { ... }
-  async setShippingAddress(orderId: string, address: Address): Promise<void> { ... }
-  async setBillingAddress(orderId: string, address: Address): Promise<void> { ... }
-  async applyDiscount(orderId: string, code: string): Promise<void> { ... }
-  async submit(orderId: string): Promise<void> { ... }
+```go
+package facade
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"time"
+)
+
+// PlaceOrderRequest contains all order data in one request.
+type PlaceOrderRequest struct {
+	CustomerID      string
+	Items           []OrderItemRequest
+	ShippingAddress Address
+	BillingAddress  *Address
+	DiscountCode    *string
+	PaymentMethod   PaymentMethod
 }
 
-class PaymentService {
-  async createPaymentIntent(orderId: string): Promise<PaymentIntent> { ... }
-  async processPayment(intentId: string, method: PaymentMethod): Promise<PaymentResult> { ... }
+// OrderItemRequest represents an order item.
+type OrderItemRequest struct {
+	ProductID string
+	Quantity  int
 }
 
-class NotificationService {
-  async sendOrderConfirmation(orderId: string): Promise<void> { ... }
+// Address represents a shipping/billing address.
+type Address struct {
+	Street     string
+	City       string
+	PostalCode string
+	Country    string
 }
 
-// Remote Facade - Coarse-grained interface
-class OrderFacade {
-  constructor(
-    private readonly orderService: OrderService,
-    private readonly paymentService: PaymentService,
-    private readonly notificationService: NotificationService,
-    private readonly customerRepository: CustomerRepository,
-    private readonly productRepository: ProductRepository,
-  ) {}
-
-  /**
-   * Place une commande complete en un seul appel
-   * Remplace 5-10 appels fins par un seul appel coarse-grained
-   */
-  async placeOrder(request: PlaceOrderRequest): Promise<PlaceOrderResponse> {
-    // Validation
-    const customer = await this.customerRepository.findById(request.customerId);
-    if (!customer) {
-      throw new NotFoundError('Customer not found');
-    }
-
-    // Creation commande
-    const order = await this.orderService.create(request.customerId);
-
-    // Ajout items
-    for (const item of request.items) {
-      const product = await this.productRepository.findById(item.productId);
-      if (!product) {
-        throw new NotFoundError(`Product ${item.productId} not found`);
-      }
-      await this.orderService.addItem(order.id, item.productId, item.quantity);
-    }
-
-    // Addresses
-    await this.orderService.setShippingAddress(order.id, request.shippingAddress);
-    await this.orderService.setBillingAddress(
-      order.id,
-      request.billingAddress || request.shippingAddress,
-    );
-
-    // Discount
-    if (request.discountCode) {
-      await this.orderService.applyDiscount(order.id, request.discountCode);
-    }
-
-    // Submit
-    await this.orderService.submit(order.id);
-
-    // Payment
-    const paymentIntent = await this.paymentService.createPaymentIntent(order.id);
-    const paymentResult = await this.paymentService.processPayment(
-      paymentIntent.id,
-      request.paymentMethod,
-    );
-
-    if (!paymentResult.success) {
-      throw new PaymentError(paymentResult.error);
-    }
-
-    // Notification
-    await this.notificationService.sendOrderConfirmation(order.id);
-
-    // Response DTO
-    const updatedOrder = await this.orderService.findById(order.id);
-    return {
-      orderId: order.id,
-      orderNumber: updatedOrder.orderNumber,
-      total: updatedOrder.total.amount,
-      currency: updatedOrder.total.currency,
-      estimatedDelivery: this.calculateDeliveryDate(request.shippingAddress),
-      paymentConfirmation: paymentResult.confirmationNumber,
-    };
-  }
-
-  /**
-   * Obtenir le profil complet d'un client
-   */
-  async getCustomerProfile(customerId: string): Promise<CustomerProfileResponse> {
-    const [customer, addresses, recentOrders, preferences] = await Promise.all([
-      this.customerRepository.findById(customerId),
-      this.addressRepository.findByCustomerId(customerId),
-      this.orderRepository.findRecentByCustomerId(customerId, 5),
-      this.preferenceRepository.findByCustomerId(customerId),
-    ]);
-
-    if (!customer) {
-      throw new NotFoundError('Customer not found');
-    }
-
-    return {
-      id: customer.id,
-      name: customer.name,
-      email: customer.email,
-      memberSince: customer.createdAt.toISOString(),
-      addresses: addresses.map(AddressDTO.fromDomain),
-      recentOrders: recentOrders.map(OrderSummaryDTO.fromDomain),
-      preferences: PreferencesDTO.fromDomain(preferences),
-      loyaltyPoints: customer.loyaltyPoints,
-      tier: customer.loyaltyTier,
-    };
-  }
-
-  /**
-   * Checkout complet avec panier
-   */
-  async checkout(request: CheckoutRequest): Promise<CheckoutResponse> {
-    return await this.db.transaction(async () => {
-      // 1. Valider le panier
-      const cart = await this.cartService.getCart(request.cartId);
-      if (cart.isEmpty) {
-        throw new ValidationError('Cart is empty');
-      }
-
-      // 2. Creer la commande depuis le panier
-      const order = await this.orderService.createFromCart(cart);
-
-      // 3. Appliquer shipping & billing
-      await this.orderService.setAddresses(order.id, {
-        shipping: request.shippingAddress,
-        billing: request.billingAddress,
-      });
-
-      // 4. Calculer shipping
-      const shippingOptions = await this.shippingService.calculateOptions(
-        order,
-        request.shippingAddress,
-      );
-      const selectedShipping = shippingOptions.find(
-        (o) => o.id === request.shippingOptionId,
-      );
-      await this.orderService.setShipping(order.id, selectedShipping);
-
-      // 5. Process payment
-      const payment = await this.paymentService.process(
-        order.id,
-        request.paymentDetails,
-      );
-
-      // 6. Finalize
-      await this.orderService.confirm(order.id);
-      await this.cartService.clear(request.cartId);
-      await this.inventoryService.reserve(order.items);
-
-      // 7. Async notifications
-      this.notificationService.sendOrderConfirmation(order.id);
-
-      return {
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        summary: OrderSummaryDTO.fromDomain(order),
-        payment: PaymentConfirmationDTO.fromDomain(payment),
-      };
-    });
-  }
-}
-```
-
-## Remote Facade vs API Gateway
-
-```typescript
-// Remote Facade - Business logic aggregation
-class OrderFacade {
-  async placeOrder(request: PlaceOrderRequest): Promise<OrderResponse> {
-    // Logique metier, coordination de services
-  }
+// PaymentMethod represents a payment method.
+type PaymentMethod struct {
+	Type  string
+	Token string
 }
 
-// API Gateway - Routing, auth, rate limiting (pas de logique metier)
-class APIGateway {
-  async route(request: HttpRequest): Promise<HttpResponse> {
-    await this.authenticate(request);
-    await this.rateLimit(request);
-    return this.proxy(request);
-  }
+// PlaceOrderResponse contains complete order information.
+type PlaceOrderResponse struct {
+	OrderID             string
+	OrderNumber         string
+	Total               float64
+	Currency            string
+	EstimatedDelivery   time.Time
+	PaymentConfirmation string
+}
+
+// OrderFacade provides coarse-grained operations.
+type OrderFacade struct {
+	orderService       *OrderService
+	paymentService     *PaymentService
+	notificationService *NotificationService
+	customerRepo       CustomerRepository
+	productRepo        ProductRepository
+}
+
+// NewOrderFacade creates a new order facade.
+func NewOrderFacade(
+	orderService *OrderService,
+	paymentService *PaymentService,
+	notificationService *NotificationService,
+	customerRepo CustomerRepository,
+	productRepo ProductRepository,
+) *OrderFacade {
+	return &OrderFacade{
+		orderService:       orderService,
+		paymentService:     paymentService,
+		notificationService: notificationService,
+		customerRepo:       customerRepo,
+		productRepo:        productRepo,
+	}
+}
+
+// PlaceOrder places a complete order in one call.
+// Replaces 5-10 fine-grained calls with single coarse-grained operation.
+func (f *OrderFacade) PlaceOrder(ctx context.Context, req PlaceOrderRequest) (*PlaceOrderResponse, error) {
+	// Validation
+	customer, err := f.customerRepo.FindByID(ctx, req.CustomerID)
+	if err != nil {
+		return nil, fmt.Errorf("find customer: %w", err)
+	}
+	if customer == nil {
+		return nil, fmt.Errorf("customer not found")
+	}
+
+	// Create order
+	order, err := f.orderService.Create(ctx, req.CustomerID)
+	if err != nil {
+		return nil, fmt.Errorf("create order: %w", err)
+	}
+
+	// Add items
+	for _, item := range req.Items {
+		product, err := f.productRepo.FindByID(ctx, item.ProductID)
+		if err != nil {
+			return nil, fmt.Errorf("find product: %w", err)
+		}
+		if product == nil {
+			return nil, fmt.Errorf("product not found: %s", item.ProductID)
+		}
+
+		if err := f.orderService.AddItem(ctx, order.ID, item.ProductID, item.Quantity); err != nil {
+			return nil, fmt.Errorf("add item: %w", err)
+		}
+	}
+
+	// Set addresses
+	if err := f.orderService.SetShippingAddress(ctx, order.ID, req.ShippingAddress); err != nil {
+		return nil, fmt.Errorf("set shipping address: %w", err)
+	}
+
+	billingAddr := req.BillingAddress
+	if billingAddr == nil {
+		billingAddr = &req.ShippingAddress
+	}
+	if err := f.orderService.SetBillingAddress(ctx, order.ID, *billingAddr); err != nil {
+		return nil, fmt.Errorf("set billing address: %w", err)
+	}
+
+	// Apply discount if provided
+	if req.DiscountCode != nil {
+		if err := f.orderService.ApplyDiscount(ctx, order.ID, *req.DiscountCode); err != nil {
+			// Log but don't fail
+			fmt.Printf("failed to apply discount: %v\n", err)
+		}
+	}
+
+	// Submit order
+	if err := f.orderService.Submit(ctx, order.ID); err != nil {
+		return nil, fmt.Errorf("submit order: %w", err)
+	}
+
+	// Process payment
+	paymentIntent, err := f.paymentService.CreatePaymentIntent(ctx, order.ID)
+	if err != nil {
+		return nil, fmt.Errorf("create payment intent: %w", err)
+	}
+
+	paymentResult, err := f.paymentService.ProcessPayment(ctx, paymentIntent.ID, req.PaymentMethod)
+	if err != nil {
+		return nil, fmt.Errorf("process payment: %w", err)
+	}
+	if !paymentResult.Success {
+		return nil, fmt.Errorf("payment failed: %s", paymentResult.Error)
+	}
+
+	// Send notification (async, best effort)
+	go func() {
+		if err := f.notificationService.SendOrderConfirmation(context.Background(), order.ID); err != nil {
+			fmt.Printf("failed to send notification: %v\n", err)
+		}
+	}()
+
+	// Fetch updated order
+	updatedOrder, err := f.orderService.FindByID(ctx, order.ID)
+	if err != nil {
+		return nil, fmt.Errorf("find order: %w", err)
+	}
+
+	// Build response DTO
+	return &PlaceOrderResponse{
+		OrderID:             order.ID,
+		OrderNumber:         updatedOrder.OrderNumber,
+		Total:               updatedOrder.Total,
+		Currency:            updatedOrder.Currency,
+		EstimatedDelivery:   f.calculateDeliveryDate(req.ShippingAddress),
+		PaymentConfirmation: paymentResult.ConfirmationNumber,
+	}, nil
+}
+
+// GetCustomerProfile retrieves complete customer profile in one call.
+func (f *OrderFacade) GetCustomerProfile(ctx context.Context, customerID string) (*CustomerProfileResponse, error) {
+	// Parallel fetching
+	type result struct {
+		customer    *Customer
+		addresses   []*Address
+		orders      []*Order
+		preferences *Preferences
+		err         error
+	}
+
+	ch := make(chan result, 1)
+
+	go func() {
+		customer, err := f.customerRepo.FindByID(ctx, customerID)
+		if err != nil {
+			ch <- result{err: err}
+			return
+		}
+		if customer == nil {
+			ch <- result{err: fmt.Errorf("customer not found")}
+			return
+		}
+
+		// Continue fetching other data...
+		ch <- result{customer: customer}
+	}()
+
+	r := <-ch
+	if r.err != nil {
+		return nil, r.err
+	}
+
+	return &CustomerProfileResponse{
+		ID:           r.customer.ID,
+		Name:         r.customer.Name,
+		Email:        r.customer.Email,
+		MemberSince:  r.customer.CreatedAt,
+		LoyaltyPoints: r.customer.LoyaltyPoints,
+		Tier:         r.customer.LoyaltyTier,
+	}, nil
+}
+
+func (f *OrderFacade) calculateDeliveryDate(address Address) time.Time {
+	// Business logic for delivery estimation
+	return time.Now().Add(5 * 24 * time.Hour)
+}
+
+// CustomerProfileResponse aggregates customer data.
+type CustomerProfileResponse struct {
+	ID            string
+	Name          string
+	Email         string
+	MemberSince   time.Time
+	LoyaltyPoints int
+	Tier          string
+}
+
+// Service interfaces
+type OrderService struct{}
+
+func (s *OrderService) Create(ctx context.Context, customerID string) (*Order, error) {
+	return nil, nil
+}
+
+func (s *OrderService) AddItem(ctx context.Context, orderID, productID string, qty int) error {
+	return nil
+}
+
+func (s *OrderService) SetShippingAddress(ctx context.Context, orderID string, addr Address) error {
+	return nil
+}
+
+func (s *OrderService) SetBillingAddress(ctx context.Context, orderID string, addr Address) error {
+	return nil
+}
+
+func (s *OrderService) ApplyDiscount(ctx context.Context, orderID, code string) error {
+	return nil
+}
+
+func (s *OrderService) Submit(ctx context.Context, orderID string) error {
+	return nil
+}
+
+func (s *OrderService) FindByID(ctx context.Context, orderID string) (*Order, error) {
+	return nil, nil
+}
+
+type PaymentService struct{}
+
+type PaymentIntent struct {
+	ID string
+}
+
+type PaymentResult struct {
+	Success            bool
+	Error              string
+	ConfirmationNumber string
+}
+
+func (s *PaymentService) CreatePaymentIntent(ctx context.Context, orderID string) (*PaymentIntent, error) {
+	return nil, nil
+}
+
+func (s *PaymentService) ProcessPayment(ctx context.Context, intentID string, method PaymentMethod) (*PaymentResult, error) {
+	return nil, nil
+}
+
+type NotificationService struct{}
+
+func (s *NotificationService) SendOrderConfirmation(ctx context.Context, orderID string) error {
+	return nil
 }
 ```
 
@@ -247,74 +335,6 @@ class APIGateway {
 - Clients locaux (monolithe)
 - Operations simples
 - Besoin de flexibilite maximale (GraphQL)
-
-## Relation avec DDD
-
-Remote Facade correspond aux **Application Services** exposes en API :
-
-```
-┌─────────────────────────────────────────────┐
-│              Interface Layer                │
-│   - REST Controllers                        │
-│   - GraphQL Resolvers                       │
-├─────────────────────────────────────────────┤
-│           Application Layer                 │
-│   - Remote Facades (Application Services)   │  ← ICI
-│   - Orchestration, DTOs                     │
-├─────────────────────────────────────────────┤
-│              Domain Layer                   │
-│   - Fine-grained Domain Services            │
-│   - Entities, Value Objects                 │
-├─────────────────────────────────────────────┤
-│          Infrastructure Layer               │
-│   - Repositories, External Services         │
-└─────────────────────────────────────────────┘
-```
-
-## Patterns associes
-
-- **Facade** : Version locale (in-process)
-- **DTO** : Transport des donnees
-- **Service Layer** : Couche de coordination
-- **API Gateway** : Routing, auth (complementaire)
-- **Backend for Frontend (BFF)** : Facade specifique par client
-
-## Bonnes pratiques
-
-```typescript
-// 1. Idempotence pour retries
-class OrderFacade {
-  @Idempotent({ key: (req) => `order:${req.idempotencyKey}` })
-  async placeOrder(request: PlaceOrderRequest): Promise<OrderResponse> {
-    // Si meme idempotencyKey, retourne le resultat precedent
-  }
-}
-
-// 2. Timeout et circuit breaker
-class ResilientFacade {
-  @Timeout(5000)
-  @CircuitBreaker({ failureThreshold: 5, resetTimeout: 30000 })
-  async placeOrder(request: PlaceOrderRequest): Promise<OrderResponse> {
-    // Protection contre les defaillances
-  }
-}
-
-// 3. Batch operations
-class BatchFacade {
-  async processOrders(requests: PlaceOrderRequest[]): Promise<BatchResult[]> {
-    return Promise.all(
-      requests.map(async (req) => {
-        try {
-          const result = await this.placeOrder(req);
-          return { success: true, result };
-        } catch (error) {
-          return { success: false, error: error.message };
-        }
-      }),
-    );
-  }
-}
-```
 
 ## Sources
 

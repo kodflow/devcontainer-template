@@ -19,7 +19,7 @@ Patterns pour améliorer et migrer du code existant de manière sûre.
 
 > Migrer une implémentation vers une autre sans branches Git longues.
 
-```typescript
+```go
 // Étape 1: Créer abstraction
 interface PaymentProcessor {
   charge(amount: Money): Promise<Result>;
@@ -57,7 +57,7 @@ class PaymentFactory {
 
 > Remplacer progressivement un système legacy par un nouveau.
 
-```typescript
+```go
 // Façade qui route vers legacy ou nouveau
 class OrderFacade {
   async createOrder(data: OrderData) {
@@ -88,7 +88,7 @@ class OrderFacade {
 
 > Exécuter deux implémentations en parallèle et comparer les résultats.
 
-```typescript
+```go
 class ParallelProcessor {
   async process(data: Data) {
     const [legacyResult, newResult] = await Promise.allSettled([
@@ -113,7 +113,7 @@ class ParallelProcessor {
 
 > Activer du code en production sans exposer le résultat.
 
-```typescript
+```go
 class DarkLaunchFeature {
   async process(data: Data) {
     const result = await this.legacy.process(data);

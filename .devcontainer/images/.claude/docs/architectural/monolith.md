@@ -64,19 +64,19 @@ src/
 ├── modules/
 │   ├── users/
 │   │   ├── domain/
-│   │   │   ├── User.ts
-│   │   │   └── UserService.ts
+│   │   │   ├── User.go
+│   │   │   └── UserService.go
 │   │   ├── api/
-│   │   │   └── UserController.ts
+│   │   │   └── UserController.go
 │   │   ├── infra/
-│   │   │   └── UserRepository.ts
-│   │   └── index.ts          # API publique du module
+│   │   │   └── UserRepository.go
+│   │   └── module.go          # API publique du module
 │   │
 │   ├── orders/
 │   │   ├── domain/
 │   │   ├── api/
 │   │   ├── infra/
-│   │   └── index.ts
+│   │   └── module.go
 │   │
 │   └── products/
 │       └── ...
@@ -85,35 +85,59 @@ src/
 │   ├── database/
 │   └── utils/
 │
-└── main.ts
+└── main.go
 ```
 
 ## Règles du Monolith Modulaire
 
 ### 1. Encapsulation des modules
 
-```typescript
-// ❌ Accès direct aux internals
-import { UserRepository } from '../users/infra/UserRepository';
+```go
+// ❌ Direct access to internals
+// import "app/modules/users/infra"
 
-// ✅ Utiliser l'API publique
-import { userModule } from '../users';
-const user = await userModule.getUser(id);
+// ✅ Use public API
+import "app/modules/users"
+
+func main() {
+	user, err := users.GetUser(ctx, id)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 ```
 
 ### 2. Communication par interfaces
 
-```typescript
-// modules/users/index.ts (API publique)
-export interface UserModule {
-  getUser(id: string): Promise<User>;
-  createUser(data: CreateUserDTO): Promise<User>;
+```go
+package users
+
+import "context"
+
+// UserModule is the public API for the user module.
+type UserModule interface {
+	GetUser(ctx context.Context, id string) (*User, error)
+	CreateUser(ctx context.Context, data CreateUserDTO) (*User, error)
 }
 
-export const userModule: UserModule = {
-  getUser: (id) => userService.findById(id),
-  createUser: (data) => userService.create(data),
-};
+type userModule struct {
+	service *UserService
+}
+
+// NewUserModule creates a new user module.
+func NewUserModule(db *sql.DB) UserModule {
+	repo := NewUserRepository(db)
+	service := NewUserService(repo)
+	return &userModule{service: service}
+}
+
+func (m *userModule) GetUser(ctx context.Context, id string) (*User, error) {
+	return m.service.FindByID(ctx, id)
+}
+
+func (m *userModule) CreateUser(ctx context.Context, data CreateUserDTO) (*User, error) {
+	return m.service.Create(ctx, data)
+}
 ```
 
 ### 3. Base de données par schéma
@@ -165,22 +189,32 @@ CREATE SCHEMA products;
 
 ### Module Coupling
 
-```typescript
-// ❌ Modules trop couplés
-class OrderService {
-  constructor(
-    private userRepo: UserRepository,    // Accès direct
-    private productRepo: ProductRepository,
-  ) {}
+```go
+// ❌ Modules too coupled
+type OrderService struct {
+	userRepo    *UserRepository    // Direct access
+	productRepo *ProductRepository // Direct access
 }
 
-// ✅ Communication par événements/API
-class OrderService {
-  async createOrder(userId: string, productId: string) {
-    const user = await userModule.getUser(userId);
-    const product = await productModule.getProduct(productId);
-    // ...
-  }
+// ✅ Communication through events/API
+type OrderService struct {
+	userModule    users.UserModule
+	productModule products.ProductModule
+}
+
+func (s *OrderService) CreateOrder(ctx context.Context, userID, productID string) (*Order, error) {
+	user, err := s.userModule.GetUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	product, err := s.productModule.GetProduct(ctx, productID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create order
+	return nil, nil
 }
 ```
 

@@ -220,45 +220,186 @@ spec:
 
 ---
 
-## Implementation TypeScript (Dapr)
+## Implementation Go (Dapr)
 
-```typescript
-// Dapr comme alternative plus simple a Istio
-import { DaprClient, DaprServer } from '@dapr/dapr';
+```go
+package main
 
-const daprHost = process.env.DAPR_HOST ?? '127.0.0.1';
-const daprPort = process.env.DAPR_HTTP_PORT ?? '3500';
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"os"
 
-class OrderService {
-  private readonly dapr = new DaprClient({ daprHost, daprPort });
+	dapr "github.com/dapr/go-sdk/client"
+)
 
-  async createOrder(order: Order): Promise<Order> {
-    // Appel a product-service via Dapr sidecar
-    // Beneficie automatiquement de:
-    // - Service discovery
-    // - mTLS
-    // - Retries
-    // - Tracing
-    const product = await this.dapr.invoker.invoke(
-      'product-service',      // App ID
-      'products/' + order.productId,
-      { method: 'GET' },
-    );
+// Order represents an order entity.
+type Order struct {
+	ID        string
+	ProductID string
+	Quantity  int
+	Total     float64
+}
 
-    // Publish event via Dapr pub/sub
-    await this.dapr.pubsub.publish(
-      'order-pubsub',        // Pub/sub component
-      'order-created',       // Topic
-      { orderId: order.id, product },
-    );
+// Product represents a product entity.
+type Product struct {
+	ID    string
+	Name  string
+	Price float64
+}
 
-    // Store state via Dapr state store
-    await this.dapr.state.save('order-store', [
-      { key: `order-${order.id}`, value: order },
-    ]);
+// OrderService handles order operations via Dapr.
+type OrderService struct {
+	daprClient dapr.Client
+	logger     *slog.Logger
+}
 
-    return order;
-  }
+// NewOrderService creates a new order service.
+func NewOrderService(logger *slog.Logger) (*OrderService, error) {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	client, err := dapr.NewClient()
+	if err != nil {
+		return nil, fmt.Errorf("creating dapr client: %w", err)
+	}
+
+	return &OrderService{
+		daprClient: client,
+		logger:     logger,
+	}, nil
+}
+
+// CreateOrder creates a new order with Dapr service invocation.
+func (s *OrderService) CreateOrder(ctx context.Context, order *Order) (*Order, error) {
+	// Appel a product-service via Dapr sidecar
+	// Beneficie automatiquement de:
+	// - Service discovery
+	// - mTLS
+	// - Retries
+	// - Tracing
+	content := &dapr.DataContent{
+		ContentType: "application/json",
+	}
+
+	resp, err := s.daprClient.InvokeMethod(
+		ctx,
+		"product-service",              // App ID
+		fmt.Sprintf("products/%s", order.ProductID), // Method
+		"get",                           // HTTP method
+	)
+	if err != nil {
+		return nil, fmt.Errorf("invoking product service: %w", err)
+	}
+
+	var product Product
+	if err := json.Unmarshal(resp, &product); err != nil {
+		return nil, fmt.Errorf("unmarshaling product: %w", err)
+	}
+
+	order.Total = product.Price * float64(order.Quantity)
+
+	// Publish event via Dapr pub/sub
+	orderData, err := json.Marshal(map[string]interface{}{
+		"orderId": order.ID,
+		"product": product,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshaling order data: %w", err)
+	}
+
+	if err := s.daprClient.PublishEvent(
+		ctx,
+		"order-pubsub",   // Pub/sub component
+		"order-created",  // Topic
+		orderData,
+		dapr.PublishEventWithContentType("application/json"),
+	); err != nil {
+		return nil, fmt.Errorf("publishing event: %w", err)
+	}
+
+	// Store state via Dapr state store
+	orderJSON, err := json.Marshal(order)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling order: %w", err)
+	}
+
+	if err := s.daprClient.SaveState(
+		ctx,
+		"order-store",           // State store component
+		fmt.Sprintf("order-%s", order.ID), // Key
+		orderJSON,               // Value
+		nil,                     // Metadata
+	); err != nil {
+		return nil, fmt.Errorf("saving state: %w", err)
+	}
+
+	s.logger.Info("order created",
+		"order_id", order.ID,
+		"product_id", order.ProductID,
+		"total", order.Total,
+	)
+
+	return order, nil
+}
+
+// GetOrder retrieves an order from Dapr state store.
+func (s *OrderService) GetOrder(ctx context.Context, orderID string) (*Order, error) {
+	item, err := s.daprClient.GetState(
+		ctx,
+		"order-store",
+		fmt.Sprintf("order-%s", orderID),
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("getting state: %w", err)
+	}
+
+	if item.Value == nil {
+		return nil, fmt.Errorf("order not found")
+	}
+
+	var order Order
+	if err := json.Unmarshal(item.Value, &order); err != nil {
+		return nil, fmt.Errorf("unmarshaling order: %w", err)
+	}
+
+	return &order, nil
+}
+
+// Close closes the Dapr client.
+func (s *OrderService) Close() error {
+	return s.daprClient.Close()
+}
+
+func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	service, err := NewOrderService(logger)
+	if err != nil {
+		logger.Error("creating order service", "error", err)
+		os.Exit(1)
+	}
+	defer service.Close()
+
+	ctx := context.Background()
+
+	order := &Order{
+		ID:        "order-123",
+		ProductID: "product-456",
+		Quantity:  2,
+	}
+
+	createdOrder, err := service.CreateOrder(ctx, order)
+	if err != nil {
+		logger.Error("creating order", "error", err)
+		os.Exit(1)
+	}
+
+	logger.Info("order created successfully", "order", createdOrder)
 }
 
 // Configuration Dapr (components)
@@ -291,37 +432,76 @@ spec:
 
 ## Observabilite avec Service Mesh
 
-```typescript
-// Les metriques sont collectees automatiquement par le mesh
-// Mais on peut ajouter des metriques custom
+```go
+package observability
 
-import { trace, context, SpanKind } from '@opentelemetry/api';
+import (
+	"context"
 
-const tracer = trace.getTracer('order-service');
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+)
 
-async function processOrder(order: Order): Promise<void> {
-  // Creer un span custom (le mesh ajoute deja les spans HTTP)
-  const span = tracer.startSpan('process-order', {
-    kind: SpanKind.INTERNAL,
-    attributes: {
-      'order.id': order.id,
-      'order.total': order.total.amount,
-    },
-  });
+var tracer = otel.Tracer("order-service")
 
-  try {
-    await context.with(trace.setSpan(context.active(), span), async () => {
-      await validateOrder(order);
-      await chargePayment(order);
-      await updateInventory(order);
-    });
-    span.setStatus({ code: SpanStatusCode.OK });
-  } catch (error) {
-    span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
-    throw error;
-  } finally {
-    span.end();
-  }
+// ProcessOrder processes an order with custom tracing.
+func ProcessOrder(ctx context.Context, order *Order) error {
+	// Creer un span custom (le mesh ajoute deja les spans HTTP)
+	ctx, span := tracer.Start(ctx, "process-order",
+		trace.WithSpanKind(trace.SpanKindInternal),
+		trace.WithAttributes(
+			attribute.String("order.id", order.ID),
+			attribute.Float64("order.total", order.Total),
+		),
+	)
+	defer span.End()
+
+	if err := validateOrder(ctx, order); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	if err := chargePayment(ctx, order); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	if err := updateInventory(ctx, order); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	span.SetStatus(codes.Ok, "order processed successfully")
+	return nil
+}
+
+func validateOrder(ctx context.Context, order *Order) error {
+	ctx, span := tracer.Start(ctx, "validate-order")
+	defer span.End()
+	
+	// Validation logic
+	return nil
+}
+
+func chargePayment(ctx context.Context, order *Order) error {
+	ctx, span := tracer.Start(ctx, "charge-payment")
+	defer span.End()
+	
+	// Payment logic
+	return nil
+}
+
+func updateInventory(ctx context.Context, order *Order) error {
+	ctx, span := tracer.Start(ctx, "update-inventory")
+	defer span.End()
+	
+	// Inventory logic
+	return nil
 }
 ```
 

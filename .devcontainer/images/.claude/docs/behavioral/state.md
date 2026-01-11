@@ -9,505 +9,667 @@ change. L'objet semblera changer de classe.
 
 ## Structure
 
-```typescript
-// 1. Interface State
-interface OrderState {
-  name: string;
-  confirm(order: Order): void;
-  ship(order: Order): void;
-  deliver(order: Order): void;
-  cancel(order: Order): void;
+```go
+package main
+
+import (
+	"fmt"
+)
+
+// OrderState defines the interface for order states.
+type OrderState interface {
+	Name() string
+	Confirm(order *Order) error
+	Ship(order *Order) error
+	Deliver(order *Order) error
+	Cancel(order *Order) error
 }
 
-// 2. Context
-class Order {
-  private state: OrderState;
-  public id: string;
-  public items: OrderItem[];
-
-  constructor(id: string, items: OrderItem[]) {
-    this.id = id;
-    this.items = items;
-    this.state = new PendingState();
-  }
-
-  setState(state: OrderState): void {
-    console.log(`Order ${this.id}: ${this.state.name} -> ${state.name}`);
-    this.state = state;
-  }
-
-  getState(): string {
-    return this.state.name;
-  }
-
-  // Delegue au state actuel
-  confirm(): void {
-    this.state.confirm(this);
-  }
-
-  ship(): void {
-    this.state.ship(this);
-  }
-
-  deliver(): void {
-    this.state.deliver(this);
-  }
-
-  cancel(): void {
-    this.state.cancel(this);
-  }
+// OrderItem represents an item in an order.
+type OrderItem struct {
+	Product string
+	Qty     int
 }
 
-// 3. Concrete States
-class PendingState implements OrderState {
-  name = 'Pending';
-
-  confirm(order: Order): void {
-    console.log('Payment confirmed, preparing order...');
-    order.setState(new ConfirmedState());
-  }
-
-  ship(order: Order): void {
-    throw new Error('Cannot ship: order not confirmed yet');
-  }
-
-  deliver(order: Order): void {
-    throw new Error('Cannot deliver: order not shipped yet');
-  }
-
-  cancel(order: Order): void {
-    console.log('Order cancelled before confirmation');
-    order.setState(new CancelledState());
-  }
+// Order is the context that changes state.
+type Order struct {
+	state OrderState
+	ID    string
+	Items []OrderItem
 }
 
-class ConfirmedState implements OrderState {
-  name = 'Confirmed';
-
-  confirm(order: Order): void {
-    console.log('Order already confirmed');
-  }
-
-  ship(order: Order): void {
-    console.log('Order shipped!');
-    order.setState(new ShippedState());
-  }
-
-  deliver(order: Order): void {
-    throw new Error('Cannot deliver: order not shipped yet');
-  }
-
-  cancel(order: Order): void {
-    console.log('Order cancelled, initiating refund...');
-    order.setState(new CancelledState());
-  }
+// NewOrder creates a new order in pending state.
+func NewOrder(id string, items []OrderItem) *Order {
+	return &Order{
+		ID:    id,
+		Items: items,
+		state: &PendingState{},
+	}
 }
 
-class ShippedState implements OrderState {
-  name = 'Shipped';
-
-  confirm(order: Order): void {
-    console.log('Order already confirmed and shipped');
-  }
-
-  ship(order: Order): void {
-    console.log('Order already shipped');
-  }
-
-  deliver(order: Order): void {
-    console.log('Order delivered!');
-    order.setState(new DeliveredState());
-  }
-
-  cancel(order: Order): void {
-    throw new Error('Cannot cancel: order already shipped');
-  }
+// SetState changes the order state.
+func (o *Order) SetState(state OrderState) {
+	fmt.Printf("Order %s: %s -> %s\n", o.ID, o.state.Name(), state.Name())
+	o.state = state
 }
 
-class DeliveredState implements OrderState {
-  name = 'Delivered';
-
-  confirm(order: Order): void {
-    console.log('Order already delivered');
-  }
-
-  ship(order: Order): void {
-    console.log('Order already delivered');
-  }
-
-  deliver(order: Order): void {
-    console.log('Order already delivered');
-  }
-
-  cancel(order: Order): void {
-    throw new Error('Cannot cancel: order already delivered');
-  }
+// GetState returns the current state name.
+func (o *Order) GetState() string {
+	return o.state.Name()
 }
 
-class CancelledState implements OrderState {
-  name = 'Cancelled';
+// Confirm delegates to the current state.
+func (o *Order) Confirm() error {
+	return o.state.Confirm(o)
+}
 
-  confirm(order: Order): void {
-    throw new Error('Cannot confirm: order is cancelled');
-  }
+// Ship delegates to the current state.
+func (o *Order) Ship() error {
+	return o.state.Ship(o)
+}
 
-  ship(order: Order): void {
-    throw new Error('Cannot ship: order is cancelled');
-  }
+// Deliver delegates to the current state.
+func (o *Order) Deliver() error {
+	return o.state.Deliver(o)
+}
 
-  deliver(order: Order): void {
-    throw new Error('Cannot deliver: order is cancelled');
-  }
+// Cancel delegates to the current state.
+func (o *Order) Cancel() error {
+	return o.state.Cancel(o)
+}
 
-  cancel(order: Order): void {
-    console.log('Order already cancelled');
-  }
+// PendingState represents the pending state.
+type PendingState struct{}
+
+func (s *PendingState) Name() string { return "Pending" }
+
+func (s *PendingState) Confirm(order *Order) error {
+	fmt.Println("Payment confirmed, preparing order...")
+	order.SetState(&ConfirmedState{})
+	return nil
+}
+
+func (s *PendingState) Ship(order *Order) error {
+	return fmt.Errorf("cannot ship: order not confirmed yet")
+}
+
+func (s *PendingState) Deliver(order *Order) error {
+	return fmt.Errorf("cannot deliver: order not shipped yet")
+}
+
+func (s *PendingState) Cancel(order *Order) error {
+	fmt.Println("Order cancelled before confirmation")
+	order.SetState(&CancelledState{})
+	return nil
+}
+
+// ConfirmedState represents the confirmed state.
+type ConfirmedState struct{}
+
+func (s *ConfirmedState) Name() string { return "Confirmed" }
+
+func (s *ConfirmedState) Confirm(order *Order) error {
+	fmt.Println("Order already confirmed")
+	return nil
+}
+
+func (s *ConfirmedState) Ship(order *Order) error {
+	fmt.Println("Order shipped!")
+	order.SetState(&ShippedState{})
+	return nil
+}
+
+func (s *ConfirmedState) Deliver(order *Order) error {
+	return fmt.Errorf("cannot deliver: order not shipped yet")
+}
+
+func (s *ConfirmedState) Cancel(order *Order) error {
+	fmt.Println("Order cancelled, initiating refund...")
+	order.SetState(&CancelledState{})
+	return nil
+}
+
+// ShippedState represents the shipped state.
+type ShippedState struct{}
+
+func (s *ShippedState) Name() string { return "Shipped" }
+
+func (s *ShippedState) Confirm(order *Order) error {
+	fmt.Println("Order already confirmed and shipped")
+	return nil
+}
+
+func (s *ShippedState) Ship(order *Order) error {
+	fmt.Println("Order already shipped")
+	return nil
+}
+
+func (s *ShippedState) Deliver(order *Order) error {
+	fmt.Println("Order delivered!")
+	order.SetState(&DeliveredState{})
+	return nil
+}
+
+func (s *ShippedState) Cancel(order *Order) error {
+	return fmt.Errorf("cannot cancel: order already shipped")
+}
+
+// DeliveredState represents the delivered state.
+type DeliveredState struct{}
+
+func (s *DeliveredState) Name() string { return "Delivered" }
+
+func (s *DeliveredState) Confirm(order *Order) error {
+	fmt.Println("Order already delivered")
+	return nil
+}
+
+func (s *DeliveredState) Ship(order *Order) error {
+	fmt.Println("Order already delivered")
+	return nil
+}
+
+func (s *DeliveredState) Deliver(order *Order) error {
+	fmt.Println("Order already delivered")
+	return nil
+}
+
+func (s *DeliveredState) Cancel(order *Order) error {
+	return fmt.Errorf("cannot cancel: order already delivered")
+}
+
+// CancelledState represents the cancelled state.
+type CancelledState struct{}
+
+func (s *CancelledState) Name() string { return "Cancelled" }
+
+func (s *CancelledState) Confirm(order *Order) error {
+	return fmt.Errorf("cannot confirm: order is cancelled")
+}
+
+func (s *CancelledState) Ship(order *Order) error {
+	return fmt.Errorf("cannot ship: order is cancelled")
+}
+
+func (s *CancelledState) Deliver(order *Order) error {
+	return fmt.Errorf("cannot deliver: order is cancelled")
+}
+
+func (s *CancelledState) Cancel(order *Order) error {
+	fmt.Println("Order already cancelled")
+	return nil
 }
 ```
 
 ## Usage
 
-```typescript
-const order = new Order('ORD-001', [{ product: 'Laptop', qty: 1 }]);
+```go
+func main() {
+	order := NewOrder("ORD-001", []OrderItem{{Product: "Laptop", Qty: 1}})
 
-console.log(order.getState()); // Pending
+	fmt.Println(order.GetState()) // Pending
 
-order.confirm(); // Payment confirmed, preparing order...
-console.log(order.getState()); // Confirmed
+	order.Confirm() // Payment confirmed, preparing order...
+	fmt.Println(order.GetState()) // Confirmed
 
-order.ship(); // Order shipped!
-console.log(order.getState()); // Shipped
+	order.Ship() // Order shipped!
+	fmt.Println(order.GetState()) // Shipped
 
-try {
-  order.cancel(); // Error: Cannot cancel: order already shipped
-} catch (e) {
-  console.log(e.message);
+	if err := order.Cancel(); err != nil {
+		fmt.Println(err) // Error: Cannot cancel: order already shipped
+	}
+
+	order.Deliver() // Order delivered!
+	fmt.Println(order.GetState()) // Delivered
 }
-
-order.deliver(); // Order delivered!
-console.log(order.getState()); // Delivered
 ```
 
 ## State Machine avec transitions explicites
 
-```typescript
-type StateType = 'idle' | 'loading' | 'success' | 'error';
-type EventType = 'FETCH' | 'SUCCESS' | 'ERROR' | 'RETRY' | 'RESET';
+```go
+// StateType represents possible states.
+type StateType string
 
-interface StateConfig {
-  on: Partial<Record<EventType, StateType>>;
-  onEnter?: () => void;
-  onExit?: () => void;
+const (
+	StateIdle    StateType = "idle"
+	StateLoading StateType = "loading"
+	StateSuccess StateType = "success"
+	StateError   StateType = "error"
+)
+
+// EventType represents possible events.
+type EventType string
+
+const (
+	EventFetch   EventType = "FETCH"
+	EventSuccess EventType = "SUCCESS"
+	EventError   EventType = "ERROR"
+	EventRetry   EventType = "RETRY"
+	EventReset   EventType = "RESET"
+)
+
+// StateConfig defines state configuration.
+type StateConfig struct {
+	On      map[EventType]StateType
+	OnEnter func()
+	OnExit  func()
 }
 
-type MachineConfig = Record<StateType, StateConfig>;
+// MachineConfig is the state machine configuration.
+type MachineConfig map[StateType]*StateConfig
 
-class StateMachine {
-  private state: StateType;
-  private config: MachineConfig;
+// StateMachine manages state transitions.
+type StateMachine struct {
+	state  StateType
+	config MachineConfig
+}
 
-  constructor(initialState: StateType, config: MachineConfig) {
-    this.state = initialState;
-    this.config = config;
-    this.config[initialState].onEnter?.();
-  }
+// NewStateMachine creates a new state machine.
+func NewStateMachine(initialState StateType, config MachineConfig) *StateMachine {
+	machine := &StateMachine{
+		state:  initialState,
+		config: config,
+	}
+	if cfg := config[initialState]; cfg != nil && cfg.OnEnter != nil {
+		cfg.OnEnter()
+	}
+	return machine
+}
 
-  getState(): StateType {
-    return this.state;
-  }
+// GetState returns the current state.
+func (m *StateMachine) GetState() StateType {
+	return m.state
+}
 
-  send(event: EventType): void {
-    const currentConfig = this.config[this.state];
-    const nextState = currentConfig.on[event];
+// Send sends an event to the state machine.
+func (m *StateMachine) Send(event EventType) {
+	currentConfig := m.config[m.state]
+	if currentConfig == nil {
+		fmt.Printf("No config for state %s\n", m.state)
+		return
+	}
 
-    if (!nextState) {
-      console.warn(`No transition for ${event} from ${this.state}`);
-      return;
-    }
+	nextState, ok := currentConfig.On[event]
+	if !ok {
+		fmt.Printf("No transition for %s from %s\n", event, m.state)
+		return
+	}
 
-    // Execute exit action
-    currentConfig.onExit?.();
+	// Execute exit action
+	if currentConfig.OnExit != nil {
+		currentConfig.OnExit()
+	}
 
-    // Transition
-    console.log(`${this.state} --(${event})--> ${nextState}`);
-    this.state = nextState;
+	// Transition
+	fmt.Printf("%s --(%s)--> %s\n", m.state, event, nextState)
+	m.state = nextState
 
-    // Execute enter action
-    this.config[nextState].onEnter?.();
-  }
+	// Execute enter action
+	if nextConfig := m.config[nextState]; nextConfig != nil && nextConfig.OnEnter != nil {
+		nextConfig.OnEnter()
+	}
+}
 
-  can(event: EventType): boolean {
-    return !!this.config[this.state].on[event];
-  }
+// Can checks if an event is valid in the current state.
+func (m *StateMachine) Can(event EventType) bool {
+	if cfg := m.config[m.state]; cfg != nil {
+		_, ok := cfg.On[event]
+		return ok
+	}
+	return false
 }
 
 // Configuration declarative
-const fetchMachine = new StateMachine('idle', {
-  idle: {
-    on: { FETCH: 'loading' },
-    onEnter: () => console.log('Ready to fetch'),
-  },
-  loading: {
-    on: { SUCCESS: 'success', ERROR: 'error' },
-    onEnter: () => console.log('Fetching data...'),
-  },
-  success: {
-    on: { RESET: 'idle' },
-    onEnter: () => console.log('Data loaded!'),
-  },
-  error: {
-    on: { RETRY: 'loading', RESET: 'idle' },
-    onEnter: () => console.log('Fetch failed'),
-  },
-});
+func stateMachineExample() {
+	fetchMachine := NewStateMachine(StateIdle, MachineConfig{
+		StateIdle: {
+			On:      map[EventType]StateType{EventFetch: StateLoading},
+			OnEnter: func() { fmt.Println("Ready to fetch") },
+		},
+		StateLoading: {
+			On:      map[EventType]StateType{EventSuccess: StateSuccess, EventError: StateError},
+			OnEnter: func() { fmt.Println("Fetching data...") },
+		},
+		StateSuccess: {
+			On:      map[EventType]StateType{EventReset: StateIdle},
+			OnEnter: func() { fmt.Println("Data loaded!") },
+		},
+		StateError: {
+			On:      map[EventType]StateType{EventRetry: StateLoading, EventReset: StateIdle},
+			OnEnter: func() { fmt.Println("Fetch failed") },
+		},
+	})
 
-// Usage
-fetchMachine.send('FETCH'); // idle --(FETCH)--> loading
-fetchMachine.send('SUCCESS'); // loading --(SUCCESS)--> success
-fetchMachine.send('RESET'); // success --(RESET)--> idle
+	fetchMachine.Send(EventFetch)   // idle --(FETCH)--> loading
+	fetchMachine.Send(EventSuccess) // loading --(SUCCESS)--> success
+	fetchMachine.Send(EventReset)   // success --(RESET)--> idle
+}
 ```
 
 ## State avec historique
 
-```typescript
-interface StateWithHistory {
-  name: string;
-  handle(context: DocumentContext): void;
+```go
+// StateWithHistory is a state that can be saved in history.
+type StateWithHistory interface {
+	Name() string
+	Handle(context *DocumentContext) error
 }
 
-class DocumentContext {
-  private state: StateWithHistory;
-  private history: StateWithHistory[] = [];
+// DocumentContext manages state with history.
+type DocumentContext struct {
+	state   StateWithHistory
+	history []StateWithHistory
+}
 
-  constructor() {
-    this.state = new DraftState();
-  }
+// NewDocumentContext creates a new document context.
+func NewDocumentContext(initialState StateWithHistory) *DocumentContext {
+	return &DocumentContext{
+		state: initialState,
+	}
+}
 
-  setState(state: StateWithHistory, saveHistory = true): void {
-    if (saveHistory) {
-      this.history.push(this.state);
-    }
-    this.state = state;
-  }
+// SetState changes the state and optionally saves history.
+func (d *DocumentContext) SetState(state StateWithHistory, saveHistory bool) {
+	if saveHistory {
+		d.history = append(d.history, d.state)
+	}
+	d.state = state
+}
 
-  goBack(): void {
-    const previous = this.history.pop();
-    if (previous) {
-      this.state = previous;
-    }
-  }
+// GoBack reverts to the previous state.
+func (d *DocumentContext) GoBack() error {
+	if len(d.history) == 0 {
+		return fmt.Errorf("no history available")
+	}
 
-  process(): void {
-    this.state.handle(this);
-  }
+	d.state = d.history[len(d.history)-1]
+	d.history = d.history[:len(d.history)-1]
+	return nil
+}
+
+// Process delegates to the current state.
+func (d *DocumentContext) Process() error {
+	return d.state.Handle(d)
+}
+
+// DraftState is an example state.
+type DraftState struct{}
+
+func (s *DraftState) Name() string { return "Draft" }
+
+func (s *DraftState) Handle(context *DocumentContext) error {
+	fmt.Println("Handling draft state")
+	return nil
 }
 ```
 
 ## State avec persistence
 
-```typescript
-interface SerializableState {
-  name: string;
-  data: Record<string, unknown>;
+```go
+// SerializableState represents a state that can be persisted.
+type SerializableState struct {
+	Name string
+	Data map[string]interface{}
 }
 
-class PersistentStateMachine {
-  private state: OrderState;
-  private stateData: Record<string, unknown> = {};
+// DB is a mock database interface.
+type DB interface {
+	Save(key string, value interface{}) error
+	Get(key string) (*SerializableState, error)
+}
 
-  constructor(serialized?: SerializableState) {
-    if (serialized) {
-      this.state = this.deserializeState(serialized.name);
-      this.stateData = serialized.data;
-    } else {
-      this.state = new PendingState();
-    }
-  }
+// PersistentStateMachine is a state machine that can be persisted.
+type PersistentStateMachine struct {
+	state     OrderState
+	stateData map[string]interface{}
+	db        DB
+}
 
-  private deserializeState(name: string): OrderState {
-    const states: Record<string, OrderState> = {
-      Pending: new PendingState(),
-      Confirmed: new ConfirmedState(),
-      Shipped: new ShippedState(),
-      Delivered: new DeliveredState(),
-      Cancelled: new CancelledState(),
-    };
-    return states[name] ?? new PendingState();
-  }
+// NewPersistentStateMachine creates a new persistent state machine.
+func NewPersistentStateMachine(serialized *SerializableState, db DB) *PersistentStateMachine {
+	machine := &PersistentStateMachine{
+		stateData: make(map[string]interface{}),
+		db:        db,
+	}
 
-  serialize(): SerializableState {
-    return {
-      name: this.state.name,
-      data: this.stateData,
-    };
-  }
+	if serialized != nil {
+		machine.state = machine.deserializeState(serialized.Name)
+		machine.stateData = serialized.Data
+	} else {
+		machine.state = &PendingState{}
+	}
 
-  // Sauvegarder en base de donnees
-  async persist(): Promise<void> {
-    await db.save('state', this.serialize());
-  }
+	return machine
+}
 
-  // Charger depuis base de donnees
-  static async load(): Promise<PersistentStateMachine> {
-    const data = await db.get('state');
-    return new PersistentStateMachine(data);
-  }
+func (m *PersistentStateMachine) deserializeState(name string) OrderState {
+	states := map[string]OrderState{
+		"Pending":   &PendingState{},
+		"Confirmed": &ConfirmedState{},
+		"Shipped":   &ShippedState{},
+		"Delivered": &DeliveredState{},
+		"Cancelled": &CancelledState{},
+	}
+
+	if state, ok := states[name]; ok {
+		return state
+	}
+	return &PendingState{}
+}
+
+// Serialize converts the state to a serializable format.
+func (m *PersistentStateMachine) Serialize() *SerializableState {
+	return &SerializableState{
+		Name: m.state.Name(),
+		Data: m.stateData,
+	}
+}
+
+// Persist saves the state to the database.
+func (m *PersistentStateMachine) Persist() error {
+	return m.db.Save("state", m.Serialize())
+}
+
+// Load loads the state from the database.
+func (m *PersistentStateMachine) Load() error {
+	data, err := m.db.Get("state")
+	if err != nil {
+		return err
+	}
+	m.state = m.deserializeState(data.Name)
+	m.stateData = data.Data
+	return nil
 }
 ```
 
 ## Anti-patterns
 
-```typescript
+```go
 // MAUVAIS: Logique de transition dans le context
-class BadContext {
-  private state: string = 'pending';
+type BadContext struct {
+	state string
+}
 
-  process(): void {
-    // La logique devrait etre dans les states
-    if (this.state === 'pending') {
-      // ...
-      this.state = 'processing';
-    } else if (this.state === 'processing') {
-      // ...
-      this.state = 'completed';
-    }
-  }
+func (c *BadContext) Process() {
+	// La logique devrait etre dans les states
+	if c.state == "pending" {
+		// ...
+		c.state = "processing"
+	} else if c.state == "processing" {
+		// ...
+		c.state = "completed"
+	}
 }
 
 // MAUVAIS: States qui connaissent trop de contexte
-class TightlyCoupledState implements OrderState {
-  handle(order: Order): void {
-    // Acces direct aux proprietes internes
-    order.privateMethod(); // Violation encapsulation
-    order.internalData = 'modified'; // Modification directe
-  }
+type TightlyCoupledState struct{}
+
+func (s *TightlyCoupledState) Handle(order *Order) error {
+	// Acces direct aux proprietes internes
+	// Violation encapsulation
+	return nil
 }
 
 // MAUVAIS: State avec etat interne
-class StatefulState implements OrderState {
-  private attempts = 0; // Etat dans le state = problemes
+type StatefulState struct {
+	attempts int // Etat dans le state = problemes
+}
 
-  handle(order: Order): void {
-    this.attempts++;
-    // Le state est partage entre tous les orders!
-  }
+func (s *StatefulState) Handle(order *Order) error {
+	s.attempts++
+	// Le state est partage entre tous les orders!
+	return nil
 }
 ```
 
 ## Tests unitaires
 
-```typescript
-import { describe, it, expect, vi } from 'vitest';
+```go
+package main
 
-describe('Order State Machine', () => {
-  describe('PendingState', () => {
-    it('should transition to Confirmed on confirm', () => {
-      const order = new Order('1', []);
-      expect(order.getState()).toBe('Pending');
+import (
+	"testing"
+)
 
-      order.confirm();
+func TestOrderStateMachine(t *testing.T) {
+	t.Run("PendingState should transition to Confirmed on confirm", func(t *testing.T) {
+		order := NewOrder("1", []OrderItem{})
+		if order.GetState() != "Pending" {
+			t.Errorf("expected Pending, got %s", order.GetState())
+		}
 
-      expect(order.getState()).toBe('Confirmed');
-    });
+		order.Confirm()
 
-    it('should transition to Cancelled on cancel', () => {
-      const order = new Order('1', []);
+		if order.GetState() != "Confirmed" {
+			t.Errorf("expected Confirmed, got %s", order.GetState())
+		}
+	})
 
-      order.cancel();
+	t.Run("PendingState should transition to Cancelled on cancel", func(t *testing.T) {
+		order := NewOrder("1", []OrderItem{})
 
-      expect(order.getState()).toBe('Cancelled');
-    });
+		order.Cancel()
 
-    it('should throw on ship', () => {
-      const order = new Order('1', []);
+		if order.GetState() != "Cancelled" {
+			t.Errorf("expected Cancelled, got %s", order.GetState())
+		}
+	})
 
-      expect(() => order.ship()).toThrow('Cannot ship');
-    });
-  });
+	t.Run("PendingState should error on ship", func(t *testing.T) {
+		order := NewOrder("1", []OrderItem{})
 
-  describe('ShippedState', () => {
-    let order: Order;
+		err := order.Ship()
 
-    beforeEach(() => {
-      order = new Order('1', []);
-      order.confirm();
-      order.ship();
-    });
+		if err == nil {
+			t.Error("expected error when shipping pending order")
+		}
+	})
 
-    it('should transition to Delivered on deliver', () => {
-      order.deliver();
+	t.Run("ShippedState should transition to Delivered on deliver", func(t *testing.T) {
+		order := NewOrder("1", []OrderItem{})
+		order.Confirm()
+		order.Ship()
 
-      expect(order.getState()).toBe('Delivered');
-    });
+		order.Deliver()
 
-    it('should throw on cancel', () => {
-      expect(() => order.cancel()).toThrow('Cannot cancel');
-    });
-  });
+		if order.GetState() != "Delivered" {
+			t.Errorf("expected Delivered, got %s", order.GetState())
+		}
+	})
 
-  describe('Full workflow', () => {
-    it('should complete happy path', () => {
-      const order = new Order('1', []);
+	t.Run("ShippedState should error on cancel", func(t *testing.T) {
+		order := NewOrder("1", []OrderItem{})
+		order.Confirm()
+		order.Ship()
 
-      order.confirm();
-      order.ship();
-      order.deliver();
+		err := order.Cancel()
 
-      expect(order.getState()).toBe('Delivered');
-    });
+		if err == nil {
+			t.Error("expected error when cancelling shipped order")
+		}
+	})
 
-    it('should handle cancellation path', () => {
-      const order = new Order('1', []);
+	t.Run("Full workflow should complete happy path", func(t *testing.T) {
+		order := NewOrder("1", []OrderItem{})
 
-      order.confirm();
-      order.cancel();
+		order.Confirm()
+		order.Ship()
+		order.Deliver()
 
-      expect(order.getState()).toBe('Cancelled');
-    });
-  });
-});
+		if order.GetState() != "Delivered" {
+			t.Errorf("expected Delivered, got %s", order.GetState())
+		}
+	})
 
-describe('StateMachine', () => {
-  it('should transition on valid events', () => {
-    const machine = new StateMachine('idle', {
-      idle: { on: { FETCH: 'loading' } },
-      loading: { on: { SUCCESS: 'success' } },
-      success: { on: {} },
-    });
+	t.Run("Full workflow should handle cancellation path", func(t *testing.T) {
+		order := NewOrder("1", []OrderItem{})
 
-    machine.send('FETCH');
-    expect(machine.getState()).toBe('loading');
+		order.Confirm()
+		order.Cancel()
 
-    machine.send('SUCCESS');
-    expect(machine.getState()).toBe('success');
-  });
+		if order.GetState() != "Cancelled" {
+			t.Errorf("expected Cancelled, got %s", order.GetState())
+		}
+	})
+}
 
-  it('should ignore invalid transitions', () => {
-    const machine = new StateMachine('idle', {
-      idle: { on: { FETCH: 'loading' } },
-      loading: { on: {} },
-    });
+func TestStateMachine(t *testing.T) {
+	t.Run("should transition on valid events", func(t *testing.T) {
+		machine := NewStateMachine(StateIdle, MachineConfig{
+			StateIdle:    {On: map[EventType]StateType{EventFetch: StateLoading}},
+			StateLoading: {On: map[EventType]StateType{EventSuccess: StateSuccess}},
+			StateSuccess: {On: map[EventType]StateType{}},
+		})
 
-    machine.send('SUCCESS'); // Invalid from idle
+		machine.Send(EventFetch)
+		if machine.GetState() != StateLoading {
+			t.Errorf("expected loading, got %s", machine.GetState())
+		}
 
-    expect(machine.getState()).toBe('idle');
-  });
+		machine.Send(EventSuccess)
+		if machine.GetState() != StateSuccess {
+			t.Errorf("expected success, got %s", machine.GetState())
+		}
+	})
 
-  it('should call onEnter/onExit hooks', () => {
-    const onEnter = vi.fn();
-    const onExit = vi.fn();
+	t.Run("should ignore invalid transitions", func(t *testing.T) {
+		machine := NewStateMachine(StateIdle, MachineConfig{
+			StateIdle:    {On: map[EventType]StateType{EventFetch: StateLoading}},
+			StateLoading: {On: map[EventType]StateType{}},
+		})
 
-    const machine = new StateMachine('idle', {
-      idle: { on: { GO: 'next' }, onExit },
-      next: { on: {}, onEnter },
-    });
+		machine.Send(EventSuccess) // Invalid from idle
 
-    machine.send('GO');
+		if machine.GetState() != StateIdle {
+			t.Errorf("expected idle, got %s", machine.GetState())
+		}
+	})
 
-    expect(onExit).toHaveBeenCalled();
-    expect(onEnter).toHaveBeenCalled();
-  });
-});
+	t.Run("should call onEnter/onExit hooks", func(t *testing.T) {
+		enterCalled := false
+		exitCalled := false
+
+		machine := NewStateMachine(StateIdle, MachineConfig{
+			StateIdle: {
+				On:     map[EventType]StateType{EventFetch: StateLoading},
+				OnExit: func() { exitCalled = true },
+			},
+			StateLoading: {
+				On:      map[EventType]StateType{},
+				OnEnter: func() { enterCalled = true },
+			},
+		})
+
+		machine.Send(EventFetch)
+
+		if !exitCalled {
+			t.Error("onExit should have been called")
+		}
+		if !enterCalled {
+			t.Error("onEnter should have been called")
+		}
+	})
+}
 ```
 
 ## Quand utiliser

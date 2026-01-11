@@ -8,7 +8,7 @@ Enterprise Integration Patterns - Gregor Hohpe & Bobby Woolf.
 
 > Message qui demande une action.
 
-```typescript
+```go
 interface CommandMessage<T = unknown> {
   type: 'command';
   command: string;
@@ -38,7 +38,7 @@ await messageBus.send('orders', command);
 
 > Notification d'un fait passé.
 
-```typescript
+```go
 interface EventMessage<T = unknown> {
   type: 'event';
   event: string;
@@ -69,7 +69,7 @@ await eventBus.publish('order-events', event);
 
 > Message contenant des données.
 
-```typescript
+```go
 interface DocumentMessage<T = unknown> {
   type: 'document';
   documentType: string;
@@ -106,7 +106,7 @@ const doc: DocumentMessage<CustomerData> = {
 
 > Message avec attente de réponse.
 
-```typescript
+```go
 class RequestReplyClient {
   private pending = new Map<string, Deferred<any>>();
 
@@ -148,7 +148,7 @@ const result = await client.request('calculator', { operation: 'add', a: 1, b: 2
 
 > Lier requête et réponse.
 
-```typescript
+```go
 interface CorrelatedMessage {
   correlationId: string;
   causationId?: string; // ID du message qui a causé celui-ci
@@ -179,7 +179,7 @@ class MessageTracker {
 
 > Ensemble de messages ordonnés.
 
-```typescript
+```go
 interface SequencedMessage {
   sequenceId: string;
   sequenceNumber: number;
@@ -221,7 +221,7 @@ class SequenceAssembler {
 
 > TTL sur les messages.
 
-```typescript
+```go
 interface ExpirableMessage {
   expiresAt: Date;
   payload: unknown;
@@ -265,7 +265,7 @@ class MessageProcessor {
 
 > Router selon le contenu du message.
 
-```typescript
+```go
 class ContentBasedRouter {
   private routes = new Map<string, string>();
 
@@ -301,7 +301,7 @@ await messageBus.send(destination, message);
 
 > Supprimer les messages non désirés.
 
-```typescript
+```go
 type Predicate<T> = (message: T) => boolean;
 
 class MessageFilter<T> {
@@ -335,7 +335,7 @@ const validOrderFilter = new MessageFilter<Order>(
 
 > Envoyer à plusieurs destinataires.
 
-```typescript
+```go
 class RecipientList {
   constructor(private destinations: string[]) {}
 
@@ -373,7 +373,7 @@ class RecipientList {
 
 > Diviser un message en plusieurs.
 
-```typescript
+```go
 class OrderSplitter {
   split(order: Order): OrderItemMessage[] {
     return order.items.map((item, index) => ({
@@ -405,7 +405,7 @@ class Splitter<T, U> {
 
 > Combiner plusieurs messages en un.
 
-```typescript
+```go
 class Aggregator<T, R> {
   private buffers = new Map<string, { items: T[]; expectedCount: number }>();
 
@@ -454,7 +454,7 @@ const orderAggregator = new Aggregator<OrderItemResult, OrderResult>(
 
 > Envoyer et collecter les réponses.
 
-```typescript
+```go
 class ScatterGather<T, R> {
   constructor(
     private destinations: string[],
@@ -506,7 +506,7 @@ const bestPrice = quotes.reduce((min, q) => q.price < min.price ? q : min);
 
 > Itinéraire dynamique pour le message.
 
-```typescript
+```go
 interface RoutingSlip {
   steps: string[];
   currentStep: number;
@@ -556,7 +556,7 @@ class RoutingSlipProcessor {
 
 > Orchestrer un workflow complexe.
 
-```typescript
+```go
 interface ProcessState {
   processId: string;
   currentStep: string;
@@ -610,7 +610,7 @@ class OrderProcessManager {
 
 > Convertir entre formats.
 
-```typescript
+```go
 interface MessageTranslator<S, T> {
   translate(source: S): T;
 }
@@ -650,7 +650,7 @@ class LegacyOrderTranslator implements MessageTranslator<LegacyOrder, ModernOrde
 
 > Ajouter des métadonnées au message.
 
-```typescript
+```go
 interface Envelope<T> {
   header: {
     messageId: string;
@@ -691,7 +691,7 @@ class EnvelopeWrapper {
 
 > Ajouter des données manquantes.
 
-```typescript
+```go
 class OrderEnricher {
   constructor(
     private customerService: CustomerService,
@@ -731,7 +731,7 @@ class OrderEnricher {
 
 > Supprimer des données non nécessaires.
 
-```typescript
+```go
 class SensitiveDataFilter {
   filter(order: FullOrder): PublicOrder {
     return {
@@ -765,7 +765,7 @@ class ContentFilter<T, R> {
 
 > Transformer formats variés en format canonique.
 
-```typescript
+```go
 interface CanonicalOrder {
   id: string;
   customer: { id: string; name: string };
@@ -813,7 +813,7 @@ class OrderNormalizer {
 
 > Consumer qui interroge périodiquement.
 
-```typescript
+```go
 class PollingConsumer {
   private running = false;
 
@@ -862,7 +862,7 @@ class PollingConsumer {
 
 > Consumer réactif aux événements.
 
-```typescript
+```go
 class EventDrivenConsumer {
   constructor(
     private channel: MessageChannel,
@@ -921,7 +921,7 @@ class BackpressureConsumer {
 
 > Plusieurs consumers sur la même queue.
 
-```typescript
+```go
 class CompetingConsumers {
   private consumers: Consumer[] = [];
 
@@ -957,7 +957,7 @@ class CompetingConsumers {
 
 > Router les messages vers les handlers appropriés.
 
-```typescript
+```go
 type MessageHandler = (message: any) => Promise<void>;
 
 class MessageDispatcher {
@@ -992,7 +992,7 @@ dispatcher.register('PaymentReceived', handlePayment);
 
 > Consumer qui filtre les messages.
 
-```typescript
+```go
 class SelectiveConsumer {
   constructor(
     private channel: MessageChannel,
@@ -1034,7 +1034,7 @@ const highPriorityConsumer = new SelectiveConsumer(
 
 > Subscription qui survit aux déconnexions.
 
-```typescript
+```go
 class DurableSubscriber {
   constructor(
     private clientId: string,
@@ -1072,7 +1072,7 @@ await subscriber.subscribe('orders.*', handleOrderEvent);
 
 > Handler qui gère les duplicates.
 
-```typescript
+```go
 class IdempotentReceiver {
   constructor(
     private processedIds: Set<string> | RedisSet,
@@ -1127,7 +1127,7 @@ class IdempotentReceiverWithTTL {
 
 > Un message va à un seul consumer.
 
-```typescript
+```go
 class PointToPointChannel {
   private queue: Message[] = [];
   private waiting: ((msg: Message) => void)[] = [];
@@ -1162,7 +1162,7 @@ class PointToPointChannel {
 
 > Un message va à tous les subscribers.
 
-```typescript
+```go
 class PublishSubscribeChannel {
   private subscribers = new Map<string, ((msg: Message) => void)[]>();
 
@@ -1209,7 +1209,7 @@ class PublishSubscribeChannel {
 
 > Queue pour messages non traitables.
 
-```typescript
+```go
 class DeadLetterChannel {
   constructor(private dlq: MessageQueue) {}
 
@@ -1265,7 +1265,7 @@ class MessageProcessor {
 
 > Assurer la livraison du message.
 
-```typescript
+```go
 class GuaranteedDelivery {
   constructor(
     private store: MessageStore,

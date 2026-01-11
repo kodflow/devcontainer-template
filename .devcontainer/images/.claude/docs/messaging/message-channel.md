@@ -40,88 +40,208 @@ Producer ---> [  Queue  ] ---> Consumer A
 
 ### Implementation RabbitMQ/Kafka
 
-```typescript
-// RabbitMQ - Queue directe
-interface PointToPointConfig {
-  queue: string;
-  durable: boolean;
-  exclusive: boolean;
-  autoDelete: boolean;
+```go
+package messaging
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	amqp "github.com/rabbitmq/amqp091-go"
+)
+
+type PointToPointConfig struct {
+	Queue      string
+	Durable    bool
+	Exclusive  bool
+	AutoDelete bool
 }
 
-class PointToPointChannel {
-  private channel: AMQPChannel;
+type PointToPointChannel struct {
+	channel *amqp.Channel
+	config  *PointToPointConfig
+}
 
-  constructor(private config: PointToPointConfig) {}
+func NewPointToPointChannel(channel *amqp.Channel, config *PointToPointConfig) *PointToPointChannel {
+	return &PointToPointChannel{
+		channel: channel,
+		config:  config,
+	}
+}
 
-  async send<T>(message: T): Promise<void> {
-    await this.channel.assertQueue(this.config.queue, {
-      durable: this.config.durable,
-    });
+func (p *PointToPointChannel) Send(ctx context.Context, message interface{}) error {
+	_, err := p.channel.QueueDeclare(
+		p.config.Queue,
+		p.config.Durable,
+		p.config.AutoDelete,
+		p.config.Exclusive,
+		false, // no-wait
+		nil,   // arguments
+	)
+	if err != nil {
+		return fmt.Errorf("declaring queue: %w", err)
+	}
 
-    this.channel.sendToQueue(
-      this.config.queue,
-      Buffer.from(JSON.stringify(message)),
-      { persistent: true }
-    );
-  }
+	body, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("marshaling message: %w", err)
+	}
 
-  async consume(handler: (msg: unknown) => Promise<void>): Promise<void> {
-    await this.channel.consume(this.config.queue, async (msg) => {
-      if (!msg) return;
+	return p.channel.PublishWithContext(
+		ctx,
+		"",              // exchange
+		p.config.Queue,  // routing key
+		false,           // mandatory
+		false,           // immediate
+		amqp.Publishing{
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "application/json",
+			Body:         body,
+		},
+	)
+}
 
-      try {
-        const content = JSON.parse(msg.content.toString());
-        await handler(content);
-        this.channel.ack(msg);
-      } catch (error) {
-        // Requeue on failure
-        this.channel.nack(msg, false, true);
-      }
-    });
-  }
+type MessageHandler func(ctx context.Context, msg interface{}) error
+
+func (p *PointToPointChannel) Consume(ctx context.Context, handler MessageHandler) error {
+	msgs, err := p.channel.Consume(
+		p.config.Queue,
+		"",    // consumer
+		false, // auto-ack
+		false, // exclusive
+		false, // no-local
+		false, // no-wait
+		nil,   // args
+	)
+	if err != nil {
+		return fmt.Errorf("consuming queue: %w", err)
+	}
+
+	go func() {
+		for d := range msgs {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				var content interface{}
+				if err := json.Unmarshal(d.Body, &content); err != nil {
+					d.Nack(false, true)
+					continue
+				}
+
+				if err := handler(ctx, content); err != nil {
+					// Requeue on failure
+					d.Nack(false, true)
+					continue
+				}
+
+				d.Ack(false)
+			}
+		}
+	}()
+
+	return nil
 }
 
 // Kafka - Consumer Group (simule P2P)
-class KafkaPointToPoint {
-  async consume(groupId: string, topic: string) {
-    const consumer = this.kafka.consumer({ groupId });
-    await consumer.subscribe({ topic });
+type KafkaPointToPoint struct {
+	reader *kafka.Reader
+}
 
-    // Chaque message va a un seul consumer du groupe
-    await consumer.run({
-      eachMessage: async ({ message }) => {
-        await this.processMessage(message);
-      }
-    });
-  }
+func NewKafkaPointToPoint(brokers []string, topic, groupID string) *KafkaPointToPoint {
+	return &KafkaPointToPoint{
+		reader: kafka.NewReader(kafka.ReaderConfig{
+			Brokers: brokers,
+			Topic:   topic,
+			GroupID: groupID,
+		}),
+	}
+}
+
+func (k *KafkaPointToPoint) Consume(ctx context.Context, handler MessageHandler) error {
+	// Chaque message va a un seul consumer du groupe
+	for {
+		msg, err := k.reader.FetchMessage(ctx)
+		if err != nil {
+			return fmt.Errorf("fetching message: %w", err)
+		}
+
+		var payload interface{}
+		if err := json.Unmarshal(msg.Value, &payload); err != nil {
+			k.reader.CommitMessages(ctx, msg)
+			continue
+		}
+
+		if err := handler(ctx, payload); err != nil {
+			// Handle error
+			continue
+		}
+
+		k.reader.CommitMessages(ctx, msg)
+	}
 }
 ```
 
 ### Cas d'erreur
 
-```typescript
-class ResilientP2PChannel {
-  private retryCount = 3;
-  private deadLetterQueue: string;
+```go
+package messaging
 
-  async processWithRetry(message: Message): Promise<void> {
-    let attempts = 0;
+import (
+	"context"
+	"fmt"
+	"math"
+	"time"
+)
 
-    while (attempts < this.retryCount) {
-      try {
-        await this.handler(message);
-        return;
-      } catch (error) {
-        attempts++;
-        if (attempts >= this.retryCount) {
-          await this.sendToDeadLetter(message, error);
-          throw new MaxRetriesExceededError(message.id);
-        }
-        await this.delay(Math.pow(2, attempts) * 1000);
-      }
-    }
-  }
+type MaxRetriesExceededError struct {
+	MessageID string
+}
+
+func (e *MaxRetriesExceededError) Error() string {
+	return fmt.Sprintf("max retries exceeded for message %s", e.MessageID)
+}
+
+type ResilientP2PChannel struct {
+	channel          *PointToPointChannel
+	retryCount       int
+	deadLetterQueue  string
+}
+
+func NewResilientP2PChannel(channel *PointToPointChannel, deadLetterQueue string) *ResilientP2PChannel {
+	return &ResilientP2PChannel{
+		channel:         channel,
+		retryCount:      3,
+		deadLetterQueue: deadLetterQueue,
+	}
+}
+
+func (r *ResilientP2PChannel) ProcessWithRetry(ctx context.Context, message interface{}, handler MessageHandler) error {
+	var lastErr error
+	
+	for attempts := 0; attempts < r.retryCount; attempts++ {
+		if err := handler(ctx, message); err == nil {
+			return nil
+		} else {
+			lastErr = err
+			// Exponential backoff
+			backoff := time.Duration(math.Pow(2, float64(attempts))) * time.Second
+			time.Sleep(backoff)
+		}
+	}
+
+	// Max retries exceeded, send to dead letter queue
+	if err := r.sendToDeadLetter(ctx, message, lastErr); err != nil {
+		return fmt.Errorf("sending to dead letter: %w", err)
+	}
+
+	return &MaxRetriesExceededError{MessageID: fmt.Sprintf("%v", message)}
+}
+
+func (r *ResilientP2PChannel) sendToDeadLetter(ctx context.Context, message interface{}, err error) error {
+	// Implementation depends on message broker
+	return nil
 }
 ```
 
@@ -146,103 +266,326 @@ Producer ---> [ Topic/Exchange ] ---> Subscriber A
 
 ### Implementation
 
-```typescript
+```go
+package messaging
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/segmentio/kafka-go"
+)
+
 // RabbitMQ - Fanout Exchange
-class PubSubChannel {
-  private exchange: string;
+type PubSubChannel struct {
+	channel  *amqp.Channel
+	exchange string
+}
 
-  async publish<T>(event: T): Promise<void> {
-    await this.channel.assertExchange(this.exchange, 'fanout', {
-      durable: true
-    });
+func NewPubSubChannel(channel *amqp.Channel, exchange string) *PubSubChannel {
+	return &PubSubChannel{
+		channel:  channel,
+		exchange: exchange,
+	}
+}
 
-    this.channel.publish(
-      this.exchange,
-      '', // routing key ignored for fanout
-      Buffer.from(JSON.stringify(event))
-    );
-  }
+func (p *PubSubChannel) Publish(ctx context.Context, event interface{}) error {
+	if err := p.channel.ExchangeDeclare(
+		p.exchange,
+		"fanout", // type
+		true,     // durable
+		false,    // auto-deleted
+		false,    // internal
+		false,    // no-wait
+		nil,      // arguments
+	); err != nil {
+		return fmt.Errorf("declaring exchange: %w", err)
+	}
 
-  async subscribe(handler: (event: unknown) => Promise<void>): Promise<void> {
-    // Chaque subscriber a sa propre queue
-    const { queue } = await this.channel.assertQueue('', { exclusive: true });
-    await this.channel.bindQueue(queue, this.exchange, '');
+	body, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshaling event: %w", err)
+	}
 
-    await this.channel.consume(queue, async (msg) => {
-      if (!msg) return;
-      const event = JSON.parse(msg.content.toString());
-      await handler(event);
-      this.channel.ack(msg);
-    });
-  }
+	return p.channel.PublishWithContext(
+		ctx,
+		p.exchange,
+		"",    // routing key ignored for fanout
+		false, // mandatory
+		false, // immediate
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        body,
+		},
+	)
+}
+
+func (p *PubSubChannel) Subscribe(ctx context.Context, handler MessageHandler) error {
+	// Chaque subscriber a sa propre queue
+	q, err := p.channel.QueueDeclare(
+		"",    // name (empty = auto-generated)
+		false, // durable
+		false, // delete when unused
+		true,  // exclusive
+		false, // no-wait
+		nil,   // arguments
+	)
+	if err != nil {
+		return fmt.Errorf("declaring queue: %w", err)
+	}
+
+	if err := p.channel.QueueBind(
+		q.Name,
+		"",          // routing key
+		p.exchange,
+		false,
+		nil,
+	); err != nil {
+		return fmt.Errorf("binding queue: %w", err)
+	}
+
+	msgs, err := p.channel.Consume(
+		q.Name,
+		"",    // consumer
+		false, // auto-ack
+		false, // exclusive
+		false, // no-local
+		false, // no-wait
+		nil,   // args
+	)
+	if err != nil {
+		return fmt.Errorf("consuming queue: %w", err)
+	}
+
+	go func() {
+		for d := range msgs {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				var event interface{}
+				if err := json.Unmarshal(d.Body, &event); err != nil {
+					d.Nack(false, false)
+					continue
+				}
+
+				if err := handler(ctx, event); err != nil {
+					d.Nack(false, false)
+					continue
+				}
+
+				d.Ack(false)
+			}
+		}
+	}()
+
+	return nil
 }
 
 // Kafka - Topic avec multiple consumer groups
-class KafkaPubSub {
-  async publish(topic: string, event: unknown): Promise<void> {
-    await this.producer.send({
-      topic,
-      messages: [{ value: JSON.stringify(event) }]
-    });
-  }
+type KafkaPubSub struct {
+	writer *kafka.Writer
+}
 
-  // Chaque service utilise un groupId different
-  async subscribe(groupId: string, topic: string): Promise<void> {
-    const consumer = this.kafka.consumer({ groupId });
-    await consumer.subscribe({ topic, fromBeginning: false });
-  }
+func NewKafkaPubSub(brokers []string, topic string) *KafkaPubSub {
+	return &KafkaPubSub{
+		writer: &kafka.Writer{
+			Addr:     kafka.TCP(brokers...),
+			Topic:    topic,
+			Balancer: &kafka.LeastBytes{},
+		},
+	}
+}
+
+func (k *KafkaPubSub) Publish(ctx context.Context, event interface{}) error {
+	body, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshaling event: %w", err)
+	}
+
+	return k.writer.WriteMessages(ctx, kafka.Message{
+		Value: body,
+	})
+}
+
+// Chaque service utilise un groupID different
+func (k *KafkaPubSub) Subscribe(ctx context.Context, brokers []string, topic, groupID string, handler MessageHandler) error {
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:      brokers,
+		Topic:        topic,
+		GroupID:      groupID,
+		StartOffset:  kafka.LastOffset,
+	})
+	defer reader.Close()
+
+	for {
+		msg, err := reader.FetchMessage(ctx)
+		if err != nil {
+			return fmt.Errorf("fetching message: %w", err)
+		}
+
+		var event interface{}
+		if err := json.Unmarshal(msg.Value, &event); err != nil {
+			reader.CommitMessages(ctx, msg)
+			continue
+		}
+
+		if err := handler(ctx, event); err != nil {
+			// Handle error
+			continue
+		}
+
+		reader.CommitMessages(ctx, msg)
+	}
 }
 ```
 
 ### Topic Filtering
 
-```typescript
-// RabbitMQ - Topic Exchange avec routing keys
-class TopicPubSub {
-  async publish(routingKey: string, event: unknown): Promise<void> {
-    await this.channel.assertExchange('events', 'topic');
-    this.channel.publish('events', routingKey, Buffer.from(JSON.stringify(event)));
-  }
+```go
+package messaging
 
-  async subscribe(pattern: string, handler: Function): Promise<void> {
-    const { queue } = await this.channel.assertQueue('');
-    // Pattern: orders.* ou orders.# ou orders.created
-    await this.channel.bindQueue(queue, 'events', pattern);
-    await this.channel.consume(queue, handler);
-  }
+import (
+	"context"
+	"encoding/json"
+)
+
+// RabbitMQ - Topic Exchange avec routing keys
+type TopicPubSub struct {
+	channel *amqp.Channel
+}
+
+func NewTopicPubSub(channel *amqp.Channel) *TopicPubSub {
+	return &TopicPubSub{channel: channel}
+}
+
+func (t *TopicPubSub) Publish(ctx context.Context, routingKey string, event interface{}) error {
+	if err := t.channel.ExchangeDeclare(
+		"events",
+		"topic", // type
+		true,    // durable
+		false,   // auto-deleted
+		false,   // internal
+		false,   // no-wait
+		nil,     // arguments
+	); err != nil {
+		return err
+	}
+
+	body, _ := json.Marshal(event)
+	return t.channel.PublishWithContext(
+		ctx,
+		"events",
+		routingKey,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        body,
+		},
+	)
+}
+
+func (t *TopicPubSub) Subscribe(ctx context.Context, pattern string, handler MessageHandler) error {
+	q, err := t.channel.QueueDeclare("", false, false, true, false, nil)
+	if err != nil {
+		return err
+	}
+
+	// Pattern: orders.* ou orders.# ou orders.created
+	if err := t.channel.QueueBind(q.Name, pattern, "events", false, nil); err != nil {
+		return err
+	}
+
+	msgs, err := t.channel.Consume(q.Name, "", false, false, false, false, nil)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for d := range msgs {
+			var event interface{}
+			json.Unmarshal(d.Body, &event)
+			handler(ctx, event)
+			d.Ack(false)
+		}
+	}()
+
+	return nil
 }
 
 // Usage
-await pubsub.subscribe('orders.created', handleOrderCreated);
-await pubsub.subscribe('orders.*', handleAllOrderEvents);
-await pubsub.subscribe('orders.#', handleOrdersAndSubtopics);
+func ExampleTopicPubSub() {
+	// pubsub.Subscribe("orders.created", handleOrderCreated)
+	// pubsub.Subscribe("orders.*", handleAllOrderEvents)
+	// pubsub.Subscribe("orders.#", handleOrdersAndSubtopics)
+}
 ```
 
 ### Pub-Sub Error Handling
 
-```typescript
-class ReliablePubSub {
-  private subscriptionStore: SubscriptionStore;
+```go
+package messaging
 
-  async subscribeWithRecovery(
-    subscriberId: string,
-    topic: string,
-    handler: Function
-  ): Promise<void> {
-    // Sauvegarder la position de lecture
-    const lastOffset = await this.subscriptionStore.getLastOffset(subscriberId);
+import (
+	"context"
+	"fmt"
+)
 
-    await this.subscribe(topic, async (event, offset) => {
-      try {
-        await handler(event);
-        await this.subscriptionStore.saveOffset(subscriberId, offset);
-      } catch (error) {
-        // Log mais continue pour ne pas bloquer les autres
-        console.error(`Failed to process event at ${offset}`, error);
-        await this.errorHandler.handle(event, error);
-      }
-    }, { startOffset: lastOffset });
-  }
+type SubscriptionStore interface {
+	GetLastOffset(ctx context.Context, subscriberID string) (int64, error)
+	SaveOffset(ctx context.Context, subscriberID string, offset int64) error
+}
+
+type ErrorHandler interface {
+	Handle(ctx context.Context, event interface{}, err error) error
+}
+
+type ReliablePubSub struct {
+	channel           *PubSubChannel
+	subscriptionStore SubscriptionStore
+	errorHandler      ErrorHandler
+}
+
+func NewReliablePubSub(
+	channel *PubSubChannel,
+	subscriptionStore SubscriptionStore,
+	errorHandler ErrorHandler,
+) *ReliablePubSub {
+	return &ReliablePubSub{
+		channel:           channel,
+		subscriptionStore: subscriptionStore,
+		errorHandler:      errorHandler,
+	}
+}
+
+func (r *ReliablePubSub) SubscribeWithRecovery(
+	ctx context.Context,
+	subscriberID string,
+	handler MessageHandler,
+) error {
+	// Sauvegarder la position de lecture
+	lastOffset, err := r.subscriptionStore.GetLastOffset(ctx, subscriberID)
+	if err != nil {
+		return fmt.Errorf("getting last offset: %w", err)
+	}
+
+	fmt.Printf("Starting from offset: %d\n", lastOffset)
+
+	return r.channel.Subscribe(ctx, func(ctx context.Context, event interface{}) error {
+		// Extraire offset du message (implementation depends on broker)
+		var offset int64 = 0
+
+		if err := handler(ctx, event); err != nil {
+			// Log mais continue pour ne pas bloquer les autres
+			fmt.Printf("Failed to process event at %d: %v\n", offset, err)
+			return r.errorHandler.Handle(ctx, event, err)
+		}
+
+		return r.subscriptionStore.SaveOffset(ctx, subscriberID, offset)
+	})
 }
 ```
 

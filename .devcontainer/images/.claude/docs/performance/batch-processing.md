@@ -39,139 +39,265 @@ Pattern de regroupement d'operations pour reduire l'overhead.
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
 ### BatchProcessor basique
 
-```typescript
-class BatchProcessor<T> {
-  private batch: T[] = [];
-  private timer: ReturnType<typeof setTimeout> | null = null;
-  private processing = false;
+```go
+package batch
 
-  constructor(
-    private processor: (items: T[]) => Promise<void>,
-    private options: {
-      maxSize: number;
-      maxWait: number;
-    },
-  ) {}
+import (
+	"context"
+	"sync"
+	"time"
+)
 
-  add(item: T): void {
-    this.batch.push(item);
+// Processor processes a batch of items.
+type Processor[T any] func(context.Context, []T) error
 
-    if (this.batch.length >= this.options.maxSize) {
-      this.flush();
-    } else if (!this.timer) {
-      this.timer = setTimeout(() => this.flush(), this.options.maxWait);
-    }
-  }
+// Options configure batch processing.
+type Options struct {
+	MaxSize int
+	MaxWait time.Duration
+}
 
-  async flush(): Promise<void> {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
+// BatchProcessor collects and processes items in batches.
+type BatchProcessor[T any] struct {
+	processor  Processor[T]
+	opts       Options
+	batch      []T
+	timer      *time.Timer
+	processing bool
+	mu         sync.Mutex
+	done       chan struct{}
+}
 
-    if (this.batch.length === 0 || this.processing) {
-      return;
-    }
+// New creates a new batch processor.
+func New[T any](processor Processor[T], opts Options) *BatchProcessor[T] {
+	return &BatchProcessor[T]{
+		processor: processor,
+		opts:      opts,
+		batch:     make([]T, 0, opts.MaxSize),
+		done:      make(chan struct{}),
+	}
+}
 
-    this.processing = true;
-    const items = this.batch;
-    this.batch = [];
+// Add adds an item to the batch.
+func (bp *BatchProcessor[T]) Add(item T) {
+	bp.mu.Lock()
+	defer bp.mu.Unlock()
 
-    try {
-      await this.processor(items);
-    } finally {
-      this.processing = false;
-    }
-  }
+	bp.batch = append(bp.batch, item)
 
-  get pending(): number {
-    return this.batch.length;
-  }
+	if len(bp.batch) >= bp.opts.MaxSize {
+		go bp.Flush()
+	} else if bp.timer == nil {
+		bp.timer = time.AfterFunc(bp.opts.MaxWait, func() {
+			bp.Flush()
+		})
+	}
+}
+
+// Flush processes the current batch.
+func (bp *BatchProcessor[T]) Flush() {
+	bp.mu.Lock()
+
+	if bp.timer != nil {
+		bp.timer.Stop()
+		bp.timer = nil
+	}
+
+	if len(bp.batch) == 0 || bp.processing {
+		bp.mu.Unlock()
+		return
+	}
+
+	bp.processing = true
+	items := bp.batch
+	bp.batch = make([]T, 0, bp.opts.MaxSize)
+	bp.mu.Unlock()
+
+	ctx := context.Background()
+	if err := bp.processor(ctx, items); err != nil {
+		// Log error
+	}
+
+	bp.mu.Lock()
+	bp.processing = false
+	bp.mu.Unlock()
+}
+
+// Pending returns the number of pending items.
+func (bp *BatchProcessor[T]) Pending() int {
+	bp.mu.Lock()
+	defer bp.mu.Unlock()
+	return len(bp.batch)
+}
+
+// Close flushes remaining items and stops the processor.
+func (bp *BatchProcessor[T]) Close() error {
+	bp.Flush()
+	close(bp.done)
+	return nil
 }
 
 // Usage
-const logBatcher = new BatchProcessor<LogEntry>(
-  async (entries) => {
-    await db.logs.insertMany(entries);
-  },
-  { maxSize: 100, maxWait: 1000 },
-);
-
-logBatcher.add({ level: 'info', message: 'User logged in' });
+// logBatcher := batch.New(
+//     func(ctx context.Context, entries []LogEntry) error {
+//         return db.Logs.InsertMany(ctx, entries)
+//     },
+//     batch.Options{MaxSize: 100, MaxWait: 1 * time.Second},
+// )
+//
+// logBatcher.Add(LogEntry{Level: "info", Message: "User logged in"})
 ```
 
 ### BatchProcessor avec resultats
 
-```typescript
-interface BatchItem<TInput, TResult> {
-  input: TInput;
-  resolve: (result: TResult) => void;
-  reject: (error: Error) => void;
+```go
+package batch
+
+import (
+	"context"
+	"sync"
+	"time"
+)
+
+// ProcessorWithResults processes items and returns results.
+type ProcessorWithResults[TInput, TResult any] func(context.Context, []TInput) ([]TResult, error)
+
+// BatchItem holds an item and its completion channel.
+type BatchItem[TInput, TResult any] struct {
+	input   TInput
+	resultC chan Result[TResult]
 }
 
-class BatchProcessorWithResults<TInput, TResult> {
-  private batch: BatchItem<TInput, TResult>[] = [];
-  private timer: ReturnType<typeof setTimeout> | null = null;
+// Result holds a result or error.
+type Result[T any] struct {
+	Value T
+	Error error
+}
 
-  constructor(
-    private processor: (inputs: TInput[]) => Promise<TResult[]>,
-    private options: { maxSize: number; maxWait: number },
-  ) {}
+// BatchProcessorWithResults processes items and returns individual results.
+type BatchProcessorWithResults[TInput, TResult any] struct {
+	processor ProcessorWithResults[TInput, TResult]
+	opts      Options
+	batch     []BatchItem[TInput, TResult]
+	timer     *time.Timer
+	mu        sync.Mutex
+}
 
-  async add(input: TInput): Promise<TResult> {
-    return new Promise<TResult>((resolve, reject) => {
-      this.batch.push({ input, resolve, reject });
+// NewWithResults creates a new batch processor that returns results.
+func NewWithResults[TInput, TResult any](
+	processor ProcessorWithResults[TInput, TResult],
+	opts Options,
+) *BatchProcessorWithResults[TInput, TResult] {
+	return &BatchProcessorWithResults[TInput, TResult]{
+		processor: processor,
+		opts:      opts,
+		batch:     make([]BatchItem[TInput, TResult], 0, opts.MaxSize),
+	}
+}
 
-      if (this.batch.length >= this.options.maxSize) {
-        this.flush();
-      } else if (!this.timer) {
-        this.timer = setTimeout(() => this.flush(), this.options.maxWait);
-      }
-    });
-  }
+// Add adds an item and returns a result channel.
+func (bp *BatchProcessorWithResults[TInput, TResult]) Add(
+	ctx context.Context,
+	input TInput,
+) (TResult, error) {
+	resultC := make(chan Result[TResult], 1)
 
-  private async flush(): Promise<void> {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
+	bp.mu.Lock()
+	bp.batch = append(bp.batch, BatchItem[TInput, TResult]{
+		input:   input,
+		resultC: resultC,
+	})
 
-    if (this.batch.length === 0) return;
+	if len(bp.batch) >= bp.opts.MaxSize {
+		bp.mu.Unlock()
+		go bp.flush()
+	} else {
+		if bp.timer == nil {
+			bp.timer = time.AfterFunc(bp.opts.MaxWait, func() {
+				bp.flush()
+			})
+		}
+		bp.mu.Unlock()
+	}
 
-    const items = this.batch;
-    this.batch = [];
-    const inputs = items.map((i) => i.input);
+	select {
+	case result := <-resultC:
+		return result.Value, result.Error
+	case <-ctx.Done():
+		var zero TResult
+		return zero, ctx.Err()
+	}
+}
 
-    try {
-      const results = await this.processor(inputs);
-      items.forEach((item, index) => {
-        item.resolve(results[index]);
-      });
-    } catch (error) {
-      items.forEach((item) => {
-        item.reject(error as Error);
-      });
-    }
-  }
+func (bp *BatchProcessorWithResults[TInput, TResult]) flush() {
+	bp.mu.Lock()
+
+	if bp.timer != nil {
+		bp.timer.Stop()
+		bp.timer = nil
+	}
+
+	if len(bp.batch) == 0 {
+		bp.mu.Unlock()
+		return
+	}
+
+	items := bp.batch
+	bp.batch = make([]BatchItem[TInput, TResult], 0, bp.opts.MaxSize)
+	bp.mu.Unlock()
+
+	inputs := make([]TInput, len(items))
+	for i, item := range items {
+		inputs[i] = item.input
+	}
+
+	ctx := context.Background()
+	results, err := bp.processor(ctx, inputs)
+
+	if err != nil {
+		// Send error to all
+		for _, item := range items {
+			var zero TResult
+			item.resultC <- Result[TResult]{Value: zero, Error: err}
+			close(item.resultC)
+		}
+		return
+	}
+
+	// Send individual results
+	for i, item := range items {
+		item.resultC <- Result[TResult]{Value: results[i], Error: nil}
+		close(item.resultC)
+	}
 }
 
 // Usage - DataLoader pattern
-const userLoader = new BatchProcessorWithResults<string, User>(
-  async (ids) => {
-    const users = await db.users.findByIds(ids);
-    // Maintenir l'ordre des resultats
-    return ids.map((id) => users.find((u) => u.id === id)!);
-  },
-  { maxSize: 100, maxWait: 10 },
-);
-
-// Appels individuels, execution groupee
-const user1 = await userLoader.add('user-1');
-const user2 = await userLoader.add('user-2');
+// userLoader := batch.NewWithResults(
+//     func(ctx context.Context, ids []string) ([]*User, error) {
+//         users, err := db.Users.FindByIDs(ctx, ids)
+//         if err != nil {
+//             return nil, err
+//         }
+//         // Maintain order
+//         result := make([]*User, len(ids))
+//         userMap := make(map[string]*User)
+//         for _, u := range users {
+//             userMap[u.ID] = u
+//         }
+//         for i, id := range ids {
+//             result[i] = userMap[id]
+//         }
+//         return result, nil
+//     },
+//     batch.Options{MaxSize: 100, MaxWait: 10 * time.Millisecond},
+// )
+//
+// user1, err := userLoader.Add(ctx, "user-1")
+// user2, err := userLoader.Add(ctx, "user-2")
 ```
 
 ---
@@ -180,71 +306,129 @@ const user2 = await userLoader.add('user-2');
 
 ### 1. Time-based
 
-```typescript
+```go
 // Flush toutes les N millisecondes
-setInterval(() => batcher.flush(), 1000);
+ticker := time.NewTicker(1 * time.Second)
+go func() {
+	for range ticker.C {
+		batcher.Flush()
+	}
+}()
 ```
 
 ### 2. Size-based
 
-```typescript
+```go
 // Flush quand le batch atteint N items
-if (batch.length >= maxSize) {
-  flush();
+if len(batch) >= maxSize {
+	flush()
 }
 ```
 
 ### 3. Hybride (recommande)
 
-```typescript
+```go
 // Flush au premier de: maxSize ou maxWait
-class HybridBatcher<T> {
-  add(item: T): void {
-    this.batch.push(item);
+func (bp *BatchProcessor[T]) Add(item T) {
+	bp.batch = append(bp.batch, item)
 
-    if (this.batch.length >= this.maxSize) {
-      this.flush(); // Size trigger
-    } else if (!this.timer) {
-      this.timer = setTimeout(() => this.flush(), this.maxWait); // Time trigger
-    }
-  }
+	if len(bp.batch) >= bp.maxSize {
+		bp.Flush() // Size trigger
+	} else if bp.timer == nil {
+		bp.timer = time.AfterFunc(bp.maxWait, func() {
+			bp.Flush() // Time trigger
+		})
+	}
 }
 ```
 
 ### 4. Backpressure
 
-```typescript
-class BackpressureBatcher<T> {
-  private processing = false;
-  private queue: T[][] = [];
+```go
+package batch
 
-  async add(item: T): Promise<void> {
-    this.batch.push(item);
+import (
+	"context"
+	"sync"
+)
 
-    if (this.batch.length >= this.maxSize) {
-      const items = this.batch;
-      this.batch = [];
+// BackpressureBatcher handles backpressure with queue.
+type BackpressureBatcher[T any] struct {
+	processor  Processor[T]
+	maxSize    int
+	batch      []T
+	queue      [][]T
+	processing bool
+	mu         sync.Mutex
+}
 
-      if (this.processing) {
-        // Mettre en queue si deja en traitement
-        this.queue.push(items);
-      } else {
-        await this.processWithQueue(items);
-      }
-    }
-  }
+// NewBackpressure creates a backpressure-aware batcher.
+func NewBackpressure[T any](processor Processor[T], maxSize int) *BackpressureBatcher[T] {
+	return &BackpressureBatcher[T]{
+		processor: processor,
+		maxSize:   maxSize,
+		batch:     make([]T, 0, maxSize),
+		queue:     make([][]T, 0),
+	}
+}
 
-  private async processWithQueue(items: T[]): Promise<void> {
-    this.processing = true;
-    await this.processor(items);
+// Add adds an item with backpressure handling.
+func (bb *BackpressureBatcher[T]) Add(ctx context.Context, item T) error {
+	bb.mu.Lock()
+	bb.batch = append(bb.batch, item)
 
-    while (this.queue.length > 0) {
-      const next = this.queue.shift()!;
-      await this.processor(next);
-    }
+	if len(bb.batch) >= bb.maxSize {
+		items := bb.batch
+		bb.batch = make([]T, 0, bb.maxSize)
 
-    this.processing = false;
-  }
+		if bb.processing {
+			// Queue if already processing
+			bb.queue = append(bb.queue, items)
+			bb.mu.Unlock()
+			return nil
+		}
+
+		bb.mu.Unlock()
+		return bb.processWithQueue(ctx, items)
+	}
+
+	bb.mu.Unlock()
+	return nil
+}
+
+func (bb *BackpressureBatcher[T]) processWithQueue(ctx context.Context, items []T) error {
+	bb.mu.Lock()
+	bb.processing = true
+	bb.mu.Unlock()
+
+	if err := bb.processor(ctx, items); err != nil {
+		bb.mu.Lock()
+		bb.processing = false
+		bb.mu.Unlock()
+		return err
+	}
+
+	for {
+		bb.mu.Lock()
+		if len(bb.queue) == 0 {
+			bb.processing = false
+			bb.mu.Unlock()
+			break
+		}
+
+		next := bb.queue[0]
+		bb.queue = bb.queue[1:]
+		bb.mu.Unlock()
+
+		if err := bb.processor(ctx, next); err != nil {
+			bb.mu.Lock()
+			bb.processing = false
+			bb.mu.Unlock()
+			return err
+		}
+	}
+
+	return nil
 }
 ```
 
@@ -252,30 +436,56 @@ class BackpressureBatcher<T> {
 
 ## Cas d'usage
 
-```typescript
+```go
+package examples
+
+import (
+	"context"
+	"time"
+)
+
 // 1. Insertion DB en masse
-const insertBatcher = new BatchProcessor<Record>(
-  async (records) => {
-    await db.collection.insertMany(records);
-  },
-  { maxSize: 1000, maxWait: 100 },
-);
+func insertBatcher() {
+	batcher := batch.New(
+		func(ctx context.Context, records []Record) error {
+			return db.Collection.InsertMany(ctx, records)
+		},
+		batch.Options{MaxSize: 1000, MaxWait: 100 * time.Millisecond},
+	)
+	_ = batcher
+}
 
 // 2. Envoi d'emails
-const emailBatcher = new BatchProcessor<Email>(
-  async (emails) => {
-    await emailService.sendBulk(emails);
-  },
-  { maxSize: 50, maxWait: 5000 },
-);
+func emailBatcher() {
+	batcher := batch.New(
+		func(ctx context.Context, emails []Email) error {
+			return emailService.SendBulk(ctx, emails)
+		},
+		batch.Options{MaxSize: 50, MaxWait: 5 * time.Second},
+	)
+	_ = batcher
+}
 
 // 3. Metrics/Analytics
-const metricsBatcher = new BatchProcessor<Metric>(
-  async (metrics) => {
-    await analytics.trackBatch(metrics);
-  },
-  { maxSize: 100, maxWait: 10000 },
-);
+func metricsBatcher() {
+	batcher := batch.New(
+		func(ctx context.Context, metrics []Metric) error {
+			return analytics.TrackBatch(ctx, metrics)
+		},
+		batch.Options{MaxSize: 100, MaxWait: 10 * time.Second},
+	)
+	_ = batcher
+}
+
+type Record struct{}
+type Email struct{}
+type Metric struct{}
+
+var (
+	db            interface{ Collection interface{ InsertMany(context.Context, []Record) error } }
+	emailService  interface{ SendBulk(context.Context, []Email) error }
+	analytics     interface{ TrackBatch(context.Context, []Metric) error }
+)
 ```
 
 ---

@@ -35,113 +35,154 @@ Pattern differant l'initialisation d'une ressource jusqu'a son premier usage.
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
 ### Lazy Value basique
 
-```typescript
-class Lazy<T> {
-  private value?: T;
-  private initialized = false;
+```go
+package lazy
 
-  constructor(private factory: () => T) {}
+import (
+	"sync"
+)
 
-  get(): T {
-    if (!this.initialized) {
-      this.value = this.factory();
-      this.initialized = true;
-    }
-    return this.value!;
-  }
+// Value holds a lazily-initialized value.
+type Value[T any] struct {
+	factory func() T
+	value   T
+	once    sync.Once
+}
 
-  get isInitialized(): boolean {
-    return this.initialized;
-  }
+// New creates a new lazy value.
+func New[T any](factory func() T) *Value[T] {
+	return &Value[T]{
+		factory: factory,
+	}
+}
 
-  reset(): void {
-    this.value = undefined;
-    this.initialized = false;
-  }
+// Get returns the value, initializing it if needed.
+func (lv *Value[T]) Get() T {
+	lv.once.Do(func() {
+		lv.value = lv.factory()
+	})
+	return lv.value
 }
 
 // Usage
-const expensiveResource = new Lazy(() => {
-  console.log('Creating expensive resource...');
-  return loadHugeDataset();
-});
-
+// expensiveResource := lazy.New(func() *Dataset {
+//     log.Println("Creating expensive resource...")
+//     return loadHugeDataset()
+// })
+//
 // Pas de chargement ici
-console.log('App started');
-
+// log.Println("App started")
+//
 // Chargement au premier acces
-const data = expensiveResource.get();
+// data := expensiveResource.Get()
 ```
 
 ### Lazy Async
 
-```typescript
-class LazyAsync<T> {
-  private promise?: Promise<T>;
-  private value?: T;
-  private resolved = false;
+```go
+package lazy
 
-  constructor(private factory: () => Promise<T>) {}
+import (
+	"context"
+	"sync"
+)
 
-  async get(): Promise<T> {
-    if (this.resolved) {
-      return this.value!;
-    }
+// AsyncValue holds a lazily-initialized async value.
+type AsyncValue[T any] struct {
+	factory func(context.Context) (T, error)
+	value   T
+	err     error
+	once    sync.Once
+}
 
-    if (!this.promise) {
-      this.promise = this.factory().then((v) => {
-        this.value = v;
-        this.resolved = true;
-        return v;
-      });
-    }
+// NewAsync creates a new async lazy value.
+func NewAsync[T any](factory func(context.Context) (T, error)) *AsyncValue[T] {
+	return &AsyncValue[T]{
+		factory: factory,
+	}
+}
 
-    return this.promise;
-  }
+// Get returns the value, initializing it if needed.
+func (lv *AsyncValue[T]) Get(ctx context.Context) (T, error) {
+	lv.once.Do(func() {
+		lv.value, lv.err = lv.factory(ctx)
+	})
+	return lv.value, lv.err
 }
 
 // Usage
-const lazyDb = new LazyAsync(async () => {
-  const conn = new DatabaseConnection();
-  await conn.connect();
-  return conn;
-});
-
+// lazyDb := lazy.NewAsync(func(ctx context.Context) (*sql.DB, error) {
+//     db, err := sql.Open("postgres", connString)
+//     if err != nil {
+//         return nil, err
+//     }
+//     return db, db.PingContext(ctx)
+// })
+//
 // Connexion seulement au premier appel
-const db = await lazyDb.get();
+// db, err := lazyDb.Get(ctx)
 ```
 
-### Lazy Property Decorator
+### Lazy with Reset
 
-```typescript
-function lazy<T>(_target: object, propertyKey: string) {
-  const privateKey = Symbol(propertyKey);
+```go
+package lazy
 
-  return {
-    get(this: any): T {
-      if (!(privateKey in this)) {
-        const factory = this[`${propertyKey}Factory`];
-        this[privateKey] = factory.call(this);
-      }
-      return this[privateKey];
-    },
-  };
+import "sync"
+
+// Resettable is a lazy value that can be reset.
+type Resettable[T any] struct {
+	factory     func() T
+	value       T
+	initialized bool
+	mu          sync.RWMutex
 }
 
-class Service {
-  @lazy
-  get config(): Config {
-    return this.configFactory();
-  }
+// NewResettable creates a new resettable lazy value.
+func NewResettable[T any](factory func() T) *Resettable[T] {
+	return &Resettable[T]{
+		factory: factory,
+	}
+}
 
-  private configFactory(): Config {
-    console.log('Loading config...');
-    return loadConfigFromDisk();
-  }
+// Get returns the value, initializing if needed.
+func (r *Resettable[T]) Get() T {
+	r.mu.RLock()
+	if r.initialized {
+		val := r.value
+		r.mu.RUnlock()
+		return val
+	}
+	r.mu.RUnlock()
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if !r.initialized {
+		r.value = r.factory()
+		r.initialized = true
+	}
+	return r.value
+}
+
+// IsInitialized returns true if the value has been initialized.
+func (r *Resettable[T]) IsInitialized() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.initialized
+}
+
+// Reset clears the cached value.
+func (r *Resettable[T]) Reset() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var zero T
+	r.value = zero
+	r.initialized = false
 }
 ```
 
@@ -151,89 +192,214 @@ class Service {
 
 ### 1. Virtual Proxy
 
-```typescript
-interface Image {
-  display(): void;
-  getWidth(): number;
+```go
+package proxy
+
+import (
+	"log"
+	"sync"
+)
+
+// Image interface.
+type Image interface {
+	Display()
+	GetWidth() int
 }
 
-class LazyImageProxy implements Image {
-  private realImage?: RealImage;
+// RealImage is the actual image implementation.
+type RealImage struct {
+	filename string
+	width    int
+}
 
-  constructor(private filename: string) {}
+// NewRealImage loads an image from disk.
+func NewRealImage(filename string) *RealImage {
+	log.Printf("Loading image: %s", filename)
+	return &RealImage{
+		filename: filename,
+		width:    1920,
+	}
+}
 
-  private loadImage(): RealImage {
-    if (!this.realImage) {
-      console.log(`Loading image: ${this.filename}`);
-      this.realImage = new RealImage(this.filename);
-    }
-    return this.realImage;
-  }
+// Display shows the image.
+func (ri *RealImage) Display() {
+	log.Printf("Displaying %s", ri.filename)
+}
 
-  display(): void {
-    this.loadImage().display();
-  }
+// GetWidth returns image width.
+func (ri *RealImage) GetWidth() int {
+	return ri.width
+}
 
-  getWidth(): number {
-    return this.loadImage().getWidth();
-  }
+// LazyImageProxy delays image loading until first use.
+type LazyImageProxy struct {
+	filename string
+	image    *RealImage
+	once     sync.Once
+}
+
+// NewLazyImageProxy creates a new lazy image proxy.
+func NewLazyImageProxy(filename string) *LazyImageProxy {
+	return &LazyImageProxy{
+		filename: filename,
+	}
+}
+
+func (lip *LazyImageProxy) loadImage() *RealImage {
+	lip.once.Do(func() {
+		lip.image = NewRealImage(lip.filename)
+	})
+	return lip.image
+}
+
+// Display shows the image.
+func (lip *LazyImageProxy) Display() {
+	lip.loadImage().Display()
+}
+
+// GetWidth returns image width.
+func (lip *LazyImageProxy) GetWidth() int {
+	return lip.loadImage().GetWidth()
 }
 ```
 
 ### 2. Ghost Object
 
-```typescript
-class LazyUser {
-  private loaded = false;
-  private _email?: string;
-  private _profile?: UserProfile;
+```go
+package domain
 
-  constructor(public readonly id: string) {}
+import (
+	"context"
+	"sync"
+)
 
-  private async ensureLoaded(): Promise<void> {
-    if (!this.loaded) {
-      const data = await fetchUserFromDb(this.id);
-      this._email = data.email;
-      this._profile = data.profile;
-      this.loaded = true;
-    }
-  }
+// UserProfile represents user profile data.
+type UserProfile struct {
+	Bio    string
+	Avatar string
+}
 
-  async getEmail(): Promise<string> {
-    await this.ensureLoaded();
-    return this._email!;
-  }
+// LazyUser is a user that loads data on demand.
+type LazyUser struct {
+	id      string
+	email   string
+	profile *UserProfile
+	loaded  bool
+	mu      sync.RWMutex
+}
 
-  async getProfile(): Promise<UserProfile> {
-    await this.ensureLoaded();
-    return this._profile!;
-  }
+// NewLazyUser creates a new lazy user with just an ID.
+func NewLazyUser(id string) *LazyUser {
+	return &LazyUser{
+		id: id,
+	}
+}
+
+func (lu *LazyUser) ensureLoaded(ctx context.Context) error {
+	lu.mu.RLock()
+	if lu.loaded {
+		lu.mu.RUnlock()
+		return nil
+	}
+	lu.mu.RUnlock()
+
+	lu.mu.Lock()
+	defer lu.mu.Unlock()
+
+	if lu.loaded {
+		return nil
+	}
+
+	data, err := fetchUserFromDB(ctx, lu.id)
+	if err != nil {
+		return err
+	}
+
+	lu.email = data.Email
+	lu.profile = data.Profile
+	lu.loaded = true
+	return nil
+}
+
+// GetEmail returns the user's email.
+func (lu *LazyUser) GetEmail(ctx context.Context) (string, error) {
+	if err := lu.ensureLoaded(ctx); err != nil {
+		return "", err
+	}
+	lu.mu.RLock()
+	defer lu.mu.RUnlock()
+	return lu.email, nil
+}
+
+// GetProfile returns the user's profile.
+func (lu *LazyUser) GetProfile(ctx context.Context) (*UserProfile, error) {
+	if err := lu.ensureLoaded(ctx); err != nil {
+		return nil, err
+	}
+	lu.mu.RLock()
+	defer lu.mu.RUnlock()
+	return lu.profile, nil
+}
+
+type userData struct {
+	Email   string
+	Profile *UserProfile
+}
+
+func fetchUserFromDB(ctx context.Context, id string) (*userData, error) {
+	// Implementation
+	return &userData{}, nil
 }
 ```
 
 ### 3. Lazy Collection
 
-```typescript
-class LazyArray<T> {
-  private items: Map<number, T> = new Map();
+```go
+package collection
 
-  constructor(
-    private length: number,
-    private loader: (index: number) => T,
-  ) {}
+import "sync"
 
-  get(index: number): T {
-    if (!this.items.has(index)) {
-      this.items.set(index, this.loader(index));
-    }
-    return this.items.get(index)!;
-  }
+// LazyArray loads items on demand.
+type LazyArray[T any] struct {
+	length int
+	loader func(int) T
+	items  map[int]T
+	mu     sync.RWMutex
+}
 
-  *[Symbol.iterator](): Iterator<T> {
-    for (let i = 0; i < this.length; i++) {
-      yield this.get(i);
-    }
-  }
+// NewLazyArray creates a new lazy array.
+func NewLazyArray[T any](length int, loader func(int) T) *LazyArray[T] {
+	return &LazyArray[T]{
+		length: length,
+		loader: loader,
+		items:  make(map[int]T),
+	}
+}
+
+// Get returns the item at index, loading if needed.
+func (la *LazyArray[T]) Get(index int) T {
+	la.mu.RLock()
+	if item, ok := la.items[index]; ok {
+		la.mu.RUnlock()
+		return item
+	}
+	la.mu.RUnlock()
+
+	la.mu.Lock()
+	defer la.mu.Unlock()
+
+	if item, ok := la.items[index]; ok {
+		return item
+	}
+
+	item := la.loader(index)
+	la.items[index] = item
+	return item
+}
+
+// Len returns the array length.
+func (la *LazyArray[T]) Len() int {
+	return la.length
 }
 ```
 

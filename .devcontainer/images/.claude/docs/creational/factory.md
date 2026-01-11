@@ -11,58 +11,99 @@ decider quelle classe instancier.
 
 ### Structure
 
-```typescript
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+)
+
 // 1. Interface produit
-interface Notification {
-  send(message: string): Promise<void>;
+type Notification interface {
+	Send(ctx context.Context, message string) error
 }
 
 // 2. Produits concrets
-class EmailNotification implements Notification {
-  constructor(private email: string) {}
-
-  async send(message: string): Promise<void> {
-    console.log(`Email to ${this.email}: ${message}`);
-  }
+type EmailNotification struct {
+	email string
 }
 
-class SMSNotification implements Notification {
-  constructor(private phone: string) {}
-
-  async send(message: string): Promise<void> {
-    console.log(`SMS to ${this.phone}: ${message}`);
-  }
+// NewEmailNotification cree une notification email.
+func NewEmailNotification(email string) *EmailNotification {
+	return &EmailNotification{email: email}
 }
 
-class PushNotification implements Notification {
-  constructor(private deviceId: string) {}
-
-  async send(message: string): Promise<void> {
-    console.log(`Push to ${this.deviceId}: ${message}`);
-  }
+func (n *EmailNotification) Send(ctx context.Context, message string) error {
+	fmt.Printf("Email to %s: %s\n", n.email, message)
+	return nil
 }
 
-// 3. Creator abstrait
-abstract class NotificationFactory {
-  abstract createNotification(recipient: string): Notification;
-
-  async notify(recipient: string, message: string): Promise<void> {
-    const notification = this.createNotification(recipient);
-    await notification.send(message);
-  }
+type SMSNotification struct {
+	phone string
 }
 
-// 4. Creators concrets
-class EmailNotificationFactory extends NotificationFactory {
-  createNotification(email: string): Notification {
-    return new EmailNotification(email);
-  }
+// NewSMSNotification cree une notification SMS.
+func NewSMSNotification(phone string) *SMSNotification {
+	return &SMSNotification{phone: phone}
 }
 
-class SMSNotificationFactory extends NotificationFactory {
-  createNotification(phone: string): Notification {
-    return new SMSNotification(phone);
-  }
+func (n *SMSNotification) Send(ctx context.Context, message string) error {
+	fmt.Printf("SMS to %s: %s\n", n.phone, message)
+	return nil
+}
+
+type PushNotification struct {
+	deviceID string
+}
+
+// NewPushNotification cree une notification push.
+func NewPushNotification(deviceID string) *PushNotification {
+	return &PushNotification{deviceID: deviceID}
+}
+
+func (n *PushNotification) Send(ctx context.Context, message string) error {
+	fmt.Printf("Push to %s: %s\n", n.deviceID, message)
+	return nil
+}
+
+// 3. Factory interface
+type NotificationFactory interface {
+	CreateNotification(recipient string) Notification
+	Notify(ctx context.Context, recipient, message string) error
+}
+
+// 4. Factory de base avec methode template
+type baseFactory struct{}
+
+func (f *baseFactory) Notify(ctx context.Context, factory NotificationFactory, recipient, message string) error {
+	notification := factory.CreateNotification(recipient)
+	return notification.Send(ctx, message)
+}
+
+// 5. Factories concretes
+type EmailNotificationFactory struct {
+	baseFactory
+}
+
+func (f *EmailNotificationFactory) CreateNotification(email string) Notification {
+	return NewEmailNotification(email)
+}
+
+func (f *EmailNotificationFactory) Notify(ctx context.Context, recipient, message string) error {
+	return f.baseFactory.Notify(ctx, f, recipient, message)
+}
+
+type SMSNotificationFactory struct {
+	baseFactory
+}
+
+func (f *SMSNotificationFactory) CreateNotification(phone string) Notification {
+	return NewSMSNotification(phone)
+}
+
+func (f *SMSNotificationFactory) Notify(ctx context.Context, recipient, message string) error {
+	return f.baseFactory.Notify(ctx, f, recipient, message)
 }
 ```
 
@@ -75,267 +116,444 @@ leurs classes concretes.
 
 ### Structure (Abstract Factory)
 
-```typescript
+```go
+package main
+
+import "fmt"
+
 // 1. Interfaces produits
-interface Button {
-  render(): string;
-  onClick(handler: () => void): void;
+type Button interface {
+	Render() string
+	OnClick(handler func())
 }
 
-interface Input {
-  render(): string;
-  getValue(): string;
+type Input interface {
+	Render() string
+	GetValue() string
 }
 
-interface Modal {
-  open(): void;
-  close(): void;
+type Modal interface {
+	Open()
+	Close()
 }
 
-// 2. Abstract Factory
-interface UIFactory {
-  createButton(label: string): Button;
-  createInput(placeholder: string): Input;
-  createModal(title: string): Modal;
+// 2. Abstract Factory interface
+type UIFactory interface {
+	CreateButton(label string) Button
+	CreateInput(placeholder string) Input
+	CreateModal(title string) Modal
 }
 
 // 3. Famille Material Design
-class MaterialButton implements Button {
-  constructor(private label: string) {}
-  render() { return `<md-button>${this.label}</md-button>`; }
-  onClick(handler: () => void) { /* ... */ }
+type MaterialButton struct {
+	label   string
+	handler func()
 }
 
-class MaterialInput implements Input {
-  constructor(private placeholder: string) {}
-  render() { return `<md-input placeholder="${this.placeholder}">`; }
-  getValue() { return ''; }
+func (b *MaterialButton) Render() string {
+	return fmt.Sprintf("<md-button>%s</md-button>", b.label)
 }
 
-class MaterialModal implements Modal {
-  constructor(private title: string) {}
-  open() { console.log(`Opening Material modal: ${this.title}`); }
-  close() { console.log('Closing Material modal'); }
+func (b *MaterialButton) OnClick(handler func()) {
+	b.handler = handler
 }
 
-class MaterialUIFactory implements UIFactory {
-  createButton(label: string) { return new MaterialButton(label); }
-  createInput(placeholder: string) { return new MaterialInput(placeholder); }
-  createModal(title: string) { return new MaterialModal(title); }
+type MaterialInput struct {
+	placeholder string
+	value       string
+}
+
+func (i *MaterialInput) Render() string {
+	return fmt.Sprintf(`<md-input placeholder="%s">`, i.placeholder)
+}
+
+func (i *MaterialInput) GetValue() string {
+	return i.value
+}
+
+type MaterialModal struct {
+	title string
+}
+
+func (m *MaterialModal) Open() {
+	fmt.Printf("Opening Material modal: %s\n", m.title)
+}
+
+func (m *MaterialModal) Close() {
+	fmt.Println("Closing Material modal")
+}
+
+type MaterialUIFactory struct{}
+
+func (f *MaterialUIFactory) CreateButton(label string) Button {
+	return &MaterialButton{label: label}
+}
+
+func (f *MaterialUIFactory) CreateInput(placeholder string) Input {
+	return &MaterialInput{placeholder: placeholder}
+}
+
+func (f *MaterialUIFactory) CreateModal(title string) Modal {
+	return &MaterialModal{title: title}
 }
 
 // 4. Famille Bootstrap
-class BootstrapButton implements Button {
-  constructor(private label: string) {}
-  render() { return `<button class="btn">${this.label}</button>`; }
-  onClick(handler: () => void) { /* ... */ }
+type BootstrapButton struct {
+	label   string
+	handler func()
 }
 
-class BootstrapUIFactory implements UIFactory {
-  createButton(label: string) { return new BootstrapButton(label); }
-  createInput(placeholder: string) { return new BootstrapInput(placeholder); }
-  createModal(title: string) { return new BootstrapModal(title); }
+func (b *BootstrapButton) Render() string {
+	return fmt.Sprintf(`<button class="btn">%s</button>`, b.label)
+}
+
+func (b *BootstrapButton) OnClick(handler func()) {
+	b.handler = handler
+}
+
+type BootstrapInput struct {
+	placeholder string
+	value       string
+}
+
+func (i *BootstrapInput) Render() string {
+	return fmt.Sprintf(`<input class="form-control" placeholder="%s">`, i.placeholder)
+}
+
+func (i *BootstrapInput) GetValue() string {
+	return i.value
+}
+
+type BootstrapModal struct {
+	title string
+}
+
+func (m *BootstrapModal) Open() {
+	fmt.Printf("Opening Bootstrap modal: %s\n", m.title)
+}
+
+func (m *BootstrapModal) Close() {
+	fmt.Println("Closing Bootstrap modal")
+}
+
+type BootstrapUIFactory struct{}
+
+func (f *BootstrapUIFactory) CreateButton(label string) Button {
+	return &BootstrapButton{label: label}
+}
+
+func (f *BootstrapUIFactory) CreateInput(placeholder string) Input {
+	return &BootstrapInput{placeholder: placeholder}
+}
+
+func (f *BootstrapUIFactory) CreateModal(title string) Modal {
+	return &BootstrapModal{title: title}
 }
 ```
 
 ## Simple Factory (non-GoF mais courant)
 
-```typescript
-type NotificationType = 'email' | 'sms' | 'push';
+```go
+package main
 
-class NotificationSimpleFactory {
-  static create(type: NotificationType, recipient: string): Notification {
-    switch (type) {
-      case 'email':
-        return new EmailNotification(recipient);
-      case 'sms':
-        return new SMSNotification(recipient);
-      case 'push':
-        return new PushNotification(recipient);
-      default:
-        throw new Error(`Unknown notification type: ${type}`);
-    }
-  }
+import (
+	"errors"
+	"fmt"
+)
+
+type NotificationType string
+
+const (
+	NotificationEmail NotificationType = "email"
+	NotificationSMS   NotificationType = "sms"
+	NotificationPush  NotificationType = "push"
+)
+
+// CreateNotification cree une notification selon le type.
+func CreateNotification(notifType NotificationType, recipient string) (Notification, error) {
+	switch notifType {
+	case NotificationEmail:
+		return NewEmailNotification(recipient), nil
+	case NotificationSMS:
+		return NewSMSNotification(recipient), nil
+	case NotificationPush:
+		return NewPushNotification(recipient), nil
+	default:
+		return nil, fmt.Errorf("unknown notification type: %s", notifType)
+	}
 }
 
 // Usage
-const notification = NotificationSimpleFactory.create('email', 'user@example.com');
+func ExampleSimpleFactory() {
+	notification, err := CreateNotification(NotificationEmail, "user@example.com")
+	if err != nil {
+		panic(err)
+	}
+	_ = notification
+}
 ```
 
 ## Variantes modernes
 
 ### Factory avec registre
 
-```typescript
-type Creator<T> = (...args: unknown[]) => T;
+```go
+package main
 
-class NotificationRegistry {
-  private static creators = new Map<string, Creator<Notification>>();
+import (
+	"errors"
+	"fmt"
+	"sync"
+)
 
-  static register(type: string, creator: Creator<Notification>): void {
-    this.creators.set(type, creator);
-  }
+// Creator definit une fonction de creation.
+type Creator func(...interface{}) Notification
 
-  static create(type: string, ...args: unknown[]): Notification {
-    const creator = this.creators.get(type);
-    if (!creator) throw new Error(`Unknown type: ${type}`);
-    return creator(...args);
-  }
+// NotificationRegistry gere un registre de creators.
+type NotificationRegistry struct {
+	mu       sync.RWMutex
+	creators map[string]Creator
 }
 
-// Enregistrement
-NotificationRegistry.register('email', (email: string) =>
-  new EmailNotification(email)
-);
-NotificationRegistry.register('sms', (phone: string) =>
-  new SMSNotification(phone)
-);
+// NewNotificationRegistry cree un nouveau registre.
+func NewNotificationRegistry() *NotificationRegistry {
+	return &NotificationRegistry{
+		creators: make(map[string]Creator),
+	}
+}
+
+// Register enregistre un creator pour un type donne.
+func (r *NotificationRegistry) Register(notifType string, creator Creator) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.creators[notifType] = creator
+}
+
+// Create cree une notification selon le type enregistre.
+func (r *NotificationRegistry) Create(notifType string, args ...interface{}) (Notification, error) {
+	r.mu.RLock()
+	creator, exists := r.creators[notifType]
+	r.mu.RUnlock()
+
+	if !exists {
+		return nil, fmt.Errorf("unknown type: %s", notifType)
+	}
+	return creator(args...), nil
+}
 
 // Usage
-const notification = NotificationRegistry.create('email', 'user@example.com');
+func ExampleRegistry() {
+	registry := NewNotificationRegistry()
+
+	registry.Register("email", func(args ...interface{}) Notification {
+		return NewEmailNotification(args[0].(string))
+	})
+
+	registry.Register("sms", func(args ...interface{}) Notification {
+		return NewSMSNotification(args[0].(string))
+	})
+
+	notification, err := registry.Create("email", "user@example.com")
+	if err != nil {
+		panic(err)
+	}
+	_ = notification
+}
 ```
 
 ### Factory avec Dependency Injection
 
-```typescript
-interface NotificationConfig {
-  type: 'email' | 'sms' | 'push';
-  recipient: string;
+```go
+package main
+
+import "context"
+
+// NotificationConfig configure la creation de notifications.
+type NotificationConfig struct {
+	Type      NotificationType
+	Recipient string
 }
 
-class NotificationService {
-  constructor(
-    private emailFactory: () => EmailNotification,
-    private smsFactory: () => SMSNotification,
-    private pushFactory: () => PushNotification,
-  ) {}
+// NotificationService gere les factories injectees.
+type NotificationService struct {
+	emailFactory func(string) Notification
+	smsFactory   func(string) Notification
+	pushFactory  func(string) Notification
+}
 
-  create(config: NotificationConfig): Notification {
-    switch (config.type) {
-      case 'email':
-        return this.emailFactory();
-      case 'sms':
-        return this.smsFactory();
-      case 'push':
-        return this.pushFactory();
-    }
-  }
+// NewNotificationService cree un service avec DI.
+func NewNotificationService(
+	emailFactory func(string) Notification,
+	smsFactory func(string) Notification,
+	pushFactory func(string) Notification,
+) *NotificationService {
+	return &NotificationService{
+		emailFactory: emailFactory,
+		smsFactory:   smsFactory,
+		pushFactory:  pushFactory,
+	}
+}
+
+// Create cree une notification selon la config.
+func (s *NotificationService) Create(config NotificationConfig) (Notification, error) {
+	switch config.Type {
+	case NotificationEmail:
+		return s.emailFactory(config.Recipient), nil
+	case NotificationSMS:
+		return s.smsFactory(config.Recipient), nil
+	case NotificationPush:
+		return s.pushFactory(config.Recipient), nil
+	default:
+		return nil, errors.New("unknown notification type")
+	}
 }
 ```
 
 ## Anti-patterns
 
-```typescript
+```go
 // MAUVAIS: Factory avec trop de responsabilites
-class GodFactory {
-  createUser() { /* ... */ }
-  createOrder() { /* ... */ }
-  createNotification() { /* ... */ }
-  // Viole SRP
-}
+type GodFactory struct{}
+
+func (f *GodFactory) CreateUser() interface{}         { return nil }
+func (f *GodFactory) CreateOrder() interface{}        { return nil }
+func (f *GodFactory) CreateNotification() interface{} { return nil }
+// Viole SRP
 
 // MAUVAIS: Logique metier dans la factory
-class BadFactory {
-  static create(type: string): Notification {
-    const notification = new EmailNotification('');
-    notification.validate(); // Non! C'est de la logique metier
-    notification.save();     // Non! C'est de la persistence
-    return notification;
-  }
+func BadCreateNotification(notifType string) Notification {
+	notification := NewEmailNotification("")
+	// Non! C'est de la logique metier
+	// notification.Validate()
+	// notification.Save()
+	return notification
 }
 
-// MAUVAIS: Factory qui retourne any
-class UnsafeFactory {
-  static create(type: string): any {
-    // Perte de type safety
-    return new SomeClass();
-  }
+// MAUVAIS: Factory qui retourne interface{} sans type
+func UnsafeCreate(notifType string) interface{} {
+	// Perte de type safety
+	return NewEmailNotification("")
 }
 ```
 
 ## Alternative moderne : Functions
 
-```typescript
+```go
+package main
+
+import "context"
+
 // Factory functions (plus simple, meme resultat)
-const createEmailNotification = (email: string): Notification =>
-  new EmailNotification(email);
-
-const createSMSNotification = (phone: string): Notification =>
-  new SMSNotification(phone);
-
-// Avec configuration
-interface NotificationOptions {
-  retries?: number;
-  timeout?: number;
+func createEmailNotification(email string) Notification {
+	return NewEmailNotification(email)
 }
 
-const createNotification = (
-  type: NotificationType,
-  recipient: string,
-  options: NotificationOptions = {}
-): Notification => {
-  const creators: Record<NotificationType, () => Notification> = {
-    email: () => new EmailNotification(recipient),
-    sms: () => new SMSNotification(recipient),
-    push: () => new PushNotification(recipient),
-  };
-  return creators[type]();
-};
+func createSMSNotification(phone string) Notification {
+	return NewSMSNotification(phone)
+}
+
+// NotificationOptions configure les options de notification.
+type NotificationOptions struct {
+	Retries int
+	Timeout int
+}
+
+// CreateNotificationWithOptions cree une notification avec options.
+func CreateNotificationWithOptions(
+	notifType NotificationType,
+	recipient string,
+	opts NotificationOptions,
+) (Notification, error) {
+	creators := map[NotificationType]func(string) Notification{
+		NotificationEmail: createEmailNotification,
+		NotificationSMS:   createSMSNotification,
+		NotificationPush:  func(id string) Notification { return NewPushNotification(id) },
+	}
+
+	creator, exists := creators[notifType]
+	if !exists {
+		return nil, errors.New("unknown notification type")
+	}
+	return creator(recipient), nil
+}
 ```
 
 ## Tests unitaires
 
-```typescript
-import { describe, it, expect, vi } from 'vitest';
+```go
+package main
 
-describe('NotificationFactory', () => {
-  it('should create email notifications', () => {
-    const factory = new EmailNotificationFactory();
-    const notification = factory.createNotification('test@example.com');
+import (
+	"context"
+	"testing"
+)
 
-    expect(notification).toBeInstanceOf(EmailNotification);
-  });
+func TestEmailNotificationFactory_CreateNotification(t *testing.T) {
+	factory := &EmailNotificationFactory{}
+	notification := factory.CreateNotification("test@example.com")
 
-  it('should use factory method in template', async () => {
-    const factory = new SMSNotificationFactory();
-    const sendSpy = vi.spyOn(SMSNotification.prototype, 'send');
+	if notification == nil {
+		t.Fatal("expected notification, got nil")
+	}
 
-    await factory.notify('+1234567890', 'Hello');
+	if _, ok := notification.(*EmailNotification); !ok {
+		t.Errorf("expected *EmailNotification, got %T", notification)
+	}
+}
 
-    expect(sendSpy).toHaveBeenCalledWith('Hello');
-  });
-});
+func TestNotificationFactory_Notify(t *testing.T) {
+	factory := &SMSNotificationFactory{}
+	ctx := context.Background()
 
-describe('NotificationRegistry', () => {
-  it('should register and create notifications', () => {
-    NotificationRegistry.register('webhook', (url: string) =>
-      new WebhookNotification(url)
-    );
+	err := factory.Notify(ctx, "+1234567890", "Hello")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
 
-    const notification = NotificationRegistry.create(
-      'webhook',
-      'https://example.com'
-    );
+func TestNotificationRegistry(t *testing.T) {
+	registry := NewNotificationRegistry()
 
-    expect(notification).toBeInstanceOf(WebhookNotification);
-  });
+	registry.Register("webhook", func(args ...interface{}) Notification {
+		return NewPushNotification(args[0].(string))
+	})
 
-  it('should throw for unknown types', () => {
-    expect(() => NotificationRegistry.create('unknown')).toThrow();
-  });
-});
+	notification, err := registry.Create("webhook", "https://example.com")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-describe('UIFactory', () => {
-  it('should create consistent UI families', () => {
-    const factory: UIFactory = new MaterialUIFactory();
+	if notification == nil {
+		t.Error("expected notification, got nil")
+	}
+}
 
-    const button = factory.createButton('Click');
-    const input = factory.createInput('Type here');
+func TestNotificationRegistry_UnknownType(t *testing.T) {
+	registry := NewNotificationRegistry()
 
-    expect(button.render()).toContain('md-button');
-    expect(input.render()).toContain('md-input');
-  });
-});
+	_, err := registry.Create("unknown")
+	if err == nil {
+		t.Error("expected error for unknown type")
+	}
+}
+
+func TestUIFactory_CreateConsistentFamily(t *testing.T) {
+	factory := &MaterialUIFactory{}
+
+	button := factory.CreateButton("Click")
+	input := factory.CreateInput("Type here")
+
+	if button == nil || input == nil {
+		t.Fatal("expected UI components, got nil")
+	}
+
+	buttonHTML := button.Render()
+	inputHTML := input.Render()
+
+	if buttonHTML == "" || inputHTML == "" {
+		t.Error("expected rendered HTML")
+	}
+}
 ```
 
 ## Quand utiliser

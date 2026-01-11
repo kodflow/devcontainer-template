@@ -79,96 +79,202 @@ CREATE TABLE outbox (
 
 ### Application Layer
 
-```typescript
-interface OutboxMessage {
-  aggregateType: string;
-  aggregateId: string;
-  eventType: string;
-  payload: unknown;
+```go
+package outbox
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+type OutboxMessage struct {
+	AggregateType string      `json:"aggregateType"`
+	AggregateID   string      `json:"aggregateId"`
+	EventType     string      `json:"eventType"`
+	Payload       interface{} `json:"payload"`
 }
 
-class OutboxRepository {
-  constructor(private db: Pool) {}
+type OutboxRow struct {
+	ID            string
+	AggregateType string
+	AggregateID   string
+	EventType     string
+	Payload       json.RawMessage
+	CreatedAt     time.Time
+	PublishedAt   *time.Time
+	RetryCount    int
+	LastError     *string
+}
 
-  async saveMessage(
-    message: OutboxMessage,
-    client?: PoolClient
-  ): Promise<void> {
-    const conn = client || this.db;
-    await conn.query(
-      `INSERT INTO outbox (aggregate_type, aggregate_id, event_type, payload)
-       VALUES ($1, $2, $3, $4)`,
-      [
-        message.aggregateType,
-        message.aggregateId,
-        message.eventType,
-        JSON.stringify(message.payload),
-      ]
-    );
-  }
+type OutboxRepository struct {
+	db *sql.DB
+}
 
-  async getUnpublished(limit: number = 100): Promise<OutboxRow[]> {
-    const result = await this.db.query(
-      `SELECT * FROM outbox
-       WHERE published_at IS NULL
-       ORDER BY created_at ASC
-       LIMIT $1
-       FOR UPDATE SKIP LOCKED`,
-      [limit]
-    );
-    return result.rows;
-  }
+func NewOutboxRepository(db *sql.DB) *OutboxRepository {
+	return &OutboxRepository{db: db}
+}
 
-  async markAsPublished(id: string): Promise<void> {
-    await this.db.query(
-      `UPDATE outbox SET published_at = NOW() WHERE id = $1`,
-      [id]
-    );
-  }
+func (r *OutboxRepository) SaveMessage(ctx context.Context, message *OutboxMessage, tx *sql.Tx) error {
+	payload, err := json.Marshal(message.Payload)
+	if err != nil {
+		return fmt.Errorf("marshaling payload: %w", err)
+	}
 
-  async markAsFailed(id: string, error: string): Promise<void> {
-    await this.db.query(
-      `UPDATE outbox
-       SET retry_count = retry_count + 1, last_error = $2
-       WHERE id = $1`,
-      [id, error]
-    );
-  }
+	query := `INSERT INTO outbox (aggregate_type, aggregate_id, event_type, payload)
+              VALUES ($1, $2, $3, $4)`
+
+	executor := r.getExecutor(tx)
+	_, err = executor.ExecContext(ctx, query,
+		message.AggregateType,
+		message.AggregateID,
+		message.EventType,
+		payload,
+	)
+	if err != nil {
+		return fmt.Errorf("inserting outbox message: %w", err)
+	}
+
+	return nil
+}
+
+func (r *OutboxRepository) GetUnpublished(ctx context.Context, limit int) ([]*OutboxRow, error) {
+	query := `SELECT id, aggregate_type, aggregate_id, event_type, payload, created_at, retry_count
+              FROM outbox
+              WHERE published_at IS NULL
+              ORDER BY created_at ASC
+              LIMIT $1
+              FOR UPDATE SKIP LOCKED`
+
+	rows, err := r.db.QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("querying unpublished messages: %w", err)
+	}
+	defer rows.Close()
+
+	var messages []*OutboxRow
+	for rows.Next() {
+		var msg OutboxRow
+		if err := rows.Scan(
+			&msg.ID,
+			&msg.AggregateType,
+			&msg.AggregateID,
+			&msg.EventType,
+			&msg.Payload,
+			&msg.CreatedAt,
+			&msg.RetryCount,
+		); err != nil {
+			return nil, fmt.Errorf("scanning outbox row: %w", err)
+		}
+		messages = append(messages, &msg)
+	}
+
+	return messages, rows.Err()
+}
+
+func (r *OutboxRepository) MarkAsPublished(ctx context.Context, id string) error {
+	query := `UPDATE outbox SET published_at = NOW() WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("marking as published: %w", err)
+	}
+	return nil
+}
+
+func (r *OutboxRepository) MarkAsFailed(ctx context.Context, id string, errMsg string) error {
+	query := `UPDATE outbox
+              SET retry_count = retry_count + 1, last_error = $2
+              WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, query, id, errMsg)
+	if err != nil {
+		return fmt.Errorf("marking as failed: %w", err)
+	}
+	return nil
+}
+
+func (r *OutboxRepository) getExecutor(tx *sql.Tx) interface {
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+} {
+	if tx != nil {
+		return tx
+	}
+	return r.db
 }
 
 // Usage dans le service
-class OrderService {
-  async placeOrder(orderData: OrderData): Promise<Order> {
-    const client = await this.db.connect();
+type OrderData struct {
+	CustomerID string
+	Total      float64
+	Items      []OrderItem
+}
 
-    try {
-      await client.query('BEGIN');
+type OrderItem struct {
+	ProductID string
+	Quantity  int
+	Price     float64
+}
 
-      // 1. Creer la commande
-      const order = await this.orderRepository.create(orderData, client);
+type Order struct {
+	ID         string
+	CustomerID string
+	Total      float64
+	Items      []OrderItem
+}
 
-      // 2. Ajouter l'evenement dans l'outbox (meme transaction)
-      await this.outboxRepository.saveMessage({
-        aggregateType: 'Order',
-        aggregateId: order.id,
-        eventType: 'OrderCreated',
-        payload: {
-          orderId: order.id,
-          customerId: order.customerId,
-          total: order.total,
-          items: order.items,
-        },
-      }, client);
+type OrderRepository interface {
+	Create(ctx context.Context, data *OrderData, tx *sql.Tx) (*Order, error)
+}
 
-      await client.query('COMMIT');
-      return order;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
+type OrderService struct {
+	db              *sql.DB
+	orderRepo       OrderRepository
+	outboxRepo      *OutboxRepository
+}
+
+func NewOrderService(db *sql.DB, orderRepo OrderRepository, outboxRepo *OutboxRepository) *OrderService {
+	return &OrderService{
+		db:         db,
+		orderRepo:  orderRepo,
+		outboxRepo: outboxRepo,
+	}
+}
+
+func (s *OrderService) PlaceOrder(ctx context.Context, orderData *OrderData) (*Order, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// 1. Creer la commande
+	order, err := s.orderRepo.Create(ctx, orderData, tx)
+	if err != nil {
+		return nil, fmt.Errorf("creating order: %w", err)
+	}
+
+	// 2. Ajouter l'evenement dans l'outbox (meme transaction)
+	if err := s.outboxRepo.SaveMessage(ctx, &OutboxMessage{
+		AggregateType: "Order",
+		AggregateID:   order.ID,
+		EventType:     "OrderCreated",
+		Payload: map[string]interface{}{
+			"orderId":    order.ID,
+			"customerId": order.CustomerID,
+			"total":      order.Total,
+			"items":      order.Items,
+		},
+	}, tx); err != nil {
+		return nil, fmt.Errorf("saving outbox message: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("committing transaction: %w", err)
+	}
+
+	return order, nil
 }
 ```
 
@@ -176,75 +282,115 @@ class OrderService {
 
 ## Outbox Relay (Polling)
 
-```typescript
-class OutboxRelay {
-  private running = false;
-  private pollInterval = 1000;
+```go
+package outbox
 
-  constructor(
-    private outboxRepo: OutboxRepository,
-    private messageBroker: MessageBroker
-  ) {}
+import (
+	"context"
+	"fmt"
+	"log"
+	"time"
+)
 
-  async start(): Promise<void> {
-    this.running = true;
-    await this.poll();
-  }
+type MessageBroker interface {
+	Publish(ctx context.Context, topic string, message interface{}) error
+}
 
-  stop(): void {
-    this.running = false;
-  }
+type OutboxRelay struct {
+	running      bool
+	pollInterval time.Duration
+	outboxRepo   *OutboxRepository
+	broker       MessageBroker
+	stopChan     chan struct{}
+}
 
-  private async poll(): Promise<void> {
-    while (this.running) {
-      try {
-        const messages = await this.outboxRepo.getUnpublished(100);
+func NewOutboxRelay(outboxRepo *OutboxRepository, broker MessageBroker) *OutboxRelay {
+	return &OutboxRelay{
+		pollInterval: 1 * time.Second,
+		outboxRepo:   outboxRepo,
+		broker:       broker,
+		stopChan:     make(chan struct{}),
+	}
+}
 
-        for (const message of messages) {
-          await this.processMessage(message);
-        }
+func (r *OutboxRelay) Start(ctx context.Context) error {
+	r.running = true
+	return r.poll(ctx)
+}
 
-        if (messages.length === 0) {
-          await this.delay(this.pollInterval);
-        }
-      } catch (error) {
-        console.error('Outbox relay error:', error);
-        await this.delay(this.pollInterval * 2);
-      }
-    }
-  }
+func (r *OutboxRelay) Stop() {
+	r.running = false
+	close(r.stopChan)
+}
 
-  private async processMessage(message: OutboxRow): Promise<void> {
-    try {
-      await this.messageBroker.publish(
-        this.getTopicForEvent(message.event_type),
-        {
-          id: message.id,
-          type: message.event_type,
-          aggregateId: message.aggregate_id,
-          payload: message.payload,
-          timestamp: message.created_at,
-        }
-      );
+func (r *OutboxRelay) poll(ctx context.Context) error {
+	ticker := time.NewTicker(r.pollInterval)
+	defer ticker.Stop()
 
-      await this.outboxRepo.markAsPublished(message.id);
-    } catch (error) {
-      await this.outboxRepo.markAsFailed(message.id, (error as Error).message);
-    }
-  }
+	for r.running {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-r.stopChan:
+			return nil
+		case <-ticker.C:
+			if err := r.processMessages(ctx); err != nil {
+				log.Printf("Outbox relay error: %v", err)
+			}
+		}
+	}
 
-  private getTopicForEvent(eventType: string): string {
-    const topicMap: Record<string, string> = {
-      'OrderCreated': 'orders.created',
-      'OrderShipped': 'orders.shipped',
-      'PaymentReceived': 'payments.received',
-    };
-    return topicMap[eventType] || 'events.default';
-  }
+	return nil
+}
 
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+func (r *OutboxRelay) processMessages(ctx context.Context) error {
+	messages, err := r.outboxRepo.GetUnpublished(ctx, 100)
+	if err != nil {
+		return fmt.Errorf("getting unpublished messages: %w", err)
+	}
+
+	for _, message := range messages {
+		if err := r.processMessage(ctx, message); err != nil {
+			log.Printf("Error processing message %s: %v", message.ID, err)
+		}
+	}
+
+	return nil
+}
+
+func (r *OutboxRelay) processMessage(ctx context.Context, message *OutboxRow) error {
+	topic := r.getTopicForEvent(message.EventType)
+
+	var payload interface{}
+	if err := json.Unmarshal(message.Payload, &payload); err != nil {
+		return r.outboxRepo.MarkAsFailed(ctx, message.ID, err.Error())
+	}
+
+	event := map[string]interface{}{
+		"id":          message.ID,
+		"type":        message.EventType,
+		"aggregateId": message.AggregateID,
+		"payload":     payload,
+		"timestamp":   message.CreatedAt,
+	}
+
+	if err := r.broker.Publish(ctx, topic, event); err != nil {
+		return r.outboxRepo.MarkAsFailed(ctx, message.ID, err.Error())
+	}
+
+	return r.outboxRepo.MarkAsPublished(ctx, message.ID)
+}
+
+func (r *OutboxRelay) getTopicForEvent(eventType string) string {
+	topicMap := map[string]string{
+		"OrderCreated":     "orders.created",
+		"OrderShipped":     "orders.shipped",
+		"PaymentReceived":  "payments.received",
+	}
+	if topic, ok := topicMap[eventType]; ok {
+		return topic
+	}
+	return "events.default"
 }
 ```
 
@@ -252,9 +398,10 @@ class OutboxRelay {
 
 ## Outbox Relay (CDC - Change Data Capture)
 
-```typescript
-// Avec Debezium pour PostgreSQL
+```go
 /*
+Avec Debezium pour PostgreSQL
+
 Debezium capture les INSERT sur la table outbox
 et les publie directement vers Kafka.
 
@@ -276,28 +423,97 @@ Configuration Debezium:
     "transforms.outbox.table.field.event.payload": "payload"
   }
 }
+
+Consumer cote application
 */
 
-// Consumer cote application
-class DebeziumOutboxConsumer {
-  async consume(): Promise<void> {
-    await this.kafkaConsumer.subscribe({ topic: 'outbox.events' });
+package outbox
 
-    await this.kafkaConsumer.run({
-      eachMessage: async ({ message }) => {
-        const event = JSON.parse(message.value!.toString());
+import (
+	"context"
+	"encoding/json"
+	"fmt"
 
-        // Debezium formate l'evenement avec before/after
-        const payload = event.after;
+	"github.com/segmentio/kafka-go"
+)
 
-        await this.eventHandler.handle({
-          type: payload.event_type,
-          aggregateId: payload.aggregate_id,
-          payload: JSON.parse(payload.payload),
-        });
-      },
-    });
-  }
+type EventHandler interface {
+	Handle(ctx context.Context, event *Event) error
+}
+
+type Event struct {
+	Type        string      `json:"type"`
+	AggregateID string      `json:"aggregateId"`
+	Payload     interface{} `json:"payload"`
+}
+
+type DebeziumEvent struct {
+	Before interface{} `json:"before"`
+	After  struct {
+		EventType     string          `json:"event_type"`
+		AggregateID   string          `json:"aggregate_id"`
+		Payload       json.RawMessage `json:"payload"`
+	} `json:"after"`
+}
+
+type DebeziumOutboxConsumer struct {
+	reader       *kafka.Reader
+	eventHandler EventHandler
+}
+
+func NewDebeziumOutboxConsumer(brokers []string, groupID string, handler EventHandler) *DebeziumOutboxConsumer {
+	return &DebeziumOutboxConsumer{
+		reader: kafka.NewReader(kafka.ReaderConfig{
+			Brokers: brokers,
+			Topic:   "outbox.events",
+			GroupID: groupID,
+		}),
+		eventHandler: handler,
+	}
+}
+
+func (c *DebeziumOutboxConsumer) Consume(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			msg, err := c.reader.FetchMessage(ctx)
+			if err != nil {
+				return fmt.Errorf("fetching message: %w", err)
+			}
+
+			if err := c.processMessage(ctx, msg); err != nil {
+				log.Printf("Error processing message: %v", err)
+			}
+
+			c.reader.CommitMessages(ctx, msg)
+		}
+	}
+}
+
+func (c *DebeziumOutboxConsumer) processMessage(ctx context.Context, msg kafka.Message) error {
+	var debeziumEvent DebeziumEvent
+	if err := json.Unmarshal(msg.Value, &debeziumEvent); err != nil {
+		return fmt.Errorf("unmarshaling debezium event: %w", err)
+	}
+
+	var payload interface{}
+	if err := json.Unmarshal(debeziumEvent.After.Payload, &payload); err != nil {
+		return fmt.Errorf("unmarshaling payload: %w", err)
+	}
+
+	event := &Event{
+		Type:        debeziumEvent.After.EventType,
+		AggregateID: debeziumEvent.After.AggregateID,
+		Payload:     payload,
+	}
+
+	return c.eventHandler.Handle(ctx, event)
+}
+
+func (c *DebeziumOutboxConsumer) Close() error {
+	return c.reader.Close()
 }
 ```
 
@@ -305,37 +521,88 @@ class DebeziumOutboxConsumer {
 
 ## Outbox avec Cleanup
 
-```typescript
-class OutboxCleaner {
-  constructor(
-    private db: Pool,
-    private retentionDays: number = 7
-  ) {}
+```go
+package outbox
 
-  // Executer periodiquement (cron)
-  async cleanup(): Promise<number> {
-    const result = await this.db.query(
-      `DELETE FROM outbox
-       WHERE published_at IS NOT NULL
-       AND published_at < NOW() - INTERVAL '${this.retentionDays} days'`
-    );
+import (
+	"context"
+	"fmt"
+	"time"
+)
 
-    return result.rowCount ?? 0;
-  }
+type OutboxCleaner struct {
+	db            *sql.DB
+	retentionDays int
+}
 
-  // Archiver avant suppression (optionnel)
-  async archiveAndCleanup(): Promise<void> {
-    await this.db.query(`
+func NewOutboxCleaner(db *sql.DB, retentionDays int) *OutboxCleaner {
+	if retentionDays <= 0 {
+		retentionDays = 7
+	}
+	return &OutboxCleaner{
+		db:            db,
+		retentionDays: retentionDays,
+	}
+}
+
+// Executer periodiquement (cron)
+func (c *OutboxCleaner) Cleanup(ctx context.Context) (int64, error) {
+	query := fmt.Sprintf(`DELETE FROM outbox
+                          WHERE published_at IS NOT NULL
+                          AND published_at < NOW() - INTERVAL '%d days'`, c.retentionDays)
+
+	result, err := c.db.ExecContext(ctx, query)
+	if err != nil {
+		return 0, fmt.Errorf("deleting old messages: %w", err)
+	}
+
+	rowsDeleted, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("getting rows affected: %w", err)
+	}
+
+	return rowsDeleted, nil
+}
+
+// Archiver avant suppression (optionnel)
+func (c *OutboxCleaner) ArchiveAndCleanup(ctx context.Context) error {
+	query := fmt.Sprintf(`
       WITH archived AS (
         INSERT INTO outbox_archive
         SELECT * FROM outbox
         WHERE published_at IS NOT NULL
-        AND published_at < NOW() - INTERVAL '${this.retentionDays} days'
+        AND published_at < NOW() - INTERVAL '%d days'
         RETURNING id
       )
       DELETE FROM outbox WHERE id IN (SELECT id FROM archived)
-    `);
-  }
+    `, c.retentionDays)
+
+	_, err := c.db.ExecContext(ctx, query)
+	if err != nil {
+		return fmt.Errorf("archiving and cleaning: %w", err)
+	}
+
+	return nil
+}
+
+// Scheduler pour cleanup automatique
+func (c *OutboxCleaner) StartScheduler(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			deleted, err := c.Cleanup(ctx)
+			if err != nil {
+				log.Printf("Cleanup error: %v", err)
+			} else {
+				log.Printf("Cleaned up %d outbox messages", deleted)
+			}
+		}
+	}
 }
 ```
 
@@ -343,51 +610,96 @@ class OutboxCleaner {
 
 ## Gestion des echecs
 
-```typescript
-class RobustOutboxRelay extends OutboxRelay {
-  private maxRetries = 5;
+```go
+package outbox
 
-  async processMessage(message: OutboxRow): Promise<void> {
-    if (message.retry_count >= this.maxRetries) {
-      await this.moveToDeadLetter(message);
-      await this.outboxRepo.markAsPublished(message.id); // Retirer de l'outbox
-      return;
-    }
+import (
+	"context"
+	"fmt"
+	"math"
+	"time"
+)
 
-    // Backoff exponentiel
-    if (message.retry_count > 0) {
-      const backoff = Math.pow(2, message.retry_count) * 1000;
-      const timeSinceLastRetry = Date.now() - new Date(message.created_at).getTime();
-      if (timeSinceLastRetry < backoff) {
-        return; // Pas encore temps de retry
-      }
-    }
+type AlertService interface {
+	Warn(ctx context.Context, message string, details map[string]interface{}) error
+}
 
-    try {
-      await this.messageBroker.publish(
-        this.getTopicForEvent(message.event_type),
-        this.formatMessage(message)
-      );
-      await this.outboxRepo.markAsPublished(message.id);
-    } catch (error) {
-      await this.outboxRepo.markAsFailed(message.id, (error as Error).message);
+type RobustOutboxRelay struct {
+	*OutboxRelay
+	maxRetries   int
+	alertService AlertService
+}
 
-      if (message.retry_count >= this.maxRetries - 1) {
-        await this.alertService.warn('Outbox message max retries', {
-          messageId: message.id,
-          eventType: message.event_type,
-        });
-      }
-    }
-  }
+func NewRobustOutboxRelay(outboxRepo *OutboxRepository, broker MessageBroker, alertService AlertService) *RobustOutboxRelay {
+	return &RobustOutboxRelay{
+		OutboxRelay:  NewOutboxRelay(outboxRepo, broker),
+		maxRetries:   5,
+		alertService: alertService,
+	}
+}
 
-  private async moveToDeadLetter(message: OutboxRow): Promise<void> {
-    await this.db.query(
-      `INSERT INTO outbox_dead_letter
-       SELECT *, NOW() as moved_at FROM outbox WHERE id = $1`,
-      [message.id]
-    );
-  }
+func (r *RobustOutboxRelay) processMessage(ctx context.Context, message *OutboxRow) error {
+	if message.RetryCount >= r.maxRetries {
+		if err := r.moveToDeadLetter(ctx, message); err != nil {
+			return fmt.Errorf("moving to dead letter: %w", err)
+		}
+		return r.outboxRepo.MarkAsPublished(ctx, message.ID)
+	}
+
+	// Backoff exponentiel
+	if message.RetryCount > 0 {
+		backoff := time.Duration(math.Pow(2, float64(message.RetryCount))) * time.Second
+		timeSinceCreation := time.Since(message.CreatedAt)
+		if timeSinceCreation < backoff {
+			return nil // Pas encore temps de retry
+		}
+	}
+
+	topic := r.getTopicForEvent(message.EventType)
+
+	var payload interface{}
+	if err := json.Unmarshal(message.Payload, &payload); err != nil {
+		return r.outboxRepo.MarkAsFailed(ctx, message.ID, err.Error())
+	}
+
+	event := r.formatMessage(message, payload)
+
+	if err := r.broker.Publish(ctx, topic, event); err != nil {
+		if err := r.outboxRepo.MarkAsFailed(ctx, message.ID, err.Error()); err != nil {
+			return err
+		}
+
+		if message.RetryCount >= r.maxRetries-1 {
+			return r.alertService.Warn(ctx, "Outbox message max retries", map[string]interface{}{
+				"messageId": message.ID,
+				"eventType": message.EventType,
+			})
+		}
+
+		return nil
+	}
+
+	return r.outboxRepo.MarkAsPublished(ctx, message.ID)
+}
+
+func (r *RobustOutboxRelay) moveToDeadLetter(ctx context.Context, message *OutboxRow) error {
+	query := `INSERT INTO outbox_dead_letter
+              SELECT *, NOW() as moved_at FROM outbox WHERE id = $1`
+	_, err := r.outboxRepo.db.ExecContext(ctx, query, message.ID)
+	if err != nil {
+		return fmt.Errorf("inserting to dead letter: %w", err)
+	}
+	return nil
+}
+
+func (r *RobustOutboxRelay) formatMessage(message *OutboxRow, payload interface{}) map[string]interface{} {
+	return map[string]interface{}{
+		"id":          message.ID,
+		"type":        message.EventType,
+		"aggregateId": message.AggregateID,
+		"payload":     payload,
+		"timestamp":   message.CreatedAt,
+	}
 }
 ```
 
@@ -395,36 +707,86 @@ class RobustOutboxRelay extends OutboxRelay {
 
 ## Ordering et Partitioning
 
-```typescript
-class OrderedOutboxRelay {
-  async processMessages(): Promise<void> {
-    // Grouper par aggregate pour maintenir l'ordre
-    const messages = await this.db.query(`
-      SELECT DISTINCT ON (aggregate_id) *
-      FROM outbox
-      WHERE published_at IS NULL
-      ORDER BY aggregate_id, created_at ASC
-    `);
+```go
+package outbox
 
-    // Traiter en parallele par aggregate, sequentiel dans l'aggregate
-    const byAggregate = this.groupByAggregate(messages.rows);
+import (
+	"context"
+	"fmt"
+	"sync"
+)
 
-    await Promise.all(
-      Object.entries(byAggregate).map(([aggregateId, msgs]) =>
-        this.processAggregateMessages(aggregateId, msgs)
-      )
-    );
-  }
+type OrderedOutboxRelay struct {
+	*OutboxRelay
+}
 
-  private async processAggregateMessages(
-    aggregateId: string,
-    messages: OutboxRow[]
-  ): Promise<void> {
-    // Sequentiel pour maintenir l'ordre
-    for (const message of messages) {
-      await this.processMessage(message);
-    }
-  }
+func NewOrderedOutboxRelay(outboxRepo *OutboxRepository, broker MessageBroker) *OrderedOutboxRelay {
+	return &OrderedOutboxRelay{
+		OutboxRelay: NewOutboxRelay(outboxRepo, broker),
+	}
+}
+
+func (r *OrderedOutboxRelay) ProcessMessages(ctx context.Context) error {
+	// Grouper par aggregate pour maintenir l'ordre
+	query := `SELECT DISTINCT ON (aggregate_id) *
+              FROM outbox
+              WHERE published_at IS NULL
+              ORDER BY aggregate_id, created_at ASC`
+
+	rows, err := r.outboxRepo.db.QueryContext(ctx, query)
+	if err != nil {
+		return fmt.Errorf("querying messages: %w", err)
+	}
+	defer rows.Close()
+
+	// Grouper par aggregate_id
+	byAggregate := make(map[string][]*OutboxRow)
+	for rows.Next() {
+		var msg OutboxRow
+		if err := rows.Scan(&msg); err != nil {
+			return fmt.Errorf("scanning row: %w", err)
+		}
+		byAggregate[msg.AggregateID] = append(byAggregate[msg.AggregateID], &msg)
+	}
+
+	// Traiter en parallele par aggregate, sequentiel dans l'aggregate
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(byAggregate))
+
+	for aggregateID, messages := range byAggregate {
+		wg.Add(1)
+		go func(aggID string, msgs []*OutboxRow) {
+			defer wg.Done()
+			if err := r.processAggregateMessages(ctx, aggID, msgs); err != nil {
+				errChan <- err
+			}
+		}(aggregateID, messages)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	// Collecter les erreurs
+	var errs []error
+	for err := range errChan {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("processing errors: %v", errs)
+	}
+
+	return nil
+}
+
+func (r *OrderedOutboxRelay) processAggregateMessages(ctx context.Context, aggregateID string, messages []*OutboxRow) error {
+	// Sequentiel pour maintenir l'ordre
+	for _, message := range messages {
+		if err := r.processMessage(ctx, message); err != nil {
+			return fmt.Errorf("processing message %s for aggregate %s: %w", message.ID, aggregateID, err)
+		}
+	}
+	return nil
 }
 ```
 

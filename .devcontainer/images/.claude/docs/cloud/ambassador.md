@@ -32,85 +32,104 @@ L'Ambassador agit comme un sidecar qui decharge les fonctionnalites cross-cuttin
 | **Rate Limiting** | Controle du debit |
 | **Monitoring** | Metriques et traces |
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-interface AmbassadorConfig {
-  retries: number;
-  timeout: number;
-  logging: boolean;
-  circuitBreaker?: CircuitBreakerConfig;
+```go
+package ambassador
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"math"
+	"net/http"
+	"time"
+)
+
+// CircuitBreakerConfig configure circuit breaker parameters.
+type CircuitBreakerConfig struct {
+	FailureThreshold int
+	Timeout          time.Duration
 }
 
-class Ambassador {
-  private circuitBreaker: CircuitBreaker;
+// AmbassadorConfig defines configuration for the Ambassador.
+type AmbassadorConfig struct {
+	Retries        int
+	Timeout        time.Duration
+	Logging        bool
+	CircuitBreaker *CircuitBreakerConfig
+}
 
-  constructor(
-    private readonly targetUrl: string,
-    private readonly config: AmbassadorConfig,
-  ) {
-    if (config.circuitBreaker) {
-      this.circuitBreaker = new CircuitBreaker(config.circuitBreaker);
-    }
-  }
+// Ambassador handles cross-cutting concerns like retry, logging, and circuit breaking.
+type Ambassador struct {
+	targetURL      string
+	config         AmbassadorConfig
+	circuitBreaker *CircuitBreaker
+	client         *http.Client
+}
 
-  async forward<T>(request: Request): Promise<T> {
-    const startTime = Date.now();
+// NewAmbassador creates a new Ambassador instance.
+func NewAmbassador(targetURL string, config AmbassadorConfig) *Ambassador {
+	a := &Ambassador{
+		targetURL: targetURL,
+		config:    config,
+		client: &http.Client{
+			Timeout: config.Timeout,
+		},
+	}
 
-    // Logging entree
-    if (this.config.logging) {
-      console.log(`[Ambassador] ${request.method} ${request.url}`);
-    }
+	if config.CircuitBreaker != nil {
+		a.circuitBreaker = NewCircuitBreaker(*config.CircuitBreaker)
+	}
 
-    // Retry wrapper
-    let lastError: Error;
-    for (let attempt = 0; attempt <= this.config.retries; attempt++) {
-      try {
-        const response = await this.executeWithTimeout(request);
+	return a
+}
 
-        // Logging sortie
-        if (this.config.logging) {
-          console.log(`[Ambassador] Response in ${Date.now() - startTime}ms`);
-        }
+// Forward forwards a request with retry logic and logging.
+func (a *Ambassador) Forward(ctx context.Context, req *http.Request) (*http.Response, error) {
+	startTime := time.Now()
 
-        return response;
-      } catch (error) {
-        lastError = error as Error;
-        if (attempt < this.config.retries) {
-          await this.delay(Math.pow(2, attempt) * 100);
-        }
-      }
-    }
+	// Logging entry
+	if a.config.Logging {
+		log.Printf("[Ambassador] %s %s", req.Method, req.URL.Path)
+	}
 
-    throw lastError!;
-  }
+	// Retry wrapper
+	var lastErr error
+	for attempt := 0; attempt <= a.config.Retries; attempt++ {
+		resp, err := a.executeWithTimeout(ctx, req)
+		if err == nil {
+			// Logging output
+			if a.config.Logging {
+				log.Printf("[Ambassador] Response in %v", time.Since(startTime))
+			}
+			return resp, nil
+		}
 
-  private async executeWithTimeout(request: Request): Promise<any> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.config.timeout);
+		lastErr = err
+		if attempt < a.config.Retries {
+			// Exponential backoff
+			backoff := time.Duration(math.Pow(2, float64(attempt))) * 100 * time.Millisecond
+			time.Sleep(backoff)
+		}
+	}
 
-    try {
-      if (this.circuitBreaker) {
-        return await this.circuitBreaker.call(() =>
-          fetch(this.targetUrl + request.url, {
-            ...request,
-            signal: controller.signal,
-          })
-        );
-      }
+	return nil, fmt.Errorf("all retries failed: %w", lastErr)
+}
 
-      return await fetch(this.targetUrl + request.url, {
-        ...request,
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
+func (a *Ambassador) executeWithTimeout(ctx context.Context, req *http.Request) (*http.Response, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, a.config.Timeout)
+	defer cancel()
 
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+	req = req.WithContext(timeoutCtx)
+
+	if a.circuitBreaker != nil {
+		return a.circuitBreaker.Call(func() (*http.Response, error) {
+			return a.client.Do(req)
+		})
+	}
+
+	return a.client.Do(req)
 }
 ```
 

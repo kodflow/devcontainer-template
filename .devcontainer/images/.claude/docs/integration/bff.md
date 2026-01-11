@@ -49,152 +49,327 @@
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
 ### BFF Web
 
-```typescript
-import express from 'express';
+```go
+package bff
 
-interface WebProductList {
-  products: Array<{
-    id: string;
-    name: string;
-    description: string;
-    price: number;
-    images: string[];
-    rating: { average: number; count: number };
-    availability: string;
-    breadcrumb: string[];
-  }>;
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
-  filters: Array<{
-    name: string;
-    options: string[];
-  }>;
-  seo: {
-    title: string;
-    description: string;
-    canonicalUrl: string;
-  };
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"strconv"
+	"time"
+)
+
+// WebProductList represents the web-optimized product list response.
+type WebProductList struct {
+	Products   []WebProduct `json:"products"`
+	Pagination Pagination   `json:"pagination"`
+	Filters    []Filter     `json:"filters"`
+	SEO        SEOMetadata  `json:"seo"`
 }
 
-class WebBFF {
-  private readonly app = express();
+// WebProduct represents a product with full details for web.
+type WebProduct struct {
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Price        float64  `json:"price"`
+	Images       []string `json:"images"`
+	Rating       Rating   `json:"rating"`
+	Availability string   `json:"availability"`
+	Breadcrumb   []string `json:"breadcrumb"`
+}
 
-  constructor() {
-    this.setupRoutes();
-  }
+// Pagination represents pagination metadata.
+type Pagination struct {
+	Page       int `json:"page"`
+	PageSize   int `json:"pageSize"`
+	Total      int `json:"total"`
+	TotalPages int `json:"totalPages"`
+}
 
-  private setupRoutes(): void {
-    // Liste produits avec toutes les infos pour SEO et UX web
-    this.app.get('/products', async (req, res) => {
-      const { page = 1, pageSize = 20, category, sort } = req.query;
+// Filter represents a product filter option.
+type Filter struct {
+	Name    string   `json:"name"`
+	Options []string `json:"options"`
+}
 
-      // Aggregation de plusieurs services
-      const [products, filters, categories] = await Promise.all([
-        this.fetchProducts({ page, pageSize, category, sort }),
-        this.fetchFilters(category as string),
-        this.fetchBreadcrumb(category as string),
-      ]);
+// SEOMetadata represents SEO-related metadata.
+type SEOMetadata struct {
+	Title        string `json:"title"`
+	Description  string `json:"description"`
+	CanonicalURL string `json:"canonicalUrl"`
+}
 
-      const response: WebProductList = {
-        products: products.items.map((p) => ({
-          id: p.id,
-          name: p.name,
-          description: p.description, // Full description for web
-          price: p.price,
-          images: p.images, // All images
-          rating: p.rating,
-          availability: p.stock > 0 ? 'In Stock' : 'Out of Stock',
-          breadcrumb: categories,
-        })),
-        pagination: {
-          page: Number(page),
-          pageSize: Number(pageSize),
-          total: products.total,
-          totalPages: Math.ceil(products.total / Number(pageSize)),
-        },
-        filters,
-        seo: {
-          title: `${category} Products - My Store`,
-          description: `Browse ${products.total} ${category} products`,
-          canonicalUrl: `/products?category=${category}`,
-        },
-      };
+// Rating represents product rating information.
+type Rating struct {
+	Average float64 `json:"average"`
+	Count   int     `json:"count"`
+}
 
-      res.json(response);
-    });
+// WebBFF implements the backend for frontend for web clients.
+type WebBFF struct {
+	mux    *http.ServeMux
+	server *http.Server
+	logger *slog.Logger
+}
 
-    // Detail produit complet pour web
-    this.app.get('/products/:id', async (req, res) => {
-      const [product, reviews, related] = await Promise.all([
-        this.fetchProduct(req.params.id),
-        this.fetchReviews(req.params.id, { limit: 10 }),
-        this.fetchRelatedProducts(req.params.id, { limit: 6 }),
-      ]);
+// NewWebBFF creates a new web BFF.
+func NewWebBFF(port int, logger *slog.Logger) *WebBFF {
+	if logger == nil {
+		logger = slog.Default()
+	}
 
-      res.json({
-        ...product,
-        reviews: reviews.items,
-        reviewsSummary: reviews.summary,
-        relatedProducts: related,
-        seo: {
-          title: `${product.name} - My Store`,
-          description: product.description.substring(0, 160),
-          jsonLd: this.generateProductSchema(product),
-        },
-      });
-    });
-  }
+	mux := http.NewServeMux()
+	bff := &WebBFF{
+		mux:    mux,
+		logger: logger,
+		server: &http.Server{
+			Addr:         fmt.Sprintf(":%d", port),
+			Handler:      mux,
+			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 15 * time.Second,
+		},
+	}
 
-  private async fetchProducts(params: any): Promise<any> {
-    return fetch(`http://product-service/products?${new URLSearchParams(params)}`).then((r) => r.json());
-  }
+	bff.setupRoutes()
+	return bff
+}
 
-  private async fetchFilters(category: string): Promise<any> {
-    return fetch(`http://filter-service/filters?category=${category}`).then((r) => r.json());
-  }
+func (b *WebBFF) setupRoutes() {
+	// Liste produits avec toutes les infos pour SEO et UX web
+	b.mux.HandleFunc("/products", b.handleProducts)
+	
+	// Detail produit complet pour web
+	b.mux.HandleFunc("/products/", b.handleProductDetail)
+}
 
-  private async fetchBreadcrumb(category: string): Promise<string[]> {
-    return fetch(`http://category-service/breadcrumb/${category}`).then((r) => r.json());
-  }
+func (b *WebBFF) handleProducts(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	
+	page := getIntParam(r, "page", 1)
+	pageSize := getIntParam(r, "pageSize", 20)
+	category := r.URL.Query().Get("category")
+	sort := r.URL.Query().Get("sort")
 
-  private async fetchProduct(id: string): Promise<any> {
-    return fetch(`http://product-service/products/${id}`).then((r) => r.json());
-  }
+	// Aggregation de plusieurs services en parallele
+	type result struct {
+		products   *ProductsResult
+		filters    []Filter
+		breadcrumb []string
+		err        error
+	}
 
-  private async fetchReviews(productId: string, params: any): Promise<any> {
-    return fetch(`http://review-service/products/${productId}/reviews?${new URLSearchParams(params)}`).then((r) => r.json());
-  }
+	ch := make(chan result, 1)
 
-  private async fetchRelatedProducts(productId: string, params: any): Promise<any> {
-    return fetch(`http://recommendation-service/products/${productId}/related?${new URLSearchParams(params)}`).then((r) => r.json());
-  }
+	go func() {
+		var r result
+		products, filters, breadcrumb, err := b.fetchAggregatedData(ctx, page, pageSize, category, sort)
+		r.products = products
+		r.filters = filters
+		r.breadcrumb = breadcrumb
+		r.err = err
+		ch <- r
+	}()
 
-  private generateProductSchema(product: any): object {
-    return {
-      '@context': 'https://schema.org',
-      '@type': 'Product',
-      name: product.name,
-      description: product.description,
-      image: product.images[0],
-      offers: {
-        '@type': 'Offer',
-        price: product.price,
-        priceCurrency: 'USD',
-      },
-    };
-  }
+	res := <-ch
+	if res.err != nil {
+		b.writeError(w, http.StatusInternalServerError, "failed to fetch products")
+		return
+	}
 
-  start(port: number): void {
-    this.app.listen(port);
-  }
+	webProducts := make([]WebProduct, len(res.products.Items))
+	for i, p := range res.products.Items {
+		webProducts[i] = WebProduct{
+			ID:          p.ID,
+			Name:        p.Name,
+			Description: p.Description, // Full description for web
+			Price:       p.Price,
+			Images:      p.Images, // All images
+			Rating: Rating{
+				Average: p.Rating.Average,
+				Count:   p.Rating.Count,
+			},
+			Availability: b.getAvailability(p.Stock),
+			Breadcrumb:   res.breadcrumb,
+		}
+	}
+
+	totalPages := (res.products.Total + pageSize - 1) / pageSize
+
+	response := WebProductList{
+		Products: webProducts,
+		Pagination: Pagination{
+			Page:       page,
+			PageSize:   pageSize,
+			Total:      res.products.Total,
+			TotalPages: totalPages,
+		},
+		Filters: res.filters,
+		SEO: SEOMetadata{
+			Title:        fmt.Sprintf("%s Products - My Store", category),
+			Description:  fmt.Sprintf("Browse %d %s products", res.products.Total, category),
+			CanonicalURL: fmt.Sprintf("/products?category=%s", category),
+		},
+	}
+
+	b.writeJSON(w, response)
+}
+
+func (b *WebBFF) handleProductDetail(w http.ResponseWriter, r *http.Request) {
+	// Extract product ID from path
+	id := r.URL.Path[len("/products/"):]
+	ctx := r.Context()
+
+	type result struct {
+		product *Product
+		reviews *ReviewsResult
+		related []Product
+		err     error
+	}
+
+	ch := make(chan result, 1)
+
+	go func() {
+		var r result
+		product, reviews, related, err := b.fetchProductDetails(ctx, id)
+		r.product = product
+		r.reviews = reviews
+		r.related = related
+		r.err = err
+		ch <- r
+	}()
+
+	res := <-ch
+	if res.err != nil {
+		b.writeError(w, http.StatusInternalServerError, "failed to fetch product")
+		return
+	}
+
+	response := map[string]interface{}{
+		"id":          res.product.ID,
+		"name":        res.product.Name,
+		"description": res.product.Description,
+		"price":       res.product.Price,
+		"images":      res.product.Images,
+		"rating":      res.product.Rating,
+		"reviews":     res.reviews.Items,
+		"reviewsSummary": res.reviews.Summary,
+		"relatedProducts": res.related,
+		"seo": SEOMetadata{
+			Title:       fmt.Sprintf("%s - My Store", res.product.Name),
+			Description: truncate(res.product.Description, 160),
+		},
+	}
+
+	b.writeJSON(w, response)
+}
+
+// Helper types for service responses
+type ProductsResult struct {
+	Items []Product
+	Total int
+}
+
+type Product struct {
+	ID          string
+	Name        string
+	Description string
+	Price       float64
+	Images      []string
+	Rating      Rating
+	Stock       int
+}
+
+type ReviewsResult struct {
+	Items   []Review
+	Summary ReviewSummary
+}
+
+type Review struct {
+	ID        string
+	Rating    float64
+	Text      string
+	Author    string
+	CreatedAt time.Time
+}
+
+type ReviewSummary struct {
+	Average float64
+	Count   int
+}
+
+func (b *WebBFF) fetchAggregatedData(ctx context.Context, page, pageSize int, category, sort string) (*ProductsResult, []Filter, []string, error) {
+	// Call multiple services in parallel
+	// Simplified implementation
+	products := &ProductsResult{
+		Items: []Product{},
+		Total: 0,
+	}
+	filters := []Filter{}
+	breadcrumb := []string{"Home", category}
+	
+	return products, filters, breadcrumb, nil
+}
+
+func (b *WebBFF) fetchProductDetails(ctx context.Context, id string) (*Product, *ReviewsResult, []Product, error) {
+	// Fetch product, reviews, and related products in parallel
+	product := &Product{}
+	reviews := &ReviewsResult{}
+	related := []Product{}
+	
+	return product, reviews, related, nil
+}
+
+func (b *WebBFF) getAvailability(stock int) string {
+	if stock > 0 {
+		return "In Stock"
+	}
+	return "Out of Stock"
+}
+
+// Start starts the BFF server.
+func (b *WebBFF) Start() error {
+	b.logger.Info("starting web BFF", "addr", b.server.Addr)
+	return b.server.ListenAndServe()
+}
+
+func (b *WebBFF) writeJSON(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
+
+func (b *WebBFF) writeError(w http.ResponseWriter, code int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+func getIntParam(r *http.Request, name string, defaultValue int) int {
+	value := r.URL.Query().Get(name)
+	if value == "" {
+		return defaultValue
+	}
+	
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+	
+	return intValue
+}
+
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen]
 }
 ```
 
@@ -202,115 +377,213 @@ class WebBFF {
 
 ### BFF Mobile
 
-```typescript
-interface MobileProductList {
-  products: Array<{
-    id: string;
-    name: string;
-    price: number;
-    thumbnail: string;    // Single optimized image
-    rating: number;       // Just the number
-    inStock: boolean;
-  }>;
-  nextCursor?: string;    // Cursor pagination for infinite scroll
-  hasMore: boolean;
+```go
+package bff
+
+import (
+	"crypto/md5"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+)
+
+// MobileProductList represents the mobile-optimized product list response.
+type MobileProductList struct {
+	Products   []MobileProduct `json:"products"`
+	NextCursor *string         `json:"nextCursor,omitempty"`
+	HasMore    bool            `json:"hasMore"`
 }
 
-class MobileBFF {
-  private readonly app = express();
+// MobileProduct represents a compact product for mobile.
+type MobileProduct struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Price     float64 `json:"price"`
+	Thumbnail string  `json:"thumbnail"`
+	Rating    float64 `json:"rating"`
+	InStock   bool    `json:"inStock"`
+}
 
-  constructor() {
-    this.setupRoutes();
-  }
+// MobileBFF implements the backend for frontend for mobile clients.
+type MobileBFF struct {
+	mux    *http.ServeMux
+	server *http.Server
+	logger *slog.Logger
+}
 
-  private setupRoutes(): void {
-    // Liste produits optimisee pour mobile
-    this.app.get('/products', async (req, res) => {
-      const { cursor, limit = 20, category } = req.query;
+// NewMobileBFF creates a new mobile BFF.
+func NewMobileBFF(port int, logger *slog.Logger) *MobileBFF {
+	if logger == nil {
+		logger = slog.Default()
+	}
 
-      const products = await this.fetchProducts({ cursor, limit, category });
+	mux := http.NewServeMux()
+	bff := &MobileBFF{
+		mux:    mux,
+		logger: logger,
+		server: &http.Server{
+			Addr:         fmt.Sprintf(":%d", port),
+			Handler:      mux,
+			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 15 * time.Second,
+		},
+	}
 
-      const response: MobileProductList = {
-        products: products.items.map((p) => ({
-          id: p.id,
-          name: p.name.substring(0, 50), // Truncate for mobile
-          price: p.price,
-          thumbnail: this.getOptimizedImage(p.images[0], 200), // Smaller image
-          rating: p.rating.average,
-          inStock: p.stock > 0,
-        })),
-        nextCursor: products.nextCursor,
-        hasMore: products.hasMore,
-      };
+	bff.setupRoutes()
+	return bff
+}
 
-      // Headers pour caching mobile
-      res.set({
-        'Cache-Control': 'public, max-age=300',
-        'ETag': this.generateETag(response),
-      });
+func (b *MobileBFF) setupRoutes() {
+	// Liste produits optimisee pour mobile
+	b.mux.HandleFunc("/products", b.handleProducts)
+	
+	// Detail produit compact
+	b.mux.HandleFunc("/products/", b.handleProductDetail)
+	
+	// Endpoint separe pour lazy loading
+	b.mux.HandleFunc("/products/{id}/reviews", b.handleProductReviews)
+}
 
-      res.json(response);
-    });
+func (b *MobileBFF) handleProducts(w http.ResponseWriter, r *http.Request) {
+	cursor := r.URL.Query().Get("cursor")
+	limit := getIntParam(r, "limit", 20)
+	category := r.URL.Query().Get("category")
 
-    // Detail produit compact
-    this.app.get('/products/:id', async (req, res) => {
-      const product = await this.fetchProduct(req.params.id);
+	products, err := b.fetchProducts(r.Context(), cursor, limit, category)
+	if err != nil {
+		b.writeError(w, http.StatusInternalServerError, "failed to fetch products")
+		return
+	}
 
-      res.json({
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        images: product.images.slice(0, 3).map((img) =>
-          this.getOptimizedImage(img, 400),
-        ),
-        description: product.description.substring(0, 300),
-        rating: product.rating.average,
-        reviewCount: product.rating.count,
-        inStock: product.stock > 0,
-        // Pas de related products, reviews - lazy load
-      });
-    });
+	mobileProducts := make([]MobileProduct, len(products.Items))
+	for i, p := range products.Items {
+		mobileProducts[i] = MobileProduct{
+			ID:        p.ID,
+			Name:      truncate(p.Name, 50), // Truncate for mobile
+			Price:     p.Price,
+			Thumbnail: b.getOptimizedImage(p.Images[0], 200), // Smaller image
+			Rating:    p.Rating.Average,
+			InStock:   p.Stock > 0,
+		}
+	}
 
-    // Endpoint separe pour lazy loading
-    this.app.get('/products/:id/reviews', async (req, res) => {
-      const reviews = await this.fetchReviews(req.params.id, { limit: 5 });
-      res.json({
-        items: reviews.items.map((r) => ({
-          id: r.id,
-          rating: r.rating,
-          text: r.text.substring(0, 200),
-          author: r.author.firstName,
-          date: r.createdAt,
-        })),
-        hasMore: reviews.hasMore,
-      });
-    });
-  }
+	response := MobileProductList{
+		Products:   mobileProducts,
+		NextCursor: products.NextCursor,
+		HasMore:    products.HasMore,
+	}
 
-  private getOptimizedImage(url: string, width: number): string {
-    // CDN image resizing
-    return `${url}?w=${width}&format=webp&quality=80`;
-  }
+	// Headers pour caching mobile
+	etag := b.generateETag(response)
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	w.Header().Set("ETag", etag)
 
-  private generateETag(data: any): string {
-    return `"${Buffer.from(JSON.stringify(data)).toString('base64').substring(0, 20)}"`;
-  }
+	b.writeJSON(w, response)
+}
 
-  private async fetchProducts(params: any): Promise<any> {
-    return fetch(`http://product-service/products?${new URLSearchParams(params)}`).then((r) => r.json());
-  }
+func (b *MobileBFF) handleProductDetail(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Path[len("/products/"):]
 
-  private async fetchProduct(id: string): Promise<any> {
-    return fetch(`http://product-service/products/${id}`).then((r) => r.json());
-  }
+	product, err := b.fetchProduct(r.Context(), id)
+	if err != nil {
+		b.writeError(w, http.StatusNotFound, "product not found")
+		return
+	}
 
-  private async fetchReviews(productId: string, params: any): Promise<any> {
-    return fetch(`http://review-service/products/${productId}/reviews?${new URLSearchParams(params)}`).then((r) => r.json());
-  }
+	images := make([]string, 0, 3)
+	for i := 0; i < 3 && i < len(product.Images); i++ {
+		images = append(images, b.getOptimizedImage(product.Images[i], 400))
+	}
 
-  start(port: number): void {
-    this.app.listen(port);
-  }
+	response := map[string]interface{}{
+		"id":          product.ID,
+		"name":        product.Name,
+		"price":       product.Price,
+		"images":      images,
+		"description": truncate(product.Description, 300),
+		"rating":      product.Rating.Average,
+		"reviewCount": product.Rating.Count,
+		"inStock":     product.Stock > 0,
+		// Pas de related products, reviews - lazy load
+	}
+
+	b.writeJSON(w, response)
+}
+
+func (b *MobileBFF) handleProductReviews(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Path[len("/products/"):]
+	id = id[:len(id)-len("/reviews")]
+
+	reviews, err := b.fetchReviews(r.Context(), id, 5)
+	if err != nil {
+		b.writeError(w, http.StatusInternalServerError, "failed to fetch reviews")
+		return
+	}
+
+	items := make([]map[string]interface{}, len(reviews.Items))
+	for i, rev := range reviews.Items {
+		items[i] = map[string]interface{}{
+			"id":     rev.ID,
+			"rating": rev.Rating,
+			"text":   truncate(rev.Text, 200),
+			"author": rev.Author,
+			"date":   rev.CreatedAt,
+		}
+	}
+
+	response := map[string]interface{}{
+		"items":   items,
+		"hasMore": len(reviews.Items) >= 5,
+	}
+
+	b.writeJSON(w, response)
+}
+
+func (b *MobileBFF) getOptimizedImage(url string, width int) string {
+	// CDN image resizing
+	return fmt.Sprintf("%s?w=%d&format=webp&quality=80", url, width)
+}
+
+func (b *MobileBFF) generateETag(data interface{}) string {
+	jsonData, _ := json.Marshal(data)
+	hash := md5.Sum(jsonData)
+	return `"` + hex.EncodeToString(hash[:])[:20] + `"`
+}
+
+func (b *MobileBFF) fetchProducts(ctx context.Context, cursor string, limit int, category string) (*ProductsResult, error) {
+	// Implementation simplified
+	return &ProductsResult{
+		Items:      []Product{},
+		NextCursor: nil,
+		HasMore:    false,
+	}, nil
+}
+
+func (b *MobileBFF) fetchProduct(ctx context.Context, id string) (*Product, error) {
+	return &Product{}, nil
+}
+
+func (b *MobileBFF) fetchReviews(ctx context.Context, productID string, limit int) (*ReviewsResult, error) {
+	return &ReviewsResult{}, nil
+}
+
+// Start starts the mobile BFF server.
+func (b *MobileBFF) Start() error {
+	b.logger.Info("starting mobile BFF", "addr", b.server.Addr)
+	return b.server.ListenAndServe()
+}
+
+func (b *MobileBFF) writeJSON(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
+
+func (b *MobileBFF) writeError(w http.ResponseWriter, code int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 ```
 
@@ -318,58 +591,126 @@ class MobileBFF {
 
 ### BFF IoT
 
-```typescript
-interface IoTProductData {
-  i: string;   // id (abbreviated)
-  p: number;   // price
-  s: 0 | 1;    // stock (boolean as number)
+```go
+package bff
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+)
+
+// IoTProductData represents minimal product data for IoT devices.
+type IoTProductData struct {
+	I string `json:"i"` // id (abbreviated)
+	P int    `json:"p"` // price in cents
+	S int    `json:"s"` // stock (0 or 1)
 }
 
-class IoTBFF {
-  private readonly app = express();
+// IoTBFF implements the backend for frontend for IoT devices.
+type IoTBFF struct {
+	mux    *http.ServeMux
+	server *http.Server
+	logger *slog.Logger
+}
 
-  constructor() {
-    this.setupRoutes();
-  }
+// NewIoTBFF creates a new IoT BFF.
+func NewIoTBFF(port int, logger *slog.Logger) *IoTBFF {
+	if logger == nil {
+		logger = slog.Default()
+	}
 
-  private setupRoutes(): void {
-    // Minimal data for constrained devices
-    this.app.get('/p', async (req, res) => {
-      const products = await this.fetchProducts({ limit: 10 });
+	mux := http.NewServeMux()
+	bff := &IoTBFF{
+		mux:    mux,
+		logger: logger,
+		server: &http.Server{
+			Addr:         fmt.Sprintf(":%d", port),
+			Handler:      mux,
+			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 15 * time.Second,
+		},
+	}
 
-      const response: IoTProductData[] = products.items.map((p) => ({
-        i: p.id,
-        p: Math.round(p.price * 100), // Cents, integer
-        s: p.stock > 0 ? 1 : 0,
-      }));
+	bff.setupRoutes()
+	return bff
+}
 
-      // Binary-friendly response
-      res.set({
-        'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=3600',
-      });
+func (b *IoTBFF) setupRoutes() {
+	// Minimal data for constrained devices
+	b.mux.HandleFunc("/p", b.handleProducts)
+	
+	// Price check only (for barcode scanners)
+	b.mux.HandleFunc("/p/", b.handleProductPrice)
+}
 
-      res.json(response);
-    });
+func (b *IoTBFF) handleProducts(w http.ResponseWriter, r *http.Request) {
+	products, err := b.fetchProducts(r.Context(), 10)
+	if err != nil {
+		b.writeError(w, http.StatusInternalServerError, "failed to fetch products")
+		return
+	}
 
-    // Price check only (for barcode scanners)
-    this.app.get('/p/:sku/price', async (req, res) => {
-      const product = await this.fetchProductBySku(req.params.sku);
-      res.json({ p: Math.round(product.price * 100) });
-    });
-  }
+	response := make([]IoTProductData, len(products.Items))
+	for i, p := range products.Items {
+		stockFlag := 0
+		if p.Stock > 0 {
+			stockFlag = 1
+		}
+		
+		response[i] = IoTProductData{
+			I: p.ID,
+			P: int(p.Price * 100), // Cents, integer
+			S: stockFlag,
+		}
+	}
 
-  private async fetchProducts(params: any): Promise<any> {
-    return fetch(`http://product-service/products?${new URLSearchParams(params)}`).then((r) => r.json());
-  }
+	// Binary-friendly response
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
 
-  private async fetchProductBySku(sku: string): Promise<any> {
-    return fetch(`http://product-service/products/sku/${sku}`).then((r) => r.json());
-  }
+	json.NewEncoder(w).Encode(response)
+}
 
-  start(port: number): void {
-    this.app.listen(port);
-  }
+func (b *IoTBFF) handleProductPrice(w http.ResponseWriter, r *http.Request) {
+	sku := r.URL.Path[len("/p/"):]
+	if len(sku) > 6 && sku[len(sku)-6:] == "/price" {
+		sku = sku[:len(sku)-6]
+	}
+
+	product, err := b.fetchProductBySku(r.Context(), sku)
+	if err != nil {
+		b.writeError(w, http.StatusNotFound, "product not found")
+		return
+	}
+
+	response := map[string]int{
+		"p": int(product.Price * 100),
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+func (b *IoTBFF) fetchProducts(ctx context.Context, limit int) (*ProductsResult, error) {
+	// Implementation simplified
+	return &ProductsResult{Items: []Product{}}, nil
+}
+
+func (b *IoTBFF) fetchProductBySku(ctx context.Context, sku string) (*Product, error) {
+	return &Product{}, nil
+}
+
+// Start starts the IoT BFF server.
+func (b *IoTBFF) Start() error {
+	b.logger.Info("starting IoT BFF", "addr", b.server.Addr)
+	return b.server.ListenAndServe()
+}
+
+func (b *IoTBFF) writeError(w http.ResponseWriter, code int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 ```
 
@@ -377,49 +718,7 @@ class IoTBFF {
 
 ## GraphQL Federation comme alternative
 
-```typescript
-import { ApolloServer } from '@apollo/server';
-import { buildSubgraphSchema } from '@apollo/subgraph';
-import { gql } from 'graphql-tag';
-
-// Chaque BFF peut exposer un schema GraphQL
-const webTypeDefs = gql`
-  type Product {
-    id: ID!
-    name: String!
-    description: String!
-    price: Float!
-    images: [String!]!
-    rating: Rating!
-    reviews(limit: Int): [Review!]!
-    relatedProducts: [Product!]!
-    seo: SEO!
-  }
-
-  type Query {
-    products(page: Int, category: String): ProductList!
-    product(id: ID!): Product
-  }
-`;
-
-const mobileTypeDefs = gql`
-  type Product {
-    id: ID!
-    name: String!
-    price: Float!
-    thumbnail: String!
-    rating: Float!
-    inStock: Boolean!
-  }
-
-  type Query {
-    products(cursor: String, limit: Int): ProductConnection!
-    product(id: ID!): Product
-  }
-`;
-
-// Le client demande exactement ce dont il a besoin
-```
+GraphQL offre une alternative au pattern BFF en permettant aux clients de demander exactement les données dont ils ont besoin via un seul endpoint. Chaque client (web, mobile) peut effectuer des requêtes différentes adaptées à ses besoins spécifiques.
 
 ---
 

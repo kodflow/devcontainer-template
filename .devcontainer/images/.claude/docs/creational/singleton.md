@@ -9,156 +9,270 @@ d'acces global a cette instance.
 
 ## Structure classique
 
-```typescript
-class Database {
-  private static instance: Database | null = null;
-  private connection: Connection;
+```go
+package main
 
-  // Constructeur prive
-  private constructor() {
-    this.connection = this.connect();
-  }
+import (
+	"fmt"
+	"sync"
+)
 
-  private connect(): Connection {
-    console.log('Connecting to database...');
-    return new Connection();
-  }
+// Connection represente une connexion a la base de donnees.
+type Connection struct {
+	host string
+}
 
-  static getInstance(): Database {
-    if (!Database.instance) {
-      Database.instance = new Database();
-    }
-    return Database.instance;
-  }
+// Execute execute une requete SQL.
+func (c *Connection) Execute(sql string) string {
+	return fmt.Sprintf("Executing: %s on %s", sql, c.host)
+}
 
-  query(sql: string): Result {
-    return this.connection.execute(sql);
-  }
+// Database gere la connexion singleton.
+type Database struct {
+	connection *Connection
+}
+
+var (
+	instance *Database
+	once     sync.Once
+)
+
+// getInstance retourne l'instance unique (thread-safe avec sync.Once).
+func getInstance() *Database {
+	once.Do(func() {
+		fmt.Println("Connecting to database...")
+		instance = &Database{
+			connection: &Connection{host: "localhost:5432"},
+		}
+	})
+	return instance
+}
+
+// Query execute une requete SQL.
+func (db *Database) Query(sql string) string {
+	return db.connection.Execute(sql)
 }
 
 // Usage
-const db1 = Database.getInstance();
-const db2 = Database.getInstance();
-console.log(db1 === db2); // true
+func ExampleDatabase() {
+	db1 := getInstance()
+	db2 := getInstance()
+	fmt.Println(db1 == db2) // true
+}
 ```
 
 ## Variantes
 
-### Singleton Thread-safe (pour environnements concurrents)
+### Singleton Thread-safe (avec sync.Once - RECOMMENDED)
 
-```typescript
-class ThreadSafeDatabase {
-  private static instance: ThreadSafeDatabase | null = null;
-  private static lock = new Mutex();
+```go
+package main
 
-  private constructor() {}
+import (
+	"fmt"
+	"sync"
+)
 
-  static async getInstance(): Promise<ThreadSafeDatabase> {
-    if (!ThreadSafeDatabase.instance) {
-      await ThreadSafeDatabase.lock.acquire();
-      try {
-        // Double-check locking
-        if (!ThreadSafeDatabase.instance) {
-          ThreadSafeDatabase.instance = new ThreadSafeDatabase();
-        }
-      } finally {
-        ThreadSafeDatabase.lock.release();
-      }
-    }
-    return ThreadSafeDatabase.instance;
-  }
+// ThreadSafeDatabase garantit une instance unique en environnement concurrent.
+type ThreadSafeDatabase struct {
+	connectionString string
+}
+
+var (
+	safeInstance *ThreadSafeDatabase
+	safeOnce     sync.Once
+)
+
+// GetInstance retourne l'instance unique de maniere thread-safe.
+func GetInstance() *ThreadSafeDatabase {
+	safeOnce.Do(func() {
+		fmt.Println("Initializing database connection...")
+		safeInstance = &ThreadSafeDatabase{
+			connectionString: "postgres://localhost:5432/mydb",
+		}
+	})
+	return safeInstance
+}
+
+// Query execute une requete.
+func (db *ThreadSafeDatabase) Query(sql string) string {
+	return fmt.Sprintf("Query on %s: %s", db.connectionString, sql)
 }
 ```
 
 ### Singleton avec initialisation paresseuse (Lazy)
 
-```typescript
-class LazyLogger {
-  private static _instance: LazyLogger;
+```go
+package main
 
-  private constructor(private logLevel: string) {}
+import (
+	"fmt"
+	"sync"
+)
 
-  static get instance(): LazyLogger {
-    // Initialise seulement au premier acces
-    return this._instance ??= new LazyLogger('INFO');
-  }
+// LazyLogger implemente un logger singleton avec initialisation paresseuse.
+type LazyLogger struct {
+	logLevel string
+}
 
-  log(message: string): void {
-    console.log(`[${this.logLevel}] ${message}`);
-  }
+var (
+	loggerInstance *LazyLogger
+	loggerOnce     sync.Once
+)
+
+// GetLogger retourne l'instance du logger (initialise au premier appel).
+func GetLogger() *LazyLogger {
+	loggerOnce.Do(func() {
+		loggerInstance = &LazyLogger{
+			logLevel: "INFO",
+		}
+	})
+	return loggerInstance
+}
+
+// Log ecrit un message de log.
+func (l *LazyLogger) Log(message string) {
+	fmt.Printf("[%s] %s\n", l.logLevel, message)
 }
 ```
 
 ### Singleton avec configuration
 
-```typescript
-interface ConfigOptions {
-  host: string;
-  port: number;
-  debug: boolean;
+```go
+package main
+
+import (
+	"errors"
+	"sync"
+)
+
+// ConfigOptions definit les options de configuration.
+type ConfigOptions struct {
+	Host  string
+	Port  int
+	Debug bool
 }
 
-class ConfigManager {
-  private static instance: ConfigManager;
-  private config: ConfigOptions;
+// ConfigManager gere la configuration singleton.
+type ConfigManager struct {
+	config ConfigOptions
+}
 
-  private constructor(options: ConfigOptions) {
-    this.config = options;
-  }
+var (
+	configInstance *ConfigManager
+	configOnce     sync.Once
+	configMu       sync.RWMutex
+	initialized    bool
+)
 
-  static initialize(options: ConfigOptions): ConfigManager {
-    if (ConfigManager.instance) {
-      throw new Error('ConfigManager already initialized');
-    }
-    ConfigManager.instance = new ConfigManager(options);
-    return ConfigManager.instance;
-  }
+// Initialize initialise le ConfigManager avec les options donnees.
+func Initialize(options ConfigOptions) error {
+	configMu.Lock()
+	defer configMu.Unlock()
 
-  static getInstance(): ConfigManager {
-    if (!ConfigManager.instance) {
-      throw new Error('ConfigManager not initialized');
-    }
-    return ConfigManager.instance;
-  }
+	if initialized {
+		return errors.New("ConfigManager already initialized")
+	}
 
-  get(key: keyof ConfigOptions): ConfigOptions[typeof key] {
-    return this.config[key];
-  }
+	configOnce.Do(func() {
+		configInstance = &ConfigManager{
+			config: options,
+		}
+		initialized = true
+	})
+
+	return nil
+}
+
+// GetConfigManager retourne l'instance du ConfigManager.
+func GetConfigManager() (*ConfigManager, error) {
+	configMu.RLock()
+	defer configMu.RUnlock()
+
+	if !initialized {
+		return nil, errors.New("ConfigManager not initialized")
+	}
+	return configInstance, nil
+}
+
+// GetHost retourne le host configure.
+func (cm *ConfigManager) GetHost() string {
+	return cm.config.Host
+}
+
+// GetPort retourne le port configure.
+func (cm *ConfigManager) GetPort() int {
+	return cm.config.Port
+}
+
+// IsDebug retourne si le mode debug est active.
+func (cm *ConfigManager) IsDebug() bool {
+	return cm.config.Debug
 }
 
 // Usage
-ConfigManager.initialize({ host: 'localhost', port: 3000, debug: true });
-const config = ConfigManager.getInstance();
-console.log(config.get('host')); // localhost
+func ExampleConfigManager() {
+	err := Initialize(ConfigOptions{
+		Host:  "localhost",
+		Port:  3000,
+		Debug: true,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	config, err := GetConfigManager()
+	if err != nil {
+		panic(err)
+	}
+	println(config.GetHost()) // localhost
+}
 ```
 
 ## Pourquoi Singleton est souvent un anti-pattern
 
-```typescript
+```go
 // PROBLEMES:
 
 // 1. Etat global cache - difficile a tracer
-class OrderService {
-  process(order: Order) {
-    // D'ou vient cette dependance? Invisible dans la signature
-    Database.getInstance().save(order);
-    Logger.getInstance().log('Order processed');
-  }
+type OrderService struct{}
+
+func (s *OrderService) Process(order Order) error {
+	// D'ou vient cette dependance? Invisible dans la signature
+	db := getInstance()
+	db.Query("INSERT INTO orders...")
+	logger := GetLogger()
+	logger.Log("Order processed")
+	return nil
 }
 
 // 2. Couplage fort - difficile a tester
-class UserService {
-  getUser(id: string) {
-    // Comment mocker Database dans les tests?
-    return Database.getInstance().query(`SELECT * FROM users WHERE id=${id}`);
-  }
+type UserService struct{}
+
+func (s *UserService) GetUser(id string) (*User, error) {
+	// Comment mocker Database dans les tests?
+	db := getInstance()
+	result := db.Query("SELECT * FROM users WHERE id=" + id)
+	return &User{}, nil
 }
 
 // 3. Violation du SRP - gere son cycle de vie + sa logique
-class BadSingleton {
-  private static instance: BadSingleton;
-  static getInstance() { /* ... */ }  // Responsabilite 1: cycle de vie
-  processData() { /* ... */ }          // Responsabilite 2: logique metier
+type BadSingleton struct {
+	data string
+}
+
+var badInstance *BadSingleton
+var badOnce sync.Once
+
+func getBadSingleton() *BadSingleton { // Responsabilite 1: cycle de vie
+	badOnce.Do(func() {
+		badInstance = &BadSingleton{}
+	})
+	return badInstance
+}
+
+func (b *BadSingleton) ProcessData() { // Responsabilite 2: logique metier
+	// ...
 }
 
 // 4. Problemes de concurrence dans les tests
@@ -169,140 +283,289 @@ class BadSingleton {
 
 ### Dependency Injection (recommande)
 
-```typescript
+```go
+package main
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+)
+
 // 1. Interface pour l'abstraction
-interface IDatabase {
-  query(sql: string): Result;
+type IDatabase interface {
+	Query(ctx context.Context, sql string) (string, error)
 }
 
 // 2. Implementation concrete
-class Database implements IDatabase {
-  constructor(private connectionString: string) {}
-  query(sql: string): Result { /* ... */ }
+type Database struct {
+	connectionString string
+}
+
+// NewDatabase cree une nouvelle instance de Database.
+func NewDatabase(connectionString string) *Database {
+	return &Database{
+		connectionString: connectionString,
+	}
+}
+
+func (db *Database) Query(ctx context.Context, sql string) (string, error) {
+	return fmt.Sprintf("Query result for: %s", sql), nil
 }
 
 // 3. Container DI
-class Container {
-  private services = new Map<string, unknown>();
+type Container struct {
+	mu       sync.RWMutex
+	services map[string]interface{}
+}
 
-  registerSingleton<T>(token: string, instance: T): void {
-    this.services.set(token, instance);
-  }
+// NewContainer cree un nouveau container DI.
+func NewContainer() *Container {
+	return &Container{
+		services: make(map[string]interface{}),
+	}
+}
 
-  resolve<T>(token: string): T {
-    const service = this.services.get(token);
-    if (!service) throw new Error(`Service ${token} not found`);
-    return service as T;
-  }
+// RegisterSingleton enregistre un service singleton.
+func (c *Container) RegisterSingleton(token string, instance interface{}) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.services[token] = instance
+}
+
+// Resolve resout un service par son token.
+func (c *Container) Resolve(token string) (interface{}, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	service, exists := c.services[token]
+	if !exists {
+		return nil, fmt.Errorf("service %s not found", token)
+	}
+	return service, nil
 }
 
 // 4. Configuration
-const container = new Container();
-container.registerSingleton<IDatabase>('database', new Database('...'));
+func ExampleDI() {
+	container := NewContainer()
+	container.RegisterSingleton("database", NewDatabase("postgres://localhost:5432"))
 
-// 5. Usage - dependances explicites
-class UserService {
-  constructor(private db: IDatabase) {}
+	// 5. Usage - dependances explicites
+	type UserService struct {
+		db IDatabase
+	}
 
-  getUser(id: string): User {
-    return this.db.query(`SELECT * FROM users WHERE id=${id}`);
-  }
+	dbService, err := container.Resolve("database")
+	if err != nil {
+		panic(err)
+	}
+
+	userService := &UserService{
+		db: dbService.(IDatabase),
+	}
+	_ = userService
 }
-
-const userService = new UserService(container.resolve('database'));
 ```
 
-### Module pattern (ES modules)
+### Module pattern (package-level variables)
 
-```typescript
-// database.ts
-const connection = createConnection();
+```go
+package database
 
-export const query = (sql: string): Result => {
-  return connection.execute(sql);
-};
+import (
+	"context"
+	"fmt"
+	"sync"
+)
 
-export const close = (): void => {
-  connection.close();
-};
+var (
+	connection *Connection
+	once       sync.Once
+)
 
-// Usage - le module est naturellement singleton
-import { query } from './database';
-query('SELECT * FROM users');
+// Connection represente une connexion a la base de donnees.
+type Connection struct {
+	host string
+}
+
+// init initialise la connexion au demarrage du package.
+func init() {
+	once.Do(func() {
+		connection = &Connection{
+			host: "localhost:5432",
+		}
+	})
+}
+
+// Query execute une requete SQL (acces direct a la connexion singleton).
+func Query(ctx context.Context, sql string) (string, error) {
+	return fmt.Sprintf("Executing: %s", sql), nil
+}
+
+// Close ferme la connexion.
+func Close() error {
+	// Implementation de fermeture
+	return nil
+}
+
+// Usage - le package est naturellement singleton
+// import "yourproject/database"
+// result, err := database.Query(ctx, "SELECT * FROM users")
 ```
 
 ### Factory avec scope
 
-```typescript
-class ServiceFactory {
-  private instances = new Map<string, unknown>();
+```go
+package main
 
-  singleton<T>(key: string, factory: () => T): T {
-    if (!this.instances.has(key)) {
-      this.instances.set(key, factory());
-    }
-    return this.instances.get(key) as T;
-  }
+import (
+	"sync"
+)
 
-  transient<T>(factory: () => T): T {
-    return factory();
-  }
+// Scope definit la portee d'un service.
+type Scope string
 
-  scoped<T>(scope: string, key: string, factory: () => T): T {
-    const scopeKey = `${scope}:${key}`;
-    if (!this.instances.has(scopeKey)) {
-      this.instances.set(scopeKey, factory());
-    }
-    return this.instances.get(scopeKey) as T;
-  }
+const (
+	ScopeSingleton Scope = "singleton"
+	ScopeTransient Scope = "transient"
+	ScopeScoped    Scope = "scoped"
+)
+
+// ServiceFactory gere la creation de services avec differents scopes.
+type ServiceFactory struct {
+	mu        sync.RWMutex
+	instances map[string]interface{}
+}
+
+// NewServiceFactory cree une nouvelle factory.
+func NewServiceFactory() *ServiceFactory {
+	return &ServiceFactory{
+		instances: make(map[string]interface{}),
+	}
+}
+
+// Singleton retourne ou cree une instance singleton.
+func (f *ServiceFactory) Singleton(key string, factory func() interface{}) interface{} {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if instance, exists := f.instances[key]; exists {
+		return instance
+	}
+
+	instance := factory()
+	f.instances[key] = instance
+	return instance
+}
+
+// Transient cree toujours une nouvelle instance.
+func (f *ServiceFactory) Transient(factory func() interface{}) interface{} {
+	return factory()
+}
+
+// Scoped retourne une instance limitee a un scope donne.
+func (f *ServiceFactory) Scoped(scope, key string, factory func() interface{}) interface{} {
+	scopeKey := fmt.Sprintf("%s:%s", scope, key)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if instance, exists := f.instances[scopeKey]; exists {
+		return instance
+	}
+
+	instance := factory()
+	f.instances[scopeKey] = instance
+	return instance
 }
 ```
 
 ## Tests unitaires
 
-```typescript
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+```go
+package main
 
-// Test du Singleton classique (difficile)
-describe('Database Singleton', () => {
-  beforeEach(() => {
-    // Reset necessaire entre les tests - HACK
-    (Database as any).instance = null;
-  });
+import (
+	"context"
+	"sync"
+	"testing"
+)
 
-  it('should return same instance', () => {
-    const db1 = Database.getInstance();
-    const db2 = Database.getInstance();
-    expect(db1).toBe(db2);
-  });
-});
+// Test du Singleton classique
+func TestDatabase_Singleton(t *testing.T) {
+	// Reset necessaire entre les tests (utiliser build tags ou interfaces)
+	once = sync.Once{}
+	instance = nil
+
+	db1 := getInstance()
+	db2 := getInstance()
+
+	if db1 != db2 {
+		t.Error("expected same instance")
+	}
+}
 
 // Test avec DI (facile)
-describe('UserService with DI', () => {
-  it('should query database', () => {
-    // Mock facile a injecter
-    const mockDb: IDatabase = {
-      query: vi.fn().mockReturnValue({ id: '1', name: 'John' }),
-    };
+type mockDatabase struct{}
 
-    const service = new UserService(mockDb);
-    const user = service.getUser('1');
+func (m *mockDatabase) Query(ctx context.Context, sql string) (string, error) {
+	return "mock result", nil
+}
 
-    expect(mockDb.query).toHaveBeenCalledWith(
-      "SELECT * FROM users WHERE id='1'"
-    );
-    expect(user.name).toBe('John');
-  });
-});
+func TestUserService_WithDI(t *testing.T) {
+	type UserService struct {
+		db IDatabase
+	}
+
+	mockDB := &mockDatabase{}
+	service := &UserService{db: mockDB}
+
+	result, err := service.db.Query(context.Background(), "SELECT * FROM users")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result != "mock result" {
+		t.Errorf("expected 'mock result', got %s", result)
+	}
+}
 
 // Test du module pattern
-describe('Database module', () => {
-  it('should execute queries', async () => {
-    // Le module peut exporter une fonction reset pour les tests
-    const result = await query('SELECT 1');
-    expect(result).toBeDefined();
-  });
-});
+func TestDatabaseModule_Query(t *testing.T) {
+	ctx := context.Background()
+	result, err := Query(ctx, "SELECT 1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == "" {
+		t.Error("expected non-empty result")
+	}
+}
+
+// Test de thread-safety
+func TestGetInstance_Concurrent(t *testing.T) {
+	once = sync.Once{}
+	instance = nil
+
+	var wg sync.WaitGroup
+	instances := make([]*Database, 100)
+
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			instances[idx] = getInstance()
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Toutes les instances doivent etre identiques
+	for i := 1; i < len(instances); i++ {
+		if instances[i] != instances[0] {
+			t.Error("expected all instances to be the same")
+		}
+	}
+}
 ```
 
 ## Quand utiliser (vraiment)

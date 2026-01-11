@@ -19,285 +19,489 @@ pipe(f, g)(x) = g(f(x))      // Left to right (more readable)
 
 ## TypeScript Implementation
 
-```typescript
-// Basic compose - right to left
-const compose = <A, B, C>(
-  f: (b: B) => C,
-  g: (a: A) => B
-) => (a: A): C => f(g(a));
+```go
+package composition
 
-// Basic pipe - left to right
-const pipe = <A, B, C>(
-  f: (a: A) => B,
-  g: (b: B) => C
-) => (a: A): C => g(f(a));
-
-// Variadic pipe (up to 10 functions)
-function pipeN<A, B>(f: (a: A) => B): (a: A) => B;
-function pipeN<A, B, C>(
-  f: (a: A) => B,
-  g: (b: B) => C
-): (a: A) => C;
-function pipeN<A, B, C, D>(
-  f: (a: A) => B,
-  g: (b: B) => C,
-  h: (c: C) => D
-): (a: A) => D;
-function pipeN<A, B, C, D, E>(
-  f: (a: A) => B,
-  g: (b: B) => C,
-  h: (c: C) => D,
-  i: (d: D) => E
-): (a: A) => E;
-function pipeN(...fns: Array<(x: unknown) => unknown>) {
-  return (x: unknown) => fns.reduce((acc, fn) => fn(acc), x);
+// Compose combines two functions right to left: compose(f, g)(x) = f(g(x))
+func Compose[A, B, C any](f func(B) C, g func(A) B) func(A) C {
+	return func(a A) C {
+		return f(g(a))
+	}
 }
 
-// Flow - immediate execution
-const flow = <A>(initial: A, ...fns: Array<(x: A) => A>): A =>
-  fns.reduce((acc, fn) => fn(acc), initial);
+// Pipe combines two functions left to right: pipe(f, g)(x) = g(f(x))
+func Pipe[A, B, C any](f func(A) B, g func(B) C) func(A) C {
+	return func(a A) C {
+		return g(f(a))
+	}
+}
+
+// Pipe3 chains three functions left to right
+func Pipe3[A, B, C, D any](
+	f func(A) B,
+	g func(B) C,
+	h func(C) D,
+) func(A) D {
+	return func(a A) D {
+		return h(g(f(a)))
+	}
+}
+
+// Pipe4 chains four functions left to right
+func Pipe4[A, B, C, D, E any](
+	f func(A) B,
+	g func(B) C,
+	h func(C) D,
+	i func(D) E,
+) func(A) E {
+	return func(a A) E {
+		return i(h(g(f(a))))
+	}
+}
+
+// Flow executes functions in sequence with immediate value
+func Flow[A any](initial A, fns ...func(A) A) A {
+	result := initial
+	for _, fn := range fns {
+		result = fn(result)
+	}
+	return result
+}
 ```
 
 ## Usage Examples
 
-```typescript
+```go
+package main
+
+import (
+	"strings"
+)
+
 // Simple transformations
-const trim = (s: string) => s.trim();
-const toLowerCase = (s: string) => s.toLowerCase();
-const split = (sep: string) => (s: string) => s.split(sep);
-const join = (sep: string) => (arr: string[]) => arr.join(sep);
-
-// Compose transformations
-const slugify = pipeN(
-  trim,
-  toLowerCase,
-  split(' '),
-  join('-')
-);
-
-slugify('  Hello World  '); // 'hello-world'
-
-// Data processing pipeline
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  age: number;
+func trim(s string) string {
+	return strings.TrimSpace(s)
 }
 
-const users: User[] = [
-  { id: '1', name: 'Alice', email: 'alice@example.com', age: 30 },
-  { id: '2', name: 'Bob', email: 'bob@example.com', age: 25 },
-  { id: '3', name: 'Charlie', email: 'charlie@example.com', age: 35 }
-];
+func toLowerCase(s string) string {
+	return strings.ToLower(s)
+}
+
+func split(sep string) func(string) []string {
+	return func(s string) []string {
+		return strings.Split(s, sep)
+	}
+}
+
+func join(sep string) func([]string) string {
+	return func(arr []string) string {
+		return strings.Join(arr, sep)
+	}
+}
+
+// Compose transformations
+var slugify = Pipe4(
+	trim,
+	toLowerCase,
+	split(" "),
+	join("-"),
+)
+
+// Usage: slugify("  Hello World  ") // "hello-world"
+
+// Data processing pipeline
+type User struct {
+	ID    string
+	Name  string
+	Email string
+	Age   int
+}
+
+var users = []User{
+	{ID: "1", Name: "Alice", Email: "alice@example.com", Age: 30},
+	{ID: "2", Name: "Bob", Email: "bob@example.com", Age: 25},
+	{ID: "3", Name: "Charlie", Email: "charlie@example.com", Age: 35},
+}
 
 // Reusable predicates and transformers
-const isAdult = (u: User) => u.age >= 18;
-const isOver30 = (u: User) => u.age > 30;
-const getName = (u: User) => u.name;
-const toUpperCase = (s: string) => s.toUpperCase();
+func isAdult(u User) bool {
+	return u.Age >= 18
+}
+
+func isOver30(u User) bool {
+	return u.Age > 30
+}
+
+func getName(u User) string {
+	return u.Name
+}
+
+func toUpperCase(s string) string {
+	return strings.ToUpper(s)
+}
+
+// Filter helper
+func filter[T any](predicate func(T) bool) func([]T) []T {
+	return func(slice []T) []T {
+		result := make([]T, 0, len(slice))
+		for _, item := range slice {
+			if predicate(item) {
+				result = append(result, item)
+			}
+		}
+		return result
+	}
+}
+
+// Map helper
+func mapSlice[A, B any](f func(A) B) func([]A) []B {
+	return func(slice []A) []B {
+		result := make([]B, len(slice))
+		for i, item := range slice {
+			result[i] = f(item)
+		}
+		return result
+	}
+}
 
 // Compose into pipeline
-const getAdultNamesUppercase = (users: User[]) =>
-  users
-    .filter(isAdult)
-    .map(getName)
-    .map(toUpperCase);
+var getAdultNamesUppercase = Pipe3(
+	filter(isAdult),
+	mapSlice(getName),
+	mapSlice(toUpperCase),
+)
 
 // Point-free style with compose
-const getNameUpper = pipeN(getName, toUpperCase);
-const adultsOnly = (users: User[]) => users.filter(isAdult);
-const mapNames = (users: User[]) => users.map(getNameUpper);
-
-const processUsers = pipeN(adultsOnly, mapNames);
+var getNameUpper = Pipe(getName, toUpperCase)
 ```
 
 ## Using fp-ts
 
-```typescript
-import { pipe, flow } from 'fp-ts/function';
-import * as A from 'fp-ts/Array';
-import * as O from 'fp-ts/Option';
-import * as E from 'fp-ts/Either';
+```go
+package main
 
-// pipe - immediate execution with value
-const result = pipe(
-  '  Hello World  ',
-  s => s.trim(),
-  s => s.toLowerCase(),
-  s => s.split(' '),
-  arr => arr.join('-')
-); // 'hello-world'
+import (
+	"strings"
+)
 
-// flow - creates a function
-const slugify = flow(
-  (s: string) => s.trim(),
-  s => s.toLowerCase(),
-  s => s.split(' '),
-  arr => arr.join('-')
-);
+// Pipe-style immediate execution
+func processingPipeline() string {
+	input := "  Hello World  "
+	
+	result := input
+	result = strings.TrimSpace(result)
+	result = strings.ToLower(result)
+	parts := strings.Split(result, " ")
+	result = strings.Join(parts, "-")
+	
+	return result // "hello-world"
+}
 
-slugify('  Hello World  '); // 'hello-world'
+// Flow - creates a reusable function
+func createSlugifier() func(string) string {
+	return func(s string) string {
+		s = strings.TrimSpace(s)
+		s = strings.ToLower(s)
+		parts := strings.Split(s, " ")
+		return strings.Join(parts, "-")
+	}
+}
 
-// Array operations
-const getActiveAdminEmails = (users: User[]) =>
-  pipe(
-    users,
-    A.filter(u => u.isActive),
-    A.filter(u => u.role === 'admin'),
-    A.map(u => u.email),
-    A.uniq(S.Eq)
-  );
+// Array operations with generics
+type ExtendedUser struct {
+	User
+	IsActive bool
+	Role     string
+}
 
-// Option composition
-const getFirstAdminEmail = (users: User[]) =>
-  pipe(
-    users,
-    A.findFirst(u => u.role === 'admin'),
-    O.map(u => u.email),
-    O.getOrElse(() => 'no-admin@example.com')
-  );
+func getActiveAdminEmails(users []ExtendedUser) []string {
+	// Filter active users
+	active := filter(func(u ExtendedUser) bool { return u.IsActive })(users)
+	
+	// Filter admins
+	admins := filter(func(u ExtendedUser) bool { return u.Role == "admin" })(active)
+	
+	// Map to emails
+	emails := mapSlice(func(u ExtendedUser) string { return u.Email })(admins)
+	
+	// Remove duplicates
+	return unique(emails)
+}
 
-// Either composition
-const processPayment = (orderId: string, amount: number) =>
-  pipe(
-    validateAmount(amount),                    // Either<Error, number>
-    E.flatMap(amt => findOrder(orderId)),      // Either<Error, Order>
-    E.flatMap(order => chargeCustomer(order)), // Either<Error, Payment>
-    E.map(payment => payment.confirmation),    // Either<Error, string>
-    E.fold(
-      error => ({ success: false, error: error.message }),
-      confirmation => ({ success: true, confirmation })
-    )
-  );
+func unique[T comparable](slice []T) []T {
+	seen := make(map[T]struct{})
+	result := make([]T, 0, len(slice))
+	for _, item := range slice {
+		if _, exists := seen[item]; !exists {
+			seen[item] = struct{}{}
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+// Option composition (see option.md for full implementation)
+func getFirstAdminEmail(users []ExtendedUser) string {
+	for _, u := range users {
+		if u.Role == "admin" {
+			return u.Email
+		}
+	}
+	return "no-admin@example.com"
+}
+
+// Either composition (see either.md for full implementation)
+type PaymentResult struct {
+	Success      bool
+	Confirmation string
+	Error        string
+}
+
+func processPayment(orderID string, amount float64) PaymentResult {
+	if err := validateAmount(amount); err != nil {
+		return PaymentResult{Success: false, Error: err.Error()}
+	}
+	
+	order, err := findOrder(orderID)
+	if err != nil {
+		return PaymentResult{Success: false, Error: err.Error()}
+	}
+	
+	payment, err := chargeCustomer(order)
+	if err != nil {
+		return PaymentResult{Success: false, Error: err.Error()}
+	}
+	
+	return PaymentResult{Success: true, Confirmation: payment.Confirmation}
+}
+
+func validateAmount(amount float64) error { return nil }
+func findOrder(id string) (Order, error)  { return Order{}, nil }
+func chargeCustomer(o Order) (Payment, error) { return Payment{}, nil }
+
+type Order struct{}
+type Payment struct{ Confirmation string }
 ```
 
 ## Using Effect
 
-```typescript
-import { Effect, pipe } from 'effect';
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+)
+
+// Effect represents a computation that may fail or require context
+type Effect[T any] struct {
+	run func(context.Context) (T, error)
+}
+
+// Succeed creates an Effect that always succeeds
+func Succeed[T any](value T) Effect[T] {
+	return Effect[T]{
+		run: func(ctx context.Context) (T, error) {
+			return value, nil
+		},
+	}
+}
+
+// Map transforms the success value
+func (e Effect[T]) Map(f func(T) T) Effect[T] {
+	return Effect[T]{
+		run: func(ctx context.Context) (T, error) {
+			val, err := e.run(ctx)
+			if err != nil {
+				return val, err
+			}
+			return f(val), nil
+		},
+	}
+}
+
+// FlatMap chains dependent effects
+func (e Effect[T]) FlatMap(f func(T) Effect[T]) Effect[T] {
+	return Effect[T]{
+		run: func(ctx context.Context) (T, error) {
+			val, err := e.run(ctx)
+			if err != nil {
+				var zero T
+				return zero, err
+			}
+			return f(val).run(ctx)
+		},
+	}
+}
+
+// Run executes the effect
+func (e Effect[T]) Run(ctx context.Context) (T, error) {
+	return e.run(ctx)
+}
 
 // Composing effects
-const program = pipe(
-  Effect.succeed(10),
-  Effect.map(n => n * 2),
-  Effect.flatMap(n => n > 15 ? Effect.succeed(n) : Effect.fail('Too small')),
-  Effect.map(n => `Result: ${n}`)
-);
-
-// With dependencies
-interface Logger {
-  log: (msg: string) => Effect.Effect<void>;
+func exampleProgram() Effect[string] {
+	return Succeed(10).
+		Map(func(n int) int { return n * 2 }).
+		FlatMap(func(n int) Effect[int] {
+			if n > 15 {
+				return Succeed(n)
+			}
+			return Effect[int]{
+				run: func(ctx context.Context) (int, error) {
+					return 0, fmt.Errorf("too small")
+				},
+			}
+		}).
+		Map(func(n int) int { return n }) // Convert to desired type in real code
 }
-
-interface Database {
-  query: (sql: string) => Effect.Effect<unknown[], Error>;
-}
-
-const fetchAndLog = pipe(
-  Effect.service(Database),
-  Effect.flatMap(db => db.query('SELECT * FROM users')),
-  Effect.tap(users => pipe(
-    Effect.service(Logger),
-    Effect.flatMap(logger => logger.log(`Found ${users.length} users`))
-  ))
-);
 ```
 
 ## Composition Patterns
 
 ### Currying for Composition
 
-```typescript
+```go
+package main
+
 // Curried functions compose better
-const add = (a: number) => (b: number) => a + b;
-const multiply = (a: number) => (b: number) => a * b;
+func add(a int) func(int) int {
+	return func(b int) int {
+		return a + b
+	}
+}
 
-const add5 = add(5);
-const double = multiply(2);
+func multiply(a int) func(int) int {
+	return func(b int) int {
+		return a * b
+	}
+}
 
-const transform = pipeN(add5, double); // (x + 5) * 2
-transform(10); // 30
+func example() {
+	add5 := add(5)
+	double := multiply(2)
+	
+	// (x + 5) * 2
+	transform := Pipe(add5, double)
+	result := transform(10) // 30
+}
 ```
 
 ### Partial Application
 
-```typescript
+```go
+package main
+
 // Partially apply for reuse
-const filter = <A>(predicate: (a: A) => boolean) => (arr: A[]) =>
-  arr.filter(predicate);
+func filterFunc[A any](predicate func(A) bool) func([]A) []A {
+	return func(arr []A) []A {
+		result := make([]A, 0, len(arr))
+		for _, item := range arr {
+			if predicate(item) {
+				result = append(result, item)
+			}
+		}
+		return result
+	}
+}
 
-const map = <A, B>(f: (a: A) => B) => (arr: A[]) =>
-  arr.map(f);
+func mapFunc[A, B any](f func(A) B) func([]A) []B {
+	return func(arr []A) []B {
+		result := make([]B, len(arr))
+		for i, item := range arr {
+			result[i] = f(item)
+		}
+		return result
+	}
+}
 
-const adults = filter<User>(u => u.age >= 18);
-const names = map<User, string>(u => u.name);
-
-const getAdultNames = pipeN(adults, names);
+func partialExample() {
+	adults := filterFunc(func(u User) bool { return u.Age >= 18 })
+	names := mapFunc(func(u User) string { return u.Name })
+	
+	getAdultNames := Pipe(adults, names)
+}
 ```
 
 ### Kleisli Composition (Monadic)
 
-```typescript
-import { pipe } from 'fp-ts/function';
-import * as O from 'fp-ts/Option';
-import { Kleisli } from 'fp-ts/Kleisli';
+```go
+package main
 
-// Functions returning Option
-const parseNumber = (s: string): O.Option<number> => {
-  const n = parseInt(s, 10);
-  return isNaN(n) ? O.none : O.some(n);
-};
+// Functions returning Option (see option.md for full implementation)
+func parseNumber(s string) Option[int] {
+	// Implementation
+	return None[int]()
+}
 
-const half = (n: number): O.Option<number> =>
-  n % 2 === 0 ? O.some(n / 2) : O.none;
+func half(n int) Option[int] {
+	if n%2 == 0 {
+		return Some(n / 2)
+	}
+	return None[int]()
+}
 
-// Compose with flatMap
-const parseAndHalf = (s: string): O.Option<number> =>
-  pipe(
-    parseNumber(s),
-    O.flatMap(half)
-  );
+// Compose with FlatMap
+func parseAndHalf(s string) Option[int] {
+	return parseNumber(s).FlatMap(half)
+}
 
-// Using Kleisli composition
-import * as K from 'fp-ts/Kleisli';
-
-const parseAndHalfK = K.compose(O.Monad)(half, parseNumber);
+// Kleisli composition helper
+func KleisliCompose[A, B, C any](
+	f func(A) Option[B],
+	g func(B) Option[C],
+) func(A) Option[C] {
+	return func(a A) Option[C] {
+		return f(a).FlatMap(g)
+	}
+}
 ```
 
 ## OOP vs FP Comparison
 
-```typescript
+```go
+package main
+
+import "strings"
+
 // OOP - Method chaining (fluent interface)
-class StringProcessor {
-  constructor(private value: string) {}
+type StringProcessor struct {
+	value string
+}
 
-  trim(): StringProcessor {
-    return new StringProcessor(this.value.trim());
-  }
+func NewStringProcessor(value string) *StringProcessor {
+	return &StringProcessor{value: value}
+}
 
-  toLowerCase(): StringProcessor {
-    return new StringProcessor(this.value.toLowerCase());
-  }
+func (sp *StringProcessor) Trim() *StringProcessor {
+	return &StringProcessor{value: strings.TrimSpace(sp.value)}
+}
 
-  split(sep: string): ArrayProcessor {
-    return new ArrayProcessor(this.value.split(sep));
-  }
+func (sp *StringProcessor) ToLower() *StringProcessor {
+	return &StringProcessor{value: strings.ToLower(sp.value)}
+}
+
+func (sp *StringProcessor) Split(sep string) []string {
+	return strings.Split(sp.value, sep)
 }
 
 // Usage
-new StringProcessor('  Hello World  ')
-  .trim()
-  .toLowerCase()
-  .split(' ');
+func oopExample() {
+	result := NewStringProcessor("  Hello World  ").
+		Trim().
+		ToLower().
+		Split(" ")
+}
 
 // FP - Function composition
-const process = pipe(
-  '  Hello World  ',
-  trim,
-  toLowerCase,
-  split(' ')
-);
+func fpExample() {
+	input := "  Hello World  "
+	
+	result := input
+	result = strings.TrimSpace(result)
+	result = strings.ToLower(result)
+	parts := strings.Split(result, " ")
+}
 ```
 
 ## Recommended Libraries
@@ -314,48 +518,44 @@ const process = pipe(
 
 1. **Long Pipelines**: Hard to debug
 
-   ```typescript
+   ```go
    // BAD - 20 steps, hard to trace errors
-   pipe(data, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, /* ... */);
-
+   result := Pipe10(data, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10)
+   
    // GOOD - Break into named stages
-   const stage1 = pipe(data, f1, f2, f3);
-   const stage2 = pipe(stage1, f4, f5, f6);
+   stage1 := Pipe3(data, f1, f2, f3)
+   stage2 := Pipe3(stage1, f4, f5, f6)
    ```
 
 2. **Impure Functions in Pipeline**: Side effects break reasoning
 
-   ```typescript
+   ```go
    // BAD
-   pipe(
-     users,
-     A.map(u => { console.log(u); return u; }), // Side effect!
-     A.filter(isActive)
-   );
-
-   // GOOD - Use tap for side effects
-   pipe(
-     users,
-     A.map(u => u),
-     tap(users => console.log(users)),
-     A.filter(isActive)
-   );
+   impureMap := func(u User) User {
+   	fmt.Println(u) // Side effect!
+   	return u
+   }
+   
+   // GOOD - Separate concerns
+   users := getUsers()
+   for _, u := range users {
+   	fmt.Println(u) // Explicit side effect
+   }
+   filtered := filter(isActive)(users)
    ```
 
 3. **Type Inference Failure**: Missing type annotations
 
-   ```typescript
-   // BAD - TypeScript can't infer
-   const process = flow(
-     x => x.trim(), // x is unknown
-     toLowerCase
-   );
-
-   // GOOD - Add type annotation
-   const process = flow(
-     (x: string) => x.trim(),
-     toLowerCase
-   );
+   ```go
+   // BAD - Type unclear
+   process := func(x interface{}) interface{} {
+   	return strings.TrimSpace(x.(string))
+   }
+   
+   // GOOD - Use generics with clear types
+   process := func(x string) string {
+   	return strings.TrimSpace(x)
+   }
    ```
 
 ## When to Use

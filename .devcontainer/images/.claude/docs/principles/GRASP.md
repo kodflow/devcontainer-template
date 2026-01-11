@@ -10,39 +10,40 @@ General Responsibility Assignment Software Patterns - Craig Larman.
 
 > Assigner la responsabilité à la classe qui a l'information nécessaire.
 
-```typescript
+```go
 // ❌ MAUVAIS - Logic ailleurs que les données
-class OrderService {
-  calculateTotal(order: Order): number {
-    let total = 0;
-    for (const item of order.items) {
-      total += item.price * item.quantity;
-    }
-    return total;
-  }
+type OrderService struct{}
+
+func (s *OrderService) CalculateTotal(order *Order) float64 {
+	total := 0.0
+	for _, item := range order.Items {
+		total += item.Price * float64(item.Quantity)
+	}
+	return total
 }
 
 // ✅ BON - Order a les données, Order calcule
-class Order {
-  private items: OrderItem[] = [];
-
-  get total(): number {
-    return this.items.reduce(
-      (sum, item) => sum + item.subtotal,
-      0
-    );
-  }
+type Order struct {
+	Items []*OrderItem
 }
 
-class OrderItem {
-  constructor(
-    private price: number,
-    private quantity: number,
-  ) {}
+// Total calculates the order total.
+func (o *Order) Total() float64 {
+	total := 0.0
+	for _, item := range o.Items {
+		total += item.Subtotal()
+	}
+	return total
+}
 
-  get subtotal(): number {
-    return this.price * this.quantity;
-  }
+type OrderItem struct {
+	Price    float64
+	Quantity int
+}
+
+// Subtotal calculates the item subtotal.
+func (i *OrderItem) Subtotal() float64 {
+	return i.Price * float64(i.Quantity)
 }
 ```
 
@@ -59,35 +60,47 @@ class OrderItem {
 > - Utilise étroitement l'objet
 > - A les données d'initialisation
 
-```typescript
+```go
 // ❌ MAUVAIS - Factory externe sans raison
-class OrderItemFactory {
-  create(product: Product, qty: number): OrderItem {
-    return new OrderItem(product, qty);
-  }
+type OrderItemFactory struct{}
+
+func (f *OrderItemFactory) Create(product *Product, qty int) *OrderItem {
+	return &OrderItem{
+		ProductID: product.ID,
+		Price:     product.Price,
+		Quantity:  qty,
+	}
 }
 
 // ✅ BON - Order crée ses OrderItems (il les contient)
-class Order {
-  private items: OrderItem[] = [];
-
-  addItem(product: Product, quantity: number): void {
-    // Order crée OrderItem car il les agrège
-    const item = new OrderItem(product, quantity);
-    this.items.push(item);
-  }
+type Order struct {
+	Items []*OrderItem
 }
 
-// ✅ AUSSI BON - Factory quand création complexe
-class Order {
-  static create(customer: Customer, items: CartItem[]): Order {
-    // Order se crée lui-même avec logique complexe
-    const order = new Order(customer);
-    for (const cartItem of items) {
-      order.addItem(cartItem.product, cartItem.quantity);
-    }
-    return order;
-  }
+// AddItem creates and adds an OrderItem to the order.
+func (o *Order) AddItem(product *Product, quantity int) {
+	// Order crée OrderItem car il les agrège
+	item := &OrderItem{
+		ProductID: product.ID,
+		Price:     product.Price,
+		Quantity:  quantity,
+	}
+	o.Items = append(o.Items, item)
+}
+
+// ✅ AUSSI BON - Factory method quand création complexe
+func NewOrder(customer *Customer, cartItems []*CartItem) (*Order, error) {
+	// Order se crée lui-même avec logique complexe
+	order := &Order{
+		CustomerID: customer.ID,
+		Items:      make([]*OrderItem, 0, len(cartItems)),
+	}
+	
+	for _, cartItem := range cartItems {
+		order.AddItem(cartItem.Product, cartItem.Quantity)
+	}
+	
+	return order, nil
 }
 ```
 
@@ -97,29 +110,64 @@ class Order {
 
 > Premier objet après l'UI qui reçoit et coordonne les opérations système.
 
-```typescript
+```go
 // Façade Controller - Un controller par use case
-class PlaceOrderController {
-  constructor(
-    private orderService: OrderService,
-    private paymentService: PaymentService,
-    private notificationService: NotificationService,
-  ) {}
+type PlaceOrderController struct {
+	orderService        *OrderService
+	paymentService      *PaymentService
+	notificationService *NotificationService
+}
 
-  async execute(request: PlaceOrderRequest): Promise<PlaceOrderResponse> {
-    // Coordonne mais ne contient pas de logique métier
-    const order = await this.orderService.create(request);
-    await this.paymentService.charge(order);
-    await this.notificationService.sendConfirmation(order);
-    return { orderId: order.id };
-  }
+func NewPlaceOrderController(
+	orderService *OrderService,
+	paymentService *PaymentService,
+	notificationService *NotificationService,
+) *PlaceOrderController {
+	return &PlaceOrderController{
+		orderService:        orderService,
+		paymentService:      paymentService,
+		notificationService: notificationService,
+	}
+}
+
+// Execute coordinates the place order use case.
+func (c *PlaceOrderController) Execute(ctx context.Context, req *PlaceOrderRequest) (*PlaceOrderResponse, error) {
+	// Coordonne mais ne contient pas de logique métier
+	order, err := c.orderService.Create(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("creating order: %w", err)
+	}
+	
+	if err := c.paymentService.Charge(ctx, order); err != nil {
+		return nil, fmt.Errorf("charging payment: %w", err)
+	}
+	
+	if err := c.notificationService.SendConfirmation(ctx, order); err != nil {
+		// Log but don't fail
+		fmt.Printf("failed to send confirmation: %v\n", err)
+	}
+	
+	return &PlaceOrderResponse{OrderID: order.ID}, nil
 }
 
 // Use Case Controller - Un controller par agrégat
-class OrderController {
-  async place(req: Request): Promise<Response> { /* ... */ }
-  async cancel(req: Request): Promise<Response> { /* ... */ }
-  async update(req: Request): Promise<Response> { /* ... */ }
+type OrderController struct {
+	service *OrderService
+}
+
+func (c *OrderController) Place(ctx context.Context, req *http.Request) (*http.Response, error) {
+	// ... place order logic
+	return nil, nil
+}
+
+func (c *OrderController) Cancel(ctx context.Context, req *http.Request) (*http.Response, error) {
+	// ... cancel order logic
+	return nil, nil
+}
+
+func (c *OrderController) Update(ctx context.Context, req *http.Request) (*http.Response, error) {
+	// ... update order logic
+	return nil, nil
 }
 ```
 
@@ -131,33 +179,40 @@ class OrderController {
 
 > Minimiser les dépendances entre classes.
 
-```typescript
+```go
 // ❌ MAUVAIS - Couplage fort
-class OrderService {
-  private db = new PostgresDatabase();      // Couplé à Postgres
-  private mailer = new SendGridMailer();    // Couplé à SendGrid
-  private logger = new WinstonLogger();     // Couplé à Winston
+type OrderService struct {
+	db     *PostgresDatabase  // Couplé à Postgres
+	mailer *SendGridMailer    // Couplé à SendGrid
+	logger *WinstonLogger     // Couplé à Winston
 }
 
 // ✅ BON - Couplage faible via interfaces
-interface Database {
-  query(sql: string): Promise<any>;
+type Database interface {
+	Query(ctx context.Context, sql string, args ...interface{}) (*sql.Rows, error)
 }
 
-interface Mailer {
-  send(to: string, subject: string, body: string): Promise<void>;
+type Mailer interface {
+	Send(ctx context.Context, to, subject, body string) error
 }
 
-interface Logger {
-  log(message: string): void;
+type Logger interface {
+	Log(message string)
+	Error(message string)
 }
 
-class OrderService {
-  constructor(
-    private db: Database,        // Couplé à l'interface, pas l'implémentation
-    private mailer: Mailer,
-    private logger: Logger,
-  ) {}
+type OrderService struct {
+	db     Database  // Couplé à l'interface, pas l'implémentation
+	mailer Mailer
+	logger Logger
+}
+
+func NewOrderService(db Database, mailer Mailer, logger Logger) *OrderService {
+	return &OrderService{
+		db:     db,
+		mailer: mailer,
+		logger: logger,
+	}
 }
 ```
 
@@ -173,31 +228,61 @@ class OrderService {
 
 > Une classe fait une chose bien, tous ses membres sont liés.
 
-```typescript
+```go
 // ❌ MAUVAIS - Faible cohésion (fait trop de choses)
-class UserManager {
-  createUser() { /* ... */ }
-  deleteUser() { /* ... */ }
-  sendEmail() { /* ... */ }      // Pas lié aux users
-  generateReport() { /* ... */ }  // Pas lié aux users
-  backupDatabase() { /* ... */ }  // Vraiment pas lié
+type UserManager struct {
+	db *sql.DB
 }
+
+func (m *UserManager) CreateUser(user *User) error        { /* ... */ }
+func (m *UserManager) DeleteUser(id string) error         { /* ... */ }
+func (m *UserManager) SendEmail(to, subject string) error { /* ... */ }      // Pas lié aux users
+func (m *UserManager) GenerateReport() ([]byte, error)    { /* ... */ }  // Pas lié aux users
+func (m *UserManager) BackupDatabase() error              { /* ... */ }  // Vraiment pas lié
 
 // ✅ BON - Haute cohésion (une responsabilité)
-class UserRepository {
-  create(user: User) { /* ... */ }
-  delete(id: string) { /* ... */ }
-  find(id: string) { /* ... */ }
-  findByEmail(email: string) { /* ... */ }
+type UserRepository struct {
+	db *sql.DB
 }
 
-class EmailService {
-  send(to: string, subject: string, body: string) { /* ... */ }
-  sendTemplate(to: string, template: string, data: object) { /* ... */ }
+func (r *UserRepository) Create(ctx context.Context, user *User) error {
+	// ...
+	return nil
 }
 
-class ReportGenerator {
-  generate(type: ReportType, data: ReportData) { /* ... */ }
+func (r *UserRepository) Delete(ctx context.Context, id string) error {
+	// ...
+	return nil
+}
+
+func (r *UserRepository) Find(ctx context.Context, id string) (*User, error) {
+	// ...
+	return nil, nil
+}
+
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	// ...
+	return nil, nil
+}
+
+type EmailService struct {
+	mailer Mailer
+}
+
+func (s *EmailService) Send(ctx context.Context, to, subject, body string) error {
+	return s.mailer.Send(ctx, to, subject, body)
+}
+
+func (s *EmailService) SendTemplate(ctx context.Context, to, template string, data map[string]interface{}) error {
+	// ...
+	return nil
+}
+
+type ReportGenerator struct{}
+
+func (g *ReportGenerator) Generate(reportType string, data interface{}) ([]byte, error) {
+	// ...
+	return nil, nil
 }
 ```
 
@@ -209,51 +294,61 @@ class ReportGenerator {
 
 > Utiliser le polymorphisme plutôt que les conditions sur le type.
 
-```typescript
+```go
 // ❌ MAUVAIS - Switch sur le type
-class PaymentProcessor {
-  process(payment: Payment) {
-    switch (payment.type) {
-      case 'credit_card':
-        return this.processCreditCard(payment);
-      case 'paypal':
-        return this.processPaypal(payment);
-      case 'crypto':
-        return this.processCrypto(payment);
-      default:
-        throw new Error('Unknown payment type');
-    }
-  }
+type PaymentProcessor struct{}
+
+func (p *PaymentProcessor) Process(payment *Payment) error {
+	switch payment.Type {
+	case "credit_card":
+		return p.processCreditCard(payment)
+	case "paypal":
+		return p.processPaypal(payment)
+	case "crypto":
+		return p.processCrypto(payment)
+	default:
+		return errors.New("unknown payment type")
+	}
 }
 
 // ✅ BON - Polymorphisme
-interface PaymentMethod {
-  process(amount: Money): Promise<PaymentResult>;
+type PaymentMethod interface {
+	Process(ctx context.Context, amount float64) (*PaymentResult, error)
 }
 
-class CreditCardPayment implements PaymentMethod {
-  async process(amount: Money) {
-    // Logique carte de crédit
-  }
+type CreditCardPayment struct {
+	CardNumber string
+	CVV        string
 }
 
-class PaypalPayment implements PaymentMethod {
-  async process(amount: Money) {
-    // Logique PayPal
-  }
+func (c *CreditCardPayment) Process(ctx context.Context, amount float64) (*PaymentResult, error) {
+	// Logique carte de crédit
+	return &PaymentResult{Success: true}, nil
 }
 
-class CryptoPayment implements PaymentMethod {
-  async process(amount: Money) {
-    // Logique crypto
-  }
+type PaypalPayment struct {
+	Email string
+}
+
+func (p *PaypalPayment) Process(ctx context.Context, amount float64) (*PaymentResult, error) {
+	// Logique PayPal
+	return &PaymentResult{Success: true}, nil
+}
+
+type CryptoPayment struct {
+	WalletAddress string
+}
+
+func (c *CryptoPayment) Process(ctx context.Context, amount float64) (*PaymentResult, error) {
+	// Logique crypto
+	return &PaymentResult{Success: true}, nil
 }
 
 // Usage - pas de switch
-class PaymentProcessor {
-  async process(method: PaymentMethod, amount: Money) {
-    return method.process(amount);
-  }
+type PaymentProcessor struct{}
+
+func (p *PaymentProcessor) ProcessPayment(ctx context.Context, method PaymentMethod, amount float64) (*PaymentResult, error) {
+	return method.Process(ctx, amount)
 }
 ```
 
@@ -263,29 +358,55 @@ class PaymentProcessor {
 
 > Créer une classe artificielle pour maintenir cohésion et couplage.
 
-```typescript
+```go
 // Problème: où mettre la persistence des Orders?
 // - Order? Non, violerait cohésion (logique métier + DB)
 // - Database? Non, trop générique
 
-// ✅ Pure Fabrication - Classe artificielle
-class OrderRepository {
-  constructor(private db: Database) {}
+// ✅ Pure Fabrication - Struct artificielle
+type OrderRepository struct {
+	db Database
+}
 
-  async save(order: Order): Promise<void> {
-    await this.db.query(
-      'INSERT INTO orders ...',
-      this.toRow(order)
-    );
-  }
+func NewOrderRepository(db Database) *OrderRepository {
+	return &OrderRepository{db: db}
+}
 
-  async findById(id: OrderId): Promise<Order | null> {
-    const row = await this.db.query('SELECT * FROM orders WHERE id = ?', [id]);
-    return row ? this.toDomain(row) : null;
-  }
+// Save persists an order to the database.
+func (r *OrderRepository) Save(ctx context.Context, order *Order) error {
+	row := r.toRow(order)
+	_, err := r.db.Query(ctx, "INSERT INTO orders (id, customer_id, total) VALUES ($1, $2, $3)",
+		row["id"], row["customer_id"], row["total"])
+	return err
+}
 
-  private toRow(order: Order) { /* mapping */ }
-  private toDomain(row: any): Order { /* mapping */ }
+// FindByID retrieves an order by ID.
+func (r *OrderRepository) FindByID(ctx context.Context, id string) (*Order, error) {
+	rows, err := r.db.Query(ctx, "SELECT id, customer_id, total FROM orders WHERE id = $1", id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	if !rows.Next() {
+		return nil, nil
+	}
+	
+	return r.toDomain(rows)
+}
+
+func (r *OrderRepository) toRow(order *Order) map[string]interface{} {
+	return map[string]interface{}{
+		"id":          order.ID,
+		"customer_id": order.CustomerID,
+		"total":       order.Total(),
+	}
+}
+
+func (r *OrderRepository) toDomain(rows *sql.Rows) (*Order, error) {
+	var order Order
+	err := rows.Scan(&order.ID, &order.CustomerID)
+	return &order, err
 }
 
 // Autres Pure Fabrications communes:
@@ -295,7 +416,7 @@ class OrderRepository {
 // - Adapters (EmailAdapter)
 ```
 
-**Règle :** Si aucune classe existante ne convient, en créer une.
+**Règle :** Si aucune struct existante ne convient, en créer une.
 
 ---
 
@@ -303,35 +424,46 @@ class OrderRepository {
 
 > Ajouter un intermédiaire pour découpler.
 
-```typescript
+```go
 // ❌ Couplage direct
-class OrderService {
-  constructor(private taxApi: TaxJarAPI) {}  // Couplé à TaxJar
+type TaxJarAPI struct{}
 
-  calculateTax(order: Order) {
-    return this.taxApi.calculate(order.total, order.state);
-  }
+func (api *TaxJarAPI) Calculate(amount float64, state string) (float64, error) {
+	// TaxJar-specific API call
+	return 0, nil
+}
+
+type OrderService struct {
+	taxApi *TaxJarAPI // Couplé à TaxJar
+}
+
+func (s *OrderService) CalculateTax(order *Order) (float64, error) {
+	return s.taxApi.Calculate(order.Total(), order.State)
 }
 
 // ✅ Indirection via interface
-interface TaxCalculator {
-  calculate(amount: number, state: string): Promise<number>;
+type TaxCalculator interface {
+	Calculate(ctx context.Context, amount float64, state string) (float64, error)
 }
 
-class TaxJarAdapter implements TaxCalculator {
-  constructor(private api: TaxJarAPI) {}
-
-  async calculate(amount: number, state: string): Promise<number> {
-    return this.api.calculate(amount, state);
-  }
+type TaxJarAdapter struct {
+	api *TaxJarAPI
 }
 
-class OrderService {
-  constructor(private taxCalculator: TaxCalculator) {}
+func (a *TaxJarAdapter) Calculate(ctx context.Context, amount float64, state string) (float64, error) {
+	return a.api.Calculate(amount, state)
+}
 
-  async calculateTax(order: Order) {
-    return this.taxCalculator.calculate(order.total, order.state);
-  }
+type OrderService struct {
+	taxCalculator TaxCalculator // Découplé
+}
+
+func NewOrderService(taxCalculator TaxCalculator) *OrderService {
+	return &OrderService{taxCalculator: taxCalculator}
+}
+
+func (s *OrderService) CalculateTax(ctx context.Context, order *Order) (float64, error) {
+	return s.taxCalculator.Calculate(ctx, order.Total(), order.State)
 }
 ```
 
@@ -348,80 +480,97 @@ class OrderService {
 
 > Protéger les éléments des variations d'autres éléments.
 
-```typescript
-// Le problème: le code qui utilise PaymentProcessor
+```go
+// Le problème: le code qui utilise PaymentGateway
 // ne devrait pas être affecté si on ajoute un nouveau type de paiement
 
 // ✅ Protected Variations via interface stable
-interface PaymentGateway {
-  charge(amount: Money, method: PaymentMethod): Promise<Transaction>;
-  refund(transactionId: string): Promise<void>;
+type PaymentGateway interface {
+	Charge(ctx context.Context, amount float64, method PaymentMethod) (*Transaction, error)
+	Refund(ctx context.Context, transactionID string) error
 }
 
 // Les variations sont encapsulées dans les implémentations
-class StripeGateway implements PaymentGateway {
-  async charge(amount: Money, method: PaymentMethod) {
-    // Stripe-specific implementation
-  }
-  async refund(transactionId: string) {
-    // Stripe-specific implementation
-  }
+type StripeGateway struct {
+	apiKey string
 }
 
-class PayPalGateway implements PaymentGateway {
-  async charge(amount: Money, method: PaymentMethod) {
-    // PayPal-specific implementation
-  }
-  async refund(transactionId: string) {
-    // PayPal-specific implementation
-  }
+func (g *StripeGateway) Charge(ctx context.Context, amount float64, method PaymentMethod) (*Transaction, error) {
+	// Stripe-specific implementation
+	return &Transaction{ID: "stripe-123"}, nil
+}
+
+func (g *StripeGateway) Refund(ctx context.Context, transactionID string) error {
+	// Stripe-specific implementation
+	return nil
+}
+
+type PayPalGateway struct {
+	clientID string
+}
+
+func (g *PayPalGateway) Charge(ctx context.Context, amount float64, method PaymentMethod) (*Transaction, error) {
+	// PayPal-specific implementation
+	return &Transaction{ID: "paypal-456"}, nil
+}
+
+func (g *PayPalGateway) Refund(ctx context.Context, transactionID string) error {
+	// PayPal-specific implementation
+	return nil
 }
 
 // Le code client est protégé des variations
-class CheckoutService {
-  constructor(private gateway: PaymentGateway) {}
+type CheckoutService struct {
+	gateway PaymentGateway
+}
 
-  async checkout(cart: Cart) {
-    // Ne sait pas et ne se soucie pas de l'implémentation
-    const transaction = await this.gateway.charge(cart.total, cart.paymentMethod);
-    return transaction;
-  }
+func NewCheckoutService(gateway PaymentGateway) *CheckoutService {
+	return &CheckoutService{gateway: gateway}
+}
+
+func (s *CheckoutService) Checkout(ctx context.Context, cart *Cart) (*Transaction, error) {
+	// Ne sait pas et ne se soucie pas de l'implémentation
+	transaction, err := s.gateway.Charge(ctx, cart.Total, cart.PaymentMethod)
+	if err != nil {
+		return nil, fmt.Errorf("charging payment: %w", err)
+	}
+	return transaction, nil
 }
 ```
 
 **Points de variation protégés :**
 
-```typescript
+```go
 // 1. Data source variations
-interface Repository<T> {
-  find(id: string): Promise<T | null>;
-  save(entity: T): Promise<void>;
+type Repository[T any] interface {
+	Find(ctx context.Context, id string) (*T, error)
+	Save(ctx context.Context, entity *T) error
 }
 // Implémentations: PostgresRepository, MongoRepository, InMemoryRepository
 
 // 2. External service variations
-interface NotificationService {
-  send(notification: Notification): Promise<void>;
+type NotificationService interface {
+	Send(ctx context.Context, notification *Notification) error
 }
 // Implémentations: EmailNotification, SMSNotification, PushNotification
 
 // 3. Algorithm variations
-interface PricingStrategy {
-  calculate(basePrice: Money, context: PricingContext): Money;
+type PricingStrategy interface {
+	Calculate(basePrice float64, context *PricingContext) float64
 }
 // Implémentations: RegularPricing, DiscountPricing, MemberPricing
 
 // 4. Platform variations
-interface FileStorage {
-  upload(file: Buffer, path: string): Promise<string>;
-  download(path: string): Promise<Buffer>;
+type FileStorage interface {
+	Upload(ctx context.Context, file []byte, path string) (string, error)
+	Download(ctx context.Context, path string) ([]byte, error)
 }
 // Implémentations: LocalStorage, S3Storage, GCSStorage
 ```
 
 **Techniques :**
 
-- Interfaces / Abstract classes
+- Interfaces
 - Dependency Injection
 - Configuration externe
 - Plugins / Extensions
@@ -436,9 +585,9 @@ interface FileStorage {
 | Creator | Qui doit créer X ? | Celui qui contient/utilise X |
 | Controller | Qui reçoit les requêtes ? | Un coordinateur dédié |
 | Low Coupling | Comment réduire les dépendances ? | Interfaces, DI |
-| High Cohesion | Comment garder focus ? | Une responsabilité par classe |
+| High Cohesion | Comment garder focus ? | Une responsabilité par struct |
 | Polymorphism | Comment éviter les switch sur type ? | Interfaces + implémentations |
-| Pure Fabrication | Où mettre la logique orpheline ? | Créer une classe dédiée |
+| Pure Fabrication | Où mettre la logique orpheline ? | Créer une struct dédiée |
 | Indirection | Comment découpler A de B ? | Ajouter un intermédiaire |
 | Protected Variations | Comment isoler des changements ? | Interfaces stables |
 

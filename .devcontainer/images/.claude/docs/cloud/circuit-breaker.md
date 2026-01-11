@@ -31,78 +31,110 @@
 | **OPEN** | Requêtes échouent immédiatement (fail fast). |
 | **HALF-OPEN** | Permet quelques requêtes test. |
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-class CircuitBreaker {
-  private state: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED';
-  private failures = 0;
-  private lastFailure: Date | null = null;
+```go
+package circuitbreaker
 
-  constructor(
-    private readonly threshold = 5,
-    private readonly timeout = 30000, // 30s
-  ) {}
+import (
+	"errors"
+	"sync"
+	"time"
+)
 
-  async call<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.state === 'OPEN') {
-      if (Date.now() - this.lastFailure!.getTime() > this.timeout) {
-        this.state = 'HALF_OPEN';
-      } else {
-        throw new CircuitOpenError();
-      }
-    }
+// State represents the circuit breaker state.
+type State string
 
-    try {
-      const result = await fn();
-      this.onSuccess();
-      return result;
-    } catch (error) {
-      this.onFailure();
-      throw error;
-    }
-  }
+const (
+	StateClosed   State = "CLOSED"
+	StateOpen     State = "OPEN"
+	StateHalfOpen State = "HALF_OPEN"
+)
 
-  private onSuccess() {
-    this.failures = 0;
-    this.state = 'CLOSED';
-  }
+// CircuitOpenError is returned when circuit is open.
+var CircuitOpenError = errors.New("circuit breaker is open")
 
-  private onFailure() {
-    this.failures++;
-    this.lastFailure = new Date();
+// CircuitBreaker implements the circuit breaker pattern.
+type CircuitBreaker struct {
+	mu            sync.RWMutex
+	state         State
+	failures      int
+	lastFailure   time.Time
+	threshold     int
+	timeout       time.Duration
+}
 
-    if (this.failures >= this.threshold) {
-      this.state = 'OPEN';
-    }
-  }
+// NewCircuitBreaker creates a new CircuitBreaker.
+func NewCircuitBreaker(threshold int, timeout time.Duration) *CircuitBreaker {
+	return &CircuitBreaker{
+		state:     StateClosed,
+		threshold: threshold,
+		timeout:   timeout,
+	}
+}
+
+// Call executes the function with circuit breaker protection.
+func (cb *CircuitBreaker) Call(fn func() error) error {
+	cb.mu.RLock()
+	state := cb.state
+	lastFailure := cb.lastFailure
+	cb.mu.RUnlock()
+
+	if state == StateOpen {
+		if time.Since(lastFailure) > cb.timeout {
+			cb.mu.Lock()
+			cb.state = StateHalfOpen
+			cb.mu.Unlock()
+		} else {
+			return CircuitOpenError
+		}
+	}
+
+	err := fn()
+	if err != nil {
+		cb.onFailure()
+		return err
+	}
+
+	cb.onSuccess()
+	return nil
+}
+
+func (cb *CircuitBreaker) onSuccess() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	cb.failures = 0
+	cb.state = StateClosed
+}
+
+func (cb *CircuitBreaker) onFailure() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	cb.failures++
+	cb.lastFailure = time.Now()
+
+	if cb.failures >= cb.threshold {
+		cb.state = StateOpen
+	}
+}
+
+// State returns the current circuit breaker state.
+func (cb *CircuitBreaker) State() State {
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	return cb.state
 }
 ```
 
 ## Usage
 
-```typescript
-const breaker = new CircuitBreaker(5, 30000);
-
-async function callExternalService(id: string) {
-  return breaker.call(async () => {
-    const response = await fetch(`https://api.example.com/users/${id}`);
-    if (!response.ok) throw new Error('Service unavailable');
-    return response.json();
-  });
-}
-
-// Utilisation avec fallback
-async function getUser(id: string) {
-  try {
-    return await callExternalService(id);
-  } catch (error) {
-    if (error instanceof CircuitOpenError) {
-      return getCachedUser(id); // Fallback
-    }
-    throw error;
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Configuration recommandée

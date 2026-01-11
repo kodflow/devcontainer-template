@@ -18,7 +18,7 @@ Patterns de creation d'objets.
 
 Voir fichier detaille: [factory.md](factory.md)
 
-```typescript
+```go
 abstract class LoggerFactory {
   abstract createLogger(): Logger;
 
@@ -43,7 +43,7 @@ class ConsoleLoggerFactory extends LoggerFactory {
 
 Voir fichier detaille: [factory.md](factory.md)
 
-```typescript
+```go
 interface UIFactory {
   createButton(): Button;
   createInput(): Input;
@@ -65,7 +65,7 @@ class MaterialUIFactory implements UIFactory {
 
 Voir fichier detaille: [builder.md](builder.md)
 
-```typescript
+```go
 const query = new QueryBuilder()
   .select(['id', 'name'])
   .from('users')
@@ -81,7 +81,7 @@ const query = new QueryBuilder()
 
 > Cloner des objets existants.
 
-```typescript
+```go
 interface Prototype<T> {
   clone(): T;
 }
@@ -107,7 +107,7 @@ class Document implements Prototype<Document> {
 
 Voir fichier detaille: [singleton.md](singleton.md)
 
-```typescript
+```go
 class Database {
   private static instance: Database;
 

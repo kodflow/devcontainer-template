@@ -18,70 +18,92 @@
 
 ### Code
 
-```typescript
+```go
 // ❌ WET (Write Everything Twice)
-function validateEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+func validateEmail(email string) bool {
+	matched, _ := regexp.MatchString(`^[^\s@]+@[^\s@]+\.[^\s@]+$`, email)
+	return matched
 }
 
-function validateUserEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); // Dupliqué
+func validateUserEmail(email string) bool {
+	matched, _ := regexp.MatchString(`^[^\s@]+@[^\s@]+\.[^\s@]+$`, email) // Dupliqué
+	return matched
 }
 
 // ✅ DRY
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+var emailRegex = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
 
-function validateEmail(email: string) {
-  return EMAIL_REGEX.test(email);
+func validateEmail(email string) bool {
+	return emailRegex.MatchString(email)
 }
 ```
 
 ### Configuration
 
-```yaml
-# ❌ WET
-development:
-  database_host: localhost
-  database_port: 5432
-  database_name: myapp_dev
+```go
+// ❌ WET
+type Config struct {
+	Development EnvironmentConfig
+	Staging     EnvironmentConfig
+}
 
-staging:
-  database_host: staging.example.com
-  database_port: 5432  # Dupliqué
-  database_name: myapp_staging
+type EnvironmentConfig struct {
+	DatabaseHost string
+	DatabasePort int  // Dupliqué partout
+	DatabaseName string
+}
 
-# ✅ DRY
-defaults:
-  database_port: 5432
+var config = Config{
+	Development: EnvironmentConfig{
+		DatabaseHost: "localhost",
+		DatabasePort: 5432,
+		DatabaseName: "myapp_dev",
+	},
+	Staging: EnvironmentConfig{
+		DatabaseHost: "staging.example.com",
+		DatabasePort: 5432, // Dupliqué
+		DatabaseName: "myapp_staging",
+	},
+}
 
-development:
-  database_host: localhost
-  database_name: myapp_dev
+// ✅ DRY
+const DefaultDatabasePort = 5432
 
-staging:
-  database_host: staging.example.com
-  database_name: myapp_staging
+type EnvironmentConfig struct {
+	DatabaseHost string
+	DatabasePort int
+	DatabaseName string
+}
+
+func NewEnvironmentConfig(host, name string) EnvironmentConfig {
+	return EnvironmentConfig{
+		DatabaseHost: host,
+		DatabasePort: DefaultDatabasePort,
+		DatabaseName: name,
+	}
+}
+
+var config = Config{
+	Development: NewEnvironmentConfig("localhost", "myapp_dev"),
+	Staging:     NewEnvironmentConfig("staging.example.com", "myapp_staging"),
+}
 ```
 
 ### Documentation
 
-```typescript
+```go
 // ❌ WET - Doc et code désynchronisés
-/**
- * Calculates the total price with 20% tax
- */
-function calculateTotal(price: number) {
-  return price * 1.15; // Bug: doc dit 20%, code fait 15%
+// CalculateTotal calculates the total price with 20% tax
+func CalculateTotal(price float64) float64 {
+	return price * 1.15 // Bug: doc dit 20%, code fait 15%
 }
 
 // ✅ DRY - Single source of truth
-const TAX_RATE = 0.20;
+const TaxRate = 0.20
 
-/**
- * Calculates the total price with tax
- */
-function calculateTotal(price: number) {
-  return price * (1 + TAX_RATE);
+// CalculateTotal calculates the total price with tax.
+func CalculateTotal(price float64) float64 {
+	return price * (1 + TaxRate)
 }
 ```
 
@@ -89,17 +111,39 @@ function calculateTotal(price: number) {
 
 ### Couplage accidentel
 
-```typescript
+```go
 // ❌ Mauvaise abstraction DRY
-function processEntity(entity: User | Product | Order) {
-  // Logic très différente selon le type
-  // → Mieux vaut 3 fonctions séparées
+func processEntity(entity interface{}) error {
+	// Logic très différente selon le type
+	// → Mieux vaut 3 fonctions séparées
+	switch e := entity.(type) {
+	case *User:
+		// ...
+	case *Product:
+		// ...
+	case *Order:
+		// ...
+	default:
+		return errors.New("unknown entity type")
+	}
+	return nil
 }
 
 // ✅ Duplication acceptable
-function processUser(user: User) { /* ... */ }
-function processProduct(product: Product) { /* ... */ }
-function processOrder(order: Order) { /* ... */ }
+func processUser(user *User) error {
+	// User-specific logic
+	return nil
+}
+
+func processProduct(product *Product) error {
+	// Product-specific logic
+	return nil
+}
+
+func processOrder(order *Order) error {
+	// Order-specific logic
+	return nil
+}
 ```
 
 ### Règle des 3

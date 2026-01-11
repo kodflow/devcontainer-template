@@ -32,102 +32,143 @@ Patterns pour limiter la frequence d'execution de fonctions.
 
 > Attendre que l'utilisateur arrete d'agir avant d'executer.
 
-```typescript
-function debounce<TArgs extends unknown[]>(
-  fn: (...args: TArgs) => void,
-  delay: number,
-): (...args: TArgs) => void {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+```go
+package debounce
 
-  return (...args: TArgs): void => {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
+import (
+	"sync"
+	"time"
+)
 
-    timeoutId = setTimeout(() => {
-      fn(...args);
-      timeoutId = null;
-    }, delay);
-  };
+// Debouncer delays function execution until after delay.
+type Debouncer struct {
+	delay time.Duration
+	timer *time.Timer
+	mu    sync.Mutex
 }
 
-// Usage - Recherche
-const searchInput = document.querySelector<HTMLInputElement>('#search');
-const debouncedSearch = debounce((query: string) => {
-  console.log(`Searching: ${query}`);
-  api.search(query);
-}, 300);
+// New creates a new debouncer with given delay.
+func New(delay time.Duration) *Debouncer {
+	return &Debouncer{
+		delay: delay,
+	}
+}
 
-searchInput?.addEventListener('input', (e) => {
-  debouncedSearch((e.target as HTMLInputElement).value);
-});
+// Debounce schedules fn to execute after delay of inactivity.
+func (d *Debouncer) Debounce(fn func()) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.timer != nil {
+		d.timer.Stop()
+	}
+
+	d.timer = time.AfterFunc(d.delay, fn)
+}
+
+// Cancel cancels any pending execution.
+func (d *Debouncer) Cancel() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.timer != nil {
+		d.timer.Stop()
+		d.timer = nil
+	}
+}
+
+// Usage
+// debouncer := debounce.New(300 * time.Millisecond)
+// 
+// for event := range events {
+//     debouncer.Debounce(func() {
+//         search(event.Query)
+//     })
+// }
 ```
 
 ### Debounce avec options
 
-```typescript
-interface DebounceOptions {
-  leading?: boolean;  // Executer au debut
-  trailing?: boolean; // Executer a la fin
-  maxWait?: number;   // Delai max avant execution forcee
+```go
+package debounce
+
+import (
+	"sync"
+	"time"
+)
+
+// Options configure debounce behavior.
+type Options struct {
+	Leading  bool          // Execute at start
+	Trailing bool          // Execute at end
+	MaxWait  time.Duration // Force execution after max wait
 }
 
-function debounceAdvanced<TArgs extends unknown[]>(
-  fn: (...args: TArgs) => void,
-  delay: number,
-  options: DebounceOptions = {},
-): (...args: TArgs) => void {
-  const { leading = false, trailing = true, maxWait } = options;
+// Advanced is a debouncer with advanced options.
+type Advanced struct {
+	delay       time.Duration
+	opts        Options
+	timer       *time.Timer
+	maxTimer    *time.Timer
+	lastCallTime time.Time
+	mu          sync.Mutex
+}
 
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  let maxWaitId: ReturnType<typeof setTimeout> | null = null;
-  let lastArgs: TArgs | null = null;
-  let lastCallTime = 0;
+// NewAdvanced creates a new advanced debouncer.
+func NewAdvanced(delay time.Duration, opts Options) *Advanced {
+	if !opts.Leading && !opts.Trailing {
+		opts.Trailing = true
+	}
+	return &Advanced{
+		delay: delay,
+		opts:  opts,
+	}
+}
 
-  const invoke = () => {
-    if (lastArgs) {
-      fn(...lastArgs);
-      lastArgs = null;
-    }
-  };
+// Debounce schedules fn execution with options.
+func (d *Advanced) Debounce(fn func()) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-  const clearTimers = () => {
-    if (timeoutId) clearTimeout(timeoutId);
-    if (maxWaitId) clearTimeout(maxWaitId);
-    timeoutId = null;
-    maxWaitId = null;
-  };
+	now := time.Now()
+	isFirstCall := d.lastCallTime.IsZero()
+	d.lastCallTime = now
 
-  return (...args: TArgs): void => {
-    const now = Date.now();
-    const isFirstCall = lastCallTime === 0;
-    lastCallTime = now;
-    lastArgs = args;
+	// Leading edge
+	if d.opts.Leading && isFirstCall {
+		fn()
+	}
 
-    // Leading edge
-    if (leading && isFirstCall) {
-      invoke();
-    }
+	// Cancel existing timers
+	if d.timer != nil {
+		d.timer.Stop()
+	}
+	if d.maxTimer != nil {
+		d.maxTimer.Stop()
+		d.maxTimer = nil
+	}
 
-    clearTimers();
+	// Trailing edge
+	if d.opts.Trailing {
+		d.timer = time.AfterFunc(d.delay, func() {
+			d.mu.Lock()
+			fn()
+			d.lastCallTime = time.Time{}
+			d.mu.Unlock()
+		})
+	}
 
-    // Trailing edge
-    if (trailing) {
-      timeoutId = setTimeout(() => {
-        invoke();
-        lastCallTime = 0;
-        clearTimers();
-      }, delay);
-    }
-
-    // Max wait
-    if (maxWait && !maxWaitId) {
-      maxWaitId = setTimeout(() => {
-        invoke();
-        clearTimers();
-      }, maxWait);
-    }
-  };
+	// Max wait
+	if d.opts.MaxWait > 0 && d.maxTimer == nil {
+		d.maxTimer = time.AfterFunc(d.opts.MaxWait, func() {
+			d.mu.Lock()
+			defer d.mu.Unlock()
+			if d.timer != nil {
+				d.timer.Stop()
+			}
+			fn()
+		})
+	}
 }
 ```
 
@@ -137,95 +178,142 @@ function debounceAdvanced<TArgs extends unknown[]>(
 
 > Limiter a une execution par intervalle de temps.
 
-```typescript
-function throttle<TArgs extends unknown[]>(
-  fn: (...args: TArgs) => void,
-  limit: number,
-): (...args: TArgs) => void {
-  let lastRun = 0;
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  let lastArgs: TArgs | null = null;
+```go
+package throttle
 
-  return (...args: TArgs): void => {
-    const now = Date.now();
+import (
+	"sync"
+	"time"
+)
 
-    if (now - lastRun >= limit) {
-      // Executer immediatement
-      fn(...args);
-      lastRun = now;
-    } else {
-      // Programmer pour plus tard
-      lastArgs = args;
-
-      if (!timeoutId) {
-        timeoutId = setTimeout(() => {
-          if (lastArgs) {
-            fn(...lastArgs);
-            lastRun = Date.now();
-            lastArgs = null;
-          }
-          timeoutId = null;
-        }, limit - (now - lastRun));
-      }
-    }
-  };
+// Throttler limits function execution rate.
+type Throttler struct {
+	limit    time.Duration
+	lastRun  time.Time
+	timer    *time.Timer
+	pending  func()
+	mu       sync.Mutex
 }
 
-// Usage - Scroll
-const throttledScroll = throttle(() => {
-  const scrollY = window.scrollY;
-  updateNavbar(scrollY);
-  loadMoreIfNeeded(scrollY);
-}, 100);
+// New creates a new throttler with given limit.
+func New(limit time.Duration) *Throttler {
+	return &Throttler{
+		limit: limit,
+	}
+}
 
-window.addEventListener('scroll', throttledScroll);
+// Throttle executes fn at most once per limit period.
+func (t *Throttler) Throttle(fn func()) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	now := time.Now()
+
+	if now.Sub(t.lastRun) >= t.limit {
+		// Execute immediately
+		fn()
+		t.lastRun = now
+		return
+	}
+
+	// Schedule for later
+	t.pending = fn
+
+	if t.timer == nil {
+		remaining := t.limit - now.Sub(t.lastRun)
+		t.timer = time.AfterFunc(remaining, func() {
+			t.mu.Lock()
+			defer t.mu.Unlock()
+
+			if t.pending != nil {
+				t.pending()
+				t.lastRun = time.Now()
+				t.pending = nil
+			}
+			t.timer = nil
+		})
+	}
+}
+
+// Usage
+// throttler := throttle.New(100 * time.Millisecond)
+//
+// window.OnScroll(func() {
+//     throttler.Throttle(func() {
+//         updateNavbar()
+//         loadMoreIfNeeded()
+//     })
+// })
 ```
 
 ### Throttle avec options
 
-```typescript
-interface ThrottleOptions {
-  leading?: boolean;
-  trailing?: boolean;
+```go
+package throttle
+
+import (
+	"sync"
+	"time"
+)
+
+// Options configure throttle behavior.
+type Options struct {
+	Leading  bool // Execute at start of period
+	Trailing bool // Execute at end of period
 }
 
-function throttleAdvanced<TArgs extends unknown[]>(
-  fn: (...args: TArgs) => void,
-  limit: number,
-  options: ThrottleOptions = {},
-): (...args: TArgs) => void {
-  const { leading = true, trailing = true } = options;
+// Advanced is a throttler with advanced options.
+type Advanced struct {
+	limit    time.Duration
+	opts     Options
+	lastRun  time.Time
+	timer    *time.Timer
+	pending  func()
+	mu       sync.Mutex
+}
 
-  let lastRun = 0;
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  let lastArgs: TArgs | null = null;
+// NewAdvanced creates a new advanced throttler.
+func NewAdvanced(limit time.Duration, opts Options) *Advanced {
+	if !opts.Leading && !opts.Trailing {
+		opts.Leading = true
+	}
+	return &Advanced{
+		limit: limit,
+		opts:  opts,
+	}
+}
 
-  const invoke = (args: TArgs) => {
-    fn(...args);
-    lastRun = Date.now();
-  };
+// Throttle executes fn according to options.
+func (t *Advanced) Throttle(fn func()) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
-  return (...args: TArgs): void => {
-    const now = Date.now();
-    const remaining = limit - (now - lastRun);
+	now := time.Now()
+	remaining := t.limit - now.Sub(t.lastRun)
 
-    lastArgs = args;
+	t.pending = fn
 
-    if (remaining <= 0 || remaining > limit) {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
-      }
-      if (leading) {
-        invoke(args);
-      }
-    } else if (!timeoutId && trailing) {
-      timeoutId = setTimeout(() => {
-        invoke(lastArgs!);
-        timeoutId = null;
-      }, remaining);
-    }
-  };
+	if remaining <= 0 || remaining > t.limit {
+		if t.timer != nil {
+			t.timer.Stop()
+			t.timer = nil
+		}
+		if t.opts.Leading {
+			fn()
+			t.lastRun = now
+		}
+	} else if t.timer == nil && t.opts.Trailing {
+		t.timer = time.AfterFunc(remaining, func() {
+			t.mu.Lock()
+			defer t.mu.Unlock()
+
+			if t.pending != nil {
+				t.pending()
+				t.lastRun = time.Now()
+			}
+			t.timer = nil
+		})
+	}
 }
 ```
 
@@ -251,42 +339,61 @@ Throttle (300ms):
 
 ### Cas d'usage Debounce
 
-```typescript
-// Validation de formulaire
-const validateEmail = debounce((email: string) => {
-  api.checkEmailAvailable(email).then(setIsAvailable);
-}, 500);
+```go
+package examples
 
-// Resize window
-const handleResize = debounce(() => {
-  recalculateLayout();
-}, 250);
+import (
+	"time"
+)
+
+// Validation de formulaire
+func validateEmailDebounced(email string) {
+	debouncer := debounce.New(500 * time.Millisecond)
+	debouncer.Debounce(func() {
+		checkEmailAvailable(email)
+	})
+}
 
 // Auto-save
-const autoSave = debounce((content: string) => {
-  api.saveDraft(content);
-}, 1000);
+func autoSave(content string) {
+	saver := debounce.New(1 * time.Second)
+	saver.Debounce(func() {
+		saveDraft(content)
+	})
+}
+
+func checkEmailAvailable(email string) {}
+func saveDraft(content string)         {}
 ```
 
 ### Cas d'usage Throttle
 
-```typescript
+```go
+package examples
+
+import "time"
+
 // Scroll infini
-const loadMore = throttle(() => {
-  if (isNearBottom()) {
-    fetchNextPage();
-  }
-}, 200);
+func loadMoreThrottled() {
+	throttler := throttle.New(200 * time.Millisecond)
+	throttler.Throttle(func() {
+		if isNearBottom() {
+			fetchNextPage()
+		}
+	})
+}
 
-// Mouse move pour tooltip
-const updateTooltip = throttle((x: number, y: number) => {
-  tooltip.setPosition(x, y);
-}, 16); // ~60fps
+// Analytics (60fps = ~16ms)
+func trackScrollThrottled(depth int) {
+	tracker := throttle.New(16 * time.Millisecond)
+	tracker.Throttle(func() {
+		trackEvent("scroll", depth)
+	})
+}
 
-// Analytics
-const trackScroll = throttle((depth: number) => {
-  analytics.track('scroll', { depth });
-}, 1000);
+func isNearBottom() bool       { return false }
+func fetchNextPage()           {}
+func trackEvent(s string, i int) {}
 ```
 
 ---

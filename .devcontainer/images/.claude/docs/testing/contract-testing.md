@@ -22,196 +22,254 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Consumer Test (Pact)
+## Consumer Test (pact-go)
 
-```typescript
-import { Pact, Matchers } from '@pact-foundation/pact';
-import path from 'path';
+```go
+package consumer_test
 
-const { like, eachLike, term } = Matchers;
+import (
+	"fmt"
+	"net/http"
+	"testing"
 
-describe('User API Consumer', () => {
-  const provider = new Pact({
-    consumer: 'OrderService',
-    provider: 'UserService',
-    port: 1234,
-    log: path.resolve(__dirname, 'logs', 'pact.log'),
-    dir: path.resolve(__dirname, 'pacts'),
-    logLevel: 'warn',
-  });
+	"github.com/pact-foundation/pact-go/v2/consumer"
+	"github.com/pact-foundation/pact-go/v2/matchers"
+)
 
-  beforeAll(() => provider.setup());
-  afterAll(() => provider.finalize());
-  afterEach(() => provider.verify());
+func TestUserAPIConsumer(t *testing.T) {
+	// Create Pact
+	pact, err := consumer.NewV2Pact(consumer.MockHTTPProviderConfig{
+		Consumer: "OrderService",
+		Provider: "UserService",
+		Host:     "127.0.0.1",
+		Port:     1234,
+	})
+	if err != nil {
+		t.Fatalf("failed to create pact: %v", err)
+	}
 
-  describe('GET /users/:id', () => {
-    const expectedUser = {
-      id: '123',
-      name: 'John Doe',
-      email: 'john@example.com',
-      role: 'member',
-    };
+	// Setup interaction
+	err = pact.
+		AddInteraction().
+		Given("a user with id 123 exists").
+		UponReceiving("a request for user 123").
+		WithRequest("GET", "/users/123", func(r *consumer.V2RequestBuilder) {
+			r.Header("Accept", matchers.String("application/json"))
+		}).
+		WillRespondWith(200, func(r *consumer.V2ResponseBuilder) {
+			r.Header("Content-Type", matchers.String("application/json"))
+			r.JSONBody(matchers.MapMatcher{
+				"id":    matchers.String("123"),
+				"name":  matchers.String("John Doe"),
+				"email": matchers.String("john@example.com"),
+				"role":  matchers.String("member"),
+			})
+		}).
+		ExecuteTest(t, func(config consumer.MockServerConfig) error {
+			// Call the service
+			client := NewUserClient(fmt.Sprintf("http://%s:%d", config.Host, config.Port))
+			user, err := client.GetUser("123")
+			if err != nil {
+				return err
+			}
 
-    beforeEach(() => {
-      return provider.addInteraction({
-        state: 'a user with id 123 exists',
-        uponReceiving: 'a request for user 123',
-        withRequest: {
-          method: 'GET',
-          path: '/users/123',
-          headers: {
-            Accept: 'application/json',
-          },
-        },
-        willRespondWith: {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: like(expectedUser), // Matches structure, not exact values
-        },
-      });
-    });
+			// Assertions
+			if user.ID != "123" {
+				return fmt.Errorf("user.ID = %q; want %q", user.ID, "123")
+			}
+			if user.Name != "John Doe" {
+				return fmt.Errorf("user.Name = %q; want %q", user.Name, "John Doe")
+			}
+			return nil
+		})
 
-    test('should return user data', async () => {
-      const client = new UserClient(`http://localhost:${provider.port}`);
-      const user = await client.getUser('123');
+	if err != nil {
+		t.Fatalf("test failed: %v", err)
+	}
+}
 
-      expect(user).toEqual(expectedUser);
-    });
-  });
+func TestUserAPIConsumer_NotFound(t *testing.T) {
+	pact, err := consumer.NewV2Pact(consumer.MockHTTPProviderConfig{
+		Consumer: "OrderService",
+		Provider: "UserService",
+		Host:     "127.0.0.1",
+		Port:     1234,
+	})
+	if err != nil {
+		t.Fatalf("failed to create pact: %v", err)
+	}
 
-  describe('GET /users/:id - not found', () => {
-    beforeEach(() => {
-      return provider.addInteraction({
-        state: 'a user with id 999 does not exist',
-        uponReceiving: 'a request for non-existent user 999',
-        withRequest: {
-          method: 'GET',
-          path: '/users/999',
-          headers: {
-            Accept: 'application/json',
-          },
-        },
-        willRespondWith: {
-          status: 404,
-          body: {
-            error: 'User not found',
-            code: 'USER_NOT_FOUND',
-          },
-        },
-      });
-    });
+	err = pact.
+		AddInteraction().
+		Given("a user with id 999 does not exist").
+		UponReceiving("a request for non-existent user 999").
+		WithRequest("GET", "/users/999", func(r *consumer.V2RequestBuilder) {
+			r.Header("Accept", matchers.String("application/json"))
+		}).
+		WillRespondWith(404, func(r *consumer.V2ResponseBuilder) {
+			r.Header("Content-Type", matchers.String("application/json"))
+			r.JSONBody(matchers.MapMatcher{
+				"error": matchers.String("User not found"),
+				"code":  matchers.String("USER_NOT_FOUND"),
+			})
+		}).
+		ExecuteTest(t, func(config consumer.MockServerConfig) error {
+			client := NewUserClient(fmt.Sprintf("http://%s:%d", config.Host, config.Port))
+			_, err := client.GetUser("999")
 
-    test('should handle not found', async () => {
-      const client = new UserClient(`http://localhost:${provider.port}`);
+			if err == nil {
+				return fmt.Errorf("expected error; got nil")
+			}
+			if err.Error() != "User not found" {
+				return fmt.Errorf("error = %q; want %q", err.Error(), "User not found")
+			}
+			return nil
+		})
 
-      await expect(client.getUser('999')).rejects.toThrow('User not found');
-    });
-  });
-});
+	if err != nil {
+		t.Fatalf("test failed: %v", err)
+	}
+}
 ```
 
 ## Flexible Matching
 
-```typescript
-import { Matchers } from '@pact-foundation/pact';
+```go
+package consumer_test
 
-const { like, eachLike, term, integer, boolean, iso8601DateTimeWithMillis } =
-  Matchers;
+import (
+	"github.com/pact-foundation/pact-go/v2/matchers"
+)
 
 // Type matchers
-const userMatcher = {
-  id: like('123'), // Any string
-  name: like('John'), // Any string
-  age: integer(25), // Any integer
-  active: boolean(true), // Any boolean
-  createdAt: iso8601DateTimeWithMillis('2024-01-01T00:00:00.000Z'),
-  role: term({
-    generate: 'member',
-    matcher: '^(admin|member|guest)$', // Regex
-  }),
-};
+var userMatcher = matchers.MapMatcher{
+	"id":        matchers.String("123"),
+	"name":      matchers.String("John"),
+	"age":       matchers.Integer(25),
+	"active":    matchers.Bool(true),
+	"createdAt": matchers.Timestamp("2024-01-01T00:00:00Z"),
+	"role":      matchers.Regex("member", "^(admin|member|guest)$"),
+}
 
 // Array matcher
-const userListMatcher = {
-  users: eachLike(userMatcher, { min: 1 }), // At least one user
-  total: integer(10),
-  page: integer(1),
-};
+var userListMatcher = matchers.MapMatcher{
+	"users": matchers.EachLike(userMatcher, 1), // At least one user
+	"total": matchers.Integer(10),
+	"page":  matchers.Integer(1),
+}
 
 // Nested matchers
-const orderMatcher = {
-  id: like('order-123'),
-  user: like(userMatcher),
-  items: eachLike({
-    productId: like('prod-1'),
-    quantity: integer(1),
-    price: like(29.99),
-  }),
-  status: term({
-    generate: 'pending',
-    matcher: '^(pending|confirmed|shipped|delivered)$',
-  }),
-};
+var orderMatcher = matchers.MapMatcher{
+	"id":   matchers.String("order-123"),
+	"user": matchers.Like(userMatcher),
+	"items": matchers.EachLike(matchers.MapMatcher{
+		"productId": matchers.String("prod-1"),
+		"quantity":  matchers.Integer(1),
+		"price":     matchers.Decimal(29.99),
+	}, 1),
+	"status": matchers.Regex("pending", "^(pending|confirmed|shipped|delivered)$"),
+}
 ```
 
 ## Provider Verification
 
-```typescript
-import { Verifier } from '@pact-foundation/pact';
+```go
+package provider_test
 
-describe('User Service Provider', () => {
-  let server: Server;
+import (
+	"fmt"
+	"net/http"
+	"testing"
 
-  beforeAll(async () => {
-    // Start the actual provider service
-    server = await startServer(3000);
-  });
+	"github.com/pact-foundation/pact-go/v2/provider"
+)
 
-  afterAll(async () => {
-    await server.close();
-  });
+func TestProviderContract(t *testing.T) {
+	// Start the actual provider service
+	server := startServer(3000)
+	defer server.Close()
 
-  test('validates the expectations of the consumer', async () => {
-    const opts = {
-      provider: 'UserService',
-      providerBaseUrl: 'http://localhost:3000',
+	// Setup state handlers
+	stateHandlers := provider.StateHandlers{
+		"a user with id 123 exists": func(setup bool, state provider.State) (provider.StateResponse, error) {
+			if setup {
+				// Setup state
+				err := db.Users.Create(&User{
+					ID:    "123",
+					Name:  "John Doe",
+					Email: "john@example.com",
+					Role:  "member",
+				})
+				if err != nil {
+					return provider.StateResponse{}, err
+				}
+			} else {
+				// Teardown state
+				db.Users.Delete("123")
+			}
+			return provider.StateResponse{}, nil
+		},
+		"a user with id 999 does not exist": func(setup bool, state provider.State) (provider.StateResponse, error) {
+			if setup {
+				db.Users.DeleteMany(map[string]interface{}{"id": "999"})
+			}
+			return provider.StateResponse{}, nil
+		},
+	}
 
-      // From Pact Broker
-      pactBrokerUrl: process.env.PACT_BROKER_URL,
-      pactBrokerToken: process.env.PACT_BROKER_TOKEN,
-      publishVerificationResult: process.env.CI === 'true',
-      providerVersion: process.env.GIT_SHA,
+	// Verify provider against pacts
+	verifier := provider.NewVerifier()
 
-      // Or from local files
-      // pactUrls: ['./pacts/orderservice-userservice.json'],
+	err := verifier.VerifyProvider(t, provider.VerifyRequest{
+		Provider:                   "UserService",
+		ProviderBaseURL:            "http://localhost:3000",
+		
+		// From Pact Broker
+		BrokerURL:                  getEnv("PACT_BROKER_URL", ""),
+		BrokerToken:                getEnv("PACT_BROKER_TOKEN", ""),
+		PublishVerificationResults: getEnv("CI", "") == "true",
+		ProviderVersion:            getEnv("GIT_SHA", "dev"),
 
-      // State handlers
-      stateHandlers: {
-        'a user with id 123 exists': async () => {
-          await db.users.create({
-            id: '123',
-            name: 'John Doe',
-            email: 'john@example.com',
-            role: 'member',
-          });
-        },
-        'a user with id 999 does not exist': async () => {
-          await db.users.deleteMany({ id: '999' });
-        },
-      },
+		// Or from local files
+		// PactURLs: []string{"./pacts/orderservice-userservice.json"},
 
-      // Request filters (add auth headers, etc.)
-      requestFilter: (req, res, next) => {
-        req.headers['Authorization'] = 'Bearer test-token';
-        next();
-      },
-    };
+		StateHandlers: stateHandlers,
 
-    await new Verifier(opts).verifyProvider();
-  });
-});
+		// Request filters (add auth headers, etc.)
+		BeforeEach: func() error {
+			// Setup before each interaction
+			return nil
+		},
+		AfterEach: func() error {
+			// Cleanup after each interaction
+			return nil
+		},
+		RequestFilter: func(req *http.Request, res *http.Response, next http.HandlerFunc) {
+			req.Header.Set("Authorization", "Bearer test-token")
+			next(res, req)
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("verification failed: %v", err)
+	}
+}
+
+func startServer(port int) *http.Server {
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: createHandler(),
+	}
+	go server.ListenAndServe()
+	return server
+}
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
 ```
 
 ## CI/CD Integration
@@ -228,12 +286,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+
       - name: Run consumer contract tests
-        run: npm run test:contract:consumer
+        run: go test ./... -tags=contract
 
       - name: Publish pacts to broker
         run: |
-          npx pact-broker publish ./pacts \
+          pact-broker publish ./pacts \
             --broker-base-url=${{ secrets.PACT_BROKER_URL }} \
             --broker-token=${{ secrets.PACT_BROKER_TOKEN }} \
             --consumer-app-version=${{ github.sha }} \
@@ -245,16 +308,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+
       - name: Verify provider against pacts
         env:
           PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
           PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
           GIT_SHA: ${{ github.sha }}
-        run: npm run test:contract:provider
+        run: go test ./... -tags=provider
 
       - name: Can I Deploy?
         run: |
-          npx pact-broker can-i-deploy \
+          pact-broker can-i-deploy \
             --pacticipant=UserService \
             --version=${{ github.sha }} \
             --to-environment=production
@@ -262,76 +330,124 @@ jobs:
 
 ## Schema-Based Contracts (Alternative)
 
-```typescript
-// OpenAPI schema validation
-import SwaggerParser from '@apidevtools/swagger-parser';
-import Ajv from 'ajv';
+```go
+package contract_test
 
-class OpenAPIContractValidator {
-  private ajv = new Ajv({ allErrors: true });
-  private schemas: Map<string, any> = new Map();
+import (
+	"encoding/json"
+	"io"
+	"net/http"
+	"os"
+	"testing"
 
-  async loadSpec(specPath: string): Promise<void> {
-    const api = await SwaggerParser.validate(specPath);
+	"github.com/xeipuuv/gojsonschema"
+)
 
-    // Extract response schemas
-    for (const [path, methods] of Object.entries(api.paths || {})) {
-      for (const [method, operation] of Object.entries(methods as any)) {
-        const responses = operation.responses || {};
-        for (const [status, response] of Object.entries(responses)) {
-          const schema = (response as any).content?.['application/json']?.schema;
-          if (schema) {
-            const key = `${method.toUpperCase()} ${path} ${status}`;
-            this.schemas.set(key, schema);
-          }
-        }
-      }
-    }
-  }
+// OpenAPIContractValidator validates against OpenAPI schemas
+type OpenAPIContractValidator struct {
+	schemas map[string]*gojsonschema.Schema
+}
 
-  validateResponse(method: string, path: string, status: number, body: any): boolean {
-    const key = `${method} ${path} ${status}`;
-    const schema = this.schemas.get(key);
+func NewOpenAPIContractValidator() *OpenAPIContractValidator {
+	return &OpenAPIContractValidator{
+		schemas: make(map[string]*gojsonschema.Schema),
+	}
+}
 
-    if (!schema) {
-      throw new Error(`No schema found for ${key}`);
-    }
+func (v *OpenAPIContractValidator) LoadSpec(specPath string) error {
+	data, err := os.ReadFile(specPath)
+	if err != nil {
+		return err
+	}
 
-    const validate = this.ajv.compile(schema);
-    return validate(body) as boolean;
-  }
+	var spec OpenAPISpec
+	if err := json.Unmarshal(data, &spec); err != nil {
+		return err
+	}
+
+	// Extract response schemas
+	for path, methods := range spec.Paths {
+		for method, operation := range methods {
+			for status, response := range operation.Responses {
+				if schema, ok := response.Content["application/json"]; ok {
+					key := fmt.Sprintf("%s %s %s", method, path, status)
+					compiled, err := gojsonschema.NewSchema(gojsonschema.NewGoLoader(schema.Schema))
+					if err != nil {
+						return err
+					}
+					v.schemas[key] = compiled
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (v *OpenAPIContractValidator) ValidateResponse(method, path, status string, body interface{}) error {
+	key := fmt.Sprintf("%s %s %s", method, path, status)
+	schema, exists := v.schemas[key]
+	if !exists {
+		return fmt.Errorf("no schema found for %s", key)
+	}
+
+	result, err := schema.Validate(gojsonschema.NewGoLoader(body))
+	if err != nil {
+		return err
+	}
+
+	if !result.Valid() {
+		return fmt.Errorf("validation failed: %v", result.Errors())
+	}
+	return nil
 }
 
 // Usage in tests
-test('API response matches OpenAPI schema', async () => {
-  const validator = new OpenAPIContractValidator();
-  await validator.loadSpec('./openapi.yaml');
+func TestAPIResponseMatchesSchema(t *testing.T) {
+	validator := NewOpenAPIContractValidator()
+	if err := validator.LoadSpec("./openapi.yaml"); err != nil {
+		t.Fatalf("failed to load spec: %v", err)
+	}
 
-  const response = await fetch('/users/123');
-  const body = await response.json();
+	resp, err := http.Get("http://localhost:3000/users/123")
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
 
-  expect(validator.validateResponse('GET', '/users/{id}', 200, body)).toBe(true);
-});
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("failed to read body: %v", err)
+	}
+
+	var body map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &body); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	err = validator.ValidateResponse("GET", "/users/{id}", "200", body)
+	if err != nil {
+		t.Errorf("validation failed: %v", err)
+	}
+}
 ```
 
 ## Librairies recommandees
 
 | Package | Usage |
 |---------|-------|
-| `@pact-foundation/pact` | Consumer-driven contracts |
-| `pact-broker` | Contract storage/management |
-| `@apidevtools/swagger-parser` | OpenAPI validation |
-| `dredd` | API Blueprint testing |
+| `github.com/pact-foundation/pact-go/v2` | Consumer-driven contracts |
+| `github.com/xeipuuv/gojsonschema` | JSON Schema validation |
+| `github.com/getkin/kin-openapi` | OpenAPI validation |
 
 ## Erreurs communes
 
 | Erreur | Impact | Solution |
 |--------|--------|----------|
-| Matchers trop stricts | Tests fragiles | `like()`, `term()` |
+| Matchers trop stricts | Tests fragiles | Like(), Regex() matchers |
 | Pas de state handlers | Provider verification echoue | Implementer tous les states |
 | Oublier can-i-deploy | Deploy breaking changes | CI gate obligatoire |
-| Tests synchrones | Race conditions | Async/await proper |
 | Pacts non publies | Provider ne les voit pas | Publish en CI |
+| State non isole | Tests flaky | Reset DB entre states |
 
 ## Quand utiliser
 
@@ -352,5 +468,6 @@ test('API response matches OpenAPI schema', async () => {
 ## Sources
 
 - [Pact Documentation](https://docs.pact.io/)
+- [pact-go Repository](https://github.com/pact-foundation/pact-go)
 - [Consumer-Driven Contracts - Martin Fowler](https://martinfowler.com/articles/consumerDrivenContracts.html)
 - [Contract Testing vs E2E Testing](https://pactflow.io/blog/contract-testing-vs-end-to-end-e2e-testing/)

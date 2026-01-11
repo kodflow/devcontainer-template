@@ -14,227 +14,374 @@
 └─────────────┘                    └─────────────┘
 ```
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-import crypto from 'crypto';
+```go
+package apikey
 
-interface ApiKey {
-  id: string;
-  hashedKey: string;
-  name: string;
-  ownerId: string;
-  scopes: string[];
-  rateLimit: number;
-  createdAt: Date;
-  expiresAt: Date | null;
-  lastUsedAt: Date | null;
-  revokedAt: Date | null;
+import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// APIKey represents an API key.
+type APIKey struct {
+	ID         string
+	HashedKey  string
+	Name       string
+	OwnerID    string
+	Scopes     []string
+	RateLimit  int
+	CreatedAt  time.Time
+	ExpiresAt  *time.Time
+	LastUsedAt *time.Time
+	RevokedAt  *time.Time
 }
 
-class ApiKeyService {
-  private readonly prefix = 'sk_live_'; // Prefix identifiable
-  private readonly keyLength = 32;
+// Store defines API key storage interface.
+type Store interface {
+	Save(ctx context.Context, key *APIKey) error
+	FindByHash(ctx context.Context, hashedKey string) (*APIKey, error)
+	Update(ctx context.Context, id string, updates map[string]interface{}) error
+	UpdateLastUsed(ctx context.Context, id string) error
+}
 
-  async generate(
-    ownerId: string,
-    name: string,
-    scopes: string[],
-    expiresInDays?: number,
-  ): Promise<{ key: string; id: string }> {
-    // Generate random key
-    const rawKey = crypto.randomBytes(this.keyLength).toString('hex');
-    const fullKey = `${this.prefix}${rawKey}`;
+// Service manages API keys.
+type Service struct {
+	store      Store
+	prefix     string
+	keyLength  int
+}
 
-    // Hash for storage (never store plain key)
-    const hashedKey = this.hash(fullKey);
+// NewService creates a new API key service.
+func NewService(store Store) *Service {
+	return &Service{
+		store:     store,
+		prefix:    "sk_live_",
+		keyLength: 32,
+	}
+}
 
-    const apiKey: ApiKey = {
-      id: crypto.randomUUID(),
-      hashedKey,
-      name,
-      ownerId,
-      scopes,
-      rateLimit: 1000, // requests per hour
-      createdAt: new Date(),
-      expiresAt: expiresInDays
-        ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
-        : null,
-      lastUsedAt: null,
-      revokedAt: null,
-    };
+// GenerateResult holds the generated key.
+type GenerateResult struct {
+	Key string
+	ID  string
+}
 
-    await this.store.save(apiKey);
+// Generate creates a new API key.
+func (s *Service) Generate(ctx context.Context, ownerID, name string, scopes []string, expiresInDays *int) (*GenerateResult, error) {
+	// Generate random key
+	rawKey := make([]byte, s.keyLength)
+	if _, err := rand.Read(rawKey); err != nil {
+		return nil, fmt.Errorf("generating random key: %w", err)
+	}
 
-    // Key returned ONCE - user must save it
-    return { key: fullKey, id: apiKey.id };
-  }
+	fullKey := s.prefix + hex.EncodeToString(rawKey)
+	hashedKey := s.hash(fullKey)
 
-  async validate(key: string): Promise<ApiKey | null> {
-    // Check prefix
-    if (!key.startsWith(this.prefix)) {
-      return null;
-    }
+	var expiresAt *time.Time
+	if expiresInDays != nil {
+		exp := time.Now().AddDate(0, 0, *expiresInDays)
+		expiresAt = &exp
+	}
 
-    const hashedKey = this.hash(key);
-    const apiKey = await this.store.findByHash(hashedKey);
+	apiKey := &APIKey{
+		ID:        uuid.New().String(),
+		HashedKey: hashedKey,
+		Name:      name,
+		OwnerID:   ownerID,
+		Scopes:    scopes,
+		RateLimit: 1000, // requests per hour
+		CreatedAt: time.Now(),
+		ExpiresAt: expiresAt,
+	}
 
-    if (!apiKey) return null;
-    if (apiKey.revokedAt) return null;
-    if (apiKey.expiresAt && new Date() > apiKey.expiresAt) return null;
+	if err := s.store.Save(ctx, apiKey); err != nil {
+		return nil, fmt.Errorf("saving API key: %w", err)
+	}
 
-    // Update last used (async, don't wait)
-    this.store.updateLastUsed(apiKey.id).catch(console.error);
+	// Key returned ONCE - user must save it
+	return &GenerateResult{
+		Key: fullKey,
+		ID:  apiKey.ID,
+	}, nil
+}
 
-    return apiKey;
-  }
+// Validate validates an API key.
+func (s *Service) Validate(ctx context.Context, key string) (*APIKey, error) {
+	// Check prefix
+	if len(key) < len(s.prefix) || key[:len(s.prefix)] != s.prefix {
+		return nil, nil
+	}
 
-  async revoke(id: string): Promise<void> {
-    await this.store.update(id, { revokedAt: new Date() });
-  }
+	hashedKey := s.hash(key)
+	apiKey, err := s.store.FindByHash(ctx, hashedKey)
+	if err != nil {
+		return nil, fmt.Errorf("finding API key: %w", err)
+	}
 
-  private hash(key: string): string {
-    return crypto.createHash('sha256').update(key).digest('hex');
-  }
+	if apiKey == nil {
+		return nil, nil
+	}
+
+	if apiKey.RevokedAt != nil {
+		return nil, nil
+	}
+
+	if apiKey.ExpiresAt != nil && time.Now().After(*apiKey.ExpiresAt) {
+		return nil, nil
+	}
+
+	// Update last used (async, don't wait)
+	go func() {
+		if err := s.store.UpdateLastUsed(context.Background(), apiKey.ID); err != nil {
+			// Log error
+		}
+	}()
+
+	return apiKey, nil
+}
+
+// Revoke revokes an API key.
+func (s *Service) Revoke(ctx context.Context, id string) error {
+	now := time.Now()
+	updates := map[string]interface{}{
+		"revokedAt": &now,
+	}
+
+	if err := s.store.Update(ctx, id, updates); err != nil {
+		return fmt.Errorf("revoking API key: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) hash(key string) string {
+	hash := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(hash[:])
 }
 ```
 
-## Middleware Express avec Rate Limiting
+## Middleware HTTP avec Rate Limiting
 
-```typescript
-import rateLimit from 'express-rate-limit';
+```go
+package middleware
 
-function apiKeyMiddleware(apiKeyService: ApiKeyService) {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    const apiKey =
-      req.headers['x-api-key'] ||
-      req.headers.authorization?.replace('Bearer ', '');
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"strconv"
+	"sync"
+	"time"
+)
 
-    if (!apiKey || typeof apiKey !== 'string') {
-      return res.status(401).json({
-        error: 'API key required',
-        code: 'MISSING_API_KEY',
-      });
-    }
+// APIKeyMiddleware returns API key authentication middleware.
+func APIKeyMiddleware(service *apikey.Service) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
 
-    const key = await apiKeyService.validate(apiKey);
+			apiKey := r.Header.Get("X-API-Key")
+			if apiKey == "" {
+				apiKey = r.Header.Get("Authorization")
+				if apiKey != "" && len(apiKey) > 7 {
+					apiKey = apiKey[7:] // Remove "Bearer "
+				}
+			}
 
-    if (!key) {
-      return res.status(401).json({
-        error: 'Invalid or expired API key',
-        code: 'INVALID_API_KEY',
-      });
-    }
+			if apiKey == "" {
+				http.Error(w, `{"error": "API key required", "code": "MISSING_API_KEY"}`,
+					http.StatusUnauthorized)
+				return
+			}
 
-    // Attach to request
-    req.apiKey = key;
-    req.ownerId = key.ownerId;
-    req.scopes = key.scopes;
+			key, err := service.Validate(ctx, apiKey)
+			if err != nil {
+				http.Error(w, `{"error": "Internal error"}`, http.StatusInternalServerError)
+				return
+			}
 
-    next();
-  };
+			if key == nil {
+				http.Error(w, `{"error": "Invalid or expired API key", "code": "INVALID_API_KEY"}`,
+					http.StatusUnauthorized)
+				return
+			}
+
+			// Attach to context
+			ctx = context.WithValue(ctx, "apiKey", key)
+			ctx = context.WithValue(ctx, "ownerID", key.OwnerID)
+			ctx = context.WithValue(ctx, "scopes", key.Scopes)
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 
-// Per-key rate limiting
-class ApiKeyRateLimiter {
-  private limits = new Map<string, { count: number; resetAt: number }>();
-
-  async check(keyId: string, limit: number): Promise<{
-    allowed: boolean;
-    remaining: number;
-    resetAt: number;
-  }> {
-    const now = Date.now();
-    const windowMs = 60 * 60 * 1000; // 1 hour
-
-    let data = this.limits.get(keyId);
-
-    if (!data || now > data.resetAt) {
-      data = { count: 0, resetAt: now + windowMs };
-      this.limits.set(keyId, data);
-    }
-
-    data.count++;
-
-    return {
-      allowed: data.count <= limit,
-      remaining: Math.max(0, limit - data.count),
-      resetAt: data.resetAt,
-    };
-  }
+// RateLimitData holds rate limit state.
+type RateLimitData struct {
+	Count   int
+	ResetAt time.Time
 }
 
-// Combined middleware
-function rateLimitedApiKey(
-  apiKeyService: ApiKeyService,
-  rateLimiter: ApiKeyRateLimiter,
-) {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    const apiKey = req.headers['x-api-key'] as string;
-    const key = await apiKeyService.validate(apiKey);
+// RateLimiter implements per-key rate limiting.
+type RateLimiter struct {
+	limits sync.Map
+}
 
-    if (!key) {
-      return res.status(401).json({ error: 'Invalid API key' });
-    }
+// NewRateLimiter creates a new rate limiter.
+func NewRateLimiter() *RateLimiter {
+	return &RateLimiter{}
+}
 
-    const { allowed, remaining, resetAt } = await rateLimiter.check(
-      key.id,
-      key.rateLimit,
-    );
+// CheckResult holds rate limit check result.
+type CheckResult struct {
+	Allowed   bool
+	Remaining int
+	ResetAt   time.Time
+}
 
-    res.setHeader('X-RateLimit-Limit', key.rateLimit);
-    res.setHeader('X-RateLimit-Remaining', remaining);
-    res.setHeader('X-RateLimit-Reset', Math.ceil(resetAt / 1000));
+// Check checks if a key is within rate limits.
+func (rl *RateLimiter) Check(keyID string, limit int) *CheckResult {
+	now := time.Now()
+	windowMs := time.Hour
 
-    if (!allowed) {
-      return res.status(429).json({
-        error: 'Rate limit exceeded',
-        retryAfter: Math.ceil((resetAt - Date.now()) / 1000),
-      });
-    }
+	value, _ := rl.limits.LoadOrStore(keyID, &RateLimitData{
+		Count:   0,
+		ResetAt: now.Add(windowMs),
+	})
 
-    req.apiKey = key;
-    next();
-  };
+	data := value.(*RateLimitData)
+
+	// Reset if window expired
+	if now.After(data.ResetAt) {
+		data.Count = 0
+		data.ResetAt = now.Add(windowMs)
+	}
+
+	data.Count++
+
+	return &CheckResult{
+		Allowed:   data.Count <= limit,
+		Remaining: max(0, limit-data.Count),
+		ResetAt:   data.ResetAt,
+	}
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// RateLimitedAPIKey combines API key auth with rate limiting.
+func RateLimitedAPIKey(service *apikey.Service, limiter *RateLimiter) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			apiKeyStr := r.Header.Get("X-API-Key")
+
+			key, err := service.Validate(ctx, apiKeyStr)
+			if err != nil || key == nil {
+				http.Error(w, `{"error": "Invalid API key"}`, http.StatusUnauthorized)
+				return
+			}
+
+			result := limiter.Check(key.ID, key.RateLimit)
+
+			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(key.RateLimit))
+			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(result.Remaining))
+			w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(result.ResetAt.Unix(), 10))
+
+			if !result.Allowed {
+				retryAfter := int(time.Until(result.ResetAt).Seconds())
+				http.Error(w, fmt.Sprintf(`{"error": "Rate limit exceeded", "retryAfter": %d}`, retryAfter),
+					http.StatusTooManyRequests)
+				return
+			}
+
+			ctx = context.WithValue(ctx, "apiKey", key)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 ```
 
 ## Scope Validation
 
-```typescript
-function requireScopes(...requiredScopes: string[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const keyScopes = req.scopes || [];
+```go
+package middleware
 
-    const hasAllScopes = requiredScopes.every(
-      (scope) => keyScopes.includes(scope) || keyScopes.includes('*'),
-    );
+import (
+	"net/http"
+)
 
-    if (!hasAllScopes) {
-      return res.status(403).json({
-        error: 'Insufficient permissions',
-        required: requiredScopes,
-        actual: keyScopes,
-      });
-    }
+// RequireScopes returns middleware that checks for required scopes.
+func RequireScopes(requiredScopes ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			keyScopes, ok := r.Context().Value("scopes").([]string)
+			if !ok {
+				keyScopes = []string{}
+			}
 
-    next();
-  };
+			hasAllScopes := true
+			for _, required := range requiredScopes {
+				found := false
+				for _, scope := range keyScopes {
+					if scope == required || scope == "*" {
+						found = true
+						break
+					}
+				}
+				if !found {
+					hasAllScopes = false
+					break
+				}
+			}
+
+			if !hasAllScopes {
+				w.WriteHeader(http.StatusForbidden)
+				fmt.Fprintf(w, `{
+					"error": "Insufficient permissions",
+					"required": %q,
+					"actual": %q
+				}`, requiredScopes, keyScopes)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // Usage
-app.get('/users', requireScopes('users:read'), getUsers);
-app.post('/users', requireScopes('users:write'), createUser);
-app.delete('/users/:id', requireScopes('users:delete'), deleteUser);
+func SetupRoutes(mux *http.ServeMux, service *apikey.Service) {
+	mux.Handle("/users", 
+		APIKeyMiddleware(service)(
+			RequireScopes("users:read")(http.HandlerFunc(getUsers))))
+	mux.Handle("/users/create", 
+		APIKeyMiddleware(service)(
+			RequireScopes("users:write")(http.HandlerFunc(createUser))))
+	mux.Handle("/users/delete", 
+		APIKeyMiddleware(service)(
+			RequireScopes("users:delete")(http.HandlerFunc(deleteUser))))
+}
 ```
 
 ## Librairies recommandees
 
 | Package | Usage |
 |---------|-------|
-| `uuid` | Generation IDs uniques |
-| `express-rate-limit` | Rate limiting simple |
-| `rate-limiter-flexible` | Rate limiting Redis |
+| `github.com/google/uuid` | Generation IDs uniques |
+| `golang.org/x/time/rate` | Rate limiting |
 
 ## Erreurs communes
 
@@ -249,43 +396,57 @@ app.delete('/users/:id', requireScopes('users:delete'), deleteUser);
 
 ## Bonnes pratiques
 
-```typescript
-// 1. Prefixes identifiables
-const prefixes = {
-  live: 'sk_live_', // Production
-  test: 'sk_test_', // Development
-  pub: 'pk_', // Public (limited scope)
-};
+```go
+package apikey
 
-// 2. Key rotation
-class KeyRotation {
-  async rotate(oldKeyId: string): Promise<{ newKey: string }> {
-    const oldKey = await this.store.get(oldKeyId);
+// Prefixes identifiables
+const (
+	PrefixLive = "sk_live_" // Production
+	PrefixTest = "sk_test_" // Development
+	PrefixPub  = "pk_"      // Public (limited scope)
+)
 
-    // Create new key with same config
-    const { key } = await this.generate(
-      oldKey.ownerId,
-      `${oldKey.name} (rotated)`,
-      oldKey.scopes,
-    );
-
-    // Grace period - old key valid for 24h
-    await this.store.update(oldKeyId, {
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    });
-
-    return { newKey: key };
-  }
+// KeyRotation handles API key rotation.
+type KeyRotation struct {
+	service *Service
 }
 
-// 3. Usage logging
-interface ApiKeyUsage {
-  keyId: string;
-  endpoint: string;
-  method: string;
-  statusCode: number;
-  timestamp: Date;
-  ip: string;
+// Rotate rotates an API key with grace period.
+func (kr *KeyRotation) Rotate(ctx context.Context, oldKeyID string) (*GenerateResult, error) {
+	// Get old key details
+	oldKey, err := kr.service.store.FindByID(ctx, oldKeyID)
+	if err != nil {
+		return nil, fmt.Errorf("finding old key: %w", err)
+	}
+
+	// Create new key with same config
+	newKey, err := kr.service.Generate(ctx, oldKey.OwnerID, 
+		oldKey.Name+" (rotated)", oldKey.Scopes, nil)
+	if err != nil {
+		return nil, fmt.Errorf("generating new key: %w", err)
+	}
+
+	// Grace period - old key valid for 24h
+	exp := time.Now().Add(24 * time.Hour)
+	updates := map[string]interface{}{
+		"expiresAt": &exp,
+	}
+
+	if err := kr.service.store.Update(ctx, oldKeyID, updates); err != nil {
+		return nil, fmt.Errorf("updating old key: %w", err)
+	}
+
+	return newKey, nil
+}
+
+// UsageLog represents API key usage logging.
+type UsageLog struct {
+	KeyID      string
+	Endpoint   string
+	Method     string
+	StatusCode int
+	Timestamp  time.Time
+	IP         string
 }
 ```
 

@@ -19,281 +19,411 @@ Maybe<A> = Just<A> | Nothing
 
 ## TypeScript Implementation
 
-```typescript
-// Option type
-type Option<A> = Some<A> | None<A>;
+```go
+package option
 
-class Some<A> {
-  readonly _tag = 'Some';
-  constructor(readonly value: A) {}
-
-  isSome(): this is Some<A> { return true; }
-  isNone(): this is None<A> { return false; }
-
-  map<B>(f: (a: A) => B): Option<B> {
-    return new Some(f(this.value));
-  }
-
-  flatMap<B>(f: (a: A) => Option<B>): Option<B> {
-    return f(this.value);
-  }
-
-  filter(predicate: (a: A) => boolean): Option<A> {
-    return predicate(this.value) ? this : none();
-  }
-
-  getOrElse(_defaultValue: A): A {
-    return this.value;
-  }
-
-  getOrElseL(_thunk: () => A): A {
-    return this.value;
-  }
-
-  orElse(_alternative: () => Option<A>): Option<A> {
-    return this;
-  }
-
-  match<B>(handlers: { some: (a: A) => B; none: () => B }): B {
-    return handlers.some(this.value);
-  }
-
-  toNullable(): A | null {
-    return this.value;
-  }
+// Option represents an optional value
+type Option[A any] interface {
+	IsSome() bool
+	IsNone() bool
+	Map(func(A) A) Option[A]
+	FlatMap(func(A) Option[A]) Option[A]
+	Filter(func(A) bool) Option[A]
+	GetOrElse(A) A
+	GetOrElseF(func() A) A
+	OrElse(func() Option[A]) Option[A]
+	ToNullable() *A
 }
 
-class None<A> {
-  readonly _tag = 'None';
-  private static readonly INSTANCE = new None<never>();
-
-  static instance<A>(): Option<A> {
-    return None.INSTANCE as Option<A>;
-  }
-
-  isSome(): this is Some<A> { return false; }
-  isNone(): this is None<A> { return true; }
-
-  map<B>(_f: (a: A) => B): Option<B> {
-    return none();
-  }
-
-  flatMap<B>(_f: (a: A) => Option<B>): Option<B> {
-    return none();
-  }
-
-  filter(_predicate: (a: A) => boolean): Option<A> {
-    return none();
-  }
-
-  getOrElse(defaultValue: A): A {
-    return defaultValue;
-  }
-
-  getOrElseL(thunk: () => A): A {
-    return thunk();
-  }
-
-  orElse(alternative: () => Option<A>): Option<A> {
-    return alternative();
-  }
-
-  match<B>(handlers: { some: (a: A) => B; none: () => B }): B {
-    return handlers.none();
-  }
-
-  toNullable(): A | null {
-    return null;
-  }
+// Some represents a present value
+type Some[A any] struct {
+	value A
 }
 
-// Constructors
-const some = <A>(value: A): Option<A> => new Some(value);
-const none = <A = never>(): Option<A> => None.instance();
+func (s Some[A]) IsSome() bool { return true }
+func (s Some[A]) IsNone() bool { return false }
 
-const fromNullable = <A>(value: A | null | undefined): Option<A> =>
-  value === null || value === undefined ? none() : some(value);
+func (s Some[A]) Map(f func(A) A) Option[A] {
+	return NewSome(f(s.value))
+}
 
-const fromPredicate = <A>(
-  value: A,
-  predicate: (a: A) => boolean
-): Option<A> =>
-  predicate(value) ? some(value) : none();
+func (s Some[A]) FlatMap(f func(A) Option[A]) Option[A] {
+	return f(s.value)
+}
 
-// Combine Options
-const combine = <T extends readonly Option<unknown>[]>(
-  options: T
-): Option<{ [K in keyof T]: T[K] extends Option<infer U> ? U : never }> => {
-  const values: unknown[] = [];
+func (s Some[A]) Filter(predicate func(A) bool) Option[A] {
+	if predicate(s.value) {
+		return s
+	}
+	return NewNone[A]()
+}
 
-  for (const option of options) {
-    if (option.isNone()) return none();
-    values.push((option as Some<unknown>).value);
-  }
+func (s Some[A]) GetOrElse(_ A) A {
+	return s.value
+}
 
-  return some(values as any);
-};
+func (s Some[A]) GetOrElseF(_ func() A) A {
+	return s.value
+}
+
+func (s Some[A]) OrElse(_ func() Option[A]) Option[A] {
+	return s
+}
+
+func (s Some[A]) ToNullable() *A {
+	return &s.value
+}
+
+// None represents an absent value
+type None[A any] struct{}
+
+var noneInstance = None[any]{}
+
+func (n None[A]) IsSome() bool { return false }
+func (n None[A]) IsNone() bool { return true }
+
+func (n None[A]) Map(_ func(A) A) Option[A] {
+	return NewNone[A]()
+}
+
+func (n None[A]) FlatMap(_ func(A) Option[A]) Option[A] {
+	return NewNone[A]()
+}
+
+func (n None[A]) Filter(_ func(A) bool) Option[A] {
+	return NewNone[A]()
+}
+
+func (n None[A]) GetOrElse(defaultValue A) A {
+	return defaultValue
+}
+
+func (n None[A]) GetOrElseF(thunk func() A) A {
+	return thunk()
+}
+
+func (n None[A]) OrElse(alternative func() Option[A]) Option[A] {
+	return alternative()
+}
+
+func (n None[A]) ToNullable() *A {
+	return nil
+}
+
+// NewSome creates an Option with a value
+func NewSome[A any](value A) Option[A] {
+	return Some[A]{value: value}
+}
+
+// NewNone creates an empty Option
+func NewNone[A any]() Option[A] {
+	return None[A]{}
+}
+
+// FromNullable creates an Option from a nullable pointer
+func FromNullable[A any](value *A) Option[A] {
+	if value == nil {
+		return NewNone[A]()
+	}
+	return NewSome(*value)
+}
+
+// FromPredicate creates an Option based on a predicate
+func FromPredicate[A any](value A, predicate func(A) bool) Option[A] {
+	if predicate(value) {
+		return NewSome(value)
+	}
+	return NewNone[A]()
+}
+
+// Combine combines multiple Options into one
+func Combine[A any](options []Option[A]) Option[[]A] {
+	values := make([]A, 0, len(options))
+	
+	for _, opt := range options {
+		if opt.IsNone() {
+			return NewNone[[]A]()
+		}
+		values = append(values, opt.(Some[A]).value)
+	}
+	
+	return NewSome(values)
+}
 ```
 
 ## Usage Examples
 
-```typescript
-// Basic usage
-const findUser = (id: string): Option<User> =>
-  fromNullable(users.get(id));
+```go
+package main
 
-const getUserName = (id: string): string =>
-  findUser(id)
-    .map(user => user.name)
-    .getOrElse('Anonymous');
+import "strings"
+
+type User struct {
+	Name    string
+	Age     int
+	Company *Company
+}
+
+type Company struct {
+	CEO *User
+}
+
+var users = make(map[string]User)
+
+// Basic usage
+func findUser(id string) Option[User] {
+	if user, exists := users[id]; exists {
+		return NewSome(user)
+	}
+	return NewNone[User]()
+}
+
+func getUserName(id string) string {
+	return findUser(id).
+		Map(func(u User) User { return u }).
+		GetOrElse(User{Name: "Anonymous"}).
+		Name
+}
 
 // Chaining operations
-interface Company { ceo: User | null }
-interface User { email: string | null; company: Company | null }
-
-const getCeoEmail = (user: User): Option<string> =>
-  fromNullable(user.company)
-    .flatMap(company => fromNullable(company.ceo))
-    .flatMap(ceo => fromNullable(ceo.email));
+func getCeoEmail(user User) Option[string] {
+	return FromNullable(user.Company).
+		FlatMap(func(c Company) Option[*User] {
+			return FromNullable(c.CEO)
+		}).
+		FlatMap(func(ceo *User) Option[string] {
+			if ceo.Email != "" {
+				return NewSome(ceo.Email)
+			}
+			return NewNone[string]()
+		})
+}
 
 // vs null checks
-const getCeoEmailUnsafe = (user: User): string | null => {
-  if (user.company === null) return null;
-  if (user.company.ceo === null) return null;
-  return user.company.ceo.email;
-};
+func getCeoEmailUnsafe(user User) *string {
+	if user.Company == nil {
+		return nil
+	}
+	if user.Company.CEO == nil {
+		return nil
+	}
+	if user.Company.CEO.Email == "" {
+		return nil
+	}
+	return &user.Company.CEO.Email
+}
 
 // Array operations with Option
-const numbers = [1, 2, 3, 4, 5];
+func findEven(arr []int) Option[int] {
+	for _, n := range arr {
+		if n%2 == 0 {
+			return NewSome(n)
+		}
+	}
+	return NewNone[int]()
+}
 
-const findEven = (arr: number[]): Option<number> =>
-  fromNullable(arr.find(n => n % 2 === 0));
-
-const findOdd = (arr: number[]): Option<number> =>
-  fromNullable(arr.find(n => n % 2 !== 0));
+func findOdd(arr []int) Option[int] {
+	for _, n := range arr {
+		if n%2 != 0 {
+			return NewSome(n)
+		}
+	}
+	return NewNone[int]()
+}
 
 // First matching value
-const firstEvenOrOdd = findEven(numbers).orElse(() => findOdd(numbers));
+func firstEvenOrOdd(numbers []int) Option[int] {
+	return findEven(numbers).OrElse(func() Option[int] {
+		return findOdd(numbers)
+	})
+}
 
 // Filter example
-const getAdultUser = (id: string): Option<User> =>
-  findUser(id).filter(user => user.age >= 18);
+func getAdultUser(id string) Option[User] {
+	return findUser(id).Filter(func(u User) bool {
+		return u.Age >= 18
+	})
+}
 
 // Conditional transformation
-const applyDiscount = (
-  userId: string,
-  amount: number
-): Option<Money> =>
-  findUser(userId)
-    .filter(user => user.isPremium)
-    .map(user => calculateDiscount(user, amount));
+type Money struct {
+	amount float64
+}
+
+func applyDiscount(userID string, amount float64) Option[Money] {
+	return findUser(userID).
+		Filter(func(u User) bool { return u.IsPremium }).
+		Map(func(u User) User {
+			// Calculate discount
+			return u
+		})
+}
 ```
 
 ## Using fp-ts
 
-```typescript
-import { pipe } from 'fp-ts/function';
-import * as O from 'fp-ts/Option';
-import * as A from 'fp-ts/Array';
+```go
+package main
+
+import "fmt"
 
 // Basic operations
-const findUser = (id: string): O.Option<User> =>
-  pipe(
-    users.get(id),
-    O.fromNullable
-  );
+func findUserFP(id string) Option[User] {
+	if user, exists := users[id]; exists {
+		return NewSome(user)
+	}
+	return NewNone[User]()
+}
 
-const getUserEmail = (id: string): string =>
-  pipe(
-    findUser(id),
-    O.map(user => user.email),
-    O.getOrElse(() => 'no-email@example.com')
-  );
+func getUserEmail(id string) string {
+	return findUserFP(id).
+		Map(func(u User) User { return u }).
+		GetOrElse(User{Email: "no-email@example.com"}).
+		Email
+}
 
 // Chain multiple Options
-const getCompanyCeoEmail = (user: User): O.Option<string> =>
-  pipe(
-    O.fromNullable(user.company),
-    O.flatMap(c => O.fromNullable(c.ceo)),
-    O.flatMap(ceo => O.fromNullable(ceo.email))
-  );
+func getCompanyCeoEmail(user User) Option[string] {
+	return FromNullable(user.Company).
+		FlatMap(func(c *Company) Option[*User] {
+			return FromNullable(c.CEO)
+		}).
+		FlatMap(func(ceo *User) Option[string] {
+			if ceo.Email != "" {
+				return NewSome(ceo.Email)
+			}
+			return NewNone[string]()
+		})
+}
 
 // Working with arrays
-const users: User[] = [/* ... */];
-
-const premiumEmails = pipe(
-  users,
-  A.filter(u => u.isPremium),
-  A.map(u => u.email),
-  A.filterMap(O.fromNullable) // Remove nulls
-);
+func filterMapUsers(users []User) []string {
+	emails := []string{}
+	
+	for _, u := range users {
+		if u.IsPremium {
+			if u.Email != "" {
+				emails = append(emails, u.Email)
+			}
+		}
+	}
+	
+	return emails
+}
 
 // Applicative - combine Options
-const createOrder = (
-  userId: string,
-  productId: string
-): O.Option<Order> =>
-  pipe(
-    O.Do,
-    O.apS('user', findUser(userId)),
-    O.apS('product', findProduct(productId)),
-    O.map(({ user, product }) => new Order(user, product))
-  );
+func createOrder(userID, productID string) Option[Order] {
+	userOpt := findUser(userID)
+	productOpt := findProduct(productID)
+	
+	if userOpt.IsNone() || productOpt.IsNone() {
+		return NewNone[Order]()
+	}
+	
+	user := userOpt.(Some[User]).value
+	product := productOpt.(Some[Product]).value
+	
+	return NewSome(NewOrder(user, product))
+}
 
 // Alternative patterns
-const getConfigValue = (key: string): O.Option<string> =>
-  pipe(
-    O.fromNullable(process.env[key]),
-    O.alt(() => O.fromNullable(configFile[key])),
-    O.alt(() => O.some(defaults[key]))
-  );
+func getConfigValue(key string) Option[string] {
+	// Try environment variable
+	if val, exists := os.LookupEnv(key); exists {
+		return NewSome(val)
+	}
+	
+	// Try config file
+	if val, exists := configFile[key]; exists {
+		return NewSome(val)
+	}
+	
+	// Try defaults
+	if val, exists := defaults[key]; exists {
+		return NewSome(val)
+	}
+	
+	return NewNone[string]()
+}
 
-// Refinement
-interface Admin extends User { readonly role: 'admin' }
+// Refinement with type guards
+type Admin struct {
+	User
+	AdminLevel int
+}
 
-const isAdmin = (user: User): user is Admin => user.role === 'admin';
+func isAdmin(user User) bool {
+	return user.Role == "admin"
+}
 
-const getAdmin = (id: string): O.Option<Admin> =>
-  pipe(
-    findUser(id),
-    O.filter(isAdmin)
-  );
+func getAdmin(id string) Option[User] {
+	return findUser(id).Filter(isAdmin)
+}
 ```
 
 ## Using Effect
 
-```typescript
-import { Option, pipe } from 'effect';
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+)
 
 // Basic operations
-const findUser = (id: string): Option.Option<User> =>
-  Option.fromNullable(users.get(id));
+func findUserEffect(id string) Option[User] {
+	return FromNullable(users[id])
+}
 
-const getUserName = (id: string): string =>
-  pipe(
-    findUser(id),
-    Option.map(user => user.name),
-    Option.getOrElse(() => 'Anonymous')
-  );
+func getUserNameEffect(id string) string {
+	return findUserEffect(id).
+		Map(func(u User) User { return u }).
+		GetOrElse(User{Name: "Anonymous"}).
+		Name
+}
 
 // Match pattern
-const greetUser = (id: string): string =>
-  pipe(
-    findUser(id),
-    Option.match({
-      onNone: () => 'Hello, stranger!',
-      onSome: (user) => `Hello, ${user.name}!`
-    })
-  );
+func greetUser(id string) string {
+	opt := findUserEffect(id)
+	
+	if opt.IsSome() {
+		user := opt.(Some[User]).value
+		return fmt.Sprintf("Hello, %s!", user.Name)
+	}
+	
+	return "Hello, stranger!"
+}
 
 // Combining with Effect for errors
-import { Effect } from 'effect';
+type NotFoundError struct {
+	Resource string
+	ID       string
+}
 
-const getUserOrFail = (id: string): Effect.Effect<User, NotFoundError> =>
-  pipe(
-    findUser(id),
-    Effect.fromOption(() => new NotFoundError('User', id))
-  );
+func (e NotFoundError) Error() string {
+	return fmt.Sprintf("%s not found: %s", e.Resource, e.ID)
+}
+
+type Effect[R, E, A any] struct {
+	run func(context.Context, R) (A, error)
+}
+
+func getUserOrFail(id string) Effect[any, NotFoundError, User] {
+	return Effect[any, NotFoundError, User]{
+		run: func(ctx context.Context, r any) (User, error) {
+			opt := findUserEffect(id)
+			if opt.IsNone() {
+				return User{}, NotFoundError{
+					Resource: "User",
+					ID:       id,
+				}
+			}
+			return opt.(Some[User]).value, nil
+		},
+	}
+}
 ```
 
 ## OOP vs FP Comparison
@@ -306,31 +436,32 @@ const getUserOrFail = (id: string): Effect.Effect<User, NotFoundError> =>
 | Default values | ?? operator | getOrElse |
 | Conditional | if (x !== null) | map/filter |
 
-```typescript
+```go
+package main
+
 // OOP style - null checks
-function getOrderTotal(userId: string): number | null {
-  const user = findUser(userId);
-  if (user === null) return null;
-
-  const order = user.currentOrder;
-  if (order === null) return null;
-
-  return order.total;
+func getOrderTotal(userID string) *float64 {
+	user := findUserUnsafe(userID)
+	if user == nil {
+		return nil
+	}
+	
+	order := user.CurrentOrder
+	if order == nil {
+		return nil
+	}
+	
+	return &order.Total
 }
 
 // FP style - Option
-const getOrderTotal = (userId: string): Option<number> =>
-  findUser(userId)
-    .flatMap(user => fromNullable(user.currentOrder))
-    .map(order => order.total);
-
-// FP with fp-ts
-const getOrderTotal = (userId: string) =>
-  pipe(
-    findUser(userId),
-    O.flatMap(user => O.fromNullable(user.currentOrder)),
-    O.map(order => order.total)
-  );
+func getOrderTotalFP(userID string) Option[float64] {
+	return findUser(userID).
+		FlatMap(func(u User) Option[*Order] {
+			return FromNullable(u.CurrentOrder)
+		}).
+		Map(func(o *Order) *Order { return o })
+}
 ```
 
 ## Option vs Either
@@ -343,12 +474,32 @@ const getOrderTotal = (userId: string) =>
 | Validation | No | Yes |
 | API errors | No | Yes |
 
-```typescript
+```go
+package main
+
 // Option - just absence
-const findUser = (id: string): Option<User> => { /* ... */ };
+func findUserOpt(id string) Option[User] {
+	if user, exists := users[id]; exists {
+		return NewSome(user)
+	}
+	return NewNone[User]()
+}
 
 // Either - when you need to know why
-const findUserWithError = (id: string): Either<NotFoundError, User> => { /* ... */ };
+type Either[E, A any] interface {
+	IsLeft() bool
+	IsRight() bool
+}
+
+func findUserWithError(id string) Either[NotFoundError, User] {
+	if user, exists := users[id]; exists {
+		return NewRight[NotFoundError, User](user)
+	}
+	return NewLeft[NotFoundError, User](NotFoundError{
+		Resource: "User",
+		ID:       id,
+	})
+}
 ```
 
 ## Recommended Libraries
@@ -364,36 +515,55 @@ const findUserWithError = (id: string): Either<NotFoundError, User> => { /* ... 
 
 1. **Immediate Unwrapping**: Losing safety
 
-   ```typescript
+   ```go
    // BAD
-   const name = findUser(id).getOrElse(null);
-   if (name) { /* ... */ }
-
+   name := findUser(id).GetOrElse(User{}).Name
+   if name != "" {
+   	// Lost type safety
+   }
+   
    // GOOD
-   findUser(id).map(user => {
-     // Safe access to user
-   });
+   findUser(id).Map(func(user User) User {
+   	// Safe access to user
+   	return user
+   })
    ```
 
 2. **Optional Properties Instead**: Missing the point
 
-   ```typescript
+   ```go
    // BAD - Optional in data model
-   interface User { email?: string }
-
+   type User struct {
+   	Email *string // Nullable pointer
+   }
+   
    // GOOD - Option in operations
-   interface User { email: string }
-   const getUserEmail = (id: string): Option<Email>
+   type User struct {
+   	Email string
+   }
+   
+   func getUserEmail(id string) Option[string] {
+   	return findUser(id).Map(func(u User) User {
+   		return u
+   	})
+   }
    ```
 
 3. **Nested Options**: Over-wrapping
 
-   ```typescript
+   ```go
    // BAD
-   Option<Option<User>>
-
-   // GOOD - Use flatMap
-   findUser(id).flatMap(findRelatedUser);
+   type NestedOption Option[Option[User]]
+   
+   // GOOD - Use FlatMap
+   func getRelatedUser(id string) Option[User] {
+   	return findUser(id).FlatMap(findRelatedUser)
+   }
+   
+   func findRelatedUser(u User) Option[User] {
+   	// Implementation
+   	return NewNone[User]()
+   }
    ```
 
 ## When to Use

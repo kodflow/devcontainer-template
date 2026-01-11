@@ -59,14 +59,14 @@
 │         │                                                        │
 │         ▼                                                        │
 │  ┌──────────────┐     ┌──────────────┐                          │
-│  │    Lambda    │────▶│   DynamoDB   │                          │
+│  │    Lambda    │────►│   DynamoDB   │                          │
 │  │   (handler)  │     │   (NoSQL)    │                          │
 │  └──────────────┘     └──────────────┘                          │
 │         │                                                        │
 │         │ async                                                  │
 │         ▼                                                        │
 │  ┌──────────────┐     ┌──────────────┐                          │
-│  │ EventBridge  │────▶│    Lambda    │                          │
+│  │ EventBridge  │────►│    Lambda    │                          │
 │  │   (events)   │     │  (processor) │                          │
 │  └──────────────┘     └──────────────┘                          │
 │                              │                                   │
@@ -82,71 +82,140 @@
 
 ### Handler basique
 
-```typescript
-// handler.ts
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+```go
+package main
 
-export const getUser = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-  const userId = event.pathParameters?.id;
+import (
+	"context"
+	"encoding/json"
+	"fmt"
 
-  if (!userId) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'Missing user ID' }),
-    };
-  }
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
+)
 
-  try {
-    const user = await userService.getById(userId);
+// UserResponse is the response for user requests.
+type UserResponse struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
 
-    if (!user) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: 'User not found' }),
-      };
-    }
+// ErrorResponse is the error response.
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(user),
-    };
-  } catch (error) {
-    console.error('Error:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' }),
-    };
-  }
-};
+// GetUser handles the get user Lambda function.
+func GetUser(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	userID := request.PathParameters["id"]
+
+	if userID == "" {
+		return events.APIGatewayProxyResponse{
+			StatusCode: 400,
+			Body:       `{"error":"Missing user ID"}`,
+			Headers:    map[string]string{"Content-Type": "application/json"},
+		}, nil
+	}
+
+	user, err := userService.GetByID(ctx, userID)
+	if err != nil {
+		return events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       fmt.Sprintf(`{"error":"%s"}`, err.Error()),
+			Headers:    map[string]string{"Content-Type": "application/json"},
+		}, nil
+	}
+
+	if user == nil {
+		return events.APIGatewayProxyResponse{
+			StatusCode: 404,
+			Body:       `{"error":"User not found"}`,
+			Headers:    map[string]string{"Content-Type": "application/json"},
+		}, nil
+	}
+
+	response := UserResponse{
+		ID:    user.ID,
+		Email: user.Email,
+		Name:  user.Name,
+	}
+
+	body, err := json.Marshal(response)
+	if err != nil {
+		return events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       `{"error":"Internal server error"}`,
+			Headers:    map[string]string{"Content-Type": "application/json"},
+		}, nil
+	}
+
+	return events.APIGatewayProxyResponse{
+		StatusCode: 200,
+		Body:       string(body),
+		Headers:    map[string]string{"Content-Type": "application/json"},
+	}, nil
+}
+
+func main() {
+	lambda.Start(GetUser)
+}
 ```
 
 ### Event-driven handler
 
-```typescript
-// processOrder.ts
-import { SQSEvent, SQSRecord } from 'aws-lambda';
+```go
+package main
 
-export const processOrder = async (event: SQSEvent): Promise<void> => {
-  const promises = event.Records.map(async (record: SQSRecord) => {
-    const order = JSON.parse(record.body);
+import (
+	"context"
+	"encoding/json"
+	"fmt"
 
-    // Process order
-    await orderService.process(order);
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
+)
 
-    // Emit event for other functions
-    await eventBridge.putEvents({
-      Entries: [{
-        Source: 'orders',
-        DetailType: 'OrderProcessed',
-        Detail: JSON.stringify({ orderId: order.id }),
-      }],
-    });
-  });
+// Order represents an order.
+type Order struct {
+	ID     string
+	UserID string
+	Total  float64
+}
 
-  await Promise.all(promises);
-};
+// ProcessOrder handles SQS events for order processing.
+func ProcessOrder(ctx context.Context, sqsEvent events.SQSEvent) error {
+	for _, record := range sqsEvent.Records {
+		var order Order
+		if err := json.Unmarshal([]byte(record.Body), &order); err != nil {
+			return fmt.Errorf("unmarshaling order: %w", err)
+		}
+
+		// Process order
+		if err := orderService.Process(ctx, &order); err != nil {
+			return fmt.Errorf("processing order: %w", err)
+		}
+
+		// Emit event for other functions
+		event := map[string]interface{}{
+			"Source":     "orders",
+			"DetailType": "OrderProcessed",
+			"Detail": map[string]interface{}{
+				"orderId": order.ID,
+			},
+		}
+
+		if err := eventBridge.PutEvents(ctx, event); err != nil {
+			return fmt.Errorf("publishing event: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func main() {
+	lambda.Start(ProcessOrder)
+}
 ```
 
 ## Infrastructure as Code (SAM)
@@ -158,7 +227,7 @@ Transform: AWS::Serverless-2016-10-31
 
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: provided.al2023  # Go custom runtime
     Timeout: 30
     MemorySize: 256
     Environment:
@@ -178,7 +247,8 @@ Resources:
   GetUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: src/handlers/getUser.handler
+      Handler: bootstrap  # Go uses bootstrap
+      CodeUri: ./build/getUser.zip
       Events:
         GetUser:
           Type: Api
@@ -193,7 +263,8 @@ Resources:
   CreateUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: src/handlers/createUser.handler
+      Handler: bootstrap
+      CodeUri: ./build/createUser.zip
       Events:
         CreateUser:
           Type: Api
@@ -305,8 +376,8 @@ OrderProcessingSaga:
 
 ## Cold Start Mitigation
 
-```typescript
-// Provisioned Concurrency (SAM)
+```yaml
+# Provisioned Concurrency (SAM)
 Resources:
   MyFunction:
     Type: AWS::Serverless::Function
@@ -314,11 +385,6 @@ Resources:
       AutoPublishAlias: live
       ProvisionedConcurrencyConfig:
         ProvisionedConcurrentExecutions: 10
-
-// SnapStart (Java)
-Properties:
-  SnapStart:
-    ApplyOn: PublishedVersions
 ```
 
 ## Exemples réels

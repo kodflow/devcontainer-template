@@ -36,36 +36,74 @@ Strategies d'ecriture et lecture pour systemes de cache.
 
 > L'application gere le cache explicitement.
 
-```typescript
-class CacheAsideRepository<T> {
-  constructor(
-    private cache: Cache<T>,
-    private db: Database<T>,
-  ) {}
+```go
+package cache
 
-  async get(id: string): Promise<T | null> {
-    // 1. Chercher dans le cache
-    const cached = await this.cache.get(id);
-    if (cached !== undefined) {
-      return cached;
-    }
+import (
+	"context"
+	"errors"
+)
 
-    // 2. Charger depuis la DB
-    const data = await this.db.findById(id);
-    if (data === null) {
-      return null;
-    }
+var ErrNotFound = errors.New("not found")
 
-    // 3. Mettre en cache
-    await this.cache.set(id, data);
-    return data;
-  }
+// Cache represents a cache interface.
+type Cache[K comparable, V any] interface {
+	Get(ctx context.Context, key K) (V, bool)
+	Set(ctx context.Context, key K, value V) error
+	Delete(ctx context.Context, key K) error
+}
 
-  async update(id: string, data: T): Promise<void> {
-    // Ecrire en DB puis invalider le cache
-    await this.db.update(id, data);
-    await this.cache.delete(id);
-  }
+// Database represents a database interface.
+type Database[K comparable, V any] interface {
+	FindByID(ctx context.Context, id K) (V, error)
+	Update(ctx context.Context, id K, data V) error
+}
+
+// CacheAsideRepository implements cache-aside pattern.
+type CacheAsideRepository[K comparable, V any] struct {
+	cache Cache[K, V]
+	db    Database[K, V]
+}
+
+// NewCacheAsideRepository creates a new cache-aside repository.
+func NewCacheAsideRepository[K comparable, V any](
+	cache Cache[K, V],
+	db Database[K, V],
+) *CacheAsideRepository[K, V] {
+	return &CacheAsideRepository[K, V]{
+		cache: cache,
+		db:    db,
+	}
+}
+
+// Get retrieves data with cache-aside strategy.
+func (r *CacheAsideRepository[K, V]) Get(ctx context.Context, id K) (V, error) {
+	// 1. Check cache
+	if cached, ok := r.cache.Get(ctx, id); ok {
+		return cached, nil
+	}
+
+	// 2. Load from DB
+	data, err := r.db.FindByID(ctx, id)
+	if err != nil {
+		var zero V
+		return zero, err
+	}
+
+	// 3. Store in cache
+	if err := r.cache.Set(ctx, id, data); err != nil {
+		// Log error but return data
+	}
+
+	return data, nil
+}
+
+// Update writes to DB then invalidates cache.
+func (r *CacheAsideRepository[K, V]) Update(ctx context.Context, id K, data V) error {
+	if err := r.db.Update(ctx, id, data); err != nil {
+		return err
+	}
+	return r.cache.Delete(ctx, id)
 }
 ```
 
@@ -76,38 +114,69 @@ class CacheAsideRepository<T> {
 
 > Le cache charge automatiquement depuis la source.
 
-```typescript
-class ReadThroughCache<T> {
-  private cache = new Map<string, T>();
+```go
+package cache
 
-  constructor(
-    private loader: (key: string) => Promise<T>,
-    private ttl: number,
-  ) {}
+import (
+	"context"
+	"sync"
+	"time"
+)
 
-  async get(key: string): Promise<T> {
-    if (this.cache.has(key)) {
-      return this.cache.get(key)!;
-    }
+// Loader loads data from source.
+type Loader[K comparable, V any] func(ctx context.Context, key K) (V, error)
 
-    // Chargement automatique
-    const value = await this.loader(key);
-    this.cache.set(key, value);
-
-    // TTL
-    setTimeout(() => this.cache.delete(key), this.ttl);
-
-    return value;
-  }
+// ReadThroughCache implements read-through caching.
+type ReadThroughCache[K comparable, V any] struct {
+	cache  map[K]V
+	loader Loader[K, V]
+	ttl    time.Duration
+	mu     sync.RWMutex
 }
 
-// Usage
-const userCache = new ReadThroughCache<User>(
-  async (id) => db.users.findById(id),
-  60_000,
-);
+// NewReadThroughCache creates a new read-through cache.
+func NewReadThroughCache[K comparable, V any](
+	loader Loader[K, V],
+	ttl time.Duration,
+) *ReadThroughCache[K, V] {
+	return &ReadThroughCache[K, V]{
+		cache:  make(map[K]V),
+		loader: loader,
+		ttl:    ttl,
+	}
+}
 
-const user = await userCache.get('user-123');
+// Get retrieves from cache, loading if missing.
+func (c *ReadThroughCache[K, V]) Get(ctx context.Context, key K) (V, error) {
+	c.mu.RLock()
+	if value, ok := c.cache[key]; ok {
+		c.mu.RUnlock()
+		return value, nil
+	}
+	c.mu.RUnlock()
+
+	// Load automatically
+	value, err := c.loader(ctx, key)
+	if err != nil {
+		var zero V
+		return zero, err
+	}
+
+	c.mu.Lock()
+	c.cache[key] = value
+	c.mu.Unlock()
+
+	// TTL
+	if c.ttl > 0 {
+		time.AfterFunc(c.ttl, func() {
+			c.mu.Lock()
+			delete(c.cache, key)
+			c.mu.Unlock()
+		})
+	}
+
+	return value, nil
+}
 ```
 
 **Avantages:** Logique centralisee, transparent
@@ -121,25 +190,59 @@ const user = await userCache.get('user-123');
 
 > Ecriture synchrone dans cache ET source.
 
-```typescript
-class WriteThroughCache<T> {
-  constructor(
-    private cache: Cache<T>,
-    private db: Database<T>,
-  ) {}
+```go
+package cache
 
-  async write(key: string, value: T): Promise<void> {
-    // Ecrire dans les deux de maniere synchrone
-    await Promise.all([
-      this.cache.set(key, value),
-      this.db.save(key, value),
-    ]);
-  }
+import (
+	"context"
+	"sync"
+)
 
-  async read(key: string): Promise<T | null> {
-    // Le cache est toujours a jour
-    return this.cache.get(key);
-  }
+// WriteThroughCache implements write-through caching.
+type WriteThroughCache[K comparable, V any] struct {
+	cache Cache[K, V]
+	db    Database[K, V]
+}
+
+// NewWriteThroughCache creates a new write-through cache.
+func NewWriteThroughCache[K comparable, V any](
+	cache Cache[K, V],
+	db Database[K, V],
+) *WriteThroughCache[K, V] {
+	return &WriteThroughCache[K, V]{
+		cache: cache,
+		db:    db,
+	}
+}
+
+// Write writes to both cache and database synchronously.
+func (c *WriteThroughCache[K, V]) Write(ctx context.Context, key K, value V) error {
+	var wg sync.WaitGroup
+	var cacheErr, dbErr error
+
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		cacheErr = c.cache.Set(ctx, key, value)
+	}()
+
+	go func() {
+		defer wg.Done()
+		dbErr = c.db.Update(ctx, key, value)
+	}()
+
+	wg.Wait()
+
+	if dbErr != nil {
+		return dbErr
+	}
+	return cacheErr
+}
+
+// Read reads from cache (always up-to-date).
+func (c *WriteThroughCache[K, V]) Read(ctx context.Context, key K) (V, bool) {
+	return c.cache.Get(ctx, key)
 }
 ```
 
@@ -157,40 +260,98 @@ Write-Through:
 
 > Ecriture asynchrone dans la source.
 
-```typescript
-class WriteBehindCache<T> {
-  private pending = new Map<string, T>();
-  private timer: ReturnType<typeof setInterval>;
+```go
+package cache
 
-  constructor(
-    private cache: Cache<T>,
-    private db: Database<T>,
-    private flushInterval: number,
-  ) {
-    this.timer = setInterval(() => this.flush(), flushInterval);
-  }
+import (
+	"context"
+	"sync"
+	"time"
+)
 
-  async write(key: string, value: T): Promise<void> {
-    // Ecriture immediate dans le cache
-    await this.cache.set(key, value);
-    // Marquer pour ecriture differee
-    this.pending.set(key, value);
-  }
+// WriteBehindCache implements write-behind caching.
+type WriteBehindCache[K comparable, V any] struct {
+	cache         Cache[K, V]
+	db            Database[K, V]
+	pending       map[K]V
+	flushInterval time.Duration
+	mu            sync.Mutex
+	done          chan struct{}
+}
 
-  private async flush(): Promise<void> {
-    if (this.pending.size === 0) return;
+// NewWriteBehindCache creates a new write-behind cache.
+func NewWriteBehindCache[K comparable, V any](
+	cache Cache[K, V],
+	db Database[K, V],
+	flushInterval time.Duration,
+) *WriteBehindCache[K, V] {
+	wbc := &WriteBehindCache[K, V]{
+		cache:         cache,
+		db:            db,
+		pending:       make(map[K]V),
+		flushInterval: flushInterval,
+		done:          make(chan struct{}),
+	}
 
-    const entries = [...this.pending.entries()];
-    this.pending.clear();
+	go wbc.flushLoop()
+	return wbc
+}
 
-    // Batch write vers DB
-    await this.db.bulkSave(entries);
-  }
+// Write writes to cache immediately, DB asynchronously.
+func (c *WriteBehindCache[K, V]) Write(ctx context.Context, key K, value V) error {
+	// Immediate cache write
+	if err := c.cache.Set(ctx, key, value); err != nil {
+		return err
+	}
 
-  async close(): Promise<void> {
-    clearInterval(this.timer);
-    await this.flush();
-  }
+	// Mark for deferred write
+	c.mu.Lock()
+	c.pending[key] = value
+	c.mu.Unlock()
+
+	return nil
+}
+
+func (c *WriteBehindCache[K, V]) flushLoop() {
+	ticker := time.NewTicker(c.flushInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			c.flush()
+		case <-c.done:
+			c.flush()
+			return
+		}
+	}
+}
+
+func (c *WriteBehindCache[K, V]) flush() {
+	c.mu.Lock()
+	if len(c.pending) == 0 {
+		c.mu.Unlock()
+		return
+	}
+
+	entries := make(map[K]V, len(c.pending))
+	for k, v := range c.pending {
+		entries[k] = v
+	}
+	c.pending = make(map[K]V)
+	c.mu.Unlock()
+
+	// Batch write to DB
+	ctx := context.Background()
+	for k, v := range entries {
+		c.db.Update(ctx, k, v)
+	}
+}
+
+// Close flushes pending writes and stops the cache.
+func (c *WriteBehindCache[K, V]) Close() error {
+	close(c.done)
+	return nil
 }
 ```
 
@@ -208,30 +369,52 @@ Write-Behind:
 
 > Ecriture directe en DB, cache uniquement en lecture.
 
-```typescript
-class WriteAroundCache<T> {
-  constructor(
-    private cache: Cache<T>,
-    private db: Database<T>,
-  ) {}
+```go
+package cache
 
-  async write(key: string, value: T): Promise<void> {
-    // Ecriture directe en DB
-    await this.db.save(key, value);
-    // Invalider le cache (optionnel)
-    await this.cache.delete(key);
-  }
+import "context"
 
-  async read(key: string): Promise<T | null> {
-    const cached = await this.cache.get(key);
-    if (cached) return cached;
+// WriteAroundCache implements write-around caching.
+type WriteAroundCache[K comparable, V any] struct {
+	cache Cache[K, V]
+	db    Database[K, V]
+}
 
-    const value = await this.db.findById(key);
-    if (value) {
-      await this.cache.set(key, value);
-    }
-    return value;
-  }
+// NewWriteAroundCache creates a new write-around cache.
+func NewWriteAroundCache[K comparable, V any](
+	cache Cache[K, V],
+	db Database[K, V],
+) *WriteAroundCache[K, V] {
+	return &WriteAroundCache[K, V]{
+		cache: cache,
+		db:    db,
+	}
+}
+
+// Write writes directly to DB.
+func (c *WriteAroundCache[K, V]) Write(ctx context.Context, key K, value V) error {
+	// Direct DB write
+	if err := c.db.Update(ctx, key, value); err != nil {
+		return err
+	}
+	// Optionally invalidate cache
+	return c.cache.Delete(ctx, key)
+}
+
+// Read uses cache-aside for reads.
+func (c *WriteAroundCache[K, V]) Read(ctx context.Context, key K) (V, error) {
+	if cached, ok := c.cache.Get(ctx, key); ok {
+		return cached, nil
+	}
+
+	value, err := c.db.FindByID(ctx, key)
+	if err != nil {
+		var zero V
+		return zero, err
+	}
+
+	c.cache.Set(ctx, key, value)
+	return value, nil
 }
 ```
 
@@ -244,91 +427,171 @@ class WriteAroundCache<T> {
 
 ### LRU (Least Recently Used)
 
-```typescript
-class LRUCache<K, V> {
-  private cache = new Map<K, V>();
+```go
+package cache
 
-  constructor(private maxSize: number) {}
+import (
+	"container/list"
+	"sync"
+)
 
-  get(key: K): V | undefined {
-    if (!this.cache.has(key)) return undefined;
+// LRUCache implements LRU eviction.
+type LRUCache[K comparable, V any] struct {
+	maxSize int
+	cache   map[K]*list.Element
+	lru     *list.List
+	mu      sync.RWMutex
+}
 
-    // Deplacer a la fin (plus recent)
-    const value = this.cache.get(key)!;
-    this.cache.delete(key);
-    this.cache.set(key, value);
-    return value;
-  }
+type lruEntry[K comparable, V any] struct {
+	key   K
+	value V
+}
 
-  set(key: K, value: V): void {
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
-    } else if (this.cache.size >= this.maxSize) {
-      // Supprimer le plus ancien (premier)
-      const oldest = this.cache.keys().next().value;
-      this.cache.delete(oldest);
-    }
-    this.cache.set(key, value);
-  }
+// NewLRUCache creates a new LRU cache.
+func NewLRUCache[K comparable, V any](maxSize int) *LRUCache[K, V] {
+	return &LRUCache[K, V]{
+		maxSize: maxSize,
+		cache:   make(map[K]*list.Element),
+		lru:     list.New(),
+	}
+}
+
+// Get retrieves a value and marks it as recently used.
+func (c *LRUCache[K, V]) Get(key K) (V, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if elem, ok := c.cache[key]; ok {
+		c.lru.MoveToFront(elem)
+		return elem.Value.(*lruEntry[K, V]).value, true
+	}
+
+	var zero V
+	return zero, false
+}
+
+// Set adds or updates a value.
+func (c *LRUCache[K, V]) Set(key K, value V) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if elem, ok := c.cache[key]; ok {
+		c.lru.MoveToFront(elem)
+		elem.Value.(*lruEntry[K, V]).value = value
+		return
+	}
+
+	if c.lru.Len() >= c.maxSize {
+		// Evict oldest
+		oldest := c.lru.Back()
+		if oldest != nil {
+			c.lru.Remove(oldest)
+			delete(c.cache, oldest.Value.(*lruEntry[K, V]).key)
+		}
+	}
+
+	elem := c.lru.PushFront(&lruEntry[K, V]{key: key, value: value})
+	c.cache[key] = elem
 }
 ```
 
 ### LFU (Least Frequently Used)
 
-```typescript
-class LFUCache<K, V> {
-  private cache = new Map<K, { value: V; freq: number }>();
-  private freqMap = new Map<number, Set<K>>();
-  private minFreq = 0;
+```go
+package cache
 
-  constructor(private maxSize: number) {}
+import "sync"
 
-  get(key: K): V | undefined {
-    const entry = this.cache.get(key);
-    if (!entry) return undefined;
+// LFUCache implements LFU eviction.
+type LFUCache[K comparable, V any] struct {
+	maxSize int
+	cache   map[K]*lfuEntry[V]
+	freqMap map[int]map[K]struct{}
+	minFreq int
+	mu      sync.RWMutex
+}
 
-    // Incrementer frequence
-    this.updateFrequency(key, entry.freq);
-    entry.freq++;
-    return entry.value;
-  }
+type lfuEntry[V any] struct {
+	value V
+	freq  int
+}
 
-  private updateFrequency(key: K, oldFreq: number): void {
-    this.freqMap.get(oldFreq)?.delete(key);
+// NewLFUCache creates a new LFU cache.
+func NewLFUCache[K comparable, V any](maxSize int) *LFUCache[K, V] {
+	return &LFUCache[K, V]{
+		maxSize: maxSize,
+		cache:   make(map[K]*lfuEntry[V]),
+		freqMap: make(map[int]map[K]struct{}),
+	}
+}
 
-    const newFreq = oldFreq + 1;
-    if (!this.freqMap.has(newFreq)) {
-      this.freqMap.set(newFreq, new Set());
-    }
-    this.freqMap.get(newFreq)!.add(key);
+// Get retrieves a value and increments frequency.
+func (c *LFUCache[K, V]) Get(key K) (V, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-    if (this.freqMap.get(this.minFreq)?.size === 0) {
-      this.minFreq = newFreq;
-    }
-  }
+	entry, ok := c.cache[key]
+	if !ok {
+		var zero V
+		return zero, false
+	}
 
-  set(key: K, value: V): void {
-    if (this.maxSize <= 0) return;
+	c.updateFrequency(key, entry)
+	entry.freq++
+	return entry.value, true
+}
 
-    if (this.cache.has(key)) {
-      const entry = this.cache.get(key)!;
-      entry.value = value;
-      this.get(key); // Update frequency
-      return;
-    }
+func (c *LFUCache[K, V]) updateFrequency(key K, entry *lfuEntry[V]) {
+	oldFreq := entry.freq
 
-    if (this.cache.size >= this.maxSize) {
-      // Evict LFU
-      const lfuKeys = this.freqMap.get(this.minFreq)!;
-      const keyToRemove = lfuKeys.values().next().value;
-      lfuKeys.delete(keyToRemove);
-      this.cache.delete(keyToRemove);
-    }
+	if set, ok := c.freqMap[oldFreq]; ok {
+		delete(set, key)
+		if len(set) == 0 && oldFreq == c.minFreq {
+			c.minFreq = oldFreq + 1
+		}
+	}
 
-    this.cache.set(key, { value, freq: 1 });
-    this.freqMap.set(1, (this.freqMap.get(1) || new Set()).add(key));
-    this.minFreq = 1;
-  }
+	newFreq := oldFreq + 1
+	if c.freqMap[newFreq] == nil {
+		c.freqMap[newFreq] = make(map[K]struct{})
+	}
+	c.freqMap[newFreq][key] = struct{}{}
+}
+
+// Set adds or updates a value.
+func (c *LFUCache[K, V]) Set(key K, value V) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.maxSize <= 0 {
+		return
+	}
+
+	if entry, ok := c.cache[key]; ok {
+		entry.value = value
+		c.updateFrequency(key, entry)
+		entry.freq++
+		return
+	}
+
+	if len(c.cache) >= c.maxSize {
+		// Evict LFU
+		if lfuKeys, ok := c.freqMap[c.minFreq]; ok {
+			for k := range lfuKeys {
+				delete(c.cache, k)
+				delete(lfuKeys, k)
+				break
+			}
+		}
+	}
+
+	c.cache[key] = &lfuEntry[V]{value: value, freq: 1}
+	if c.freqMap[1] == nil {
+		c.freqMap[1] = make(map[K]struct{})
+	}
+	c.freqMap[1][key] = struct{}{}
+	c.minFreq = 1
 }
 ```
 

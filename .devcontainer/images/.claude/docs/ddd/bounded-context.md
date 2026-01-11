@@ -45,220 +45,391 @@ Bounded Context = Model Boundary + Ubiquitous Language + Team Ownership + Integr
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## TypeScript Implementation
+## Go Implementation
 
 ### Context Definition
 
-```typescript
+```go
 // Each context has its own domain model
-// orders-context/domain/Order.ts
-namespace OrdersContext {
-  export class Order extends AggregateRoot<OrderId> {
-    private _customerId: CustomerId;
-    private _items: OrderItem[];
-    private _status: OrderStatus;
+// orders/domain/order.go
+package orders
 
-    // Order-specific behavior
-    confirm(): Result<void, DomainError> { }
-    cancel(): Result<void, DomainError> { }
-  }
-
-  // Customer in Orders context - minimal, order-focused
-  export class Customer extends Entity<CustomerId> {
-    private _name: string;
-    private _shippingAddress: Address;
-    // Only what Orders context needs
-  }
+// Order in Orders context - full order management
+type Order struct {
+	id              OrderID
+	customerID      CustomerID
+	items           []OrderItem
+	status          OrderStatus
+	shippingAddress Address
 }
 
-// billing-context/domain/Customer.ts
-namespace BillingContext {
-  export class Customer extends AggregateRoot<CustomerId> {
-    private _billingAddress: Address;
-    private _paymentMethods: PaymentMethod[];
-    private _creditLimit: Money;
+// NewOrder creates a new order.
+func NewOrder(
+	customerID CustomerID,
+	shippingAddress Address,
+) (*Order, error) {
+	return &Order{
+		id:              NewOrderID(),
+		customerID:      customerID,
+		status:          OrderStatusDraft,
+		shippingAddress: shippingAddress,
+		items:           make([]OrderItem, 0),
+	}, nil
+}
 
-    // Billing-specific behavior
-    charge(amount: Money): Result<Payment, BillingError> { }
-    addPaymentMethod(method: PaymentMethod): Result<void, ValidationError> { }
-  }
+// Confirm confirms the order.
+func (o *Order) Confirm() error {
+	if o.status != OrderStatusDraft {
+		return errors.New("order cannot be confirmed")
+	}
+	o.status = OrderStatusConfirmed
+	return nil
+}
 
-  // Order in Billing context - just for invoicing
-  export interface OrderReference {
-    orderId: string;
-    totalAmount: Money;
-    orderDate: Date;
-  }
+// Customer in Orders context - minimal, order-focused
+type Customer struct {
+	id              CustomerID
+	name            string
+	shippingAddress Address
+}
+
+// billing/domain/customer.go
+package billing
+
+// Customer in Billing context - billing-focused
+type Customer struct {
+	id             CustomerID
+	billingAddress Address
+	paymentMethods []PaymentMethod
+	creditLimit    Money
+}
+
+// NewCustomer creates a new customer.
+func NewCustomer(
+	id CustomerID,
+	billingAddress Address,
+	creditLimit Money,
+) (*Customer, error) {
+	return &Customer{
+		id:             id,
+		billingAddress: billingAddress,
+		creditLimit:    creditLimit,
+		paymentMethods: make([]PaymentMethod, 0),
+	}, nil
+}
+
+// Charge charges the customer.
+func (c *Customer) Charge(amount Money) (*Payment, error) {
+	if amount.Amount() > c.creditLimit.Amount() {
+		return nil, errors.New("exceeds credit limit")
+	}
+	// Charge logic
+	return nil, nil
+}
+
+// AddPaymentMethod adds a payment method.
+func (c *Customer) AddPaymentMethod(method PaymentMethod) error {
+	c.paymentMethods = append(c.paymentMethods, method)
+	return nil
+}
+
+// OrderReference in Billing context - just for invoicing
+type OrderReference struct {
+	OrderID     string
+	TotalAmount Money
+	OrderDate   time.Time
 }
 ```
 
 ### Anti-Corruption Layer (ACL)
 
-```typescript
+```go
 // Protect your domain from external/legacy systems
-// billing-context/infrastructure/PaymentGatewayACL.ts
+// billing/infrastructure/payment_gateway_acl.go
+package infrastructure
 
-// External payment gateway response (their model)
-interface ExternalPaymentResponse {
-  transaction_id: string;
-  status_code: number;
-  amount_cents: number;
-  currency_iso: string;
-  error_msg?: string;
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+)
+
+// ExternalPaymentResponse is the external payment gateway response.
+type ExternalPaymentResponse struct {
+	TransactionID string `json:"transaction_id"`
+	StatusCode    int    `json:"status_code"`
+	AmountCents   int    `json:"amount_cents"`
+	CurrencyISO   string `json:"currency_iso"`
+	ErrorMsg      string `json:"error_msg,omitempty"`
 }
 
-// Our domain model
-class PaymentResult {
-  constructor(
-    readonly transactionId: TransactionId,
-    readonly status: PaymentStatus,
-    readonly amount: Money,
-    readonly error?: PaymentError
-  ) {}
+// PaymentResult is our domain model.
+type PaymentResult struct {
+	TransactionID TransactionID
+	Status        PaymentStatus
+	Amount        Money
+	Error         error
 }
 
-// Anti-Corruption Layer - translates between models
-class PaymentGatewayACL {
-  constructor(private readonly gateway: ExternalPaymentGateway) {}
+// PaymentGatewayACL translates between external and domain models.
+type PaymentGatewayACL struct {
+	gateway ExternalPaymentGateway
+}
 
-  async processPayment(
-    amount: Money,
-    method: PaymentMethod
-  ): Promise<Result<PaymentResult, PaymentError>> {
-    try {
-      // Translate to external format
-      const request = this.toExternalRequest(amount, method);
+// NewPaymentGatewayACL creates a new ACL.
+func NewPaymentGatewayACL(gateway ExternalPaymentGateway) *PaymentGatewayACL {
+	return &PaymentGatewayACL{gateway: gateway}
+}
 
-      // Call external service
-      const response = await this.gateway.charge(request);
+// ProcessPayment processes a payment through the external gateway.
+func (acl *PaymentGatewayACL) ProcessPayment(
+	ctx context.Context,
+	amount Money,
+	method PaymentMethod,
+) (*PaymentResult, error) {
+	// Translate to external format
+	request := acl.toExternalRequest(amount, method)
+	
+	// Call external service
+	response, err := acl.gateway.Charge(ctx, request)
+	if err != nil {
+		return nil, fmt.Errorf("gateway communication failed: %w", err)
+	}
+	
+	// Translate back to our domain model
+	return acl.toDomainResult(response)
+}
 
-      // Translate back to our domain model
-      return this.toDomainResult(response);
-    } catch (error) {
-      return Result.fail(new PaymentError('Gateway communication failed'));
-    }
-  }
+func (acl *PaymentGatewayACL) toExternalRequest(
+	amount Money,
+	method PaymentMethod,
+) ExternalPaymentRequest {
+	return ExternalPaymentRequest{
+		AmountCents: int(amount.Amount() * 100),
+		CurrencyISO: amount.Currency().Code(),
+		PaymentToken: method.Token(),
+	}
+}
 
-  private toExternalRequest(amount: Money, method: PaymentMethod): ExternalPaymentRequest {
-    return {
-      amount_cents: Math.round(amount.amount * 100),
-      currency_iso: amount.currency.code,
-      payment_token: method.token,
-    };
-  }
-
-  private toDomainResult(response: ExternalPaymentResponse): Result<PaymentResult, PaymentError> {
-    if (response.status_code !== 200) {
-      return Result.fail(new PaymentError(response.error_msg ?? 'Payment failed'));
-    }
-
-    return Result.ok(new PaymentResult(
-      TransactionId.from(response.transaction_id),
-      PaymentStatus.Completed,
-      Money.create(response.amount_cents / 100, response.currency_iso)
-    ));
-  }
+func (acl *PaymentGatewayACL) toDomainResult(
+	response *ExternalPaymentResponse,
+) (*PaymentResult, error) {
+	if response.StatusCode != 200 {
+		return &PaymentResult{
+			Status: PaymentStatusFailed,
+			Error:  errors.New(response.ErrorMsg),
+		}, nil
+	}
+	
+	transactionID, err := NewTransactionID(response.TransactionID)
+	if err != nil {
+		return nil, err
+	}
+	
+	amount, err := NewMoney(
+		float64(response.AmountCents)/100,
+		CurrencyFromCode(response.CurrencyISO),
+	)
+	if err != nil {
+		return nil, err
+	}
+	
+	return &PaymentResult{
+		TransactionID: transactionID,
+		Status:        PaymentStatusCompleted,
+		Amount:        amount,
+	}, nil
 }
 ```
 
 ### Context Integration via Events
 
-```typescript
+```go
 // Shared integration events (in shared kernel or separate package)
-// integration-events/OrderConfirmedIntegrationEvent.ts
-interface OrderConfirmedIntegrationEvent {
-  eventId: string;
-  occurredAt: Date;
-  orderId: string;
-  customerId: string;
-  totalAmount: { amount: number; currency: string };
-  items: Array<{ productId: string; quantity: number }>;
+// integration/events/order_confirmed.go
+package events
+
+import "time"
+
+// OrderConfirmedIntegrationEvent is published across contexts.
+type OrderConfirmedIntegrationEvent struct {
+	EventID    string                 `json:"event_id"`
+	OccurredAt time.Time              `json:"occurred_at"`
+	OrderID    string                 `json:"order_id"`
+	CustomerID string                 `json:"customer_id"`
+	TotalAmount MoneyDTO               `json:"total_amount"`
+	Items      []OrderItemDTO         `json:"items"`
+}
+
+// MoneyDTO is a data transfer object for money.
+type MoneyDTO struct {
+	Amount   float64 `json:"amount"`
+	Currency string  `json:"currency"`
+}
+
+// OrderItemDTO is a data transfer object for order items.
+type OrderItemDTO struct {
+	ProductID string `json:"product_id"`
+	Quantity  int    `json:"quantity"`
 }
 
 // Orders Context - publishes event
-class OrdersContextEventPublisher {
-  constructor(private readonly messageBus: MessageBus) {}
+// orders/infrastructure/event_publisher.go
+package infrastructure
 
-  async publishOrderConfirmed(event: OrderConfirmedEvent): Promise<void> {
-    // Translate domain event to integration event
-    const integrationEvent: OrderConfirmedIntegrationEvent = {
-      eventId: event.eventId,
-      occurredAt: event.occurredAt,
-      orderId: event.orderId.value,
-      customerId: event.customerId.value,
-      totalAmount: {
-        amount: event.totalAmount.amount,
-        currency: event.totalAmount.currency.code,
-      },
-      items: event.items.map(i => ({
-        productId: i.productId,
-        quantity: i.quantity,
-      })),
-    };
+type OrdersEventPublisher struct {
+	messageBus MessageBus
+}
 
-    await this.messageBus.publish('orders.order-confirmed', integrationEvent);
-  }
+// NewOrdersEventPublisher creates a new event publisher.
+func NewOrdersEventPublisher(messageBus MessageBus) *OrdersEventPublisher {
+	return &OrdersEventPublisher{messageBus: messageBus}
+}
+
+// PublishOrderConfirmed publishes an order confirmed event.
+func (p *OrdersEventPublisher) PublishOrderConfirmed(
+	ctx context.Context,
+	event *OrderConfirmedEvent,
+) error {
+	// Translate domain event to integration event
+	integrationEvent := &OrderConfirmedIntegrationEvent{
+		EventID:    event.EventID(),
+		OccurredAt: event.OccurredAt(),
+		OrderID:    event.OrderID.Value(),
+		CustomerID: event.CustomerID.Value(),
+		TotalAmount: MoneyDTO{
+			Amount:   event.TotalAmount.Amount(),
+			Currency: event.TotalAmount.Currency().Code(),
+		},
+		Items: make([]OrderItemDTO, len(event.Items)),
+	}
+	
+	for i, item := range event.Items {
+		integrationEvent.Items[i] = OrderItemDTO{
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+		}
+	}
+	
+	return p.messageBus.Publish(ctx, "orders.order-confirmed", integrationEvent)
 }
 
 // Billing Context - consumes event
-class BillingContextEventHandler {
-  constructor(
-    private readonly invoiceService: InvoiceService,
-    private readonly customerRepository: CustomerRepository
-  ) {}
+// billing/infrastructure/event_handler.go
+package infrastructure
 
-  async handleOrderConfirmed(event: OrderConfirmedIntegrationEvent): Promise<void> {
-    // Translate integration event to billing domain
-    const customer = await this.customerRepository.findById(
-      CustomerId.from(event.customerId)
-    );
+type BillingEventHandler struct {
+	invoiceService     InvoiceService
+	customerRepository CustomerRepository
+}
 
-    const orderRef: OrderReference = {
-      orderId: event.orderId,
-      totalAmount: Money.create(event.totalAmount.amount, event.totalAmount.currency),
-      orderDate: event.occurredAt,
-    };
+// NewBillingEventHandler creates a new event handler.
+func NewBillingEventHandler(
+	invoiceService InvoiceService,
+	customerRepository CustomerRepository,
+) *BillingEventHandler {
+	return &BillingEventHandler{
+		invoiceService:     invoiceService,
+		customerRepository: customerRepository,
+	}
+}
 
-    // Use billing domain logic
-    await this.invoiceService.createInvoice(customer, orderRef);
-  }
+// HandleOrderConfirmed handles order confirmed events.
+func (h *BillingEventHandler) HandleOrderConfirmed(
+	ctx context.Context,
+	event *OrderConfirmedIntegrationEvent,
+) error {
+	// Translate integration event to billing domain
+	customerID, err := NewCustomerID(event.CustomerID)
+	if err != nil {
+		return err
+	}
+	
+	customer, err := h.customerRepository.FindByID(ctx, customerID)
+	if err != nil {
+		return err
+	}
+	
+	amount, err := NewMoney(
+		event.TotalAmount.Amount,
+		CurrencyFromCode(event.TotalAmount.Currency),
+	)
+	if err != nil {
+		return err
+	}
+	
+	orderRef := OrderReference{
+		OrderID:     event.OrderID,
+		TotalAmount: amount,
+		OrderDate:   event.OccurredAt,
+	}
+	
+	// Use billing domain logic
+	return h.invoiceService.CreateInvoice(ctx, customer, orderRef)
 }
 ```
 
 ### Shared Kernel
 
-```typescript
-// shared-kernel/domain/Money.ts
+```go
+// shared/domain/money.go
 // Shared between contexts that need identical money handling
-export class Money {
-  private constructor(
-    readonly amount: number,
-    readonly currency: Currency
-  ) {}
+package domain
 
-  static create(amount: number, currencyCode: string): Money {
-    return new Money(
-      Math.round(amount * 100) / 100,
-      Currency.fromCode(currencyCode)
-    );
-  }
+import (
+	"errors"
+	"math"
+)
 
-  add(other: Money): Money {
-    this.assertSameCurrency(other);
-    return Money.create(this.amount + other.amount, this.currency.code);
-  }
-
-  // ... other operations
+// Money is a shared value object.
+type Money struct {
+	amount   float64
+	currency Currency
 }
 
-// shared-kernel/domain/Address.ts
-export class Address {
-  constructor(
-    readonly street: string,
-    readonly city: string,
-    readonly postalCode: string,
-    readonly country: Country
-  ) {}
+// NewMoney creates a new Money value object.
+func NewMoney(amount float64, currency Currency) (Money, error) {
+	rounded := math.Round(amount*100) / 100
+	return Money{
+		amount:   rounded,
+		currency: currency,
+	}, nil
+}
+
+// Amount returns the monetary amount.
+func (m Money) Amount() float64 {
+	return m.amount
+}
+
+// Currency returns the currency.
+func (m Money) Currency() Currency {
+	return m.currency
+}
+
+// Add adds two money amounts.
+func (m Money) Add(other Money) (Money, error) {
+	if m.currency != other.currency {
+		return Money{}, errors.New("cannot add different currencies")
+	}
+	return NewMoney(m.amount+other.amount, m.currency)
+}
+
+// shared/domain/address.go
+type Address struct {
+	Street     string
+	City       string
+	PostalCode string
+	Country    Country
+}
+
+// NewAddress creates a new address.
+func NewAddress(street, city, postalCode string, country Country) Address {
+	return Address{
+		Street:     street,
+		City:       city,
+		PostalCode: postalCode,
+		Country:    country,
+	}
 }
 ```
 
@@ -278,52 +449,53 @@ export class Address {
 
 ```
 src/
-├── orders-context/
+├── orders/
 │   ├── domain/
-│   │   ├── Order.ts
-│   │   ├── OrderItem.ts
-│   │   └── Customer.ts          # Orders' view of Customer
+│   │   ├── order.go
+│   │   ├── order_item.go
+│   │   └── customer.go          # Orders' view of Customer
 │   ├── application/
-│   │   └── OrderService.ts
+│   │   └── order_service.go
 │   ├── infrastructure/
-│   │   ├── TypeOrmOrderRepository.ts
-│   │   └── EventPublisher.ts
+│   │   ├── repository.go
+│   │   └── event_publisher.go
 │   └── api/
-│       └── OrderController.ts
+│       └── handler.go
 │
-├── billing-context/
+├── billing/
 │   ├── domain/
-│   │   ├── Invoice.ts
-│   │   ├── Customer.ts          # Billing's view of Customer
-│   │   └── Payment.ts
+│   │   ├── invoice.go
+│   │   ├── customer.go          # Billing's view of Customer
+│   │   └── payment.go
 │   ├── application/
-│   │   └── InvoiceService.ts
+│   │   └── invoice_service.go
 │   ├── infrastructure/
-│   │   ├── PaymentGatewayACL.ts  # Anti-Corruption Layer
-│   │   └── EventHandler.ts
+│   │   ├── payment_gateway_acl.go  # Anti-Corruption Layer
+│   │   └── event_handler.go
 │   └── api/
-│       └── InvoiceController.ts
+│       └── handler.go
 │
-├── shared-kernel/
+├── shared/
 │   ├── domain/
-│   │   ├── Money.ts
-│   │   └── Address.ts
+│   │   ├── money.go
+│   │   └── address.go
 │   └── infrastructure/
-│       └── MessageBus.ts
+│       └── message_bus.go
 │
-└── integration-events/
-    ├── OrderConfirmedEvent.ts
-    └── PaymentReceivedEvent.ts
+└── integration/
+    └── events/
+        ├── order_confirmed.go
+        └── payment_received.go
 ```
 
 ## Recommended Libraries
 
 | Library | Purpose | Link |
 |---------|---------|------|
-| **NestJS Modules** | Context isolation | `npm i @nestjs/core` |
-| **RabbitMQ** | Event-based integration | `npm i amqplib` |
-| **Apache Kafka** | Event streaming | `npm i kafkajs` |
-| **GraphQL Federation** | API composition | `npm i @apollo/federation` |
+| **go-kit/kit** | Microservices toolkit | `go get github.com/go-kit/kit` |
+| **nats-io/nats.go** | Event messaging | `go get github.com/nats-io/nats.go` |
+| **segmentio/kafka-go** | Event streaming | `go get github.com/segmentio/kafka-go` |
+| **grpc/grpc-go** | RPC communication | `go get google.golang.org/grpc` |
 
 ## Anti-patterns
 
@@ -338,26 +510,26 @@ src/
 
 2. **Model Bleeding**: Using another context's internal model
 
-   ```typescript
+   ```go
    // BAD - Billing using Orders' internal model
-   import { Order } from '../orders-context/domain/Order';
+   import "myapp/orders/domain"
+   
+   func (s *BillingService) Process(order *domain.Order) {}
    ```
 
 3. **Big Ball of Mud**: No clear boundaries
 
-   ```typescript
-   // BAD - Everything in one "domain"
-   class OrderBillingShippingService { }
+   ```go
+   // BAD - Everything in one package
+   type OrderBillingShippingService struct { }
    ```
 
 4. **Sync Integration**: Direct synchronous calls between contexts
 
-   ```typescript
+   ```go
    // BAD - Tight coupling
-   class OrderService {
-     confirm(order: Order) {
-       this.billingService.createInvoice(order); // Direct call
-     }
+   func (s *OrderService) Confirm(order *Order) error {
+       return s.billingService.CreateInvoice(order) // Direct call
    }
    ```
 

@@ -14,7 +14,7 @@
 │  └─┴─┴─┴─┘        └─┴─┴─┴─┘      └─┴─┴─┴─┘      └─┴─┴─┴─┘     │
 │  v1 v1 v1 v1      v2 v1 v1 v1    v2 v2 v1 v1    v2 v2 v2 v2   │
 │                                                                  │
-│  ───────────────────────────────────────────────────────▶       │
+│  ───────────────────────────────────────────────────────────▶   │
 │                          Temps                                   │
 └─────────────────────────────────────────────────────────────────┘
 
@@ -177,28 +177,139 @@ kubectl rollout status deployment/myapp
 
 ## Health Checks essentiels
 
-```typescript
-// Endpoints de santé
-app.get('/health/live', (req, res) => {
-  // Le processus est-il vivant?
-  res.status(200).json({ status: 'alive' });
-});
+```go
+package health
 
-app.get('/health/ready', (req, res) => {
-  // Prêt à recevoir du trafic?
-  const checks = {
-    database: checkDatabase(),
-    cache: checkCache(),
-    dependencies: checkDependencies(),
-  };
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+)
 
-  const allHealthy = Object.values(checks).every(c => c);
+// Status represents health check status.
+type Status string
 
-  res.status(allHealthy ? 200 : 503).json({
-    status: allHealthy ? 'ready' : 'not_ready',
-    checks,
-  });
-});
+const (
+	StatusAlive    Status = "alive"
+	StatusReady    Status = "ready"
+	StatusNotReady Status = "not_ready"
+)
+
+// Check represents a single health check result.
+type Check struct {
+	Name    string `json:"name"`
+	Healthy bool   `json:"healthy"`
+}
+
+// Response represents health check response.
+type Response struct {
+	Status Status  `json:"status"`
+	Checks []Check `json:"checks,omitempty"`
+}
+
+// Checker defines health check interface.
+type Checker interface {
+	Check(ctx context.Context) bool
+}
+
+// Handler provides HTTP health check endpoints.
+type Handler struct {
+	database     Checker
+	cache        Checker
+	dependencies Checker
+}
+
+// NewHandler creates a new health check handler.
+func NewHandler(database, cache, dependencies Checker) *Handler {
+	return &Handler{
+		database:     database,
+		cache:        cache,
+		dependencies: dependencies,
+	}
+}
+
+// LivenessHandler handles liveness probe requests.
+func (h *Handler) LivenessHandler(w http.ResponseWriter, r *http.Request) {
+	// Process is alive?
+	response := Response{
+		Status: StatusAlive,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// ReadinessHandler handles readiness probe requests.
+func (h *Handler) ReadinessHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Ready to receive traffic?
+	checks := []Check{
+		{Name: "database", Healthy: h.database.Check(ctx)},
+		{Name: "cache", Healthy: h.cache.Check(ctx)},
+		{Name: "dependencies", Healthy: h.dependencies.Check(ctx)},
+	}
+
+	allHealthy := true
+	for _, check := range checks {
+		if !check.Healthy {
+			allHealthy = false
+			break
+		}
+	}
+
+	status := StatusReady
+	httpStatus := http.StatusOK
+	if !allHealthy {
+		status = StatusNotReady
+		httpStatus = http.StatusServiceUnavailable
+	}
+
+	response := Response{
+		Status: status,
+		Checks: checks,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(httpStatus)
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// Example checker implementations
+
+// DatabaseChecker checks database connectivity.
+type DatabaseChecker struct {
+	// db connection
+}
+
+// Check verifies database is accessible.
+func (c *DatabaseChecker) Check(ctx context.Context) bool {
+	// Implement database ping
+	return true
+}
+
+// CacheChecker checks cache connectivity.
+type CacheChecker struct {
+	// cache connection
+}
+
+// Check verifies cache is accessible.
+func (c *CacheChecker) Check(ctx context.Context) bool {
+	// Implement cache ping
+	return true
+}
+
+// DependenciesChecker checks external dependencies.
+type DependenciesChecker struct {
+	// dependency clients
+}
+
+// Check verifies dependencies are accessible.
+func (c *DependenciesChecker) Check(ctx context.Context) bool {
+	// Implement dependency checks
+	return true
+}
 ```
 
 ## Quand utiliser

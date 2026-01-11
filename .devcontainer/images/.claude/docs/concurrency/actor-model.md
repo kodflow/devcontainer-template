@@ -45,256 +45,478 @@ Pattern de concurrence base sur des entites isolees communiquant par messages.
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
-### Actor de base
+### Actor de base avec channels
 
-```typescript
-type Message = {
-  type: string;
-  payload?: unknown;
-  replyTo?: (response: unknown) => void;
-};
+```go
+package actor
 
-abstract class Actor {
-  private mailbox: Message[] = [];
-  private processing = false;
+import (
+	"context"
+	"fmt"
+	"sync"
+)
 
-  protected abstract receive(message: Message): Promise<void>;
+// Message represents an actor message.
+type Message[T any] struct {
+	Type    string
+	Payload T
+	Reply   chan<- interface{}
+}
 
-  send(message: Message): void {
-    this.mailbox.push(message);
-    this.processMailbox();
-  }
+// Actor processes messages sequentially.
+type Actor[S any, M any] struct {
+	state   S
+	mailbox chan Message[M]
+	handler func(*S, Message[M]) error
+	ctx     context.Context
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
+}
 
-  async ask<T>(type: string, payload?: unknown): Promise<T> {
-    return new Promise((resolve) => {
-      this.send({
-        type,
-        payload,
-        replyTo: (response) => resolve(response as T),
-      });
-    });
-  }
+// NewActor creates a new actor.
+func NewActor[S any, M any](
+	initialState S,
+	bufferSize int,
+	handler func(*S, Message[M]) error,
+) *Actor[S, M] {
+	ctx, cancel := context.WithCancel(context.Background())
 
-  private async processMailbox(): Promise<void> {
-    if (this.processing) return;
-    this.processing = true;
+	a := &Actor[S, M]{
+		state:   initialState,
+		mailbox: make(chan Message[M], bufferSize),
+		handler: handler,
+		ctx:     ctx,
+		cancel:  cancel,
+	}
 
-    while (this.mailbox.length > 0) {
-      const message = this.mailbox.shift()!;
-      try {
-        await this.receive(message);
-      } catch (error) {
-        console.error('Actor error:', error);
-        // Supervision strategy here
-      }
-    }
+	a.wg.Add(1)
+	go a.run()
 
-    this.processing = false;
-  }
+	return a
+}
+
+// run processes messages from the mailbox.
+func (a *Actor[S, M]) run() {
+	defer a.wg.Done()
+
+	for {
+		select {
+		case <-a.ctx.Done():
+			return
+		case msg, ok := <-a.mailbox:
+			if !ok {
+				return
+			}
+
+			if err := a.handler(&a.state, msg); err != nil {
+				// Log error or send to supervisor
+				fmt.Printf("Actor error: %v\n", err)
+			}
+		}
+	}
+}
+
+// Send sends a message asynchronously.
+func (a *Actor[S, M]) Send(ctx context.Context, msg Message[M]) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-a.ctx.Done():
+		return fmt.Errorf("actor is stopped")
+	case a.mailbox <- msg:
+		return nil
+	}
+}
+
+// Ask sends a message and waits for reply.
+func (a *Actor[S, M]) Ask(ctx context.Context, msgType string, payload M) (interface{}, error) {
+	reply := make(chan interface{}, 1)
+
+	msg := Message[M]{
+		Type:    msgType,
+		Payload: payload,
+		Reply:   reply,
+	}
+
+	if err := a.Send(ctx, msg); err != nil {
+		return nil, err
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case result := <-reply:
+		return result, nil
+	}
+}
+
+// Stop gracefully stops the actor.
+func (a *Actor[S, M]) Stop() {
+	a.cancel()
+	close(a.mailbox)
+	a.wg.Wait()
 }
 ```
 
+---
+
 ### Exemple: Counter Actor
 
-```typescript
-class CounterActor extends Actor {
-  private count = 0;
+```go
+package main
 
-  protected async receive(message: Message): Promise<void> {
-    switch (message.type) {
-      case 'increment':
-        this.count += (message.payload as number) || 1;
-        break;
+import (
+	"context"
+	"fmt"
+)
 
-      case 'decrement':
-        this.count -= (message.payload as number) || 1;
-        break;
-
-      case 'get':
-        message.replyTo?.(this.count);
-        break;
-
-      case 'reset':
-        this.count = 0;
-        break;
-    }
-  }
+type CounterState struct {
+	count int
 }
 
-// Usage
-const counter = new CounterActor();
+type CounterMsg struct {
+	amount int
+}
 
-counter.send({ type: 'increment', payload: 5 });
-counter.send({ type: 'increment', payload: 3 });
-counter.send({ type: 'decrement', payload: 2 });
+func main() {
+	counter := NewActor(
+		CounterState{count: 0},
+		10,
+		func(state *CounterState, msg Message[CounterMsg]) error {
+			switch msg.Type {
+			case "increment":
+				state.count += msg.Payload.amount
 
-const value = await counter.ask<number>('get');
-console.log(value); // 6
+			case "decrement":
+				state.count -= msg.Payload.amount
+
+			case "get":
+				if msg.Reply != nil {
+					msg.Reply <- state.count
+				}
+
+			case "reset":
+				state.count = 0
+			}
+
+			return nil
+		},
+	)
+	defer counter.Stop()
+
+	ctx := context.Background()
+
+	// Send messages
+	counter.Send(ctx, Message[CounterMsg]{
+		Type:    "increment",
+		Payload: CounterMsg{amount: 5},
+	})
+
+	counter.Send(ctx, Message[CounterMsg]{
+		Type:    "increment",
+		Payload: CounterMsg{amount: 3},
+	})
+
+	// Ask for value
+	value, err := counter.Ask(ctx, "get", CounterMsg{})
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Count: %v\n", value)
+}
 ```
 
 ---
 
 ## Actor System
 
-```typescript
-class ActorSystem {
-  private actors = new Map<string, Actor>();
+```go
+package actor
 
-  register(name: string, actor: Actor): void {
-    this.actors.set(name, actor);
-  }
+import (
+	"context"
+	"fmt"
+	"sync"
+)
 
-  lookup(name: string): Actor | undefined {
-    return this.actors.get(name);
-  }
-
-  send(actorName: string, message: Message): void {
-    const actor = this.actors.get(actorName);
-    if (actor) {
-      actor.send(message);
-    } else {
-      console.error(`Actor not found: ${actorName}`);
-    }
-  }
-
-  async ask<T>(actorName: string, type: string, payload?: unknown): Promise<T> {
-    const actor = this.actors.get(actorName);
-    if (!actor) {
-      throw new Error(`Actor not found: ${actorName}`);
-    }
-    return actor.ask<T>(type, payload);
-  }
+// ActorRef is a reference to an actor.
+type ActorRef interface {
+	Send(context.Context, interface{}) error
+	Ask(context.Context, interface{}) (interface{}, error)
+	Stop()
 }
 
-// Usage
-const system = new ActorSystem();
-system.register('counter', new CounterActor());
-system.register('user-service', new UserServiceActor());
+// System manages actors.
+type System struct {
+	actors map[string]ActorRef
+	mu     sync.RWMutex
+}
 
-system.send('counter', { type: 'increment', payload: 10 });
+// NewSystem creates an actor system.
+func NewSystem() *System {
+	return &System{
+		actors: make(map[string]ActorRef),
+	}
+}
+
+// Register registers an actor with a name.
+func (s *System) Register(name string, actor ActorRef) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.actors[name] = actor
+}
+
+// Lookup finds an actor by name.
+func (s *System) Lookup(name string) (ActorRef, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	actor, ok := s.actors[name]
+	return actor, ok
+}
+
+// Send sends a message to a named actor.
+func (s *System) Send(ctx context.Context, actorName string, msg interface{}) error {
+	actor, ok := s.Lookup(actorName)
+	if !ok {
+		return fmt.Errorf("actor not found: %s", actorName)
+	}
+
+	return actor.Send(ctx, msg)
+}
+
+// Ask sends a request to a named actor.
+func (s *System) Ask(ctx context.Context, actorName string, msg interface{}) (interface{}, error) {
+	actor, ok := s.Lookup(actorName)
+	if !ok {
+		return nil, fmt.Errorf("actor not found: %s", actorName)
+	}
+
+	return actor.Ask(ctx, msg)
+}
+
+// Shutdown stops all actors.
+func (s *System) Shutdown() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, actor := range s.actors {
+		actor.Stop()
+	}
+}
+```
+
+---
+
+## Typed Actor (meilleure type-safety)
+
+```go
+package actor
+
+import (
+	"context"
+	"sync"
+)
+
+// TypedActor is a type-safe actor.
+type TypedActor[S any, M any] struct {
+	state    S
+	mailbox  chan M
+	handlers map[string]func(*S, M) (interface{}, error)
+	ctx      context.Context
+	cancel   context.CancelFunc
+	wg       sync.WaitGroup
+}
+
+// NewTypedActor creates a typed actor.
+func NewTypedActor[S any, M any](initialState S, bufferSize int) *TypedActor[S, M] {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	ta := &TypedActor[S, M]{
+		state:    initialState,
+		mailbox:  make(chan M, bufferSize),
+		handlers: make(map[string]func(*S, M) (interface{}, error)),
+		ctx:      ctx,
+		cancel:   cancel,
+	}
+
+	ta.wg.Add(1)
+	go ta.run()
+
+	return ta
+}
+
+// Handle registers a message handler.
+func (ta *TypedActor[S, M]) Handle(msgType string, handler func(*S, M) (interface{}, error)) {
+	ta.handlers[msgType] = handler
+}
+
+// run processes messages.
+func (ta *TypedActor[S, M]) run() {
+	defer ta.wg.Done()
+
+	for {
+		select {
+		case <-ta.ctx.Done():
+			return
+		case msg, ok := <-ta.mailbox:
+			if !ok {
+				return
+			}
+
+			// Process message with registered handler
+			// Implementation depends on how you identify message types
+		}
+	}
+}
+
+// Send sends a message.
+func (ta *TypedActor[S, M]) Send(ctx context.Context, msg M) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ta.ctx.Done():
+		return fmt.Errorf("actor stopped")
+	case ta.mailbox <- msg:
+		return nil
+	}
+}
+
+// Stop stops the actor.
+func (ta *TypedActor[S, M]) Stop() {
+	ta.cancel()
+	close(ta.mailbox)
+	ta.wg.Wait()
+}
 ```
 
 ---
 
 ## Supervision (Fault Tolerance)
 
-```typescript
-type SupervisionStrategy = 'restart' | 'stop' | 'escalate';
+```go
+package actor
 
-class SupervisedActor extends Actor {
-  private children = new Map<string, SupervisedActor>();
-  protected strategy: SupervisionStrategy = 'restart';
+import (
+	"context"
+	"fmt"
+)
 
-  protected spawn(name: string, actor: SupervisedActor): void {
-    actor.parent = this;
-    this.children.set(name, actor);
-  }
+// SupervisionStrategy defines how to handle failures.
+type SupervisionStrategy int
 
-  private parent?: SupervisedActor;
+const (
+	Restart SupervisionStrategy = iota
+	Stop
+	Escalate
+)
 
-  protected onChildFailure(
-    childName: string,
-    error: Error,
-  ): SupervisionStrategy {
-    console.error(`Child ${childName} failed:`, error);
-    return this.strategy;
-  }
-
-  private handleChildError(childName: string, error: Error): void {
-    const decision = this.onChildFailure(childName, error);
-
-    switch (decision) {
-      case 'restart':
-        const child = this.children.get(childName);
-        if (child) {
-          // Reset state, keep mailbox
-          child.restart();
-        }
-        break;
-
-      case 'stop':
-        this.children.delete(childName);
-        break;
-
-      case 'escalate':
-        if (this.parent) {
-          // Propager l'erreur au parent
-          throw error;
-        }
-        break;
-    }
-  }
-
-  protected restart(): void {
-    // Override pour reset l'etat
-  }
-}
-```
-
----
-
-## Typed Actors (meilleure type-safety)
-
-```typescript
-type MessageHandlers<TState> = {
-  [K: string]: (state: TState, payload: unknown) => TState | Promise<TState>;
-};
-
-function createTypedActor<TState, THandlers extends MessageHandlers<TState>>(
-  initialState: TState,
-  handlers: THandlers,
-) {
-  let state = initialState;
-  const mailbox: Array<{ type: keyof THandlers; payload: unknown }> = [];
-  let processing = false;
-
-  const processMailbox = async () => {
-    if (processing) return;
-    processing = true;
-
-    while (mailbox.length > 0) {
-      const { type, payload } = mailbox.shift()!;
-      const handler = handlers[type as string];
-      if (handler) {
-        state = await handler(state, payload);
-      }
-    }
-
-    processing = false;
-  };
-
-  return {
-    send<K extends keyof THandlers>(
-      type: K,
-      payload: Parameters<THandlers[K]>[1],
-    ): void {
-      mailbox.push({ type, payload });
-      processMailbox();
-    },
-
-    getState(): TState {
-      return state;
-    },
-  };
+// Supervisor manages child actors.
+type Supervisor struct {
+	*Actor[SupervisorState, SupervisorMsg]
+	strategy SupervisionStrategy
 }
 
-// Usage avec types
-const counterActor = createTypedActor(
-  { count: 0 },
-  {
-    increment: (state, amount: number) => ({
-      count: state.count + amount,
-    }),
-    decrement: (state, amount: number) => ({
-      count: state.count - amount,
-    }),
-  },
-);
+type SupervisorState struct {
+	children map[string]ActorRef
+}
 
-counterActor.send('increment', 5);
-counterActor.send('decrement', 2);
+type SupervisorMsg struct {
+	action   string
+	name     string
+	actor    ActorRef
+	error    error
+	response chan<- error
+}
+
+// NewSupervisor creates a supervisor actor.
+func NewSupervisor(strategy SupervisionStrategy) *Supervisor {
+	s := &Supervisor{
+		strategy: strategy,
+	}
+
+	s.Actor = NewActor(
+		SupervisorState{
+			children: make(map[string]ActorRef),
+		},
+		10,
+		s.handleMessage,
+	)
+
+	return s
+}
+
+// handleMessage processes supervisor messages.
+func (s *Supervisor) handleMessage(state *SupervisorState, msg Message[SupervisorMsg]) error {
+	switch msg.Payload.action {
+	case "spawn":
+		state.children[msg.Payload.name] = msg.Payload.actor
+		if msg.Payload.response != nil {
+			msg.Payload.response <- nil
+		}
+
+	case "failure":
+		return s.handleFailure(state, msg.Payload.name, msg.Payload.error)
+
+	case "stop":
+		if child, ok := state.children[msg.Payload.name]; ok {
+			child.Stop()
+			delete(state.children, msg.Payload.name)
+		}
+	}
+
+	return nil
+}
+
+// handleFailure applies supervision strategy.
+func (s *Supervisor) handleFailure(state *SupervisorState, childName string, err error) error {
+	fmt.Printf("Child %s failed: %v\n", childName, err)
+
+	switch s.strategy {
+	case Restart:
+		// Restart logic here
+		return nil
+
+	case Stop:
+		if child, ok := state.children[childName]; ok {
+			child.Stop()
+			delete(state.children, childName)
+		}
+		return nil
+
+	case Escalate:
+		return fmt.Errorf("escalating failure from %s: %w", childName, err)
+
+	default:
+		return nil
+	}
+}
+
+// Spawn creates a child actor.
+func (s *Supervisor) Spawn(ctx context.Context, name string, actor ActorRef) error {
+	response := make(chan error, 1)
+
+	msg := Message[SupervisorMsg]{
+		Type: "spawn",
+		Payload: SupervisorMsg{
+			action:   "spawn",
+			name:     name,
+			actor:    actor,
+			response: response,
+		},
+	}
+
+	if err := s.Send(ctx, msg); err != nil {
+		return err
+	}
+
+	return <-response
+}
 ```
 
 ---
@@ -313,6 +535,7 @@ counterActor.send('decrement', 2);
 - Isolation des erreurs
 - Scalabilite horizontale
 - Modele mental simple
+- Channels natifs Go
 
 ### Inconvenients
 
@@ -342,13 +565,13 @@ counterActor.send('decrement', 2);
 | **Message Queue** | Infrastructure de messaging |
 | **Event Sourcing** | Actors peuvent logger messages |
 | **CQRS** | Actors pour read/write |
-| **Saga** | Orchestration via actors |
+| **CSP** | Go channels = CSP |
 
 ---
 
 ## Sources
 
+- [Go Concurrency Patterns](https://go.dev/blog/pipelines)
 - [Akka Documentation](https://akka.io/docs/)
 - [Actor Model - Wikipedia](https://en.wikipedia.org/wiki/Actor_model)
-- [Microsoft Orleans](https://docs.microsoft.com/en-us/dotnet/orleans/)
 - [Erlang/OTP](https://www.erlang.org/)

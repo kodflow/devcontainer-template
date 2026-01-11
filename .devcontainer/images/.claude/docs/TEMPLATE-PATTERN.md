@@ -32,29 +32,38 @@
 
 [Comment le pattern résout-il ce problème ?]
 
-```typescript
-// Interface ou abstraction principale
-interface [PatternInterface] {
-  [method](): [ReturnType];
+```go
+// [PatternInterface] defines the main abstraction.
+type [PatternInterface] interface {
+	[Method]() ([ReturnType], error)
 }
 
-// Implémentation concrète
-class [ConcreteImplementation] implements [PatternInterface] {
-  [method](): [ReturnType] {
-    // Logique du pattern
-  }
+// [ConcreteImplementation] implements [PatternInterface].
+type [ConcreteImplementation] struct {
+	// fields
 }
 
-// Usage
-const instance = new [ConcreteImplementation]();
-instance.[method]();
+// [Method] implements the pattern logic.
+func (c *[ConcreteImplementation]) [Method]() ([ReturnType], error) {
+	// Pattern logic
+	return [value], nil
+}
+
+// New[ConcreteImplementation] creates a new instance.
+func New[ConcreteImplementation]() *[ConcreteImplementation] {
+	return &[ConcreteImplementation]{}
+}
+
+// Usage:
+// instance := New[ConcreteImplementation]()
+// result, err := instance.[Method]()
 ```
 
 ---
 
 ## Exemple complet
 
-```typescript
+```go
 // Exemple réaliste et fonctionnel
 
 // 1. Définition
@@ -132,19 +141,34 @@ instance.[method]();
 
 ## Tests
 
-```typescript
-describe('[PatternName]', () => {
-  it('should [behavior]', () => {
-    // Arrange
-    const sut = new [Implementation]();
+```go
+func Test[PatternName](t *testing.T) {
+	tests := []struct {
+		name     string
+		input    [InputType]
+		expected [ExpectedType]
+		wantErr  bool
+	}{
+		{
+			name:     "[test case description]",
+			input:    [testInput],
+			expected: [expectedValue],
+			wantErr:  false,
+		},
+	}
 
-    // Act
-    const result = sut.[method]();
-
-    // Assert
-    expect(result).toBe([expected]);
-  });
-});
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := [functionUnderTest](tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("got error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("got %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
 ```
 
 ---

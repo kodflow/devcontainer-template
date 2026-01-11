@@ -17,47 +17,65 @@ La complexité est l'ennemi de la fiabilité. Le code simple est :
 
 ### Logique conditionnelle
 
-```typescript
+```go
 // ❌ Complexe
-function getDiscount(user: User) {
-  if (user.isPremium) {
-    if (user.years > 5) {
-      if (user.orders > 100) {
-        return 0.25;
-      } else {
-        return 0.20;
-      }
-    } else {
-      return 0.15;
-    }
-  } else {
-    if (user.orders > 50) {
-      return 0.10;
-    } else {
-      return 0.05;
-    }
-  }
+func GetDiscount(user *User) float64 {
+	if user.IsPremium {
+		if user.Years > 5 {
+			if user.Orders > 100 {
+				return 0.25
+			} else {
+				return 0.20
+			}
+		} else {
+			return 0.15
+		}
+	} else {
+		if user.Orders > 50 {
+			return 0.10
+		} else {
+			return 0.05
+		}
+	}
 }
 
-// ✅ Simple
-function getDiscount(user: User) {
-  if (user.isPremium && user.years > 5 && user.orders > 100) return 0.25;
-  if (user.isPremium && user.years > 5) return 0.20;
-  if (user.isPremium) return 0.15;
-  if (user.orders > 50) return 0.10;
-  return 0.05;
+// ✅ Simple - Guard clauses
+func GetDiscount(user *User) float64 {
+	if user.IsPremium && user.Years > 5 && user.Orders > 100 {
+		return 0.25
+	}
+	if user.IsPremium && user.Years > 5 {
+		return 0.20
+	}
+	if user.IsPremium {
+		return 0.15
+	}
+	if user.Orders > 50 {
+		return 0.10
+	}
+	return 0.05
 }
 
 // ✅✅ Encore plus simple avec une table
-const DISCOUNT_RULES = [
-  { condition: (u: User) => u.isPremium && u.years > 5 && u.orders > 100, discount: 0.25 },
-  { condition: (u: User) => u.isPremium && u.years > 5, discount: 0.20 },
-  { condition: (u: User) => u.isPremium, discount: 0.15 },
-  { condition: (u: User) => u.orders > 50, discount: 0.10 },
-];
+type DiscountRule struct {
+	Condition func(*User) bool
+	Discount  float64
+}
 
-function getDiscount(user: User) {
-  return DISCOUNT_RULES.find(r => r.condition(user))?.discount ?? 0.05;
+var DiscountRules = []DiscountRule{
+	{func(u *User) bool { return u.IsPremium && u.Years > 5 && u.Orders > 100 }, 0.25},
+	{func(u *User) bool { return u.IsPremium && u.Years > 5 }, 0.20},
+	{func(u *User) bool { return u.IsPremium }, 0.15},
+	{func(u *User) bool { return u.Orders > 50 }, 0.10},
+}
+
+func GetDiscount(user *User) float64 {
+	for _, rule := range DiscountRules {
+		if rule.Condition(user) {
+			return rule.Discount
+		}
+	}
+	return 0.05
 }
 ```
 
@@ -82,25 +100,58 @@ function getDiscount(user: User) {
 
 ### Fonctions
 
-```typescript
+```go
 // ❌ Fonction trop "intelligente"
-function processData(data: any, options?: {
-  validate?: boolean;
-  transform?: boolean;
-  cache?: boolean;
-  log?: boolean;
-  retry?: number;
-}) {
-  // 100 lignes de code avec tous les cas
+type ProcessOptions struct {
+	Validate  bool
+	Transform bool
+	Cache     bool
+	Log       bool
+	Retry     int
+}
+
+func ProcessData(data interface{}, options *ProcessOptions) (interface{}, error) {
+	// 100 lignes de code avec tous les cas
+	if options == nil {
+		options = &ProcessOptions{}
+	}
+	// ... complexité
+	return nil, nil
 }
 
 // ✅ Fonctions simples et composables
-function validateData(data: any) { /* ... */ }
-function transformData(data: any) { /* ... */ }
-function cacheData(data: any) { /* ... */ }
+func ValidateData(data interface{}) error {
+	// Simple validation
+	return nil
+}
+
+func TransformData(data interface{}) (interface{}, error) {
+	// Simple transformation
+	return data, nil
+}
+
+func CacheData(data interface{}) error {
+	// Simple caching
+	return nil
+}
 
 // Composition claire
-const result = cacheData(transformData(validateData(data)));
+func ProcessDataSimple(data interface{}) (interface{}, error) {
+	if err := ValidateData(data); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
+	}
+	
+	transformed, err := TransformData(data)
+	if err != nil {
+		return nil, fmt.Errorf("transformation failed: %w", err)
+	}
+	
+	if err := CacheData(transformed); err != nil {
+		return nil, fmt.Errorf("caching failed: %w", err)
+	}
+	
+	return transformed, nil
+}
 ```
 
 ## Signaux de complexité
@@ -111,7 +162,7 @@ const result = cacheData(transformData(validateData(data)));
 | Plus de 3 niveaux d'indentation | Extraire |
 | Commentaire "c'est compliqué" | Simplifier |
 | Difficile à expliquer | Repenser |
-| Beaucoup de paramètres (>3) | Créer un objet config |
+| Beaucoup de paramètres (>3) | Créer une struct config |
 
 ## Quand la complexité est nécessaire
 

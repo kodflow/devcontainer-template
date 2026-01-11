@@ -13,237 +13,309 @@ Active Record combine les donnees et le comportement de persistance dans un seul
 3. **Logique metier** : Peut contenir des validations et comportements
 4. **Simplicite** : Pas de couche de mapping separee
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-// Base Active Record
-abstract class ActiveRecord {
-  protected static tableName: string;
-  protected static db: Database;
+```go
+package activerecord
 
-  id?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"time"
 
-  // Finders
-  static async find<T extends ActiveRecord>(
-    this: new () => T,
-    id: string,
-  ): Promise<T | null> {
-    const row = await (this as any).db.queryOne(
-      `SELECT * FROM ${(this as any).tableName} WHERE id = ?`,
-      [id],
-    );
-    if (!row) return null;
-    return (this as any).fromRow(row);
-  }
+	"golang.org/x/crypto/bcrypt"
+)
 
-  static async findAll<T extends ActiveRecord>(this: new () => T): Promise<T[]> {
-    const rows = await (this as any).db.query(
-      `SELECT * FROM ${(this as any).tableName}`,
-    );
-    return rows.map((row: any) => (this as any).fromRow(row));
-  }
+// Database is a global database connection.
+var db *sql.DB
 
-  static async findBy<T extends ActiveRecord>(
-    this: new () => T,
-    conditions: Partial<T>,
-  ): Promise<T[]> {
-    const keys = Object.keys(conditions);
-    const where = keys.map((k) => `${this.toSnakeCase(k)} = ?`).join(' AND ');
-    const values = Object.values(conditions);
-
-    const rows = await (this as any).db.query(
-      `SELECT * FROM ${(this as any).tableName} WHERE ${where}`,
-      values,
-    );
-    return rows.map((row: any) => (this as any).fromRow(row));
-  }
-
-  // Persistence
-  async save(): Promise<void> {
-    this.validate();
-
-    if (this.id) {
-      await this.update();
-    } else {
-      await this.insert();
-    }
-  }
-
-  async delete(): Promise<void> {
-    if (!this.id) throw new Error('Cannot delete unsaved record');
-
-    await (this.constructor as any).db.execute(
-      `DELETE FROM ${(this.constructor as any).tableName} WHERE id = ?`,
-      [this.id],
-    );
-  }
-
-  // Override in subclasses
-  protected validate(): void {
-    // Default: no validation
-  }
-
-  protected abstract toRow(): Record<string, any>;
-  protected static fromRow<T>(row: any): T {
-    throw new Error('Must implement fromRow');
-  }
-
-  private async insert(): Promise<void> {
-    this.id = crypto.randomUUID();
-    this.createdAt = new Date();
-    this.updatedAt = new Date();
-
-    const row = this.toRow();
-    const keys = Object.keys(row);
-    const placeholders = keys.map(() => '?').join(', ');
-    const columns = keys.map((k) => ActiveRecord.toSnakeCase(k)).join(', ');
-
-    await (this.constructor as any).db.execute(
-      `INSERT INTO ${(this.constructor as any).tableName} (${columns}) VALUES (${placeholders})`,
-      Object.values(row),
-    );
-  }
-
-  private async update(): Promise<void> {
-    this.updatedAt = new Date();
-
-    const row = this.toRow();
-    const sets = Object.keys(row)
-      .filter((k) => k !== 'id')
-      .map((k) => `${ActiveRecord.toSnakeCase(k)} = ?`)
-      .join(', ');
-    const values = Object.values(row).filter((_, i) =>
-      Object.keys(row)[i] !== 'id',
-    );
-    values.push(this.id);
-
-    await (this.constructor as any).db.execute(
-      `UPDATE ${(this.constructor as any).tableName} SET ${sets} WHERE id = ?`,
-      values,
-    );
-  }
-
-  private static toSnakeCase(str: string): string {
-    return str.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
-  }
+// SetDatabase sets the global database connection.
+func SetDatabase(database *sql.DB) {
+	db = database
 }
 
-// Concrete Active Record
-class User extends ActiveRecord {
-  protected static tableName = 'users';
-
-  email!: string;
-  passwordHash!: string;
-  role: string = 'user';
-  lastLoginAt?: Date;
-
-  // Domain logic
-  static async findByEmail(email: string): Promise<User | null> {
-    const users = await User.findBy<User>({ email });
-    return users[0] || null;
-  }
-
-  async setPassword(password: string): Promise<void> {
-    if (password.length < 8) {
-      throw new ValidationError('Password must be at least 8 characters');
-    }
-    this.passwordHash = await bcrypt.hash(password, 10);
-  }
-
-  async checkPassword(password: string): Promise<boolean> {
-    return bcrypt.compare(password, this.passwordHash);
-  }
-
-  isAdmin(): boolean {
-    return this.role === 'admin';
-  }
-
-  recordLogin(): void {
-    this.lastLoginAt = new Date();
-  }
-
-  protected validate(): void {
-    if (!this.email || !this.email.includes('@')) {
-      throw new ValidationError('Invalid email');
-    }
-    if (!this.passwordHash) {
-      throw new ValidationError('Password is required');
-    }
-  }
-
-  protected toRow(): Record<string, any> {
-    return {
-      id: this.id,
-      email: this.email,
-      passwordHash: this.passwordHash,
-      role: this.role,
-      lastLoginAt: this.lastLoginAt,
-      createdAt: this.createdAt,
-      updatedAt: this.updatedAt,
-    };
-  }
-
-  protected static fromRow(row: any): User {
-    const user = new User();
-    user.id = row.id;
-    user.email = row.email;
-    user.passwordHash = row.password_hash;
-    user.role = row.role;
-    user.lastLoginAt = row.last_login_at ? new Date(row.last_login_at) : undefined;
-    user.createdAt = new Date(row.created_at);
-    user.updatedAt = new Date(row.updated_at);
-    return user;
-  }
+// User is an Active Record representing a user.
+type User struct {
+	ID           string
+	Email        string
+	PasswordHash string
+	Role         string
+	LastLoginAt  *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
-// Usage
-const user = new User();
-user.email = 'john@example.com';
-await user.setPassword('securepassword123');
-await user.save();
+// Find loads a user by ID.
+func (u *User) Find(ctx context.Context, id string) error {
+	err := db.QueryRowContext(ctx,
+		`SELECT id, email, password_hash, role, last_login_at, created_at, updated_at
+		 FROM users WHERE id = ?`,
+		id,
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.LastLoginAt, &u.CreatedAt, &u.UpdatedAt)
 
-const found = await User.findByEmail('john@example.com');
-if (found && await found.checkPassword('securepassword123')) {
-  found.recordLogin();
-  await found.save();
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("user not found")
+	}
+	return err
 }
-```
 
-## Active Record avec Relations
+// FindByEmail loads a user by email.
+func FindUserByEmail(ctx context.Context, email string) (*User, error) {
+	user := &User{}
+	err := db.QueryRowContext(ctx,
+		`SELECT id, email, password_hash, role, last_login_at, created_at, updated_at
+		 FROM users WHERE email = ?`,
+		email,
+	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt)
 
-```typescript
-class Post extends ActiveRecord {
-  protected static tableName = 'posts';
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
 
-  title!: string;
-  content!: string;
-  authorId!: string;
+	return user, nil
+}
 
-  // Belongs To
-  private _author?: User;
-  async getAuthor(): Promise<User> {
-    if (!this._author) {
-      this._author = await User.find<User>(this.authorId);
-    }
-    return this._author!;
-  }
+// FindAll loads all users.
+func FindAllUsers(ctx context.Context) ([]*User, error) {
+	rows, err := db.QueryContext(ctx,
+		`SELECT id, email, password_hash, role, last_login_at, created_at, updated_at FROM users`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-  // Has Many
-  async getComments(): Promise<Comment[]> {
-    return Comment.findBy<Comment>({ postId: this.id });
-  }
+	var users []*User
+	for rows.Next() {
+		user := &User{}
+		if err := rows.Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
 
-  // Factory with association
-  static createForAuthor(author: User, title: string, content: string): Post {
-    const post = new Post();
-    post.authorId = author.id!;
-    post.title = title;
-    post.content = content;
-    post._author = author;
-    return post;
-  }
+	return users, rows.Err()
+}
+
+// Save saves the user (insert or update).
+func (u *User) Save(ctx context.Context) error {
+	if err := u.validate(); err != nil {
+		return err
+	}
+
+	if u.ID == "" {
+		return u.insert(ctx)
+	}
+	return u.update(ctx)
+}
+
+// Delete deletes the user.
+func (u *User) Delete(ctx context.Context) error {
+	if u.ID == "" {
+		return fmt.Errorf("cannot delete unsaved user")
+	}
+
+	_, err := db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, u.ID)
+	return err
+}
+
+// SetPassword sets and hashes the password.
+func (u *User) SetPassword(password string) error {
+	if len(password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	u.PasswordHash = string(hash)
+	return nil
+}
+
+// CheckPassword verifies a password.
+func (u *User) CheckPassword(password string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password))
+	return err == nil
+}
+
+// IsAdmin checks if the user is an admin.
+func (u *User) IsAdmin() bool {
+	return u.Role == "admin"
+}
+
+// RecordLogin records a login timestamp.
+func (u *User) RecordLogin() {
+	now := time.Now()
+	u.LastLoginAt = &now
+}
+
+func (u *User) validate() error {
+	if u.Email == "" || !contains(u.Email, "@") {
+		return fmt.Errorf("invalid email")
+	}
+	if u.PasswordHash == "" {
+		return fmt.Errorf("password is required")
+	}
+	return nil
+}
+
+func (u *User) insert(ctx context.Context) error {
+	u.ID = generateID()
+	now := time.Now()
+	u.CreatedAt = now
+	u.UpdatedAt = now
+
+	_, err := db.ExecContext(ctx,
+		`INSERT INTO users (id, email, password_hash, role, last_login_at, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		u.ID, u.Email, u.PasswordHash, u.Role, u.LastLoginAt, u.CreatedAt, u.UpdatedAt,
+	)
+	return err
+}
+
+func (u *User) update(ctx context.Context) error {
+	u.UpdatedAt = time.Now()
+
+	_, err := db.ExecContext(ctx,
+		`UPDATE users
+		 SET email = ?, password_hash = ?, role = ?, last_login_at = ?, updated_at = ?
+		 WHERE id = ?`,
+		u.Email, u.PasswordHash, u.Role, u.LastLoginAt, u.UpdatedAt, u.ID,
+	)
+	return err
+}
+
+// Post is another Active Record example.
+type Post struct {
+	ID        string
+	Title     string
+	Content   string
+	AuthorID  string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// GetAuthor loads the post's author.
+func (p *Post) GetAuthor(ctx context.Context) (*User, error) {
+	user := &User{}
+	if err := user.Find(ctx, p.AuthorID); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// GetComments loads the post's comments.
+func (p *Post) GetComments(ctx context.Context) ([]*Comment, error) {
+	rows, err := db.QueryContext(ctx,
+		`SELECT id, post_id, content, created_at FROM comments WHERE post_id = ?`,
+		p.ID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var comments []*Comment
+	for rows.Next() {
+		comment := &Comment{}
+		if err := rows.Scan(&comment.ID, &comment.PostID, &comment.Content, &comment.CreatedAt); err != nil {
+			return nil, err
+		}
+		comments = append(comments, comment)
+	}
+
+	return comments, rows.Err()
+}
+
+// Save saves the post.
+func (p *Post) Save(ctx context.Context) error {
+	if p.ID == "" {
+		return p.insert(ctx)
+	}
+	return p.update(ctx)
+}
+
+func (p *Post) insert(ctx context.Context) error {
+	p.ID = generateID()
+	now := time.Now()
+	p.CreatedAt = now
+	p.UpdatedAt = now
+
+	_, err := db.ExecContext(ctx,
+		`INSERT INTO posts (id, title, content, author_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		p.ID, p.Title, p.Content, p.AuthorID, p.CreatedAt, p.UpdatedAt,
+	)
+	return err
+}
+
+func (p *Post) update(ctx context.Context) error {
+	p.UpdatedAt = time.Now()
+
+	_, err := db.ExecContext(ctx,
+		`UPDATE posts SET title = ?, content = ?, updated_at = ? WHERE id = ?`,
+		p.Title, p.Content, p.UpdatedAt, p.ID,
+	)
+	return err
+}
+
+// Comment represents a comment.
+type Comment struct {
+	ID        string
+	PostID    string
+	Content   string
+	CreatedAt time.Time
+}
+
+// Usage example
+func ExampleUsage() error {
+	ctx := context.Background()
+
+	// Create user
+	user := &User{
+		Email: "john@example.com",
+		Role:  "user",
+	}
+	if err := user.SetPassword("securepassword123"); err != nil {
+		return err
+	}
+	if err := user.Save(ctx); err != nil {
+		return err
+	}
+
+	// Find and login
+	found, err := FindUserByEmail(ctx, "john@example.com")
+	if err != nil {
+		return err
+	}
+	if found != nil && found.CheckPassword("securepassword123") {
+		found.RecordLogin()
+		if err := found.Save(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Helper functions
+func generateID() string {
+	return fmt.Sprintf("id-%d", time.Now().UnixNano())
+}
+
+func contains(s, substr string) bool {
+	for i := 0; i < len(s)-len(substr)+1; i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
 ```
 
@@ -282,34 +354,6 @@ Active Record est **deconseille en DDD** car :
 2. **Testabilite reduite** : Besoin de DB pour tester
 3. **Anemic tendance** : Logique migre vers services
 
-```typescript
-// Active Record = souvent Anemic Model
-class Order extends ActiveRecord {
-  status: string;
-  items: OrderItem[];
-  // Peu de logique metier ici
-}
-
-// Logique dans un service (anti-pattern DDD)
-class OrderService {
-  async submit(order: Order) {
-    if (order.items.length === 0) throw new Error('Empty');
-    order.status = 'submitted';
-    await order.save();
-  }
-}
-
-// DDD prefere Data Mapper + Rich Domain
-class Order {
-  submit(): void {
-    if (this.items.length === 0) {
-      throw new DomainError('Cannot submit empty order');
-    }
-    this.status = OrderStatus.Submitted;
-  }
-}
-```
-
 ## Frameworks populaires
 
 | Framework | Langage | Active Record |
@@ -317,15 +361,7 @@ class Order {
 | Ruby on Rails | Ruby | ActiveRecord |
 | Laravel | PHP | Eloquent |
 | Django | Python | ORM Models |
-| TypeORM | TypeScript | Active Record mode |
-| Prisma | TypeScript | Data Mapper (pas AR) |
-
-## Patterns associes
-
-- **Row Data Gateway** : AR sans logique metier
-- **Data Mapper** : Alternative avec separation
-- **Table Data Gateway** : Operations par table
-- **Repository** : Abstraction au-dessus d'AR
+| GORM | Go | Active Record mode |
 
 ## Sources
 

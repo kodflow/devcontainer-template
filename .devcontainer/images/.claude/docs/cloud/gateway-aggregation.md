@@ -44,127 +44,156 @@ APRES (1 requete agregee):
 └────────┘        └─────────┘        └─────────┘
 ```
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-interface AggregationConfig {
-  endpoints: {
-    name: string;
-    url: string;
-    timeout?: number;
-    required?: boolean;
-  }[];
-  parallelExecution: boolean;
+```go
+package gateway
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"time"
+)
+
+// EndpointConfig defines an endpoint to aggregate.
+type EndpointConfig struct {
+	Name     string
+	URL      string
+	Timeout  time.Duration
+	Required bool
 }
 
-class GatewayAggregator {
-  constructor(private readonly config: AggregationConfig) {}
+// AggregationConfig configures the aggregation behavior.
+type AggregationConfig struct {
+	Endpoints         []EndpointConfig
+	ParallelExecution bool
+}
 
-  async aggregate<T extends Record<string, any>>(
-    context: RequestContext,
-  ): Promise<T> {
-    if (this.config.parallelExecution) {
-      return this.aggregateParallel(context);
-    }
-    return this.aggregateSequential(context);
-  }
+// RequestContext provides context for the aggregation request.
+type RequestContext struct {
+	AuthToken string
+	Params    map[string]string
+}
 
-  private async aggregateParallel<T>(context: RequestContext): Promise<T> {
-    const promises = this.config.endpoints.map(async (endpoint) => {
-      try {
-        const response = await this.fetchWithTimeout(
-          endpoint.url,
-          endpoint.timeout ?? 5000,
-          context,
-        );
-        return { name: endpoint.name, data: response, error: null };
-      } catch (error) {
-        if (endpoint.required) {
-          throw error;
-        }
-        return { name: endpoint.name, data: null, error };
-      }
-    });
+// GatewayAggregator aggregates multiple backend requests.
+type GatewayAggregator struct {
+	config AggregationConfig
+	client *http.Client
+}
 
-    const results = await Promise.all(promises);
+// NewGatewayAggregator creates a new GatewayAggregator.
+func NewGatewayAggregator(config AggregationConfig) *GatewayAggregator {
+	return &GatewayAggregator{
+		config: config,
+		client: &http.Client{},
+	}
+}
 
-    return results.reduce((acc, result) => {
-      acc[result.name] = result.data;
-      return acc;
-    }, {} as T);
-  }
+// Aggregate aggregates responses from multiple endpoints.
+func (ga *GatewayAggregator) Aggregate(ctx context.Context, reqCtx RequestContext) (map[string]interface{}, error) {
+	if ga.config.ParallelExecution {
+		return ga.aggregateParallel(ctx, reqCtx)
+	}
+	return ga.aggregateSequential(ctx, reqCtx)
+}
 
-  private async aggregateSequential<T>(context: RequestContext): Promise<T> {
-    const result: Record<string, any> = {};
+type endpointResult struct {
+	Name  string
+	Data  interface{}
+	Error error
+}
 
-    for (const endpoint of this.config.endpoints) {
-      try {
-        result[endpoint.name] = await this.fetchWithTimeout(
-          endpoint.url,
-          endpoint.timeout ?? 5000,
-          context,
-        );
-      } catch (error) {
-        if (endpoint.required) throw error;
-        result[endpoint.name] = null;
-      }
-    }
+func (ga *GatewayAggregator) aggregateParallel(ctx context.Context, reqCtx RequestContext) (map[string]interface{}, error) {
+	results := make(chan endpointResult, len(ga.config.Endpoints))
+	
+	for _, endpoint := range ga.config.Endpoints {
+		go func(ep EndpointConfig) {
+			data, err := ga.fetchWithTimeout(ctx, ep.URL, ep.Timeout, reqCtx)
+			results <- endpointResult{
+				Name:  ep.Name,
+				Data:  data,
+				Error: err,
+			}
+		}(endpoint)
+	}
+	
+	// Collect results
+	aggregated := make(map[string]interface{})
+	for i := 0; i < len(ga.config.Endpoints); i++ {
+		result := <-results
+		
+		if result.Error != nil {
+			// Check if endpoint is required
+			for _, ep := range ga.config.Endpoints {
+				if ep.Name == result.Name && ep.Required {
+					return nil, fmt.Errorf("required endpoint %s failed: %w", result.Name, result.Error)
+				}
+			}
+			aggregated[result.Name] = nil
+		} else {
+			aggregated[result.Name] = result.Data
+		}
+	}
+	
+	return aggregated, nil
+}
 
-    return result as T;
-  }
+func (ga *GatewayAggregator) aggregateSequential(ctx context.Context, reqCtx RequestContext) (map[string]interface{}, error) {
+	result := make(map[string]interface{})
+	
+	for _, endpoint := range ga.config.Endpoints {
+		data, err := ga.fetchWithTimeout(ctx, endpoint.URL, endpoint.Timeout, reqCtx)
+		if err != nil {
+			if endpoint.Required {
+				return nil, fmt.Errorf("required endpoint %s failed: %w", endpoint.Name, err)
+			}
+			result[endpoint.Name] = nil
+		} else {
+			result[endpoint.Name] = data
+		}
+	}
+	
+	return result, nil
+}
 
-  private async fetchWithTimeout(
-    url: string,
-    timeout: number,
-    context: RequestContext,
-  ): Promise<any> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-
-    try {
-      const response = await fetch(url, {
-        headers: { Authorization: context.authToken },
-        signal: controller.signal,
-      });
-      return response.json();
-    } finally {
-      clearTimeout(timer);
-    }
-  }
+func (ga *GatewayAggregator) fetchWithTimeout(ctx context.Context, url string, timeout time.Duration, reqCtx RequestContext) (interface{}, error) {
+	if timeout == 0 {
+		timeout = 5 * time.Second
+	}
+	
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	
+	req, err := http.NewRequestWithContext(timeoutCtx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+	
+	req.Header.Set("Authorization", reqCtx.AuthToken)
+	
+	resp, err := ga.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("executing request: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+	
+	// Parse response (simplified - should decode JSON)
+	return resp.Body, nil
 }
 ```
 
 ## Usage
 
-```typescript
-// Configuration de l'agregation pour une page profil
-const profileAggregator = new GatewayAggregator({
-  parallelExecution: true,
-  endpoints: [
-    { name: 'user', url: '/api/users/{id}', required: true },
-    { name: 'orders', url: '/api/users/{id}/orders', required: false },
-    { name: 'reviews', url: '/api/users/{id}/reviews', required: false },
-    { name: 'recommendations', url: '/api/recommend/{id}', timeout: 2000 },
-  ],
-});
-
-// Endpoint agrege
-app.get('/api/profile/:id', async (req, res) => {
-  const profile = await profileAggregator.aggregate({
-    authToken: req.headers.authorization,
-    params: { id: req.params.id },
-  });
-
-  res.json(profile);
-});
-
-// Reponse agregee
-// {
-//   user: { id: 1, name: "John" },
-//   orders: [{ id: 101, total: 99.99 }],
-//   reviews: [{ rating: 5, comment: "..." }],
-//   recommendations: [{ productId: 42 }]
-// }
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Strategies de gestion d'erreur

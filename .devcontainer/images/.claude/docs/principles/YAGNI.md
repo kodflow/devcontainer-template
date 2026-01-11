@@ -20,51 +20,59 @@ Résister à la tentation d'ajouter des fonctionnalités "au cas où".
 
 ### Code
 
-```typescript
+```go
 // ❌ YAGNI violation
-class UserService {
-  getUser(id: string) { /* ... */ }
-  getUserWithCache(id: string) { /* ... */ }  // "On aura besoin de cache"
-  getUserAsync(id: string) { /* ... */ }       // "Peut-être async un jour"
-  getUserBatch(ids: string[]) { /* ... */ }    // "Au cas où"
-  getUserWithRetry(id: string) { /* ... */ }   // "Pour la résilience"
+type UserService struct {
+	repo Repository
 }
 
+func (s *UserService) GetUser(id string) (*User, error) { /* ... */ }
+func (s *UserService) GetUserWithCache(id string) (*User, error) { /* ... */ }  // "On aura besoin de cache"
+func (s *UserService) GetUserAsync(id string) <-chan *User { /* ... */ }       // "Peut-être async un jour"
+func (s *UserService) GetUserBatch(ids []string) ([]*User, error) { /* ... */ } // "Au cas où"
+func (s *UserService) GetUserWithRetry(id string) (*User, error) { /* ... */ }  // "Pour la résilience"
+
 // ✅ YAGNI
-class UserService {
-  getUser(id: string) { /* ... */ }
-  // Ajouter les autres QUAND on en a besoin
+type UserService struct {
+	repo Repository
 }
+
+func (s *UserService) GetUser(id string) (*User, error) { /* ... */ }
+// Ajouter les autres QUAND on en a besoin
 ```
 
 ### Configuration
 
-```typescript
+```go
 // ❌ YAGNI violation
-interface Config {
-  database: {
-    host: string;
-    port: number;
-    ssl: boolean;
-    poolSize: number;
-    maxRetries: number;
-    retryDelay: number;
-    connectionTimeout: number;
-    queryTimeout: number;
-    idleTimeout: number;
-    // 20 autres options "au cas où"
-  };
+type Config struct {
+	Database DatabaseConfig
+}
+
+type DatabaseConfig struct {
+	Host              string
+	Port              int
+	SSL               bool
+	PoolSize          int
+	MaxRetries        int
+	RetryDelay        time.Duration
+	ConnectionTimeout time.Duration
+	QueryTimeout      time.Duration
+	IdleTimeout       time.Duration
+	// 20 autres options "au cas où"
 }
 
 // ✅ YAGNI
-interface Config {
-  database: {
-    host: string;
-    port: number;
-  };
-  // Ajouter ssl QUAND on déploie en prod
-  // Ajouter poolSize QUAND on a des problèmes de perf
+type Config struct {
+	Database DatabaseConfig
 }
+
+type DatabaseConfig struct {
+	Host string
+	Port int
+}
+// Ajouter SSL QUAND on déploie en prod
+// Ajouter PoolSize QUAND on a des problèmes de perf
 ```
 
 ### Architecture
@@ -99,26 +107,26 @@ YAGNI ne s'applique pas à :
 
 ### 1. Sécurité
 
-```typescript
+```go
 // ✅ Toujours inclure (pas YAGNI)
-function hashPassword(password: string) {
-  return bcrypt.hash(password, 12);
+func HashPassword(password string) (string, error) {
+	return bcrypt.GenerateFromPassword([]byte(password), 12)
 }
 ```
 
 ### 2. Architecture difficile à changer
 
-```typescript
+```go
 // ✅ Réfléchir dès le départ
-interface Database {
-  query(sql: string): Promise<any>;
+type Database interface {
+	Query(ctx context.Context, sql string, args ...interface{}) (*sql.Rows, error)
 }
 // Car changer l'interface DB après = très coûteux
 ```
 
 ### 3. Contrats d'API publique
 
-```typescript
+```go
 // ✅ Versionner dès le départ
 // /api/v1/users
 // Car changer = breaking change pour les clients

@@ -22,7 +22,7 @@
 │  │ MODULE  │           │  MODULE  │           │  MODULE  │     │
 │  │         │           │          │           │          │     │
 │  │┌───────┐│   API     │┌────────┐│   API     │┌────────┐│     │
-│  ││Domain ││◀─────────▶││ Domain ││◀─────────▶││ Domain ││     │
+│  ││Domain ││◄─────────►││ Domain ││◄─────────►││ Domain ││     │
 │  ││       ││           ││        ││           ││        ││     │
 │  │├───────┤│           │├────────┤│           │├────────┤│     │
 │  ││  App  ││           ││  App   ││           ││  App   ││     │
@@ -50,27 +50,27 @@ src/
 ├── modules/
 │   ├── orders/                    # Module Orders
 │   │   ├── domain/
-│   │   │   ├── Order.ts
-│   │   │   ├── OrderItem.ts
-│   │   │   └── OrderService.ts
+│   │   │   ├── Order.go
+│   │   │   ├── OrderItem.go
+│   │   │   └── OrderService.go
 │   │   ├── application/
-│   │   │   ├── CreateOrderUseCase.ts
-│   │   │   └── GetOrderUseCase.ts
+│   │   │   ├── CreateOrderUseCase.go
+│   │   │   └── GetOrderUseCase.go
 │   │   ├── infrastructure/
-│   │   │   ├── OrderRepository.ts
-│   │   │   └── OrderController.ts
+│   │   │   ├── OrderRepository.go
+│   │   │   └── OrderController.go
 │   │   ├── api/                   # API publique du module
-│   │   │   ├── OrderModuleApi.ts  # Interface
-│   │   │   └── OrderModuleImpl.ts # Implémentation
-│   │   └── index.ts               # Export public
+│   │   │   ├── OrderModuleAPI.go  # Interface
+│   │   │   └── OrderModuleImpl.go # Implémentation
+│   │   └── module.go              # Export public
 │   │
 │   ├── users/                     # Module Users
 │   │   ├── domain/
 │   │   ├── application/
 │   │   ├── infrastructure/
 │   │   ├── api/
-│   │   │   └── UserModuleApi.ts
-│   │   └── index.ts
+│   │   │   └── UserModuleAPI.go
+│   │   └── module.go
 │   │
 │   └── inventory/                 # Module Inventory
 │       └── ...
@@ -80,143 +80,239 @@ src/
 │   ├── errors/
 │   └── utils/
 │
-└── main.ts                        # Composition root
+└── main.go                        # Composition root
 ```
 
 ## Communication inter-modules
 
 ### Via API publique
 
-```typescript
-// modules/orders/api/OrderModuleApi.ts
-export interface OrderModuleApi {
-  createOrder(request: CreateOrderRequest): Promise<OrderResponse>;
-  getOrder(orderId: string): Promise<OrderResponse | null>;
-  cancelOrder(orderId: string): Promise<void>;
+```go
+package api
+
+import "context"
+
+// CreateOrderRequest is the request to create an order.
+type CreateOrderRequest struct {
+	UserID string
+	Items  []OrderItem
 }
 
-// modules/orders/api/OrderModuleImpl.ts
-export class OrderModuleImpl implements OrderModuleApi {
-  constructor(
-    private createOrderUseCase: CreateOrderUseCase,
-    private getOrderUseCase: GetOrderUseCase,
-    private cancelOrderUseCase: CancelOrderUseCase
-  ) {}
-
-  async createOrder(request: CreateOrderRequest): Promise<OrderResponse> {
-    const order = await this.createOrderUseCase.execute(request);
-    return OrderResponse.fromDomain(order);
-  }
-
-  async getOrder(orderId: string): Promise<OrderResponse | null> {
-    return this.getOrderUseCase.execute(orderId);
-  }
+// OrderResponse is the response for order queries.
+type OrderResponse struct {
+	ID        string
+	UserID    string
+	Items     []OrderItem
+	Total     float64
+	CreatedAt time.Time
 }
 
-// Usage depuis un autre module
-class ShippingService {
-  constructor(private orderModule: OrderModuleApi) {}
+// OrderModuleAPI is the public API for the order module.
+type OrderModuleAPI interface {
+	CreateOrder(ctx context.Context, req CreateOrderRequest) (*OrderResponse, error)
+	GetOrder(ctx context.Context, orderID string) (*OrderResponse, error)
+	CancelOrder(ctx context.Context, orderID string) error
+}
 
-  async shipOrder(orderId: string): Promise<void> {
-    const order = await this.orderModule.getOrder(orderId);
-    // ...
-  }
+// OrderModuleImpl implements OrderModuleAPI.
+type OrderModuleImpl struct {
+	createOrderUseCase CreateOrderUseCase
+	getOrderUseCase    GetOrderUseCase
+	cancelOrderUseCase CancelOrderUseCase
+}
+
+// NewOrderModule creates a new order module.
+func NewOrderModule(
+	createOrderUseCase CreateOrderUseCase,
+	getOrderUseCase GetOrderUseCase,
+	cancelOrderUseCase CancelOrderUseCase,
+) OrderModuleAPI {
+	return &OrderModuleImpl{
+		createOrderUseCase: createOrderUseCase,
+		getOrderUseCase:    getOrderUseCase,
+		cancelOrderUseCase: cancelOrderUseCase,
+	}
+}
+
+// CreateOrder creates a new order.
+func (m *OrderModuleImpl) CreateOrder(ctx context.Context, req CreateOrderRequest) (*OrderResponse, error) {
+	order, err := m.createOrderUseCase.Execute(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &OrderResponse{
+		ID:        order.ID,
+		UserID:    order.UserID,
+		Items:     order.Items,
+		Total:     order.Total,
+		CreatedAt: order.CreatedAt,
+	}, nil
+}
+
+// GetOrder retrieves an order by ID.
+func (m *OrderModuleImpl) GetOrder(ctx context.Context, orderID string) (*OrderResponse, error) {
+	return m.getOrderUseCase.Execute(ctx, orderID)
+}
+
+// Usage from another module
+type ShippingService struct {
+	orderModule OrderModuleAPI
+}
+
+func (s *ShippingService) ShipOrder(ctx context.Context, orderID string) error {
+	order, err := s.orderModule.GetOrder(ctx, orderID)
+	if err != nil {
+		return err
+	}
+
+	// Process shipping
+	return nil
 }
 ```
 
 ### Via événements internes
 
-```typescript
-// shared/events/EventBus.ts
-interface InternalEventBus {
-  publish<T>(event: DomainEvent<T>): void;
-  subscribe<T>(eventType: string, handler: (event: DomainEvent<T>) => void): void;
+```go
+package events
+
+import "context"
+
+// DomainEvent represents a domain event.
+type DomainEvent struct {
+	Type    string
+	Payload interface{}
 }
 
-// modules/orders/domain/OrderService.ts
-class OrderService {
-  constructor(private eventBus: InternalEventBus) {}
+// EventHandler handles domain events.
+type EventHandler func(context.Context, DomainEvent) error
 
-  async createOrder(request: CreateOrderRequest): Promise<Order> {
-    const order = new Order(/* ... */);
-    await this.orderRepo.save(order);
-
-    // Publish internal event
-    this.eventBus.publish({
-      type: 'order.created',
-      payload: { orderId: order.id, customerId: order.customerId },
-    });
-
-    return order;
-  }
+// InternalEventBus is the internal event bus for module communication.
+type InternalEventBus interface {
+	Publish(ctx context.Context, event DomainEvent) error
+	Subscribe(eventType string, handler EventHandler)
 }
 
-// modules/inventory/handlers/OrderCreatedHandler.ts
-class OrderCreatedHandler {
-  constructor(eventBus: InternalEventBus) {
-    eventBus.subscribe('order.created', this.handle.bind(this));
-  }
+// OrderService publishes events.
+type OrderService struct {
+	eventBus InternalEventBus
+	orderRepo OrderRepository
+}
 
-  async handle(event: OrderCreatedEvent): Promise<void> {
-    // Reserve inventory
-    await this.inventoryService.reserve(event.payload.items);
-  }
+// CreateOrder creates an order and publishes an event.
+func (s *OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest) (*Order, error) {
+	order := &Order{
+		ID:     GenerateID(),
+		UserID: req.UserID,
+		Items:  req.Items,
+	}
+
+	if err := s.orderRepo.Save(ctx, order); err != nil {
+		return nil, err
+	}
+
+	// Publish internal event
+	event := DomainEvent{
+		Type: "order.created",
+		Payload: map[string]interface{}{
+			"orderID":    order.ID,
+			"customerID": order.UserID,
+		},
+	}
+
+	if err := s.eventBus.Publish(ctx, event); err != nil {
+		return nil, err
+	}
+
+	return order, nil
+}
+
+// OrderCreatedHandler handles order created events in inventory module.
+type OrderCreatedHandler struct {
+	inventoryService InventoryService
+}
+
+// NewOrderCreatedHandler creates a new handler and subscribes to events.
+func NewOrderCreatedHandler(eventBus InternalEventBus, inventoryService InventoryService) *OrderCreatedHandler {
+	handler := &OrderCreatedHandler{inventoryService: inventoryService}
+	eventBus.Subscribe("order.created", handler.Handle)
+	return handler
+}
+
+// Handle handles the order created event.
+func (h *OrderCreatedHandler) Handle(ctx context.Context, event DomainEvent) error {
+	payload := event.Payload.(map[string]interface{})
+	items := payload["items"].([]OrderItem)
+
+	// Reserve inventory
+	return h.inventoryService.Reserve(ctx, items)
 }
 ```
 
 ## Règles d'isolation
 
-```typescript
-// eslint-plugin-module-boundaries (exemple)
-const rules = {
-  // Un module ne peut importer que son API publique
-  'no-direct-import': {
-    allow: [
-      'modules/*/api/*',    // API publiques OK
-      'shared/*',            // Shared kernel OK
-    ],
-    deny: [
-      'modules/*/domain/*',      // Domain interne interdit
-      'modules/*/infrastructure/*', // Infra interne interdit
-    ],
-  },
-};
+```go
+package validation
 
-// Exemple de violation
-// modules/orders/application/CreateOrderUseCase.ts
-import { UserRepository } from '../../users/infrastructure/UserRepository';
-// ❌ INTERDIT: accès direct à l'infra d'un autre module
+// Module boundary rules (enforced by linters like arch-go)
+const (
+	// A module can only import:
+	// - Its own packages
+	// - The shared kernel
+	// - Public APIs from other modules (modules/*/api)
+	
+	// FORBIDDEN:
+	// - Direct import of domain/ from other modules
+	// - Direct import of infrastructure/ from other modules
+)
 
-import { UserModuleApi } from '../../users/api/UserModuleApi';
-// ✅ OK: utilisation de l'API publique
+// Example violations:
+
+// ❌ FORBIDDEN: Direct access to internal infrastructure
+// import "app/modules/users/infrastructure"
+
+// ✅ ALLOWED: Use public API
+// import "app/modules/users/api"
 ```
 
 ## Composition Root
 
-```typescript
-// main.ts - Assembly des modules
-async function bootstrap(): Promise<void> {
-  // Infrastructure
-  const db = new Database(config.database);
-  const eventBus = new InMemoryEventBus();
+```go
+package main
 
-  // Modules
-  const userModule = UserModule.create(db, eventBus);
-  const inventoryModule = InventoryModule.create(db, eventBus);
-  const orderModule = OrderModule.create(
-    db,
-    eventBus,
-    userModule.api,        // Injection de l'API
-    inventoryModule.api    // Injection de l'API
-  );
+import (
+	"database/sql"
+	"log"
+	"net/http"
+)
 
-  // HTTP Server
-  const app = express();
-  app.use('/api/users', userModule.router);
-  app.use('/api/orders', orderModule.router);
-  app.use('/api/inventory', inventoryModule.router);
+func main() {
+	// Infrastructure
+	db, err := sql.Open("postgres", config.DatabaseURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
 
-  app.listen(3000);
+	eventBus := NewInMemoryEventBus()
+
+	// Modules
+	userModule := users.NewModule(db, eventBus)
+	inventoryModule := inventory.NewModule(db, eventBus)
+	orderModule := orders.NewModule(
+		db,
+		eventBus,
+		userModule.API(),      // Inject API
+		inventoryModule.API(), // Inject API
+	)
+
+	// HTTP Server
+	mux := http.NewServeMux()
+	mux.Handle("/api/users/", userModule.Router())
+	mux.Handle("/api/orders/", orderModule.Router())
+	mux.Handle("/api/inventory/", inventoryModule.Router())
+
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 ```
 

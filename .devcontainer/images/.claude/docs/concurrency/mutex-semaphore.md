@@ -34,82 +34,85 @@ Primitives de synchronisation pour controler l'acces aux ressources partagees.
 
 > Assure qu'une seule tache peut acceder a une ressource a la fois.
 
-```typescript
-class Mutex {
-  private locked = false;
-  private waiting: Array<() => void> = [];
+```go
+package mutex
 
-  async acquire(): Promise<void> {
-    if (!this.locked) {
-      this.locked = true;
-      return;
-    }
+import (
+	"sync"
+)
 
-    return new Promise<void>((resolve) => {
-      this.waiting.push(resolve);
-    });
-  }
-
-  release(): void {
-    if (this.waiting.length > 0) {
-      const next = this.waiting.shift()!;
-      next();
-    } else {
-      this.locked = false;
-    }
-  }
-
-  async withLock<T>(fn: () => T | Promise<T>): Promise<T> {
-    await this.acquire();
-    try {
-      return await fn();
-    } finally {
-      this.release();
-    }
-  }
-
-  get isLocked(): boolean {
-    return this.locked;
-  }
+// Mutex wraps sync.Mutex with helpers.
+type Mutex struct {
+	mu sync.Mutex
 }
 
-// Usage
-const fileMutex = new Mutex();
-
-async function writeToFile(content: string): Promise<void> {
-  await fileMutex.withLock(async () => {
-    await fs.appendFile('log.txt', content);
-  });
+// NewMutex creates a new mutex.
+func NewMutex() *Mutex {
+	return &Mutex{}
 }
 
-// Appels concurrents - serialises par le mutex
-await Promise.all([
-  writeToFile('Line 1\n'),
-  writeToFile('Line 2\n'),
-  writeToFile('Line 3\n'),
-]);
+// Lock acquires the mutex.
+func (m *Mutex) Lock() {
+	m.mu.Lock()
+}
+
+// Unlock releases the mutex.
+func (m *Mutex) Unlock() {
+	m.mu.Unlock()
+}
+
+// WithLock executes fn while holding the lock.
+func (m *Mutex) WithLock(fn func() error) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return fn()
+}
+
+// TryLock attempts to acquire the lock without blocking.
+func (m *Mutex) TryLock() bool {
+	return m.mu.TryLock()
+}
 ```
 
-### Mutex avec timeout
+**Usage:**
 
-```typescript
-class TimedMutex extends Mutex {
-  async acquireWithTimeout(timeoutMs: number): Promise<boolean> {
-    const timeoutPromise = new Promise<boolean>((resolve) => {
-      setTimeout(() => resolve(false), timeoutMs);
-    });
+```go
+package main
 
-    const acquirePromise = this.acquire().then(() => true);
+import (
+	"fmt"
+	"os"
+	"sync"
+)
 
-    const acquired = await Promise.race([acquirePromise, timeoutPromise]);
+var fileMutex sync.Mutex
 
-    if (!acquired) {
-      // Retirer de la waiting list si present
-      return false;
-    }
+func writeToFile(content string) error {
+	fileMutex.Lock()
+	defer fileMutex.Unlock()
 
-    return true;
-  }
+	f, err := os.OpenFile("log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(content)
+	return err
+}
+
+func main() {
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			writeToFile(fmt.Sprintf("Line %d\n", n))
+		}(i)
+	}
+
+	wg.Wait()
 }
 ```
 
@@ -119,135 +122,168 @@ class TimedMutex extends Mutex {
 
 > Limite l'acces concurrent a N ressources.
 
-```typescript
-class Semaphore {
-  private permits: number;
-  private waiting: Array<() => void> = [];
+```go
+package semaphore
 
-  constructor(permits: number) {
-    if (permits < 1) throw new Error('Permits must be >= 1');
-    this.permits = permits;
-  }
+import (
+	"context"
+	"fmt"
+)
 
-  async acquire(count: number = 1): Promise<void> {
-    if (this.permits >= count) {
-      this.permits -= count;
-      return;
-    }
-
-    return new Promise<void>((resolve) => {
-      const tryAcquire = () => {
-        if (this.permits >= count) {
-          this.permits -= count;
-          resolve();
-        } else {
-          this.waiting.push(tryAcquire);
-        }
-      };
-      this.waiting.push(tryAcquire);
-    });
-  }
-
-  release(count: number = 1): void {
-    this.permits += count;
-
-    // Reveiller les waiters
-    while (this.waiting.length > 0 && this.permits > 0) {
-      const tryAcquire = this.waiting.shift()!;
-      tryAcquire();
-    }
-  }
-
-  async withPermit<T>(fn: () => T | Promise<T>): Promise<T> {
-    await this.acquire();
-    try {
-      return await fn();
-    } finally {
-      this.release();
-    }
-  }
-
-  get available(): number {
-    return this.permits;
-  }
+// Semaphore limits concurrent access.
+type Semaphore struct {
+	permits chan struct{}
 }
 
-// Usage - Limiter les requetes API
-const apiSemaphore = new Semaphore(5); // Max 5 requetes simultanees
+// NewSemaphore creates a semaphore with n permits.
+func NewSemaphore(n int) *Semaphore {
+	if n < 1 {
+		panic("permits must be >= 1")
+	}
 
-async function fetchData(url: string): Promise<Response> {
-  return apiSemaphore.withPermit(() => fetch(url));
+	return &Semaphore{
+		permits: make(chan struct{}, n),
+	}
 }
 
-// 100 requetes mais max 5 en parallele
-const urls = generateUrls(100);
-const results = await Promise.all(urls.map(fetchData));
+// Acquire acquires n permits.
+func (s *Semaphore) Acquire(ctx context.Context, n int) error {
+	for i := 0; i < n; i++ {
+		select {
+		case <-ctx.Done():
+			// Release already acquired permits
+			for j := 0; j < i; j++ {
+				s.Release(1)
+			}
+			return ctx.Err()
+		case s.permits <- struct{}{}:
+		}
+	}
+	return nil
+}
+
+// TryAcquire tries to acquire without blocking.
+func (s *Semaphore) TryAcquire(n int) bool {
+	for i := 0; i < n; i++ {
+		select {
+		case s.permits <- struct{}{}:
+		default:
+			// Release already acquired permits
+			for j := 0; j < i; j++ {
+				s.Release(1)
+			}
+			return false
+		}
+	}
+	return true
+}
+
+// Release releases n permits.
+func (s *Semaphore) Release(n int) {
+	for i := 0; i < n; i++ {
+		<-s.permits
+	}
+}
+
+// WithPermit executes fn while holding a permit.
+func (s *Semaphore) WithPermit(ctx context.Context, fn func() error) error {
+	if err := s.Acquire(ctx, 1); err != nil {
+		return err
+	}
+	defer s.Release(1)
+
+	return fn()
+}
+
+// Available returns the number of available permits.
+func (s *Semaphore) Available() int {
+	return cap(s.permits) - len(s.permits)
+}
+```
+
+**Usage - Limiter les requetes API:**
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"sync"
+	"time"
+)
+
+func main() {
+	// Max 5 concurrent requests
+	apiSemaphore := NewSemaphore(5)
+
+	urls := make([]string, 100)
+	for i := range urls {
+		urls[i] = fmt.Sprintf("https://api.example.com/%d", i)
+	}
+
+	var wg sync.WaitGroup
+	ctx := context.Background()
+
+	for _, url := range urls {
+		wg.Add(1)
+
+		go func(u string) {
+			defer wg.Done()
+
+			err := apiSemaphore.WithPermit(ctx, func() error {
+				resp, err := http.Get(u)
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+
+				fmt.Printf("Fetched %s: %d\n", u, resp.StatusCode)
+				return nil
+			})
+
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+			}
+		}(url)
+	}
+
+	wg.Wait()
+}
 ```
 
 ---
 
-## Counting Semaphore avance
+## Semaphore avec golang.org/x/sync
 
-```typescript
-class CountingSemaphore {
-  private permits: number;
-  private maxPermits: number;
-  private queue: Array<{
-    count: number;
-    resolve: () => void;
-  }> = [];
+Go fournit une implementation officielle:
 
-  constructor(initialPermits: number, maxPermits: number = Infinity) {
-    this.permits = initialPermits;
-    this.maxPermits = maxPermits;
-  }
+```go
+package main
 
-  async acquire(count: number = 1): Promise<void> {
-    if (count > this.maxPermits) {
-      throw new Error(`Cannot acquire ${count} permits (max: ${this.maxPermits})`);
-    }
+import (
+	"context"
+	"fmt"
 
-    if (this.permits >= count && this.queue.length === 0) {
-      this.permits -= count;
-      return;
-    }
+	"golang.org/x/sync/semaphore"
+)
 
-    return new Promise<void>((resolve) => {
-      this.queue.push({ count, resolve });
-    });
-  }
+func main() {
+	// Create weighted semaphore
+	sem := semaphore.NewWeighted(5)
 
-  release(count: number = 1): void {
-    this.permits = Math.min(this.permits + count, this.maxPermits);
-    this.processQueue();
-  }
+	ctx := context.Background()
 
-  private processQueue(): void {
-    while (this.queue.length > 0) {
-      const first = this.queue[0];
-      if (this.permits >= first.count) {
-        this.permits -= first.count;
-        this.queue.shift();
-        first.resolve();
-      } else {
-        break;
-      }
-    }
-  }
+	// Acquire
+	if err := sem.Acquire(ctx, 1); err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	defer sem.Release(1)
 
-  tryAcquire(count: number = 1): boolean {
-    if (this.permits >= count) {
-      this.permits -= count;
-      return true;
-    }
-    return false;
-  }
-
-  drainPermits(): number {
-    const drained = this.permits;
-    this.permits = 0;
-    return drained;
-  }
+	// Do work
+	fmt.Println("Processing...")
 }
 ```
 
@@ -257,55 +293,93 @@ class CountingSemaphore {
 
 ### Rate Limiter
 
-```typescript
-class RateLimiter {
-  private semaphore: Semaphore;
-  private refillInterval: ReturnType<typeof setInterval>;
+```go
+package ratelimit
 
-  constructor(
-    private maxRequests: number,
-    private windowMs: number,
-  ) {
-    this.semaphore = new Semaphore(maxRequests);
+import (
+	"context"
+	"time"
+)
 
-    // Refill periodique
-    this.refillInterval = setInterval(() => {
-      const toRefill = maxRequests - this.semaphore.available;
-      if (toRefill > 0) {
-        this.semaphore.release(toRefill);
-      }
-    }, windowMs);
-  }
+// RateLimiter limits operations per time window.
+type RateLimiter struct {
+	sem      *Semaphore
+	refill   *time.Ticker
+	maxRate  int
+	done     chan struct{}
+}
 
-  async acquire(): Promise<void> {
-    await this.semaphore.acquire();
-  }
+// NewRateLimiter creates a rate limiter.
+func NewRateLimiter(maxRequests int, window time.Duration) *RateLimiter {
+	rl := &RateLimiter{
+		sem:     NewSemaphore(maxRequests),
+		refill:  time.NewTicker(window),
+		maxRate: maxRequests,
+		done:    make(chan struct{}),
+	}
 
-  stop(): void {
-    clearInterval(this.refillInterval);
-  }
+	go rl.refiller()
+
+	return rl
+}
+
+// refiller periodically refills permits.
+func (rl *RateLimiter) refiller() {
+	for {
+		select {
+		case <-rl.refill.C:
+			available := rl.sem.Available()
+			toRefill := rl.maxRate - available
+			if toRefill > 0 {
+				rl.sem.Release(toRefill)
+			}
+		case <-rl.done:
+			return
+		}
+	}
+}
+
+// Acquire acquires a permit for rate limiting.
+func (rl *RateLimiter) Acquire(ctx context.Context) error {
+	return rl.sem.Acquire(ctx, 1)
+}
+
+// Stop stops the rate limiter.
+func (rl *RateLimiter) Stop() {
+	rl.refill.Stop()
+	close(rl.done)
 }
 ```
 
 ### Resource Guard
 
-```typescript
-class ResourceGuard<T> {
-  private mutex = new Mutex();
+```go
+package guard
 
-  constructor(private resource: T) {}
+import (
+	"sync"
+)
 
-  async use<R>(fn: (resource: T) => R | Promise<R>): Promise<R> {
-    return this.mutex.withLock(() => fn(this.resource));
-  }
+// ResourceGuard protects a resource with a mutex.
+type ResourceGuard[T any] struct {
+	resource T
+	mu       sync.Mutex
 }
 
-// Usage
-const fileGuard = new ResourceGuard(new FileHandle('data.json'));
+// NewResourceGuard creates a guarded resource.
+func NewResourceGuard[T any](resource T) *ResourceGuard[T] {
+	return &ResourceGuard[T]{
+		resource: resource,
+	}
+}
 
-await fileGuard.use(async (file) => {
-  await file.write(JSON.stringify(data));
-});
+// Use executes fn with exclusive access to the resource.
+func (rg *ResourceGuard[T]) Use(fn func(*T) error) error {
+	rg.mu.Lock()
+	defer rg.mu.Unlock()
+
+	return fn(&rg.resource)
+}
 ```
 
 ---
@@ -314,9 +388,9 @@ await fileGuard.use(async (file) => {
 
 | Operation | Mutex | Semaphore |
 |-----------|-------|-----------|
-| acquire (no wait) | O(1) | O(1) |
-| release | O(1) | O(waiting) |
-| Memoire | O(waiting) | O(waiting) |
+| acquire (no wait) | O(1) | O(n) n=permits |
+| release | O(1) | O(n) |
+| Memoire | O(1) | O(capacity) |
 
 ### Mutex vs Semaphore
 
@@ -331,6 +405,7 @@ await fileGuard.use(async (file) => {
 - Prevention race conditions
 - Controle de concurrence
 - Simple a comprendre
+- Native dans stdlib Go
 
 ### Inconvenients
 
@@ -347,7 +422,7 @@ await fileGuard.use(async (file) => {
 | Acces exclusif a une ressource | Mutex |
 | Pool de N ressources | Semaphore(N) |
 | Rate limiting | Semaphore + timer |
-| Read-heavy workload | Read-Write Lock |
+| Read-heavy workload | sync.RWMutex |
 
 ---
 
@@ -364,6 +439,6 @@ await fileGuard.use(async (file) => {
 
 ## Sources
 
+- [Go sync.Mutex](https://pkg.go.dev/sync#Mutex)
+- [golang.org/x/sync/semaphore](https://pkg.go.dev/golang.org/x/sync/semaphore)
 - [The Little Book of Semaphores](https://greenteapress.com/wp/semaphores/)
-- [Java Semaphore](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/Semaphore.html)
-- [OS Mutex vs Semaphore](https://www.geeksforgeeks.org/mutex-vs-semaphore/)

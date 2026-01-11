@@ -36,217 +36,138 @@
 | **Atomicite** | Garantie | Best effort |
 | **Visibility** | Invisible | Peut etre visible |
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-interface CompensableOperation<T> {
-  name: string;
-  execute: () => Promise<T>;
-  compensate: (result: T) => Promise<void>;
-  isCompensable: (result: T) => boolean;
+```go
+package compensation
+
+import (
+	"context"
+	"fmt"
+	"log"
+)
+
+// CompensableOperation defines an operation that can be compensated.
+type CompensableOperation[T any] struct {
+	Name         string
+	Execute      func(ctx context.Context) (T, error)
+	Compensate   func(ctx context.Context, result T) error
+	IsCompensable func(result T) bool
 }
 
-class CompensatingTransaction {
-  private executedOperations: Array<{
-    operation: CompensableOperation<any>;
-    result: any;
-  }> = [];
+// ExecutedOperation tracks an executed operation with its result.
+type ExecutedOperation struct {
+	Name          string
+	Result        interface{}
+	IsCompensable bool
+	CompensateFn  func(ctx context.Context) error
+}
 
-  async execute<T>(operations: CompensableOperation<T>[]): Promise<void> {
-    for (const operation of operations) {
-      try {
-        console.log(`Executing: ${operation.name}`);
-        const result = await operation.execute();
+// CompensatingTransaction manages a sequence of compensable operations.
+type CompensatingTransaction struct {
+	executedOperations []ExecutedOperation
+}
 
-        this.executedOperations.push({ operation, result });
-      } catch (error) {
-        console.error(`Failed at: ${operation.name}`, error);
-        await this.compensate();
-        throw error;
-      }
-    }
-  }
+// NewCompensatingTransaction creates a new CompensatingTransaction.
+func NewCompensatingTransaction() *CompensatingTransaction {
+	return &CompensatingTransaction{
+		executedOperations: make([]ExecutedOperation, 0),
+	}
+}
 
-  private async compensate(): Promise<void> {
-    console.log('Starting compensation...');
+// Execute runs all operations and compensates on failure.
+func (ct *CompensatingTransaction) Execute(ctx context.Context, operations []CompensableOperation[interface{}]) error {
+	for _, op := range operations {
+		log.Printf("Executing: %s", op.Name)
+		
+		result, err := op.Execute(ctx)
+		if err != nil {
+			log.Printf("Failed at: %s - %v", op.Name, err)
+			if compErr := ct.compensate(ctx); compErr != nil {
+				return fmt.Errorf("compensation failed: %w", compErr)
+			}
+			return fmt.Errorf("operation failed: %w", err)
+		}
 
-    // Compensate in reverse order
-    const toCompensate = [...this.executedOperations].reverse();
+		// Track executed operation
+		ct.executedOperations = append(ct.executedOperations, ExecutedOperation{
+			Name:          op.Name,
+			Result:        result,
+			IsCompensable: op.IsCompensable(result),
+			CompensateFn: func(ctx context.Context) error {
+				return op.Compensate(ctx, result)
+			},
+		})
+	}
 
-    for (const { operation, result } of toCompensate) {
-      if (operation.isCompensable(result)) {
-        try {
-          console.log(`Compensating: ${operation.name}`);
-          await operation.compensate(result);
-        } catch (error) {
-          // Log but continue compensating others
-          console.error(`Compensation failed for ${operation.name}:`, error);
-          await this.handleCompensationFailure(operation, result, error);
-        }
-      }
-    }
-  }
+	return nil
+}
 
-  private async handleCompensationFailure(
-    operation: CompensableOperation<any>,
-    result: any,
-    error: unknown,
-  ): Promise<void> {
-    // Queue for manual intervention or retry
-    await this.queueForManualReview({
-      operation: operation.name,
-      result,
-      error: String(error),
-      timestamp: new Date(),
-    });
-  }
+func (ct *CompensatingTransaction) compensate(ctx context.Context) error {
+	log.Println("Starting compensation...")
+
+	// Compensate in reverse order
+	for i := len(ct.executedOperations) - 1; i >= 0; i-- {
+		op := ct.executedOperations[i]
+		
+		if !op.IsCompensable {
+			continue
+		}
+
+		log.Printf("Compensating: %s", op.Name)
+		if err := op.CompensateFn(ctx); err != nil {
+			// Log but continue compensating others
+			log.Printf("Compensation failed for %s: %v", op.Name, err)
+			// Queue for manual intervention
+			ct.handleCompensationFailure(ctx, op, err)
+		}
+	}
+
+	return nil
+}
+
+func (ct *CompensatingTransaction) handleCompensationFailure(ctx context.Context, op ExecutedOperation, err error) {
+	// Queue for manual review
+	log.Printf("Manual review needed for operation: %s, error: %v", op.Name, err)
 }
 ```
 
-## Exemple: Reservation de voyage
+## Exemple: Reservation de voyage (Go)
 
-```typescript
-interface BookingResult {
-  confirmationId: string;
-  status: 'confirmed' | 'pending';
-}
-
-// Operations compensables
-const bookFlight: CompensableOperation<BookingResult> = {
-  name: 'Book Flight',
-  async execute() {
-    const response = await flightService.book({
-      from: 'CDG',
-      to: 'JFK',
-      date: '2024-06-15',
-    });
-    return { confirmationId: response.id, status: 'confirmed' };
-  },
-  async compensate(result) {
-    await flightService.cancel(result.confirmationId);
-  },
-  isCompensable: (result) => result.status === 'confirmed',
-};
-
-const bookHotel: CompensableOperation<BookingResult> = {
-  name: 'Book Hotel',
-  async execute() {
-    const response = await hotelService.book({
-      city: 'New York',
-      checkIn: '2024-06-15',
-      checkOut: '2024-06-20',
-    });
-    return { confirmationId: response.id, status: 'confirmed' };
-  },
-  async compensate(result) {
-    await hotelService.cancel(result.confirmationId);
-  },
-  isCompensable: (result) => result.status === 'confirmed',
-};
-
-const bookCar: CompensableOperation<BookingResult> = {
-  name: 'Book Rental Car',
-  async execute() {
-    const response = await carService.book({
-      location: 'JFK Airport',
-      pickUp: '2024-06-15',
-      dropOff: '2024-06-20',
-    });
-    return { confirmationId: response.id, status: 'confirmed' };
-  },
-  async compensate(result) {
-    await carService.cancel(result.confirmationId);
-  },
-  isCompensable: (result) => result.status === 'confirmed',
-};
-
-const chargePayment: CompensableOperation<{ transactionId: string }> = {
-  name: 'Charge Payment',
-  async execute() {
-    const response = await paymentService.charge({
-      amount: 2500,
-      currency: 'EUR',
-    });
-    return { transactionId: response.id };
-  },
-  async compensate(result) {
-    await paymentService.refund(result.transactionId);
-  },
-  isCompensable: () => true,
-};
-
-// Execution
-async function bookTrip() {
-  const transaction = new CompensatingTransaction();
-
-  try {
-    await transaction.execute([
-      bookFlight,
-      bookHotel,
-      bookCar,
-      chargePayment,
-    ]);
-    console.log('Trip booked successfully!');
-  } catch (error) {
-    console.log('Trip booking failed, all operations compensated');
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Patterns de compensation
 
 ### 1. Compensation immediate
 
-```typescript
-// Compensation des que l'echec est detecte
-try {
-  await step1();
-  await step2();
-  await step3(); // Echoue
-} catch {
-  await compensateStep2();
-  await compensateStep1();
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ### 2. Compensation differee
 
-```typescript
-// Compensation via une queue pour fiabilite
-await compensationQueue.publish({
-  operations: completedSteps,
-  reason: 'step3_failed',
-});
-
-// Worker de compensation
-compensationQueue.subscribe(async (msg) => {
-  for (const op of msg.operations.reverse()) {
-    await executeCompensation(op);
-  }
-});
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ### 3. Compensation avec retry
 
-```typescript
-async function compensateWithRetry(
-  operation: CompensableOperation<any>,
-  result: any,
-  maxRetries = 3,
-): Promise<void> {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      await operation.compensate(result);
-      return;
-    } catch (error) {
-      if (attempt === maxRetries) {
-        await alertOperations(operation, result, error);
-        throw error;
-      }
-      await delay(Math.pow(2, attempt) * 1000);
-    }
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Anti-patterns

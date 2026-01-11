@@ -24,104 +24,153 @@ Distribuer une requete a plusieurs services et collecter leurs reponses.
 
 ## Implementation de base
 
-```typescript
-interface ScatterGatherConfig {
-  destinations: string[];
-  timeout: number;
-  minResponses?: number;      // Minimum pour succes
-  aggregationStrategy: 'all' | 'first' | 'majority' | 'best';
+```go
+package messaging
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type ScatterGatherConfig struct {
+	Destinations          []string
+	Timeout               time.Duration
+	MinResponses          int
+	AggregationStrategy   string // "all", "first", "majority", "best"
 }
 
-interface ScatterResult<T> {
-  source: string;
-  response?: T;
-  error?: Error;
-  latencyMs: number;
+type ScatterResult[T any] struct {
+	Source    string
+	Response  *T
+	Error     error
+	LatencyMs int64
 }
 
-class ScatterGather<TRequest, TResponse> {
-  constructor(
-    private config: ScatterGatherConfig,
-    private channel: MessageChannel
-  ) {}
+type MessageChannel interface {
+	Send(ctx context.Context, destination string, message interface{}) error
+	Subscribe(ctx context.Context, queue string, handler func(msg interface{})) error
+}
 
-  async scatter(request: TRequest): Promise<ScatterResult<TResponse>[]> {
-    const correlationId = crypto.randomUUID();
-    const startTime = Date.now();
-    const results: ScatterResult<TResponse>[] = [];
+type ScatterGather[TRequest any, TResponse any] struct {
+	config  *ScatterGatherConfig
+	channel MessageChannel
+}
 
-    // Creer une Promise pour chaque destination
-    const responsePromises = this.config.destinations.map(async (dest) => {
-      const destStartTime = Date.now();
-      try {
-        const response = await this.sendAndWait<TResponse>(
-          dest,
-          request,
-          correlationId
-        );
-        return {
-          source: dest,
-          response,
-          latencyMs: Date.now() - destStartTime,
-        };
-      } catch (error) {
-        return {
-          source: dest,
-          error: error as Error,
-          latencyMs: Date.now() - destStartTime,
-        };
-      }
-    });
+func NewScatterGather[TRequest any, TResponse any](
+	config *ScatterGatherConfig,
+	channel MessageChannel,
+) *ScatterGather[TRequest, TResponse] {
+	return &ScatterGather[TRequest, TResponse]{
+		config:  config,
+		channel: channel,
+	}
+}
 
-    // Attendre avec timeout
-    const settled = await Promise.allSettled(
-      responsePromises.map(p => this.withTimeout(p, this.config.timeout))
-    );
+func (sg *ScatterGather[TRequest, TResponse]) Scatter(ctx context.Context, request TRequest) ([]ScatterResult[TResponse], error) {
+	correlationID := uuid.New().String()
+	results := make([]ScatterResult[TResponse], len(sg.config.Destinations))
+	
+	var wg sync.WaitGroup
+	resultChan := make(chan struct {
+		index  int
+		result ScatterResult[TResponse]
+	}, len(sg.config.Destinations))
 
-    return settled.map((result, index) => {
-      if (result.status === 'fulfilled') {
-        return result.value;
-      }
-      return {
-        source: this.config.destinations[index],
-        error: new Error('Timeout'),
-        latencyMs: this.config.timeout,
-      };
-    });
-  }
+	ctx, cancel := context.WithTimeout(ctx, sg.config.Timeout)
+	defer cancel()
 
-  private async sendAndWait<R>(
-    destination: string,
-    request: TRequest,
-    correlationId: string
-  ): Promise<R> {
-    return new Promise((resolve, reject) => {
-      const replyQueue = `reply.${correlationId}`;
+	for i, dest := range sg.config.Destinations {
+		wg.Add(1)
+		go func(idx int, destination string) {
+			defer wg.Done()
+			
+			startTime := time.Now()
+			response, err := sg.sendAndWait(ctx, destination, request, correlationID)
+			latency := time.Since(startTime).Milliseconds()
 
-      // Setup temporary reply queue
-      this.channel.subscribe(replyQueue, (msg) => {
-        if (msg.correlationId === correlationId) {
-          resolve(msg.payload as R);
-        }
-      });
+			result := ScatterResult[TResponse]{
+				Source:    destination,
+				LatencyMs: latency,
+			}
 
-      // Send request
-      this.channel.send(destination, {
-        payload: request,
-        correlationId,
-        replyTo: replyQueue,
-      });
-    });
-  }
+			if err != nil {
+				result.Error = err
+			} else {
+				result.Response = response
+			}
 
-  private withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), ms)
-      ),
-    ]);
-  }
+			select {
+			case resultChan <- struct {
+				index  int
+				result ScatterResult[TResponse]
+			}{idx, result}:
+			case <-ctx.Done():
+			}
+		}(i, dest)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	for r := range resultChan {
+		results[r.index] = r.result
+	}
+
+	return results, nil
+}
+
+func (sg *ScatterGather[TRequest, TResponse]) sendAndWait(
+	ctx context.Context,
+	destination string,
+	request TRequest,
+	correlationID string,
+) (*TResponse, error) {
+	responseChan := make(chan *TResponse, 1)
+	errorChan := make(chan error, 1)
+	replyQueue := fmt.Sprintf("reply.%s", correlationID)
+
+	// Setup temporary reply queue
+	go func() {
+		sg.channel.Subscribe(ctx, replyQueue, func(msg interface{}) {
+			if response, ok := msg.(*TResponse); ok {
+				select {
+				case responseChan <- response:
+				case <-ctx.Done():
+				}
+			}
+		})
+	}()
+
+	// Send request
+	requestMsg := struct {
+		Payload       TRequest
+		CorrelationID string
+		ReplyTo       string
+	}{
+		Payload:       request,
+		CorrelationID: correlationID,
+		ReplyTo:       replyQueue,
+	}
+
+	if err := sg.channel.Send(ctx, destination, requestMsg); err != nil {
+		return nil, fmt.Errorf("sending request: %w", err)
+	}
+
+	// Wait for response or timeout
+	select {
+	case response := <-responseChan:
+		return response, nil
+	case err := <-errorChan:
+		return nil, err
+	case <-ctx.Done():
+		return nil, fmt.Errorf("timeout waiting for response from %s", destination)
+	}
 }
 ```
 
@@ -129,147 +178,292 @@ class ScatterGather<TRequest, TResponse> {
 
 ## Strategies d'aggregation
 
-```typescript
-type AggregationStrategy<T, R> = (results: ScatterResult<T>[]) => R;
+```go
+package messaging
+
+import (
+	"fmt"
+	"sort"
+)
+
+type AggregationStrategy[T any, R any] func(results []ScatterResult[T]) (R, error)
+
+type NoValidResponsesError struct{}
+
+func (e *NoValidResponsesError) Error() string {
+	return "no valid responses received"
+}
+
+type QuorumNotReachedError struct {
+	Required int
+	Received int
+}
+
+func (e *QuorumNotReachedError) Error() string {
+	return fmt.Sprintf("quorum not reached: required %d, received %d", e.Required, e.Received)
+}
 
 // Best Price - retourne le meilleur resultat
-const bestPriceStrategy: AggregationStrategy<PriceQuote, PriceQuote> = (results) => {
-  const validResults = results
-    .filter(r => r.response && !r.error)
-    .map(r => r.response!);
+type PriceQuote struct {
+	SupplierID string
+	Price      float64
+	Available  bool
+}
 
-  if (validResults.length === 0) {
-    throw new NoValidResponsesError();
-  }
+func BestPriceStrategy(results []ScatterResult[PriceQuote]) (PriceQuote, error) {
+	validResults := make([]PriceQuote, 0)
+	for _, r := range results {
+		if r.Response != nil && r.Error == nil {
+			validResults = append(validResults, *r.Response)
+		}
+	}
 
-  return validResults.reduce((min, quote) =>
-    quote.price < min.price ? quote : min
-  );
-};
+	if len(validResults) == 0 {
+		return PriceQuote{}, &NoValidResponsesError{}
+	}
+
+	bestQuote := validResults[0]
+	for _, quote := range validResults[1:] {
+		if quote.Price < bestQuote.Price {
+			bestQuote = quote
+		}
+	}
+
+	return bestQuote, nil
+}
 
 // Combine All - agrege toutes les reponses
-const combineAllStrategy: AggregationStrategy<SearchResult, CombinedResults> = (results) => {
-  const validResults = results
-    .filter(r => r.response)
-    .map(r => r.response!);
+type SearchResult struct {
+	Items []SearchItem
+}
 
-  return {
-    items: validResults.flatMap(r => r.items),
-    sources: results.map(r => ({
-      name: r.source,
-      success: !r.error,
-      latencyMs: r.latencyMs,
-    })),
-    totalResults: validResults.reduce((sum, r) => sum + r.items.length, 0),
-  };
-};
+type SearchItem struct {
+	ID    string
+	Name  string
+	Score float64
+}
+
+type CombinedResults struct {
+	Items        []SearchItem
+	Sources      []SourceInfo
+	TotalResults int
+}
+
+type SourceInfo struct {
+	Name      string
+	Success   bool
+	LatencyMs int64
+}
+
+func CombineAllStrategy(results []ScatterResult[SearchResult]) (CombinedResults, error) {
+	var allItems []SearchItem
+	sources := make([]SourceInfo, len(results))
+
+	for i, r := range results {
+		sources[i] = SourceInfo{
+			Name:      r.Source,
+			Success:   r.Error == nil,
+			LatencyMs: r.LatencyMs,
+		}
+
+		if r.Response != nil {
+			allItems = append(allItems, r.Response.Items...)
+		}
+	}
+
+	return CombinedResults{
+		Items:        allItems,
+		Sources:      sources,
+		TotalResults: len(allItems),
+	}, nil
+}
 
 // Fastest - premier resultat valide
-const fastestStrategy: AggregationStrategy<unknown, unknown> = (results) => {
-  const sorted = [...results]
-    .filter(r => r.response)
-    .sort((a, b) => a.latencyMs - b.latencyMs);
+func FastestStrategy[T any](results []ScatterResult[T]) (*T, error) {
+	sorted := make([]ScatterResult[T], 0, len(results))
+	for _, r := range results {
+		if r.Response != nil && r.Error == nil {
+			sorted = append(sorted, r)
+		}
+	}
 
-  if (sorted.length === 0) {
-    throw new NoValidResponsesError();
-  }
+	if len(sorted) == 0 {
+		return nil, &NoValidResponsesError{}
+	}
 
-  return sorted[0].response;
-};
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].LatencyMs < sorted[j].LatencyMs
+	})
+
+	return sorted[0].Response, nil
+}
 
 // Quorum - majorite necessaire
-const quorumStrategy = <T>(
-  requiredVotes: number,
-  compareFn: (a: T, b: T) => boolean
-): AggregationStrategy<T, T> => (results) => {
-  const validResults = results.filter(r => r.response).map(r => r.response!);
+func QuorumStrategy[T comparable](
+	requiredVotes int,
+	compareFn func(a, b T) bool,
+) AggregationStrategy[T, T] {
+	return func(results []ScatterResult[T]) (T, error) {
+		var zero T
+		validResults := make([]T, 0)
 
-  // Compter les votes pour chaque reponse unique
-  const votes = new Map<T, number>();
-  for (const result of validResults) {
-    let found = false;
-    for (const [existing, count] of votes) {
-      if (compareFn(existing, result)) {
-        votes.set(existing, count + 1);
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      votes.set(result, 1);
-    }
-  }
+		for _, r := range results {
+			if r.Response != nil && r.Error == nil {
+				validResults = append(validResults, *r.Response)
+			}
+		}
 
-  // Trouver le quorum
-  for (const [result, count] of votes) {
-    if (count >= requiredVotes) {
-      return result;
-    }
-  }
+		// Compter les votes pour chaque reponse unique
+		votes := make(map[int]int)
+		uniqueResults := make([]T, 0)
 
-  throw new QuorumNotReachedError(requiredVotes, validResults.length);
-};
+		for _, result := range validResults {
+			found := false
+			for i, existing := range uniqueResults {
+				if compareFn(existing, result) {
+					votes[i]++
+					found = true
+					break
+				}
+			}
+			if !found {
+				uniqueResults = append(uniqueResults, result)
+				votes[len(uniqueResults)-1] = 1
+			}
+		}
+
+		// Trouver le quorum
+		for i, result := range uniqueResults {
+			if votes[i] >= requiredVotes {
+				return result, nil
+			}
+		}
+
+		return zero, &QuorumNotReachedError{
+			Required: requiredVotes,
+			Received: len(validResults),
+		}
+	}
+}
 ```
 
 ---
 
 ## Exemple: Comparateur de prix
 
-```typescript
-interface PriceRequest {
-  productId: string;
-  quantity: number;
+```go
+package messaging
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"time"
+)
+
+type PriceRequest struct {
+	ProductID string
+	Quantity  int
 }
 
-interface PriceQuote {
-  supplierId: string;
-  productId: string;
-  unitPrice: number;
-  totalPrice: number;
-  currency: string;
-  validUntil: Date;
-  inStock: boolean;
-  deliveryDays: number;
+type FullPriceQuote struct {
+	SupplierID   string
+	ProductID    string
+	UnitPrice    float64
+	TotalPrice   float64
+	Currency     string
+	ValidUntil   time.Time
+	InStock      bool
+	DeliveryDays int
 }
 
-class PriceComparator {
-  private scatterGather: ScatterGather<PriceRequest, PriceQuote>;
+type PriceComparisonResult struct {
+	Cheapest      FullPriceQuote
+	Fastest       FullPriceQuote
+	AllQuotes     []FullPriceQuote
+	SupplierStats []SupplierStat
+}
 
-  constructor(suppliers: string[]) {
-    this.scatterGather = new ScatterGather({
-      destinations: suppliers,
-      timeout: 5000,
-      minResponses: 1,
-      aggregationStrategy: 'all',
-    }, channel);
-  }
+type SupplierStat struct {
+	Supplier  string
+	Responded bool
+	LatencyMs int64
+	Error     string
+}
 
-  async getBestPrice(request: PriceRequest): Promise<PriceComparisonResult> {
-    const results = await this.scatterGather.scatter(request);
+type NoAvailableSupplierError struct {
+	ProductID string
+}
 
-    const validQuotes = results
-      .filter(r => r.response && r.response.inStock)
-      .map(r => r.response!);
+func (e *NoAvailableSupplierError) Error() string {
+	return fmt.Sprintf("no available supplier for product %s", e.ProductID)
+}
 
-    if (validQuotes.length === 0) {
-      throw new NoAvailableSupplierError(request.productId);
-    }
+type PriceComparator struct {
+	scatterGather *ScatterGather[PriceRequest, FullPriceQuote]
+}
 
-    const sortedByPrice = [...validQuotes].sort((a, b) => a.totalPrice - b.totalPrice);
-    const sortedByDelivery = [...validQuotes].sort((a, b) => a.deliveryDays - b.deliveryDays);
+func NewPriceComparator(suppliers []string, channel MessageChannel) *PriceComparator {
+	config := &ScatterGatherConfig{
+		Destinations:        suppliers,
+		Timeout:             5 * time.Second,
+		MinResponses:        1,
+		AggregationStrategy: "all",
+	}
 
-    return {
-      cheapest: sortedByPrice[0],
-      fastest: sortedByDelivery[0],
-      allQuotes: sortedByPrice,
-      supplierStats: results.map(r => ({
-        supplier: r.source,
-        responded: !!r.response,
-        latencyMs: r.latencyMs,
-        error: r.error?.message,
-      })),
-    };
-  }
+	return &PriceComparator{
+		scatterGather: NewScatterGather[PriceRequest, FullPriceQuote](config, channel),
+	}
+}
+
+func (pc *PriceComparator) GetBestPrice(ctx context.Context, request PriceRequest) (*PriceComparisonResult, error) {
+	results, err := pc.scatterGather.Scatter(ctx, request)
+	if err != nil {
+		return nil, fmt.Errorf("scatter-gather failed: %w", err)
+	}
+
+	validQuotes := make([]FullPriceQuote, 0)
+	for _, r := range results {
+		if r.Response != nil && r.Response.InStock {
+			validQuotes = append(validQuotes, *r.Response)
+		}
+	}
+
+	if len(validQuotes) == 0 {
+		return nil, &NoAvailableSupplierError{ProductID: request.ProductID}
+	}
+
+	sortedByPrice := make([]FullPriceQuote, len(validQuotes))
+	copy(sortedByPrice, validQuotes)
+	sort.Slice(sortedByPrice, func(i, j int) bool {
+		return sortedByPrice[i].TotalPrice < sortedByPrice[j].TotalPrice
+	})
+
+	sortedByDelivery := make([]FullPriceQuote, len(validQuotes))
+	copy(sortedByDelivery, validQuotes)
+	sort.Slice(sortedByDelivery, func(i, j int) bool {
+		return sortedByDelivery[i].DeliveryDays < sortedByDelivery[j].DeliveryDays
+	})
+
+	supplierStats := make([]SupplierStat, len(results))
+	for i, r := range results {
+		stat := SupplierStat{
+			Supplier:  r.Source,
+			Responded: r.Response != nil,
+			LatencyMs: r.LatencyMs,
+		}
+		if r.Error != nil {
+			stat.Error = r.Error.Error()
+		}
+		supplierStats[i] = stat
+	}
+
+	return &PriceComparisonResult{
+		Cheapest:      sortedByPrice[0],
+		Fastest:       sortedByDelivery[0],
+		AllQuotes:     sortedByPrice,
+		SupplierStats: supplierStats,
+	}, nil
 }
 ```
 
@@ -277,85 +471,202 @@ class PriceComparator {
 
 ## Avec RabbitMQ/Kafka
 
-```typescript
+```go
+package messaging
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sync"
+	"time"
+
+	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/segmentio/kafka-go"
+)
+
 // RabbitMQ - Direct Reply-To
-class RabbitMQScatterGather {
-  async scatter<T, R>(destinations: string[], request: T): Promise<R[]> {
-    const correlationId = crypto.randomUUID();
-    const results: R[] = [];
+type RabbitMQScatterGather struct {
+	channel *amqp.Channel
+}
 
-    return new Promise(async (resolve) => {
-      // Consumer sur amq.rabbitmq.reply-to
-      await this.channel.consume(
-        'amq.rabbitmq.reply-to',
-        (msg) => {
-          if (msg.properties.correlationId === correlationId) {
-            results.push(JSON.parse(msg.content.toString()));
-            if (results.length === destinations.length) {
-              resolve(results);
-            }
-          }
-        },
-        { noAck: true }
-      );
+func NewRabbitMQScatterGather(channel *amqp.Channel) *RabbitMQScatterGather {
+	return &RabbitMQScatterGather{channel: channel}
+}
 
-      // Envoyer a toutes les destinations
-      for (const dest of destinations) {
-        this.channel.sendToQueue(dest, Buffer.from(JSON.stringify(request)), {
-          correlationId,
-          replyTo: 'amq.rabbitmq.reply-to',
-        });
-      }
+func (r *RabbitMQScatterGather) Scatter(
+	ctx context.Context,
+	destinations []string,
+	request interface{},
+) ([]interface{}, error) {
+	correlationID := uuid.New().String()
+	results := make([]interface{}, 0)
+	resultChan := make(chan interface{}, len(destinations))
+	var mu sync.Mutex
 
-      // Timeout
-      setTimeout(() => resolve(results), 5000);
-    });
-  }
+	// Consumer sur amq.rabbitmq.reply-to
+	msgs, err := r.channel.Consume(
+		"amq.rabbitmq.reply-to",
+		"",
+		true,  // auto-ack
+		false, // exclusive
+		false, // no-local
+		false, // no-wait
+		nil,   // args
+	)
+	if err != nil {
+		return nil, fmt.Errorf("consuming reply queue: %w", err)
+	}
+
+	go func() {
+		for msg := range msgs {
+			if msg.CorrelationId == correlationID {
+				var result interface{}
+				json.Unmarshal(msg.Body, &result)
+				resultChan <- result
+			}
+		}
+	}()
+
+	// Envoyer a toutes les destinations
+	requestBytes, _ := json.Marshal(request)
+	for _, dest := range destinations {
+		err := r.channel.PublishWithContext(
+			ctx,
+			"",   // exchange
+			dest, // routing key
+			false,
+			false,
+			amqp.Publishing{
+				CorrelationId: correlationID,
+				ReplyTo:       "amq.rabbitmq.reply-to",
+				Body:          requestBytes,
+			},
+		)
+		if err != nil {
+			return nil, fmt.Errorf("publishing to %s: %w", dest, err)
+		}
+	}
+
+	// Collect results with timeout
+	timeout := time.After(5 * time.Second)
+	for i := 0; i < len(destinations); i++ {
+		select {
+		case result := <-resultChan:
+			mu.Lock()
+			results = append(results, result)
+			mu.Unlock()
+		case <-timeout:
+			return results, nil
+		case <-ctx.Done():
+			return results, ctx.Err()
+		}
+	}
+
+	return results, nil
 }
 
 // Kafka - Request-Reply avec topic temporaire
-class KafkaScatterGather {
-  async scatter<T, R>(groupTopics: string[], request: T): Promise<R[]> {
-    const correlationId = crypto.randomUUID();
-    const replyTopic = `replies.${correlationId}`;
+type KafkaScatterGather struct {
+	producer *kafka.Writer
+	admin    *kafka.Client
+}
 
-    // Creer topic temporaire
-    await this.admin.createTopics({
-      topics: [{ topic: replyTopic, numPartitions: 1 }],
-    });
+func NewKafkaScatterGather(brokers []string) *KafkaScatterGather {
+	return &KafkaScatterGather{
+		producer: &kafka.Writer{
+			Addr:     kafka.TCP(brokers...),
+			Balancer: &kafka.LeastBytes{},
+		},
+		admin: &kafka.Client{
+			Addr: kafka.TCP(brokers...),
+		},
+	}
+}
 
-    try {
-      // Consumer pour les reponses
-      const consumer = this.kafka.consumer({ groupId: correlationId });
-      await consumer.subscribe({ topic: replyTopic });
+func (k *KafkaScatterGather) Scatter(
+	ctx context.Context,
+	groupTopics []string,
+	request interface{},
+) ([]interface{}, error) {
+	correlationID := uuid.New().String()
+	replyTopic := fmt.Sprintf("replies.%s", correlationID)
 
-      const results: R[] = [];
-      const resultPromise = new Promise<R[]>((resolve) => {
-        consumer.run({
-          eachMessage: async ({ message }) => {
-            results.push(JSON.parse(message.value!.toString()));
-            if (results.length === groupTopics.length) {
-              resolve(results);
-            }
-          },
-        });
-        setTimeout(() => resolve(results), 5000);
-      });
+	// Creer topic temporaire
+	_, err := k.admin.CreateTopics(ctx, &kafka.CreateTopicsRequest{
+		Topics: []kafka.TopicConfig{
+			{
+				Topic:             replyTopic,
+				NumPartitions:     1,
+				ReplicationFactor: 1,
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("creating reply topic: %w", err)
+	}
 
-      // Envoyer requetes
-      await this.producer.send({
-        topic: 'scatter-requests',
-        messages: groupTopics.map(topic => ({
-          key: correlationId,
-          value: JSON.stringify({ request, replyTopic, targetTopic: topic }),
-        })),
-      });
+	defer func() {
+		k.admin.DeleteTopics(ctx, &kafka.DeleteTopicsRequest{
+			Topics: []string{replyTopic},
+		})
+	}()
 
-      return await resultPromise;
-    } finally {
-      await this.admin.deleteTopics({ topics: [replyTopic] });
-    }
-  }
+	// Consumer pour les reponses
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers: k.admin.Addr.Network(),
+		Topic:   replyTopic,
+		GroupID: correlationID,
+	})
+	defer reader.Close()
+
+	results := make([]interface{}, 0, len(groupTopics))
+	resultChan := make(chan interface{}, len(groupTopics))
+
+	go func() {
+		for i := 0; i < len(groupTopics); i++ {
+			msg, err := reader.ReadMessage(ctx)
+			if err != nil {
+				return
+			}
+			var result interface{}
+			json.Unmarshal(msg.Value, &result)
+			resultChan <- result
+		}
+	}()
+
+	// Envoyer requetes
+	requestBytes, _ := json.Marshal(request)
+	messages := make([]kafka.Message, len(groupTopics))
+	for i, topic := range groupTopics {
+		messages[i] = kafka.Message{
+			Key:   []byte(correlationID),
+			Value: requestBytes,
+			Headers: []kafka.Header{
+				{Key: "reply-topic", Value: []byte(replyTopic)},
+				{Key: "target-topic", Value: []byte(topic)},
+			},
+		}
+	}
+
+	if err := k.producer.WriteMessages(ctx, messages...); err != nil {
+		return nil, fmt.Errorf("writing messages: %w", err)
+	}
+
+	// Collect results with timeout
+	timeout := time.After(5 * time.Second)
+	for i := 0; i < len(groupTopics); i++ {
+		select {
+		case result := <-resultChan:
+			results = append(results, result)
+		case <-timeout:
+			return results, nil
+		case <-ctx.Done():
+			return results, ctx.Err()
+		}
+	}
+
+	return results, nil
 }
 ```
 
@@ -363,53 +674,106 @@ class KafkaScatterGather {
 
 ## Cas d'erreur
 
-```typescript
-class ResilientScatterGather<T, R> {
-  async scatterWithFallback(
-    request: T,
-    fallbackFn: () => R
-  ): Promise<R> {
-    try {
-      const results = await this.scatter(request);
-      const valid = results.filter(r => r.response);
+```go
+package messaging
 
-      if (valid.length < this.config.minResponses) {
-        console.warn(`Insufficient responses: ${valid.length}/${this.config.minResponses}`);
-        return fallbackFn();
-      }
+import (
+	"context"
+	"fmt"
+)
 
-      return this.aggregate(results);
-    } catch (error) {
-      if (error instanceof TimeoutError) {
-        return fallbackFn();
-      }
-      throw error;
-    }
-  }
+type CircuitBreaker interface {
+	IsOpen(destination string) bool
+	RecordFailure(destination string)
+	RecordSuccess(destination string)
+}
 
-  async scatterWithCircuitBreaker(request: T): Promise<R> {
-    // Filtrer les destinations avec circuit ouvert
-    const healthyDestinations = this.config.destinations.filter(
-      dest => !this.circuitBreaker.isOpen(dest)
-    );
+type AllCircuitsOpenError struct{}
 
-    if (healthyDestinations.length === 0) {
-      throw new AllCircuitsOpenError();
-    }
+func (e *AllCircuitsOpenError) Error() string {
+	return "all circuit breakers are open"
+}
 
-    const results = await this.scatter(request, healthyDestinations);
+type ResilientScatterGather[T any, R any] struct {
+	*ScatterGather[T, R]
+	circuitBreaker CircuitBreaker
+}
 
-    // Mettre a jour les circuit breakers
-    for (const result of results) {
-      if (result.error) {
-        this.circuitBreaker.recordFailure(result.source);
-      } else {
-        this.circuitBreaker.recordSuccess(result.source);
-      }
-    }
+func NewResilientScatterGather[T any, R any](
+	config *ScatterGatherConfig,
+	channel MessageChannel,
+	circuitBreaker CircuitBreaker,
+) *ResilientScatterGather[T, R] {
+	return &ResilientScatterGather[T, R]{
+		ScatterGather:  NewScatterGather[T, R](config, channel),
+		circuitBreaker: circuitBreaker,
+	}
+}
 
-    return this.aggregate(results);
-  }
+func (r *ResilientScatterGather[T, R]) ScatterWithFallback(
+	ctx context.Context,
+	request T,
+	fallbackFn func() R,
+) (R, error) {
+	var zero R
+
+	results, err := r.Scatter(ctx, request)
+	if err != nil {
+		return fallbackFn(), nil
+	}
+
+	validCount := 0
+	for _, result := range results {
+		if result.Response != nil && result.Error == nil {
+			validCount++
+		}
+	}
+
+	if validCount < r.config.MinResponses {
+		fmt.Printf("Insufficient responses: %d/%d\n", validCount, r.config.MinResponses)
+		return fallbackFn(), nil
+	}
+
+	// Aggregate results using configured strategy
+	return zero, nil
+}
+
+func (r *ResilientScatterGather[T, R]) ScatterWithCircuitBreaker(
+	ctx context.Context,
+	request T,
+) ([]ScatterResult[R], error) {
+	// Filtrer les destinations avec circuit ouvert
+	healthyDestinations := make([]string, 0)
+	for _, dest := range r.config.Destinations {
+		if !r.circuitBreaker.IsOpen(dest) {
+			healthyDestinations = append(healthyDestinations, dest)
+		}
+	}
+
+	if len(healthyDestinations) == 0 {
+		return nil, &AllCircuitsOpenError{}
+	}
+
+	// Create temporary config with healthy destinations
+	tempConfig := *r.config
+	tempConfig.Destinations = healthyDestinations
+	tempSG := NewScatterGather[T, R](&tempConfig, r.channel)
+
+	results, err := tempSG.Scatter(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	// Mettre a jour les circuit breakers
+	for _, result := range results {
+		if result.Error != nil {
+			r.circuitBreaker.RecordFailure(result.Source)
+		} else {
+			r.circuitBreaker.RecordSuccess(result.Source)
+		}
+	}
+
+	return results, nil
 }
 ```
 

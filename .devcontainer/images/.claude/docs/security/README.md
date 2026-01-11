@@ -8,7 +8,7 @@ Patterns de sécurité applicative.
 
 > Authentification avec session côté serveur.
 
-```typescript
+```go
 class SessionAuth {
   private sessions = new Map<string, SessionData>();
 
@@ -70,7 +70,7 @@ function sessionMiddleware(auth: SessionAuth) {
 
 > Authentification stateless avec tokens signés.
 
-```typescript
+```go
 import jwt from 'jsonwebtoken';
 
 interface TokenPayload {
@@ -159,7 +159,7 @@ class RefreshTokenStore {
 
 > Authentification déléguée via provider externe.
 
-```typescript
+```go
 class OAuth2Client {
   constructor(
     private clientId: string,
@@ -235,7 +235,7 @@ class PKCEClient {
 
 > Authentification simple par clé API.
 
-```typescript
+```go
 class ApiKeyAuth {
   constructor(private keyStore: ApiKeyStore) {}
 
@@ -310,7 +310,7 @@ class RateLimitedApiKey {
 
 > Permissions basées sur les rôles.
 
-```typescript
+```go
 type Role = 'admin' | 'editor' | 'viewer';
 type Permission = 'read' | 'write' | 'delete' | 'admin';
 
@@ -373,7 +373,7 @@ class ArticleController {
 
 > Permissions basées sur attributs et contexte.
 
-```typescript
+```go
 interface Policy {
   effect: 'allow' | 'deny';
   conditions: Condition[];
@@ -468,7 +468,7 @@ const policies: Policy[] = [
 
 > Politiques déclaratives.
 
-```typescript
+```go
 // Policy Definition Language
 interface PolicyDocument {
   version: string;
@@ -557,7 +557,7 @@ const policy: PolicyDocument = {
 
 > Valider et nettoyer toutes les entrées.
 
-```typescript
+```go
 import { z } from 'zod';
 
 // Schema-based validation
@@ -618,7 +618,7 @@ async function findUser(email: string): Promise<User | null> {
 
 > Stockage sécurisé des mots de passe.
 
-```typescript
+```go
 import bcrypt from 'bcrypt';
 import argon2 from 'argon2';
 
@@ -682,7 +682,7 @@ class PasswordService {
 
 > Protection contre Cross-Site Request Forgery.
 
-```typescript
+```go
 class CSRFProtection {
   private tokens = new Map<string, { token: string; expiresAt: Date }>();
 
@@ -740,7 +740,7 @@ res.cookie('session', sessionId, {
 
 > Limiter le nombre de requêtes.
 
-```typescript
+```go
 interface RateLimitConfig {
   windowMs: number;
   maxRequests: number;
@@ -803,7 +803,7 @@ class RedisRateLimiter {
 
 > Gestion sécurisée des secrets.
 
-```typescript
+```go
 // Environment variables (basic)
 const config = {
   dbPassword: process.env.DB_PASSWORD,

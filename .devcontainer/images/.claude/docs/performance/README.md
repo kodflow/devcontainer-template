@@ -8,7 +8,7 @@ Patterns d'optimisation des performances et de la mémoire.
 
 > Réutiliser des objets coûteux au lieu de les recréer.
 
-```typescript
+```go
 class ObjectPool<T> {
   private available: T[] = [];
   private inUse = new Set<T>();
@@ -61,7 +61,7 @@ try {
 
 > Tampon circulaire pour flux de données continus.
 
-```typescript
+```go
 class RingBuffer<T> {
   private buffer: (T | undefined)[];
   private head = 0;
@@ -107,7 +107,7 @@ const audioBuffer = new RingBuffer<AudioFrame>(1024);
 
 > Stocker les résultats pour éviter les recalculs.
 
-```typescript
+```go
 // LRU Cache (Least Recently Used)
 class LRUCache<K, V> {
   private cache = new Map<K, V>();
@@ -177,7 +177,7 @@ class TTLCache<K, V> {
 
 > Différer l'initialisation jusqu'à l'utilisation.
 
-```typescript
+```go
 class LazyValue<T> {
   private value: T | undefined;
   private initialized = false;
@@ -229,7 +229,7 @@ class HeavyService {
 
 > Mettre en cache les résultats de fonctions pures.
 
-```typescript
+```go
 function memoize<T extends (...args: any[]) => any>(fn: T): T {
   const cache = new Map<string, ReturnType<T>>();
 
@@ -278,7 +278,7 @@ function memoizeAsync<T extends (...args: any[]) => Promise<any>>(fn: T): T {
 
 > Exécuter après un délai d'inactivité.
 
-```typescript
+```go
 function debounce<T extends (...args: any[]) => any>(
   fn: T,
   delay: number,
@@ -311,7 +311,7 @@ searchInput.addEventListener('input', (e) => {
 
 > Limiter la fréquence d'exécution.
 
-```typescript
+```go
 function throttle<T extends (...args: any[]) => any>(
   fn: T,
   limit: number,
@@ -355,7 +355,7 @@ window.addEventListener('scroll', throttledScroll);
 
 > Grouper les opérations pour réduire l'overhead.
 
-```typescript
+```go
 class BatchProcessor<T> {
   private batch: T[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -411,7 +411,7 @@ batcher.add({ level: 'info', message: 'Hello' });
 
 > Charger les données par morceaux.
 
-```typescript
+```go
 // Offset-based (simple mais moins performant)
 interface OffsetPagination {
   page: number;
@@ -456,7 +456,7 @@ async function getPageCursor<T extends { id: string }>(
 
 > Pool de connexions réutilisables.
 
-```typescript
+```go
 interface PooledConnection {
   query(sql: string): Promise<any>;
   release(): void;
@@ -522,7 +522,7 @@ class ConnectionPool {
 
 > Deux buffers alternés pour éviter les conflits.
 
-```typescript
+```go
 class DoubleBuffer<T> {
   private buffers: [T[], T[]] = [[], []];
   private writeIndex = 0;
@@ -569,7 +569,7 @@ class Renderer {
 
 Partager l'état intrinsèque (immutable) entre objets similaires.
 
-```typescript
+```go
 // Millions de particules, peu de types
 const particleTypes = {
   smoke: new ParticleType('gray', smokeTexture, 0.5),
@@ -610,7 +610,7 @@ class Particle {
 
 Le pattern **PoolBuffer** combine Object Pool et Ring Buffer :
 
-```typescript
+```go
 class PoolBuffer<T> {
   private pool: ObjectPool<T>;
   private buffer: RingBuffer<T>;

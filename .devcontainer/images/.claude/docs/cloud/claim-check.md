@@ -58,167 +58,149 @@
 | **Sans Claim Check** | 10MB par message | Haute | Eleve |
 | **Avec Claim Check** | ~100 bytes | Basse | Faible |
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-interface ClaimCheckMessage {
-  claimId: string;
-  metadata: {
-    contentType: string;
-    size: number;
-    createdAt: Date;
-    ttl?: number;
-  };
-  payload?: any; // Optionnel: petits payloads inline
+```go
+package claimcheck
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+// ClaimCheckMessage represents a message with optional inline payload or claim reference.
+type ClaimCheckMessage struct {
+	ClaimID  string                 `json:"claimId"`
+	Metadata ClaimCheckMetadata     `json:"metadata"`
+	Payload  interface{}            `json:"payload,omitempty"`
 }
 
-interface StorageProvider {
-  store(data: Buffer, options?: StoreOptions): Promise<string>;
-  retrieve(claimId: string): Promise<Buffer>;
-  delete(claimId: string): Promise<void>;
+// ClaimCheckMetadata contains message metadata.
+type ClaimCheckMetadata struct {
+	ContentType string    `json:"contentType"`
+	Size        int       `json:"size"`
+	CreatedAt   time.Time `json:"createdAt"`
+	TTL         *int      `json:"ttl,omitempty"`
 }
 
-class ClaimCheckService {
-  private readonly inlineThreshold = 1024; // 1KB
-
-  constructor(
-    private readonly storage: StorageProvider,
-    private readonly queue: MessageQueue,
-  ) {}
-
-  async send(data: any, options?: SendOptions): Promise<void> {
-    const serialized = Buffer.from(JSON.stringify(data));
-    const size = serialized.byteLength;
-
-    let message: ClaimCheckMessage;
-
-    if (size <= this.inlineThreshold) {
-      // Small payload: inline
-      message = {
-        claimId: '',
-        metadata: {
-          contentType: 'application/json',
-          size,
-          createdAt: new Date(),
-        },
-        payload: data,
-      };
-    } else {
-      // Large payload: claim check
-      const claimId = await this.storage.store(serialized, {
-        ttl: options?.ttl ?? 86400, // 24h default
-      });
-
-      message = {
-        claimId,
-        metadata: {
-          contentType: 'application/json',
-          size,
-          createdAt: new Date(),
-          ttl: options?.ttl,
-        },
-      };
-    }
-
-    await this.queue.publish(message);
-  }
-
-  async receive(): Promise<any> {
-    const message = await this.queue.consume<ClaimCheckMessage>();
-
-    if (message.payload) {
-      // Inline payload
-      return message.payload;
-    }
-
-    // Retrieve from storage
-    const data = await this.storage.retrieve(message.claimId);
-    return JSON.parse(data.toString());
-  }
+// StorageProvider defines storage operations for claims.
+type StorageProvider interface {
+	Store(ctx context.Context, data []byte, ttl int) (string, error)
+	Retrieve(ctx context.Context, claimID string) ([]byte, error)
+	Delete(ctx context.Context, claimID string) error
 }
 
-// Storage implementation (S3/Azure Blob/GCS)
-class S3StorageProvider implements StorageProvider {
-  constructor(private readonly s3Client: S3Client) {}
+// MessageQueue defines queue operations.
+type MessageQueue interface {
+	Publish(ctx context.Context, msg ClaimCheckMessage) error
+	Consume(ctx context.Context) (*ClaimCheckMessage, error)
+}
 
-  async store(data: Buffer, options?: StoreOptions): Promise<string> {
-    const claimId = `claim-${crypto.randomUUID()}`;
+// ClaimCheckService implements the claim check pattern.
+type ClaimCheckService struct {
+	storage         StorageProvider
+	queue           MessageQueue
+	inlineThreshold int
+}
 
-    await this.s3Client.send(
-      new PutObjectCommand({
-        Bucket: process.env.CLAIM_BUCKET,
-        Key: claimId,
-        Body: data,
-        Metadata: {
-          ttl: options?.ttl?.toString() ?? '',
-        },
-      }),
-    );
+// NewClaimCheckService creates a new ClaimCheckService.
+func NewClaimCheckService(storage StorageProvider, queue MessageQueue) *ClaimCheckService {
+	return &ClaimCheckService{
+		storage:         storage,
+		queue:           queue,
+		inlineThreshold: 1024, // 1KB
+	}
+}
 
-    return claimId;
-  }
+// Send sends data using claim check pattern.
+func (s *ClaimCheckService) Send(ctx context.Context, data interface{}, ttl int) error {
+	serialized, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("marshaling data: %w", err)
+	}
 
-  async retrieve(claimId: string): Promise<Buffer> {
-    const response = await this.s3Client.send(
-      new GetObjectCommand({
-        Bucket: process.env.CLAIM_BUCKET,
-        Key: claimId,
-      }),
-    );
+	size := len(serialized)
+	msg := ClaimCheckMessage{
+		Metadata: ClaimCheckMetadata{
+			ContentType: "application/json",
+			Size:        size,
+			CreatedAt:   time.Now(),
+		},
+	}
 
-    return Buffer.from(await response.Body!.transformToByteArray());
-  }
+	if size <= s.inlineThreshold {
+		// Small payload: inline
+		msg.Payload = data
+	} else {
+		// Large payload: claim check
+		claimID, err := s.storage.Store(ctx, serialized, ttl)
+		if err != nil {
+			return fmt.Errorf("storing claim: %w", err)
+		}
+		msg.ClaimID = claimID
+		msg.Metadata.TTL = &ttl
+	}
 
-  async delete(claimId: string): Promise<void> {
-    await this.s3Client.send(
-      new DeleteObjectCommand({
-        Bucket: process.env.CLAIM_BUCKET,
-        Key: claimId,
-      }),
-    );
-  }
+	if err := s.queue.Publish(ctx, msg); err != nil {
+		return fmt.Errorf("publishing message: %w", err)
+	}
+
+	return nil
+}
+
+// Receive receives data using claim check pattern.
+func (s *ClaimCheckService) Receive(ctx context.Context) (interface{}, error) {
+	msg, err := s.queue.Consume(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("consuming message: %w", err)
+	}
+
+	if msg.Payload != nil {
+		// Inline payload
+		return msg.Payload, nil
+	}
+
+	// Retrieve from storage
+	data, err := s.storage.Retrieve(ctx, msg.ClaimID)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving claim: %w", err)
+	}
+
+	var result interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("unmarshaling data: %w", err)
+	}
+
+	return result, nil
+}
+
+func generateClaimID() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return "claim-" + hex.EncodeToString(b)
 }
 ```
 
 ## Usage
 
-```typescript
-// Producer
-const claimCheck = new ClaimCheckService(s3Storage, rabbitQueue);
-
-// Envoyer un gros payload
-const largeReport = {
-  id: 'report-123',
-  data: generateLargeDataset(), // 10MB
-};
-
-await claimCheck.send(largeReport, { ttl: 3600 }); // 1h TTL
-
-// Consumer
-const report = await claimCheck.receive();
-console.log(report.id); // 'report-123'
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Gestion du cycle de vie
 
-```typescript
-class ClaimCheckLifecycleManager {
-  async cleanup(): Promise<void> {
-    // Option 1: TTL automatique (S3 lifecycle rules)
-    // Option 2: Cleanup apres consommation
-    // Option 3: Scheduled job
-  }
-
-  async onMessageConsumed(claimId: string): Promise<void> {
-    // Delete claim after successful processing
-    await this.storage.delete(claimId);
-  }
-
-  async onProcessingFailed(claimId: string): Promise<void> {
-    // Keep for retry or dead letter analysis
-    await this.extendTtl(claimId, 86400); // +24h
-  }
-}
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Configuration S3 Lifecycle

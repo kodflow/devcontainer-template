@@ -43,181 +43,231 @@
 | **Supervisor** | Monitore, recupere des echecs |
 | **State Store** | Persiste l'etat des taches |
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-// Types
-interface Task {
-  id: string;
-  type: string;
-  payload: any;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  retries: number;
-  maxRetries: number;
-  assignedAgent?: string;
-  createdAt: Date;
-  updatedAt: Date;
+```go
+package schedulerAgentSupervisor
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"time"
+)
+
+// Task represents a task to be executed.
+type Task struct {
+	ID            string
+	Type          string
+	Payload       interface{}
+	Status        string // pending, running, completed, failed
+	Retries       int
+	MaxRetries    int
+	AssignedAgent string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
-interface Agent {
-  id: string;
-  status: 'idle' | 'busy' | 'offline';
-  capabilities: string[];
-  lastHeartbeat: Date;
+// Agent represents a worker agent.
+type Agent struct {
+	ID           string
+	Status       string // idle, busy, offline
+	Capabilities []string
+	LastHeartbeat time.Time
 }
 
-// Scheduler
-class Scheduler {
-  constructor(
-    private readonly taskStore: TaskStore,
-    private readonly agentRegistry: AgentRegistry,
-  ) {}
-
-  async scheduleTasks(): Promise<void> {
-    const pendingTasks = await this.taskStore.findByStatus('pending');
-    const idleAgents = await this.agentRegistry.findByStatus('idle');
-
-    for (const task of pendingTasks) {
-      const agent = this.findCapableAgent(task, idleAgents);
-
-      if (agent) {
-        await this.assignTask(task, agent);
-        idleAgents.splice(idleAgents.indexOf(agent), 1);
-      }
-    }
-  }
-
-  private findCapableAgent(task: Task, agents: Agent[]): Agent | undefined {
-    return agents.find(a => a.capabilities.includes(task.type));
-  }
-
-  private async assignTask(task: Task, agent: Agent): Promise<void> {
-    task.status = 'running';
-    task.assignedAgent = agent.id;
-    task.updatedAt = new Date();
-
-    await this.taskStore.update(task);
-    await this.notifyAgent(agent, task);
-  }
-
-  private async notifyAgent(agent: Agent, task: Task): Promise<void> {
-    await fetch(`http://${agent.id}/tasks`, {
-      method: 'POST',
-      body: JSON.stringify(task),
-    });
-  }
+// TaskStore defines task storage operations.
+type TaskStore interface {
+	FindByStatus(ctx context.Context, status string) ([]Task, error)
+	Update(ctx context.Context, task *Task) error
+	SaveResult(ctx context.Context, taskID string, result interface{}) error
+	SaveError(ctx context.Context, taskID string, errMsg string) error
 }
 
-// Agent
-class TaskAgent {
-  constructor(
-    private readonly id: string,
-    private readonly handlers: Map<string, TaskHandler>,
-    private readonly supervisor: SupervisorClient,
-  ) {}
-
-  async processTask(task: Task): Promise<void> {
-    const handler = this.handlers.get(task.type);
-
-    if (!handler) {
-      await this.supervisor.reportFailure(task, 'Unknown task type');
-      return;
-    }
-
-    try {
-      await this.supervisor.reportProgress(task, 'started');
-
-      const result = await handler.execute(task.payload);
-
-      await this.supervisor.reportCompletion(task, result);
-    } catch (error) {
-      await this.supervisor.reportFailure(task, error.message);
-    }
-  }
-
-  async sendHeartbeat(): Promise<void> {
-    await this.supervisor.heartbeat(this.id, {
-      status: 'idle',
-      capabilities: Array.from(this.handlers.keys()),
-    });
-  }
+// AgentRegistry manages agent registrations.
+type AgentRegistry interface{
+	FindByStatus(ctx context.Context, status string) ([]Agent, error)
+	Find(ctx context.Context, agentID string) (*Agent, error)
+	Update(ctx context.Context, agent *Agent) error
+	FindAll(ctx context.Context) ([]Agent, error)
 }
 
-// Supervisor
-class Supervisor {
-  private readonly checkInterval = 30000; // 30s
+// Scheduler schedules tasks to agents.
+type Scheduler struct {
+	taskStore     TaskStore
+	agentRegistry AgentRegistry
+}
 
-  constructor(
-    private readonly taskStore: TaskStore,
-    private readonly agentRegistry: AgentRegistry,
-    private readonly alertService: AlertService,
-  ) {}
+// NewScheduler creates a new Scheduler.
+func NewScheduler(taskStore TaskStore, agentRegistry AgentRegistry) *Scheduler {
+	return &Scheduler{
+		taskStore:     taskStore,
+		agentRegistry: agentRegistry,
+	}
+}
 
-  async start(): Promise<void> {
-    setInterval(() => this.checkHealth(), this.checkInterval);
-  }
+// ScheduleTasks assigns pending tasks to idle agents.
+func (s *Scheduler) ScheduleTasks(ctx context.Context) error {
+	pendingTasks, err := s.taskStore.FindByStatus(ctx, "pending")
+	if err != nil {
+		return fmt.Errorf("finding pending tasks: %w", err)
+	}
 
-  async checkHealth(): Promise<void> {
-    await this.detectStaleAgents();
-    await this.recoverStaleTasks();
-    await this.retryFailedTasks();
-  }
+	idleAgents, err := s.agentRegistry.FindByStatus(ctx, "idle")
+	if err != nil {
+		return fmt.Errorf("finding idle agents: %w", err)
+	}
 
-  private async detectStaleAgents(): Promise<void> {
-    const agents = await this.agentRegistry.findAll();
-    const now = Date.now();
+	for _, task := range pendingTasks {
+		if len(idleAgents) == 0 {
+			break
+		}
 
-    for (const agent of agents) {
-      const lastSeen = agent.lastHeartbeat.getTime();
-      if (now - lastSeen > 60000) { // 1 minute
-        agent.status = 'offline';
-        await this.agentRegistry.update(agent);
-        await this.alertService.notify(`Agent ${agent.id} is offline`);
-      }
-    }
-  }
+		agent := s.findCapableAgent(&task, idleAgents)
+		if agent != nil {
+			if err := s.assignTask(ctx, &task, agent); err != nil {
+				log.Printf("Failed to assign task %s: %v", task.ID, err)
+				continue
+			}
 
-  private async recoverStaleTasks(): Promise<void> {
-    const runningTasks = await this.taskStore.findByStatus('running');
+			// Remove agent from idle list
+			for i, a := range idleAgents {
+				if a.ID == agent.ID {
+					idleAgents = append(idleAgents[:i], idleAgents[i+1:]...)
+					break
+				}
+			}
+		}
+	}
 
-    for (const task of runningTasks) {
-      const agent = await this.agentRegistry.find(task.assignedAgent!);
+	return nil
+}
 
-      if (!agent || agent.status === 'offline') {
-        task.status = 'pending';
-        task.assignedAgent = undefined;
-        await this.taskStore.update(task);
-      }
-    }
-  }
+func (s *Scheduler) findCapableAgent(task *Task, agents []Agent) *Agent {
+	for i := range agents {
+		for _, capability := range agents[i].Capabilities {
+			if capability == task.Type {
+				return &agents[i]
+			}
+		}
+	}
+	return nil
+}
 
-  private async retryFailedTasks(): Promise<void> {
-    const failedTasks = await this.taskStore.findByStatus('failed');
+func (s *Scheduler) assignTask(ctx context.Context, task *Task, agent *Agent) error {
+	task.Status = "running"
+	task.AssignedAgent = agent.ID
+	task.UpdatedAt = time.Now()
 
-    for (const task of failedTasks) {
-      if (task.retries < task.maxRetries) {
-        task.status = 'pending';
-        task.retries++;
-        await this.taskStore.update(task);
-      } else {
-        await this.alertService.notify(`Task ${task.id} exceeded max retries`);
-      }
-    }
-  }
+	if err := s.taskStore.Update(ctx, task); err != nil {
+		return fmt.Errorf("updating task: %w", err)
+	}
 
-  async reportCompletion(task: Task, result: any): Promise<void> {
-    task.status = 'completed';
-    task.updatedAt = new Date();
-    await this.taskStore.update(task);
-    await this.taskStore.saveResult(task.id, result);
-  }
+	// Notify agent (simplified - would use HTTP or message queue)
+	log.Printf("Assigned task %s to agent %s", task.ID, agent.ID)
 
-  async reportFailure(task: Task, error: string): Promise<void> {
-    task.status = 'failed';
-    task.updatedAt = new Date();
-    await this.taskStore.update(task);
-    await this.taskStore.saveError(task.id, error);
-  }
+	return nil
+}
+
+// Supervisor monitors and recovers from failures.
+type Supervisor struct {
+	taskStore     TaskStore
+	agentRegistry AgentRegistry
+	alertService  AlertService
+	checkInterval time.Duration
+}
+
+// AlertService handles alerts.
+type AlertService interface {
+	Notify(ctx context.Context, message string) error
+}
+
+// NewSupervisor creates a new Supervisor.
+func NewSupervisor(
+	taskStore TaskStore,
+	agentRegistry AgentRegistry,
+	alertService AlertService,
+	checkInterval time.Duration,
+) *Supervisor {
+	return &Supervisor{
+		taskStore:     taskStore,
+		agentRegistry: agentRegistry,
+		alertService:  alertService,
+		checkInterval: checkInterval,
+	}
+}
+
+// Start starts the supervisor.
+func (sv *Supervisor) Start(ctx context.Context) {
+	ticker := time.NewTicker(sv.checkInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			sv.checkHealth(ctx)
+		}
+	}
+}
+
+func (sv *Supervisor) checkHealth(ctx context.Context) {
+	sv.detectStaleAgents(ctx)
+	sv.recoverStaleTasks(ctx)
+	sv.retryFailedTasks(ctx)
+}
+
+func (sv *Supervisor) detectStaleAgents(ctx context.Context) {
+	agents, err := sv.agentRegistry.FindAll(ctx)
+	if err != nil {
+		log.Printf("Failed to find agents: %v", err)
+		return
+	}
+
+	now := time.Now()
+	for _, agent := range agents {
+		if now.Sub(agent.LastHeartbeat) > time.Minute {
+			agent.Status = "offline"
+			sv.agentRegistry.Update(ctx, &agent)
+			sv.alertService.Notify(ctx, fmt.Sprintf("Agent %s is offline", agent.ID))
+		}
+	}
+}
+
+func (sv *Supervisor) recoverStaleTasks(ctx context.Context) {
+	runningTasks, err := sv.taskStore.FindByStatus(ctx, "running")
+	if err != nil {
+		log.Printf("Failed to find running tasks: %v", err)
+		return
+	}
+
+	for _, task := range runningTasks {
+		agent, err := sv.agentRegistry.Find(ctx, task.AssignedAgent)
+		if err != nil || agent == nil || agent.Status == "offline" {
+			task.Status = "pending"
+			task.AssignedAgent = ""
+			sv.taskStore.Update(ctx, &task)
+		}
+	}
+}
+
+func (sv *Supervisor) retryFailedTasks(ctx context.Context) {
+	failedTasks, err := sv.taskStore.FindByStatus(ctx, "failed")
+	if err != nil {
+		log.Printf("Failed to find failed tasks: %v", err)
+		return
+	}
+
+	for _, task := range failedTasks {
+		if task.Retries < task.MaxRetries {
+			task.Status = "pending"
+			task.Retries++
+			sv.taskStore.Update(ctx, &task)
+		} else {
+			sv.alertService.Notify(ctx, fmt.Sprintf("Task %s exceeded max retries", task.ID))
+		}
+	}
 }
 ```
 

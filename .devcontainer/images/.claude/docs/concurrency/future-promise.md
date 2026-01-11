@@ -39,107 +39,164 @@ Pattern representant une valeur qui sera disponible dans le futur.
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
-### Deferred (Promise controlable)
+### Future basique avec channels
 
-```typescript
-class Deferred<T> {
-  readonly promise: Promise<T>;
-  resolve!: (value: T | PromiseLike<T>) => void;
-  reject!: (reason?: unknown) => void;
-  private settled = false;
+```go
+package future
 
-  constructor() {
-    this.promise = new Promise<T>((resolve, reject) => {
-      this.resolve = (value) => {
-        if (!this.settled) {
-          this.settled = true;
-          resolve(value);
-        }
-      };
-      this.reject = (reason) => {
-        if (!this.settled) {
-          this.settled = true;
-          reject(reason);
-        }
-      };
-    });
-  }
-
-  get isSettled(): boolean {
-    return this.settled;
-  }
+// Future represents a value that will be available later.
+type Future[T any] struct {
+	value chan T
+	err   chan error
+	once  sync.Once
 }
 
-// Usage
-const deferred = new Deferred<string>();
+// NewFuture creates a new future.
+func NewFuture[T any]() *Future[T] {
+	return &Future[T]{
+		value: make(chan T, 1),
+		err:   make(chan error, 1),
+	}
+}
 
-// Quelque part...
-setTimeout(() => {
-  deferred.resolve('Hello!');
-}, 1000);
+// Complete resolves the future with a value.
+func (f *Future[T]) Complete(value T) {
+	f.once.Do(func() {
+		f.value <- value
+	})
+}
 
-// Ailleurs...
-const result = await deferred.promise;
+// Fail rejects the future with an error.
+func (f *Future[T]) Fail(err error) {
+	f.once.Do(func() {
+		f.err <- err
+	})
+}
+
+// Get waits for and returns the result.
+func (f *Future[T]) Get(ctx context.Context) (T, error) {
+	select {
+	case <-ctx.Done():
+		var zero T
+		return zero, ctx.Err()
+	case value := <-f.value:
+		return value, nil
+	case err := <-f.err:
+		var zero T
+		return zero, err
+	}
+}
+
+// GetWithTimeout waits with a timeout.
+func (f *Future[T]) GetWithTimeout(timeout time.Duration) (T, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return f.Get(ctx)
+}
 ```
 
-### CompletableFuture (Java-style)
+**Usage:**
 
-```typescript
-class CompletableFuture<T> {
-  private deferred = new Deferred<T>();
-  private callbacks: Array<(value: T) => void> = [];
+```go
+package main
 
-  get promise(): Promise<T> {
-    return this.deferred.promise;
-  }
+import (
+	"context"
+	"fmt"
+	"time"
+)
 
-  complete(value: T): boolean {
-    if (this.deferred.isSettled) return false;
-    this.deferred.resolve(value);
-    this.callbacks.forEach((cb) => cb(value));
-    return true;
-  }
+func fetchDataAsync(url string) *Future[string] {
+	future := NewFuture[string]()
 
-  completeExceptionally(error: Error): boolean {
-    if (this.deferred.isSettled) return false;
-    this.deferred.reject(error);
-    return true;
-  }
+	go func() {
+		time.Sleep(100 * time.Millisecond) // Simulate work
+		future.Complete(fmt.Sprintf("Data from %s", url))
+	}()
 
-  thenApply<U>(fn: (value: T) => U): CompletableFuture<U> {
-    const next = new CompletableFuture<U>();
-    this.promise
-      .then((v) => next.complete(fn(v)))
-      .catch((e) => next.completeExceptionally(e));
-    return next;
-  }
+	return future
+}
 
-  thenCompose<U>(fn: (value: T) => CompletableFuture<U>): CompletableFuture<U> {
-    const next = new CompletableFuture<U>();
-    this.promise
-      .then((v) => fn(v).promise)
-      .then((u) => next.complete(u))
-      .catch((e) => next.completeExceptionally(e));
-    return next;
-  }
+func main() {
+	future := fetchDataAsync("https://api.example.com")
 
-  static allOf<T>(...futures: CompletableFuture<T>[]): CompletableFuture<T[]> {
-    const result = new CompletableFuture<T[]>();
-    Promise.all(futures.map((f) => f.promise))
-      .then((values) => result.complete(values))
-      .catch((e) => result.completeExceptionally(e));
-    return result;
-  }
+	ctx := context.Background()
+	result, err := future.Get(ctx)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
 
-  static anyOf<T>(...futures: CompletableFuture<T>[]): CompletableFuture<T> {
-    const result = new CompletableFuture<T>();
-    Promise.race(futures.map((f) => f.promise))
-      .then((value) => result.complete(value))
-      .catch((e) => result.completeExceptionally(e));
-    return result;
-  }
+	fmt.Printf("Result: %s\n", result)
+}
+```
+
+---
+
+### Promise avec resolver
+
+```go
+package promise
+
+import (
+	"context"
+	"sync"
+)
+
+// Promise is a controllable future.
+type Promise[T any] struct {
+	future *Future[T]
+	mu     sync.Mutex
+	done   bool
+}
+
+// NewPromise creates a new promise.
+func NewPromise[T any]() *Promise[T] {
+	return &Promise[T]{
+		future: NewFuture[T](),
+	}
+}
+
+// Resolve fulfills the promise.
+func (p *Promise[T]) Resolve(value T) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.done {
+		return false
+	}
+
+	p.done = true
+	p.future.Complete(value)
+	return true
+}
+
+// Reject rejects the promise.
+func (p *Promise[T]) Reject(err error) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.done {
+		return false
+	}
+
+	p.done = true
+	p.future.Fail(err)
+	return true
+}
+
+// Future returns the associated future.
+func (p *Promise[T]) Future() *Future[T] {
+	return p.future
+}
+
+// IsDone returns whether the promise is settled.
+func (p *Promise[T]) IsDone() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.done
 }
 ```
 
@@ -147,153 +204,282 @@ class CompletableFuture<T> {
 
 ## Patterns de composition
 
-### Sequential (then chain)
+### Sequential composition
 
-```typescript
-async function processUser(userId: string): Promise<Report> {
-  const user = await fetchUser(userId);
-  const orders = await fetchOrders(user.id);
-  const report = await generateReport(user, orders);
-  return report;
+```go
+package future
+
+// Then chains a transformation.
+func Then[T, U any](f *Future[T], fn func(T) (U, error)) *Future[U] {
+	result := NewFuture[U]()
+
+	go func() {
+		ctx := context.Background()
+		value, err := f.Get(ctx)
+		if err != nil {
+			result.Fail(err)
+			return
+		}
+
+		transformed, err := fn(value)
+		if err != nil {
+			result.Fail(err)
+			return
+		}
+
+		result.Complete(transformed)
+	}()
+
+	return result
 }
 
-// Equivalent Promise chain
-function processUserPromise(userId: string): Promise<Report> {
-  return fetchUser(userId)
-    .then((user) =>
-      fetchOrders(user.id).then((orders) => ({ user, orders })),
-    )
-    .then(({ user, orders }) => generateReport(user, orders));
+// ThenAsync chains an async transformation.
+func ThenAsync[T, U any](f *Future[T], fn func(T) *Future[U]) *Future[U] {
+	result := NewFuture[U]()
+
+	go func() {
+		ctx := context.Background()
+		value, err := f.Get(ctx)
+		if err != nil {
+			result.Fail(err)
+			return
+		}
+
+		next := fn(value)
+		nextValue, err := next.Get(ctx)
+		if err != nil {
+			result.Fail(err)
+			return
+		}
+
+		result.Complete(nextValue)
+	}()
+
+	return result
 }
 ```
 
-### Parallel (Promise.all)
+### Parallel composition (All)
 
-```typescript
-async function fetchDashboard(userId: string): Promise<Dashboard> {
-  const [user, notifications, stats] = await Promise.all([
-    fetchUser(userId),
-    fetchNotifications(userId),
-    fetchStats(userId),
-  ]);
+```go
+package future
 
-  return { user, notifications, stats };
+// All waits for all futures to complete.
+func All[T any](futures ...*Future[T]) *Future[[]T] {
+	result := NewFuture[[]T]()
+
+	go func() {
+		ctx := context.Background()
+		results := make([]T, len(futures))
+
+		for i, f := range futures {
+			value, err := f.Get(ctx)
+			if err != nil {
+				result.Fail(err)
+				return
+			}
+			results[i] = value
+		}
+
+		result.Complete(results)
+	}()
+
+	return result
 }
 ```
 
-### Race (first wins)
+### Race composition
 
-```typescript
-async function fetchWithTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-): Promise<T> {
-  const timeout = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('Timeout')), timeoutMs);
-  });
+```go
+package future
 
-  return Promise.race([promise, timeout]);
-}
+// Race returns the first future to complete.
+func Race[T any](futures ...*Future[T]) *Future[T] {
+	result := NewFuture[T]()
 
-// Usage
-const data = await fetchWithTimeout(fetchData(), 5000);
-```
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-### Any (first success)
+	for _, f := range futures {
+		go func(fut *Future[T]) {
+			value, err := fut.Get(ctx)
+			if err != nil {
+				result.Fail(err)
+			} else {
+				result.Complete(value)
+			}
+			cancel() // Cancel other goroutines
+		}(f)
+	}
 
-```typescript
-async function fetchFromMirrors(url: string): Promise<Response> {
-  const mirrors = [
-    'https://mirror1.example.com',
-    'https://mirror2.example.com',
-    'https://mirror3.example.com',
-  ];
-
-  // Retourne le premier succes
-  return Promise.any(
-    mirrors.map((mirror) => fetch(`${mirror}${url}`)),
-  );
+	return result
 }
 ```
 
 ---
 
-## Cancellable Future
+## Future avec timeout
 
-```typescript
-class CancellableFuture<T> {
-  private deferred = new Deferred<T>();
-  private abortController = new AbortController();
+```go
+package future
 
-  get promise(): Promise<T> {
-    return this.deferred.promise;
-  }
+// WithTimeout wraps a future with timeout.
+func WithTimeout[T any](f *Future[T], timeout time.Duration) *Future[T] {
+	result := NewFuture[T]()
 
-  get signal(): AbortSignal {
-    return this.abortController.signal;
-  }
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
 
-  complete(value: T): void {
-    this.deferred.resolve(value);
-  }
+		value, err := f.Get(ctx)
+		if err != nil {
+			result.Fail(err)
+		} else {
+			result.Complete(value)
+		}
+	}()
 
-  cancel(reason?: string): void {
-    this.abortController.abort();
-    this.deferred.reject(new Error(reason ?? 'Cancelled'));
-  }
+	return result
+}
+```
 
-  static fromAsync<T>(
-    fn: (signal: AbortSignal) => Promise<T>,
-  ): CancellableFuture<T> {
-    const future = new CancellableFuture<T>();
+---
 
-    fn(future.signal)
-      .then((v) => future.complete(v))
-      .catch((e) => future.deferred.reject(e));
+## Future cancellable
 
-    return future;
-  }
+```go
+package future
+
+// CancellableFuture supports cancellation.
+type CancellableFuture[T any] struct {
+	*Future[T]
+	cancel context.CancelFunc
 }
 
-// Usage
-const future = CancellableFuture.fromAsync(async (signal) => {
-  const response = await fetch(url, { signal });
-  return response.json();
-});
+// NewCancellableFuture creates a cancellable future.
+func NewCancellableFuture[T any]() *CancellableFuture[T] {
+	ctx, cancel := context.WithCancel(context.Background())
 
-// Plus tard...
-future.cancel('User navigated away');
+	return &CancellableFuture[T]{
+		Future: NewFuture[T](),
+		cancel: cancel,
+	}
+}
+
+// Cancel cancels the future.
+func (cf *CancellableFuture[T]) Cancel() {
+	cf.cancel()
+	cf.Fail(context.Canceled)
+}
+
+// FromAsync creates a future from an async function.
+func FromAsync[T any](fn func(context.Context) (T, error)) *CancellableFuture[T] {
+	cf := NewCancellableFuture[T]()
+
+	go func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		value, err := fn(ctx)
+		if err != nil {
+			cf.Fail(err)
+		} else {
+			cf.Complete(value)
+		}
+	}()
+
+	return cf
+}
+```
+
+**Usage:**
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"time"
+)
+
+func main() {
+	future := FromAsync(func(ctx context.Context) (string, error) {
+		req, err := http.NewRequestWithContext(ctx, "GET", "https://api.example.com", nil)
+		if err != nil {
+			return "", err
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
+
+		return fmt.Sprintf("Status: %d", resp.StatusCode), nil
+	})
+
+	// Cancel after 1 second
+	time.AfterFunc(1*time.Second, func() {
+		future.Cancel()
+	})
+
+	ctx := context.Background()
+	result, err := future.Get(ctx)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Result: %s\n", result)
+}
 ```
 
 ---
 
 ## Lazy Future
 
-```typescript
-class LazyFuture<T> {
-  private promise?: Promise<T>;
-  private started = false;
+```go
+package future
 
-  constructor(private factory: () => Promise<T>) {}
-
-  get(): Promise<T> {
-    if (!this.started) {
-      this.started = true;
-      this.promise = this.factory();
-    }
-    return this.promise!;
-  }
-
-  get isStarted(): boolean {
-    return this.started;
-  }
+// LazyFuture defers computation until Get.
+type LazyFuture[T any] struct {
+	factory func(context.Context) (T, error)
+	future  *Future[T]
+	mu      sync.Mutex
+	started bool
 }
 
-// Usage - ne demarre pas avant get()
-const lazyData = new LazyFuture(() => fetchExpensiveData());
+// NewLazyFuture creates a lazy future.
+func NewLazyFuture[T any](factory func(context.Context) (T, error)) *LazyFuture[T] {
+	return &LazyFuture[T]{
+		factory: factory,
+	}
+}
 
-// ... plus tard quand on en a besoin
-const data = await lazyData.get();
+// Get starts computation if needed and returns result.
+func (lf *LazyFuture[T]) Get(ctx context.Context) (T, error) {
+	lf.mu.Lock()
+
+	if !lf.started {
+		lf.started = true
+		lf.future = NewFuture[T]()
+
+		go func() {
+			value, err := lf.factory(ctx)
+			if err != nil {
+				lf.future.Fail(err)
+			} else {
+				lf.future.Complete(value)
+			}
+		}()
+	}
+
+	lf.mu.Unlock()
+
+	return lf.future.Get(ctx)
+}
 ```
 
 ---
@@ -303,22 +489,22 @@ const data = await lazyData.get();
 | Aspect | Valeur |
 |--------|--------|
 | Creation | O(1) |
-| Chaining | O(1) |
-| Resolution | O(callbacks) |
-| Memoire | O(chain_length) |
+| Get (completed) | O(1) |
+| Get (pending) | O(wait) |
+| Memoire | O(1) per future |
 
 ### Avantages
 
 - Composition elegante
-- Gestion d'erreurs unifiee
-- Compatible async/await
-- Standard JavaScript
+- Context natif Go
+- Type-safe avec generics
+- Compatible avec goroutines
 
 ### Inconvenients
 
-- Une seule resolution (pas de retry natif)
-- Callback hell si mal utilise
-- Pas de cancellation native
+- Plus verbose que async/await
+- Pas de retry natif
+- Requires manual error handling
 
 ---
 
@@ -326,11 +512,10 @@ const data = await lazyData.get();
 
 | Situation | Recommande |
 |-----------|------------|
-| Operations async | Oui (natif) |
+| Operations async simples | Non (use goroutines) |
 | Composition operations | Oui |
 | Valeur calculee une fois | Oui |
-| Stream de valeurs | Non (use Observable) |
-| Annulation frequente | Prudence |
+| Stream de valeurs | Non (use channels) |
 
 ---
 
@@ -338,15 +523,15 @@ const data = await lazyData.get();
 
 | Pattern | Relation |
 |---------|----------|
-| **Observer** | Multiple valeurs vs une seule |
-| **Callback** | Promise remplace callbacks |
-| **Lazy Loading** | LazyFuture combine les deux |
-| **Async Queue** | Futures dans une queue |
+| **Channel** | Future = single-value channel |
+| **Context** | Cancellation and timeout |
+| **Async/Await** | Future est le primitif sous-jacent |
+| **Pipeline** | Futures dans une pipeline |
 
 ---
 
 ## Sources
 
-- [MDN Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)
+- [Go Concurrency Patterns](https://go.dev/blog/pipelines)
 - [Java CompletableFuture](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html)
-- [Bluebird Promise Library](http://bluebirdjs.com/)
+- [MDN Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)

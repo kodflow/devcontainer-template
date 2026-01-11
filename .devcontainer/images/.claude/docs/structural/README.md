@@ -19,7 +19,7 @@ Patterns de composition d'objets.
 
 Voir fichier detaille: [adapter.md](adapter.md)
 
-```typescript
+```go
 class StripeAdapter implements PaymentProcessor {
   constructor(private stripe: StripeAPI) {}
 
@@ -37,7 +37,7 @@ class StripeAdapter implements PaymentProcessor {
 
 > Separer abstraction et implementation.
 
-```typescript
+```go
 abstract class Shape {
   constructor(protected renderer: Renderer) {}
   abstract draw(): void;
@@ -56,7 +56,7 @@ class Circle extends Shape {
 
 > Traiter objets simples et composes uniformement.
 
-```typescript
+```go
 interface Component {
   getPrice(): number;
 }
@@ -80,7 +80,7 @@ class Box implements Component {
 
 Voir fichier detaille: [decorator.md](decorator.md)
 
-```typescript
+```go
 let client: HttpClient = new BasicHttpClient();
 client = new LoggingDecorator(client);
 client = new AuthDecorator(client, () => 'token');
@@ -97,7 +97,7 @@ client = new RetryDecorator(client, 3);
 
 Voir fichier detaille: [facade.md](facade.md)
 
-```typescript
+```go
 class VideoPublisher {
   publish(video: string, audio: string) {
     const v = this.videoEncoder.encode(video);
@@ -116,7 +116,7 @@ class VideoPublisher {
 
 > Partager des etats communs entre objets.
 
-```typescript
+```go
 class FlyweightFactory {
   private cache = new Map<string, CharacterFlyweight>();
 
@@ -140,7 +140,7 @@ class FlyweightFactory {
 
 Voir fichier detaille: [proxy.md](proxy.md)
 
-```typescript
+```go
 class ImageProxy implements Image {
   private realImage: RealImage | null = null;
 

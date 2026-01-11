@@ -14,195 +14,338 @@ La Service Layer est une couche de coordination qui definit la frontiere de l'ap
 4. **DTO Conversion** : Transformer entre domaine et presentation
 5. **Facade** : Exposer une API simplifiee
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-// DTOs - Objets de transfert
-interface PlaceOrderRequest {
-  customerId: string;
-  items: Array<{
-    productId: string;
-    quantity: number;
-  }>;
-  shippingAddressId: string;
+```go
+package service
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// PlaceOrderRequest is the input DTO.
+type PlaceOrderRequest struct {
+	CustomerID        string
+	Items             []OrderItemRequest
+	ShippingAddressID string
 }
 
-interface PlaceOrderResponse {
-  orderId: string;
-  total: number;
-  estimatedDelivery: string;
+// OrderItemRequest represents an order item request.
+type OrderItemRequest struct {
+	ProductID string
+	Quantity  int
 }
 
-// Service Layer - Application Service
-class OrderApplicationService {
-  constructor(
-    private readonly orderRepository: OrderRepository,
-    private readonly customerRepository: CustomerRepository,
-    private readonly productRepository: ProductRepository,
-    private readonly inventoryService: InventoryService,
-    private readonly paymentService: PaymentService,
-    private readonly notificationService: NotificationService,
-    private readonly eventPublisher: DomainEventPublisher,
-  ) {}
+// PlaceOrderResponse is the output DTO.
+type PlaceOrderResponse struct {
+	OrderID           string
+	Total             float64
+	EstimatedDelivery time.Time
+}
 
-  /**
-   * Place une commande - Coordination sans logique metier
-   */
-  @Transactional()
-  @Authorized('orders.create')
-  async placeOrder(
-    request: PlaceOrderRequest,
-    currentUser: User,
-  ): Promise<PlaceOrderResponse> {
-    // 1. Charger les entites du domaine
-    const customer = await this.customerRepository.findById(request.customerId);
-    if (!customer) {
-      throw new NotFoundError('Customer not found');
-    }
+// OrderApplicationService coordinates order operations.
+type OrderApplicationService struct {
+	orderRepo        OrderRepository
+	customerRepo     CustomerRepository
+	productRepo      ProductRepository
+	inventoryService InventoryService
+	paymentService   PaymentService
+	notificationSvc  NotificationService
+	eventPublisher   DomainEventPublisher
+}
 
-    const address = customer.getAddress(request.shippingAddressId);
-    if (!address) {
-      throw new NotFoundError('Address not found');
-    }
+// NewOrderApplicationService creates a new order service.
+func NewOrderApplicationService(
+	orderRepo OrderRepository,
+	customerRepo CustomerRepository,
+	productRepo ProductRepository,
+	inventoryService InventoryService,
+	paymentService PaymentService,
+	notificationSvc NotificationService,
+	eventPublisher DomainEventPublisher,
+) *OrderApplicationService {
+	return &OrderApplicationService{
+		orderRepo:        orderRepo,
+		customerRepo:     customerRepo,
+		productRepo:      productRepo,
+		inventoryService: inventoryService,
+		paymentService:   paymentService,
+		notificationSvc:  notificationSvc,
+		eventPublisher:   eventPublisher,
+	}
+}
 
-    // 2. Creer l'agregat Order via Factory
-    const order = Order.create(customer);
-    order.setShippingAddress(address);
+// PlaceOrder places an order - coordination without business logic.
+func (s *OrderApplicationService) PlaceOrder(
+	ctx context.Context,
+	request PlaceOrderRequest,
+	currentUser *User,
+) (*PlaceOrderResponse, error) {
+	// 1. Load domain entities
+	customer, err := s.customerRepo.FindByID(ctx, request.CustomerID)
+	if err != nil {
+		return nil, fmt.Errorf("find customer: %w", err)
+	}
+	if customer == nil {
+		return nil, ErrNotFound("customer not found")
+	}
 
-    // 3. Ajouter les items (logique metier dans Order)
-    for (const item of request.items) {
-      const product = await this.productRepository.findById(item.productId);
-      if (!product) {
-        throw new NotFoundError(`Product ${item.productId} not found`);
-      }
-      order.addItem(product, item.quantity); // Validation dans Order
-    }
+	address := customer.GetAddress(request.ShippingAddressID)
+	if address == nil {
+		return nil, ErrNotFound("address not found")
+	}
 
-    // 4. Soumettre la commande (logique metier dans Order)
-    order.submit();
+	// 2. Create Order aggregate via factory
+	order := NewOrder(customer.ID)
+	order.SetShippingAddress(address)
 
-    // 5. Coordonner avec les services d'infrastructure
-    await this.inventoryService.reserve(order.items);
+	// 3. Add items (business logic in Order)
+	for _, item := range request.Items {
+		product, err := s.productRepo.FindByID(ctx, item.ProductID)
+		if err != nil {
+			return nil, fmt.Errorf("find product %s: %w", item.ProductID, err)
+		}
+		if product == nil {
+			return nil, ErrNotFound(fmt.Sprintf("product %s not found", item.ProductID))
+		}
 
-    try {
-      // 6. Persister
-      await this.orderRepository.save(order);
+		// Validation in Order aggregate
+		if err := order.AddItem(product, item.Quantity); err != nil {
+			return nil, fmt.Errorf("add item: %w", err)
+		}
+	}
 
-      // 7. Publier les events du domaine
-      const events = order.pullEvents();
-      await this.eventPublisher.publishAll(events);
+	// 4. Submit order (business logic in Order)
+	if err := order.Submit(); err != nil {
+		return nil, fmt.Errorf("submit order: %w", err)
+	}
 
-      // 8. Notifications (side effect)
-      await this.notificationService.notifyOrderPlaced(order, customer);
+	// 5. Coordinate with infrastructure services
+	if err := s.inventoryService.Reserve(ctx, order.Items()); err != nil {
+		return nil, fmt.Errorf("reserve inventory: %w", err)
+	}
 
-    } catch (error) {
-      // Compensation en cas d'echec
-      await this.inventoryService.release(order.items);
-      throw error;
-    }
+	// 6. Persist
+	if err := s.orderRepo.Save(ctx, order); err != nil {
+		// Compensate on failure
+		_ = s.inventoryService.Release(ctx, order.Items())
+		return nil, fmt.Errorf("save order: %w", err)
+	}
 
-    // 9. Retourner DTO de reponse
-    return {
-      orderId: order.id,
-      total: order.total.amount,
-      estimatedDelivery: this.calculateDeliveryDate(address).toISOString(),
-    };
-  }
+	// 7. Publish domain events
+	events := order.PullEvents()
+	if err := s.eventPublisher.PublishAll(ctx, events); err != nil {
+		// Log error but don't fail
+		fmt.Printf("failed to publish events: %v\n", err)
+	}
 
-  /**
-   * Annuler une commande
-   */
-  @Transactional()
-  @Authorized('orders.cancel')
-  async cancelOrder(
-    orderId: string,
-    reason: string,
-    currentUser: User,
-  ): Promise<void> {
-    const order = await this.orderRepository.findById(orderId);
-    if (!order) {
-      throw new NotFoundError('Order not found');
-    }
+	// 8. Notifications (side effect)
+	if err := s.notificationSvc.NotifyOrderPlaced(ctx, order, customer); err != nil {
+		// Log error but don't fail
+		fmt.Printf("failed to send notification: %v\n", err)
+	}
 
-    // Verifier les droits
-    if (!this.canCancelOrder(order, currentUser)) {
-      throw new ForbiddenError('Cannot cancel this order');
-    }
+	// 9. Return DTO response
+	return &PlaceOrderResponse{
+		OrderID:           order.ID,
+		Total:             order.Total(),
+		EstimatedDelivery: s.calculateDeliveryDate(address),
+	}, nil
+}
 
-    // Logique metier dans le domaine
-    order.cancel(reason);
+// CancelOrder cancels an order.
+func (s *OrderApplicationService) CancelOrder(
+	ctx context.Context,
+	orderID string,
+	reason string,
+	currentUser *User,
+) error {
+	order, err := s.orderRepo.FindByID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("find order: %w", err)
+	}
+	if order == nil {
+		return ErrNotFound("order not found")
+	}
 
-    // Coordination compensation
-    if (order.isPaid) {
-      await this.paymentService.refund(order.paymentId);
-    }
-    await this.inventoryService.release(order.items);
+	// Verify permissions
+	if !s.canCancelOrder(order, currentUser) {
+		return ErrForbidden("cannot cancel this order")
+	}
 
-    // Persistance
-    await this.orderRepository.save(order);
+	// Business logic in domain
+	if err := order.Cancel(reason); err != nil {
+		return fmt.Errorf("cancel order: %w", err)
+	}
 
-    // Events
-    await this.eventPublisher.publishAll(order.pullEvents());
-  }
+	// Coordination compensation
+	if order.IsPaid() {
+		if err := s.paymentService.Refund(ctx, order.PaymentID()); err != nil {
+			return fmt.Errorf("refund payment: %w", err)
+		}
+	}
 
-  /**
-   * Query - Recuperer les commandes d'un client
-   */
-  @Authorized('orders.read')
-  async getCustomerOrders(
-    customerId: string,
-    pagination: PaginationParams,
-  ): Promise<PaginatedResult<OrderSummaryDTO>> {
-    const orders = await this.orderRepository.findByCustomerId(
-      customerId,
-      pagination,
-    );
+	if err := s.inventoryService.Release(ctx, order.Items()); err != nil {
+		return fmt.Errorf("release inventory: %w", err)
+	}
 
-    return {
-      items: orders.items.map(OrderSummaryDTO.fromDomain),
-      total: orders.total,
-      page: pagination.page,
-      pageSize: pagination.pageSize,
-    };
-  }
+	// Persist
+	if err := s.orderRepo.Save(ctx, order); err != nil {
+		return fmt.Errorf("save order: %w", err)
+	}
 
-  private canCancelOrder(order: Order, user: User): boolean {
-    return order.customerId === user.id || user.hasRole('admin');
-  }
+	// Events
+	events := order.PullEvents()
+	if err := s.eventPublisher.PublishAll(ctx, events); err != nil {
+		fmt.Printf("failed to publish events: %v\n", err)
+	}
 
-  private calculateDeliveryDate(address: Address): Date {
-    // Logique de calcul...
-    return new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
-  }
+	return nil
+}
+
+// GetCustomerOrders retrieves customer orders.
+func (s *OrderApplicationService) GetCustomerOrders(
+	ctx context.Context,
+	customerID string,
+	pagination PaginationParams,
+) (*PaginatedResult[*OrderSummaryDTO], error) {
+	orders, err := s.orderRepo.FindByCustomerID(ctx, customerID, pagination)
+	if err != nil {
+		return nil, fmt.Errorf("find orders: %w", err)
+	}
+
+	dtos := make([]*OrderSummaryDTO, len(orders.Items))
+	for i, order := range orders.Items {
+		dtos[i] = OrderSummaryDTOFromDomain(order)
+	}
+
+	return &PaginatedResult[*OrderSummaryDTO]{
+		Items:    dtos,
+		Total:    orders.Total,
+		Page:     pagination.Page,
+		PageSize: pagination.PageSize,
+	}, nil
+}
+
+func (s *OrderApplicationService) canCancelOrder(order *Order, user *User) bool {
+	return order.CustomerID() == user.ID || user.HasRole("admin")
+}
+
+func (s *OrderApplicationService) calculateDeliveryDate(address *Address) time.Time {
+	return time.Now().Add(5 * 24 * time.Hour)
+}
+
+// PaginationParams represents pagination parameters.
+type PaginationParams struct {
+	Page     int
+	PageSize int
+}
+
+// PaginatedResult represents a paginated result.
+type PaginatedResult[T any] struct {
+	Items    []T
+	Total    int
+	Page     int
+	PageSize int
+}
+
+// Domain interfaces
+type OrderRepository interface {
+	FindByID(ctx context.Context, id string) (*Order, error)
+	FindByCustomerID(ctx context.Context, customerID string, pagination PaginationParams) (*PaginatedResult[*Order], error)
+	Save(ctx context.Context, order *Order) error
+}
+
+type CustomerRepository interface {
+	FindByID(ctx context.Context, id string) (*Customer, error)
+}
+
+type ProductRepository interface {
+	FindByID(ctx context.Context, id string) (*Product, error)
+}
+
+type InventoryService interface {
+	Reserve(ctx context.Context, items []*OrderItem) error
+	Release(ctx context.Context, items []*OrderItem) error
+}
+
+type PaymentService interface {
+	Refund(ctx context.Context, paymentID string) error
+}
+
+type NotificationService interface {
+	NotifyOrderPlaced(ctx context.Context, order *Order, customer *Customer) error
+}
+
+type DomainEventPublisher interface {
+	PublishAll(ctx context.Context, events []DomainEvent) error
+}
+
+// Helper types
+type User struct {
+	ID string
+}
+
+func (u *User) HasRole(role string) bool {
+	return false // Implement
+}
+
+type DomainEvent interface {
+	EventType() string
+}
+
+type OrderSummaryDTO struct {
+	ID     string
+	Status string
+	Total  float64
+}
+
+func OrderSummaryDTOFromDomain(order *Order) *OrderSummaryDTO {
+	return &OrderSummaryDTO{
+		ID:     order.ID,
+		Status: order.Status(),
+		Total:  order.Total(),
+	}
+}
+
+func ErrNotFound(msg string) error {
+	return fmt.Errorf("not found: %s", msg)
+}
+
+func ErrForbidden(msg string) error {
+	return fmt.Errorf("forbidden: %s", msg)
 }
 ```
 
 ## Service Layer vs Domain Service
 
-```typescript
+```go
 // Application Service (Service Layer)
-// - Coordination, transactions, securite
-// - Ne contient PAS de logique metier
-class OrderApplicationService {
-  async placeOrder(request: PlaceOrderRequest) {
-    // Coordonne mais ne decide pas
-    const order = Order.create(customer);
-    order.addItem(product, qty); // Delegation au domaine
-    await this.repository.save(order);
-  }
+// - Coordination, transactions, security
+// - NO business logic
+type OrderApplicationService struct {
+	// Coordinates but does not decide
+}
+
+func (s *OrderApplicationService) PlaceOrder(ctx context.Context, req PlaceOrderRequest) error {
+	order := NewOrder(req.CustomerID)
+	order.AddItem(product, qty) // Delegates to domain
+	return s.orderRepo.Save(ctx, order)
 }
 
 // Domain Service
-// - Logique metier qui ne va pas dans une entite
-// - Operations cross-aggregate
-class PricingDomainService {
-  calculateDiscount(order: Order, customer: Customer): Money {
-    // Logique metier pure
-    if (customer.isVIP && order.total.amount > 1000) {
-      return order.total.multiply(0.15);
-    }
-    return Money.zero();
-  }
+// - Business logic that doesn't belong in an entity
+// - Cross-aggregate operations
+type PricingDomainService struct{}
+
+func (s *PricingDomainService) CalculateDiscount(order *Order, customer *Customer) float64 {
+	// Pure business logic
+	if customer.IsVIP() && order.Total() > 1000 {
+		return order.Total() * 0.15
+	}
+	return 0
 }
 ```
 
@@ -230,72 +373,6 @@ class PricingDomainService {
 - CRUD simple (utiliser Transaction Script)
 - Une seule interface utilisateur
 - Pas de Domain Model
-
-## Relation avec DDD
-
-En DDD, la Service Layer correspond aux **Application Services** :
-
-```
-┌─────────────────────────────────────────────┐
-│              Interface Layer                │
-│         (Controllers, GraphQL, CLI)         │
-├─────────────────────────────────────────────┤
-│           Application Layer                 │  ← Service Layer
-│    (Application Services, Use Cases)        │
-├─────────────────────────────────────────────┤
-│              Domain Layer                   │
-│  (Entities, Value Objects, Domain Services) │
-├─────────────────────────────────────────────┤
-│          Infrastructure Layer               │
-│    (Repositories, External Services)        │
-└─────────────────────────────────────────────┘
-```
-
-## Patterns associes
-
-- **Facade** : Simplification d'interface (sans coordination)
-- **Domain Model** : Logique metier
-- **Repository** : Acces aux donnees
-- **Unit of Work** : Gestion des transactions
-- **DTO** : Transfert de donnees
-
-## Decorateurs utiles
-
-```typescript
-// Transaction management
-function Transactional() {
-  return function (
-    target: any,
-    propertyKey: string,
-    descriptor: PropertyDescriptor,
-  ) {
-    const original = descriptor.value;
-    descriptor.value = async function (...args: any[]) {
-      return await this.unitOfWork.executeInTransaction(() =>
-        original.apply(this, args),
-      );
-    };
-  };
-}
-
-// Authorization
-function Authorized(permission: string) {
-  return function (
-    target: any,
-    propertyKey: string,
-    descriptor: PropertyDescriptor,
-  ) {
-    const original = descriptor.value;
-    descriptor.value = async function (...args: any[]) {
-      const user = args.find((a) => a instanceof User);
-      if (!user?.hasPermission(permission)) {
-        throw new ForbiddenError(`Missing permission: ${permission}`);
-      }
-      return original.apply(this, args);
-    };
-  };
-}
-```
 
 ## Sources
 

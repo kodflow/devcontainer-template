@@ -13,277 +13,385 @@ Unit of Work est un pattern qui garde trace de toutes les modifications effectue
 3. **Rollback** : Annuler les changements en cas d'erreur
 4. **Concurrency** : Gerer les conflits de concurrence
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-// Interface Unit of Work
-interface UnitOfWork {
-  registerNew<T extends Entity>(entity: T): void;
-  registerDirty<T extends Entity>(entity: T): void;
-  registerClean<T extends Entity>(entity: T): void;
-  registerDeleted<T extends Entity>(entity: T): void;
-  commit(): Promise<void>;
-  rollback(): void;
+```go
+package uow
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"sync"
+)
+
+// Entity represents a domain entity with an ID.
+type Entity interface {
+	GetID() string
 }
 
-// Implementation concrete
-class DefaultUnitOfWork implements UnitOfWork {
-  private newEntities = new Map<string, Entity>();
-  private dirtyEntities = new Map<string, Entity>();
-  private deletedEntities = new Map<string, Entity>();
-  private cleanEntities = new Map<string, Entity>();
-
-  constructor(
-    private readonly db: Database,
-    private readonly mappers: MapperRegistry,
-  ) {}
-
-  registerNew<T extends Entity>(entity: T): void {
-    if (!entity.id) throw new Error('Entity must have an ID');
-    if (this.deletedEntities.has(entity.id)) {
-      throw new Error('Cannot register deleted entity as new');
-    }
-    if (this.dirtyEntities.has(entity.id) || this.cleanEntities.has(entity.id)) {
-      throw new Error('Entity already registered');
-    }
-    this.newEntities.set(entity.id, entity);
-  }
-
-  registerDirty<T extends Entity>(entity: T): void {
-    if (!entity.id) throw new Error('Entity must have an ID');
-    if (this.deletedEntities.has(entity.id)) {
-      throw new Error('Cannot register deleted entity as dirty');
-    }
-    if (!this.newEntities.has(entity.id) && !this.dirtyEntities.has(entity.id)) {
-      this.dirtyEntities.set(entity.id, entity);
-    }
-  }
-
-  registerClean<T extends Entity>(entity: T): void {
-    if (!entity.id) throw new Error('Entity must have an ID');
-    this.cleanEntities.set(entity.id, entity);
-  }
-
-  registerDeleted<T extends Entity>(entity: T): void {
-    if (!entity.id) throw new Error('Entity must have an ID');
-
-    // Si c'est un nouvel objet, on l'enleve simplement
-    if (this.newEntities.has(entity.id)) {
-      this.newEntities.delete(entity.id);
-      return;
-    }
-
-    this.dirtyEntities.delete(entity.id);
-    this.cleanEntities.delete(entity.id);
-    this.deletedEntities.set(entity.id, entity);
-  }
-
-  async commit(): Promise<void> {
-    try {
-      await this.db.beginTransaction();
-
-      // 1. Insert new entities
-      for (const entity of this.newEntities.values()) {
-        const mapper = this.mappers.getMapper(entity.constructor);
-        await mapper.insert(entity);
-      }
-
-      // 2. Update dirty entities
-      for (const entity of this.dirtyEntities.values()) {
-        const mapper = this.mappers.getMapper(entity.constructor);
-        await mapper.update(entity);
-      }
-
-      // 3. Delete removed entities
-      for (const entity of this.deletedEntities.values()) {
-        const mapper = this.mappers.getMapper(entity.constructor);
-        await mapper.delete(entity);
-      }
-
-      await this.db.commit();
-      this.clear();
-    } catch (error) {
-      await this.db.rollback();
-      throw error;
-    }
-  }
-
-  rollback(): void {
-    this.clear();
-  }
-
-  private clear(): void {
-    this.newEntities.clear();
-    this.dirtyEntities.clear();
-    this.deletedEntities.clear();
-    this.cleanEntities.clear();
-  }
+// DataMapper handles persistence for a specific entity type.
+type DataMapper[T Entity] interface {
+	Insert(ctx context.Context, tx *sql.Tx, entity T) error
+	Update(ctx context.Context, tx *sql.Tx, entity T) error
+	Delete(ctx context.Context, tx *sql.Tx, entity T) error
 }
 
-// MapperRegistry pour trouver le bon mapper
-class MapperRegistry {
-  private mappers = new Map<Function, DataMapper<any>>();
+// MapperRegistry stores mappers by entity type.
+type MapperRegistry struct {
+	mu      sync.RWMutex
+	mappers map[string]any
+}
 
-  register<T extends Entity>(type: new () => T, mapper: DataMapper<T>): void {
-    this.mappers.set(type, mapper);
-  }
+// NewMapperRegistry creates a new mapper registry.
+func NewMapperRegistry() *MapperRegistry {
+	return &MapperRegistry{
+		mappers: make(map[string]any),
+	}
+}
 
-  getMapper<T extends Entity>(type: Function): DataMapper<T> {
-    const mapper = this.mappers.get(type);
-    if (!mapper) throw new Error(`No mapper registered for ${type.name}`);
-    return mapper;
-  }
+// Register registers a mapper for an entity type.
+func Register[T Entity](r *MapperRegistry, typeName string, mapper DataMapper[T]) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.mappers[typeName] = mapper
+}
+
+// GetMapper retrieves a mapper for an entity type.
+func GetMapper[T Entity](r *MapperRegistry, typeName string) (DataMapper[T], error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
+	mapper, ok := r.mappers[typeName]
+	if !ok {
+		return nil, fmt.Errorf("no mapper registered for %s", typeName)
+	}
+	
+	dm, ok := mapper.(DataMapper[T])
+	if !ok {
+		return nil, fmt.Errorf("mapper type mismatch for %s", typeName)
+	}
+	
+	return dm, nil
+}
+
+// UnitOfWork tracks changes to entities.
+type UnitOfWork struct {
+	db            *sql.DB
+	tx            *sql.Tx
+	mappers       *MapperRegistry
+	newEntities   map[string]Entity
+	dirtyEntities map[string]Entity
+	deletedEntities map[string]Entity
+	cleanEntities map[string]Entity
+	mu            sync.Mutex
+}
+
+// NewUnitOfWork creates a new unit of work.
+func NewUnitOfWork(db *sql.DB, mappers *MapperRegistry) *UnitOfWork {
+	return &UnitOfWork{
+		db:              db,
+		mappers:         mappers,
+		newEntities:     make(map[string]Entity),
+		dirtyEntities:   make(map[string]Entity),
+		deletedEntities: make(map[string]Entity),
+		cleanEntities:   make(map[string]Entity),
+	}
+}
+
+// RegisterNew registers a new entity.
+func (u *UnitOfWork) RegisterNew(entity Entity) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	
+	id := entity.GetID()
+	if id == "" {
+		return fmt.Errorf("entity must have an ID")
+	}
+	
+	if _, exists := u.deletedEntities[id]; exists {
+		return fmt.Errorf("cannot register deleted entity as new")
+	}
+	
+	if _, exists := u.dirtyEntities[id]; exists {
+		return fmt.Errorf("entity already registered as dirty")
+	}
+	
+	if _, exists := u.cleanEntities[id]; exists {
+		return fmt.Errorf("entity already registered as clean")
+	}
+	
+	u.newEntities[id] = entity
+	return nil
+}
+
+// RegisterDirty registers a modified entity.
+func (u *UnitOfWork) RegisterDirty(entity Entity) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	
+	id := entity.GetID()
+	if id == "" {
+		return fmt.Errorf("entity must have an ID")
+	}
+	
+	if _, exists := u.deletedEntities[id]; exists {
+		return fmt.Errorf("cannot register deleted entity as dirty")
+	}
+	
+	// Don't track if already new
+	if _, exists := u.newEntities[id]; !exists {
+		if _, exists := u.dirtyEntities[id]; !exists {
+			u.dirtyEntities[id] = entity
+		}
+	}
+	
+	return nil
+}
+
+// RegisterClean registers a clean entity.
+func (u *UnitOfWork) RegisterClean(entity Entity) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	
+	id := entity.GetID()
+	u.cleanEntities[id] = entity
+}
+
+// RegisterDeleted registers a deleted entity.
+func (u *UnitOfWork) RegisterDeleted(entity Entity) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	
+	id := entity.GetID()
+	
+	// If new, just remove from tracking
+	if _, exists := u.newEntities[id]; exists {
+		delete(u.newEntities, id)
+		return
+	}
+	
+	delete(u.dirtyEntities, id)
+	delete(u.cleanEntities, id)
+	u.deletedEntities[id] = entity
+}
+
+// Commit persists all changes in a transaction.
+func (u *UnitOfWork) Commit(ctx context.Context) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	
+	tx, err := u.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	
+	u.tx = tx
+	
+	// 1. Insert new entities
+	for _, entity := range u.newEntities {
+		if err := u.insertEntity(ctx, entity); err != nil {
+			return fmt.Errorf("insert entity: %w", err)
+		}
+	}
+	
+	// 2. Update dirty entities
+	for _, entity := range u.dirtyEntities {
+		if err := u.updateEntity(ctx, entity); err != nil {
+			return fmt.Errorf("update entity: %w", err)
+		}
+	}
+	
+	// 3. Delete removed entities
+	for _, entity := range u.deletedEntities {
+		if err := u.deleteEntity(ctx, entity); err != nil {
+			return fmt.Errorf("delete entity: %w", err)
+		}
+	}
+	
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	
+	u.clear()
+	return nil
+}
+
+// Rollback clears all tracked changes.
+func (u *UnitOfWork) Rollback() {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.clear()
+}
+
+func (u *UnitOfWork) clear() {
+	u.newEntities = make(map[string]Entity)
+	u.dirtyEntities = make(map[string]Entity)
+	u.deletedEntities = make(map[string]Entity)
+	u.cleanEntities = make(map[string]Entity)
+	u.tx = nil
+}
+
+func (u *UnitOfWork) insertEntity(ctx context.Context, entity Entity) error {
+	// Type assertion per concrete type - simplified example
+	// In production, use reflection or type registry
+	return fmt.Errorf("insertEntity: implement per concrete type")
+}
+
+func (u *UnitOfWork) updateEntity(ctx context.Context, entity Entity) error {
+	return fmt.Errorf("updateEntity: implement per concrete type")
+}
+
+func (u *UnitOfWork) deleteEntity(ctx context.Context, entity Entity) error {
+	return fmt.Errorf("deleteEntity: implement per concrete type")
 }
 ```
 
 ## Unit of Work avec Repositories
 
-```typescript
-// Repository qui utilise Unit of Work
-class OrderRepository {
-  constructor(
-    private readonly uow: UnitOfWork,
-    private readonly mapper: OrderDataMapper,
-  ) {}
+```go
+package repository
 
-  async findById(id: string): Promise<Order | null> {
-    const order = await this.mapper.findById(id);
-    if (order) {
-      this.uow.registerClean(order);
-    }
-    return order;
-  }
+import (
+	"context"
+	"fmt"
+)
 
-  add(order: Order): void {
-    this.uow.registerNew(order);
-  }
-
-  remove(order: Order): void {
-    this.uow.registerDeleted(order);
-  }
+// Order represents an order entity.
+type Order struct {
+	ID         string
+	CustomerID string
+	Items      []OrderItem
+	Status     string
 }
 
-// Service qui coordonne
-class OrderService {
-  constructor(
-    private readonly orderRepo: OrderRepository,
-    private readonly productRepo: ProductRepository,
-    private readonly uow: UnitOfWork,
-  ) {}
+func (o *Order) GetID() string { return o.ID }
 
-  async placeOrder(customerId: string, items: CartItem[]): Promise<Order> {
-    const order = Order.create(customerId);
-
-    for (const item of items) {
-      const product = await this.productRepo.findById(item.productId);
-      if (!product) throw new NotFoundError('Product not found');
-
-      product.reduceStock(item.quantity);
-      // Product devient dirty automatiquement (voir ci-dessous)
-
-      order.addItem(product, item.quantity);
-    }
-
-    order.submit();
-    this.orderRepo.add(order);
-
-    // Commit unique pour tout
-    await this.uow.commit();
-
-    return order;
-  }
-}
-```
-
-## Tracking automatique des changements
-
-```typescript
-// Entity avec tracking automatique
-abstract class TrackedEntity {
-  private _isDirty = false;
-  private _uow?: UnitOfWork;
-
-  attachTo(uow: UnitOfWork): void {
-    this._uow = uow;
-  }
-
-  protected markDirty(): void {
-    this._isDirty = true;
-    if (this._uow) {
-      this._uow.registerDirty(this);
-    }
-  }
-
-  get isDirty(): boolean {
-    return this._isDirty;
-  }
+// OrderItem represents an order item.
+type OrderItem struct {
+	ProductID string
+	Quantity  int
 }
 
-class Product extends TrackedEntity {
-  private _stock: number;
-
-  get stock(): number {
-    return this._stock;
-  }
-
-  reduceStock(quantity: number): void {
-    if (quantity > this._stock) {
-      throw new DomainError('Insufficient stock');
-    }
-    this._stock -= quantity;
-    this.markDirty(); // Auto-tracking
-  }
+// OrderDataMapper handles order persistence.
+type OrderDataMapper struct {
+	db *sql.DB
 }
 
-// Avec Proxy pour tracking transparent
-function createTrackedProxy<T extends Entity>(
-  entity: T,
-  uow: UnitOfWork,
-): T {
-  return new Proxy(entity, {
-    set(target, prop, value) {
-      const oldValue = (target as any)[prop];
-      if (oldValue !== value) {
-        (target as any)[prop] = value;
-        uow.registerDirty(target);
-      }
-      return true;
-    },
-  });
+// FindByID loads an order by ID.
+func (m *OrderDataMapper) FindByID(ctx context.Context, id string) (*Order, error) {
+	// Implementation omitted
+	return nil, nil
 }
-```
 
-## Unit of Work avec Identity Map
+// OrderRepository uses Unit of Work for tracking.
+type OrderRepository struct {
+	uow    *UnitOfWork
+	mapper *OrderDataMapper
+}
 
-```typescript
-class UnitOfWorkWithIdentityMap implements UnitOfWork {
-  private identityMap = new Map<string, Map<string, Entity>>();
-  private newEntities = new Set<Entity>();
-  private dirtyEntities = new Set<Entity>();
-  private deletedEntities = new Set<Entity>();
+// NewOrderRepository creates a new order repository.
+func NewOrderRepository(uow *UnitOfWork, mapper *OrderDataMapper) *OrderRepository {
+	return &OrderRepository{
+		uow:    uow,
+		mapper: mapper,
+	}
+}
 
-  // Identity Map pour eviter les doublons
-  getIdentityMap<T extends Entity>(type: new () => T): Map<string, T> {
-    const typeName = type.name;
-    if (!this.identityMap.has(typeName)) {
-      this.identityMap.set(typeName, new Map());
-    }
-    return this.identityMap.get(typeName) as Map<string, T>;
-  }
+// FindByID finds an order and registers it as clean.
+func (r *OrderRepository) FindByID(ctx context.Context, id string) (*Order, error) {
+	order, err := r.mapper.FindByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("find order: %w", err)
+	}
+	
+	if order != nil {
+		r.uow.RegisterClean(order)
+	}
+	
+	return order, nil
+}
 
-  findInIdentityMap<T extends Entity>(
-    type: new () => T,
-    id: string,
-  ): T | undefined {
-    return this.getIdentityMap(type).get(id) as T | undefined;
-  }
+// Add registers a new order.
+func (r *OrderRepository) Add(order *Order) error {
+	return r.uow.RegisterNew(order)
+}
 
-  registerLoaded<T extends Entity>(entity: T): void {
-    const map = this.getIdentityMap(entity.constructor as new () => T);
-    map.set(entity.id, entity);
-  }
+// Remove registers an order for deletion.
+func (r *OrderRepository) Remove(order *Order) {
+	r.uow.RegisterDeleted(order)
+}
 
-  // ... reste de l'implementation
+// OrderService coordinates operations.
+type OrderService struct {
+	orderRepo   *OrderRepository
+	productRepo *ProductRepository
+	uow         *UnitOfWork
+}
+
+// NewOrderService creates a new order service.
+func NewOrderService(
+	orderRepo *OrderRepository,
+	productRepo *ProductRepository,
+	uow *UnitOfWork,
+) *OrderService {
+	return &OrderService{
+		orderRepo:   orderRepo,
+		productRepo: productRepo,
+		uow:         uow,
+	}
+}
+
+// PlaceOrder places a new order.
+func (s *OrderService) PlaceOrder(ctx context.Context, customerID string, items []CartItem) (*Order, error) {
+	order := &Order{
+		ID:         generateID(),
+		CustomerID: customerID,
+		Status:     "draft",
+	}
+	
+	for _, item := range items {
+		product, err := s.productRepo.FindByID(ctx, item.ProductID)
+		if err != nil {
+			return nil, fmt.Errorf("find product: %w", err)
+		}
+		if product == nil {
+			return nil, fmt.Errorf("product not found: %s", item.ProductID)
+		}
+		
+		if err := product.ReduceStock(item.Quantity); err != nil {
+			return nil, fmt.Errorf("reduce stock: %w", err)
+		}
+		// Product becomes dirty automatically
+		
+		order.Items = append(order.Items, OrderItem{
+			ProductID: product.ID,
+			Quantity:  item.Quantity,
+		})
+	}
+	
+	order.Status = "submitted"
+	if err := s.orderRepo.Add(order); err != nil {
+		return nil, fmt.Errorf("add order: %w", err)
+	}
+	
+	// Single commit for all changes
+	if err := s.uow.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
+	}
+	
+	return order, nil
+}
+
+// CartItem represents an item in a shopping cart.
+type CartItem struct {
+	ProductID string
+	Quantity  int
+}
+
+func generateID() string {
+	return "order-" + fmt.Sprint(time.Now().UnixNano())
 }
 ```
 
@@ -313,42 +421,15 @@ class UnitOfWorkWithIdentityMap implements UnitOfWork {
 
 ## Relation avec DDD
 
-Unit of Work s'aligne avec les **Aggregate boundaries** :
-
-```typescript
-// Un commit par Aggregate (pas cross-aggregate)
-class OrderUnitOfWork {
-  private order?: Order;
-
-  async commit(): Promise<void> {
-    if (!this.order) return;
-
-    await this.db.beginTransaction();
-    try {
-      await this.orderMapper.save(this.order);
-      // OrderItems sauves avec Order (meme aggregate)
-
-      const events = this.order.pullEvents();
-      await this.eventStore.append(events);
-
-      await this.db.commit();
-    } catch (e) {
-      await this.db.rollback();
-      throw e;
-    }
-  }
-}
-```
+Unit of Work s'aligne avec les **Aggregate boundaries**.
 
 ## Frameworks et ORMs
 
 | Framework | Unit of Work |
 |-----------|--------------|
-| TypeORM | EntityManager |
-| Prisma | Transaction ($transaction) |
-| MikroORM | EntityManager + flush() |
-| Hibernate | Session |
-| Entity Framework | DbContext |
+| GORM | Transaction callbacks |
+| sqlx | Manual with sql.Tx |
+| ent | Transaction API |
 
 ## Patterns associes
 

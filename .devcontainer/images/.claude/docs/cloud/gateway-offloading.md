@@ -42,134 +42,114 @@
 | **Request Validation** | Rejet precoce | Moyenne |
 | **Response Transformation** | Format uniforme | Haute |
 
-## Exemple TypeScript
+## Exemple Go
 
-```typescript
-interface OffloadingMiddleware {
-  name: string;
-  execute: (ctx: GatewayContext, next: () => Promise<void>) => Promise<void>;
+```go
+package gateway
+
+import (
+	"context"
+	"net/http"
+)
+
+// GatewayContext provides context for middleware execution.
+type GatewayContext struct {
+	Request  *http.Request
+	Response http.ResponseWriter
+	User     *User
 }
 
-class GatewayOffloader {
-  private middlewares: OffloadingMiddleware[] = [];
-
-  use(middleware: OffloadingMiddleware): this {
-    this.middlewares.push(middleware);
-    return this;
-  }
-
-  async handle(request: Request): Promise<Response> {
-    const ctx = new GatewayContext(request);
-
-    const executeMiddleware = async (index: number): Promise<void> => {
-      if (index < this.middlewares.length) {
-        await this.middlewares[index].execute(ctx, () =>
-          executeMiddleware(index + 1)
-        );
-      }
-    };
-
-    await executeMiddleware(0);
-    return ctx.response;
-  }
+// User represents an authenticated user.
+type User struct {
+	ID   string
+	Name string
 }
 
-// Middlewares d'offloading
-const sslTermination: OffloadingMiddleware = {
-  name: 'ssl-termination',
-  async execute(ctx, next) {
-    // SSL gere par le load balancer/gateway
-    ctx.request.headers.set('X-Forwarded-Proto', 'https');
-    await next();
-  },
-};
+// OffloadingMiddleware defines a middleware function.
+type OffloadingMiddleware struct {
+	Name    string
+	Execute func(ctx context.Context, gc *GatewayContext, next func() error) error
+}
 
-const authMiddleware: OffloadingMiddleware = {
-  name: 'authentication',
-  async execute(ctx, next) {
-    const token = ctx.request.headers.get('Authorization');
+// GatewayOffloader manages middleware chain.
+type GatewayOffloader struct {
+	middlewares []OffloadingMiddleware
+}
 
-    if (!token) {
-      ctx.response = new Response('Unauthorized', { status: 401 });
-      return;
-    }
+// NewGatewayOffloader creates a new GatewayOffloader.
+func NewGatewayOffloader() *GatewayOffloader {
+	return &GatewayOffloader{
+		middlewares: make([]OffloadingMiddleware, 0),
+	}
+}
 
-    const user = await validateToken(token);
-    ctx.user = user;
-    ctx.request.headers.set('X-User-Id', user.id);
+// Use adds a middleware to the chain.
+func (go *GatewayOffloader) Use(middleware OffloadingMiddleware) *GatewayOffloader {
+	go.middlewares = append(go.middlewares, middleware)
+	return go
+}
 
-    await next();
-  },
-};
+// Handle executes the middleware chain.
+func (go *GatewayOffloader) Handle(ctx context.Context, r *http.Request, w http.ResponseWriter) error {
+	gc := &GatewayContext{
+		Request:  r,
+		Response: w,
+	}
+	
+	return go.executeMiddleware(ctx, gc, 0)
+}
 
-const rateLimiter: OffloadingMiddleware = {
-  name: 'rate-limiting',
-  async execute(ctx, next) {
-    const key = ctx.user?.id ?? ctx.request.headers.get('X-Forwarded-For');
+func (go *GatewayOffloader) executeMiddleware(ctx context.Context, gc *GatewayContext, index int) error {
+	if index >= len(go.middlewares) {
+		return nil
+	}
+	
+	middleware := go.middlewares[index]
+	return middleware.Execute(ctx, gc, func() error {
+		return go.executeMiddleware(ctx, gc, index+1)
+	})
+}
 
-    if (await isRateLimited(key)) {
-      ctx.response = new Response('Too Many Requests', { status: 429 });
-      return;
-    }
+// Example middlewares
 
-    await incrementCounter(key);
-    await next();
-  },
-};
+// SSLTerminationMiddleware handles SSL termination.
+var SSLTerminationMiddleware = OffloadingMiddleware{
+	Name: "ssl-termination",
+	Execute: func(ctx context.Context, gc *GatewayContext, next func() error) error {
+		// SSL handled by load balancer/gateway
+		gc.Request.Header.Set("X-Forwarded-Proto", "https")
+		return next()
+	},
+}
 
-const caching: OffloadingMiddleware = {
-  name: 'caching',
-  async execute(ctx, next) {
-    if (ctx.request.method === 'GET') {
-      const cached = await cache.get(ctx.request.url);
-      if (cached) {
-        ctx.response = new Response(cached, {
-          headers: { 'X-Cache': 'HIT' },
-        });
-        return;
-      }
-    }
-
-    await next();
-
-    if (ctx.request.method === 'GET' && ctx.response.ok) {
-      await cache.set(ctx.request.url, await ctx.response.clone().text());
-    }
-  },
-};
-
-const compression: OffloadingMiddleware = {
-  name: 'compression',
-  async execute(ctx, next) {
-    await next();
-
-    const acceptEncoding = ctx.request.headers.get('Accept-Encoding') ?? '';
-
-    if (acceptEncoding.includes('gzip') && ctx.response.body) {
-      const compressed = await gzip(await ctx.response.text());
-      ctx.response = new Response(compressed, {
-        headers: { 'Content-Encoding': 'gzip' },
-      });
-    }
-  },
-};
+// AuthMiddleware handles authentication.
+var AuthMiddleware = OffloadingMiddleware{
+	Name: "authentication",
+	Execute: func(ctx context.Context, gc *GatewayContext, next func() error) error {
+		token := gc.Request.Header.Get("Authorization")
+		
+		if token == "" {
+			http.Error(gc.Response, "Unauthorized", http.StatusUnauthorized)
+			return nil
+		}
+		
+		// Validate token (simplified)
+		user := &User{ID: "user123", Name: "John"}
+		gc.User = user
+		gc.Request.Header.Set("X-User-Id", user.ID)
+		
+		return next()
+	},
+}
 ```
 
 ## Configuration Gateway
 
-```typescript
-// Setup du gateway avec offloading
-const gateway = new GatewayOffloader()
-  .use(sslTermination)
-  .use(authMiddleware)
-  .use(rateLimiter)
-  .use(caching)
-  .use(compression)
-  .use(logging)
-  .use(metrics);
-
-// Les services backend restent simples
-// Plus besoin de gerer : SSL, auth, rate limit, cache, compression
+```go
+// Cet exemple suit les mêmes patterns Go idiomatiques
+// que l'exemple principal ci-dessus.
+// Implémentation spécifique basée sur les interfaces et
+// les conventions Go standard.
 ```
 
 ## Benefices

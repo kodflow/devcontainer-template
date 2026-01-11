@@ -46,76 +46,140 @@ Item A  Item B  Item C
 
 ### Implementation
 
-```typescript
-interface SplitResult<T> {
-  correlationId: string;
-  sequenceNumber: number;
-  sequenceSize: number;
-  isLast: boolean;
-  payload: T;
-  originalMessageId: string;
+```go
+package messaging
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/google/uuid"
+)
+
+type SplitResult[T any] struct {
+	CorrelationID     string `json:"correlationId"`
+	SequenceNumber    int    `json:"sequenceNumber"`
+	SequenceSize      int    `json:"sequenceSize"`
+	IsLast            bool   `json:"isLast"`
+	Payload           T      `json:"payload"`
+	OriginalMessageID string `json:"originalMessageId"`
 }
 
-class Splitter<TComposite, TPart> {
-  constructor(
-    private extractParts: (composite: TComposite) => TPart[],
-    private enrichPart?: (part: TPart, composite: TComposite, index: number) => TPart
-  ) {}
+type Splitter[TComposite any, TPart any] struct {
+	extractParts func(composite TComposite) []TPart
+	enrichPart   func(part TPart, composite TComposite, index int) TPart
+}
 
-  split(message: { id: string; payload: TComposite }): SplitResult<TPart>[] {
-    const parts = this.extractParts(message.payload);
-    const correlationId = crypto.randomUUID();
+func NewSplitter[TComposite any, TPart any](
+	extractParts func(composite TComposite) []TPart,
+	enrichPart func(part TPart, composite TComposite, index int) TPart,
+) *Splitter[TComposite, TPart] {
+	return &Splitter[TComposite, TPart]{
+		extractParts: extractParts,
+		enrichPart:   enrichPart,
+	}
+}
 
-    return parts.map((part, index) => ({
-      correlationId,
-      sequenceNumber: index,
-      sequenceSize: parts.length,
-      isLast: index === parts.length - 1,
-      originalMessageId: message.id,
-      payload: this.enrichPart
-        ? this.enrichPart(part, message.payload, index)
-        : part,
-    }));
-  }
+type Message[T any] struct {
+	ID      string
+	Payload T
+}
+
+func (s *Splitter[TComposite, TPart]) Split(message Message[TComposite]) []SplitResult[TPart] {
+	parts := s.extractParts(message.Payload)
+	correlationID := uuid.New().String()
+	results := make([]SplitResult[TPart], len(parts))
+
+	for i, part := range parts {
+		enriched := part
+		if s.enrichPart != nil {
+			enriched = s.enrichPart(part, message.Payload, i)
+		}
+
+		results[i] = SplitResult[TPart]{
+			CorrelationID:     correlationID,
+			SequenceNumber:    i,
+			SequenceSize:      len(parts),
+			IsLast:            i == len(parts)-1,
+			OriginalMessageID: message.ID,
+			Payload:           enriched,
+		}
+	}
+
+	return results
 }
 
 // Exemple: Splitter de commande
-interface Order {
-  orderId: string;
-  customerId: string;
-  items: OrderItem[];
-  shippingAddress: Address;
+type Order struct {
+	OrderID         string
+	CustomerID      string
+	Items           []OrderItem
+	ShippingAddress Address
 }
 
-interface OrderItemMessage {
-  orderId: string;
-  customerId: string;
-  item: OrderItem;
-  shippingAddress: Address;
+type OrderItem struct {
+	ProductID string
+	Quantity  int
+	Price     float64
 }
 
-const orderSplitter = new Splitter<Order, OrderItemMessage>(
-  (order) => order.items.map(item => ({
-    orderId: order.orderId,
-    customerId: order.customerId,
-    item,
-    shippingAddress: order.shippingAddress,
-  }))
-);
+type Address struct {
+	Street  string
+	City    string
+	ZipCode string
+	Country string
+}
+
+type OrderItemMessage struct {
+	OrderID         string
+	CustomerID      string
+	Item            OrderItem
+	ShippingAddress Address
+}
+
+func NewOrderSplitter() *Splitter[Order, OrderItemMessage] {
+	return NewSplitter(
+		func(order Order) []OrderItemMessage {
+			messages := make([]OrderItemMessage, len(order.Items))
+			for i, item := range order.Items {
+				messages[i] = OrderItemMessage{
+					OrderID:         order.OrderID,
+					CustomerID:      order.CustomerID,
+					Item:            item,
+					ShippingAddress: order.ShippingAddress,
+				}
+			}
+			return messages
+		},
+		nil, // No enrichment needed
+	)
+}
 
 // Usage avec RabbitMQ
-async function splitAndPublish(order: Order): Promise<void> {
-  const splitMessages = orderSplitter.split({ id: order.orderId, payload: order });
+func SplitAndPublish(ctx context.Context, order Order, channel MessagePublisher) error {
+	splitter := NewOrderSplitter()
+	splitMessages := splitter.Split(Message[Order]{
+		ID:      order.OrderID,
+		Payload: order,
+	})
 
-  for (const msg of splitMessages) {
-    await channel.publish('order-items', '', Buffer.from(JSON.stringify(msg)), {
-      headers: {
-        'x-correlation-id': msg.correlationId,
-        'x-sequence-number': msg.sequenceNumber,
-        'x-sequence-size': msg.sequenceSize,
-      }
-    });
-  }
+	for _, msg := range splitMessages {
+		headers := map[string]interface{}{
+			"x-correlation-id":  msg.CorrelationID,
+			"x-sequence-number": msg.SequenceNumber,
+			"x-sequence-size":   msg.SequenceSize,
+		}
+
+		if err := channel.Publish(ctx, "order-items", msg, headers); err != nil {
+			return fmt.Errorf("publishing split message: %w", err)
+		}
+	}
+
+	return nil
+}
+
+type MessagePublisher interface {
+	Publish(ctx context.Context, queue string, message interface{}, headers map[string]interface{}) error
 }
 ```
 
@@ -145,133 +209,219 @@ Result C --+         |
 
 ### Aggregator Implementation
 
-```typescript
-interface AggregationContext<T, R> {
-  correlationId: string;
-  expectedCount: number;
-  receivedParts: T[];
-  startedAt: Date;
-  timeoutMs: number;
+```go
+package messaging
+
+import (
+	"context"
+	"sync"
+	"time"
+)
+
+type AggregationContext[T any, R any] struct {
+	CorrelationID string
+	ExpectedCount int
+	ReceivedParts []T
+	StartedAt     time.Time
+	TimeoutMs     int
 }
 
-type CompletionStrategy<T> = (context: AggregationContext<T, unknown>) => boolean;
-type AggregationFunction<T, R> = (parts: T[]) => R;
+type CompletionStrategy[T any] func(ctx *AggregationContext[T, any]) bool
 
-class Aggregator<TPart, TResult> {
-  private contexts = new Map<string, AggregationContext<TPart, TResult>>();
+type AggregationFunction[T any, R any] func(parts []T) R
 
-  constructor(
-    private completionStrategy: CompletionStrategy<TPart>,
-    private aggregateFn: AggregationFunction<TPart, TResult>,
-    private defaultTimeout: number = 30000
-  ) {
-    // Cleanup des aggregations expirees
-    setInterval(() => this.cleanupExpired(), 5000);
-  }
+type Aggregator[TPart any, TResult any] struct {
+	contexts          map[string]*AggregationContext[TPart, TResult]
+	mu                sync.RWMutex
+	completionStrategy CompletionStrategy[TPart]
+	aggregateFn       AggregationFunction[TPart, TResult]
+	defaultTimeout    time.Duration
+	cleanupInterval   time.Duration
+	stopCleanup       chan struct{}
+}
 
-  add(message: SplitResult<TPart>): TResult | null {
-    const { correlationId, sequenceSize, payload } = message;
+func NewAggregator[TPart any, TResult any](
+	completionStrategy CompletionStrategy[TPart],
+	aggregateFn AggregationFunction[TPart, TResult],
+	defaultTimeout time.Duration,
+) *Aggregator[TPart, TResult] {
+	if defaultTimeout == 0 {
+		defaultTimeout = 30 * time.Second
+	}
 
-    if (!this.contexts.has(correlationId)) {
-      this.contexts.set(correlationId, {
-        correlationId,
-        expectedCount: sequenceSize,
-        receivedParts: [],
-        startedAt: new Date(),
-        timeoutMs: this.defaultTimeout,
-      });
-    }
+	agg := &Aggregator[TPart, TResult]{
+		contexts:           make(map[string]*AggregationContext[TPart, TResult]),
+		completionStrategy: completionStrategy,
+		aggregateFn:        aggregateFn,
+		defaultTimeout:     defaultTimeout,
+		cleanupInterval:    5 * time.Second,
+		stopCleanup:        make(chan struct{}),
+	}
 
-    const context = this.contexts.get(correlationId)!;
-    context.receivedParts.push(payload);
+	go agg.startCleanup()
+	return agg
+}
 
-    if (this.completionStrategy(context)) {
-      this.contexts.delete(correlationId);
-      return this.aggregateFn(context.receivedParts);
-    }
+func (a *Aggregator[TPart, TResult]) Add(message SplitResult[TPart]) *TResult {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 
-    return null;
-  }
+	correlationID := message.CorrelationID
 
-  private cleanupExpired(): void {
-    const now = Date.now();
-    for (const [id, context] of this.contexts) {
-      if (now - context.startedAt.getTime() > context.timeoutMs) {
-        this.handleTimeout(context);
-        this.contexts.delete(id);
-      }
-    }
-  }
+	if _, exists := a.contexts[correlationID]; !exists {
+		a.contexts[correlationID] = &AggregationContext[TPart, TResult]{
+			CorrelationID: correlationID,
+			ExpectedCount: message.SequenceSize,
+			ReceivedParts: make([]TPart, 0, message.SequenceSize),
+			StartedAt:     time.Now(),
+			TimeoutMs:     int(a.defaultTimeout.Milliseconds()),
+		}
+	}
 
-  private handleTimeout(context: AggregationContext<TPart, TResult>): void {
-    console.error(`Aggregation timeout: ${context.correlationId}`, {
-      received: context.receivedParts.length,
-      expected: context.expectedCount,
-    });
-  }
+	ctx := a.contexts[correlationID]
+	ctx.ReceivedParts = append(ctx.ReceivedParts, message.Payload)
+
+	if a.completionStrategy((*AggregationContext[TPart, any])(unsafe.Pointer(ctx))) {
+		result := a.aggregateFn(ctx.ReceivedParts)
+		delete(a.contexts, correlationID)
+		return &result
+	}
+
+	return nil
+}
+
+func (a *Aggregator[TPart, TResult]) startCleanup() {
+	ticker := time.NewTicker(a.cleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-a.stopCleanup:
+			return
+		case <-ticker.C:
+			a.cleanupExpired()
+		}
+	}
+}
+
+func (a *Aggregator[TPart, TResult]) cleanupExpired() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	now := time.Now()
+	for id, ctx := range a.contexts {
+		if now.Sub(ctx.StartedAt) > a.defaultTimeout {
+			a.handleTimeout(ctx)
+			delete(a.contexts, id)
+		}
+	}
+}
+
+func (a *Aggregator[TPart, TResult]) handleTimeout(ctx *AggregationContext[TPart, TResult]) {
+	fmt.Printf("Aggregation timeout: %s (received: %d, expected: %d)\n",
+		ctx.CorrelationID, len(ctx.ReceivedParts), ctx.ExpectedCount)
+}
+
+func (a *Aggregator[TPart, TResult]) Stop() {
+	close(a.stopCleanup)
 }
 
 // Strategies de completion
-const allReceivedStrategy: CompletionStrategy<unknown> = (ctx) =>
-  ctx.receivedParts.length >= ctx.expectedCount;
+func AllReceivedStrategy[T any](ctx *AggregationContext[T, any]) bool {
+	return len(ctx.ReceivedParts) >= ctx.ExpectedCount
+}
 
-const majorityStrategy: CompletionStrategy<unknown> = (ctx) =>
-  ctx.receivedParts.length > ctx.expectedCount / 2;
+func MajorityStrategy[T any](ctx *AggregationContext[T, any]) bool {
+	return len(ctx.ReceivedParts) > ctx.ExpectedCount/2
+}
 
-const timeoutOrAllStrategy = (timeoutMs: number): CompletionStrategy<unknown> => (ctx) =>
-  ctx.receivedParts.length >= ctx.expectedCount ||
-  Date.now() - ctx.startedAt.getTime() > timeoutMs;
+func TimeoutOrAllStrategy[T any](timeoutMs int) CompletionStrategy[T] {
+	return func(ctx *AggregationContext[T, any]) bool {
+		return len(ctx.ReceivedParts) >= ctx.ExpectedCount ||
+			time.Since(ctx.StartedAt).Milliseconds() > int64(timeoutMs)
+	}
+}
 ```
 
 ### Exemple complet
 
-```typescript
+```go
+package messaging
+
+import (
+	"context"
+	"encoding/json"
+	"time"
+)
+
 // Aggregation des resultats de traitement d'items
-interface ItemProcessingResult {
-  itemId: string;
-  success: boolean;
-  warehouseLocation?: string;
-  error?: string;
+type ItemProcessingResult struct {
+	ItemID            string `json:"itemId"`
+	Success           bool   `json:"success"`
+	WarehouseLocation string `json:"warehouseLocation,omitempty"`
+	Error             string `json:"error,omitempty"`
 }
 
-interface OrderProcessingResult {
-  orderId: string;
-  allSuccessful: boolean;
-  itemResults: ItemProcessingResult[];
-  processedAt: Date;
+type OrderProcessingResult struct {
+	OrderID       string                 `json:"orderId"`
+	AllSuccessful bool                   `json:"allSuccessful"`
+	ItemResults   []ItemProcessingResult `json:"itemResults"`
+	ProcessedAt   time.Time              `json:"processedAt"`
 }
 
-const orderResultAggregator = new Aggregator<
-  SplitResult<ItemProcessingResult>,
-  OrderProcessingResult
->(
-  allReceivedStrategy,
-  (parts) => {
-    const results = parts.map(p => p.payload);
-    return {
-      orderId: parts[0].payload.orderId,
-      allSuccessful: results.every(r => r.success),
-      itemResults: results,
-      processedAt: new Date(),
-    };
-  }
-);
+func NewOrderResultAggregator() *Aggregator[SplitResult[ItemProcessingResult], OrderProcessingResult] {
+	return NewAggregator(
+		AllReceivedStrategy[SplitResult[ItemProcessingResult]],
+		func(parts []SplitResult[ItemProcessingResult]) OrderProcessingResult {
+			results := make([]ItemProcessingResult, len(parts))
+			allSuccessful := true
+			var orderID string
+
+			for i, part := range parts {
+				results[i] = part.Payload
+				if !part.Payload.Success {
+					allSuccessful = false
+				}
+				if i == 0 && len(results) > 0 {
+					// Get orderID from first result
+					orderID = part.Payload.OrderID
+				}
+			}
+
+			return OrderProcessingResult{
+				OrderID:       orderID,
+				AllSuccessful: allSuccessful,
+				ItemResults:   results,
+				ProcessedAt:   time.Now(),
+			}
+		},
+		30*time.Second,
+	)
+}
 
 // Consumer
-async function consumeItemResults(): Promise<void> {
-  channel.consume('item-results', async (msg) => {
-    const result = JSON.parse(msg.content.toString());
-    const aggregated = orderResultAggregator.add(result);
+func ConsumeItemResults(ctx context.Context, channel <-chan []byte, publisher MessagePublisher) error {
+	aggregator := NewOrderResultAggregator()
+	defer aggregator.Stop()
 
-    if (aggregated) {
-      // Ordre complet, publier le resultat
-      await channel.publish('order-results', '',
-        Buffer.from(JSON.stringify(aggregated))
-      );
-    }
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case msgBytes := <-channel:
+			var result SplitResult[ItemProcessingResult]
+			if err := json.Unmarshal(msgBytes, &result); err != nil {
+				continue
+			}
 
-    channel.ack(msg);
-  });
+			if aggregated := aggregator.Add(result); aggregated != nil {
+				// Ordre complet, publier le resultat
+				if err := publisher.Publish(ctx, "order-results", aggregated, nil); err != nil {
+					fmt.Printf("Error publishing aggregated result: %v\n", err)
+				}
+			}
+		}
+	}
 }
 ```
 
@@ -282,31 +432,59 @@ async function consumeItemResults(): Promise<void> {
 
 ## Cas d'erreur
 
-```typescript
-class ResilientAggregator<T, R> extends Aggregator<T, R> {
-  private deadLetterQueue: MessageQueue;
+```go
+package messaging
 
-  protected handleTimeout(context: AggregationContext<T, R>): void {
-    // Option 1: Agreger avec ce qu'on a
-    if (context.receivedParts.length > 0) {
-      const partialResult = this.aggregateFn(context.receivedParts);
-      this.publishPartialResult(partialResult, context);
-    }
+import (
+	"fmt"
+)
 
-    // Option 2: Envoyer en dead letter
-    this.deadLetterQueue.send({
-      type: 'aggregation_timeout',
-      correlationId: context.correlationId,
-      received: context.receivedParts.length,
-      expected: context.expectedCount,
-      partialData: context.receivedParts,
-    });
-  }
+type DeadLetterQueue interface {
+	Send(ctx context.Context, message interface{}) error
+}
 
-  protected handleDuplicate(message: SplitResult<T>): void {
-    console.warn(`Duplicate message received: ${message.correlationId}:${message.sequenceNumber}`);
-    // Ignorer le duplicate - idempotence
-  }
+type ResilientAggregator[T any, R any] struct {
+	*Aggregator[T, R]
+	deadLetterQueue DeadLetterQueue
+}
+
+func NewResilientAggregator[T any, R any](
+	completionStrategy CompletionStrategy[T],
+	aggregateFn AggregationFunction[T, R],
+	defaultTimeout time.Duration,
+	dlq DeadLetterQueue,
+) *ResilientAggregator[T, R] {
+	return &ResilientAggregator[T, R]{
+		Aggregator:      NewAggregator(completionStrategy, aggregateFn, defaultTimeout),
+		deadLetterQueue: dlq,
+	}
+}
+
+func (r *ResilientAggregator[T, R]) handleTimeout(ctx *AggregationContext[T, R]) {
+	// Option 1: Agreger avec ce qu'on a
+	if len(ctx.ReceivedParts) > 0 {
+		partialResult := r.aggregateFn(ctx.ReceivedParts)
+		r.publishPartialResult(partialResult, ctx)
+	}
+
+	// Option 2: Envoyer en dead letter
+	r.deadLetterQueue.Send(context.Background(), map[string]interface{}{
+		"type":          "aggregation_timeout",
+		"correlationId": ctx.CorrelationID,
+		"received":      len(ctx.ReceivedParts),
+		"expected":      ctx.ExpectedCount,
+		"partialData":   ctx.ReceivedParts,
+	})
+}
+
+func (r *ResilientAggregator[T, R]) publishPartialResult(result R, ctx *AggregationContext[T, R]) {
+	fmt.Printf("Publishing partial result for %s\n", ctx.CorrelationID)
+	// Implementation depends on message broker
+}
+
+func (r *ResilientAggregator[T, R]) handleDuplicate(message SplitResult[T]) {
+	fmt.Printf("Duplicate message received: %s:%d\n", message.CorrelationID, message.SequenceNumber)
+	// Ignorer le duplicate - idempotence
 }
 ```
 

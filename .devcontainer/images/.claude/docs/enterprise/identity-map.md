@@ -13,233 +13,379 @@ Identity Map est un cache qui stocke tous les objets charges depuis la base de d
 3. **Coherence** : Modifications visibles partout
 4. **Integration** : Fonctionne avec Unit of Work
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-// Identity Map generique
-class IdentityMap<T extends { id: string }> {
-  private map = new Map<string, T>();
+```go
+package identitymap
 
-  get(id: string): T | undefined {
-    return this.map.get(id);
-  }
+import (
+	"sync"
+)
 
-  add(entity: T): void {
-    if (!entity.id) {
-      throw new Error('Entity must have an id');
-    }
-    this.map.set(entity.id, entity);
-  }
-
-  has(id: string): boolean {
-    return this.map.has(id);
-  }
-
-  remove(id: string): boolean {
-    return this.map.delete(id);
-  }
-
-  clear(): void {
-    this.map.clear();
-  }
-
-  getAll(): T[] {
-    return Array.from(this.map.values());
-  }
-
-  size(): number {
-    return this.map.size;
-  }
+// Entity represents a domain entity.
+type Entity interface {
+	GetID() string
 }
 
-// Identity Map par type d'entite
-class TypedIdentityMap {
-  private maps = new Map<string, IdentityMap<any>>();
+// IdentityMap is a generic identity map.
+type IdentityMap[T Entity] struct {
+	mu   sync.RWMutex
+	data map[string]T
+}
 
-  private getMap<T extends Entity>(type: new (...args: any[]) => T): IdentityMap<T> {
-    const typeName = type.name;
-    if (!this.maps.has(typeName)) {
-      this.maps.set(typeName, new IdentityMap<T>());
-    }
-    return this.maps.get(typeName)!;
-  }
+// NewIdentityMap creates a new identity map.
+func NewIdentityMap[T Entity]() *IdentityMap[T] {
+	return &IdentityMap[T]{
+		data: make(map[string]T),
+	}
+}
 
-  get<T extends Entity>(type: new (...args: any[]) => T, id: string): T | undefined {
-    return this.getMap(type).get(id);
-  }
+// Get retrieves an entity by ID.
+func (m *IdentityMap[T]) Get(id string) (T, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
-  add<T extends Entity>(entity: T): void {
-    this.getMap(entity.constructor as new () => T).add(entity);
-  }
+	entity, ok := m.data[id]
+	return entity, ok
+}
 
-  has<T extends Entity>(type: new (...args: any[]) => T, id: string): boolean {
-    return this.getMap(type).has(id);
-  }
+// Add adds an entity to the map.
+func (m *IdentityMap[T]) Add(entity T) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-  remove<T extends Entity>(type: new (...args: any[]) => T, id: string): boolean {
-    return this.getMap(type).remove(id);
-  }
+	id := entity.GetID()
+	if id == "" {
+		panic("entity must have an ID")
+	}
 
-  clearAll(): void {
-    this.maps.clear();
-  }
+	m.data[id] = entity
+}
 
-  clearType<T extends Entity>(type: new (...args: any[]) => T): void {
-    this.getMap(type).clear();
-  }
+// Has checks if an entity exists.
+func (m *IdentityMap[T]) Has(id string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	_, ok := m.data[id]
+	return ok
+}
+
+// Remove removes an entity from the map.
+func (m *IdentityMap[T]) Remove(id string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.data[id]; !ok {
+		return false
+	}
+
+	delete(m.data, id)
+	return true
+}
+
+// Clear removes all entities.
+func (m *IdentityMap[T]) Clear() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.data = make(map[string]T)
+}
+
+// GetAll returns all entities.
+func (m *IdentityMap[T]) GetAll() []T {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	entities := make([]T, 0, len(m.data))
+	for _, entity := range m.data {
+		entities = append(entities, entity)
+	}
+
+	return entities
+}
+
+// Size returns the number of entities.
+func (m *IdentityMap[T]) Size() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return len(m.data)
+}
+
+// TypedIdentityMap manages multiple entity types.
+type TypedIdentityMap struct {
+	mu   sync.RWMutex
+	maps map[string]any
+}
+
+// NewTypedIdentityMap creates a new typed identity map.
+func NewTypedIdentityMap() *TypedIdentityMap {
+	return &TypedIdentityMap{
+		maps: make(map[string]any),
+	}
+}
+
+// getMap retrieves or creates a map for a type.
+func (m *TypedIdentityMap) getMap(typeName string) *IdentityMap[Entity] {
+	if existingMap, ok := m.maps[typeName]; ok {
+		return existingMap.(*IdentityMap[Entity])
+	}
+
+	newMap := NewIdentityMap[Entity]()
+	m.maps[typeName] = newMap
+	return newMap
+}
+
+// Get retrieves an entity by type and ID.
+func (m *TypedIdentityMap) Get(typeName, id string) (Entity, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	entityMap := m.getMap(typeName)
+	return entityMap.Get(id)
+}
+
+// Add adds an entity.
+func (m *TypedIdentityMap) Add(typeName string, entity Entity) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	entityMap := m.getMap(typeName)
+	entityMap.Add(entity)
+}
+
+// Has checks if an entity exists.
+func (m *TypedIdentityMap) Has(typeName, id string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	entityMap := m.getMap(typeName)
+	return entityMap.Has(id)
+}
+
+// Remove removes an entity.
+func (m *TypedIdentityMap) Remove(typeName, id string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	entityMap := m.getMap(typeName)
+	return entityMap.Remove(id)
+}
+
+// ClearAll clears all maps.
+func (m *TypedIdentityMap) ClearAll() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.maps = make(map[string]any)
+}
+
+// ClearType clears a specific type map.
+func (m *TypedIdentityMap) ClearType(typeName string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if entityMap, ok := m.maps[typeName]; ok {
+		entityMap.(*IdentityMap[Entity]).Clear()
+	}
 }
 ```
 
 ## Integration avec Repository
 
-```typescript
-class OrderRepository {
-  constructor(
-    private readonly db: Database,
-    private readonly mapper: OrderDataMapper,
-    private readonly identityMap: TypedIdentityMap,
-  ) {}
+```go
+package repository
 
-  async findById(id: string): Promise<Order | null> {
-    // 1. Chercher dans l'Identity Map d'abord
-    const cached = this.identityMap.get(Order, id);
-    if (cached) {
-      return cached;
-    }
+import (
+	"context"
+	"database/sql"
+	"fmt"
+)
 
-    // 2. Charger depuis la DB
-    const order = await this.mapper.findById(id);
-    if (order) {
-      // 3. Ajouter a l'Identity Map
-      this.identityMap.add(order);
-    }
-
-    return order;
-  }
-
-  async findByCustomerId(customerId: string): Promise<Order[]> {
-    // Query DB
-    const orders = await this.mapper.findByCustomerId(customerId);
-
-    // Ajouter/mettre a jour l'Identity Map
-    return orders.map((order) => {
-      const cached = this.identityMap.get(Order, order.id);
-      if (cached) {
-        // Retourner l'instance existante
-        return cached;
-      }
-      this.identityMap.add(order);
-      return order;
-    });
-  }
-
-  async save(order: Order): Promise<void> {
-    await this.mapper.save(order);
-    // S'assurer que l'Identity Map est a jour
-    if (!this.identityMap.has(Order, order.id)) {
-      this.identityMap.add(order);
-    }
-  }
-
-  async delete(order: Order): Promise<void> {
-    await this.mapper.delete(order.id);
-    this.identityMap.remove(Order, order.id);
-  }
+// Order represents an order entity.
+type Order struct {
+	ID         string
+	CustomerID string
+	Status     string
 }
-```
 
-## Identity Map avec Lazy Loading
+func (o *Order) GetID() string { return o.ID }
 
-```typescript
-class OrderWithLazyCustomer {
-  private _customer?: Customer;
-  private _customerId: string;
+// OrderDataMapper handles order persistence.
+type OrderDataMapper struct {
+	db *sql.DB
+}
 
-  constructor(
-    public readonly id: string,
-    customerId: string,
-    private readonly identityMap: TypedIdentityMap,
-    private readonly customerLoader: (id: string) => Promise<Customer>,
-  ) {
-    this._customerId = customerId;
-  }
+func (m *OrderDataMapper) FindByID(ctx context.Context, id string) (*Order, error) {
+	// Implementation omitted
+	return nil, nil
+}
 
-  async getCustomer(): Promise<Customer> {
-    if (this._customer) {
-      return this._customer;
-    }
+func (m *OrderDataMapper) FindByCustomerID(ctx context.Context, customerID string) ([]*Order, error) {
+	// Implementation omitted
+	return nil, nil
+}
 
-    // Check Identity Map first
-    const cached = this.identityMap.get(Customer, this._customerId);
-    if (cached) {
-      this._customer = cached;
-      return cached;
-    }
+// OrderRepository uses identity map.
+type OrderRepository struct {
+	db          *sql.DB
+	mapper      *OrderDataMapper
+	identityMap *IdentityMap[*Order]
+}
 
-    // Load and cache
-    const customer = await this.customerLoader(this._customerId);
-    this.identityMap.add(customer);
-    this._customer = customer;
-    return customer;
-  }
+// NewOrderRepository creates a new repository.
+func NewOrderRepository(db *sql.DB, mapper *OrderDataMapper) *OrderRepository {
+	return &OrderRepository{
+		db:          db,
+		mapper:      mapper,
+		identityMap: NewIdentityMap[*Order](),
+	}
+}
+
+// FindByID finds an order, checking identity map first.
+func (r *OrderRepository) FindByID(ctx context.Context, id string) (*Order, error) {
+	// 1. Check identity map first
+	if order, ok := r.identityMap.Get(id); ok {
+		return order, nil
+	}
+
+	// 2. Load from database
+	order, err := r.mapper.FindByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("mapper find by id: %w", err)
+	}
+	if order == nil {
+		return nil, nil
+	}
+
+	// 3. Add to identity map
+	r.identityMap.Add(order)
+
+	return order, nil
+}
+
+// FindByCustomerID finds orders by customer.
+func (r *OrderRepository) FindByCustomerID(ctx context.Context, customerID string) ([]*Order, error) {
+	// Query database
+	orders, err := r.mapper.FindByCustomerID(ctx, customerID)
+	if err != nil {
+		return nil, fmt.Errorf("mapper find by customer: %w", err)
+	}
+
+	// Add/update identity map
+	result := make([]*Order, len(orders))
+	for i, order := range orders {
+		if cached, ok := r.identityMap.Get(order.ID); ok {
+			// Return existing instance
+			result[i] = cached
+		} else {
+			r.identityMap.Add(order)
+			result[i] = order
+		}
+	}
+
+	return result, nil
+}
+
+// Save saves an order.
+func (r *OrderRepository) Save(ctx context.Context, order *Order) error {
+	// Implementation omitted
+	// Ensure identity map is updated
+	if !r.identityMap.Has(order.ID) {
+		r.identityMap.Add(order)
+	}
+	return nil
+}
+
+// Delete deletes an order.
+func (r *OrderRepository) Delete(ctx context.Context, order *Order) error {
+	// Implementation omitted
+	r.identityMap.Remove(order.ID)
+	return nil
 }
 ```
 
 ## Session-Scoped Identity Map
 
-```typescript
-// Identity Map lie a une session/requete
-class Session {
-  private readonly identityMap = new TypedIdentityMap();
-  private readonly unitOfWork: UnitOfWork;
+```go
+package session
 
-  constructor(db: Database, mappers: MapperRegistry) {
-    this.unitOfWork = new UnitOfWork(db, mappers);
-  }
+import (
+	"context"
+	"database/sql"
+)
 
-  getIdentityMap(): TypedIdentityMap {
-    return this.identityMap;
-  }
-
-  // Factory pour repositories avec la meme Identity Map
-  getOrderRepository(): OrderRepository {
-    return new OrderRepository(this.db, this.orderMapper, this.identityMap);
-  }
-
-  getCustomerRepository(): CustomerRepository {
-    return new CustomerRepository(this.db, this.customerMapper, this.identityMap);
-  }
-
-  async commit(): Promise<void> {
-    await this.unitOfWork.commit();
-  }
-
-  close(): void {
-    this.identityMap.clearAll();
-  }
+// Session represents a database session with identity map.
+type Session struct {
+	db          *sql.DB
+	identityMap *TypedIdentityMap
+	unitOfWork  *UnitOfWork
 }
 
-// Usage dans un request handler
-async function handleRequest(req: Request, res: Response) {
-  const session = new Session(db, mappers);
+// NewSession creates a new session.
+func NewSession(db *sql.DB, mappers *MapperRegistry) *Session {
+	identityMap := NewTypedIdentityMap()
+	return &Session{
+		db:          db,
+		identityMap: identityMap,
+		unitOfWork:  NewUnitOfWork(db, mappers),
+	}
+}
 
-  try {
-    const orderRepo = session.getOrderRepository();
-    const customerRepo = session.getCustomerRepository();
+// GetIdentityMap returns the session's identity map.
+func (s *Session) GetIdentityMap() *TypedIdentityMap {
+	return s.identityMap
+}
 
-    // Meme Identity Map = memes instances
-    const order = await orderRepo.findById(req.params.id);
-    const customer = await customerRepo.findById(order.customerId);
+// GetOrderRepository creates an order repository for this session.
+func (s *Session) GetOrderRepository() *OrderRepository {
+	mapper := &OrderDataMapper{db: s.db}
+	return &OrderRepository{
+		db:          s.db,
+		mapper:      mapper,
+		identityMap: s.identityMap.getOrderMap(),
+	}
+}
 
-    // Si on recharge order.customer, on obtient la meme instance
-    const sameCustomer = await order.getCustomer();
-    console.log(customer === sameCustomer); // true
+// Commit commits the unit of work.
+func (s *Session) Commit(ctx context.Context) error {
+	return s.unitOfWork.Commit(ctx)
+}
 
-    await session.commit();
-    res.json(order);
-  } finally {
-    session.close();
-  }
+// Close clears the identity map.
+func (s *Session) Close() {
+	s.identityMap.ClearAll()
+}
+
+// Usage example
+func HandleRequest(req *Request, res *Response) error {
+	session := NewSession(db, mappers)
+	defer session.Close()
+
+	orderRepo := session.GetOrderRepository()
+	customerRepo := session.GetCustomerRepository()
+
+	// Same identity map = same instances
+	order, err := orderRepo.FindByID(ctx, req.Params.ID)
+	if err != nil {
+		return err
+	}
+
+	customer, err := customerRepo.FindByID(ctx, order.CustomerID)
+	if err != nil {
+		return err
+	}
+
+	// If we reload order.customer, we get the same instance
+	sameCustomer, _ := order.GetCustomer()
+	// customer == sameCustomer (true)
+
+	if err := session.Commit(ctx); err != nil {
+		return err
+	}
+
+	return json.NewEncoder(res).Encode(order)
 }
 ```
 
@@ -269,72 +415,6 @@ async function handleRequest(req: Request, res: Response) {
 - Requetes read-only pures
 - Objets immutables (Value Objects)
 - Long-running processes (memoire)
-
-## Relation avec DDD
-
-L'Identity Map supporte l'**identite des Entities** :
-
-```typescript
-// En DDD, deux entites avec meme ID sont identiques
-const order1 = await orderRepo.findById('order-123');
-const order2 = await orderRepo.findById('order-123');
-
-// Avec Identity Map: meme instance
-console.log(order1 === order2); // true
-
-// Les modifications sont visibles partout
-order1.addItem(product, 2);
-console.log(order2.items.length); // Aussi mis a jour
-```
-
-## Problemes potentiels
-
-```typescript
-// ATTENTION: Memory leaks avec sessions longues
-class LongRunningProcess {
-  private session = new Session();
-
-  async process(): Promise<void> {
-    for (const id of this.allOrderIds) {
-      // Identity Map grandit indefiniment!
-      const order = await this.session.orderRepo.findById(id);
-      await this.processOrder(order);
-    }
-    // Clear periodiquement
-    if (this.processedCount % 1000 === 0) {
-      this.session.getIdentityMap().clearAll();
-    }
-  }
-}
-
-// ATTENTION: Stale data avec sessions longues
-// Recharger depuis DB si necessaire
-async function refreshEntity<T extends Entity>(
-  repo: Repository<T>,
-  entity: T,
-  identityMap: IdentityMap<T>,
-): Promise<T> {
-  identityMap.remove(entity.id);
-  return repo.findById(entity.id);
-}
-```
-
-## Patterns associes
-
-- **Unit of Work** : Utilise Identity Map pour tracking
-- **Repository** : Integre Identity Map
-- **Lazy Load** : Verifie Identity Map avant chargement
-- **Data Mapper** : Alimente l'Identity Map
-
-## Frameworks et ORMs
-
-| Framework | Identity Map |
-|-----------|--------------|
-| TypeORM | EntityManager (par defaut) |
-| MikroORM | EntityManager (explicite) |
-| Hibernate | First-Level Cache |
-| Entity Framework | DbContext tracking |
-| Prisma | Non (stateless) |
 
 ## Sources
 

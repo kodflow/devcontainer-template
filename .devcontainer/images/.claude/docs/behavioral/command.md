@@ -10,435 +10,602 @@ et supporter les operations reversibles (undo).
 
 ## Structure
 
-```typescript
-// 1. Interface Command
-interface Command {
-  execute(): void;
-  undo(): void;
+```go
+package main
+
+import "fmt"
+
+// Command is the interface for executing and undoing commands.
+type Command interface {
+	Execute() error
+	Undo() error
 }
 
-// 2. Receiver (l'objet qui effectue l'action)
-class TextEditor {
-  private content: string = '';
-  private cursorPosition: number = 0;
-
-  getContent(): string {
-    return this.content;
-  }
-
-  insertAt(position: number, text: string): void {
-    this.content =
-      this.content.slice(0, position) + text + this.content.slice(position);
-    this.cursorPosition = position + text.length;
-  }
-
-  deleteRange(start: number, end: number): string {
-    const deleted = this.content.slice(start, end);
-    this.content = this.content.slice(0, start) + this.content.slice(end);
-    this.cursorPosition = start;
-    return deleted;
-  }
-
-  getCursor(): number {
-    return this.cursorPosition;
-  }
-
-  setCursor(position: number): void {
-    this.cursorPosition = Math.min(position, this.content.length);
-  }
+// TextEditor is the receiver that performs actions.
+type TextEditor struct {
+	content        string
+	cursorPosition int
 }
 
-// 3. Concrete Commands
-class InsertTextCommand implements Command {
-  private position: number;
-
-  constructor(
-    private editor: TextEditor,
-    private text: string,
-  ) {
-    this.position = editor.getCursor();
-  }
-
-  execute(): void {
-    this.editor.insertAt(this.position, this.text);
-  }
-
-  undo(): void {
-    this.editor.deleteRange(this.position, this.position + this.text.length);
-  }
+// GetContent returns the editor content.
+func (e *TextEditor) GetContent() string {
+	return e.content
 }
 
-class DeleteTextCommand implements Command {
-  private deletedText: string = '';
-  private position: number;
-
-  constructor(
-    private editor: TextEditor,
-    private length: number,
-  ) {
-    this.position = editor.getCursor();
-  }
-
-  execute(): void {
-    this.deletedText = this.editor.deleteRange(
-      this.position,
-      this.position + this.length,
-    );
-  }
-
-  undo(): void {
-    this.editor.insertAt(this.position, this.deletedText);
-  }
+// InsertAt inserts text at the given position.
+func (e *TextEditor) InsertAt(position int, text string) {
+	e.content = e.content[:position] + text + e.content[position:]
+	e.cursorPosition = position + len(text)
 }
 
-// 4. Invoker avec historique
-class CommandHistory {
-  private undoStack: Command[] = [];
-  private redoStack: Command[] = [];
+// DeleteRange deletes text in the given range and returns it.
+func (e *TextEditor) DeleteRange(start, end int) string {
+	if end > len(e.content) {
+		end = len(e.content)
+	}
+	deleted := e.content[start:end]
+	e.content = e.content[:start] + e.content[end:]
+	e.cursorPosition = start
+	return deleted
+}
 
-  execute(command: Command): void {
-    command.execute();
-    this.undoStack.push(command);
-    this.redoStack = []; // Clear redo apres nouvelle action
-  }
+// GetCursor returns the current cursor position.
+func (e *TextEditor) GetCursor() int {
+	return e.cursorPosition
+}
 
-  undo(): boolean {
-    const command = this.undoStack.pop();
-    if (!command) return false;
+// SetCursor sets the cursor position.
+func (e *TextEditor) SetCursor(position int) {
+	if position > len(e.content) {
+		position = len(e.content)
+	}
+	if position < 0 {
+		position = 0
+	}
+	e.cursorPosition = position
+}
 
-    command.undo();
-    this.redoStack.push(command);
-    return true;
-  }
+// InsertTextCommand inserts text at the cursor.
+type InsertTextCommand struct {
+	editor   *TextEditor
+	text     string
+	position int
+}
 
-  redo(): boolean {
-    const command = this.redoStack.pop();
-    if (!command) return false;
+// NewInsertTextCommand creates a new insert command.
+func NewInsertTextCommand(editor *TextEditor, text string) *InsertTextCommand {
+	return &InsertTextCommand{
+		editor:   editor,
+		text:     text,
+		position: editor.GetCursor(),
+	}
+}
 
-    command.execute();
-    this.undoStack.push(command);
-    return true;
-  }
+// Execute inserts the text.
+func (c *InsertTextCommand) Execute() error {
+	c.editor.InsertAt(c.position, c.text)
+	return nil
+}
 
-  canUndo(): boolean {
-    return this.undoStack.length > 0;
-  }
+// Undo removes the inserted text.
+func (c *InsertTextCommand) Undo() error {
+	c.editor.DeleteRange(c.position, c.position+len(c.text))
+	return nil
+}
 
-  canRedo(): boolean {
-    return this.redoStack.length > 0;
-  }
+// DeleteTextCommand deletes text at the cursor.
+type DeleteTextCommand struct {
+	editor      *TextEditor
+	length      int
+	position    int
+	deletedText string
+}
+
+// NewDeleteTextCommand creates a new delete command.
+func NewDeleteTextCommand(editor *TextEditor, length int) *DeleteTextCommand {
+	return &DeleteTextCommand{
+		editor:   editor,
+		length:   length,
+		position: editor.GetCursor(),
+	}
+}
+
+// Execute deletes the text.
+func (c *DeleteTextCommand) Execute() error {
+	c.deletedText = c.editor.DeleteRange(c.position, c.position+c.length)
+	return nil
+}
+
+// Undo restores the deleted text.
+func (c *DeleteTextCommand) Undo() error {
+	c.editor.InsertAt(c.position, c.deletedText)
+	return nil
+}
+
+// CommandHistory manages undo/redo stacks.
+type CommandHistory struct {
+	undoStack []Command
+	redoStack []Command
+}
+
+// Execute executes a command and adds it to history.
+func (h *CommandHistory) Execute(command Command) error {
+	if err := command.Execute(); err != nil {
+		return err
+	}
+	h.undoStack = append(h.undoStack, command)
+	h.redoStack = nil // Clear redo after new action
+	return nil
+}
+
+// Undo undoes the last command.
+func (h *CommandHistory) Undo() error {
+	if len(h.undoStack) == 0 {
+		return fmt.Errorf("nothing to undo")
+	}
+
+	command := h.undoStack[len(h.undoStack)-1]
+	h.undoStack = h.undoStack[:len(h.undoStack)-1]
+
+	if err := command.Undo(); err != nil {
+		return err
+	}
+
+	h.redoStack = append(h.redoStack, command)
+	return nil
+}
+
+// Redo redoes the last undone command.
+func (h *CommandHistory) Redo() error {
+	if len(h.redoStack) == 0 {
+		return fmt.Errorf("nothing to redo")
+	}
+
+	command := h.redoStack[len(h.redoStack)-1]
+	h.redoStack = h.redoStack[:len(h.redoStack)-1]
+
+	if err := command.Execute(); err != nil {
+		return err
+	}
+
+	h.undoStack = append(h.undoStack, command)
+	return nil
+}
+
+// CanUndo returns true if undo is possible.
+func (h *CommandHistory) CanUndo() bool {
+	return len(h.undoStack) > 0
+}
+
+// CanRedo returns true if redo is possible.
+func (h *CommandHistory) CanRedo() bool {
+	return len(h.redoStack) > 0
 }
 ```
 
 ## Usage
 
-```typescript
-const editor = new TextEditor();
-const history = new CommandHistory();
+```go
+func main() {
+	editor := &TextEditor{}
+	history := &CommandHistory{}
 
-// Executer des commandes
-history.execute(new InsertTextCommand(editor, 'Hello'));
-history.execute(new InsertTextCommand(editor, ' World'));
-console.log(editor.getContent()); // "Hello World"
+	// Execute commands
+	history.Execute(NewInsertTextCommand(editor, "Hello"))
+	history.Execute(NewInsertTextCommand(editor, " World"))
+	fmt.Println(editor.GetContent()) // "Hello World"
 
-// Undo
-history.undo();
-console.log(editor.getContent()); // "Hello"
+	// Undo
+	history.Undo()
+	fmt.Println(editor.GetContent()) // "Hello"
 
-// Redo
-history.redo();
-console.log(editor.getContent()); // "Hello World"
+	// Redo
+	history.Redo()
+	fmt.Println(editor.GetContent()) // "Hello World"
 
-// Nouvelle action efface redo
-history.execute(new InsertTextCommand(editor, '!'));
-console.log(editor.getContent()); // "Hello World!"
-console.log(history.canRedo()); // false
+	// New action clears redo
+	history.Execute(NewInsertTextCommand(editor, "!"))
+	fmt.Println(editor.GetContent())  // "Hello World!"
+	fmt.Println(history.CanRedo())    // false
+}
 ```
 
 ## Macro Command (Composite)
 
-```typescript
-class MacroCommand implements Command {
-  private commands: Command[] = [];
+```go
+// MacroCommand executes multiple commands as one.
+type MacroCommand struct {
+	commands []Command
+}
 
-  add(command: Command): void {
-    this.commands.push(command);
-  }
+// NewMacroCommand creates a new macro command.
+func NewMacroCommand() *MacroCommand {
+	return &MacroCommand{}
+}
 
-  execute(): void {
-    for (const command of this.commands) {
-      command.execute();
-    }
-  }
+// Add adds a command to the macro.
+func (m *MacroCommand) Add(command Command) {
+	m.commands = append(m.commands, command)
+}
 
-  undo(): void {
-    // Undo en ordre inverse
-    for (let i = this.commands.length - 1; i >= 0; i--) {
-      this.commands[i].undo();
-    }
-  }
+// Execute executes all commands in order.
+func (m *MacroCommand) Execute() error {
+	for _, command := range m.commands {
+		if err := command.Execute(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Undo undoes all commands in reverse order.
+func (m *MacroCommand) Undo() error {
+	for i := len(m.commands) - 1; i >= 0; i-- {
+		if err := m.commands[i].Undo(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Usage - formater un bloc de texte
-const formatMacro = new MacroCommand();
-formatMacro.add(new SelectAllCommand(editor));
-formatMacro.add(new UppercaseCommand(editor));
-formatMacro.add(new BoldCommand(editor));
+func macroExample() {
+	editor := &TextEditor{}
+	history := &CommandHistory{}
 
-history.execute(formatMacro);
-// Tout est annule en une seule operation undo
-history.undo();
+	formatMacro := NewMacroCommand()
+	// formatMacro.Add(NewSelectAllCommand(editor))
+	// formatMacro.Add(NewUppercaseCommand(editor))
+	// formatMacro.Add(NewBoldCommand(editor))
+
+	history.Execute(formatMacro)
+	// Tout est annule en une seule operation undo
+	history.Undo()
+}
 ```
 
 ## Command Queue (Asynchrone)
 
-```typescript
-interface AsyncCommand {
-  execute(): Promise<void>;
-  undo(): Promise<void>;
+```go
+import "context"
+
+// AsyncCommand is a command that can execute asynchronously.
+type AsyncCommand interface {
+	Execute(ctx context.Context) error
+	Undo(ctx context.Context) error
 }
 
-class CommandQueue {
-  private queue: AsyncCommand[] = [];
-  private isProcessing = false;
-
-  async enqueue(command: AsyncCommand): Promise<void> {
-    this.queue.push(command);
-    await this.processQueue();
-  }
-
-  private async processQueue(): Promise<void> {
-    if (this.isProcessing) return;
-    this.isProcessing = true;
-
-    while (this.queue.length > 0) {
-      const command = this.queue.shift()!;
-      try {
-        await command.execute();
-      } catch (error) {
-        console.error('Command failed:', error);
-        // Optionnel: rollback des commandes precedentes
-      }
-    }
-
-    this.isProcessing = false;
-  }
+// CommandQueue manages async command execution.
+type CommandQueue struct {
+	queue        []AsyncCommand
+	isProcessing bool
 }
 
-// Command asynchrone
-class SendEmailCommand implements AsyncCommand {
-  constructor(
-    private emailService: EmailService,
-    private to: string,
-    private subject: string,
-    private body: string,
-  ) {}
+// Enqueue adds a command to the queue and processes it.
+func (q *CommandQueue) Enqueue(ctx context.Context, command AsyncCommand) error {
+	q.queue = append(q.queue, command)
+	return q.processQueue(ctx)
+}
 
-  async execute(): Promise<void> {
-    await this.emailService.send(this.to, this.subject, this.body);
-  }
+func (q *CommandQueue) processQueue(ctx context.Context) error {
+	if q.isProcessing {
+		return nil
+	}
+	q.isProcessing = true
+	defer func() { q.isProcessing = false }()
 
-  async undo(): Promise<void> {
-    // Les emails ne peuvent pas etre annules, mais on peut envoyer un rappel
-    await this.emailService.send(
-      this.to,
-      `[CANCELLED] ${this.subject}`,
-      'Please disregard the previous email.',
-    );
-  }
+	for len(q.queue) > 0 {
+		command := q.queue[0]
+		q.queue = q.queue[1:]
+
+		if err := command.Execute(ctx); err != nil {
+			fmt.Printf("Command failed: %v\n", err)
+			// Optionnel: rollback des commandes precedentes
+		}
+	}
+
+	return nil
+}
+
+// EmailService is a mock email service.
+type EmailService interface {
+	Send(ctx context.Context, to, subject, body string) error
+}
+
+// SendEmailCommand sends an email asynchronously.
+type SendEmailCommand struct {
+	emailService EmailService
+	to           string
+	subject      string
+	body         string
+}
+
+// NewSendEmailCommand creates a new email command.
+func NewSendEmailCommand(emailService EmailService, to, subject, body string) *SendEmailCommand {
+	return &SendEmailCommand{
+		emailService: emailService,
+		to:           to,
+		subject:      subject,
+		body:         body,
+	}
+}
+
+// Execute sends the email.
+func (c *SendEmailCommand) Execute(ctx context.Context) error {
+	return c.emailService.Send(ctx, c.to, c.subject, c.body)
+}
+
+// Undo sends a cancellation email.
+func (c *SendEmailCommand) Undo(ctx context.Context) error {
+	// Les emails ne peuvent pas etre annules, mais on peut envoyer un rappel
+	return c.emailService.Send(
+		ctx,
+		c.to,
+		"[CANCELLED] "+c.subject,
+		"Please disregard the previous email.",
+	)
 }
 ```
 
 ## Transactional Command
 
-```typescript
-interface TransactionalCommand extends Command {
-  validate(): boolean;
-  commit(): void;
-  rollback(): void;
+```go
+// TransactionalCommand supports validation, commit, and rollback.
+type TransactionalCommand interface {
+	Command
+	Validate() error
+	Commit() error
+	Rollback() error
 }
 
-class TransactionManager {
-  private commands: TransactionalCommand[] = [];
-  private executed: TransactionalCommand[] = [];
+// TransactionManager manages transactional commands.
+type TransactionManager struct {
+	commands []TransactionalCommand
+	executed []TransactionalCommand
+}
 
-  add(command: TransactionalCommand): void {
-    this.commands.push(command);
-  }
+// Add adds a command to the transaction.
+func (t *TransactionManager) Add(command TransactionalCommand) {
+	t.commands = append(t.commands, command)
+}
 
-  async executeAll(): Promise<boolean> {
-    // Validation phase
-    for (const command of this.commands) {
-      if (!command.validate()) {
-        console.error('Validation failed');
-        return false;
-      }
-    }
+// ExecuteAll executes all commands in a transaction.
+func (t *TransactionManager) ExecuteAll() error {
+	// Validation phase
+	for _, command := range t.commands {
+		if err := command.Validate(); err != nil {
+			return fmt.Errorf("validation failed: %w", err)
+		}
+	}
 
-    // Execution phase
-    try {
-      for (const command of this.commands) {
-        command.execute();
-        this.executed.push(command);
-      }
+	// Execution phase
+	for _, command := range t.commands {
+		if err := command.Execute(); err != nil {
+			// Rollback phase
+			for i := len(t.executed) - 1; i >= 0; i-- {
+				t.executed[i].Rollback()
+			}
+			return fmt.Errorf("execution failed: %w", err)
+		}
+		t.executed = append(t.executed, command)
+	}
 
-      // Commit phase
-      for (const command of this.executed) {
-        command.commit();
-      }
+	// Commit phase
+	for _, command := range t.executed {
+		if err := command.Commit(); err != nil {
+			return fmt.Errorf("commit failed: %w", err)
+		}
+	}
 
-      return true;
-    } catch (error) {
-      // Rollback phase
-      for (const command of this.executed.reverse()) {
-        command.rollback();
-      }
-      return false;
-    }
-  }
+	return nil
 }
 ```
 
 ## Anti-patterns
 
-```typescript
+```go
 // MAUVAIS: Command qui fait trop
-class GodCommand implements Command {
-  execute(): void {
-    this.validateInput();
-    this.processData();
-    this.saveToDatabase();
-    this.sendNotification();
-    this.updateCache();
-    // Devrait etre plusieurs commands
-  }
+type GodCommand struct{}
 
-  undo(): void {
-    // Comment annuler tout ca proprement?
-  }
+func (c *GodCommand) Execute() error {
+	// Devrait etre plusieurs commands
+	c.validateInput()
+	c.processData()
+	c.saveToDatabase()
+	c.sendNotification()
+	c.updateCache()
+	return nil
 }
 
-// MAUVAIS: Command avec etat externe
-class StatefulCommand implements Command {
-  private static lastResult: unknown; // Etat partage = problemes
+func (c *GodCommand) Undo() error {
+	// Comment annuler tout ca proprement?
+	return nil
+}
 
-  execute(): void {
-    StatefulCommand.lastResult = this.doSomething();
-  }
+func (c *GodCommand) validateInput()    {}
+func (c *GodCommand) processData()      {}
+func (c *GodCommand) saveToDatabase()   {}
+func (c *GodCommand) sendNotification() {}
+func (c *GodCommand) updateCache()      {}
+
+// MAUVAIS: Command avec etat externe
+type StatefulCommand struct {
+	lastResult interface{} // Etat partage = problemes
+}
+
+func (c *StatefulCommand) Execute() error {
+	c.lastResult = c.doSomething()
+	return nil
+}
+
+func (c *StatefulCommand) Undo() error {
+	return nil
+}
+
+func (c *StatefulCommand) doSomething() interface{} {
+	return nil
 }
 
 // MAUVAIS: Undo incomplet
-class IncompleteUndoCommand implements Command {
-  private previousState?: State;
-
-  execute(): void {
-    // Oublie de sauvegarder l'etat avant modification
-    this.modify();
-  }
-
-  undo(): void {
-    // previousState est undefined!
-    this.restore(this.previousState);
-  }
+type IncompleteUndoCommand struct {
+	previousState *State
 }
+
+type State struct{}
+
+func (c *IncompleteUndoCommand) Execute() error {
+	// Oublie de sauvegarder l'etat avant modification
+	c.modify()
+	return nil
+}
+
+func (c *IncompleteUndoCommand) Undo() error {
+	// previousState est nil!
+	c.restore(c.previousState)
+	return nil
+}
+
+func (c *IncompleteUndoCommand) modify()          {}
+func (c *IncompleteUndoCommand) restore(s *State) {}
 ```
 
 ## Tests unitaires
 
-```typescript
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+```go
+package main
 
-describe('TextEditor Commands', () => {
-  let editor: TextEditor;
-  let history: CommandHistory;
+import (
+	"testing"
+)
 
-  beforeEach(() => {
-    editor = new TextEditor();
-    history = new CommandHistory();
-  });
+func TestInsertTextCommand(t *testing.T) {
+	t.Run("should insert text at cursor", func(t *testing.T) {
+		editor := &TextEditor{}
+		history := &CommandHistory{}
 
-  describe('InsertTextCommand', () => {
-    it('should insert text at cursor', () => {
-      history.execute(new InsertTextCommand(editor, 'Hello'));
-      expect(editor.getContent()).toBe('Hello');
-    });
+		history.Execute(NewInsertTextCommand(editor, "Hello"))
 
-    it('should support undo', () => {
-      history.execute(new InsertTextCommand(editor, 'Hello'));
-      history.undo();
-      expect(editor.getContent()).toBe('');
-    });
-  });
+		if editor.GetContent() != "Hello" {
+			t.Errorf("expected 'Hello', got '%s'", editor.GetContent())
+		}
+	})
 
-  describe('DeleteTextCommand', () => {
-    beforeEach(() => {
-      history.execute(new InsertTextCommand(editor, 'Hello World'));
-    });
+	t.Run("should support undo", func(t *testing.T) {
+		editor := &TextEditor{}
+		history := &CommandHistory{}
 
-    it('should delete text', () => {
-      editor.setCursor(5);
-      history.execute(new DeleteTextCommand(editor, 6));
-      expect(editor.getContent()).toBe('Hello');
-    });
+		history.Execute(NewInsertTextCommand(editor, "Hello"))
+		history.Undo()
 
-    it('should restore deleted text on undo', () => {
-      editor.setCursor(5);
-      history.execute(new DeleteTextCommand(editor, 6));
-      history.undo();
-      expect(editor.getContent()).toBe('Hello World');
-    });
-  });
+		if editor.GetContent() != "" {
+			t.Errorf("expected empty string, got '%s'", editor.GetContent())
+		}
+	})
+}
 
-  describe('CommandHistory', () => {
-    it('should support multiple undo/redo', () => {
-      history.execute(new InsertTextCommand(editor, 'A'));
-      history.execute(new InsertTextCommand(editor, 'B'));
-      history.execute(new InsertTextCommand(editor, 'C'));
+func TestDeleteTextCommand(t *testing.T) {
+	t.Run("should delete text", func(t *testing.T) {
+		editor := &TextEditor{}
+		history := &CommandHistory{}
 
-      expect(editor.getContent()).toBe('ABC');
+		history.Execute(NewInsertTextCommand(editor, "Hello World"))
+		editor.SetCursor(5)
+		history.Execute(NewDeleteTextCommand(editor, 6))
 
-      history.undo();
-      expect(editor.getContent()).toBe('AB');
+		if editor.GetContent() != "Hello" {
+			t.Errorf("expected 'Hello', got '%s'", editor.GetContent())
+		}
+	})
 
-      history.undo();
-      expect(editor.getContent()).toBe('A');
+	t.Run("should restore deleted text on undo", func(t *testing.T) {
+		editor := &TextEditor{}
+		history := &CommandHistory{}
 
-      history.redo();
-      expect(editor.getContent()).toBe('AB');
-    });
+		history.Execute(NewInsertTextCommand(editor, "Hello World"))
+		editor.SetCursor(5)
+		history.Execute(NewDeleteTextCommand(editor, 6))
+		history.Undo()
 
-    it('should clear redo stack after new command', () => {
-      history.execute(new InsertTextCommand(editor, 'A'));
-      history.undo();
-      history.execute(new InsertTextCommand(editor, 'B'));
+		if editor.GetContent() != "Hello World" {
+			t.Errorf("expected 'Hello World', got '%s'", editor.GetContent())
+		}
+	})
+}
 
-      expect(history.canRedo()).toBe(false);
-    });
-  });
+func TestCommandHistory(t *testing.T) {
+	t.Run("should support multiple undo/redo", func(t *testing.T) {
+		editor := &TextEditor{}
+		history := &CommandHistory{}
 
-  describe('MacroCommand', () => {
-    it('should execute all commands', () => {
-      const macro = new MacroCommand();
-      macro.add(new InsertTextCommand(editor, 'Hello'));
-      macro.add(new InsertTextCommand(editor, ' World'));
+		history.Execute(NewInsertTextCommand(editor, "A"))
+		history.Execute(NewInsertTextCommand(editor, "B"))
+		history.Execute(NewInsertTextCommand(editor, "C"))
 
-      macro.execute();
+		if editor.GetContent() != "ABC" {
+			t.Errorf("expected 'ABC', got '%s'", editor.GetContent())
+		}
 
-      expect(editor.getContent()).toBe('Hello World');
-    });
+		history.Undo()
+		if editor.GetContent() != "AB" {
+			t.Errorf("expected 'AB', got '%s'", editor.GetContent())
+		}
 
-    it('should undo all commands in reverse order', () => {
-      const macro = new MacroCommand();
-      macro.add(new InsertTextCommand(editor, 'Hello'));
-      macro.add(new InsertTextCommand(editor, ' World'));
+		history.Undo()
+		if editor.GetContent() != "A" {
+			t.Errorf("expected 'A', got '%s'", editor.GetContent())
+		}
 
-      history.execute(macro);
-      history.undo();
+		history.Redo()
+		if editor.GetContent() != "AB" {
+			t.Errorf("expected 'AB', got '%s'", editor.GetContent())
+		}
+	})
 
-      expect(editor.getContent()).toBe('');
-    });
-  });
-});
+	t.Run("should clear redo stack after new command", func(t *testing.T) {
+		editor := &TextEditor{}
+		history := &CommandHistory{}
+
+		history.Execute(NewInsertTextCommand(editor, "A"))
+		history.Undo()
+		history.Execute(NewInsertTextCommand(editor, "B"))
+
+		if history.CanRedo() {
+			t.Error("redo should not be available after new command")
+		}
+	})
+}
+
+func TestMacroCommand(t *testing.T) {
+	t.Run("should execute all commands", func(t *testing.T) {
+		editor := &TextEditor{}
+
+		macro := NewMacroCommand()
+		macro.Add(NewInsertTextCommand(editor, "Hello"))
+		macro.Add(NewInsertTextCommand(editor, " World"))
+
+		macro.Execute()
+
+		if editor.GetContent() != "Hello World" {
+			t.Errorf("expected 'Hello World', got '%s'", editor.GetContent())
+		}
+	})
+
+	t.Run("should undo all commands in reverse order", func(t *testing.T) {
+		editor := &TextEditor{}
+		history := &CommandHistory{}
+
+		macro := NewMacroCommand()
+		macro.Add(NewInsertTextCommand(editor, "Hello"))
+		macro.Add(NewInsertTextCommand(editor, " World"))
+
+		history.Execute(macro)
+		history.Undo()
+
+		if editor.GetContent() != "" {
+			t.Errorf("expected empty string, got '%s'", editor.GetContent())
+		}
+	})
+}
 ```
 
 ## Quand utiliser

@@ -28,290 +28,467 @@ Monad = Type Constructor + unit (of/return) + flatMap (bind/chain)
 
 ## TypeScript Implementation
 
-```typescript
-// Generic Monad Interface
-interface Monad<A> {
-  flatMap<B>(f: (a: A) => Monad<B>): Monad<B>;
-  map<B>(f: (a: A) => B): Monad<B>;
+```go
+package monad
+
+import "context"
+
+// Monad interface (simplified - Go doesn't support higher-kinded types)
+type Monad[A any] interface {
+	FlatMap(func(A) Monad[A]) Monad[A]
+	Map(func(A) A) Monad[A]
 }
 
 // Maybe Monad
-abstract class Maybe<A> implements Monad<A> {
-  abstract flatMap<B>(f: (a: A) => Maybe<B>): Maybe<B>;
-  abstract map<B>(f: (a: A) => B): Maybe<B>;
-  abstract getOrElse(defaultValue: A): A;
-  abstract isSome(): boolean;
-  abstract isNone(): boolean;
-
-  static of<A>(value: A): Maybe<A> {
-    return value === null || value === undefined
-      ? None.instance<A>()
-      : new Some(value);
-  }
-
-  static none<A>(): Maybe<A> {
-    return None.instance<A>();
-  }
+type Maybe[A any] interface {
+	FlatMap(func(A) Maybe[A]) Maybe[A]
+	Map(func(A) A) Maybe[A]
+	GetOrElse(A) A
+	IsSome() bool
+	IsNone() bool
 }
 
-class Some<A> extends Maybe<A> {
-  constructor(private readonly value: A) {
-    super();
-  }
-
-  flatMap<B>(f: (a: A) => Maybe<B>): Maybe<B> {
-    return f(this.value);
-  }
-
-  map<B>(f: (a: A) => B): Maybe<B> {
-    return Maybe.of(f(this.value));
-  }
-
-  getOrElse(_defaultValue: A): A {
-    return this.value;
-  }
-
-  isSome(): boolean { return true; }
-  isNone(): boolean { return false; }
+// Some represents a present value
+type Some[A any] struct {
+	value A
 }
 
-class None<A> extends Maybe<A> {
-  private static readonly INSTANCE = new None<never>();
+func (s Some[A]) FlatMap(f func(A) Maybe[A]) Maybe[A] {
+	return f(s.value)
+}
 
-  static instance<A>(): Maybe<A> {
-    return None.INSTANCE as Maybe<A>;
-  }
+func (s Some[A]) Map(f func(A) A) Maybe[A] {
+	return OfMaybe(f(s.value))
+}
 
-  flatMap<B>(_f: (a: A) => Maybe<B>): Maybe<B> {
-    return None.instance<B>();
-  }
+func (s Some[A]) GetOrElse(_ A) A {
+	return s.value
+}
 
-  map<B>(_f: (a: A) => B): Maybe<B> {
-    return None.instance<B>();
-  }
+func (s Some[A]) IsSome() bool { return true }
+func (s Some[A]) IsNone() bool { return false }
 
-  getOrElse(defaultValue: A): A {
-    return defaultValue;
-  }
+// None represents an absent value
+type None[A any] struct{}
 
-  isSome(): boolean { return false; }
-  isNone(): boolean { return true; }
+var noneInstance = None[any]{}
+
+func (n None[A]) FlatMap(_ func(A) Maybe[A]) Maybe[A] {
+	return NoneMaybe[A]()
+}
+
+func (n None[A]) Map(_ func(A) A) Maybe[A] {
+	return NoneMaybe[A]()
+}
+
+func (n None[A]) GetOrElse(defaultValue A) A {
+	return defaultValue
+}
+
+func (n None[A]) IsSome() bool { return false }
+func (n None[A]) IsNone() bool { return true }
+
+// OfMaybe creates a Maybe from a value
+func OfMaybe[A any](value A) Maybe[A] {
+	return Some[A]{value: value}
+}
+
+// NoneMaybe creates an empty Maybe
+func NoneMaybe[A any]() Maybe[A] {
+	return None[A]{}
 }
 
 // Either Monad
-abstract class Either<E, A> implements Monad<A> {
-  abstract flatMap<B>(f: (a: A) => Either<E, B>): Either<E, B>;
-  abstract map<B>(f: (a: A) => B): Either<E, B>;
-  abstract mapLeft<F>(f: (e: E) => F): Either<F, A>;
-  abstract isRight(): boolean;
-  abstract isLeft(): boolean;
-
-  static right<E, A>(value: A): Either<E, A> {
-    return new Right(value);
-  }
-
-  static left<E, A>(error: E): Either<E, A> {
-    return new Left(error);
-  }
+type Either[E, A any] interface {
+	FlatMap(func(A) Either[E, A]) Either[E, A]
+	Map(func(A) A) Either[E, A]
+	MapLeft(func(E) E) Either[E, A]
+	IsRight() bool
+	IsLeft() bool
 }
 
-class Right<E, A> extends Either<E, A> {
-  constructor(private readonly value: A) {
-    super();
-  }
-
-  flatMap<B>(f: (a: A) => Either<E, B>): Either<E, B> {
-    return f(this.value);
-  }
-
-  map<B>(f: (a: A) => B): Either<E, B> {
-    return Either.right(f(this.value));
-  }
-
-  mapLeft<F>(_f: (e: E) => F): Either<F, A> {
-    return Either.right(this.value);
-  }
-
-  isRight(): boolean { return true; }
-  isLeft(): boolean { return false; }
+// Right represents a success
+type Right[E, A any] struct {
+	value A
 }
 
-class Left<E, A> extends Either<E, A> {
-  constructor(private readonly error: E) {
-    super();
-  }
+func (r Right[E, A]) FlatMap(f func(A) Either[E, A]) Either[E, A] {
+	return f(r.value)
+}
 
-  flatMap<B>(_f: (a: A) => Either<E, B>): Either<E, B> {
-    return Either.left(this.error);
-  }
+func (r Right[E, A]) Map(f func(A) A) Either[E, A] {
+	return NewRight[E, A](f(r.value))
+}
 
-  map<B>(_f: (a: A) => B): Either<E, B> {
-    return Either.left(this.error);
-  }
+func (r Right[E, A]) MapLeft(_ func(E) E) Either[E, A] {
+	return r
+}
 
-  mapLeft<F>(f: (e: E) => F): Either<F, A> {
-    return Either.left(f(this.error));
-  }
+func (r Right[E, A]) IsRight() bool { return true }
+func (r Right[E, A]) IsLeft() bool  { return false }
 
-  isRight(): boolean { return false; }
-  isLeft(): boolean { return true; }
+// Left represents a failure
+type Left[E, A any] struct {
+	error E
+}
+
+func (l Left[E, A]) FlatMap(_ func(A) Either[E, A]) Either[E, A] {
+	return l
+}
+
+func (l Left[E, A]) Map(_ func(A) A) Either[E, A] {
+	return l
+}
+
+func (l Left[E, A]) MapLeft(f func(E) E) Either[E, A] {
+	return NewLeft[E, A](f(l.error))
+}
+
+func (l Left[E, A]) IsRight() bool { return false }
+func (l Left[E, A]) IsLeft() bool  { return true }
+
+// NewRight creates a Right
+func NewRight[E, A any](value A) Either[E, A] {
+	return Right[E, A]{value: value}
+}
+
+// NewLeft creates a Left
+func NewLeft[E, A any](err E) Either[E, A] {
+	return Left[E, A]{error: err}
 }
 
 // IO Monad - Deferred side effects
-class IO<A> implements Monad<A> {
-  constructor(private readonly effect: () => A) {}
+type IO[A any] struct {
+	effect func() A
+}
 
-  static of<A>(value: A): IO<A> {
-    return new IO(() => value);
-  }
+// OfIO creates an IO from a value
+func OfIO[A any](value A) IO[A] {
+	return IO[A]{
+		effect: func() A { return value },
+	}
+}
 
-  static from<A>(effect: () => A): IO<A> {
-    return new IO(effect);
-  }
+// FromIO creates an IO from an effect
+func FromIO[A any](effect func() A) IO[A] {
+	return IO[A]{effect: effect}
+}
 
-  flatMap<B>(f: (a: A) => IO<B>): IO<B> {
-    return new IO(() => f(this.effect()).run());
-  }
+// FlatMap chains IO operations
+func (io IO[A]) FlatMap(f func(A) IO[A]) IO[A] {
+	return IO[A]{
+		effect: func() A {
+			return f(io.effect()).Run()
+		},
+	}
+}
 
-  map<B>(f: (a: A) => B): IO<B> {
-    return new IO(() => f(this.effect()));
-  }
+// Map transforms the IO result
+func (io IO[A]) Map(f func(A) A) IO[A] {
+	return IO[A]{
+		effect: func() A {
+			return f(io.effect())
+		},
+	}
+}
 
-  run(): A {
-    return this.effect();
-  }
+// Run executes the IO
+func (io IO[A]) Run() A {
+	return io.effect()
 }
 ```
 
 ## Usage Examples
 
-```typescript
+```go
+package main
+
 // Maybe - handling optional values
-const findUser = (id: string): Maybe<User> =>
-  Maybe.of(users.get(id));
+type User struct {
+	Orders []Order
+}
 
-const findOrder = (user: User): Maybe<Order> =>
-  Maybe.of(user.orders[0]);
+type Order struct {
+	Total Money
+}
 
-const getOrderTotal = (order: Order): Maybe<Money> =>
-  Maybe.of(order.total);
+type Money struct {
+	amount float64
+}
+
+func (m Money) Zero() Money {
+	return Money{amount: 0}
+}
+
+var users = make(map[string]User)
+
+func findUser(id string) Maybe[User] {
+	if user, exists := users[id]; exists {
+		return OfMaybe(user)
+	}
+	return NoneMaybe[User]()
+}
+
+func findOrder(user User) Maybe[Order] {
+	if len(user.Orders) > 0 {
+		return OfMaybe(user.Orders[0])
+	}
+	return NoneMaybe[Order]()
+}
+
+func getOrderTotal(order Order) Maybe[Money] {
+	return OfMaybe(order.Total)
+}
 
 // Chain operations - short-circuits on None
-const userOrderTotal = findUser('123')
-  .flatMap(findOrder)
-  .flatMap(getOrderTotal)
-  .getOrElse(Money.zero());
+func getUserOrderTotal() Money {
+	return findUser("123").
+		FlatMap(func(u User) Maybe[Order] { return findOrder(u) }).
+		FlatMap(func(o Order) Maybe[Money] { return getOrderTotal(o) }).
+		GetOrElse(Money{}.Zero())
+}
 
 // Either - error handling
-const parseEmail = (input: string): Either<ValidationError, Email> => {
-  if (!input.includes('@')) {
-    return Either.left(new ValidationError('Invalid email'));
-  }
-  return Either.right(new Email(input));
-};
+type ValidationError struct {
+	message string
+}
 
-const validateAge = (age: number): Either<ValidationError, number> => {
-  if (age < 18) {
-    return Either.left(new ValidationError('Must be 18+'));
-  }
-  return Either.right(age);
-};
+func (e ValidationError) Error() string {
+	return e.message
+}
+
+type Email struct {
+	value string
+}
+
+func parseEmail(input string) Either[ValidationError, Email] {
+	if !strings.Contains(input, "@") {
+		return NewLeft[ValidationError, Email](
+			ValidationError{message: "Invalid email"},
+		)
+	}
+	return NewRight[ValidationError, Email](Email{value: input})
+}
+
+func validateAge(age int) Either[ValidationError, int] {
+	if age < 18 {
+		return NewLeft[ValidationError, int](
+			ValidationError{message: "Must be 18+"},
+		)
+	}
+	return NewRight[ValidationError, int](age)
+}
 
 // Compose validations
-const registerUser = (email: string, age: number): Either<ValidationError, User> =>
-  parseEmail(email)
-    .flatMap(validEmail =>
-      validateAge(age)
-        .map(validAge => new User(validEmail, validAge))
-    );
+func registerUser(email string, age int) Either[ValidationError, User] {
+	emailResult := parseEmail(email)
+	if emailResult.IsLeft() {
+		return NewLeft[ValidationError, User](
+			emailResult.(Left[ValidationError, Email]).error,
+		)
+	}
+	
+	ageResult := validateAge(age)
+	if ageResult.IsLeft() {
+		return NewLeft[ValidationError, User](
+			ageResult.(Left[ValidationError, int]).error,
+		)
+	}
+	
+	// Create user with validated data
+	return NewRight[ValidationError, User](User{})
+}
 
 // IO - side effects
-const readFile = (path: string): IO<string> =>
-  IO.from(() => fs.readFileSync(path, 'utf-8'));
+func readFile(path string) IO[string] {
+	return FromIO(func() string {
+		data, _ := os.ReadFile(path)
+		return string(data)
+	})
+}
 
-const writeFile = (path: string, content: string): IO<void> =>
-  IO.from(() => fs.writeFileSync(path, content));
+func writeFile(path, content string) IO[struct{}] {
+	return FromIO(func() struct{} {
+		os.WriteFile(path, []byte(content), 0644)
+		return struct{}{}
+	})
+}
 
-const program: IO<void> = readFile('input.txt')
-  .map(content => content.toUpperCase())
-  .flatMap(upper => writeFile('output.txt', upper));
-
-// Nothing happens until we run
-program.run();
+func ioExample() {
+	program := readFile("input.txt").
+		Map(strings.ToUpper).
+		FlatMap(func(upper string) IO[struct{}] {
+			return writeFile("output.txt", upper)
+		})
+	
+	// Nothing happens until we run
+	program.Run()
+}
 ```
 
 ## Using fp-ts
 
-```typescript
-import { pipe } from 'fp-ts/function';
-import * as O from 'fp-ts/Option';
-import * as E from 'fp-ts/Either';
-import * as TE from 'fp-ts/TaskEither';
+```go
+package main
 
-// Option (Maybe)
-const findUser = (id: string): O.Option<User> =>
-  pipe(
-    users.get(id),
-    O.fromNullable
-  );
+import (
+	"context"
+	"fmt"
+)
 
-const getUserEmail = pipe(
-  findUser('123'),
-  O.map(user => user.email),
-  O.getOrElse(() => 'unknown@example.com')
-);
+// Option (Maybe) usage
+func findUserOpt(id string) Maybe[User] {
+	if user, exists := users[id]; exists {
+		return OfMaybe(user)
+	}
+	return NoneMaybe[User]()
+}
 
-// Either
-const parseNumber = (s: string): E.Either<string, number> =>
-  pipe(
-    parseInt(s, 10),
-    n => isNaN(n) ? E.left('Not a number') : E.right(n)
-  );
+func getUserEmail() string {
+	return findUserOpt("123").
+		Map(func(u User) User { return u }). // Transform if needed
+		GetOrElse(User{})                    // Provide default
+}
+
+// Either for error handling
+func parseNumber(s string) Either[string, int] {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return NewLeft[string, int]("Not a number")
+	}
+	return NewRight[string, int](n)
+}
 
 // TaskEither (async + error handling)
-const fetchUser = (id: string): TE.TaskEither<Error, User> =>
-  TE.tryCatch(
-    () => fetch(`/api/users/${id}`).then(r => r.json()),
-    (error) => new Error(String(error))
-  );
+type TaskEither[E, A any] struct {
+	run func(context.Context) Either[E, A]
+}
 
-const program = pipe(
-  fetchUser('123'),
-  TE.map(user => user.name),
-  TE.getOrElse(() => async () => 'Anonymous')
-);
+func fetchUser(id string) TaskEither[error, User] {
+	return TaskEither[error, User]{
+		run: func(ctx context.Context) Either[error, User] {
+			// Simulate HTTP call
+			resp, err := http.Get(fmt.Sprintf("/api/users/%s", id))
+			if err != nil {
+				return NewLeft[error, User](err)
+			}
+			// Parse response
+			var user User
+			return NewRight[error, User](user)
+		},
+	}
+}
 
-// Run async
-program().then(console.log);
+func taskExample() {
+	ctx := context.Background()
+	result := fetchUser("123").run(ctx)
+	
+	if result.IsRight() {
+		user := result.(Right[error, User]).value
+		fmt.Println(user)
+	} else {
+		err := result.(Left[error, User]).error
+		fmt.Println("Error:", err)
+	}
+}
 ```
 
 ## Using Effect
 
-```typescript
-import { Effect, pipe } from 'effect';
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+)
 
 // Effect is a powerful monad combining IO, Either, Reader, and more
-const program = pipe(
-  Effect.succeed(42),
-  Effect.map(n => n * 2),
-  Effect.flatMap(n =>
-    n > 50
-      ? Effect.fail(new Error('Too large'))
-      : Effect.succeed(n)
-  )
-);
-
-// With dependencies (Reader monad pattern)
-interface UserService {
-  getUser: (id: string) => Effect.Effect<User, NotFoundError>;
+type Effect[R, E, A any] struct {
+	run func(context.Context, R) (A, error)
 }
 
-const getUserName = (id: string) =>
-  Effect.gen(function* (_) {
-    const userService = yield* _(Effect.service(UserService));
-    const user = yield* _(userService.getUser(id));
-    return user.name;
-  });
+func Succeed[R, E, A any](value A) Effect[R, E, A] {
+	return Effect[R, E, A]{
+		run: func(ctx context.Context, r R) (A, error) {
+			return value, nil
+		},
+	}
+}
+
+func Fail[R, E, A any](err E) Effect[R, E, A] {
+	return Effect[R, E, A]{
+		run: func(ctx context.Context, r R) (A, error) {
+			var zero A
+			return zero, fmt.Errorf("%v", err)
+		},
+	}
+}
+
+func (e Effect[R, E, A]) Map(f func(A) A) Effect[R, E, A] {
+	return Effect[R, E, A]{
+		run: func(ctx context.Context, r R) (A, error) {
+			val, err := e.run(ctx, r)
+			if err != nil {
+				return val, err
+			}
+			return f(val), nil
+		},
+	}
+}
+
+func (e Effect[R, E, A]) FlatMap(f func(A) Effect[R, E, A]) Effect[R, E, A] {
+	return Effect[R, E, A]{
+		run: func(ctx context.Context, r R) (A, error) {
+			val, err := e.run(ctx, r)
+			if err != nil {
+				var zero A
+				return zero, err
+			}
+			return f(val).run(ctx, r)
+		},
+	}
+}
+
+func effectExample() {
+	program := Succeed[any, error, int](42).
+		Map(func(n int) int { return n * 2 }).
+		FlatMap(func(n int) Effect[any, error, int] {
+			if n > 50 {
+				return Fail[any, error, int](fmt.Errorf("too large"))
+			}
+			return Succeed[any, error, int](n)
+		})
+	
+	ctx := context.Background()
+	result, err := program.run(ctx, nil)
+	if err != nil {
+		fmt.Println("Error:", err)
+	} else {
+		fmt.Println("Result:", result)
+	}
+}
+
+// With dependencies (Reader monad pattern)
+type UserService interface {
+	GetUser(ctx context.Context, id string) (User, error)
+}
+
+type Dependencies struct {
+	UserService UserService
+}
+
+func getUserName(id string) Effect[Dependencies, error, string] {
+	return Effect[Dependencies, error, string]{
+		run: func(ctx context.Context, deps Dependencies) (string, error) {
+			user, err := deps.UserService.GetUser(ctx, id)
+			if err != nil {
+				return "", err
+			}
+			return user.Name, nil
+		},
+	}
+}
 ```
 
 ## Recommended Libraries
@@ -328,45 +505,51 @@ const getUserName = (id: string) =>
 
 1. **Monad Hell**: Too many nested flatMaps
 
-   ```typescript
+   ```go
    // BAD
-   a.flatMap(b =>
-     c.flatMap(d =>
-       e.flatMap(f => /* ... */)
-     )
-   )
-
-   // GOOD - Use do-notation or generators
-   Effect.gen(function* () {
-     const b = yield* a;
-     const d = yield* c;
-     const f = yield* e;
-   });
+   a.FlatMap(func(b B) Maybe[C] {
+   	return c.FlatMap(func(d D) Maybe[E] {
+   		return e.FlatMap(func(f F) Maybe[G] {
+   			// ...
+   		})
+   	})
+   })
+   
+   // GOOD - Use sequential composition
+   bMaybe := a
+   cMaybe := bMaybe.FlatMap(funcB)
+   dMaybe := cMaybe.FlatMap(funcC)
    ```
 
 2. **Escaping the Monad**: Unwrapping too early
 
-   ```typescript
+   ```go
    // BAD - Loses safety
-   const value = maybe.getOrElse(null);
-   if (value) { /* ... */ }
-
+   value := maybe.GetOrElse(nil)
+   if value != nil {
+   	// ...
+   }
+   
    // GOOD - Stay in monad
-   maybe.map(value => /* ... */);
+   maybe.Map(func(value V) V {
+   	// Work with value safely
+   	return value
+   })
    ```
 
 3. **Ignoring Errors**: Not handling Left/None cases
 
-   ```typescript
+   ```go
    // BAD
-   const result = either.flatMap(/* ... */);
+   result := either.FlatMap(/* ... */)
    // Never checks if Left
-
+   
    // GOOD
-   either.fold(
-     error => handleError(error),
-     value => handleSuccess(value)
-   );
+   if result.IsRight() {
+   	handleSuccess(result.(Right[E, A]).value)
+   } else {
+   	handleError(result.(Left[E, A]).error)
+   }
    ```
 
 ## When to Use

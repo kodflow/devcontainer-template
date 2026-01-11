@@ -15,292 +15,370 @@ Lazy Load est un pattern qui differe le chargement des donnees jusqu'au moment o
 
 ## Lazy Initialization
 
-```typescript
-class Order {
-  private _customer?: Customer;
-  private readonly customerId: string;
+```go
+package lazyload
 
-  constructor(
-    public readonly id: string,
-    customerId: string,
-    private readonly customerLoader: CustomerLoader,
-  ) {
-    this.customerId = customerId;
-  }
+import (
+	"context"
+	"fmt"
+	"sync"
+)
 
-  // Lazy initialization classique
-  async getCustomer(): Promise<Customer> {
-    if (!this._customer) {
-      this._customer = await this.customerLoader.load(this.customerId);
-    }
-    return this._customer;
-  }
-
-  // Version synchrone avec Promise caching
-  private customerPromise?: Promise<Customer>;
-
-  getCustomerAsync(): Promise<Customer> {
-    if (!this.customerPromise) {
-      this.customerPromise = this.customerLoader.load(this.customerId);
-    }
-    return this.customerPromise;
-  }
-}
-```
-
-## Virtual Proxy
-
-```typescript
-// Interface commune
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  getOrders(): Promise<Order[]>;
+// Customer represents a customer entity.
+type Customer struct {
+	ID   string
+	Name string
 }
 
-// Implementation reelle
-class RealCustomer implements Customer {
-  constructor(
-    public readonly id: string,
-    public readonly name: string,
-    public readonly email: string,
-    private readonly orderRepository: OrderRepository,
-  ) {}
-
-  async getOrders(): Promise<Order[]> {
-    return this.orderRepository.findByCustomerId(this.id);
-  }
+// CustomerLoader loads customers.
+type CustomerLoader interface {
+	Load(ctx context.Context, id string) (*Customer, error)
 }
 
-// Virtual Proxy
-class CustomerProxy implements Customer {
-  private realCustomer?: RealCustomer;
+// Order with lazy-loaded customer.
+type Order struct {
+	ID         string
+	CustomerID string
 
-  constructor(
-    public readonly id: string,
-    private readonly loader: (id: string) => Promise<RealCustomer>,
-  ) {}
-
-  private async ensureLoaded(): Promise<RealCustomer> {
-    if (!this.realCustomer) {
-      this.realCustomer = await this.loader(this.id);
-    }
-    return this.realCustomer;
-  }
-
-  get name(): string {
-    throw new Error('Use getNameAsync() for lazy loaded property');
-  }
-
-  async getNameAsync(): Promise<string> {
-    const customer = await this.ensureLoaded();
-    return customer.name;
-  }
-
-  get email(): string {
-    throw new Error('Use getEmailAsync() for lazy loaded property');
-  }
-
-  async getEmailAsync(): Promise<string> {
-    const customer = await this.ensureLoaded();
-    return customer.email;
-  }
-
-  async getOrders(): Promise<Order[]> {
-    const customer = await this.ensureLoaded();
-    return customer.getOrders();
-  }
+	customer       *Customer
+	customerOnce   sync.Once
+	customerLoader CustomerLoader
+	mu             sync.RWMutex
 }
 
-// Factory qui retourne proxy ou objet reel
-class CustomerFactory {
-  constructor(
-    private readonly repository: CustomerRepository,
-    private readonly eagerLoad: boolean = false,
-  ) {}
+// NewOrder creates a new order.
+func NewOrder(id, customerID string, loader CustomerLoader) *Order {
+	return &Order{
+		ID:             id,
+		CustomerID:     customerID,
+		customerLoader: loader,
+	}
+}
 
-  async create(id: string): Promise<Customer> {
-    if (this.eagerLoad) {
-      return this.repository.findById(id);
-    }
-    return new CustomerProxy(id, (id) => this.repository.findById(id));
-  }
+// GetCustomer returns the customer, loading it if necessary.
+func (o *Order) GetCustomer(ctx context.Context) (*Customer, error) {
+	var err error
+
+	o.customerOnce.Do(func() {
+		customer, loadErr := o.customerLoader.Load(ctx, o.CustomerID)
+		if loadErr != nil {
+			err = loadErr
+			return
+		}
+
+		o.mu.Lock()
+		o.customer = customer
+		o.mu.Unlock()
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("load customer: %w", err)
+	}
+
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	return o.customer, nil
 }
 ```
 
 ## Value Holder
 
-```typescript
-// Generic Value Holder
-class Lazy<T> {
-  private value?: T;
-  private loaded = false;
-  private loading?: Promise<T>;
-
-  constructor(private readonly loader: () => Promise<T>) {}
-
-  async get(): Promise<T> {
-    if (this.loaded) {
-      return this.value!;
-    }
-
-    // Eviter les chargements multiples concurrents
-    if (!this.loading) {
-      this.loading = this.loader().then((result) => {
-        this.value = result;
-        this.loaded = true;
-        this.loading = undefined;
-        return result;
-      });
-    }
-
-    return this.loading;
-  }
-
-  isLoaded(): boolean {
-    return this.loaded;
-  }
-
-  reset(): void {
-    this.value = undefined;
-    this.loaded = false;
-    this.loading = undefined;
-  }
+```go
+// Lazy is a generic value holder.
+type Lazy[T any] struct {
+	loader func(context.Context) (T, error)
+	value  T
+	loaded bool
+	mu     sync.RWMutex
+	once   sync.Once
+	err    error
 }
 
-// Usage dans une entite
-class Order {
-  public readonly customer: Lazy<Customer>;
-  public readonly items: Lazy<OrderItem[]>;
-
-  constructor(
-    public readonly id: string,
-    customerId: string,
-    private readonly loaders: {
-      customerLoader: (id: string) => Promise<Customer>;
-      itemsLoader: (orderId: string) => Promise<OrderItem[]>;
-    },
-  ) {
-    this.customer = new Lazy(() => loaders.customerLoader(customerId));
-    this.items = new Lazy(() => loaders.itemsLoader(this.id));
-  }
+// NewLazy creates a new lazy value.
+func NewLazy[T any](loader func(context.Context) (T, error)) *Lazy[T] {
+	return &Lazy[T]{
+		loader: loader,
+	}
 }
 
-// Usage
-const order = await orderRepository.findById('123');
-// Customer et items non charges
+// Get returns the value, loading it if necessary.
+func (l *Lazy[T]) Get(ctx context.Context) (T, error) {
+	l.once.Do(func() {
+		value, err := l.loader(ctx)
+		if err != nil {
+			l.err = err
+			return
+		}
 
-const customer = await order.customer.get(); // Charge maintenant
-const items = await order.items.get(); // Charge maintenant
-```
+		l.mu.Lock()
+		l.value = value
+		l.loaded = true
+		l.mu.Unlock()
+	})
 
-## Ghost
+	if l.err != nil {
+		var zero T
+		return zero, l.err
+	}
 
-```typescript
-// Ghost - Objet partiellement charge
-class ProductGhost {
-  private loaded = false;
-
-  // Proprietes toujours disponibles (ID)
-  constructor(public readonly id: string) {}
-
-  // Proprietes lazy
-  private _name?: string;
-  private _description?: string;
-  private _price?: Money;
-  private _stock?: number;
-
-  private async ensureLoaded(): Promise<void> {
-    if (!this.loaded) {
-      const data = await this.loader(this.id);
-      this._name = data.name;
-      this._description = data.description;
-      this._price = Money.of(data.price);
-      this._stock = data.stock;
-      this.loaded = true;
-    }
-  }
-
-  async getName(): Promise<string> {
-    await this.ensureLoaded();
-    return this._name!;
-  }
-
-  async getDescription(): Promise<string> {
-    await this.ensureLoaded();
-    return this._description!;
-  }
-
-  async getPrice(): Promise<Money> {
-    await this.ensureLoaded();
-    return this._price!;
-  }
-
-  async getStock(): Promise<number> {
-    await this.ensureLoaded();
-    return this._stock!;
-  }
-
-  private loader: (id: string) => Promise<ProductData>;
-
-  setLoader(loader: (id: string) => Promise<ProductData>): void {
-    this.loader = loader;
-  }
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.value, nil
 }
 
-// Mapper qui cree des ghosts
-class ProductMapper {
-  // Charge completement
-  async findById(id: string): Promise<Product> {
-    const row = await this.db.queryOne('SELECT * FROM products WHERE id = ?', [id]);
-    return this.toDomain(row);
-  }
+// IsLoaded returns true if the value has been loaded.
+func (l *Lazy[T]) IsLoaded() bool {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.loaded
+}
 
-  // Charge comme ghost (juste l'ID)
-  createGhost(id: string): ProductGhost {
-    const ghost = new ProductGhost(id);
-    ghost.setLoader(async (id) => {
-      const row = await this.db.queryOne('SELECT * FROM products WHERE id = ?', [id]);
-      return row;
-    });
-    return ghost;
-  }
+// Reset resets the lazy value.
+func (l *Lazy[T]) Reset() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var zero T
+	l.value = zero
+	l.loaded = false
+	l.err = nil
+	l.once = sync.Once{}
+}
+
+// OrderItem represents an order item.
+type OrderItem struct {
+	ID        string
+	ProductID string
+	Quantity  int
+}
+
+// OrderWithLazy uses lazy value holders.
+type OrderWithLazy struct {
+	ID         string
+	CustomerID string
+
+	customer *Lazy[*Customer]
+	items    *Lazy[[]*OrderItem]
+}
+
+// NewOrderWithLazy creates an order with lazy loading.
+func NewOrderWithLazy(
+	id, customerID string,
+	customerLoader func(context.Context, string) (*Customer, error),
+	itemsLoader func(context.Context, string) ([]*OrderItem, error),
+) *OrderWithLazy {
+	return &OrderWithLazy{
+		ID:         id,
+		CustomerID: customerID,
+		customer: NewLazy(func(ctx context.Context) (*Customer, error) {
+			return customerLoader(ctx, customerID)
+		}),
+		items: NewLazy(func(ctx context.Context) ([]*OrderItem, error) {
+			return itemsLoader(ctx, id)
+		}),
+	}
+}
+
+// GetCustomer returns the lazy-loaded customer.
+func (o *OrderWithLazy) GetCustomer(ctx context.Context) (*Customer, error) {
+	return o.customer.Get(ctx)
+}
+
+// GetItems returns the lazy-loaded items.
+func (o *OrderWithLazy) GetItems(ctx context.Context) ([]*OrderItem, error) {
+	return o.items.Get(ctx)
 }
 ```
 
-## Lazy Load avec TypeScript Decorators
+## Ghost Pattern
 
-```typescript
-// Decorator pour proprietes lazy
-function Lazy() {
-  return function (target: any, propertyKey: string) {
-    const privateKey = `_${propertyKey}`;
-    const loaderKey = `${propertyKey}Loader`;
+```go
+// ProductGhost is a partially loaded product.
+type ProductGhost struct {
+	id string
 
-    Object.defineProperty(target, propertyKey, {
-      get: async function () {
-        if (this[privateKey] === undefined) {
-          if (typeof this[loaderKey] !== 'function') {
-            throw new Error(`Loader ${loaderKey} not defined`);
-          }
-          this[privateKey] = await this[loaderKey]();
-        }
-        return this[privateKey];
-      },
-      enumerable: true,
-      configurable: true,
-    });
-  };
+	// Lazy-loaded properties
+	name        string
+	description string
+	price       float64
+	stock       int
+	loaded      bool
+
+	loader func(context.Context, string) (*ProductData, error)
+	once   sync.Once
+	mu     sync.RWMutex
+	err    error
 }
 
-class Order {
-  @Lazy()
-  customer!: Customer;
+// ProductData represents full product data.
+type ProductData struct {
+	Name        string
+	Description string
+	Price       float64
+	Stock       int
+}
 
-  private async customerLoader(): Promise<Customer> {
-    return this.customerRepo.findById(this.customerId);
-  }
+// NewProductGhost creates a new product ghost.
+func NewProductGhost(id string, loader func(context.Context, string) (*ProductData, error)) *ProductGhost {
+	return &ProductGhost{
+		id:     id,
+		loader: loader,
+	}
+}
+
+// GetID returns the product ID (always available).
+func (p *ProductGhost) GetID() string {
+	return p.id
+}
+
+func (p *ProductGhost) ensureLoaded(ctx context.Context) error {
+	p.once.Do(func() {
+		data, err := p.loader(ctx, p.id)
+		if err != nil {
+			p.err = err
+			return
+		}
+
+		p.mu.Lock()
+		p.name = data.Name
+		p.description = data.Description
+		p.price = data.Price
+		p.stock = data.Stock
+		p.loaded = true
+		p.mu.Unlock()
+	})
+
+	return p.err
+}
+
+// GetName returns the product name.
+func (p *ProductGhost) GetName(ctx context.Context) (string, error) {
+	if err := p.ensureLoaded(ctx); err != nil {
+		return "", err
+	}
+
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.name, nil
+}
+
+// GetDescription returns the product description.
+func (p *ProductGhost) GetDescription(ctx context.Context) (string, error) {
+	if err := p.ensureLoaded(ctx); err != nil {
+		return "", err
+	}
+
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.description, nil
+}
+
+// GetPrice returns the product price.
+func (p *ProductGhost) GetPrice(ctx context.Context) (float64, error) {
+	if err := p.ensureLoaded(ctx); err != nil {
+		return 0, err
+	}
+
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.price, nil
+}
+
+// GetStock returns the product stock.
+func (p *ProductGhost) GetStock(ctx context.Context) (int, error) {
+	if err := p.ensureLoaded(ctx); err != nil {
+		return 0, err
+	}
+
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.stock, nil
+}
+```
+
+## Batch Loading (DataLoader pattern)
+
+```go
+// BatchLoader implements the DataLoader pattern.
+type BatchLoader[K comparable, V any] struct {
+	loadFunc func(context.Context, []K) (map[K]V, error)
+	batch    map[K][]chan result[V]
+	mu       sync.Mutex
+	delay    time.Duration
+	timer    *time.Timer
+}
+
+type result[V any] struct {
+	value V
+	err   error
+}
+
+// NewBatchLoader creates a new batch loader.
+func NewBatchLoader[K comparable, V any](
+	loadFunc func(context.Context, []K) (map[K]V, error),
+	delay time.Duration,
+) *BatchLoader[K, V] {
+	return &BatchLoader[K, V]{
+		loadFunc: loadFunc,
+		batch:    make(map[K][]chan result[V]),
+		delay:    delay,
+	}
+}
+
+// Load loads a value by key.
+func (l *BatchLoader[K, V]) Load(ctx context.Context, key K) (V, error) {
+	resultCh := make(chan result[V], 1)
+
+	l.mu.Lock()
+	if l.batch[key] == nil {
+		l.batch[key] = []chan result[V]{}
+	}
+	l.batch[key] = append(l.batch[key], resultCh)
+
+	// Start timer if not already running
+	if l.timer == nil {
+		l.timer = time.AfterFunc(l.delay, func() {
+			l.executeBatch(ctx)
+		})
+	}
+	l.mu.Unlock()
+
+	// Wait for result
+	r := <-resultCh
+	return r.value, r.err
+}
+
+func (l *BatchLoader[K, V]) executeBatch(ctx context.Context) {
+	l.mu.Lock()
+	batch := l.batch
+	l.batch = make(map[K][]chan result[V])
+	l.timer = nil
+	l.mu.Unlock()
+
+	// Extract keys
+	keys := make([]K, 0, len(batch))
+	for key := range batch {
+		keys = append(keys, key)
+	}
+
+	// Load all values
+	values, err := l.loadFunc(ctx, keys)
+
+	// Distribute results
+	for key, channels := range batch {
+		var r result[V]
+		if err != nil {
+			r.err = err
+		} else if value, ok := values[key]; ok {
+			r.value = value
+		} else {
+			r.err = fmt.Errorf("key not found: %v", key)
+		}
+
+		for _, ch := range channels {
+			ch <- r
+		}
+	}
 }
 ```
 
@@ -327,62 +405,6 @@ class Order {
 - Donnees toujours necessaires (eager load)
 - N+1 queries problem (batch loading)
 - Contexte deconnecte (DTOs)
-
-## Probleme N+1 et solutions
-
-```typescript
-// PROBLEME: N+1 queries
-const orders = await orderRepo.findAll(); // 1 query
-for (const order of orders) {
-  const customer = await order.customer.get(); // N queries!
-}
-
-// SOLUTION 1: Eager loading
-const orders = await orderRepo.findAllWithCustomers(); // 1-2 queries
-
-// SOLUTION 2: Batch loading (DataLoader pattern)
-class CustomerDataLoader {
-  private batch: Map<string, Promise<Customer>[]> = new Map();
-
-  load(id: string): Promise<Customer> {
-    return new Promise((resolve) => {
-      if (!this.batch.has(id)) {
-        this.batch.set(id, []);
-      }
-      this.batch.get(id)!.push(resolve);
-
-      // Batch execute on next tick
-      setImmediate(() => this.executeBatch());
-    });
-  }
-
-  private async executeBatch() {
-    const ids = Array.from(this.batch.keys());
-    const customers = await this.customerRepo.findByIds(ids);
-
-    for (const customer of customers) {
-      const resolvers = this.batch.get(customer.id) || [];
-      resolvers.forEach((resolve) => resolve(customer));
-    }
-    this.batch.clear();
-  }
-}
-```
-
-## Relation avec DDD
-
-En DDD, Lazy Load s'applique aux **references entre Aggregates** :
-
-```typescript
-class Order /* Aggregate Root */ {
-  // Eager: Dans le meme aggregate
-  private items: OrderItem[];
-
-  // Lazy: Reference a un autre aggregate
-  private customerId: CustomerId;
-  private customer: Lazy<Customer>;
-}
-```
 
 ## Sources
 

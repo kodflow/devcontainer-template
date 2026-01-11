@@ -35,68 +35,97 @@ Pattern de gestion de ressources reutilisant des objets couteux au lieu de les r
 
 ---
 
-## Implementation TypeScript
+## Implementation Go
 
-```typescript
-interface Poolable {
-  reset(): void;
+```go
+package pool
+
+import (
+	"context"
+	"errors"
+	"sync"
+)
+
+var (
+	ErrPoolExhausted = errors.New("pool exhausted")
+	ErrNotFromPool   = errors.New("object not from this pool")
+)
+
+// Poolable defines objects that can be pooled.
+type Poolable interface {
+	Reset() error
 }
 
-class ObjectPool<T extends Poolable> {
-  private available: T[] = [];
-  private inUse = new Set<T>();
-  private readonly maxSize: number;
+// ObjectPool manages a pool of reusable objects.
+type ObjectPool[T Poolable] struct {
+	pool    *sync.Pool
+	inUse   map[*T]struct{}
+	maxSize int
+	mu      sync.Mutex
+}
 
-  constructor(
-    private factory: () => T,
-    private opts: { initialSize?: number; maxSize?: number } = {},
-  ) {
-    this.maxSize = opts.maxSize ?? Infinity;
-    const initial = opts.initialSize ?? 0;
+// New creates a new ObjectPool.
+func New[T Poolable](factory func() T, maxSize int) *ObjectPool[T] {
+	return &ObjectPool[T]{
+		pool: &sync.Pool{
+			New: func() any {
+				obj := factory()
+				return &obj
+			},
+		},
+		inUse:   make(map[*T]struct{}),
+		maxSize: maxSize,
+	}
+}
 
-    for (let i = 0; i < initial; i++) {
-      this.available.push(factory());
-    }
-  }
+// Acquire gets an object from the pool.
+func (op *ObjectPool[T]) Acquire(ctx context.Context) (*T, error) {
+	op.mu.Lock()
+	defer op.mu.Unlock()
 
-  acquire(): T {
-    let obj = this.available.pop();
+	if op.maxSize > 0 && len(op.inUse) >= op.maxSize {
+		return nil, ErrPoolExhausted
+	}
 
-    if (!obj) {
-      if (this.inUse.size >= this.maxSize) {
-        throw new Error('Pool exhausted');
-      }
-      obj = this.factory();
-    }
+	obj := op.pool.Get().(*T)
+	op.inUse[obj] = struct{}{}
+	return obj, nil
+}
 
-    this.inUse.add(obj);
-    return obj;
-  }
+// Release returns an object to the pool.
+func (op *ObjectPool[T]) Release(obj *T) error {
+	op.mu.Lock()
+	defer op.mu.Unlock()
 
-  release(obj: T): void {
-    if (!this.inUse.delete(obj)) {
-      throw new Error('Object not from this pool');
-    }
-    obj.reset();
-    this.available.push(obj);
-  }
+	if _, ok := op.inUse[obj]; !ok {
+		return ErrNotFromPool
+	}
 
-  async withObject<R>(fn: (obj: T) => Promise<R>): Promise<R> {
-    const obj = this.acquire();
-    try {
-      return await fn(obj);
-    } finally {
-      this.release(obj);
-    }
-  }
+	if err := (*obj).Reset(); err != nil {
+		delete(op.inUse, obj)
+		return err
+	}
 
-  get stats() {
-    return {
-      available: this.available.length,
-      inUse: this.inUse.size,
-      total: this.available.length + this.inUse.size,
-    };
-  }
+	delete(op.inUse, obj)
+	op.pool.Put(obj)
+	return nil
+}
+
+// WithObject executes a function with a pooled object.
+func (op *ObjectPool[T]) WithObject(ctx context.Context, fn func(*T) error) error {
+	obj, err := op.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer op.Release(obj)
+	return fn(obj)
+}
+
+// Stats returns pool statistics.
+func (op *ObjectPool[T]) Stats() (inUse, total int) {
+	op.mu.Lock()
+	defer op.mu.Unlock()
+	return len(op.inUse), len(op.inUse)
 }
 ```
 
@@ -104,40 +133,61 @@ class ObjectPool<T extends Poolable> {
 
 ## Exemple d'utilisation
 
-```typescript
-// Buffer reutilisable
-class ReusableBuffer implements Poolable {
-  private data: Uint8Array;
-  private position = 0;
+```go
+package main
 
-  constructor(size: number = 4096) {
-    this.data = new Uint8Array(size);
-  }
+import (
+	"context"
+	"fmt"
+)
 
-  write(bytes: Uint8Array): void {
-    this.data.set(bytes, this.position);
-    this.position += bytes.length;
-  }
-
-  reset(): void {
-    this.position = 0;
-    // Pas besoin d'effacer, juste reset position
-  }
+// ReusableBuffer is a poolable buffer.
+type ReusableBuffer struct {
+	data     []byte
+	position int
 }
 
-// Pool de buffers
-const bufferPool = new ObjectPool(
-  () => new ReusableBuffer(8192),
-  { initialSize: 10, maxSize: 100 },
-);
+// NewReusableBuffer creates a new reusable buffer.
+func NewReusableBuffer(size int) *ReusableBuffer {
+	return &ReusableBuffer{
+		data: make([]byte, size),
+	}
+}
 
-// Usage
-async function processRequest(data: Uint8Array) {
-  return bufferPool.withObject(async (buffer) => {
-    buffer.write(data);
-    // ... traitement
-    return result;
-  });
+// Write writes bytes to the buffer.
+func (rb *ReusableBuffer) Write(bytes []byte) error {
+	if rb.position+len(bytes) > len(rb.data) {
+		return fmt.Errorf("buffer overflow")
+	}
+	copy(rb.data[rb.position:], bytes)
+	rb.position += len(bytes)
+	return nil
+}
+
+// Reset resets the buffer for reuse.
+func (rb *ReusableBuffer) Reset() error {
+	rb.position = 0
+	return nil
+}
+
+// Usage example
+func main() {
+	bufferPool := pool.New(
+		func() *ReusableBuffer { return NewReusableBuffer(8192) },
+		100,
+	)
+
+	ctx := context.Background()
+
+	// Use buffer with automatic cleanup
+	err := bufferPool.WithObject(ctx, func(buffer *ReusableBuffer) error {
+		data := []byte("hello world")
+		return buffer.Write(data)
+	})
+
+	if err != nil {
+		panic(err)
+	}
 }
 ```
 
