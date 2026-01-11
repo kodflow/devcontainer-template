@@ -54,14 +54,16 @@ review_workflow:
     categories:
       - security: "*.go, *.py, *.js, *.ts (auth, crypto, input)"
       - quality: "All code files (complexity, style)"
+      - shell_safety: "*.sh, install.sh, Dockerfile (download, paths)"
       - tests: "*_test.*, *.test.*, *.spec.*"
-      - config: "*.yaml, *.json, *.toml, Dockerfile"
+      - config: "*.yaml, *.json, *.toml, mcp.json, Dockerfile"
 
   3_parallel_dispatch:
     action: "Launch sub-agents via Task tool"
     agents:
       - security-scanner (context: fork)
       - quality-checker (context: fork)
+      - shell-safety-checker (context: fork, if *.sh present)
     mode: "parallel"
 
   4_synthesize:
@@ -90,6 +92,32 @@ review_workflow:
 
 ## Minor Issues
 > Nice to have (max 5 shown)
+
+## Shell Safety Analysis (si *.sh présents)
+> Scripts shell et téléchargements
+
+### Download Safety
+| Check | File:Line | Status |
+|-------|-----------|--------|
+| Temp file usage | `install.sh:102` | ⚠ Missing mktemp |
+| Retry logic | `install.sh:102` | ⚠ No --retry |
+| TLS enforcement | `install.sh:102` | ⚠ No --proto |
+| Cleanup | `install.sh:112` | ✗ Missing rm -f |
+
+### Path Determinism
+| Config | Path Type | Recommendation |
+|--------|-----------|----------------|
+| mcp.json:grepai | Relative | Use /home/vscode/.local/bin/grepai |
+
+### Fallback Completeness
+| Binary | Fallback | Discoverable |
+|--------|----------|--------------|
+| grepai | go install | ⚠ Not copied to ~/.local/bin |
+
+### Input Resilience
+| Script | Handles Empty | Graceful Errors |
+|--------|---------------|-----------------|
+| post-compact.sh | ⚠ No | ⚠ set -e strict |
 
 ## Pattern Analysis
 > Design patterns assessment
@@ -145,9 +173,14 @@ This skill uses specialized agents via the Task tool:
     │       │     Tools: Codacy SRM, bandit, semgrep, trivy, gitleaks
     │       │     Focus: OWASP Top 10, secrets, injection, crypto
     │       │
-    │       └─→ quality-checker (parallel, context: fork)
-    │             Tools: Codacy issues, eslint, pylint, shellcheck
-    │             Focus: Complexity, duplication, style, dead code
+    │       ├─→ quality-checker (parallel, context: fork)
+    │       │     Tools: Codacy issues, eslint, pylint, shellcheck
+    │       │     Focus: Complexity, duplication, style, dead code
+    │       │
+    │       └─→ shell-safety-checker (parallel, context: fork, if *.sh)
+    │             Tools: shellcheck, grep patterns
+    │             Focus: Download safety, path determinism, input resilience
+    │             Axes: 6 behavioral checks (see shell_safety_axes)
     │
     └─→ Synthesized Report
 ```
@@ -163,6 +196,106 @@ Task:
     Diff: {diff_content}
     Return JSON only.
 ```
+
+## Shell Safety Checks (OBLIGATOIRE pour *.sh)
+
+Lors de review de scripts shell, appliquer ces axes comportementaux :
+
+```yaml
+shell_safety_axes:
+  1_download_safety:
+    description: "Sécurité téléchargements binaires"
+    checks:
+      - "Utilise fichier temporaire (mktemp)?"
+      - "curl avec --retry et --proto '=https'?"
+      - "Utilise 'install -m' au lieu de chmod?"
+      - "Supprime le fichier temp après usage?"
+    bad_pattern: |
+      curl -sL "$URL" -o "$DEST" && chmod +x "$DEST"
+    good_pattern: |
+      tmp="$(mktemp)"
+      if curl -fsL --retry 3 --proto '=https' "$URL" -o "$tmp"; then
+          install -m 0755 "$tmp" "$DEST"
+      fi
+      rm -f "$tmp"
+
+  2_download_robustness:
+    description: "Robustesse téléchargements scripts"
+    checks:
+      - "Track les échecs de download?"
+      - "Exit si échec critique?"
+      - "Évite silent failures (2>/dev/null seul)?"
+    bad_pattern: |
+      curl -sL "$URL" -o "$FILE" 2>/dev/null
+    good_pattern: |
+      if curl -fsL "$URL" -o "$FILE" 2>/dev/null; then
+          chmod +x "$FILE"
+      else
+          echo "⚠ Failed: $FILE" >&2
+          download_failed=1
+      fi
+
+  3_path_determinism:
+    description: "Chemins déterministes"
+    checks:
+      - "Configs MCP utilisent chemins absolus?"
+      - "Ne dépend pas de PATH pour binaires critiques?"
+    bad_pattern: |
+      "command": "grepai"
+    good_pattern: |
+      "command": "/home/vscode/.local/bin/grepai"
+
+  4_fallback_completeness:
+    description: "Fallbacks complets"
+    checks:
+      - "Fallback place binaire au bon endroit?"
+      - "Copie depuis GOBIN vers destination attendue?"
+    bad_pattern: |
+      go install github.com/foo/bar@latest
+    good_pattern: |
+      if go install github.com/foo/bar@latest; then
+          GOBIN_PATH="$(go env GOBIN 2>/dev/null || echo "$(go env GOPATH)/bin")"
+          [ -x "${GOBIN_PATH}/bar" ] && cp -f "${GOBIN_PATH}/bar" "$HOME/.local/bin/"
+      fi
+
+  5_input_resilience:
+    description: "Résilience entrées"
+    checks:
+      - "Gère entrée vide/malformée?"
+      - "Vérifie disponibilité jq?"
+      - "set -e avec handling graceful?"
+    bad_pattern: |
+      INPUT=$(cat)
+      SOURCE=$(echo "$INPUT" | jq -r '.source')
+    good_pattern: |
+      INPUT="$(cat || true)"
+      SOURCE=""
+      if command -v jq >/dev/null 2>&1; then
+          SOURCE="$(printf '%s' "$INPUT" | jq -r '.source // ""' 2>/dev/null || true)"
+      fi
+
+  6_url_validation:
+    description: "Validation URLs"
+    checks:
+      - "URL de release existe réellement?"
+      - "Fallback si binaire pré-compilé absent?"
+      - "Script d'installation officiel utilisé si dispo?"
+    warning: |
+      Vérifier que github.com/<repo>/releases publie réellement des binaires.
+      Sinon utiliser: go install ou script officiel.
+```
+
+**Intégration dans le workflow :**
+
+```yaml
+parallel_dispatch_enhanced:
+  agents:
+    - security-scanner
+    - quality-checker
+    - shell-safety-checker  # Nouveau pour *.sh
+```
+
+---
 
 ## Pattern Consultation (OBLIGATOIRE)
 
@@ -213,3 +346,35 @@ pattern_analysis:
 | Modify code directly | FORBIDDEN |
 | Post without user review | FORBIDDEN |
 | Skip pattern analysis | FORBIDDEN |
+| Skip shell safety for *.sh | FORBIDDEN |
+| Ignore download patterns | FORBIDDEN |
+| Accept relative paths in MCP config | FORBIDDEN |
+
+## Review Iteration Loop
+
+```yaml
+review_iteration:
+  description: |
+    Amélioration continue du workflow /review basée sur les
+    retours des bots (qodo, coderabbit, etc.)
+
+  process:
+    1_collect: "Collecter suggestions des bots après PR"
+    2_extract: "Extraire les COMPORTEMENTS (pas les fixes)"
+    3_categorize: "Ajouter à la catégorie appropriée"
+    4_document: "Enrichir shell_safety_axes ou pattern_consultation"
+    5_commit: "Commit l'amélioration du workflow"
+
+  categories:
+    - shell_safety_axes: "Comportements scripts shell"
+    - pattern_consultation: "Design patterns code"
+    - security_checks: "Vulnérabilités OWASP"
+    - quality_checks: "Complexité, style, tests"
+
+  example:
+    bot_suggestion: |
+      "Use temporary file to prevent partial writes"
+    extracted_behavior: |
+      "Downloads should use mktemp + cleanup"
+    added_to: "shell_safety_axes.1_download_safety"
+```

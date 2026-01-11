@@ -7,9 +7,14 @@
 
 set -euo pipefail
 
-# Read hook input
-INPUT=$(cat)
-SOURCE=$(echo "$INPUT" | jq -r '.source // ""')
+# Read hook input (best-effort, resilient to empty/malformed input)
+INPUT="$(cat || true)"
+
+# Parse source field (graceful if jq unavailable or input malformed)
+SOURCE=""
+if command -v jq >/dev/null 2>&1; then
+    SOURCE="$(printf '%s' "$INPUT" | jq -r '.source // ""' 2>/dev/null || true)"
+fi
 
 # Only act on compact events
 if [[ "$SOURCE" != "compact" ]]; then
