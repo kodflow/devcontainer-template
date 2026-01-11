@@ -24,32 +24,32 @@ package factory
 
 // Logger defines the logging interface.
 type Logger interface {
-	Log(message string)
+    Log(message string)
 }
 
 // LoggerFactory creates loggers.
 type LoggerFactory interface {
-	CreateLogger() Logger
+    CreateLogger() Logger
 }
 
 // ConsoleLogger logs to console.
 type ConsoleLogger struct{}
 
 func (c *ConsoleLogger) Log(message string) {
-	fmt.Println(message)
+    fmt.Println(message)
 }
 
 // ConsoleLoggerFactory creates console loggers.
 type ConsoleLoggerFactory struct{}
 
 func (f *ConsoleLoggerFactory) CreateLogger() Logger {
-	return &ConsoleLogger{}
+    return &ConsoleLogger{}
 }
 
 // Usage
 func LogMessage(factory LoggerFactory, message string) {
-	logger := factory.CreateLogger()
-	logger.Log(message)
+    logger := factory.CreateLogger()
+    logger.Log(message)
 }
 ```
 
@@ -68,18 +68,18 @@ package factory
 
 // Button defines button interface.
 type Button interface {
-	Render() string
+    Render() string
 }
 
 // Input defines input interface.
 type Input interface {
-	Render() string
+    Render() string
 }
 
 // UIFactory creates UI components.
 type UIFactory interface {
-	CreateButton() Button
-	CreateInput() Input
+    CreateButton() Button
+    CreateInput() Input
 }
 
 // MaterialButton is a material design button.
@@ -114,33 +114,33 @@ package builder
 
 // QueryBuilder builds SQL queries.
 type QueryBuilder struct {
-	columns []string
-	table   string
-	where   string
+    columns []string
+    table   string
+    where   string
 }
 
 func NewQueryBuilder() *QueryBuilder {
-	return &QueryBuilder{}
+    return &QueryBuilder{}
 }
 
 func (qb *QueryBuilder) Select(columns []string) *QueryBuilder {
-	qb.columns = columns
-	return qb
+    qb.columns = columns
+    return qb
 }
 
 func (qb *QueryBuilder) From(table string) *QueryBuilder {
-	qb.table = table
-	return qb
+    qb.table = table
+    return qb
 }
 
 func (qb *QueryBuilder) Where(condition string) *QueryBuilder {
-	qb.where = condition
-	return qb
+    qb.where = condition
+    return qb
 }
 
 func (qb *QueryBuilder) Build() string {
-	return fmt.Sprintf("SELECT %s FROM %s WHERE %s",
-		strings.Join(qb.columns, ", "), qb.table, qb.where)
+    return fmt.Sprintf("SELECT %s FROM %s WHERE %s",
+        strings.Join(qb.columns, ", "), qb.table, qb.where)
 }
 
 // Usage
@@ -164,28 +164,28 @@ package prototype
 
 // Prototype defines cloneable objects.
 type Prototype[T any] interface {
-	Clone() T
+    Clone() T
 }
 
 // Document is a cloneable document.
 type Document struct {
-	Title    string
-	Content  string
-	Metadata map[string]string
+    Title    string
+    Content  string
+    Metadata map[string]string
 }
 
 func (d *Document) Clone() *Document {
-	// Deep copy metadata
-	metaCopy := make(map[string]string, len(d.Metadata))
-	for k, v := range d.Metadata {
-		metaCopy[k] = v
-	}
+    // Deep copy metadata
+    metaCopy := make(map[string]string, len(d.Metadata))
+    for k, v := range d.Metadata {
+        metaCopy[k] = v
+    }
 
-	return &Document{
-		Title:    d.Title,
-		Content:  d.Content,
-		Metadata: metaCopy,
-	}
+    return &Document{
+        Title:    d.Title,
+        Content:  d.Content,
+        Metadata: metaCopy,
+    }
 }
 ```
 
@@ -206,15 +206,15 @@ import "sync"
 
 // Database represents a database connection.
 type Database struct {
-	connectionString string
+    connectionString string
 }
 
 // GetDB returns the singleton database instance.
 // sync.OnceValue (Go 1.21+) is type-safe and concise.
 var GetDB = sync.OnceValue(func() *Database {
-	return &Database{
-		connectionString: "postgres://localhost:5432/mydb",
-	}
+    return &Database{
+        connectionString: "postgres://localhost:5432/mydb",
+    }
 })
 
 // Usage

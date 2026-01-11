@@ -40,75 +40,75 @@ Le pattern Interpreter definit une grammaire pour un langage simple et utilise c
 package main
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
+    "fmt"
+    "strconv"
+    "strings"
 )
 
 // Context contient les variables globales.
 type Context struct {
-	Variables map[string]int
+    Variables map[string]int
 }
 
 func NewContext() *Context {
-	return &Context{Variables: make(map[string]int)}
+    return &Context{Variables: make(map[string]int)}
 }
 
 // Expression definit l'interface d'interpretation.
 type Expression interface {
-	Interpret(ctx *Context) int
+    Interpret(ctx *Context) int
 }
 
 // NumberExpression est une expression terminale.
 type NumberExpression struct {
-	value int
+    value int
 }
 
 func NewNumberExpression(v int) *NumberExpression {
-	return &NumberExpression{value: v}
+    return &NumberExpression{value: v}
 }
 
 func (n *NumberExpression) Interpret(ctx *Context) int {
-	return n.value
+    return n.value
 }
 
 // VariableExpression est une expression terminale.
 type VariableExpression struct {
-	name string
+    name string
 }
 
 func NewVariableExpression(name string) *VariableExpression {
-	return &VariableExpression{name: name}
+    return &VariableExpression{name: name}
 }
 
 func (v *VariableExpression) Interpret(ctx *Context) int {
-	return ctx.Variables[v.name]
+    return ctx.Variables[v.name]
 }
 
 // AddExpression est une expression non-terminale.
 type AddExpression struct {
-	left, right Expression
+    left, right Expression
 }
 
 func NewAddExpression(left, right Expression) *AddExpression {
-	return &AddExpression{left: left, right: right}
+    return &AddExpression{left: left, right: right}
 }
 
 func (a *AddExpression) Interpret(ctx *Context) int {
-	return a.left.Interpret(ctx) + a.right.Interpret(ctx)
+    return a.left.Interpret(ctx) + a.right.Interpret(ctx)
 }
 
 // SubtractExpression est une expression non-terminale.
 type SubtractExpression struct {
-	left, right Expression
+    left, right Expression
 }
 
 func NewSubtractExpression(left, right Expression) *SubtractExpression {
-	return &SubtractExpression{left: left, right: right}
+    return &SubtractExpression{left: left, right: right}
 }
 
 func (s *SubtractExpression) Interpret(ctx *Context) int {
-	return s.left.Interpret(ctx) - s.right.Interpret(ctx)
+    return s.left.Interpret(ctx) - s.right.Interpret(ctx)
 }
 
 // Usage:
@@ -126,25 +126,25 @@ func (s *SubtractExpression) Interpret(ctx *Context) int {
 package main
 
 import (
-	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
+    "fmt"
+    "regexp"
+    "strconv"
+    "strings"
 )
 
 // BoolContext contient les faits connus.
 type BoolContext struct {
-	Facts map[string]bool
+    Facts map[string]bool
 }
 
 func NewBoolContext() *BoolContext {
-	return &BoolContext{Facts: make(map[string]bool)}
+    return &BoolContext{Facts: make(map[string]bool)}
 }
 
 // BoolExpression definit une expression booleenne.
 type BoolExpression interface {
-	Interpret(ctx *BoolContext) bool
-	String() string
+    Interpret(ctx *BoolContext) bool
+    String() string
 }
 
 // TrueExpression est toujours vraie.
@@ -161,188 +161,188 @@ func (f *FalseExpression) String() string                  { return "FALSE" }
 
 // FactExpression verifie un fait.
 type FactExpression struct {
-	name string
+    name string
 }
 
 func NewFactExpression(name string) *FactExpression {
-	return &FactExpression{name: name}
+    return &FactExpression{name: name}
 }
 
 func (f *FactExpression) Interpret(ctx *BoolContext) bool {
-	return ctx.Facts[f.name]
+    return ctx.Facts[f.name]
 }
 
 func (f *FactExpression) String() string {
-	return f.name
+    return f.name
 }
 
 // AndExpression est un AND logique.
 type AndExpression struct {
-	left, right BoolExpression
+    left, right BoolExpression
 }
 
 func NewAndExpression(left, right BoolExpression) *AndExpression {
-	return &AndExpression{left: left, right: right}
+    return &AndExpression{left: left, right: right}
 }
 
 func (a *AndExpression) Interpret(ctx *BoolContext) bool {
-	return a.left.Interpret(ctx) && a.right.Interpret(ctx)
+    return a.left.Interpret(ctx) && a.right.Interpret(ctx)
 }
 
 func (a *AndExpression) String() string {
-	return fmt.Sprintf("(%s AND %s)", a.left.String(), a.right.String())
+    return fmt.Sprintf("(%s AND %s)", a.left.String(), a.right.String())
 }
 
 // OrExpression est un OR logique.
 type OrExpression struct {
-	left, right BoolExpression
+    left, right BoolExpression
 }
 
 func NewOrExpression(left, right BoolExpression) *OrExpression {
-	return &OrExpression{left: left, right: right}
+    return &OrExpression{left: left, right: right}
 }
 
 func (o *OrExpression) Interpret(ctx *BoolContext) bool {
-	return o.left.Interpret(ctx) || o.right.Interpret(ctx)
+    return o.left.Interpret(ctx) || o.right.Interpret(ctx)
 }
 
 func (o *OrExpression) String() string {
-	return fmt.Sprintf("(%s OR %s)", o.left.String(), o.right.String())
+    return fmt.Sprintf("(%s OR %s)", o.left.String(), o.right.String())
 }
 
 // NotExpression est un NOT logique.
 type NotExpression struct {
-	expr BoolExpression
+    expr BoolExpression
 }
 
 func NewNotExpression(expr BoolExpression) *NotExpression {
-	return &NotExpression{expr: expr}
+    return &NotExpression{expr: expr}
 }
 
 func (n *NotExpression) Interpret(ctx *BoolContext) bool {
-	return !n.expr.Interpret(ctx)
+    return !n.expr.Interpret(ctx)
 }
 
 func (n *NotExpression) String() string {
-	return fmt.Sprintf("NOT %s", n.expr.String())
+    return fmt.Sprintf("NOT %s", n.expr.String())
 }
 
 // RuleEngine applique des regles.
 type RuleEngine struct {
-	rules map[string]BoolExpression
+    rules map[string]BoolExpression
 }
 
 func NewRuleEngine() *RuleEngine {
-	return &RuleEngine{rules: make(map[string]BoolExpression)}
+    return &RuleEngine{rules: make(map[string]BoolExpression)}
 }
 
 func (r *RuleEngine) AddRule(name string, expr BoolExpression) {
-	r.rules[name] = expr
+    r.rules[name] = expr
 }
 
 func (r *RuleEngine) Evaluate(name string, ctx *BoolContext) bool {
-	if rule, ok := r.rules[name]; ok {
-		return rule.Interpret(ctx)
-	}
-	return false
+    if rule, ok := r.rules[name]; ok {
+        return rule.Interpret(ctx)
+    }
+    return false
 }
 
 func (r *RuleEngine) EvaluateAll(ctx *BoolContext) map[string]bool {
-	results := make(map[string]bool)
-	for name, rule := range r.rules {
-		results[name] = rule.Interpret(ctx)
-	}
-	return results
+    results := make(map[string]bool)
+    for name, rule := range r.rules {
+        results[name] = rule.Interpret(ctx)
+    }
+    return results
 }
 
 // Parser simple pour les expressions.
 func ParseSimple(expr string) BoolExpression {
-	expr = strings.TrimSpace(expr)
+    expr = strings.TrimSpace(expr)
 
-	// NOT
-	if strings.HasPrefix(expr, "NOT ") {
-		return NewNotExpression(ParseSimple(expr[4:]))
-	}
+    // NOT
+    if strings.HasPrefix(expr, "NOT ") {
+        return NewNotExpression(ParseSimple(expr[4:]))
+    }
 
-	// AND
-	if idx := strings.Index(expr, " AND "); idx > 0 {
-		return NewAndExpression(
-			ParseSimple(expr[:idx]),
-			ParseSimple(expr[idx+5:]),
-		)
-	}
+    // AND
+    if idx := strings.Index(expr, " AND "); idx > 0 {
+        return NewAndExpression(
+            ParseSimple(expr[:idx]),
+            ParseSimple(expr[idx+5:]),
+        )
+    }
 
-	// OR
-	if idx := strings.Index(expr, " OR "); idx > 0 {
-		return NewOrExpression(
-			ParseSimple(expr[:idx]),
-			ParseSimple(expr[idx+4:]),
-		)
-	}
+    // OR
+    if idx := strings.Index(expr, " OR "); idx > 0 {
+        return NewOrExpression(
+            ParseSimple(expr[:idx]),
+            ParseSimple(expr[idx+4:]),
+        )
+    }
 
-	// TRUE/FALSE
-	if expr == "TRUE" {
-		return &TrueExpression{}
-	}
-	if expr == "FALSE" {
-		return &FalseExpression{}
-	}
+    // TRUE/FALSE
+    if expr == "TRUE" {
+        return &TrueExpression{}
+    }
+    if expr == "FALSE" {
+        return &FalseExpression{}
+    }
 
-	// Fait
-	return NewFactExpression(expr)
+    // Fait
+    return NewFactExpression(expr)
 }
 
 func main() {
-	// Contexte avec des faits
-	ctx := NewBoolContext()
-	ctx.Facts["is_admin"] = true
-	ctx.Facts["is_logged_in"] = true
-	ctx.Facts["has_permission"] = false
-	ctx.Facts["is_owner"] = true
+    // Contexte avec des faits
+    ctx := NewBoolContext()
+    ctx.Facts["is_admin"] = true
+    ctx.Facts["is_logged_in"] = true
+    ctx.Facts["has_permission"] = false
+    ctx.Facts["is_owner"] = true
 
-	// Construire des regles
-	engine := NewRuleEngine()
+    // Construire des regles
+    engine := NewRuleEngine()
 
-	// Regle: peut editer si admin OU (connecte ET proprietaire)
-	canEdit := NewOrExpression(
-		NewFactExpression("is_admin"),
-		NewAndExpression(
-			NewFactExpression("is_logged_in"),
-			NewFactExpression("is_owner"),
-		),
-	)
-	engine.AddRule("can_edit", canEdit)
+    // Regle: peut editer si admin OU (connecte ET proprietaire)
+    canEdit := NewOrExpression(
+        NewFactExpression("is_admin"),
+        NewAndExpression(
+            NewFactExpression("is_logged_in"),
+            NewFactExpression("is_owner"),
+        ),
+    )
+    engine.AddRule("can_edit", canEdit)
 
-	// Regle: peut supprimer si admin ET a permission
-	canDelete := NewAndExpression(
-		NewFactExpression("is_admin"),
-		NewFactExpression("has_permission"),
-	)
-	engine.AddRule("can_delete", canDelete)
+    // Regle: peut supprimer si admin ET a permission
+    canDelete := NewAndExpression(
+        NewFactExpression("is_admin"),
+        NewFactExpression("has_permission"),
+    )
+    engine.AddRule("can_delete", canDelete)
 
-	// Regle: lecture publique
-	canRead := &TrueExpression{}
-	engine.AddRule("can_read", canRead)
+    // Regle: lecture publique
+    canRead := &TrueExpression{}
+    engine.AddRule("can_read", canRead)
 
-	// Evaluer les regles
-	fmt.Println("Rule Evaluation:")
-	results := engine.EvaluateAll(ctx)
-	for name, result := range results {
-		fmt.Printf("  %s: %v\n", name, result)
-	}
+    // Evaluer les regles
+    fmt.Println("Rule Evaluation:")
+    results := engine.EvaluateAll(ctx)
+    for name, result := range results {
+        fmt.Printf("  %s: %v\n", name, result)
+    }
 
-	// Parser une expression simple
-	fmt.Println("\nParsed Expression:")
-	parsed := ParseSimple("is_admin AND is_logged_in")
-	fmt.Printf("  %s = %v\n", parsed.String(), parsed.Interpret(ctx))
+    // Parser une expression simple
+    fmt.Println("\nParsed Expression:")
+    parsed := ParseSimple("is_admin AND is_logged_in")
+    fmt.Printf("  %s = %v\n", parsed.String(), parsed.Interpret(ctx))
 
-	// Output:
-	// Rule Evaluation:
-	//   can_edit: true
-	//   can_delete: false
-	//   can_read: true
-	// Parsed Expression:
-	//   (is_admin AND is_logged_in) = true
+    // Output:
+    // Rule Evaluation:
+    //   can_edit: true
+    //   can_delete: false
+    //   can_read: true
+    // Parsed Expression:
+    //   (is_admin AND is_logged_in) = true
 }
 ```
 
@@ -419,76 +419,76 @@ func main() {
 
 ```go
 func TestNumberExpression(t *testing.T) {
-	expr := NewNumberExpression(42)
-	ctx := NewContext()
+    expr := NewNumberExpression(42)
+    ctx := NewContext()
 
-	if expr.Interpret(ctx) != 42 {
-		t.Error("expected 42")
-	}
+    if expr.Interpret(ctx) != 42 {
+        t.Error("expected 42")
+    }
 }
 
 func TestVariableExpression(t *testing.T) {
-	ctx := NewContext()
-	ctx.Variables["x"] = 10
+    ctx := NewContext()
+    ctx.Variables["x"] = 10
 
-	expr := NewVariableExpression("x")
-	if expr.Interpret(ctx) != 10 {
-		t.Error("expected 10")
-	}
+    expr := NewVariableExpression("x")
+    if expr.Interpret(ctx) != 10 {
+        t.Error("expected 10")
+    }
 }
 
 func TestAddExpression(t *testing.T) {
-	ctx := NewContext()
-	expr := NewAddExpression(
-		NewNumberExpression(5),
-		NewNumberExpression(3),
-	)
+    ctx := NewContext()
+    expr := NewAddExpression(
+        NewNumberExpression(5),
+        NewNumberExpression(3),
+    )
 
-	if expr.Interpret(ctx) != 8 {
-		t.Error("expected 8")
-	}
+    if expr.Interpret(ctx) != 8 {
+        t.Error("expected 8")
+    }
 }
 
 func TestBoolAndExpression(t *testing.T) {
-	ctx := NewBoolContext()
-	ctx.Facts["a"] = true
-	ctx.Facts["b"] = false
+    ctx := NewBoolContext()
+    ctx.Facts["a"] = true
+    ctx.Facts["b"] = false
 
-	expr := NewAndExpression(
-		NewFactExpression("a"),
-		NewFactExpression("b"),
-	)
+    expr := NewAndExpression(
+        NewFactExpression("a"),
+        NewFactExpression("b"),
+    )
 
-	if expr.Interpret(ctx) != false {
-		t.Error("expected false (true AND false)")
-	}
+    if expr.Interpret(ctx) != false {
+        t.Error("expected false (true AND false)")
+    }
 }
 
 func TestBoolOrExpression(t *testing.T) {
-	ctx := NewBoolContext()
-	ctx.Facts["a"] = true
-	ctx.Facts["b"] = false
+    ctx := NewBoolContext()
+    ctx.Facts["a"] = true
+    ctx.Facts["b"] = false
 
-	expr := NewOrExpression(
-		NewFactExpression("a"),
-		NewFactExpression("b"),
-	)
+    expr := NewOrExpression(
+        NewFactExpression("a"),
+        NewFactExpression("b"),
+    )
 
-	if expr.Interpret(ctx) != true {
-		t.Error("expected true (true OR false)")
-	}
+    if expr.Interpret(ctx) != true {
+        t.Error("expected true (true OR false)")
+    }
 }
 
 func TestRuleEngine(t *testing.T) {
-	ctx := NewBoolContext()
-	ctx.Facts["is_admin"] = true
+    ctx := NewBoolContext()
+    ctx.Facts["is_admin"] = true
 
-	engine := NewRuleEngine()
-	engine.AddRule("test", NewFactExpression("is_admin"))
+    engine := NewRuleEngine()
+    engine.AddRule("test", NewFactExpression("is_admin"))
 
-	if !engine.Evaluate("test", ctx) {
-		t.Error("expected rule to pass")
-	}
+    if !engine.Evaluate("test", ctx) {
+        t.Error("expected rule to pass")
+    }
 }
 ```
 

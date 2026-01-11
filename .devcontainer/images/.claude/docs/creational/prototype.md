@@ -41,31 +41,31 @@ import "fmt"
 
 // Cloner definit l'interface de clonage.
 type Cloner interface {
-	Clone() Cloner
+    Clone() Cloner
 }
 
 // Document represente un document clonable.
 type Document struct {
-	Title    string
-	Content  string
-	Author   string
-	Metadata map[string]string
+    Title    string
+    Content  string
+    Author   string
+    Metadata map[string]string
 }
 
 // Clone cree une copie profonde du document.
 func (d *Document) Clone() Cloner {
-	// Copie profonde de la map
-	metaCopy := make(map[string]string, len(d.Metadata))
-	for k, v := range d.Metadata {
-		metaCopy[k] = v
-	}
+    // Copie profonde de la map
+    metaCopy := make(map[string]string, len(d.Metadata))
+    for k, v := range d.Metadata {
+        metaCopy[k] = v
+    }
 
-	return &Document{
-		Title:    d.Title,
-		Content:  d.Content,
-		Author:   d.Author,
-		Metadata: metaCopy,
-	}
+    return &Document{
+        Title:    d.Title,
+        Content:  d.Content,
+        Author:   d.Author,
+        Metadata: metaCopy,
+    }
 }
 
 // Usage:
@@ -82,93 +82,93 @@ func (d *Document) Clone() Cloner {
 package main
 
 import (
-	"encoding/json"
-	"fmt"
+    "encoding/json"
+    "fmt"
 )
 
 // Shape definit une forme clonable.
 type Shape interface {
-	Clone() Shape
-	GetInfo() string
+    Clone() Shape
+    GetInfo() string
 }
 
 // Rectangle implemente Shape.
 type Rectangle struct {
-	Width  float64
-	Height float64
-	Color  string
+    Width  float64
+    Height float64
+    Color  string
 }
 
 func (r *Rectangle) Clone() Shape {
-	return &Rectangle{
-		Width:  r.Width,
-		Height: r.Height,
-		Color:  r.Color,
-	}
+    return &Rectangle{
+        Width:  r.Width,
+        Height: r.Height,
+        Color:  r.Color,
+    }
 }
 
 func (r *Rectangle) GetInfo() string {
-	return fmt.Sprintf("Rectangle %.2fx%.2f (%s)", r.Width, r.Height, r.Color)
+    return fmt.Sprintf("Rectangle %.2fx%.2f (%s)", r.Width, r.Height, r.Color)
 }
 
 // Circle implemente Shape.
 type Circle struct {
-	Radius float64
-	Color  string
+    Radius float64
+    Color  string
 }
 
 func (c *Circle) Clone() Shape {
-	return &Circle{
-		Radius: c.Radius,
-		Color:  c.Color,
-	}
+    return &Circle{
+        Radius: c.Radius,
+        Color:  c.Color,
+    }
 }
 
 func (c *Circle) GetInfo() string {
-	return fmt.Sprintf("Circle r=%.2f (%s)", c.Radius, c.Color)
+    return fmt.Sprintf("Circle r=%.2f (%s)", c.Radius, c.Color)
 }
 
 // ShapeRegistry gere un cache de prototypes.
 type ShapeRegistry struct {
-	shapes map[string]Shape
+    shapes map[string]Shape
 }
 
 func NewShapeRegistry() *ShapeRegistry {
-	return &ShapeRegistry{
-		shapes: make(map[string]Shape),
-	}
+    return &ShapeRegistry{
+        shapes: make(map[string]Shape),
+    }
 }
 
 func (r *ShapeRegistry) Register(name string, shape Shape) {
-	r.shapes[name] = shape
+    r.shapes[name] = shape
 }
 
 func (r *ShapeRegistry) Get(name string) (Shape, bool) {
-	if shape, ok := r.shapes[name]; ok {
-		return shape.Clone(), true
-	}
-	return nil, false
+    if shape, ok := r.shapes[name]; ok {
+        return shape.Clone(), true
+    }
+    return nil, false
 }
 
 func main() {
-	// 1. Creer un registre de prototypes
-	registry := NewShapeRegistry()
+    // 1. Creer un registre de prototypes
+    registry := NewShapeRegistry()
 
-	// 2. Enregistrer des prototypes
-	registry.Register("red-rect", &Rectangle{Width: 10, Height: 5, Color: "red"})
-	registry.Register("blue-circle", &Circle{Radius: 3, Color: "blue"})
+    // 2. Enregistrer des prototypes
+    registry.Register("red-rect", &Rectangle{Width: 10, Height: 5, Color: "red"})
+    registry.Register("blue-circle", &Circle{Radius: 3, Color: "blue"})
 
-	// 3. Cloner depuis le registre
-	shape1, _ := registry.Get("red-rect")
-	shape2, _ := registry.Get("red-rect")
-	shape3, _ := registry.Get("blue-circle")
+    // 3. Cloner depuis le registre
+    shape1, _ := registry.Get("red-rect")
+    shape2, _ := registry.Get("red-rect")
+    shape3, _ := registry.Get("blue-circle")
 
-	// 4. Modifier les clones independamment
-	shape1.(*Rectangle).Width = 20
+    // 4. Modifier les clones independamment
+    shape1.(*Rectangle).Width = 20
 
-	fmt.Println(shape1.GetInfo()) // Rectangle 20.00x5.00 (red)
-	fmt.Println(shape2.GetInfo()) // Rectangle 10.00x5.00 (red) - original dimensions
-	fmt.Println(shape3.GetInfo()) // Circle r=3.00 (blue)
+    fmt.Println(shape1.GetInfo()) // Rectangle 20.00x5.00 (red)
+    fmt.Println(shape2.GetInfo()) // Rectangle 10.00x5.00 (red) - original dimensions
+    fmt.Println(shape3.GetInfo()) // Circle r=3.00 (blue)
 }
 ```
 
@@ -246,50 +246,50 @@ func main() {
 
 ```go
 func TestDocument_Clone(t *testing.T) {
-	original := &Document{
-		Title:    "Original",
-		Content:  "Content",
-		Author:   "Author",
-		Metadata: map[string]string{"key": "value"},
-	}
+    original := &Document{
+        Title:    "Original",
+        Content:  "Content",
+        Author:   "Author",
+        Metadata: map[string]string{"key": "value"},
+    }
 
-	clone := original.Clone().(*Document)
+    clone := original.Clone().(*Document)
 
-	// Verifier copie
-	if clone.Title != original.Title {
-		t.Errorf("expected %s, got %s", original.Title, clone.Title)
-	}
+    // Verifier copie
+    if clone.Title != original.Title {
+        t.Errorf("expected %s, got %s", original.Title, clone.Title)
+    }
 
-	// Verifier independance
-	clone.Title = "Modified"
-	clone.Metadata["key"] = "modified"
+    // Verifier independance
+    clone.Title = "Modified"
+    clone.Metadata["key"] = "modified"
 
-	if original.Title == clone.Title {
-		t.Error("clone should be independent")
-	}
-	if original.Metadata["key"] == clone.Metadata["key"] {
-		t.Error("metadata should be deep copied")
-	}
+    if original.Title == clone.Title {
+        t.Error("clone should be independent")
+    }
+    if original.Metadata["key"] == clone.Metadata["key"] {
+        t.Error("metadata should be deep copied")
+    }
 }
 
 func TestShapeRegistry(t *testing.T) {
-	registry := NewShapeRegistry()
-	registry.Register("test", &Rectangle{Width: 10, Height: 5, Color: "red"})
+    registry := NewShapeRegistry()
+    registry.Register("test", &Rectangle{Width: 10, Height: 5, Color: "red"})
 
-	shape1, ok1 := registry.Get("test")
-	shape2, ok2 := registry.Get("test")
+    shape1, ok1 := registry.Get("test")
+    shape2, ok2 := registry.Get("test")
 
-	if !ok1 || !ok2 {
-		t.Fatal("expected shapes from registry")
-	}
+    if !ok1 || !ok2 {
+        t.Fatal("expected shapes from registry")
+    }
 
-	// Modifier un clone
-	shape1.(*Rectangle).Width = 20
+    // Modifier un clone
+    shape1.(*Rectangle).Width = 20
 
-	// L'autre clone doit etre inchange
-	if shape2.(*Rectangle).Width != 10 {
-		t.Error("clones should be independent")
-	}
+    // L'autre clone doit etre inchange
+    if shape2.(*Rectangle).Width != 10 {
+        t.Error("clones should be independent")
+    }
 }
 ```
 

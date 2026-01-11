@@ -38,68 +38,68 @@ Le pattern Flyweight permet de stocker une seule instance des donnees repetitive
 package main
 
 import (
-	"fmt"
-	"sync"
+    "fmt"
+    "sync"
 )
 
 // TreeType est le flyweight (etat intrinseque partage).
 type TreeType struct {
-	Name    string
-	Color   string
-	Texture string
+    Name    string
+    Color   string
+    Texture string
 }
 
 func (t *TreeType) Draw(x, y int) {
-	fmt.Printf("Drawing %s tree at (%d, %d)\n", t.Name, x, y)
+    fmt.Printf("Drawing %s tree at (%d, %d)\n", t.Name, x, y)
 }
 
 // TreeFactory gere le cache de flyweights.
 type TreeFactory struct {
-	mu    sync.RWMutex
-	cache map[string]*TreeType
+    mu    sync.RWMutex
+    cache map[string]*TreeType
 }
 
 func NewTreeFactory() *TreeFactory {
-	return &TreeFactory{
-		cache: make(map[string]*TreeType),
-	}
+    return &TreeFactory{
+        cache: make(map[string]*TreeType),
+    }
 }
 
 func (f *TreeFactory) GetTreeType(name, color, texture string) *TreeType {
-	key := name + "_" + color + "_" + texture
+    key := name + "_" + color + "_" + texture
 
-	f.mu.RLock()
-	if tt, ok := f.cache[key]; ok {
-		f.mu.RUnlock()
-		return tt
-	}
-	f.mu.RUnlock()
+    f.mu.RLock()
+    if tt, ok := f.cache[key]; ok {
+        f.mu.RUnlock()
+        return tt
+    }
+    f.mu.RUnlock()
 
-	f.mu.Lock()
-	defer f.mu.Unlock()
+    f.mu.Lock()
+    defer f.mu.Unlock()
 
-	// Double-check
-	if tt, ok := f.cache[key]; ok {
-		return tt
-	}
+    // Double-check
+    if tt, ok := f.cache[key]; ok {
+        return tt
+    }
 
-	tt := &TreeType{Name: name, Color: color, Texture: texture}
-	f.cache[key] = tt
-	return tt
+    tt := &TreeType{Name: name, Color: color, Texture: texture}
+    f.cache[key] = tt
+    return tt
 }
 
 // Tree contient l'etat extrinseque (unique par instance).
 type Tree struct {
-	X, Y     int
-	TreeType *TreeType // flyweight partage
+    X, Y     int
+    TreeType *TreeType // flyweight partage
 }
 
 func NewTree(x, y int, treeType *TreeType) *Tree {
-	return &Tree{X: x, Y: y, TreeType: treeType}
+    return &Tree{X: x, Y: y, TreeType: treeType}
 }
 
 func (t *Tree) Draw() {
-	t.TreeType.Draw(t.X, t.Y)
+    t.TreeType.Draw(t.X, t.Y)
 }
 
 // Usage:
@@ -117,138 +117,138 @@ func (t *Tree) Draw() {
 package main
 
 import (
-	"fmt"
-	"sync"
+    "fmt"
+    "sync"
 )
 
 // CharacterStyle est le flyweight pour le formatage de texte.
 type CharacterStyle struct {
-	FontFamily string
-	FontSize   int
-	Bold       bool
-	Italic     bool
-	Color      string
+    FontFamily string
+    FontSize   int
+    Bold       bool
+    Italic     bool
+    Color      string
 }
 
 func (s *CharacterStyle) String() string {
-	return fmt.Sprintf("%s-%d-%v-%v-%s", s.FontFamily, s.FontSize, s.Bold, s.Italic, s.Color)
+    return fmt.Sprintf("%s-%d-%v-%v-%s", s.FontFamily, s.FontSize, s.Bold, s.Italic, s.Color)
 }
 
 // StyleFactory gere le cache de styles.
 type StyleFactory struct {
-	mu     sync.RWMutex
-	styles map[string]*CharacterStyle
+    mu     sync.RWMutex
+    styles map[string]*CharacterStyle
 }
 
 func NewStyleFactory() *StyleFactory {
-	return &StyleFactory{
-		styles: make(map[string]*CharacterStyle),
-	}
+    return &StyleFactory{
+        styles: make(map[string]*CharacterStyle),
+    }
 }
 
 func (f *StyleFactory) GetStyle(family string, size int, bold, italic bool, color string) *CharacterStyle {
-	key := fmt.Sprintf("%s-%d-%v-%v-%s", family, size, bold, italic, color)
+    key := fmt.Sprintf("%s-%d-%v-%v-%s", family, size, bold, italic, color)
 
-	f.mu.RLock()
-	if style, ok := f.styles[key]; ok {
-		f.mu.RUnlock()
-		return style
-	}
-	f.mu.RUnlock()
+    f.mu.RLock()
+    if style, ok := f.styles[key]; ok {
+        f.mu.RUnlock()
+        return style
+    }
+    f.mu.RUnlock()
 
-	f.mu.Lock()
-	defer f.mu.Unlock()
+    f.mu.Lock()
+    defer f.mu.Unlock()
 
-	if style, ok := f.styles[key]; ok {
-		return style
-	}
+    if style, ok := f.styles[key]; ok {
+        return style
+    }
 
-	style := &CharacterStyle{
-		FontFamily: family,
-		FontSize:   size,
-		Bold:       bold,
-		Italic:     italic,
-		Color:      color,
-	}
-	f.styles[key] = style
-	return style
+    style := &CharacterStyle{
+        FontFamily: family,
+        FontSize:   size,
+        Bold:       bold,
+        Italic:     italic,
+        Color:      color,
+    }
+    f.styles[key] = style
+    return style
 }
 
 func (f *StyleFactory) Count() int {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-	return len(f.styles)
+    f.mu.RLock()
+    defer f.mu.RUnlock()
+    return len(f.styles)
 }
 
 // Character represente un caractere avec son style (etat extrinseque: rune, position).
 type Character struct {
-	Char     rune
-	Position int
-	Style    *CharacterStyle // flyweight
+    Char     rune
+    Position int
+    Style    *CharacterStyle // flyweight
 }
 
 // Document utilise les flyweights.
 type Document struct {
-	characters []*Character
-	factory    *StyleFactory
+    characters []*Character
+    factory    *StyleFactory
 }
 
 func NewDocument(factory *StyleFactory) *Document {
-	return &Document{
-		characters: make([]*Character, 0),
-		factory:    factory,
-	}
+    return &Document{
+        characters: make([]*Character, 0),
+        factory:    factory,
+    }
 }
 
 func (d *Document) AddCharacter(char rune, family string, size int, bold, italic bool, color string) {
-	style := d.factory.GetStyle(family, size, bold, italic, color)
-	position := len(d.characters)
-	d.characters = append(d.characters, &Character{
-		Char:     char,
-		Position: position,
-		Style:    style,
-	})
+    style := d.factory.GetStyle(family, size, bold, italic, color)
+    position := len(d.characters)
+    d.characters = append(d.characters, &Character{
+        Char:     char,
+        Position: position,
+        Style:    style,
+    })
 }
 
 func (d *Document) Render() {
-	for _, c := range d.characters {
-		fmt.Printf("%c", c.Char)
-	}
-	fmt.Println()
+    for _, c := range d.characters {
+        fmt.Printf("%c", c.Char)
+    }
+    fmt.Println()
 }
 
 func (d *Document) Stats() {
-	fmt.Printf("Characters: %d, Unique styles: %d\n", len(d.characters), d.factory.Count())
+    fmt.Printf("Characters: %d, Unique styles: %d\n", len(d.characters), d.factory.Count())
 }
 
 func main() {
-	factory := NewStyleFactory()
-	doc := NewDocument(factory)
+    factory := NewStyleFactory()
+    doc := NewDocument(factory)
 
-	// Ajouter du texte avec differents styles
-	text := "Hello, World!"
-	for i, char := range text {
-		if i < 6 {
-			// "Hello," en bold
-			doc.AddCharacter(char, "Arial", 12, true, false, "black")
-		} else {
-			// " World!" en normal
-			doc.AddCharacter(char, "Arial", 12, false, false, "black")
-		}
-	}
+    // Ajouter du texte avec differents styles
+    text := "Hello, World!"
+    for i, char := range text {
+        if i < 6 {
+            // "Hello," en bold
+            doc.AddCharacter(char, "Arial", 12, true, false, "black")
+        } else {
+            // " World!" en normal
+            doc.AddCharacter(char, "Arial", 12, false, false, "black")
+        }
+    }
 
-	// Ajouter plus de texte
-	for _, char := range " This is a test." {
-		doc.AddCharacter(char, "Arial", 12, false, false, "black")
-	}
+    // Ajouter plus de texte
+    for _, char := range " This is a test." {
+        doc.AddCharacter(char, "Arial", 12, false, false, "black")
+    }
 
-	doc.Render()
-	doc.Stats()
+    doc.Render()
+    doc.Stats()
 
-	// Output:
-	// Hello, World! This is a test.
-	// Characters: 29, Unique styles: 2
-	// (Seulement 2 styles partages pour 29 caracteres!)
+    // Output:
+    // Hello, World! This is a test.
+    // Characters: 29, Unique styles: 2
+    // (Seulement 2 styles partages pour 29 caracteres!)
 }
 ```
 
@@ -326,47 +326,47 @@ func main() {
 
 ```go
 func TestTreeFactory_SharedInstance(t *testing.T) {
-	factory := NewTreeFactory()
+    factory := NewTreeFactory()
 
-	oak1 := factory.GetTreeType("Oak", "green", "bark.png")
-	oak2 := factory.GetTreeType("Oak", "green", "bark.png")
+    oak1 := factory.GetTreeType("Oak", "green", "bark.png")
+    oak2 := factory.GetTreeType("Oak", "green", "bark.png")
 
-	if oak1 != oak2 {
-		t.Error("expected same instance for identical parameters")
-	}
+    if oak1 != oak2 {
+        t.Error("expected same instance for identical parameters")
+    }
 }
 
 func TestTreeFactory_DifferentInstances(t *testing.T) {
-	factory := NewTreeFactory()
+    factory := NewTreeFactory()
 
-	oak := factory.GetTreeType("Oak", "green", "bark.png")
-	pine := factory.GetTreeType("Pine", "green", "pine.png")
+    oak := factory.GetTreeType("Oak", "green", "bark.png")
+    pine := factory.GetTreeType("Pine", "green", "pine.png")
 
-	if oak == pine {
-		t.Error("expected different instances for different parameters")
-	}
+    if oak == pine {
+        t.Error("expected different instances for different parameters")
+    }
 }
 
 func TestStyleFactory_Count(t *testing.T) {
-	factory := NewStyleFactory()
+    factory := NewStyleFactory()
 
-	factory.GetStyle("Arial", 12, false, false, "black")
-	factory.GetStyle("Arial", 12, false, false, "black") // duplicate
-	factory.GetStyle("Arial", 14, false, false, "black") // different size
+    factory.GetStyle("Arial", 12, false, false, "black")
+    factory.GetStyle("Arial", 12, false, false, "black") // duplicate
+    factory.GetStyle("Arial", 14, false, false, "black") // different size
 
-	if factory.Count() != 2 {
-		t.Errorf("expected 2 unique styles, got %d", factory.Count())
-	}
+    if factory.Count() != 2 {
+        t.Errorf("expected 2 unique styles, got %d", factory.Count())
+    }
 }
 
 func BenchmarkWithFlyweight(b *testing.B) {
-	factory := NewStyleFactory()
-	doc := NewDocument(factory)
+    factory := NewStyleFactory()
+    doc := NewDocument(factory)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		doc.AddCharacter('a', "Arial", 12, false, false, "black")
-	}
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        doc.AddCharacter('a', "Arial", 12, false, false, "black")
+    }
 }
 ```
 

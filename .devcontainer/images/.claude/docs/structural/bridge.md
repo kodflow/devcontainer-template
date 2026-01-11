@@ -39,48 +39,48 @@ import "fmt"
 
 // Implementor definit l'interface d'implementation.
 type Renderer interface {
-	RenderCircle(radius float64)
-	RenderSquare(side float64)
+    RenderCircle(radius float64)
+    RenderSquare(side float64)
 }
 
 // Abstraction definit l'interface de haut niveau.
 type Shape interface {
-	Draw()
+    Draw()
 }
 
 // Circle est une abstraction raffinee.
 type Circle struct {
-	renderer Renderer
-	radius   float64
+    renderer Renderer
+    radius   float64
 }
 
 func NewCircle(renderer Renderer, radius float64) *Circle {
-	return &Circle{renderer: renderer, radius: radius}
+    return &Circle{renderer: renderer, radius: radius}
 }
 
 func (c *Circle) Draw() {
-	c.renderer.RenderCircle(c.radius)
+    c.renderer.RenderCircle(c.radius)
 }
 
 // Implementations concretes
 type VectorRenderer struct{}
 
 func (v *VectorRenderer) RenderCircle(radius float64) {
-	fmt.Printf("Drawing circle with radius %.2f as vectors\n", radius)
+    fmt.Printf("Drawing circle with radius %.2f as vectors\n", radius)
 }
 
 func (v *VectorRenderer) RenderSquare(side float64) {
-	fmt.Printf("Drawing square with side %.2f as vectors\n", side)
+    fmt.Printf("Drawing square with side %.2f as vectors\n", side)
 }
 
 type RasterRenderer struct{}
 
 func (r *RasterRenderer) RenderCircle(radius float64) {
-	fmt.Printf("Drawing circle with radius %.2f as pixels\n", radius)
+    fmt.Printf("Drawing circle with radius %.2f as pixels\n", radius)
 }
 
 func (r *RasterRenderer) RenderSquare(side float64) {
-	fmt.Printf("Drawing square with side %.2f as pixels\n", side)
+    fmt.Printf("Drawing square with side %.2f as pixels\n", side)
 }
 
 // Usage:
@@ -97,114 +97,114 @@ func (r *RasterRenderer) RenderSquare(side float64) {
 package main
 
 import (
-	"fmt"
-	"io"
-	"os"
+    "fmt"
+    "io"
+    "os"
 )
 
 // MessageSender est l'Implementor.
 type MessageSender interface {
-	Send(message string) error
+    Send(message string) error
 }
 
 // Message est l'Abstraction.
 type Message struct {
-	sender  MessageSender
-	content string
+    sender  MessageSender
+    content string
 }
 
 func NewMessage(sender MessageSender, content string) *Message {
-	return &Message{sender: sender, content: content}
+    return &Message{sender: sender, content: content}
 }
 
 func (m *Message) Send() error {
-	return m.sender.Send(m.content)
+    return m.sender.Send(m.content)
 }
 
 // UrgentMessage est une abstraction raffinee.
 type UrgentMessage struct {
-	*Message
-	priority int
+    *Message
+    priority int
 }
 
 func NewUrgentMessage(sender MessageSender, content string, priority int) *UrgentMessage {
-	return &UrgentMessage{
-		Message:  NewMessage(sender, content),
-		priority: priority,
-	}
+    return &UrgentMessage{
+        Message:  NewMessage(sender, content),
+        priority: priority,
+    }
 }
 
 func (u *UrgentMessage) Send() error {
-	urgentContent := fmt.Sprintf("[URGENT P%d] %s", u.priority, u.content)
-	return u.sender.Send(urgentContent)
+    urgentContent := fmt.Sprintf("[URGENT P%d] %s", u.priority, u.content)
+    return u.sender.Send(urgentContent)
 }
 
 // EmailSender est une implementation concrete.
 type EmailSender struct {
-	to   string
-	from string
+    to   string
+    from string
 }
 
 func NewEmailSender(from, to string) *EmailSender {
-	return &EmailSender{from: from, to: to}
+    return &EmailSender{from: from, to: to}
 }
 
 func (e *EmailSender) Send(message string) error {
-	fmt.Printf("Email from %s to %s: %s\n", e.from, e.to, message)
-	return nil
+    fmt.Printf("Email from %s to %s: %s\n", e.from, e.to, message)
+    return nil
 }
 
 // SMSSender est une implementation concrete.
 type SMSSender struct {
-	phone string
+    phone string
 }
 
 func NewSMSSender(phone string) *SMSSender {
-	return &SMSSender{phone: phone}
+    return &SMSSender{phone: phone}
 }
 
 func (s *SMSSender) Send(message string) error {
-	fmt.Printf("SMS to %s: %s\n", s.phone, message)
-	return nil
+    fmt.Printf("SMS to %s: %s\n", s.phone, message)
+    return nil
 }
 
 // SlackSender est une implementation concrete.
 type SlackSender struct {
-	channel string
-	webhook string
+    channel string
+    webhook string
 }
 
 func NewSlackSender(channel, webhook string) *SlackSender {
-	return &SlackSender{channel: channel, webhook: webhook}
+    return &SlackSender{channel: channel, webhook: webhook}
 }
 
 func (s *SlackSender) Send(message string) error {
-	fmt.Printf("Slack #%s: %s\n", s.channel, message)
-	return nil
+    fmt.Printf("Slack #%s: %s\n", s.channel, message)
+    return nil
 }
 
 func main() {
-	// Combiner differentes abstractions avec implementations
-	emailSender := NewEmailSender("system@example.com", "user@example.com")
-	smsSender := NewSMSSender("+1234567890")
-	slackSender := NewSlackSender("alerts", "https://hooks.slack.com/...")
+    // Combiner differentes abstractions avec implementations
+    emailSender := NewEmailSender("system@example.com", "user@example.com")
+    smsSender := NewSMSSender("+1234567890")
+    slackSender := NewSlackSender("alerts", "https://hooks.slack.com/...")
 
-	// Message normal via email
-	msg1 := NewMessage(emailSender, "Your report is ready")
-	msg1.Send()
+    // Message normal via email
+    msg1 := NewMessage(emailSender, "Your report is ready")
+    msg1.Send()
 
-	// Message urgent via SMS
-	msg2 := NewUrgentMessage(smsSender, "Server is down!", 1)
-	msg2.Send()
+    // Message urgent via SMS
+    msg2 := NewUrgentMessage(smsSender, "Server is down!", 1)
+    msg2.Send()
 
-	// Message normal via Slack
-	msg3 := NewMessage(slackSender, "Deployment completed")
-	msg3.Send()
+    // Message normal via Slack
+    msg3 := NewMessage(slackSender, "Deployment completed")
+    msg3.Send()
 
-	// Output:
-	// Email from system@example.com to user@example.com: Your report is ready
-	// SMS to +1234567890: [URGENT P1] Server is down!
-	// Slack #alerts: Deployment completed
+    // Output:
+    // Email from system@example.com to user@example.com: Your report is ready
+    // SMS to +1234567890: [URGENT P1] Server is down!
+    // Slack #alerts: Deployment completed
 }
 ```
 
@@ -281,39 +281,39 @@ func main() {
 
 ```go
 func TestMessage_Send(t *testing.T) {
-	sender := NewEmailSender("from@test.com", "to@test.com")
-	msg := NewMessage(sender, "Hello")
+    sender := NewEmailSender("from@test.com", "to@test.com")
+    msg := NewMessage(sender, "Hello")
 
-	err := msg.Send()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+    err := msg.Send()
+    if err != nil {
+        t.Errorf("unexpected error: %v", err)
+    }
 }
 
 func TestUrgentMessage_Send(t *testing.T) {
-	sender := NewSMSSender("+1234567890")
-	msg := NewUrgentMessage(sender, "Alert", 1)
+    sender := NewSMSSender("+1234567890")
+    msg := NewUrgentMessage(sender, "Alert", 1)
 
-	err := msg.Send()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+    err := msg.Send()
+    if err != nil {
+        t.Errorf("unexpected error: %v", err)
+    }
 }
 
 func TestBridge_SwitchImplementation(t *testing.T) {
-	email := NewEmailSender("a@b.com", "c@d.com")
-	sms := NewSMSSender("+1234567890")
+    email := NewEmailSender("a@b.com", "c@d.com")
+    sms := NewSMSSender("+1234567890")
 
-	// Meme abstraction, implementations differentes
-	msg1 := NewMessage(email, "Test")
-	msg2 := NewMessage(sms, "Test")
+    // Meme abstraction, implementations differentes
+    msg1 := NewMessage(email, "Test")
+    msg2 := NewMessage(sms, "Test")
 
-	if err := msg1.Send(); err != nil {
-		t.Error(err)
-	}
-	if err := msg2.Send(); err != nil {
-		t.Error(err)
-	}
+    if err := msg1.Send(); err != nil {
+        t.Error(err)
+    }
+    if err := msg2.Send(); err != nil {
+        t.Error(err)
+    }
 }
 ```
 

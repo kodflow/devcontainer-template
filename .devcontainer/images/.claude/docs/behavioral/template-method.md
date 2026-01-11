@@ -46,65 +46,65 @@ import "fmt"
 
 // DataMiner definit le template.
 type DataMiner interface {
-	Mine(path string)
-	// Methodes a implementer
-	OpenFile(path string)
-	ExtractData()
-	ParseData()
-	AnalyzeData()
-	SendReport()
-	CloseFile()
+    Mine(path string)
+    // Methodes a implementer
+    OpenFile(path string)
+    ExtractData()
+    ParseData()
+    AnalyzeData()
+    SendReport()
+    CloseFile()
 }
 
 // BaseDataMiner fournit l'implementation du template.
 type BaseDataMiner struct {
-	DataMiner
+    DataMiner
 }
 
 // Mine est la methode template.
 func (b *BaseDataMiner) Mine(path string) {
-	b.OpenFile(path)
-	b.ExtractData()
-	b.ParseData()
-	b.AnalyzeData()
-	b.SendReport()
-	b.CloseFile()
+    b.OpenFile(path)
+    b.ExtractData()
+    b.ParseData()
+    b.AnalyzeData()
+    b.SendReport()
+    b.CloseFile()
 }
 
 // Implementations par defaut (hooks)
 func (b *BaseDataMiner) AnalyzeData() {
-	fmt.Println("Default analysis...")
+    fmt.Println("Default analysis...")
 }
 
 func (b *BaseDataMiner) SendReport() {
-	fmt.Println("Sending report via email...")
+    fmt.Println("Sending report via email...")
 }
 
 // PDFDataMiner implemente les etapes specifiques.
 type PDFDataMiner struct {
-	BaseDataMiner
+    BaseDataMiner
 }
 
 func NewPDFDataMiner() *PDFDataMiner {
-	m := &PDFDataMiner{}
-	m.DataMiner = m
-	return m
+    m := &PDFDataMiner{}
+    m.DataMiner = m
+    return m
 }
 
 func (p *PDFDataMiner) OpenFile(path string) {
-	fmt.Printf("Opening PDF: %s\n", path)
+    fmt.Printf("Opening PDF: %s\n", path)
 }
 
 func (p *PDFDataMiner) ExtractData() {
-	fmt.Println("Extracting text from PDF...")
+    fmt.Println("Extracting text from PDF...")
 }
 
 func (p *PDFDataMiner) ParseData() {
-	fmt.Println("Parsing PDF structure...")
+    fmt.Println("Parsing PDF structure...")
 }
 
 func (p *PDFDataMiner) CloseFile() {
-	fmt.Println("Closing PDF")
+    fmt.Println("Closing PDF")
 }
 ```
 
@@ -116,198 +116,198 @@ func (p *PDFDataMiner) CloseFile() {
 package main
 
 import (
-	"fmt"
-	"strings"
+    "fmt"
+    "strings"
 )
 
 // GameAI definit le template pour l'IA du jeu.
 type GameAI interface {
-	Turn()
-	// Etapes abstraites
-	CollectResources()
-	BuildStructures()
-	BuildUnits()
-	Attack()
-	// Hook
-	CanAttack() bool
+    Turn()
+    // Etapes abstraites
+    CollectResources()
+    BuildStructures()
+    BuildUnits()
+    Attack()
+    // Hook
+    CanAttack() bool
 }
 
 // BaseGameAI fournit le template.
 type BaseGameAI struct {
-	name string
-	GameAI
+    name string
+    GameAI
 }
 
 func (b *BaseGameAI) Turn() {
-	fmt.Printf("\n=== %s's Turn ===\n", b.name)
-	b.CollectResources()
-	b.BuildStructures()
-	b.BuildUnits()
-	if b.CanAttack() {
-		b.Attack()
-	} else {
-		fmt.Println("Not ready to attack yet")
-	}
+    fmt.Printf("\n=== %s's Turn ===\n", b.name)
+    b.CollectResources()
+    b.BuildStructures()
+    b.BuildUnits()
+    if b.CanAttack() {
+        b.Attack()
+    } else {
+        fmt.Println("Not ready to attack yet")
+    }
 }
 
 // Hook par defaut
 func (b *BaseGameAI) CanAttack() bool {
-	return true
+    return true
 }
 
 // OrcsAI implemente une strategie agressive.
 type OrcsAI struct {
-	BaseGameAI
-	warriors int
+    BaseGameAI
+    warriors int
 }
 
 func NewOrcsAI() *OrcsAI {
-	ai := &OrcsAI{warriors: 0}
-	ai.name = "Orcs"
-	ai.GameAI = ai
-	return ai
+    ai := &OrcsAI{warriors: 0}
+    ai.name = "Orcs"
+    ai.GameAI = ai
+    return ai
 }
 
 func (o *OrcsAI) CollectResources() {
-	fmt.Println("Orcs: Pillaging nearby villages for gold")
+    fmt.Println("Orcs: Pillaging nearby villages for gold")
 }
 
 func (o *OrcsAI) BuildStructures() {
-	fmt.Println("Orcs: Building war camps")
+    fmt.Println("Orcs: Building war camps")
 }
 
 func (o *OrcsAI) BuildUnits() {
-	o.warriors += 5
-	fmt.Printf("Orcs: Training warriors (total: %d)\n", o.warriors)
+    o.warriors += 5
+    fmt.Printf("Orcs: Training warriors (total: %d)\n", o.warriors)
 }
 
 func (o *OrcsAI) Attack() {
-	fmt.Println("Orcs: WAAAGH! Charging with all warriors!")
+    fmt.Println("Orcs: WAAAGH! Charging with all warriors!")
 }
 
 func (o *OrcsAI) CanAttack() bool {
-	return o.warriors >= 10
+    return o.warriors >= 10
 }
 
 // HumansAI implemente une strategie defensive.
 type HumansAI struct {
-	BaseGameAI
-	knights int
-	walls   int
+    BaseGameAI
+    knights int
+    walls   int
 }
 
 func NewHumansAI() *HumansAI {
-	ai := &HumansAI{knights: 0, walls: 0}
-	ai.name = "Humans"
-	ai.GameAI = ai
-	return ai
+    ai := &HumansAI{knights: 0, walls: 0}
+    ai.name = "Humans"
+    ai.GameAI = ai
+    return ai
 }
 
 func (h *HumansAI) CollectResources() {
-	fmt.Println("Humans: Farming and mining")
+    fmt.Println("Humans: Farming and mining")
 }
 
 func (h *HumansAI) BuildStructures() {
-	h.walls++
-	fmt.Printf("Humans: Building walls (level: %d)\n", h.walls)
+    h.walls++
+    fmt.Printf("Humans: Building walls (level: %d)\n", h.walls)
 }
 
 func (h *HumansAI) BuildUnits() {
-	h.knights += 2
-	fmt.Printf("Humans: Training knights (total: %d)\n", h.knights)
+    h.knights += 2
+    fmt.Printf("Humans: Training knights (total: %d)\n", h.knights)
 }
 
 func (h *HumansAI) Attack() {
-	fmt.Println("Humans: Launching organized cavalry charge!")
+    fmt.Println("Humans: Launching organized cavalry charge!")
 }
 
 func (h *HumansAI) CanAttack() bool {
-	return h.walls >= 2 && h.knights >= 4
+    return h.walls >= 2 && h.knights >= 4
 }
 
 // DocumentProcessor avec hooks.
 type DocumentProcessor interface {
-	Process(content string) string
-	// Template steps
-	PreProcess(content string) string
-	MainProcess(content string) string
-	PostProcess(content string) string
-	// Hooks
-	ShouldLog() bool
+    Process(content string) string
+    // Template steps
+    PreProcess(content string) string
+    MainProcess(content string) string
+    PostProcess(content string) string
+    // Hooks
+    ShouldLog() bool
 }
 
 type BaseDocumentProcessor struct {
-	DocumentProcessor
+    DocumentProcessor
 }
 
 func (b *BaseDocumentProcessor) Process(content string) string {
-	if b.ShouldLog() {
-		fmt.Println("Processing document...")
-	}
-	result := b.PreProcess(content)
-	result = b.MainProcess(result)
-	result = b.PostProcess(result)
-	if b.ShouldLog() {
-		fmt.Println("Done!")
-	}
-	return result
+    if b.ShouldLog() {
+        fmt.Println("Processing document...")
+    }
+    result := b.PreProcess(content)
+    result = b.MainProcess(result)
+    result = b.PostProcess(result)
+    if b.ShouldLog() {
+        fmt.Println("Done!")
+    }
+    return result
 }
 
 // Hook par defaut
 func (b *BaseDocumentProcessor) ShouldLog() bool {
-	return false
+    return false
 }
 
 func (b *BaseDocumentProcessor) PreProcess(content string) string {
-	return strings.TrimSpace(content)
+    return strings.TrimSpace(content)
 }
 
 func (b *BaseDocumentProcessor) PostProcess(content string) string {
-	return content
+    return content
 }
 
 // MarkdownProcessor implemente le traitement Markdown.
 type MarkdownProcessor struct {
-	BaseDocumentProcessor
-	verbose bool
+    BaseDocumentProcessor
+    verbose bool
 }
 
 func NewMarkdownProcessor(verbose bool) *MarkdownProcessor {
-	p := &MarkdownProcessor{verbose: verbose}
-	p.DocumentProcessor = p
-	return p
+    p := &MarkdownProcessor{verbose: verbose}
+    p.DocumentProcessor = p
+    return p
 }
 
 func (m *MarkdownProcessor) MainProcess(content string) string {
-	// Simuler la conversion Markdown -> HTML
-	result := strings.ReplaceAll(content, "# ", "<h1>")
-	result = strings.ReplaceAll(result, "\n", "</h1>\n")
-	return result
+    // Simuler la conversion Markdown -> HTML
+    result := strings.ReplaceAll(content, "# ", "<h1>")
+    result = strings.ReplaceAll(result, "\n", "</h1>\n")
+    return result
 }
 
 func (m *MarkdownProcessor) ShouldLog() bool {
-	return m.verbose
+    return m.verbose
 }
 
 func main() {
-	// Exemple 1: Game AI
-	orcs := NewOrcsAI()
-	humans := NewHumansAI()
+    // Exemple 1: Game AI
+    orcs := NewOrcsAI()
+    humans := NewHumansAI()
 
-	// Simuler plusieurs tours
-	for i := 0; i < 3; i++ {
-		orcs.Turn()
-		humans.Turn()
-	}
+    // Simuler plusieurs tours
+    for i := 0; i < 3; i++ {
+        orcs.Turn()
+        humans.Turn()
+    }
 
-	// Exemple 2: Document Processor
-	fmt.Println("\n=== Document Processing ===")
-	processor := NewMarkdownProcessor(true)
-	result := processor.Process("# Hello World\n# Second Title")
-	fmt.Println("Result:", result)
+    // Exemple 2: Document Processor
+    fmt.Println("\n=== Document Processing ===")
+    processor := NewMarkdownProcessor(true)
+    result := processor.Process("# Hello World\n# Second Title")
+    fmt.Println("Result:", result)
 
-	// Output shows template method controlling the flow
-	// while subclasses customize specific steps
+    // Output shows template method controlling the flow
+    // while subclasses customize specific steps
 }
 ```
 
@@ -383,45 +383,45 @@ func main() {
 
 ```go
 func TestOrcsAI_AttackWhenReady(t *testing.T) {
-	orcs := NewOrcsAI()
+    orcs := NewOrcsAI()
 
-	// Pas assez de guerriers
-	if orcs.CanAttack() {
-		t.Error("orcs should not attack with 0 warriors")
-	}
+    // Pas assez de guerriers
+    if orcs.CanAttack() {
+        t.Error("orcs should not attack with 0 warriors")
+    }
 
-	// Accumuler des guerriers
-	for i := 0; i < 2; i++ {
-		orcs.Turn()
-	}
+    // Accumuler des guerriers
+    for i := 0; i < 2; i++ {
+        orcs.Turn()
+    }
 
-	// Maintenant prets
-	if !orcs.CanAttack() {
-		t.Error("orcs should be ready to attack")
-	}
+    // Maintenant prets
+    if !orcs.CanAttack() {
+        t.Error("orcs should be ready to attack")
+    }
 }
 
 func TestHumansAI_DefensiveStrategy(t *testing.T) {
-	humans := NewHumansAI()
+    humans := NewHumansAI()
 
-	// Premiere phase: construction
-	humans.Turn()
+    // Premiere phase: construction
+    humans.Turn()
 
-	if humans.walls != 1 {
-		t.Errorf("expected 1 wall, got %d", humans.walls)
-	}
-	if humans.knights != 2 {
-		t.Errorf("expected 2 knights, got %d", humans.knights)
-	}
+    if humans.walls != 1 {
+        t.Errorf("expected 1 wall, got %d", humans.walls)
+    }
+    if humans.knights != 2 {
+        t.Errorf("expected 2 knights, got %d", humans.knights)
+    }
 }
 
 func TestMarkdownProcessor(t *testing.T) {
-	processor := NewMarkdownProcessor(false)
-	result := processor.Process("# Test")
+    processor := NewMarkdownProcessor(false)
+    result := processor.Process("# Test")
 
-	if !strings.Contains(result, "<h1>") {
-		t.Error("expected HTML h1 tag")
-	}
+    if !strings.Contains(result, "<h1>") {
+        t.Error("expected HTML h1 tag")
+    }
 }
 ```
 
