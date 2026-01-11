@@ -84,29 +84,29 @@ func NewGatewayOffloader() *GatewayOffloader {
 }
 
 // Use adds a middleware to the chain.
-func (go *GatewayOffloader) Use(middleware OffloadingMiddleware) *GatewayOffloader {
-	go.middlewares = append(go.middlewares, middleware)
-	return go
+func (gw *GatewayOffloader) Use(middleware OffloadingMiddleware) *GatewayOffloader {
+	gw.middlewares = append(gw.middlewares, middleware)
+	return gw
 }
 
 // Handle executes the middleware chain.
-func (go *GatewayOffloader) Handle(ctx context.Context, r *http.Request, w http.ResponseWriter) error {
+func (gw *GatewayOffloader) Handle(ctx context.Context, r *http.Request, w http.ResponseWriter) error {
 	gc := &GatewayContext{
 		Request:  r,
 		Response: w,
 	}
-	
-	return go.executeMiddleware(ctx, gc, 0)
+
+	return gw.executeMiddleware(ctx, gc, 0)
 }
 
-func (go *GatewayOffloader) executeMiddleware(ctx context.Context, gc *GatewayContext, index int) error {
-	if index >= len(go.middlewares) {
+func (gw *GatewayOffloader) executeMiddleware(ctx context.Context, gc *GatewayContext, index int) error {
+	if index >= len(gw.middlewares) {
 		return nil
 	}
-	
-	middleware := go.middlewares[index]
+
+	middleware := gw.middlewares[index]
 	return middleware.Execute(ctx, gc, func() error {
-		return go.executeMiddleware(ctx, gc, index+1)
+		return gw.executeMiddleware(ctx, gc, index+1)
 	})
 }
 

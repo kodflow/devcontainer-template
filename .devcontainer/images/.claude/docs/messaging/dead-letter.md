@@ -55,7 +55,7 @@ type DeadLetterMessage struct {
 	OriginalMessage interface{}       `json:"originalMessage"`
 	Error           ErrorInfo         `json:"error"`
 	Attempts        int               `json:"attempts"`
-	FirstFailedAt   time.Time         `json:first_failed_at"`
+	FirstFailedAt   time.Time         `json:"first_failed_at"`
 	LastFailedAt    time.Time         `json:"lastFailedAt"`
 	Headers         map[string]string `json:"headers"`
 }

@@ -20,12 +20,34 @@ Patterns de composition d'objets.
 Voir fichier detaille: [adapter.md](adapter.md)
 
 ```go
-class StripeAdapter implements PaymentProcessor {
-  constructor(private stripe: StripeAPI) {}
+package adapter
 
-  async pay(amount: number) {
-    await this.stripe.charge(amount * 100, 'EUR');
-  }
+import "context"
+
+// PaymentProcessor is our target interface.
+type PaymentProcessor interface {
+	Pay(ctx context.Context, amount float64) error
+}
+
+// StripeAPI is the external API we adapt.
+type StripeAPI struct{}
+
+func (s *StripeAPI) Charge(amountCents int64, currency string) error {
+	// Stripe-specific implementation
+	return nil
+}
+
+// StripeAdapter adapts StripeAPI to PaymentProcessor.
+type StripeAdapter struct {
+	stripe *StripeAPI
+}
+
+func NewStripeAdapter(stripe *StripeAPI) *StripeAdapter {
+	return &StripeAdapter{stripe: stripe}
+}
+
+func (a *StripeAdapter) Pay(ctx context.Context, amount float64) error {
+	return a.stripe.Charge(int64(amount*100), "EUR")
 }
 ```
 
@@ -38,13 +60,36 @@ class StripeAdapter implements PaymentProcessor {
 > Separer abstraction et implementation.
 
 ```go
-abstract class Shape {
-  constructor(protected renderer: Renderer) {}
-  abstract draw(): void;
+package bridge
+
+// Renderer is the implementation interface.
+type Renderer interface {
+	Render(shape string)
 }
 
-class Circle extends Shape {
-  draw() { this.renderer.render('circle'); }
+// Shape is the abstraction.
+type Shape interface {
+	Draw()
+}
+
+// Circle is a concrete abstraction.
+type Circle struct {
+	renderer Renderer
+}
+
+func NewCircle(renderer Renderer) *Circle {
+	return &Circle{renderer: renderer}
+}
+
+func (c *Circle) Draw() {
+	c.renderer.Render("circle")
+}
+
+// OpenGLRenderer is a concrete implementation.
+type OpenGLRenderer struct{}
+
+func (r *OpenGLRenderer) Render(shape string) {
+	fmt.Printf("OpenGL rendering: %s\n", shape)
 }
 ```
 
@@ -57,16 +102,46 @@ class Circle extends Shape {
 > Traiter objets simples et composes uniformement.
 
 ```go
-interface Component {
-  getPrice(): number;
+package composite
+
+// Component defines the common interface.
+type Component interface {
+	GetPrice() float64
 }
 
-class Box implements Component {
-  private items: Component[] = [];
-  add(item: Component) { this.items.push(item); }
-  getPrice() {
-    return this.items.reduce((sum, item) => sum + item.getPrice(), 0);
-  }
+// Product is a leaf component.
+type Product struct {
+	name  string
+	price float64
+}
+
+func NewProduct(name string, price float64) *Product {
+	return &Product{name: name, price: price}
+}
+
+func (p *Product) GetPrice() float64 {
+	return p.price
+}
+
+// Box is a composite component.
+type Box struct {
+	items []Component
+}
+
+func NewBox() *Box {
+	return &Box{items: make([]Component, 0)}
+}
+
+func (b *Box) Add(item Component) {
+	b.items = append(b.items, item)
+}
+
+func (b *Box) GetPrice() float64 {
+	var total float64
+	for _, item := range b.items {
+		total += item.GetPrice()
+	}
+	return total
 }
 ```
 
@@ -81,10 +156,32 @@ class Box implements Component {
 Voir fichier detaille: [decorator.md](decorator.md)
 
 ```go
-let client: HttpClient = new BasicHttpClient();
-client = new LoggingDecorator(client);
-client = new AuthDecorator(client, () => 'token');
-client = new RetryDecorator(client, 3);
+package decorator
+
+import "context"
+
+// HttpClient is the component interface.
+type HttpClient interface {
+	Do(ctx context.Context, req *Request) (*Response, error)
+}
+
+// LoggingDecorator adds logging to HttpClient.
+type LoggingDecorator struct {
+	client HttpClient
+}
+
+func NewLoggingDecorator(client HttpClient) *LoggingDecorator {
+	return &LoggingDecorator{client: client}
+}
+
+func (d *LoggingDecorator) Do(ctx context.Context, req *Request) (*Response, error) {
+	fmt.Printf("Request: %s %s\n", req.Method, req.URL)
+	resp, err := d.client.Do(ctx, req)
+	fmt.Printf("Response: %d\n", resp.StatusCode)
+	return resp, err
+}
+
+// Usage: client = NewLoggingDecorator(NewAuthDecorator(baseClient))
 ```
 
 **Quand :** Ajouter des responsabilites sans modifier la classe.
@@ -98,13 +195,30 @@ client = new RetryDecorator(client, 3);
 Voir fichier detaille: [facade.md](facade.md)
 
 ```go
-class VideoPublisher {
-  publish(video: string, audio: string) {
-    const v = this.videoEncoder.encode(video);
-    const a = this.audioEncoder.encode(audio);
-    const file = this.muxer.mux(v, a);
-    this.uploader.upload(file);
-  }
+package facade
+
+// VideoPublisher provides a simple API for video publishing.
+type VideoPublisher struct {
+	videoEncoder *VideoEncoder
+	audioEncoder *AudioEncoder
+	muxer        *Muxer
+	uploader     *Uploader
+}
+
+func NewVideoPublisher() *VideoPublisher {
+	return &VideoPublisher{
+		videoEncoder: &VideoEncoder{},
+		audioEncoder: &AudioEncoder{},
+		muxer:        &Muxer{},
+		uploader:     &Uploader{},
+	}
+}
+
+func (vp *VideoPublisher) Publish(video, audio string) error {
+	v := vp.videoEncoder.Encode(video)
+	a := vp.audioEncoder.Encode(audio)
+	file := vp.muxer.Mux(v, a)
+	return vp.uploader.Upload(file)
 }
 ```
 
@@ -117,16 +231,48 @@ class VideoPublisher {
 > Partager des etats communs entre objets.
 
 ```go
-class FlyweightFactory {
-  private cache = new Map<string, CharacterFlyweight>();
+package flyweight
 
-  get(font: string, size: number): CharacterFlyweight {
-    const key = `${font}-${size}`;
-    if (!this.cache.has(key)) {
-      this.cache.set(key, new CharacterFlyweight(font, size));
-    }
-    return this.cache.get(key)!;
-  }
+import "sync"
+
+// CharacterFlyweight contains shared state.
+type CharacterFlyweight struct {
+	font string
+	size int
+}
+
+// FlyweightFactory manages shared flyweights.
+type FlyweightFactory struct {
+	cache map[string]*CharacterFlyweight
+	mu    sync.RWMutex
+}
+
+func NewFlyweightFactory() *FlyweightFactory {
+	return &FlyweightFactory{
+		cache: make(map[string]*CharacterFlyweight),
+	}
+}
+
+func (f *FlyweightFactory) Get(font string, size int) *CharacterFlyweight {
+	key := fmt.Sprintf("%s-%d", font, size)
+
+	f.mu.RLock()
+	if fw, exists := f.cache[key]; exists {
+		f.mu.RUnlock()
+		return fw
+	}
+	f.mu.RUnlock()
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if fw, exists := f.cache[key]; exists {
+		return fw
+	}
+
+	fw := &CharacterFlyweight{font: font, size: size}
+	f.cache[key] = fw
+	return fw
 }
 ```
 
@@ -141,15 +287,45 @@ class FlyweightFactory {
 Voir fichier detaille: [proxy.md](proxy.md)
 
 ```go
-class ImageProxy implements Image {
-  private realImage: RealImage | null = null;
+package proxy
 
-  display() {
-    if (!this.realImage) {
-      this.realImage = new RealImage(this.filename);
-    }
-    this.realImage.display();
-  }
+import "sync"
+
+// Image is the subject interface.
+type Image interface {
+	Display()
+}
+
+// RealImage is the real subject.
+type RealImage struct {
+	filename string
+}
+
+func NewRealImage(filename string) *RealImage {
+	fmt.Printf("Loading image: %s\n", filename)
+	return &RealImage{filename: filename}
+}
+
+func (ri *RealImage) Display() {
+	fmt.Printf("Displaying: %s\n", ri.filename)
+}
+
+// ImageProxy is a virtual proxy.
+type ImageProxy struct {
+	filename  string
+	realImage *RealImage
+	once      sync.Once
+}
+
+func NewImageProxy(filename string) *ImageProxy {
+	return &ImageProxy{filename: filename}
+}
+
+func (ip *ImageProxy) Display() {
+	ip.once.Do(func() {
+		ip.realImage = NewRealImage(ip.filename)
+	})
+	ip.realImage.Display()
 }
 ```
 

@@ -435,6 +435,7 @@ func (rl *RecipientList[T]) Distribute(ctx context.Context, message T) (*Distrib
 				mu.Unlock()
 			}
 		})
+	}
 
 	wg.Wait()
 	return result, nil

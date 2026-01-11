@@ -298,10 +298,10 @@ func NewUserService() *UserService {
 	}
 }
 
-func (s *UserService) GetUser(id string) (*User, error) {
-	data, err := s.db.Query(fmt.Sprintf("SELECT * FROM users WHERE id = '%s'", id))
+func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
+	data, err := s.db.Query(ctx, "SELECT * FROM users WHERE id = $1", id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("querying user: %w", err)
 	}
 	// ... parse data
 	return nil, nil
