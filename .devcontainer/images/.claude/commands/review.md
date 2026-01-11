@@ -25,9 +25,12 @@ allowed-tools:
 
 Intelligent code review using **Recursive Language Model** decomposition:
 
-- **Peek** before full analysis (Glob, partial Read)
-- **Decompose** into parallel sub-tasks
-- **Synthesize** condensed results
+- **Phase 0**: PR Context Detection (branch, CI, comments)
+- **Phase 1**: Feedback Collection (ALL comments/reviews/suggestions)
+- **Phase 2**: Peek before full analysis
+- **Phase 3**: Decompose into parallel sub-tasks
+- **Phase 4**: Synthesize + Challenge feedback
+- **Phase 5**: Generate /plan
 
 ## Usage
 
@@ -40,16 +43,281 @@ Intelligent code review using **Recursive Language Model** decomposition:
 /review --quality          # Quality-focused review only
 ```
 
-## RLM Workflow
+## Phase 0 : PR Context Detection (OBLIGATOIRE)
+
+**Avant toute review, détecter le contexte PR :**
+
+```yaml
+pr_context_detection:
+  1_detect_pr:
+    action: "Identifier si on est sur une PR"
+    tools:
+      - "git branch --show-current"
+      - "mcp__github__list_pull_requests (head: current_branch)"
+    output:
+      on_pr: true/false
+      pr_number: <number> | null
+      pr_url: <url> | null
+
+  2_check_ci:
+    condition: "on_pr == true"
+    action: "Vérifier statut CI/CD"
+    tools:
+      - "mcp__github__get_pull_request_status"
+      - "gh pr checks" (fallback)
+    output:
+      ci_status: "pending|passing|failing"
+      ci_jobs: [{name, status, url}]
+
+  3_wait_ci:
+    condition: "ci_status == 'pending'"
+    action: "Attendre fin du pipeline"
+    strategy:
+      poll_interval: 30s
+      max_wait: 15min
+      on_timeout: "Continue with warning"
+    output: |
+      ═══════════════════════════════════════════
+        CI Pipeline: {status}
+        Jobs: ✓ build, ✓ test, ⏳ lint
+        Waiting... (2m 34s / 15m max)
+      ═══════════════════════════════════════════
+```
+
+**Output Phase 0 :**
+
+```
+═══════════════════════════════════════════════════════════════
+  /review - PR Context Detection
+═══════════════════════════════════════════════════════════════
+
+  Branch: feat/post-compact-hook
+  PR: #97 (open)
+  URL: https://github.com/owner/repo/pull/97
+
+  CI Pipeline:
+    ✓ build (passed, 1m 23s)
+    ✓ test (passed, 2m 45s)
+    ✓ lint (passed, 45s)
+    Status: ALL PASSING
+
+  Proceeding to Phase 1...
+
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Phase 1 : Feedback Collection (TOUT LIRE)
+
+**Collecter TOUS les commentaires, reviews, suggestions sur la PR :**
+
+```yaml
+feedback_collection:
+  1_fetch_all:
+    action: "Récupérer TOUS les feedbacks sans exception"
+    tools:
+      - "mcp__github__get_pull_request_reviews"
+      - "mcp__github__get_pull_request_comments"
+      - "mcp__codacy__codacy_list_pull_request_issues"
+    output:
+      reviews: [{author, state, body}]
+      comments: [{author, body, path, line}]
+      suggestions: [{author, body, suggested_code}]
+
+  2_classify_feedback:
+    action: "Classifier chaque feedback"
+    categories:
+      human_review:
+        criteria: "author != bot"
+        action: "Contexte prioritaire"
+      ai_review:
+        criteria: "author contains 'bot' or 'coderabbit' or 'qodo'"
+        action: "Extraire axes comportementaux"
+      question:
+        criteria: "body contains '?' or 'should we' or 'what about'"
+        action: "Préparer réponse (user valide)"
+      suggestion:
+        criteria: "suggested_code != null"
+        action: "Évaluer pertinence"
+
+  3_extract_behaviors:
+    action: "Pour chaque AI review pertinente, extraire l'axe"
+    template: |
+      Suggestion: "{original_text}"
+      Behavior: "{extracted_pattern}"
+      Category: "{shell_safety|pattern|security|quality}"
+      Add to: "{workflow_section}"
+```
+
+**Classification des feedbacks :**
+
+| Type | Auteur | Action |
+|------|--------|--------|
+| Human Review | utilisateur réel | Contexte prioritaire |
+| AI Review (bot) | coderabbit, qodo, etc. | Extraire comportements |
+| Question | any | Préparer réponse → user valide |
+| Suggestion | any | Évaluer pertinence avec contexte |
+
+---
+
+## Phase 1.5 : Questions & Réponses (si questions détectées)
+
+```yaml
+question_handling:
+  rule: "JAMAIS mentionner l'IA dans les réponses"
+
+  workflow:
+    1_collect_questions:
+      - "Extraire toutes les questions des reviews"
+      - "Grouper par thème"
+
+    2_prepare_answers:
+      format: |
+        ## Question: {question}
+        **Auteur:** {author}
+        **Contexte:** {file}:{line}
+
+        **Réponse proposée:**
+        {answer_without_ai_mention}
+
+        **Poster cette réponse?** [Oui/Non/Modifier]
+
+    3_user_validation:
+      action: "AskUserQuestion pour chaque réponse"
+      options:
+        - "Poster telle quelle"
+        - "Modifier avant de poster"
+        - "Ignorer"
+
+    4_post_response:
+      tool: "mcp__github__add_issue_comment"
+      rule: |
+        INTERDICTION ABSOLUE de mentionner:
+        - "Claude", "AI", "IA", "assistant"
+        - "j'ai été généré", "automatiquement"
+        - Toute référence à l'intelligence artificielle
+```
+
+**Template de réponse (sans mention IA) :**
+
+```markdown
+<!-- BON -->
+Concernant votre question sur {topic}:
+
+{answer}
+
+Cette approche a été choisie car {rationale}.
+
+<!-- INTERDIT -->
+❌ "L'IA suggère que..."
+❌ "Claude recommande..."
+❌ "Cette réponse a été générée..."
+```
+
+---
+
+## Phase 1.6 : Extraction des Axes Comportementaux (AI Reviews)
+
+```yaml
+behavior_extraction:
+  description: |
+    Pour chaque suggestion pertinente des bots (coderabbit, qodo),
+    extraire le COMPORTEMENT sous-jacent pour enrichir le workflow.
+
+  process:
+    1_filter_relevant:
+      criteria:
+        - "importance >= 6/10"
+        - "Not already in workflow"
+        - "Actionable pattern"
+
+    2_extract_pattern:
+      from: "Use temporary file to prevent partial writes"
+      to:
+        behavior: "Downloads should use mktemp + cleanup"
+        category: "shell_safety"
+        axis: "1_download_safety"
+
+    3_add_to_workflow:
+      action: "Enrichir review.md avec le nouvel axe"
+      auto: false  # Demander confirmation user
+
+  example:
+    bot_says: |
+      "Make the post-compact.sh hook more resilient by handling
+      potential failures from cat and jq"
+    extracted:
+      behavior: "Hook scripts should handle empty input gracefully"
+      axis: "5_input_resilience"
+      check: "Gère entrée vide/malformée?"
+```
+
+---
+
+## Phase 2 : Challenge des Feedbacks
+
+```yaml
+feedback_challenge:
+  description: |
+    Avec NOTRE contexte (codebase, historique, intent),
+    challenger la pertinence des suggestions.
+
+  process:
+    1_assess_relevance:
+      for_each_suggestion:
+        - "Est-ce dans le scope de la PR?"
+        - "Est-ce applicable à notre stack?"
+        - "Avons-nous plus de contexte?"
+
+    2_classify:
+      relevant:
+        action: "Intégrer dans review"
+        confidence: "HIGH"
+      partially_relevant:
+        action: "Signaler avec nuance"
+        confidence: "MEDIUM"
+      off_topic:
+        action: "Ignorer ou contester"
+        reason: "Explain why not applicable"
+
+    3_ask_user_if_needed:
+      condition: "Ambiguïté sur pertinence"
+      tool: "AskUserQuestion"
+      question: |
+        Le bot suggère: {suggestion}
+        Notre contexte indique: {our_context}
+
+        Cette suggestion est-elle pertinente?
+
+  challenge_criteria:
+    - "Suggestion générique vs notre cas spécifique"
+    - "Pattern déjà implémenté ailleurs"
+    - "Trade-off conscient (perf vs safety)"
+    - "Limitation technique connue"
+```
+
+**Table de challenge :**
+
+| Situation | Action |
+|-----------|--------|
+| Bot suggère X, déjà fait ailleurs | "Pattern existant dans {file}" |
+| Bot suggère X, hors scope PR | "Hors scope, créer issue séparée" |
+| Bot suggère X, trade-off voulu | "Trade-off conscient: {raison}" |
+| Bot a raison, on a tort | "Suggestion valide, à intégrer" |
+
+---
+
+## RLM Workflow (Phases 3-4)
 
 ```yaml
 review_workflow:
-  1_peek:
+  3_peek:
     action: "Quick scan of changes"
     tools: [Glob, "git diff --stat"]
     output: "file_list, change_summary"
 
-  2_decompose:
+  3b_decompose:
     action: "Categorize files by type"
     categories:
       - security: "*.go, *.py, *.js, *.ts (auth, crypto, input)"
@@ -58,7 +326,7 @@ review_workflow:
       - tests: "*_test.*, *.test.*, *.spec.*"
       - config: "*.yaml, *.json, *.toml, mcp.json, Dockerfile"
 
-  3_parallel_dispatch:
+  3c_parallel_dispatch:
     action: "Launch sub-agents via Task tool"
     agents:
       - security-scanner (context: fork)
@@ -67,8 +335,101 @@ review_workflow:
     mode: "parallel"
 
   4_synthesize:
-    action: "Combine results"
+    action: "Combine results + feedback challenge"
+    inputs:
+      - agent_results: "Security, quality, shell safety findings"
+      - pr_feedback: "Classified comments/reviews from Phase 1"
+      - behaviors: "Extracted patterns from AI reviews"
     format: "Prioritized markdown report"
+```
+
+---
+
+## Phase 5 : Generate /plan
+
+```yaml
+plan_generation:
+  description: |
+    Après synthèse complète, générer un plan d'action
+    qui intègre tous les inputs collectés.
+
+  inputs:
+    - our_review: "Notre analyse code"
+    - bot_feedback: "Suggestions pertinentes des bots"
+    - user_questions: "Questions à répondre"
+    - behaviors: "Nouveaux axes pour le workflow"
+
+  workflow:
+    1_prioritize:
+      action: "Classer les actions par priorité"
+      order:
+        - "CRITICAL: Security issues"
+        - "HIGH: Bot suggestions validées"
+        - "MEDIUM: Quality improvements"
+        - "LOW: Workflow enhancements"
+
+    2_generate_plan:
+      format: |
+        ## /plan - Review Implementation
+
+        ### Critical (must fix)
+        1. {issue} - {file}:{line}
+           Action: {fix}
+
+        ### High Priority (validated bot suggestions)
+        1. {suggestion} - Source: {bot}
+           Action: {implementation}
+
+        ### Medium (quality)
+        1. {improvement}
+
+        ### Workflow Enhancement
+        1. Add axis "{new_axis}" to review.md
+
+        ### Questions to Answer
+        1. "{question}" by {author}
+           Proposed answer: {answer}
+           [Validate before posting]
+
+    3_user_validation:
+      action: "Présenter le plan pour approbation"
+      tool: "AskUserQuestion"
+      question: |
+        Plan généré avec {n} actions:
+        - {critical_count} critiques
+        - {high_count} haute priorité
+        - {medium_count} moyennes
+
+        Exécuter ce plan?
+
+    4_execute_or_refine:
+      on_approve: "Exécuter via /apply"
+      on_reject: "Affiner avec feedback user"
+```
+
+**Output Phase 5 :**
+
+```
+═══════════════════════════════════════════════════════════════
+  /review - Plan Generated
+═══════════════════════════════════════════════════════════════
+
+  Review Summary:
+    ├─ Our findings: 3 issues (0 critical, 2 major, 1 minor)
+    ├─ Bot feedback: 5 suggestions (3 relevant, 2 off-topic)
+    ├─ Questions: 1 to answer
+    └─ New behaviors: 1 to add to workflow
+
+  Generated Plan: 7 actions
+    ├─ CRITICAL: 0
+    ├─ HIGH: 3 (validated bot suggestions)
+    ├─ MEDIUM: 2
+    ├─ LOW: 1 (workflow enhancement)
+    └─ QUESTIONS: 1 (pending user validation)
+
+  → Use /apply to execute or refine
+
+═══════════════════════════════════════════════════════════════
 ```
 
 ## Output Format
@@ -349,6 +710,12 @@ pattern_analysis:
 | Skip shell safety for *.sh | FORBIDDEN |
 | Ignore download patterns | FORBIDDEN |
 | Accept relative paths in MCP config | FORBIDDEN |
+| Skip Phase 0 (PR context) | FORBIDDEN |
+| Skip Phase 1 (feedback collection) | FORBIDDEN |
+| Post comment without user validation | FORBIDDEN |
+| Mention AI in PR responses | **ABSOLUTE FORBIDDEN** |
+| Ignore bot suggestions without analysis | FORBIDDEN |
+| Challenge feedback without context | FORBIDDEN |
 
 ## Review Iteration Loop
 
