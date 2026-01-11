@@ -420,12 +420,10 @@ func (ce *ContentEnricher[T]) Enrich(ctx context.Context, message T) (map[string
 	var wg sync.WaitGroup
 
 	for _, enr := range ce.enrichments {
-		wg.Add(1)
-		go func(e enrichment) {
-			defer wg.Done()
-
-			key := e.keyExtractor(message)
-			source, ok := e.source.(interface {
+		enrCaptured := enr
+		wg.Go(func() {
+			key := enrCaptured.keyExtractor(message)
+			source, ok := enrCaptured.source.(interface {
 				Fetch(context.Context, interface{}) (interface{}, error)
 			})
 			if !ok {
@@ -439,13 +437,13 @@ func (ce *ContentEnricher[T]) Enrich(ctx context.Context, message T) (map[string
 				return
 			}
 
-			partial := e.merger(message, data)
+			partial := enrCaptured.merger(message, data)
 			mu.Lock()
 			for k, v := range partial {
 				result[k] = v
 			}
 			mu.Unlock()
-		}(enr)
+		})
 	}
 
 	wg.Wait()
@@ -486,9 +484,7 @@ func (ep *EnrichmentPipeline[T]) Start(ctx context.Context, concurrency int) err
 	var wg sync.WaitGroup
 
 	for i := 0; i < concurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for {
 				select {
 				case <-ctx.Done():

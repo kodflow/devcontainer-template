@@ -280,18 +280,18 @@ func (ap *AsyncPipeline[T]) Start(ctx context.Context) error {
 	for i := 0; i < len(ap.stages)-1; i++ {
 		current := &ap.stages[i]
 		next := &ap.stages[i+1]
+		currentCaptured := current
+		nextCaptured := next
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for msg := range current.outputCh {
+		wg.Go(func() {
+			for msg := range currentCaptured.outputCh {
 				select {
-				case next.inputCh <- msg:
+				case nextCaptured.inputCh <- msg:
 				case <-ctx.Done():
 					return
 				}
 			}
-			close(next.inputCh)
+			close(nextCaptured.inputCh)
 		}()
 	}
 
@@ -299,9 +299,7 @@ func (ap *AsyncPipeline[T]) Start(ctx context.Context) error {
 	for i := range ap.stages {
 		st := &ap.stages[i]
 		for w := 0; w < st.workers; w++ {
-			wg.Add(1)
-			go func(s *stage[T]) {
-				defer wg.Done()
+			wg.Go(func() {
 				for {
 					select {
 					case <-ctx.Done():
@@ -324,7 +322,7 @@ func (ap *AsyncPipeline[T]) Start(ctx context.Context) error {
 						}
 					}
 				}
-			}(st)
+			})
 		}
 	}
 
@@ -394,17 +392,14 @@ func (pp *ParallelPipeline[TInput, TOutput]) Process(ctx context.Context, input 
 	var wg sync.WaitGroup
 
 	for i, filter := range pp.filters {
-		wg.Add(1)
-		go func(idx int, f Filter[TInput, TOutput]) {
-			defer wg.Done()
-
+		wg.Go(func() {
 			result, err := f.Process(ctx, input)
 			if err != nil {
 				errCh <- err
 				return
 			}
 			results[idx] = result
-		}(i, filter)
+		})
 	}
 
 	wg.Wait()

@@ -524,20 +524,17 @@ func (r *MigratingUserRepository) Save(ctx context.Context, user *User) error {
 	var wg sync.WaitGroup
 	errCh := make(chan error, 2)
 
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if err := r.mysql.Save(ctx, user); err != nil {
 			errCh <- fmt.Errorf("mysql save: %w", err)
 		}
-	}()
+	})
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if err := r.postgres.Save(ctx, user); err != nil {
 			errCh <- fmt.Errorf("postgres save: %w", err)
 		}
-	}()
+	})
 
 	wg.Wait()
 	close(errCh)

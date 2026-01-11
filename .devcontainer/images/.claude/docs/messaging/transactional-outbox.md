@@ -754,13 +754,13 @@ func (r *OrderedOutboxRelay) ProcessMessages(ctx context.Context) error {
 	errChan := make(chan error, len(byAggregate))
 
 	for aggregateID, messages := range byAggregate {
-		wg.Add(1)
-		go func(aggID string, msgs []*OutboxRow) {
-			defer wg.Done()
-			if err := r.processAggregateMessages(ctx, aggID, msgs); err != nil {
+		aggIDCaptured := aggregateID
+		msgsCaptured := messages
+		wg.Go(func() {
+			if err := r.processAggregateMessages(ctx, aggIDCaptured, msgsCaptured); err != nil {
 				errChan <- err
 			}
-		}(aggregateID, messages)
+		})
 	}
 
 	wg.Wait()

@@ -691,10 +691,7 @@ func setupDashboard(gw *AggregatingGateway) {
 		var notifications map[string]interface{}
 
 		// Parallel calls to multiple services
-		wg.Add(3)
-
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			data, err := fetchJSON(ctx, fmt.Sprintf("http://user-service/users/%s", user.ID))
 			if err != nil {
 				mu.Lock()
@@ -703,10 +700,9 @@ func setupDashboard(gw *AggregatingGateway) {
 				return
 			}
 			userData = data
-		}()
+		})
 
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			data, err := fetchJSONArray(ctx, fmt.Sprintf("http://order-service/users/%s/orders?limit=5", user.ID))
 			if err != nil {
 				mu.Lock()
@@ -715,10 +711,9 @@ func setupDashboard(gw *AggregatingGateway) {
 				return
 			}
 			orders = data
-		}()
+		})
 
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			data, err := fetchJSON(ctx, fmt.Sprintf("http://notification-service/users/%s/unread", user.ID))
 			if err != nil {
 				mu.Lock()
@@ -727,7 +722,7 @@ func setupDashboard(gw *AggregatingGateway) {
 				return
 			}
 			notifications = data
-		}()
+		})
 
 		wg.Wait()
 

@@ -63,7 +63,7 @@ func ExampleDatabase() {
 
 ## Variantes
 
-### Singleton Thread-safe (avec sync.Once - RECOMMENDED)
+### Singleton Thread-safe (avec sync.Once)
 
 ```go
 package main
@@ -97,6 +97,101 @@ func GetInstance() *ThreadSafeDatabase {
 // Query execute une requete.
 func (db *ThreadSafeDatabase) Query(sql string) string {
 	return fmt.Sprintf("Query on %s: %s", db.connectionString, sql)
+}
+```
+
+### Singleton avec sync.OnceValue (Go 1.21+ - RECOMMENDED)
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+// Database represente une connexion singleton.
+type Database struct {
+	connectionString string
+}
+
+// NewDatabase cree une nouvelle instance de Database.
+func newDatabase() *Database {
+	fmt.Println("Initializing database connection...")
+	return &Database{
+		connectionString: "postgres://localhost:5432/mydb",
+	}
+}
+
+// GetDB retourne l'instance singleton de maniere type-safe.
+// sync.OnceValue (Go 1.21+) est plus concis et type-safe que sync.Once.
+var GetDB = sync.OnceValue(newDatabase)
+
+// Query execute une requete.
+func (db *Database) Query(sql string) string {
+	return fmt.Sprintf("Query on %s: %s", db.connectionString, sql)
+}
+
+// Usage
+func ExampleOnceValue() {
+	db1 := GetDB()
+	db2 := GetDB()
+	fmt.Println(db1 == db2) // true
+
+	result := db1.Query("SELECT * FROM users")
+	fmt.Println(result)
+}
+```
+
+### Singleton avec sync.OnceValues (pour valeur + erreur)
+
+```go
+package main
+
+import (
+	"errors"
+	"os"
+	"sync"
+)
+
+// Config represente la configuration de l'application.
+type Config struct {
+	DatabaseURL string
+	APIKey      string
+}
+
+// loadConfig charge la configuration depuis l'environnement.
+func loadConfig() (*Config, error) {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		return nil, errors.New("DATABASE_URL not set")
+	}
+
+	apiKey := os.Getenv("API_KEY")
+	if apiKey == "" {
+		return nil, errors.New("API_KEY not set")
+	}
+
+	return &Config{
+		DatabaseURL: dbURL,
+		APIKey:      apiKey,
+	}, nil
+}
+
+// GetConfig retourne la configuration singleton avec gestion d'erreur.
+// sync.OnceValues (Go 1.21+) permet de retourner une valeur ET une erreur.
+var GetConfig = sync.OnceValues(loadConfig)
+
+// Usage
+func ExampleOnceValues() {
+	config, err := GetConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	// Les appels suivants retournent le meme resultat (cache)
+	config2, _ := GetConfig()
+	println(config == config2) // true
 }
 ```
 
@@ -550,11 +645,10 @@ func TestGetInstance_Concurrent(t *testing.T) {
 	instances := make([]*Database, 100)
 
 	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
+		idx := i // Capture for closure
+		wg.Go(func() { // Go 1.25: handles Add/Done internally
 			instances[idx] = getInstance()
-		}(i)
+		})
 	}
 
 	wg.Wait()

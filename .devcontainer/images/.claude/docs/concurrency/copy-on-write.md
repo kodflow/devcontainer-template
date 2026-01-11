@@ -282,11 +282,10 @@ func main() {
 
 	// Concurrent writes
 	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func(n int) {
-			defer wg.Done()
+		n := i // Capture for closure
+		wg.Go(func() { // Go 1.25: handles Add/Done internally
 			cm.Set(fmt.Sprintf("key%d", n), n)
-		}(i)
+		})
 	}
 
 	wg.Wait()

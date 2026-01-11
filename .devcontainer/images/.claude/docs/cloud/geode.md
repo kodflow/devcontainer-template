@@ -136,17 +136,13 @@ func (gds *GeodeDataStore) replicateAsync(ctx context.Context, item *DataItem) {
 	var wg sync.WaitGroup
 	
 	for _, target := range gds.config.ReplicationTargets {
-		wg.Add(1)
-		go func(t string) {
-			defer wg.Done()
-			
-			if err := gds.replicationClient.Send(ctx, t, item); err != nil {
-				fmt.Printf("Replication to %s failed: %v
-", t, err)
+		wg.Go(func() {
+			if err := gds.replicationClient.Send(ctx, target, item); err != nil {
+				fmt.Printf("Replication to %s failed: %v\n", target, err)
 				// Queue for retry
-				gds.replicationClient.QueueRetry(ctx, t, item)
+				gds.replicationClient.QueueRetry(ctx, target, item)
 			}
-		}(target)
+		})
 	}
 	
 	wg.Wait()

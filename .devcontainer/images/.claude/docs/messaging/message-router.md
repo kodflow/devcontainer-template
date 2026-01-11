@@ -405,10 +405,8 @@ func (rl *RecipientList[T]) Distribute(ctx context.Context, message T) (*Distrib
 	var mu sync.Mutex
 
 	for _, recipient := range recipients {
-		wg.Add(1)
-		go func(rcpt string) {
-			defer wg.Done()
-
+		rcpt := recipient
+		wg.Go(func() {
 			rl.mu.RLock()
 			ch, exists := rl.channels[rcpt]
 			rl.mu.RUnlock()
@@ -436,8 +434,7 @@ func (rl *RecipientList[T]) Distribute(ctx context.Context, message T) (*Distrib
 				})
 				mu.Unlock()
 			}
-		}(recipient)
-	}
+		})
 
 	wg.Wait()
 	return result, nil

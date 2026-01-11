@@ -220,17 +220,13 @@ func (c *WriteThroughCache[K, V]) Write(ctx context.Context, key K, value V) err
 	var wg sync.WaitGroup
 	var cacheErr, dbErr error
 
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		cacheErr = c.cache.Set(ctx, key, value)
-	}()
+	})
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		dbErr = c.db.Update(ctx, key, value)
-	}()
+	})
 
 	wg.Wait()
 

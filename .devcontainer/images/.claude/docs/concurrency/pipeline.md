@@ -234,10 +234,7 @@ func parallelStage[T any](
 
 	var wg sync.WaitGroup
 	for i := 0; i < stage.Concurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() { // Go 1.25: handles Add/Done internally
 			for item := range input {
 				result, err := stage.Process(ctx, item)
 				if err != nil {
@@ -251,7 +248,7 @@ func parallelStage[T any](
 					return
 				}
 			}
-		}()
+		})
 	}
 
 	go func() {
@@ -392,11 +389,8 @@ func FanIn[T any](ctx context.Context, inputs ...<-chan T) <-chan T {
 
 	var wg sync.WaitGroup
 	for _, input := range inputs {
-		wg.Add(1)
-
-		go func(in <-chan T) {
-			defer wg.Done()
-
+		in := input // Capture for closure
+		wg.Go(func() { // Go 1.25: handles Add/Done internally
 			for item := range in {
 				select {
 				case output <- item:
@@ -404,7 +398,7 @@ func FanIn[T any](ctx context.Context, inputs ...<-chan T) <-chan T {
 					return
 				}
 			}
-		}(input)
+		})
 	}
 
 	go func() {

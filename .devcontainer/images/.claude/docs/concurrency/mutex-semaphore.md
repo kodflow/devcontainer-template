@@ -105,11 +105,10 @@ func main() {
 	var wg sync.WaitGroup
 
 	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func(n int) {
-			defer wg.Done()
+		n := i // Capture for closure
+		wg.Go(func() { // Go 1.25: handles Add/Done internally
 			writeToFile(fmt.Sprintf("Line %d\n", n))
-		}(i)
+		})
 	}
 
 	wg.Wait()
@@ -227,11 +226,8 @@ func main() {
 	ctx := context.Background()
 
 	for _, url := range urls {
-		wg.Add(1)
-
-		go func(u string) {
-			defer wg.Done()
-
+		u := url // Capture for closure
+		wg.Go(func() { // Go 1.25: handles Add/Done internally
 			err := apiSemaphore.WithPermit(ctx, func() error {
 				resp, err := http.Get(u)
 				if err != nil {
@@ -246,7 +242,7 @@ func main() {
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 			}
-		}(url)
+		})
 	}
 
 	wg.Wait()

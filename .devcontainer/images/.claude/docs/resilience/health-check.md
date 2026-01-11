@@ -128,27 +128,24 @@ func (m *Manager) GetHealth(ctx context.Context) HealthStatus {
 	var mu sync.Mutex
 
 	for _, check := range m.checks {
-		wg.Add(1)
-		go func(hc HealthCheck) {
-			defer wg.Done()
-
+		wg.Go(func() {
 			checkStart := time.Now()
-			result := hc.Check(ctx)
+			result := check.Check(ctx)
 			result.Duration = time.Since(checkStart)
 			result.LastCheck = time.Now()
 
 			mu.Lock()
 			defer mu.Unlock()
 
-			details[hc.Name()] = result
+			details[check.Name()] = result
 
 			// Update overall status
-			if result.Status == StatusUnhealthy && hc.Critical() {
+			if result.Status == StatusUnhealthy && check.Critical() {
 				overallStatus = StatusUnhealthy
 			} else if result.Status == StatusDegraded && overallStatus != StatusUnhealthy {
 				overallStatus = StatusDegraded
 			}
-		}(check)
+		})
 	}
 
 	wg.Wait()

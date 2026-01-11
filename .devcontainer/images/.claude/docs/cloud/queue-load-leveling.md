@@ -175,14 +175,14 @@ func (lc *LeveledConsumer) processAvailable(ctx context.Context) {
 		active = lc.active
 		lc.mu.Unlock()
 
-		lc.wg.Add(1)
-		go lc.processTask(ctx, task)
+		lc.wg.Go(func() { // Go 1.25: handles Add/Done internally
+			lc.processTask(ctx, task)
+		})
 	}
 }
 
 func (lc *LeveledConsumer) processTask(ctx context.Context, task *Task) {
 	defer func() {
-		lc.wg.Done()
 		lc.mu.Lock()
 		lc.active--
 		lc.mu.Unlock()

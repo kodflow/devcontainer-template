@@ -84,16 +84,15 @@ func (sg *ScatterGather[TRequest, TResponse]) Scatter(ctx context.Context, reque
 	defer cancel()
 
 	for i, dest := range sg.config.Destinations {
-		wg.Add(1)
-		go func(idx int, destination string) {
-			defer wg.Done()
-			
+		idxCaptured := i
+		destCaptured := dest
+		wg.Go(func() {
 			startTime := time.Now()
-			response, err := sg.sendAndWait(ctx, destination, request, correlationID)
+			response, err := sg.sendAndWait(ctx, destCaptured, request, correlationID)
 			latency := time.Since(startTime).Milliseconds()
 
 			result := ScatterResult[TResponse]{
-				Source:    destination,
+				Source:    destCaptured,
 				LatencyMs: latency,
 			}
 
@@ -107,10 +106,10 @@ func (sg *ScatterGather[TRequest, TResponse]) Scatter(ctx context.Context, reque
 			case resultChan <- struct {
 				index  int
 				result ScatterResult[TResponse]
-			}{idx, result}:
+			}{idxCaptured, result}:
 			case <-ctx.Done():
 			}
-		}(i, dest)
+		})
 	}
 
 	go func() {
