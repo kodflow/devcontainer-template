@@ -1,12 +1,14 @@
 # Iterator
 
-> Fournir un moyen d'acceder sequentiellement aux elements d'une collection sans exposer sa representation interne.
+> Acceder aux elements d'une collection sans exposer sa structure interne.
 
 ---
 
 ## Principe
 
-Le pattern Iterator permet de parcourir une collection d'elements sans connaitre sa structure sous-jacente (liste, arbre, graphe, etc.). Go utilise nativement ce pattern avec `range` et les channels.
+Le pattern Iterator permet de parcourir une collection sans connaitre sa
+structure sous-jacente (liste, arbre, graphe).
+Go utilise nativement ce pattern avec `range` et les channels.
 
 ```text
 ┌────────────────┐      ┌────────────────┐

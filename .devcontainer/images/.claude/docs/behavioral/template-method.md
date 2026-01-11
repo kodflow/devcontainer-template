@@ -1,12 +1,14 @@
 # Template Method
 
-> Definir le squelette d'un algorithme dans une methode, en deleguant certaines etapes aux sous-classes.
+> Definir le squelette d'un algorithme, en deleguant des etapes aux sous-classes.
 
 ---
 
 ## Principe
 
-Le pattern Template Method definit la structure d'un algorithme dans une classe de base, tout en permettant aux sous-classes de redefinir certaines etapes sans changer la structure globale.
+Le pattern Template Method definit la structure d'un algorithme dans une
+classe de base. Les sous-classes redefinissent certaines etapes sans
+changer la structure globale.
 
 ```text
 ┌─────────────────────┐

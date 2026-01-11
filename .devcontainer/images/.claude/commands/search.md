@@ -26,9 +26,9 @@ $ARGUMENTS
 
 ## Description
 
-Recherche d'informations avec stratégie **LOCAL-FIRST** et patterns RLM (Recursive Language Models).
+Recherche avec stratégie **LOCAL-FIRST** et patterns RLM.
 
-**PRIORITÉ ABSOLUE : Documentation locale validée**
+### Priorité : Documentation locale validée
 
 ```
 .claude/docs/ (LOCAL)  →  Sources officielles (EXTERNE)
@@ -47,7 +47,7 @@ Recherche d'informations avec stratégie **LOCAL-FIRST** et patterns RLM (Recurs
 - **Conflict-Resolution** - Gestion des contradictions local/externe
 - **Programmatic** - Génération structurée du context
 
-**Principe** : Local > Externe. Fiabilité > Quantité. Décomposer → Paralléliser → Synthétiser.
+**Principe** : Local > Externe. Fiabilité > Quantité.
 
 ---
 

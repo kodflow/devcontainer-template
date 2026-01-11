@@ -6,7 +6,8 @@
 
 ## Principe
 
-Le pattern Memento permet de sauvegarder et restaurer l'etat d'un objet sans violer son encapsulation. Il est utilise pour implementer les fonctionnalites undo/redo.
+Le pattern Memento permet de sauvegarder et restaurer l'etat d'un objet
+sans violer son encapsulation. Utilise pour implementer undo/redo.
 
 ```text
 ┌────────────────┐    ┌────────────────┐    ┌────────────────┐

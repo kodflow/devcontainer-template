@@ -1,12 +1,14 @@
 # Interpreter
 
-> Definir une representation grammaticale pour un langage et un interpreteur pour evaluer les expressions.
+> Definir une grammaire et un interpreteur pour evaluer les expressions.
 
 ---
 
 ## Principe
 
-Le pattern Interpreter definit une grammaire pour un langage simple et utilise cette grammaire pour interpreter des expressions. Chaque regle de grammaire devient une classe.
+Le pattern Interpreter definit une grammaire pour un langage simple et utilise
+cette grammaire pour interpreter des expressions.
+Chaque regle de grammaire devient une classe.
 
 ```text
 ┌─────────────────┐

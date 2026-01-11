@@ -1,12 +1,14 @@
 # Visitor
 
-> Separer un algorithme des objets sur lesquels il opere, permettant d'ajouter de nouvelles operations sans modifier les classes.
+> Separer un algorithme des objets, permettant d'ajouter des operations.
 
 ---
 
 ## Principe
 
-Le pattern Visitor permet de definir de nouvelles operations sur une structure d'objets sans modifier les classes de ces objets. Le visiteur "visite" chaque element et effectue son operation.
+Le pattern Visitor permet de definir de nouvelles operations sur une
+structure d'objets sans modifier les classes de ces objets.
+Le visiteur "visite" chaque element et effectue son operation.
 
 ```text
 ┌────────────┐      ┌────────────┐
@@ -410,7 +412,7 @@ func main() {
 
 | Anti-pattern | Probleme | Solution |
 |--------------|----------|----------|
-| Visitor monolithique | Trop de responsabilites | Decomposer en visiteurs specialises |
+| Visitor monolithique | Trop de responsabilites | Visiteurs specialises |
 | Oublier Accept | Elements non visites | Verifier tous les types |
 | Etat mutable partage | Race conditions | Visiteurs thread-local |
 

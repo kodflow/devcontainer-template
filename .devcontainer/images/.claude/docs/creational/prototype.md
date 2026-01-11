@@ -6,7 +6,8 @@
 
 ## Principe
 
-Le pattern Prototype permet de copier des objets existants sans rendre le code dependant de leurs classes. Il est particulierement utile quand la creation d'un objet est couteuse ou complexe.
+Le pattern Prototype permet de copier des objets existants sans dependre
+de leurs classes. Utile quand la creation d'un objet est couteuse.
 
 ```text
 ┌─────────────┐         ┌─────────────┐
@@ -204,8 +205,8 @@ func main() {
 
 | Avantages | Inconvenients |
 |-----------|---------------|
-| Evite le couplage aux classes concretes | Cloner des objets complexes peut etre difficile |
-| Elimine le code d'initialisation repetitif | Gestion des references circulaires |
+| Evite le couplage aux classes | Cloner objets complexes difficile |
+| Elimine le code d'init repetitif | Gestion des refs circulaires |
 | Alternative aux factories | Deep copy peut etre couteux |
 | Produit des objets preconfigures | |
 
@@ -236,9 +237,9 @@ func main() {
 
 | Anti-pattern | Probleme | Solution |
 |--------------|----------|----------|
-| Shallow copy accidentel | Mutation partagee | Implementer deep copy explicite |
-| Clone() retourne interface{} | Perte de type safety | Retourner le type concret ou interface specifique |
-| Oublier les champs prives | Clone incomplet | Utiliser serialization ou reflexion |
+| Shallow copy accidentel | Mutation partagee | Deep copy explicite |
+| Clone() retourne interface{} | Perte type safety | Retourner type concret |
+| Oublier champs prives | Clone incomplet | Serialization/reflexion |
 
 ---
 

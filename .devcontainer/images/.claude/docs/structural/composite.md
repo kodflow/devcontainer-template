@@ -1,12 +1,13 @@
 # Composite
 
-> Composer des objets en structures arborescentes pour representer des hierarchies partie-tout.
+> Composer des objets en arbres pour representer des hierarchies partie-tout.
 
 ---
 
 ## Principe
 
-Le pattern Composite permet aux clients de traiter des objets individuels et des compositions d'objets de maniere uniforme. Il est ideal pour les structures arborescentes comme les systemes de fichiers, les menus, ou les organisations.
+Le pattern Composite permet de traiter objets et compositions uniformement.
+Ideal pour les structures arborescentes (fichiers, menus, organisations).
 
 ```text
         ┌────────────┐
@@ -173,7 +174,8 @@ func (m *Manager) Remove(name string) {
 }
 
 func (m *Manager) Print(indent int) {
-    fmt.Printf("%s+ %s (Manager, $%.0f)\n", strings.Repeat("  ", indent), m.name, m.salary)
+    prefix := strings.Repeat("  ", indent)
+    fmt.Printf("%s+ %s (Manager, $%.0f)\n", prefix, m.name, m.salary)
     for _, sub := range m.subordinates {
         sub.Print(indent + 1)
     }
@@ -262,7 +264,7 @@ func main() {
 | Avantages | Inconvenients |
 |-----------|---------------|
 | Code client simplifie | Difficile de restreindre les types |
-| Ajout facile de nouveaux composants | Generalisation peut compliquer le design |
+| Ajout facile de composants | Generalisation complique le design |
 | Structure flexible | Overhead pour petites collections |
 | Open/Closed Principle | |
 
@@ -293,7 +295,7 @@ func main() {
 
 | Anti-pattern | Probleme | Solution |
 |--------------|----------|----------|
-| Leaky abstraction | Exposer la difference feuille/branche | Interface uniforme |
+| Leaky abstraction | Exposer diff feuille/branche | Interface uniforme |
 | Deep nesting | Performance et complexite | Limiter la profondeur |
 | Circular references | Boucles infinies | Validation a l'ajout |
 

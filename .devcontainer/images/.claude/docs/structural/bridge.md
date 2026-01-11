@@ -6,7 +6,8 @@
 
 ## Principe
 
-Le pattern Bridge separe une grosse classe ou un ensemble de classes liees en deux hierarchies separees - abstraction et implementation - qui peuvent evoluer independamment l'une de l'autre.
+Le pattern Bridge separe une grosse classe en deux hierarchies separees -
+abstraction et implementation - qui evoluent independamment.
 
 ```text
 ┌─────────────────┐           ┌─────────────────┐
@@ -127,7 +128,9 @@ type UrgentMessage struct {
     priority int
 }
 
-func NewUrgentMessage(sender MessageSender, content string, priority int) *UrgentMessage {
+func NewUrgentMessage(
+    sender MessageSender, content string, priority int,
+) *UrgentMessage {
     return &UrgentMessage{
         Message:  NewMessage(sender, content),
         priority: priority,

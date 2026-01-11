@@ -1,12 +1,14 @@
 # Mediator
 
-> Definir un objet qui encapsule les interactions entre un ensemble d'objets, promouvant un couplage faible.
+> Encapsuler les interactions entre objets pour un couplage faible.
 
 ---
 
 ## Principe
 
-Le pattern Mediator reduit le couplage entre composants en les faisant communiquer via un intermediaire central plutot qu'en reference directe. Chaque composant ne connait que le mediateur.
+Le pattern Mediator reduit le couplage entre composants en les faisant
+communiquer via un intermediaire central.
+Chaque composant ne connait que le mediateur.
 
 ```text
 ┌─────────┐     ┌─────────┐

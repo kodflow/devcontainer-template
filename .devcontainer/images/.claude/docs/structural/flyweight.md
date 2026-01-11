@@ -1,12 +1,13 @@
 # Flyweight
 
-> Minimiser l'utilisation memoire en partageant les donnees communes entre plusieurs objets similaires.
+> Minimiser la memoire en partageant les donnees entre objets similaires.
 
 ---
 
 ## Principe
 
-Le pattern Flyweight permet de stocker une seule instance des donnees repetitives (etat intrinseque) et de passer l'etat variable (etat extrinseque) en parametre des operations.
+Le pattern Flyweight stocke une seule instance des donnees repetitives
+(etat intrinseque) et passe l'etat variable en parametre des operations.
 
 ```text
 ┌─────────────────┐
@@ -131,7 +132,8 @@ type CharacterStyle struct {
 }
 
 func (s *CharacterStyle) String() string {
-    return fmt.Sprintf("%s-%d-%v-%v-%s", s.FontFamily, s.FontSize, s.Bold, s.Italic, s.Color)
+    return fmt.Sprintf("%s-%d-%v-%v-%s",
+        s.FontFamily, s.FontSize, s.Bold, s.Italic, s.Color)
 }
 
 // StyleFactory gere le cache de styles.
@@ -146,7 +148,9 @@ func NewStyleFactory() *StyleFactory {
     }
 }
 
-func (f *StyleFactory) GetStyle(family string, size int, bold, italic bool, color string) *CharacterStyle {
+func (f *StyleFactory) GetStyle(
+    family string, size int, bold, italic bool, color string,
+) *CharacterStyle {
     key := fmt.Sprintf("%s-%d-%v-%v-%s", family, size, bold, italic, color)
 
     f.mu.RLock()
@@ -200,7 +204,9 @@ func NewDocument(factory *StyleFactory) *Document {
     }
 }
 
-func (d *Document) AddCharacter(char rune, family string, size int, bold, italic bool, color string) {
+func (d *Document) AddCharacter(
+    char rune, family string, size int, bold, italic bool, color string,
+) {
     style := d.factory.GetStyle(family, size, bold, italic, color)
     position := len(d.characters)
     d.characters = append(d.characters, &Character{
