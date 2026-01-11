@@ -48,7 +48,7 @@ done
 # 4. Télécharger les scripts (hooks)
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Downloading scripts..."
-for script in format imports lint post-edit pre-validate security test bash-validate commit-validate; do
+for script in format imports lint post-edit pre-validate security test bash-validate commit-validate post-compact; do
     curl -sL "$BASE/.claude/scripts/$script.sh" -o "$TARGET/.claude/scripts/$script.sh" 2>/dev/null && \
     chmod +x "$TARGET/.claude/scripts/$script.sh"
 done

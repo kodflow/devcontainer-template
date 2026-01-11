@@ -113,6 +113,7 @@ Configured in `mcp.json.tpl`:
 | `post-edit.sh` | PostToolUse (Write/Edit) | Format + Lint |
 | `security.sh` | PostToolUse (Write/Edit) | Secret detection |
 | `test.sh` | PostToolUse (Write/Edit) | Run related tests |
+| `post-compact.sh` | SessionStart (compact) | Restore context after compaction |
 
 ## Build
 
