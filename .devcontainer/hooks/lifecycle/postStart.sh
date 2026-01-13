@@ -149,6 +149,21 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 # ============================================================================
+# Grepai Initialization (required before MCP server can work)
+# ============================================================================
+# grepai requires initialization in each project directory
+# Creates .grepai/config.yaml and starts background indexing
+GREPAI_BIN="$HOME/.local/bin/grepai"
+if [ -x "$GREPAI_BIN" ]; then
+    if [ ! -d "/workspace/.grepai" ]; then
+        log_info "Initializing grepai for semantic code search..."
+        (cd /workspace && "$GREPAI_BIN" init 2>/dev/null) && log_success "grepai initialized" || log_warning "grepai init failed (optional)"
+    else
+        log_info "grepai already initialized"
+    fi
+fi
+
+# ============================================================================
 # MCP Configuration Setup (inject secrets into template)
 # ============================================================================
 # 1Password vault ID (can be overridden via OP_VAULT_ID env var)
@@ -291,23 +306,15 @@ if [ -f "/workspace/.mcp.json" ] && [ ! -e "$MCP_OUTPUT" ]; then
 fi
 
 # Generate mcp.json from template (baked in Docker image)
-# Skip if mcp.json already exists with valid JSON (preserve user modifications)
+# ALWAYS regenerate from template to ensure latest MCP config is applied
 if [ -f "$MCP_TPL" ]; then
-    if [ -f "$MCP_OUTPUT" ] && jq empty "$MCP_OUTPUT" 2>/dev/null; then
-        log_info "mcp.json exists with valid JSON, preserving user modifications"
-        # Ensure correct ownership and secure permissions
+    if [ -z "$CODACY_TOKEN" ] && [ -z "$GITHUB_TOKEN" ]; then
+        # No tokens available - create minimal config for optional MCPs (grepai, playwright, etc.)
+        log_warning "No tokens available, creating minimal mcp.json"
+        printf '%s\n' '{"mcpServers":{}}' > "$MCP_OUTPUT"
         chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
-        chmod 600 "$MCP_OUTPUT" 2>/dev/null || true
-    elif [ -z "$CODACY_TOKEN" ] && [ -z "$GITHUB_TOKEN" ]; then
-        # Skip generation if no tokens available (would create unusable config)
-        log_warning "No tokens available, skipping mcp.json generation"
-        # Ensure downstream steps have a valid file to work with
-        if [ ! -f "$MCP_OUTPUT" ]; then
-            printf '%s\n' '{"mcpServers":{}}' > "$MCP_OUTPUT"
-            chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
-            chmod 600 "$MCP_OUTPUT"
-            log_info "Created minimal mcp.json for optional MCPs"
-        fi
+        chmod 600 "$MCP_OUTPUT"
+        log_info "Created minimal mcp.json (optional MCPs will be added below)"
     else
         # Generate mcp.json from template (uses subshell to avoid global trap clobbering)
         generate_mcp_from_template() {
@@ -339,7 +346,7 @@ if [ -f "$MCP_TPL" ]; then
                 log_error "Generated mcp.json is invalid JSON, keeping original"
             fi
         }
-        log_info "Generating mcp.json from template..."
+        log_info "Regenerating mcp.json from template (forced)..."
         generate_mcp_from_template
     fi
 
