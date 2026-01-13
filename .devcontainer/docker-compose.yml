@@ -27,6 +27,9 @@ services:
       - op-config:/home/vscode/.config/op
       - op-cache:/home/vscode/.op
 
+      # Ollama models persistence (for grepai embeddings)
+      - ollama-data:/home/vscode/.ollama
+
       # Docker socket for Docker-from-Docker
       - /var/run/docker.sock:/var/run/docker.sock
 
@@ -104,6 +107,10 @@ services:
       - CARBON_PATH=/home/vscode/.cache/carbon
       - BAZEL_USER_ROOT=/home/vscode/.cache/bazel
 
+      # Ollama (LLM runtime for grepai)
+      - OLLAMA_HOST=127.0.0.1:11434
+      - OLLAMA_MODELS=/home/vscode/.ollama/models
+
       # Cloud CLIs (AWS / Google Cloud / Azure)
       - AWS_CONFIG_FILE=/home/vscode/.config/aws/config
       - AWS_SHARED_CREDENTIALS_FILE=/home/vscode/.config/aws/credentials
@@ -133,6 +140,7 @@ volumes:
   claude-config:
   op-config:
   op-cache:
+  ollama-data:
 
 networks:
   default:
