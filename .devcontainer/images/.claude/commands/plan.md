@@ -67,7 +67,7 @@ RLM Patterns:
   4. Synthesize - Plan structuré
 
 Workflow:
-  /search <topic> → /plan <feature> → (approve) → /apply
+  /search <topic> → /plan <feature> → (approve) → /do
 
 Exemples:
   /plan "Add user authentication with JWT"
@@ -342,7 +342,7 @@ Comment annuler si problème
 
   Actions:
     → Review the plan above
-    → Run /apply to execute
+    → Run /do to execute (auto-detects plan)
     → Or modify the plan manually
 
 ═══════════════════════════════════════════════════════════════
@@ -354,8 +354,8 @@ Comment annuler si problème
 
 | Avant /plan | Après /plan |
 |-------------|-------------|
-| `/search <topic>` | `/apply` |
-| Génère .context.md | Exécute le plan |
+| `/search <topic>` | `/do` |
+| Génère .context.md | Exécute le plan (auto-détecté) |
 
 **Workflow complet :**
 
@@ -370,10 +370,13 @@ Plan créé et affiché
     ↓
 User: "OK, go ahead"
     ↓
-/apply
+/do                          # Détecte le plan automatiquement
     ↓
 Implémentation exécutée
 ```
+
+**Note** : `/do` détecte automatiquement le plan approuvé et l'exécute
+sans poser les questions interactives.
 
 ---
 

@@ -2,8 +2,7 @@
   "mcpServers": {
     "grepai": {
       "command": "/home/vscode/.local/bin/grepai",
-      "args": ["mcp", "serve"],
-      "env": {}
+      "args": ["mcp-serve"]
     },
     "context7": {
       "command": "npx",
