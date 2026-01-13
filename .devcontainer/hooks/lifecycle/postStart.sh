@@ -149,23 +149,46 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 # ============================================================================
-# Grepai Initialization (required before MCP server can work)
+# Ollama + grepai Initialization (for semantic code search MCP)
 # ============================================================================
-# grepai requires initialization in each project directory
-# Creates .grepai/config.yaml and starts background indexing
-GREPAI_BIN="$HOME/.local/bin/grepai"
-if [ -x "$GREPAI_BIN" ]; then
-    if [ ! -d "/workspace/.grepai" ]; then
-        log_info "Initializing grepai for semantic code search..."
-        if (cd /workspace && "$GREPAI_BIN" init 2>/dev/null); then
-            log_success "grepai initialized"
-        else
-            log_warning "grepai init failed (optional)"
+# Ollama provides embeddings for grepai semantic search
+# Model is pulled on first start and persisted in ollama-data volume
+GREPAI_BIN="/usr/local/bin/grepai"
+OLLAMA_BIN="/usr/local/bin/ollama"
+
+init_semantic_search() {
+    # Start Ollama server in background if available
+    if [ -x "$OLLAMA_BIN" ]; then
+        if ! pgrep -x ollama >/dev/null 2>&1; then
+            log_info "Starting Ollama server..."
+            nohup "$OLLAMA_BIN" serve >/dev/null 2>&1 &
+            sleep 2
         fi
-    else
-        log_info "grepai already initialized"
+
+        # Pull embedding model if not present (background, non-blocking)
+        if ! "$OLLAMA_BIN" list 2>/dev/null | grep -q "nomic-embed-text"; then
+            log_info "Pulling nomic-embed-text model (background)..."
+            nohup "$OLLAMA_BIN" pull nomic-embed-text >/dev/null 2>&1 &
+        fi
     fi
-fi
+
+    # Initialize grepai for the workspace
+    if [ -x "$GREPAI_BIN" ]; then
+        if [ ! -d "/workspace/.grepai" ]; then
+            log_info "Initializing grepai for semantic code search..."
+            if (cd /workspace && "$GREPAI_BIN" init --provider ollama --backend gob --yes 2>/dev/null); then
+                log_success "grepai initialized"
+            else
+                log_warning "grepai init failed (Ollama may not be ready yet)"
+            fi
+        else
+            log_info "grepai already initialized"
+        fi
+    fi
+}
+
+# Run in background to not block container startup
+init_semantic_search &
 
 # ============================================================================
 # MCP Configuration Setup (inject secrets into template)
