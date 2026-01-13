@@ -582,9 +582,9 @@ todo_pattern:
 
 | Action | Status | Raison |
 |--------|--------|--------|
-| Skip Phase -1 (Plan detection) | ❌ **INTERDIT** | Toujours vérifier si plan existe |
-| Skip Phase 0 si pas de plan | ❌ **INTERDIT** | Questions requises en mode ITERATIVE |
-| Skip Phase 1 (Peek) | ❌ **INTERDIT** | Contexte + git check nécessaires |
+| Skip Phase -1 (Plan detect) | ❌ **INTERDIT** | Vérifier si plan existe |
+| Skip Phase 0 sans plan | ❌ **INTERDIT** | Questions requises |
+| Skip Phase 1 (Peek) | ❌ **INTERDIT** | Contexte + git check |
 | Ignorer max_iterations | ❌ **INTERDIT** | Boucle infinie |
 | Critères subjectifs ("joli", "clean") | ❌ **INTERDIT** | Non mesurable |
 | Modifier .claude/ ou .devcontainer/ | ❌ **INTERDIT** | Fichiers protégés |

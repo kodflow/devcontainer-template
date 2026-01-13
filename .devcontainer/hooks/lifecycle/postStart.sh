@@ -157,7 +157,11 @@ GREPAI_BIN="$HOME/.local/bin/grepai"
 if [ -x "$GREPAI_BIN" ]; then
     if [ ! -d "/workspace/.grepai" ]; then
         log_info "Initializing grepai for semantic code search..."
-        (cd /workspace && "$GREPAI_BIN" init 2>/dev/null) && log_success "grepai initialized" || log_warning "grepai init failed (optional)"
+        if (cd /workspace && "$GREPAI_BIN" init 2>/dev/null); then
+            log_success "grepai initialized"
+        else
+            log_warning "grepai init failed (optional)"
+        fi
     else
         log_info "grepai already initialized"
     fi
