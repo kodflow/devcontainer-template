@@ -118,7 +118,7 @@ RUN ARCH_BAZEL=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") &&
 # Ollama LLM Runtime (for grepai embeddings)
 # =============================================================================
 ARG OLLAMA_VERSION=0.4.4
-RUN ARCH_OLLAMA=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "x86_64") && \
+RUN ARCH_OLLAMA=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     curl -fsSL "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-${ARCH_OLLAMA}.tgz" \
       -o /tmp/ollama.tgz && \
     tar xzf /tmp/ollama.tgz -C / && \
