@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "grepai": {
-      "command": "/home/vscode/.local/bin/grepai",
+      "command": "/usr/local/bin/grepai",
       "args": ["mcp-serve"]
     },
     "context7": {

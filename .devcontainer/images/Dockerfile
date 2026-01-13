@@ -115,6 +115,24 @@ RUN ARCH_BAZEL=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") &&
     chmod +x /usr/local/bin/bazel
 
 # =============================================================================
+# Ollama LLM Runtime (for grepai embeddings)
+# =============================================================================
+ARG OLLAMA_VERSION=0.4.4
+RUN ARCH_OLLAMA=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "x86_64") && \
+    curl -fsSL "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-${ARCH_OLLAMA}.tgz" \
+      -o /tmp/ollama.tgz && \
+    tar xzf /tmp/ollama.tgz -C / && \
+    rm /tmp/ollama.tgz
+
+# =============================================================================
+# grepai (Semantic Code Search for AI agents)
+# =============================================================================
+ARG GREPAI_VERSION=v0.14.0
+RUN ARCH_GREPAI=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+    curl -fsSL "https://github.com/yoanbernabeu/grepai/releases/download/${GREPAI_VERSION}/grepai_${GREPAI_VERSION#v}_linux_${ARCH_GREPAI}.tar.gz" | \
+    tar xz -C /usr/local/bin grepai
+
+# =============================================================================
 # User Setup
 # =============================================================================
 USER vscode
