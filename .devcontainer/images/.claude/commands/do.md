@@ -4,6 +4,7 @@ description: |
   Iterative task execution loop with RLM decomposition.
   Transforms a task into a persistent loop with automatic iteration.
   The agent keeps going, fixing its own mistakes, until success criteria are met.
+  Also executes approved plans from /plan (auto-detected).
 allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
@@ -49,12 +50,18 @@ Boucle itérative utilisant **Recursive Language Model** decomposition :
     L'agent continue jusqu'à ce que les critères de succès soient
     atteints ou que la limite d'itérations soit atteinte.
 
+    Si un plan approuvé existe (via /plan), l'exécute automatiquement
+    sans poser les questions interactives.
+
   USAGE
     /do <task>              Lance le workflow interactif
+    /do                     Exécute le plan approuvé (si existant)
     /do --help              Affiche cette aide
 
   RLM PATTERNS
-    1. Peek     - Scan du codebase avant modifications
+    -1. Plan    - Détection plan approuvé (skip questions si oui)
+    0. Questions - Configuration interactive (si pas de plan)
+    1. Peek     - Scan du codebase + git conflict check
     2. Decompose - Division en sous-objectifs mesurables
     3. Parallelize - Validations simultanées (test/lint/build)
     4. Synthesize - Rapport consolidé par itération
@@ -62,12 +69,13 @@ Boucle itérative utilisant **Recursive Language Model** decomposition :
   EXEMPLES
     /do "Migrer les tests Jest vers Vitest"
     /do "Ajouter des tests pour couvrir src/utils à 80%"
-    /do "Standardiser la gestion d'erreurs dans src/"
+    /do                     # Exécute le plan de /plan
 
   GARDE-FOUS
     - Max 50 itérations (défaut: 10)
     - Critères de succès MESURABLES uniquement
     - Revue du diff obligatoire avant merge
+    - Git conflict check avant modifications
 
 ═══════════════════════════════════════════════════════════════
 ```
@@ -76,9 +84,79 @@ Boucle itérative utilisant **Recursive Language Model** decomposition :
 
 ---
 
-## Phase 0 : Questions Interactives (OBLIGATOIRE)
+## Phase -1 : Détection de Plan Approuvé
 
-**Toujours poser ces 4 questions AVANT de commencer :**
+**TOUJOURS exécuter en premier. Vérifie si /plan a été utilisé.**
+
+```yaml
+plan_detection:
+  check: "Existe-t-il un plan approuvé dans le contexte ?"
+
+  sources:
+    - "Conversation récente (plan validé par utilisateur)"
+    - "Mémoire de session Claude"
+
+  detection_signals:
+    - "User a dit 'oui', 'ok', 'go', 'approuvé' après un /plan"
+    - "Plan structuré avec steps numérotées visible"
+    - "ExitPlanMode a été appelé avec succès"
+
+  if_plan_found:
+    mode: "PLAN_EXECUTION"
+    actions:
+      - "Extraire: title, steps[], scope, files[]"
+      - "Skip Phase 0 (questions interactives)"
+      - "Utiliser steps du plan comme sous-objectifs"
+      - "Critères = plan terminé + tests/lint/build passent"
+
+  if_no_plan:
+    mode: "ITERATIVE"
+    actions:
+      - "Continuer vers Phase 0 (questions)"
+```
+
+**Output Phase -1 (plan détecté) :**
+
+```
+═══════════════════════════════════════════════════════════════
+  /do - Plan Detection
+═══════════════════════════════════════════════════════════════
+
+  ✓ Approved plan detected!
+
+  Plan   : "Add JWT authentication to API"
+  Steps  : 4
+  Scope  : src/auth/, src/middleware/
+  Files  : 6 to modify, 2 to create
+
+  Mode: PLAN_EXECUTION (skipping interactive questions)
+
+  Proceeding to Phase 1 (Peek)...
+
+═══════════════════════════════════════════════════════════════
+```
+
+**Output Phase -1 (pas de plan) :**
+
+```
+═══════════════════════════════════════════════════════════════
+  /do - Plan Detection
+═══════════════════════════════════════════════════════════════
+
+  No approved plan found.
+
+  Mode: ITERATIVE (interactive questions required)
+
+  Proceeding to Phase 0 (Questions)...
+
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Phase 0 : Questions Interactives (SI PAS DE PLAN)
+
+**Poser ces 4 questions UNIQUEMENT si aucun plan approuvé n'est détecté :**
 
 ### Question 1 : Type de tâche
 
@@ -164,6 +242,17 @@ AskUserQuestion:
 
 ```yaml
 peek_workflow:
+  0_git_check:
+    action: "Vérifier l'état git (conflict detection)"
+    tools: [Bash]
+    command: "git status --porcelain"
+    checks:
+      - "Pas de merge/rebase en cours"
+      - "Fichiers cibles pas déjà modifiés (warning si oui)"
+    on_conflict:
+      action: "Warning + continuer (pas bloquant)"
+      message: "⚠ Uncommitted changes detected on target files"
+
   1_structure:
     action: "Scanner la structure du scope"
     tools: [Glob]
@@ -196,6 +285,9 @@ peek_workflow:
 ═══════════════════════════════════════════════════════════════
   /do - Peek Analysis
 ═══════════════════════════════════════════════════════════════
+
+  Git Status:
+    ✓ Working tree clean (or: ⚠ 3 uncommitted changes)
 
   Scope      : src/
   Files      : 47 source files, 23 test files
@@ -490,8 +582,9 @@ todo_pattern:
 
 | Action | Status | Raison |
 |--------|--------|--------|
-| Lancer sans questions interactives | ❌ **INTERDIT** | Configuration requise |
-| Skip Phase 1 (Peek) | ❌ **INTERDIT** | Contexte nécessaire |
+| Skip Phase -1 (Plan detect) | ❌ **INTERDIT** | Vérifier si plan existe |
+| Skip Phase 0 sans plan | ❌ **INTERDIT** | Questions requises |
+| Skip Phase 1 (Peek) | ❌ **INTERDIT** | Contexte + git check |
 | Ignorer max_iterations | ❌ **INTERDIT** | Boucle infinie |
 | Critères subjectifs ("joli", "clean") | ❌ **INTERDIT** | Non mesurable |
 | Modifier .claude/ ou .devcontainer/ | ❌ **INTERDIT** | Fichiers protégés |
@@ -538,7 +631,7 @@ todo_pattern:
 
 | Avant /do | Après /do |
 |-----------|-----------|
-| `/plan` (optionnel) | `/git --commit` |
+| `/plan` (optionnel mais recommandé) | `/git --commit` |
 | `/search` (si research needed) | `/review` (optionnel) |
 
 **Workflow recommandé :**
@@ -546,11 +639,25 @@ todo_pattern:
 ```
 /search "vitest migration from jest"  # Si besoin de recherche
     ↓
-/plan "Migrer tests Jest"              # Planifier (optionnel)
+/plan "Migrer tests Jest"              # Planifier l'approche
     ↓
-/do "Migrer tests Jest"                # Exécuter en boucle
+(user approves plan)                   # Validation humaine
+    ↓
+/do                                    # Détecte le plan → exécute
     ↓
 (review diff)                          # Vérifier les changements
     ↓
 /git --commit                          # Commiter + PR
 ```
+
+**Workflow rapide (sans plan) :**
+
+```
+/do "Fix tous les bugs de lint"        # Tâche simple + mesurable
+    ↓
+(iterations jusqu'à succès)
+    ↓
+/git --commit
+```
+
+**Note** : `/do` remplace `/apply`. Le skill `/apply` est déprécié.
