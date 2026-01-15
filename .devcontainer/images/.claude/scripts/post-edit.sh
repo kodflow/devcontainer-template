@@ -1,6 +1,7 @@
 #!/bin/bash
-# Combined post-edit hook: format + imports + lint
+# Combined post-edit hook: format + lint + typecheck
 # Usage: post-edit.sh <file_path>
+# Note: format.sh handles imports (goimports, ruff, rustfmt, etc.)
 
 set -e
 
@@ -23,16 +24,13 @@ fi
 
 # === Format/Lint/Types pipeline ===
 
-# 1. Format
+# 1. Format (includes import sorting via goimports, ruff, rustfmt, etc.)
 "$SCRIPT_DIR/format.sh" "$FILE"
 
-# 2. Sort imports
-"$SCRIPT_DIR/imports.sh" "$FILE"
-
-# 3. Lint (with auto-fix)
+# 2. Lint (with auto-fix)
 "$SCRIPT_DIR/lint.sh" "$FILE"
 
-# 4. Type check (academic rigor)
+# 3. Type check (academic rigor)
 "$SCRIPT_DIR/typecheck.sh" "$FILE"
 
 exit 0

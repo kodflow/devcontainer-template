@@ -48,7 +48,11 @@
         "editor.formatOnSave": true,
         "files.eol": "\n",
         "files.insertFinalNewline": true,
-        "files.trimTrailingWhitespace": true
+        "files.trimTrailingWhitespace": true,
+        "files.exclude": {
+          "**/.grepai": true,
+          "**/.git": true
+        }
       },
       "extensions": [
         "vscode-icons-team.vscode-icons",
