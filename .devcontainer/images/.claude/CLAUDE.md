@@ -131,6 +131,50 @@ protected_paths:
 - Move content to separate files, NEVER delete logic
 - Ask before removing any feature, even if seemingly redundant
 
+## 8. CONTEXT RECOVERY (MANDATORY at Session Start)
+
+**If session was interrupted, ALWAYS check for recovery context.**
+
+```yaml
+recovery_check:
+  trigger: "New session OR compaction event"
+  location: "/workspace/.claude/logs/<branch>/"
+  files:
+    checkpoint: "checkpoint.json"     # Last action snapshot
+    session_log: "session.jsonl"      # Full action history
+
+  workflow:
+    1_get_branch: "git rev-parse --abbrev-ref HEAD"
+    2_check_checkpoint: "cat /workspace/.claude/logs/<branch>/checkpoint.json"
+    3_if_exists:
+      - "Read last_event from checkpoint"
+      - "Determine if task was incomplete"
+      - "Resume from where it stopped"
+    4_if_empty: "Start fresh session"
+```
+
+**Recovery commands:**
+
+```bash
+# Get current branch logs
+BRANCH=$(git rev-parse --abbrev-ref HEAD | tr '/ ' '__')
+LOG_DIR="/workspace/.claude/logs/$BRANCH"
+
+# Read checkpoint (last action)
+cat "$LOG_DIR/checkpoint.json" | jq .
+
+# Read recent actions (last 20)
+tail -n 20 "$LOG_DIR/session.jsonl" | jq -s .
+
+# Read specific tool actions
+grep '"tool_name":"Bash"' "$LOG_DIR/session.jsonl" | tail -5 | jq .
+```
+
+**Rules:**
+- Hooks log ALL tool actions (Bash, Write, Edit, Read, Glob, Grep, Task)
+- Secrets are redacted, outputs truncated (safe to read)
+- Logs are branch-scoped (isolated per feature branch)
+
 ## Quick Reference
 
 ```yaml
@@ -140,4 +184,5 @@ env_tokens: "Check env vars for pre-configured auth"
 commit_clean: "No AI mentions in message"
 context_read: "Read relevant CLAUDE.md files"
 branch_safe: "Not on main/master for commits"
+recovery_check: "Check logs if resuming interrupted session"
 ```

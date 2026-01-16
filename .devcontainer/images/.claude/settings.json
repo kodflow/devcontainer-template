@@ -111,6 +111,11 @@
             "type": "command",
             "command": "/home/vscode/.claude/scripts/security.sh",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "/home/vscode/.claude/scripts/log.sh",
+            "timeout": 5
           }
         ]
       },
@@ -153,6 +158,16 @@
             "type": "command",
             "command": "/home/vscode/.claude/scripts/test.sh \"$CLAUDE_FILE_PATH\"",
             "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|Read|Glob|Grep|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/vscode/.claude/scripts/log.sh",
+            "timeout": 5
           }
         ]
       }
