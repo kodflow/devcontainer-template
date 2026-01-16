@@ -183,7 +183,7 @@ grep '"tool_name":"Bash"' "$LOG_DIR/session.jsonl" | tail -5 | jq .
     "tool_input": {"file_path": "/workspace/src/foo.ts"},
     "hook_event_name": "PostToolUse"
   },
-  "recovery_hint": "Read checkpoint.json for last action, tail session.jsonl for full context."
+  "recovery_hint": "Read checkpoint.json, tail session.jsonl"
 }
 ```
 
