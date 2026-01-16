@@ -162,7 +162,7 @@
         ]
       },
       {
-        "matcher": "Write|Edit|Read|Glob|Grep|Task",
+        "matcher": "Bash|Write|Edit|Read|Glob|Grep|Task",
         "hooks": [
           {
             "type": "command",
