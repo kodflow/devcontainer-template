@@ -106,13 +106,6 @@ RUN curl -fsSL https://downloads.1password.com/linux/keys/1password.asc | gpg --
     rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
-# Redis/Valkey CLI (for Claude logging shipper)
-# =============================================================================
-RUN apt-get update && apt-get install -y --no-install-recommends redis-tools && \
-    ln -sf /usr/bin/redis-cli /usr/bin/valkey-cli && \
-    rm -rf /var/lib/apt/lists/*
-
-# =============================================================================
 # Bazelisk (Bazel version manager)
 # Pinned version for supply-chain security
 # =============================================================================
