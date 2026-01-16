@@ -1,5 +1,27 @@
 services:
+  # ========== VALKEY (Redis-compatible) ==========
+  # In-memory data store for Claude Code logging
+  valkey:
+    image: valkey/valkey:8
+    container_name: dev_valkey
+    command: ["valkey-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - valkey-data:/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "valkey-cli", "PING"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+    restart: unless-stopped
+
+  # ========== DEVCONTAINER ==========
   devcontainer:
+    depends_on:
+      valkey:
+        condition: service_healthy
+
     # Build from Dockerfile (uses GHCR base image)
     build:
       context: .
@@ -111,6 +133,10 @@ services:
       - OLLAMA_HOST=127.0.0.1:11434
       - OLLAMA_MODELS=/home/vscode/.ollama/models
 
+      # Valkey (Redis-compatible for Claude logging)
+      - VALKEY_HOST=valkey
+      - VALKEY_PORT=6379
+
       # Cloud CLIs (AWS / Google Cloud / Azure)
       - AWS_CONFIG_FILE=/home/vscode/.config/aws/config
       - AWS_SHARED_CREDENTIALS_FILE=/home/vscode/.config/aws/credentials
@@ -141,6 +167,7 @@ volumes:
   op-config:
   op-cache:
   ollama-data:
+  valkey-data:
 
 networks:
   default:
