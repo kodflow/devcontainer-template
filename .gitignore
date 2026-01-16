@@ -119,3 +119,8 @@ out/
 .codacy/
 plans/
 .grepai/
+
+# ============================================
+# Claude Code session logs (context recovery)
+# ============================================
+.claude/logs/

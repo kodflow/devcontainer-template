@@ -33,7 +33,7 @@ docker compose -f .devcontainer/docker-compose.yml down -v
 
 ## Commit & Pull Request Guidelines
 
-- **Commit format**: Use conventional commits with branch-scoped prefixes described in `CLAUDE.md`, e.g., `feat(devcontainer): add carbon feature` or `fix(hooks): harden gnome-keyring setup`.
+- **Commit format**: Use conventional commits with branch-scoped prefixes described in `CLAUDE.md`, e.g., `feat(devcontainer): add carbon feature` or `fix(hooks): improve postStart reliability`.
 - **PR process**: Always work through `/feature` or `/fix` flows (planning mode, `/plan` phases, `/apply` implementation). PRs are reviewed by Codacy and CodeRabbit, and `pr_reviewer` in `.qodo-merge.toml` enforces security, test, and compliance gates.
 - **Branch naming**: `feat/<description>` for features, `fix/<description>` for bug fixes; never push directly to `main`.
 
@@ -80,7 +80,7 @@ MCP servers (github, codacy, taskwarrior) via /workspace/mcp.json
 ### Key Components
 
 - **`.devcontainer/devcontainer.json`** – Declares the docker-compose service, features, VS Code settings, and lifecycle commands that bootstrap the container.
-- **Lifecycle hooks (`hooks/lifecycle/*.sh`)** – Harden environment setup (safe directories, alias injection, Claude restore, MCP template generation, keyring bootstrap).
+- **Lifecycle hooks (`hooks/lifecycle/*.sh`)** – Harden environment setup (safe directories, alias injection, Claude restore, MCP template generation).
 - **Custom devcontainer features** – Modular installers for languages (`features/languages/*`) and Claude-specific assets (`features/claude`).
 - **Base image (`images/Dockerfile`)** – Builds the GHCR image with Ubuntu 24.04, shell tooling, Claude CLI, CodeRabbit CLI, and CLIs for AWS/GCP/Azure/Kubernetes/HashiCorp.
 - **Automation configs (`.qodo-merge.toml`, `.codacy.yaml`, `.coderabbit.yaml`)** – Enforce review severity, compliance, and lint exclusions across downstream repos.
@@ -89,7 +89,7 @@ MCP servers (github, codacy, taskwarrior) via /workspace/mcp.json
 
 1. Developer opens the project in VS Code → Dev Containers uses `devcontainer.json` and `docker-compose.yml` to build and run the `devcontainer` service.
 2. `onCreate.sh` and `postCreate.sh` provision safe caches, environment shims, and developer aliases (e.g., `super-claude`).
-3. `postStart.sh` restores Claude defaults, injects secrets into `/workspace/mcp.json`, and configures keyrings/npm caches before starting background tasks.
+3. `postStart.sh` restores Claude defaults, injects secrets into `/workspace/mcp.json`, and configures npm caches before starting background tasks.
 4. MCP-aware tools (`super-claude`, Codacy, Taskwarrior) run inside the container, using generated tokens and compliance configs to talk to GitHub/Codacy APIs.
 
 ---
@@ -122,7 +122,7 @@ workspace/
 | `.devcontainer/docker-compose.yml` | Defines the `devcontainer` service, mounts, volumes, env vars | Adjust persistent volumes, ports, or environment defaults |
 | `.devcontainer/hooks/lifecycle/onCreate.sh` | First-time container bootstrap (cache dirs, CLAUDE.md injection) | Extend setup tasks that run once per container creation |
 | `.devcontainer/hooks/lifecycle/postCreate.sh` | User-scoped env wiring (NVM, pyenv, aliases) | Add language managers or shell configuration exports |
-| `.devcontainer/hooks/lifecycle/postStart.sh` | Per-start routines (Claude restore, keyring, MCP template, secret fetch) | Modify recurring startup behavior or token sourcing |
+| `.devcontainer/hooks/lifecycle/postStart.sh` | Per-start routines (Claude restore, MCP template, secret fetch) | Modify recurring startup behavior or token sourcing |
 | `.devcontainer/hooks/shared/utils.sh` | Logging + retry helpers for all hooks | Reuse logging/polling helpers inside new scripts |
 | `.devcontainer/images/Dockerfile` | Base GHCR image with core tooling and CLIs | Upgrade OS/tool versions or add baked-in binaries |
 | `.github/workflows/docker-images.yml` | Builds/pushes the base image for amd64/arm64 via Buildx | Adjust build triggers, pin action SHAs, or add platforms |
@@ -149,7 +149,6 @@ workspace/
 ### Development Tools
 
 - **super-claude alias** – Created in `postCreate.sh` to run the Claude CLI with `/workspace/mcp.json` automatically when available.
-- **Keyring bootstrap** – `postStart.sh` ensures `gnome-keyring-daemon` and D-Bus sockets exist so CLI tools can store credentials securely.
 - **Named volumes** – `docker-compose.yml` keeps caches (`package-cache`, `npm-global`, `.claude`, `.config/op`) across rebuilds to accelerate repeated work.
 
 ---
@@ -192,7 +191,7 @@ These ensure every major package manager (npm, pnpm, pip, poetry, Go, Cargo, Com
 
 1. Open the folder in VS Code and run **Dev Containers: Rebuild Container** (per README) to rebuild `.devcontainer/images/Dockerfile` and apply features.
 2. `onCreate.sh` provisions cache directories and injects `CLAUDE.md` if missing; `postCreate.sh` wires language managers and the `super-claude` alias.
-3. `postStart.sh` restores Claude command packs, configures gnome-keyring, fixes npm/1Password permissions, regenerates `mcp.json`, and schedules `/init` to validate template drift.
+3. `postStart.sh` restores Claude command packs, fixes npm/1Password permissions, regenerates `mcp.json`, and schedules `/init` to validate template drift.
 
 **Code path:** `.devcontainer/devcontainer.json` → `hooks/lifecycle/*.sh` → `.devcontainer/images/mcp.json.tpl`
 

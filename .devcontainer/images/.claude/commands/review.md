@@ -26,6 +26,7 @@ Intelligent code review using **Recursive Language Model** decomposition:
 |-------|------|--------|
 | 0 | Context | Detect PR, branch, CI status |
 | 1 | Intent | Analyze PR title/description/scope |
+| 1.5 | Describe | Auto-generate PR description if empty (PR-Agent inspired) |
 | 2 | Feedback | Collect ALL comments/reviews |
 | 3 | Peek | Snapshot diff, categorize files |
 | 4 | Analyze | Parallel sub-agents (security, quality, shell) |
@@ -46,6 +47,7 @@ Intelligent code review using **Recursive Language Model** decomposition:
 /review --security         # Security-focused review only
 /review --quality          # Quality-focused review only
 /review --triage           # Large PR mode (>30 files or >1500 lines)
+/review --describe         # Force auto-describe even if PR has description
 ```
 
 ---
@@ -221,6 +223,109 @@ intent_analysis:
     ├─ Depth: DEEP (shell files detected)
     ├─ Security scan: FORCED
     └─ Pattern analysis: CONDITIONAL
+
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Phase 1.5 : Auto-Describe (PR-Agent inspired)
+
+**Générer description si PR vide ou insuffisante :**
+
+```yaml
+auto_describe:
+  trigger:
+    - "pr_body is empty OR pr_body.length < 50"
+    - "pr_body contains only template placeholders"
+    - "--describe flag passed"
+
+  skip_if:
+    - "pr_body.length >= 200 AND contains_summary_section"
+    - "mode == 'local' (no PR)"
+
+  workflow:
+    1_analyze_diff:
+      inputs:
+        - "mcp__github__get_pull_request_files"
+        - "git diff --stat"
+        - "git log --oneline {base}..HEAD"
+      extract:
+        main_changes: [string]  # Max 5 key changes
+        breaking_changes: [string]
+        new_features: [string]
+        bug_fixes: [string]
+        refactors: [string]
+
+    2_generate_description:
+      format: |
+        ## Summary
+        {1-2 sentence overview based on commit messages + diff}
+
+        ## Changes
+        {bulleted list of main_changes, max 5}
+
+        ## Type
+        - [ ] Feature
+        - [ ] Bug fix
+        - [ ] Refactor
+        - [ ] Documentation
+        - [ ] Configuration
+
+        ## Checklist
+        - [ ] Tests added/updated
+        - [ ] Documentation updated (if needed)
+        - [ ] No breaking changes (or documented below)
+
+      constraints:
+        max_length: 1000
+        no_code_blocks_in_summary: true
+        no_file_by_file_description: true  # Avoid verbose output
+
+    3_user_validation:
+      tool: AskUserQuestion
+      prompt: |
+        📝 Description générée pour PR #{pr_number}:
+
+        {generated_description}
+
+        Action?
+      options:
+        - label: "Poster"
+          description: "Mettre à jour la description PR"
+        - label: "Éditer"
+          description: "Modifier avant de poster"
+        - label: "Ignorer"
+          description: "Ne pas modifier la PR"
+
+    4_update_pr:
+      condition: "user_choice in ['Poster', 'Éditer']"
+      tool: "gh pr edit {pr_number} --body '{final_description}'"
+      fallback: "mcp__github__update_issue (body: final_description)"
+```
+
+**Output Phase 1.5 :**
+
+```
+═══════════════════════════════════════════════════════════════
+  /review - Auto-Describe
+═══════════════════════════════════════════════════════════════
+
+  PR Description: EMPTY (0 chars)
+  Action: Generate description
+
+  Generated:
+    ## Summary
+    Add SessionStart hook to restore context after compaction.
+
+    ## Changes
+    - Add post-compact.sh script for context restoration
+    - Update settings.json with SessionStart hook config
+    - Add hook documentation in CLAUDE.md
+
+    ## Type: Feature
+
+  Status: ⏳ Waiting user validation...
 
 ═══════════════════════════════════════════════════════════════
 ```
