@@ -170,6 +170,23 @@ tail -n 20 "$LOG_DIR/session.jsonl" | jq -s .
 grep '"tool_name":"Bash"' "$LOG_DIR/session.jsonl" | tail -5 | jq .
 ```
 
+**Checkpoint structure:**
+
+```json
+{
+  "last_update": "2026-01-15T10:30:00Z",
+  "session_id": "abc123",
+  "branch": "feat/my-feature",
+  "commit": "a1b2c3d",
+  "last_event": {
+    "tool_name": "Edit",
+    "tool_input": {"file_path": "/workspace/src/foo.ts"},
+    "hook_event_name": "PostToolUse"
+  },
+  "recovery_hint": "Read checkpoint.json, tail session.jsonl"
+}
+```
+
 **Rules:**
 - Hooks log ALL tool actions (Bash, Write, Edit, Read, Glob, Grep, Task)
 - Secrets are redacted, outputs truncated (safe to read)
