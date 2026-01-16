@@ -50,7 +50,11 @@ redact_secrets() {
 }
 
 # === Read hook input (JSON from stdin) ===
-INPUT="$(cat 2>/dev/null || echo '{}')"
+# Temporarily disable pipefail to handle empty stdin gracefully
+set +o pipefail
+INPUT="$(cat 2>/dev/null)"
+set -o pipefail
+INPUT="${INPUT:-{\}}"
 
 # Fail gracefully if no input or empty
 if [[ -z "$INPUT" ]] || [[ "$INPUT" == "{}" ]]; then

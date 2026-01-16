@@ -191,7 +191,6 @@ grep '"tool_name":"Bash"' "$LOG_DIR/session.jsonl" | tail -5 | jq .
 - Hooks log ALL tool actions (Bash, Write, Edit, Read, Glob, Grep, Task)
 - Secrets are redacted, outputs truncated (safe to read)
 - Logs are branch-scoped (isolated per feature branch)
-- Valkey Streams sync available for real-time monitoring
 
 ## Quick Reference
 

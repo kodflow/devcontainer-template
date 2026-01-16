@@ -1,21 +1,4 @@
 services:
-  # ========== VALKEY (Redis-compatible) ==========
-  # In-memory data store for Claude Code logging
-  valkey:
-    image: valkey/valkey:8
-    container_name: dev_valkey
-    command: ["valkey-server", "--appendonly", "yes", "--appendfsync", "everysec"]
-    volumes:
-      - valkey-data:/data
-    networks:
-      - default
-    healthcheck:
-      test: ["CMD", "valkey-cli", "PING"]
-      interval: 5s
-      timeout: 2s
-      retries: 10
-    restart: unless-stopped
-
   # ========== OLLAMA (LLM Runtime) ==========
   # Local LLM inference for grepai semantic code search
   ollama:
@@ -36,8 +19,6 @@ services:
   # ========== DEVCONTAINER ==========
   devcontainer:
     depends_on:
-      valkey:
-        condition: service_healthy
       ollama:
         condition: service_started
 
@@ -148,10 +129,6 @@ services:
       # Ollama (LLM runtime for grepai - runs as sidecar service)
       - OLLAMA_HOST=ollama:11434
 
-      # Valkey (Redis-compatible for Claude logging)
-      - VALKEY_HOST=valkey
-      - VALKEY_PORT=6379
-
       # Cloud CLIs (AWS / Google Cloud / Azure)
       - AWS_CONFIG_FILE=/home/vscode/.config/aws/config
       - AWS_SHARED_CREDENTIALS_FILE=/home/vscode/.config/aws/credentials
@@ -182,7 +159,6 @@ volumes:
   op-config:
   op-cache:
   ollama-data:
-  valkey-data:
 
 networks:
   default:
