@@ -122,13 +122,8 @@ RUN ARCH_BAZEL=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") &&
     chmod +x /usr/local/bin/bazel
 
 # =============================================================================
-# Ollama LLM Runtime (for grepai embeddings)
-# =============================================================================
-# Using official install script for reliable cross-platform installation
-RUN curl -fsSL https://ollama.com/install.sh | sh
-
-# =============================================================================
 # grepai (Semantic Code Search for AI agents)
+# NOTE: Ollama runs as a sidecar service in docker-compose.yml
 # =============================================================================
 ARG GREPAI_VERSION=v0.14.0
 RUN ARCH_GREPAI=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
