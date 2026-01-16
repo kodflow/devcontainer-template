@@ -72,7 +72,7 @@ Configured in `mcp.json.tpl`:
 |--------|---------|-------|------|
 | **grepai** | `grepai` (binary) | Semantic code search, Call graph | None (local) |
 | **context7** | `@upstash/context7-mcp` | Up-to-date documentation for prompts | None (rate-limited) |
-| **GitHub** | `@modelcontextprotocol/server-github` | PR, Issues, Repos | `GITHUB_TOKEN` |
+| **GitHub** | `ghcr.io/github/github-mcp-server` (Docker) | PR, Issues, Repos | `GITHUB_TOKEN` |
 | **Codacy** | `@codacy/codacy-mcp` | Code quality, Security | `CODACY_TOKEN` |
 | **Playwright** | `@playwright/mcp` | Browser automation, E2E tests | None |
 
@@ -108,12 +108,20 @@ Configured in `mcp.json.tpl`:
 
 | Hook | Trigger | Action |
 |------|---------|--------|
-| `commit-validate.sh` | PreToolUse (Bash) | Validate git commits |
+| `commit-validate.sh` | PreToolUse (Bash) | Block AI mentions in commits |
+| `security.sh` | PreToolUse (Bash) + PostToolUse (Write/Edit) | Secret detection on commit + edit |
 | `pre-validate.sh` | PreToolUse (Write/Edit) | Protect sensitive files |
-| `post-edit.sh` | PostToolUse (Write/Edit) | Format + Lint |
-| `security.sh` | PostToolUse (Write/Edit) | Secret detection |
+| `post-edit.sh` | PostToolUse (Write/Edit) | Format + Lint + Typecheck |
 | `test.sh` | PostToolUse (Write/Edit) | Run related tests |
-| `post-compact.sh` | SessionStart (compact) | Restore context after compaction |
+| `post-compact.sh` | SessionStart (compact) | Restore RLM context rules
+
+**Makefile-first pattern:** All scripts (format, lint, typecheck, test) check for Makefile targets first:
+- `make fmt FILE=<path>` or `make format FILE=<path>`
+- `make lint FILE=<path>`
+- `make typecheck FILE=<path>`
+- `make test FILE=<path>`
+
+Falls back to direct tool invocation (prettier, eslint, ruff, etc.) if no Makefile target exists.
 
 ## Build
 
