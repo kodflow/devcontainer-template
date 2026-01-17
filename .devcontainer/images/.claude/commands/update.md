@@ -315,7 +315,26 @@ curl -sL "$BASE/.devcontainer/images/.claude/settings.json" \
      -o ".devcontainer/images/.claude/settings.json" 2>/dev/null
 ```
 
-### 4.2 : Validation finale
+### 4.2 : Cleanup deprecated files
+
+```yaml
+cleanup_workflow:
+  deprecated_files:
+    - ".coderabbit.yaml"  # CodeRabbit removed (subscription ended)
+
+  action: |
+    for file in deprecated_files:
+      if exists(file):
+        rm file
+        log "Removed deprecated: $file"
+```
+
+```bash
+# Remove deprecated configuration files
+[ -f ".coderabbit.yaml" ] && rm -f ".coderabbit.yaml" && echo "Removed deprecated .coderabbit.yaml"
+```
+
+### 4.3 : Validation finale
 
 ```yaml
 validation_workflow:

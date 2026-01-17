@@ -75,7 +75,7 @@ jobs:
           echo "pair=${platform//\//-}" >> $GITHUB_OUTPUT
 
       # Generate cache bust value for scheduled builds
-      # This ensures dynamic installations (Claude Code, CodeRabbit) get updated daily
+      # This ensures dynamic installations (Claude Code) get updated daily
       - name: Generate cache bust value
         id: cachebust
         run: |
