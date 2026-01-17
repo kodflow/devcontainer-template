@@ -101,38 +101,38 @@ type OrderItemResponse struct {
 
 // OrderSummaryDTO is a lightweight DTO for listings.
 type OrderSummaryDTO struct {
-	ID        string    `dto:"out,api,pub" json:"id"`
-	Status    string    `dto:"out,api,pub" json:"status"`
-	Total     float64   `dto:"out,api,pub" json:"total"`
-	ItemCount int       `dto:"out,api,pub" json:"itemCount"`
-	CreatedAt time.Time `dto:"out,api,pub" json:"createdAt"`
+    ID        string    `dto:"out,api,pub" json:"id"`
+    Status    string    `dto:"out,api,pub" json:"status"`
+    Total     float64   `dto:"out,api,pub" json:"total"`
+    ItemCount int       `dto:"out,api,pub" json:"itemCount"`
+    CreatedAt time.Time `dto:"out,api,pub" json:"createdAt"`
 }
 
 // ListOrdersQuery represents query parameters for listing orders.
 type ListOrdersQuery struct {
-	Status   string `dto:"in,query,pub" json:"status,omitempty"`
-	FromDate string `dto:"in,query,pub" json:"fromDate,omitempty" validate:"omitempty,datetime=2006-01-02"`
-	ToDate   string `dto:"in,query,pub" json:"toDate,omitempty" validate:"omitempty,datetime=2006-01-02"`
-	PageSize int    `dto:"in,query,pub" json:"pageSize,omitempty" validate:"omitempty,min=1,max=100"`
-	Page     int    `dto:"in,query,pub" json:"page,omitempty" validate:"omitempty,min=1"`
+    Status   string `dto:"in,query,pub" json:"status,omitempty"`
+    FromDate string `dto:"in,query,pub" json:"fromDate,omitempty"`
+    ToDate   string `dto:"in,query,pub" json:"toDate,omitempty"`
+    PageSize int    `dto:"in,query,pub" json:"pageSize,omitempty"`
+    Page     int    `dto:"in,query,pub" json:"page,omitempty"`
 }
 
 // Defaults sets default values for the query.
 func (q *ListOrdersQuery) Defaults() {
-	if q.PageSize == 0 {
-		q.PageSize = 20
-	}
-	if q.Page == 0 {
-		q.Page = 1
-	}
+    if q.PageSize == 0 {
+        q.PageSize = 20
+    }
+    if q.Page == 0 {
+        q.Page = 1
+    }
 }
 
 // PaginatedResponse represents a paginated result.
 type PaginatedResponse[T any] struct {
-	Items    []T `dto:"out,api,pub" json:"items"`
-	Total    int `dto:"out,api,pub" json:"total"`
-	Page     int `dto:"out,api,pub" json:"page"`
-	PageSize int `dto:"out,api,pub" json:"pageSize"`
+    Items    []T `dto:"out,api,pub" json:"items"`
+    Total    int `dto:"out,api,pub" json:"total"`
+    Page     int `dto:"out,api,pub" json:"page"`
+    PageSize int `dto:"out,api,pub" json:"pageSize"`
 }
 ```
 
@@ -144,60 +144,60 @@ type OrderAssembler struct{}
 
 // NewOrderAssembler creates a new assembler.
 func NewOrderAssembler() *OrderAssembler {
-	return &OrderAssembler{}
+    return &OrderAssembler{}
 }
 
 // ToDTO converts domain Order to OrderResponse.
 func (a *OrderAssembler) ToDTO(order *Order, customer *Customer) *OrderResponse {
-	items := make([]OrderItemResponse, len(order.Items))
-	for i, item := range order.Items {
-		items[i] = a.itemToDTO(item)
-	}
+    items := make([]OrderItemResponse, len(order.Items))
+    for i, item := range order.Items {
+        items[i] = a.itemToDTO(item)
+    }
 
-	return &OrderResponse{
-		ID:                order.ID,
-		Status:            order.Status,
-		CustomerName:      customer.Name,
-		Items:             items,
-		Subtotal:          order.Subtotal,
-		Tax:               order.Tax,
-		Total:             order.Total,
-		CreatedAt:         order.CreatedAt,
-		EstimatedDelivery: order.EstimatedDelivery,
-	}
+    return &OrderResponse{
+        ID:                order.ID,
+        Status:            order.Status,
+        CustomerName:      customer.Name,
+        Items:             items,
+        Subtotal:          order.Subtotal,
+        Tax:               order.Tax,
+        Total:             order.Total,
+        CreatedAt:         order.CreatedAt,
+        EstimatedDelivery: order.EstimatedDelivery,
+    }
 }
 
 func (a *OrderAssembler) itemToDTO(item *OrderItem) OrderItemResponse {
-	return OrderItemResponse{
-		ProductID:   item.ProductID,
-		ProductName: item.ProductName,
-		Quantity:    item.Quantity,
-		UnitPrice:   item.UnitPrice,
-		Subtotal:    item.Subtotal,
-	}
+    return OrderItemResponse{
+        ProductID:   item.ProductID,
+        ProductName: item.ProductName,
+        Quantity:    item.Quantity,
+        UnitPrice:   item.UnitPrice,
+        Subtotal:    item.Subtotal,
+    }
 }
 
 // ToDomain converts CreateOrderRequest to domain parameters.
 func (a *OrderAssembler) ToDomain(dto *CreateOrderRequest) *OrderCreationParams {
-	items := make([]OrderItemParams, len(dto.Items))
-	for i, item := range dto.Items {
-		items[i] = OrderItemParams{
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-		}
-	}
+    items := make([]OrderItemParams, len(dto.Items))
+    for i, item := range dto.Items {
+        items[i] = OrderItemParams{
+            ProductID: item.ProductID,
+            Quantity:  item.Quantity,
+        }
+    }
 
-	return &OrderCreationParams{
-		CustomerID: dto.CustomerID,
-		Items:      items,
-		ShippingAddress: Address{
-			Street:     dto.ShippingAddress.Street,
-			City:       dto.ShippingAddress.City,
-			PostalCode: dto.ShippingAddress.PostalCode,
-			Country:    dto.ShippingAddress.Country,
-		},
-		Notes: dto.Notes,
-	}
+    return &OrderCreationParams{
+        CustomerID: dto.CustomerID,
+        Items:      items,
+        ShippingAddress: Address{
+            Street:     dto.ShippingAddress.Street,
+            City:       dto.ShippingAddress.City,
+            PostalCode: dto.ShippingAddress.PostalCode,
+            Country:    dto.ShippingAddress.Country,
+        },
+        Notes: dto.Notes,
+    }
 }
 ```
 
@@ -206,33 +206,33 @@ func (a *OrderAssembler) ToDomain(dto *CreateOrderRequest) *OrderCreationParams 
 ```go
 // Domain Object - Business logic, invariants (PAS de tags)
 type DomainOrder struct {
-	status OrderStatus
-	items  []*OrderItem
+    status OrderStatus
+    items  []*OrderItem
 }
 
 func (o *DomainOrder) Submit() error {
-	if len(o.items) == 0 {
-		return fmt.Errorf("cannot submit empty order")
-	}
-	o.status = OrderStatusSubmitted
-	return nil
+    if len(o.items) == 0 {
+        return fmt.Errorf("cannot submit empty order")
+    }
+    o.status = OrderStatusSubmitted
+    return nil
 }
 
 func (o *DomainOrder) Total() float64 {
-	var total float64
-	for _, item := range o.items {
-		total += item.Subtotal()
-	}
-	return total
+    var total float64
+    for _, item := range o.items {
+        total += item.Subtotal()
+    }
+    return total
 }
 
 // DTO - No logic, just data (AVEC dto:"..." tags)
 type OrderDTO struct {
-	ID     string         `dto:"out,api,pub" json:"id"`
-	Status string         `dto:"out,api,pub" json:"status"`
-	Items  []OrderItemDTO `dto:"out,api,pub" json:"items"`
-	Total  float64        `dto:"out,api,pub" json:"total"`
-	// No business methods!
+    ID     string         `dto:"out,api,pub" json:"id"`
+    Status string         `dto:"out,api,pub" json:"status"`
+    Items  []OrderItemDTO `dto:"out,api,pub" json:"items"`
+    Total  float64        `dto:"out,api,pub" json:"total"`
+    // No business methods!
 }
 ```
 

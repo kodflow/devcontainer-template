@@ -126,57 +126,57 @@ func (s *UserQueryService) Search(ctx context.Context, criteria SearchCriteria) 
 package handler
 
 import (
-	"context"
-	"fmt"
+    "context"
+    "fmt"
 )
 
 // CreateUserCommand represents a command to create a user.
 type CreateUserCommand struct {
-	User *User `dto:"in,cmd,priv" json:"user"`
+    User *User `dto:"in,cmd,priv" json:"user"`
 }
 
 // UserCreatedEvent represents an event when a user is created.
 type UserCreatedEvent struct {
-	User *User `dto:"out,event,priv" json:"user"`
+    User *User `dto:"out,event,priv" json:"user"`
 }
 
 // UserCommandHandler handles user commands with separate write DB.
 type UserCommandHandler struct {
-	writeDB  WriteDatabase     // PostgreSQL (normalized)
-	eventBus EventBus
+    writeDB  WriteDatabase // PostgreSQL (normalized)
+    eventBus EventBus
 }
 
 // Handle handles the create user command.
 func (h *UserCommandHandler) Handle(ctx context.Context, cmd CreateUserCommand) error {
-	if err := h.writeDB.Insert(ctx, cmd.User); err != nil {
-		return fmt.Errorf("inserting user: %w", err)
-	}
+    if err := h.writeDB.Insert(ctx, cmd.User); err != nil {
+        return fmt.Errorf("inserting user: %w", err)
+    }
 
-	event := UserCreatedEvent{User: cmd.User}
-	if err := h.eventBus.Publish(ctx, event); err != nil {
-		return fmt.Errorf("publishing event: %w", err)
-	}
+    event := UserCreatedEvent{User: cmd.User}
+    if err := h.eventBus.Publish(ctx, event); err != nil {
+        return fmt.Errorf("publishing event: %w", err)
+    }
 
-	return nil
+    return nil
 }
 
 // UserProjection synchronizes read model from events.
 type UserProjection struct {
-	readDB ReadDatabase // Elasticsearch (optimized for search)
+    readDB ReadDatabase // Elasticsearch (optimized for search)
 }
 
 // OnUserCreated handles user created events.
 func (p *UserProjection) OnUserCreated(ctx context.Context, event UserCreatedEvent) error {
-	if err := p.readDB.Index(ctx, event.User); err != nil {
-		return fmt.Errorf("indexing user: %w", err)
-	}
-	return nil
+    if err := p.readDB.Index(ctx, event.User); err != nil {
+        return fmt.Errorf("indexing user: %w", err)
+    }
+    return nil
 }
 ```
 
 ### Niveau 3 : Avec Event Sourcing
 
-```
+```text
 Commands → Event Store → Projections → Read Models
 ```
 
