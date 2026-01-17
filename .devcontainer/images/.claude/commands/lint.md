@@ -67,6 +67,7 @@ KTN-VAR-ORDER        → Deplacer var apres const
 ```
 
 **PHASE 2 - SIGNATURES** (modifier signatures de fonctions)
+
 ```text
 KTN-FUNC-ERRLAST     → Mettre error en dernier retour
 KTN-FUNC-CTXFIRST    → Mettre context.Context en premier parametre

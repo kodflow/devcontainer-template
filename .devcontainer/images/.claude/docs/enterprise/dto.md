@@ -238,7 +238,7 @@ type OrderDTO struct {
 
 ## Guide de Decision
 
-```
+```text
 DIRECTION:
   - Entree utilisateur → in
   - Sortie vers client → out

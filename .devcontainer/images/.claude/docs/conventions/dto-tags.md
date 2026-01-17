@@ -135,7 +135,7 @@ type UserCreatedEvent struct {
 
 Le linter detecte automatiquement les DTOs par ces suffixes :
 
-```
+```text
 Request, Response, DTO, Input, Output,
 Payload, Message, Event, Command, Query, Params
 ```
