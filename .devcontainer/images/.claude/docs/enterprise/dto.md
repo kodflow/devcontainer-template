@@ -19,6 +19,7 @@ Le DTO est un objet simple qui transporte des donnees entre les couches ou les p
 **Format obligatoire :** `dto:"<direction>,<context>,<security>"`
 
 Le tag `dto:` permet de :
+
 - Exempter les structs de KTN-STRUCT-ONEFILE (groupement)
 - Exempter les structs de KTN-STRUCT-CTOR (pas de constructeur requis)
 - Documenter le flux et la sensibilite des donnees
@@ -56,46 +57,46 @@ import (
 
 // CreateOrderRequest is an input DTO for order creation.
 type CreateOrderRequest struct {
-	CustomerID      string             `dto:"in,api,priv" json:"customerId" validate:"required,uuid"`
-	Items           []OrderItemRequest `dto:"in,api,pub" json:"items" validate:"required,min=1,dive"`
-	ShippingAddress AddressRequest     `dto:"in,api,pii" json:"shippingAddress" validate:"required"`
-	Notes           string             `dto:"in,api,pub" json:"notes,omitempty" validate:"max=500"`
+    CustomerID      string             `dto:"in,api,priv" json:"customerId" validate:"required,uuid"`
+    Items           []OrderItemRequest `dto:"in,api,pub" json:"items" validate:"required,min=1,dive"`
+    ShippingAddress AddressRequest     `dto:"in,api,pii" json:"shippingAddress" validate:"required"`
+    Notes           string             `dto:"in,api,pub" json:"notes,omitempty" validate:"max=500"`
 }
 
 // OrderItemRequest represents an order item in request.
 type OrderItemRequest struct {
-	ProductID string `dto:"in,api,pub" json:"productId" validate:"required,uuid"`
-	Quantity  int    `dto:"in,api,pub" json:"quantity" validate:"required,min=1,max=100"`
+    ProductID string `dto:"in,api,pub" json:"productId" validate:"required,uuid"`
+    Quantity  int    `dto:"in,api,pub" json:"quantity" validate:"required,min=1,max=100"`
 }
 
 // AddressRequest represents an address in request.
 type AddressRequest struct {
-	Street     string `dto:"in,api,pii" json:"street" validate:"required,max=200"`
-	City       string `dto:"in,api,pii" json:"city" validate:"required,max=100"`
-	PostalCode string `dto:"in,api,pii" json:"postalCode" validate:"required"`
-	Country    string `dto:"in,api,pub" json:"country" validate:"required,iso3166_1_alpha2"`
+    Street     string `dto:"in,api,pii" json:"street" validate:"required,max=200"`
+    City       string `dto:"in,api,pii" json:"city" validate:"required,max=100"`
+    PostalCode string `dto:"in,api,pii" json:"postalCode" validate:"required"`
+    Country    string `dto:"in,api,pub" json:"country" validate:"required,iso3166_1_alpha2"`
 }
 
 // OrderResponse is an output DTO for order details.
 type OrderResponse struct {
-	ID                string              `dto:"out,api,pub" json:"id"`
-	Status            string              `dto:"out,api,pub" json:"status"`
-	CustomerName      string              `dto:"out,api,pii" json:"customerName"`
-	Items             []OrderItemResponse `dto:"out,api,pub" json:"items"`
-	Subtotal          float64             `dto:"out,api,pub" json:"subtotal"`
-	Tax               float64             `dto:"out,api,pub" json:"tax"`
-	Total             float64             `dto:"out,api,pub" json:"total"`
-	CreatedAt         time.Time           `dto:"out,api,pub" json:"createdAt"`
-	EstimatedDelivery time.Time           `dto:"out,api,pub" json:"estimatedDelivery"`
+    ID                string              `dto:"out,api,pub" json:"id"`
+    Status            string              `dto:"out,api,pub" json:"status"`
+    CustomerName      string              `dto:"out,api,pii" json:"customerName"`
+    Items             []OrderItemResponse `dto:"out,api,pub" json:"items"`
+    Subtotal          float64             `dto:"out,api,pub" json:"subtotal"`
+    Tax               float64             `dto:"out,api,pub" json:"tax"`
+    Total             float64             `dto:"out,api,pub" json:"total"`
+    CreatedAt         time.Time           `dto:"out,api,pub" json:"createdAt"`
+    EstimatedDelivery time.Time           `dto:"out,api,pub" json:"estimatedDelivery"`
 }
 
 // OrderItemResponse represents an order item in response.
 type OrderItemResponse struct {
-	ProductID   string  `dto:"out,api,pub" json:"productId"`
-	ProductName string  `dto:"out,api,pub" json:"productName"`
-	Quantity    int     `dto:"out,api,pub" json:"quantity"`
-	UnitPrice   float64 `dto:"out,api,pub" json:"unitPrice"`
-	Subtotal    float64 `dto:"out,api,pub" json:"subtotal"`
+    ProductID   string  `dto:"out,api,pub" json:"productId"`
+    ProductName string  `dto:"out,api,pub" json:"productName"`
+    Quantity    int     `dto:"out,api,pub" json:"quantity"`
+    UnitPrice   float64 `dto:"out,api,pub" json:"unitPrice"`
+    Subtotal    float64 `dto:"out,api,pub" json:"subtotal"`
 }
 
 // OrderSummaryDTO is a lightweight DTO for listings.

@@ -48,15 +48,15 @@ type UpdateUserDTO struct {
 
 // UserDTO is the data transfer object for user queries.
 type UserDTO struct {
-	ID    string `dto:"out,query,priv" json:"id"`
-	Email string `dto:"out,query,pii" json:"email"`
-	Name  string `dto:"out,query,pub" json:"name"`
+    ID    string `dto:"out,query,priv" json:"id"`
+    Email string `dto:"out,query,pii" json:"email"`
+    Name  string `dto:"out,query,pub" json:"name"`
 }
 
 // SearchCriteria defines search parameters.
 type SearchCriteria struct {
-	Email string `dto:"in,query,pii" json:"email,omitempty"`
-	Name  string `dto:"in,query,pub" json:"name,omitempty"`
+    Email string `dto:"in,query,pii" json:"email,omitempty"`
+    Name  string `dto:"in,query,pub" json:"name,omitempty"`
 }
 
 // UserCommandService handles user write operations.

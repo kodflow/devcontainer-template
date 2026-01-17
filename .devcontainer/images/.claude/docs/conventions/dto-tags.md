@@ -4,7 +4,8 @@
 
 ## Objectif Principal
 
-Le tag `dto:` signale au **KTN-Linter** que les structs marquees sont des DTOs et doivent etre **exemptees de KTN-STRUCT-ONEFILE**.
+Le tag `dto:` signale au **KTN-Linter** que les structs marquees sont des DTOs
+et doivent etre **exemptees de KTN-STRUCT-ONEFILE**.
 
 ```yaml
 comportement:
@@ -96,7 +97,7 @@ type UserCreatedEvent struct {
 
 ## Guide de Decision
 
-```
+```text
 1. DIRECTION: D'ou viennent les donnees?
    - Entree utilisateur/client → in
    - Sortie vers utilisateur/client → out

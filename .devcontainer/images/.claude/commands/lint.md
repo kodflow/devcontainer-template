@@ -38,6 +38,7 @@ Pas d'arguments. Pas de flags. Juste execution complete.
 ```
 
 Si le binaire n'existe pas :
+
 ```bash
 go build -o ./builds/ktn-linter ./cmd/ktn-linter && ./builds/ktn-linter lint ./...
 ```
@@ -45,6 +46,7 @@ go build -o ./builds/ktn-linter ./cmd/ktn-linter && ./builds/ktn-linter lint ./.
 ### Etape 2 : Parser le retour
 
 Pour chaque ligne d'erreur format `fichier:ligne:colonne: KTN-XXX-YYY: message` :
+
 1. Extraire le fichier
 2. Extraire la regle (KTN-XXX-YYY)
 3. Extraire le message
@@ -53,7 +55,8 @@ Pour chaque ligne d'erreur format `fichier:ligne:colonne: KTN-XXX-YYY: message` 
 ### Etape 3 : Classer par phase
 
 **PHASE 1 - STRUCTURAL** (fixer EN PREMIER - affecte les autres phases)
-```
+
+```text
 KTN-STRUCT-ONEFILE   → Splitter fichiers multi-structs OU ajouter dto:"..."
 KTN-TEST-SUFFIX      → Renommer _test.go → _external_test.go ou _internal_test.go
 KTN-TEST-INTPRIV     → Deplacer tests prives vers _internal_test.go
@@ -218,10 +221,10 @@ type UpdateUserCommand struct {
 
 | Situation | Action |
 |-----------|--------|
-| Struct avec suffixe DTO/Request/Response/etc. | Ajouter `dto:"dir,ctx,sec"` sur chaque champ |
-| Struct sans tags mais qui est un DTO | Ajouter `dto:"dir,ctx,sec"` sur chaque champ |
-| Struct avec json/yaml/xml | OK, deja detecte comme DTO |
-| KTN-STRUCT-ONEFILE sur struct DTO | Ajouter dto tags → plus d'erreur |
+| Struct DTO/Request/Response | Ajouter `dto:"dir,ctx,sec"` |
+| Struct sans tags (DTO) | Ajouter `dto:"dir,ctx,sec"` |
+| Struct avec json/yaml/xml | OK, detecte DTO |
+| KTN-STRUCT-ONEFILE DTO | dto tags → OK |
 
 ### Suffixes Reconnus
 

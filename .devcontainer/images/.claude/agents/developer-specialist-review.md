@@ -136,12 +136,22 @@ dto_validation:
   rule: "Structs DTO sans tag dto:\"dir,ctx,sec\" detectees"
 
   detection:
-    suffixes: [Request, Response, DTO, Input, Output, Payload, Message, Event, Command, Query]
+    suffixes:
+      - Request
+      - Response
+      - DTO
+      - Input
+      - Output
+      - Payload
+      - Message
+      - Event
+      - Command
+      - Query
 
   check: |
     1. Identifier structs Go avec suffixes DTO
     2. Verifier presence dto:"dir,ctx,sec" sur chaque champ PUBLIC
-    3. Valider format: direction (in/out/inout), context (api/cmd/query/event/msg/priv), security (pub/priv/pii/secret)
+    3. Valider format: direction, context, security
     4. Reporter les violations
 
   example_valid: |

@@ -845,7 +845,17 @@ dto_validation:
   severity: MEDIUM
 
   detection:
-    suffixes: [Request, Response, DTO, Input, Output, Payload, Message, Event, Command, Query]
+    suffixes:
+      - Request
+      - Response
+      - DTO
+      - Input
+      - Output
+      - Payload
+      - Message
+      - Event
+      - Command
+      - Query
     serialization_tags: ["json:", "yaml:", "xml:"]
 
   check: |

@@ -365,7 +365,7 @@ type UpdateUserCommand struct {
 
 ### Guide de Decision
 
-```
+```text
 DIRECTION: in (entree) | out (sortie) | inout (update)
 CONTEXT:   api | cmd | query | event | msg | priv
 SECURITY:  pub (public) | priv (IDs) | pii (RGPD) | secret (password)
