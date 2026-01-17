@@ -331,7 +331,8 @@ cleanup_workflow:
 
 ```bash
 # Remove deprecated configuration files
-[ -f ".coderabbit.yaml" ] && rm -f ".coderabbit.yaml" && echo "Removed deprecated .coderabbit.yaml"
+[ -f ".coderabbit.yaml" ] && rm -f ".coderabbit.yaml" \
+    && echo "Removed deprecated .coderabbit.yaml"
 ```
 
 ### 4.3 : Validation finale

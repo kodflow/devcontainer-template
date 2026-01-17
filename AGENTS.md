@@ -135,7 +135,9 @@ workspace/
 ### Core Technologies
 
 - **Container base:** `mcr.microsoft.com/devcontainers/base:ubuntu-24.04` extended in `.devcontainer/images/Dockerfile` for a reproducible Ubuntu environment.
-- **Tooling layer:** HashiCorp suite (Terraform, Vault, Consul, Nomad, Packer), AWS CLI v2, Google Cloud SDK, Azure CLI, Kubernetes (kubectl v1.35.0, Helm v4.0.4), Ansible, Bazelisk, and Claude CLI are preinstalled globally.
+- **Tooling layer:** HashiCorp suite (Terraform, Vault, Consul, Nomad, Packer),
+  AWS CLI v2, Google Cloud SDK, Azure CLI, Kubernetes (kubectl, Helm),
+  Ansible, Bazelisk, and Claude CLI are preinstalled globally.
 - **Orchestration:** VS Code Dev Containers + Docker Compose single-service stack defined in `.devcontainer/docker-compose.yml`.
 - **Language expansion:** Custom features under `.devcontainer/features/languages/` install Node.js (via NVM), Python (via pyenv), Go, Rust, Carbon, etc., on demand with pinned versions.
 
