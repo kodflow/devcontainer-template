@@ -184,7 +184,6 @@ get_1password_field() {
 # Initialize tokens from environment variables (fallback)
 CODACY_TOKEN="${CODACY_API_TOKEN:-}"
 GITHUB_TOKEN="${GITHUB_API_TOKEN:-}"
-CODERABBIT_TOKEN="${CODERABBIT_API_KEY:-}"
 
 # ============================================================================
 # 1Password CLI Config Directory Permissions Fix
@@ -230,17 +229,14 @@ if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ] && command -v op &> /dev/null; then
 
     OP_CODACY=$(get_1password_field "mcp-codacy" "$VAULT_ID")
     OP_GITHUB=$(get_1password_field "mcp-github" "$VAULT_ID")
-    OP_CODERABBIT=$(get_1password_field "coderabbit" "$VAULT_ID")
 
     [ -n "$OP_CODACY" ] && CODACY_TOKEN="$OP_CODACY"
     [ -n "$OP_GITHUB" ] && GITHUB_TOKEN="$OP_GITHUB"
-    [ -n "$OP_CODERABBIT" ] && CODERABBIT_TOKEN="$OP_CODERABBIT"
 fi
 
 # Show status of tokens (INFO for optional, WARNING for essential)
 [ -z "$CODACY_TOKEN" ] && log_info "Codacy token not configured (optional)"
 [ -z "$GITHUB_TOKEN" ] && log_warning "GitHub token not available"
-[ -z "$CODERABBIT_TOKEN" ] && log_info "CodeRabbit token not configured (optional)"
 
 # Helper: escape special chars for sed replacement
 # Handles: & \ | / and strips newlines/CR (covers all token formats)
@@ -409,16 +405,6 @@ log_success "Git credential helpers cleaned"
 # Note: ~/.devcontainer-env.sh is created by postCreate.sh with static content
 # We only append dynamic variables here (secrets from 1Password)
 DC_ENV="$HOME/.devcontainer-env.sh"
-
-# Export CodeRabbit API key if available (append to existing file)
-if [ -n "$CODERABBIT_TOKEN" ]; then
-    # Remove any existing CODERABBIT_API_KEY line to avoid duplicates
-    if [ -f "$DC_ENV" ]; then
-        sed -i '/^export CODERABBIT_API_KEY=/d' "$DC_ENV"
-    fi
-    echo "export CODERABBIT_API_KEY=\"$CODERABBIT_TOKEN\"" >> "$DC_ENV"
-    log_success "CODERABBIT_API_KEY exported to $DC_ENV"
-fi
 
 # ============================================================================
 # Auto-run /init for project initialization check

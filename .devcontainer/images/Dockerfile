@@ -166,12 +166,6 @@ ARG CACHE_BUST_DYNAMIC=stable
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
 # =============================================================================
-# CodeRabbit CLI (AI Code Reviews)
-# =============================================================================
-# Also affected by CACHE_BUST_DYNAMIC for scheduled updates
-RUN curl -fsSL https://cli.coderabbit.ai/install.sh | sh
-
-# =============================================================================
 # Claude Configuration (backup to /etc/claude-defaults/ for volume restoration)
 # =============================================================================
 COPY --chown=vscode:vscode .claude/ /home/vscode/.claude/
