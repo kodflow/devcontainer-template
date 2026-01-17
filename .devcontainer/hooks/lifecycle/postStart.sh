@@ -237,10 +237,10 @@ if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ] && command -v op &> /dev/null; then
     [ -n "$OP_CODERABBIT" ] && CODERABBIT_TOKEN="$OP_CODERABBIT"
 fi
 
-# Show warnings if tokens are missing
-[ -z "$CODACY_TOKEN" ] && log_warning "Codacy token not available"
+# Show status of tokens (INFO for optional, WARNING for essential)
+[ -z "$CODACY_TOKEN" ] && log_info "Codacy token not configured (optional)"
 [ -z "$GITHUB_TOKEN" ] && log_warning "GitHub token not available"
-[ -z "$CODERABBIT_TOKEN" ] && log_warning "CodeRabbit token not available"
+[ -z "$CODERABBIT_TOKEN" ] && log_info "CodeRabbit token not configured (optional)"
 
 # Helper: escape special chars for sed replacement
 # Handles: & \ | / and strips newlines/CR (covers all token formats)
