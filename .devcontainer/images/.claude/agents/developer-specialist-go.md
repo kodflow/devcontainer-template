@@ -322,6 +322,65 @@ func TestAdd(t *testing.T) {
 }
 ```
 
+## DTO Convention (MANDATORY)
+
+**Format:** `dto:"<direction>,<context>,<security>"`
+
+Le tag `dto:` permet de grouper plusieurs DTOs dans un meme fichier (exception KTN-STRUCT-ONEFILE).
+
+### Valeurs
+
+| Position | Valeurs | Description |
+|----------|---------|-------------|
+| direction | `in`, `out`, `inout` | Sens du flux |
+| context | `api`, `cmd`, `query`, `event`, `msg`, `priv` | Type DTO |
+| security | `pub`, `priv`, `pii`, `secret` | Classification |
+
+### Exemple
+
+```go
+// Fichier: user_dto.go - PLUSIEURS DTOs (grace au tag dto:)
+
+// CreateUserRequest is an API input DTO.
+type CreateUserRequest struct {
+    Username string `dto:"in,api,pub" json:"username" validate:"required"`
+    Email    string `dto:"in,api,pii" json:"email" validate:"email"`
+    Password string `dto:"in,api,secret" json:"password" validate:"min=8"`
+}
+
+// UserResponse is an API output DTO.
+type UserResponse struct {
+    ID        string    `dto:"out,api,pub" json:"id"`
+    Username  string    `dto:"out,api,pub" json:"username"`
+    Email     string    `dto:"out,api,pii" json:"email"`
+    CreatedAt time.Time `dto:"out,api,pub" json:"createdAt"`
+}
+
+// UpdateUserCommand is a CQRS command DTO.
+type UpdateUserCommand struct {
+    UserID   string `dto:"in,cmd,priv" json:"userId"`
+    Email    string `dto:"in,cmd,pii" json:"email,omitempty"`
+}
+```
+
+### Guide de Decision
+
+```
+DIRECTION: in (entree) | out (sortie) | inout (update)
+CONTEXT:   api | cmd | query | event | msg | priv
+SECURITY:  pub (public) | priv (IDs) | pii (RGPD) | secret (password)
+```
+
+### Regles Linter
+
+| Regle | Comportement |
+|-------|--------------|
+| KTN-STRUCT-ONEFILE | Exempte les DTOs (groupement OK) |
+| KTN-STRUCT-CTOR | Exempte les DTOs (pas de constructeur) |
+| KTN-DTO-TAG | Valide format `dto:"dir,ctx,sec"` |
+
+**Reference:** `.claude/docs/conventions/dto-tags.md`
+
 ## Forbidden (ABSOLUTE)
 
 | Pattern | Reason | Alternative |

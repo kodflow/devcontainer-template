@@ -126,6 +126,37 @@ Combine sub-agent results into final report:
 {positive findings}
 ```
 
+## DTO Convention Check
+
+Verify DTOs use `dto:"direction,context,security"` tags for groupement:
+
+```yaml
+dto_validation:
+  severity: MEDIUM
+  rule: "Structs DTO sans tag dto:\"dir,ctx,sec\" detectees"
+
+  detection:
+    suffixes: [Request, Response, DTO, Input, Output, Payload, Message, Event, Command, Query]
+
+  check: |
+    1. Identifier structs Go avec suffixes DTO
+    2. Verifier presence dto:"dir,ctx,sec" sur chaque champ PUBLIC
+    3. Valider format: direction (in/out/inout), context (api/cmd/query/event/msg/priv), security (pub/priv/pii/secret)
+    4. Reporter les violations
+
+  example_valid: |
+    type UserRequest struct {
+        Email string `dto:"in,api,pii" json:"email"`
+    }
+
+  example_invalid: |
+    type UserRequest struct {
+        Email string `json:"email"` // MISSING dto:"..."
+    }
+```
+
+**Reference:** `.claude/docs/conventions/dto-tags.md`
+
 ## Anti-Crash Patterns
 
 1. **Never load full files** - Use Grep/partial Read
