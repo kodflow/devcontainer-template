@@ -835,6 +835,56 @@ shell_safety_axes:
 
 ---
 
+## DTO Convention Check (Go files)
+
+**Vérifier les DTOs Go utilisent `dto:"direction,context,security"`:**
+
+```yaml
+dto_validation:
+  trigger: "*.go files in diff"
+  severity: MEDIUM
+
+  detection:
+    suffixes:
+      - Request
+      - Response
+      - DTO
+      - Input
+      - Output
+      - Payload
+      - Message
+      - Event
+      - Command
+      - Query
+    serialization_tags: ["json:", "yaml:", "xml:"]
+
+  check: |
+    Struct name matches *Request/*Response/*DTO/etc.
+    AND has serialization tags
+    → MUST have dto:"dir,ctx,sec" on each PUBLIC field
+
+  valid_format: 'dto:"<direction>,<context>,<security>"'
+  valid_values:
+    direction: [in, out, inout]
+    context: [api, cmd, query, event, msg, priv]
+    security: [pub, priv, pii, secret]
+
+  purpose: |
+    Le tag dto:"..." exempte les structs de KTN-STRUCT-ONEFILE
+    (groupement de plusieurs DTOs dans un même fichier autorisé)
+
+  report_format: |
+    ### DTO Convention
+    | File | Struct | Status | Issue |
+    |------|--------|--------|-------|
+    | user_dto.go | CreateUserRequest | ✓ | - |
+    | order.go | OrderResponse | ✗ | Missing dto:"..." tags |
+
+  reference: ".claude/docs/conventions/dto-tags.md"
+```
+
+---
+
 ## Guard-rails
 
 | Action | Status |

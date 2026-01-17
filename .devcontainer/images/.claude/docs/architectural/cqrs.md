@@ -37,26 +37,26 @@ import "context"
 
 // CreateUserDTO is the data transfer object for creating a user.
 type CreateUserDTO struct {
-	Email string
-	Name  string
+	Email string `dto:"in,cmd,pii" json:"email"`
+	Name  string `dto:"in,cmd,pub" json:"name"`
 }
 
 // UpdateUserDTO is the data transfer object for updating a user.
 type UpdateUserDTO struct {
-	Name string
+	Name string `dto:"in,cmd,pub" json:"name"`
 }
 
 // UserDTO is the data transfer object for user queries.
 type UserDTO struct {
-	ID    string
-	Email string
-	Name  string
+    ID    string `dto:"out,query,priv" json:"id"`
+    Email string `dto:"out,query,pii" json:"email"`
+    Name  string `dto:"out,query,pub" json:"name"`
 }
 
 // SearchCriteria defines search parameters.
 type SearchCriteria struct {
-	Email string
-	Name  string
+    Email string `dto:"in,query,pii" json:"email,omitempty"`
+    Name  string `dto:"in,query,pub" json:"name,omitempty"`
 }
 
 // UserCommandService handles user write operations.
@@ -126,57 +126,57 @@ func (s *UserQueryService) Search(ctx context.Context, criteria SearchCriteria) 
 package handler
 
 import (
-	"context"
-	"fmt"
+    "context"
+    "fmt"
 )
 
 // CreateUserCommand represents a command to create a user.
 type CreateUserCommand struct {
-	User *User
+    User *User `dto:"in,cmd,priv" json:"user"`
 }
 
 // UserCreatedEvent represents an event when a user is created.
 type UserCreatedEvent struct {
-	User *User
+    User *User `dto:"out,event,priv" json:"user"`
 }
 
 // UserCommandHandler handles user commands with separate write DB.
 type UserCommandHandler struct {
-	writeDB  WriteDatabase     // PostgreSQL (normalized)
-	eventBus EventBus
+    writeDB  WriteDatabase // PostgreSQL (normalized)
+    eventBus EventBus
 }
 
 // Handle handles the create user command.
 func (h *UserCommandHandler) Handle(ctx context.Context, cmd CreateUserCommand) error {
-	if err := h.writeDB.Insert(ctx, cmd.User); err != nil {
-		return fmt.Errorf("inserting user: %w", err)
-	}
+    if err := h.writeDB.Insert(ctx, cmd.User); err != nil {
+        return fmt.Errorf("inserting user: %w", err)
+    }
 
-	event := UserCreatedEvent{User: cmd.User}
-	if err := h.eventBus.Publish(ctx, event); err != nil {
-		return fmt.Errorf("publishing event: %w", err)
-	}
+    event := UserCreatedEvent{User: cmd.User}
+    if err := h.eventBus.Publish(ctx, event); err != nil {
+        return fmt.Errorf("publishing event: %w", err)
+    }
 
-	return nil
+    return nil
 }
 
 // UserProjection synchronizes read model from events.
 type UserProjection struct {
-	readDB ReadDatabase // Elasticsearch (optimized for search)
+    readDB ReadDatabase // Elasticsearch (optimized for search)
 }
 
 // OnUserCreated handles user created events.
 func (p *UserProjection) OnUserCreated(ctx context.Context, event UserCreatedEvent) error {
-	if err := p.readDB.Index(ctx, event.User); err != nil {
-		return fmt.Errorf("indexing user: %w", err)
-	}
-	return nil
+    if err := p.readDB.Index(ctx, event.User); err != nil {
+        return fmt.Errorf("indexing user: %w", err)
+    }
+    return nil
 }
 ```
 
 ### Niveau 3 : Avec Event Sourcing
 
-```
+```text
 Commands → Event Store → Projections → Read Models
 ```
 
@@ -194,15 +194,15 @@ import (
 
 // OrderItem represents an item in an order.
 type OrderItem struct {
-	ProductID string
-	Quantity  int
-	Price     float64
+	ProductID string  `dto:"in,cmd,pub" json:"productId"`
+	Quantity  int     `dto:"in,cmd,pub" json:"quantity"`
+	Price     float64 `dto:"in,cmd,pub" json:"price"`
 }
 
 // CreateOrderCommand represents a command to create an order.
 type CreateOrderCommand struct {
-	UserID string
-	Items  []OrderItem
+	UserID string      `dto:"in,cmd,priv" json:"userId"`
+	Items  []OrderItem `dto:"in,cmd,pub" json:"items"`
 }
 
 // CreateOrderHandler handles order creation commands.
@@ -245,17 +245,17 @@ import "context"
 
 // OrderDTO is the data transfer object for orders.
 type OrderDTO struct {
-	ID        string
-	UserID    string
-	UserName  string
-	Items     []OrderItem
-	Total     float64
-	CreatedAt time.Time
+	ID        string      `dto:"out,query,pub" json:"id"`
+	UserID    string      `dto:"out,query,priv" json:"userId"`
+	UserName  string      `dto:"out,query,pii" json:"userName"`
+	Items     []OrderItem `dto:"out,query,pub" json:"items"`
+	Total     float64     `dto:"out,query,pub" json:"total"`
+	CreatedAt time.Time   `dto:"out,query,pub" json:"createdAt"`
 }
 
 // GetOrderQuery represents a query to get an order.
 type GetOrderQuery struct {
-	OrderID string
+	OrderID string `dto:"in,query,pub" json:"orderId"`
 }
 
 // GetOrderHandler handles order queries.
@@ -291,12 +291,12 @@ import (
 
 // OrderView is the denormalized read model for orders.
 type OrderView struct {
-	ID        string
-	UserID    string
-	UserName  string
-	Items     []OrderItem
-	Total     float64
-	CreatedAt time.Time
+	ID        string      `dto:"out,query,pub" json:"id"`
+	UserID    string      `dto:"out,query,priv" json:"userId"`
+	UserName  string      `dto:"out,query,pii" json:"userName"`
+	Items     []OrderItem `dto:"out,query,pub" json:"items"`
+	Total     float64     `dto:"out,query,pub" json:"total"`
+	CreatedAt time.Time   `dto:"out,query,pub" json:"createdAt"`
 }
 
 // OrderProjection handles order projections.
