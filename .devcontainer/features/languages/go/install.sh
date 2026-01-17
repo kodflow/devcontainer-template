@@ -147,12 +147,12 @@ get_github_version() {
     echo "${version:-$fallback}"
 }
 
-# Quality & Linting - golangci-lint (prebuilt)
-# Fallback 1.63.4 fixes CVE-2024-45337 (golang.org/x/crypto) and CVE-2024-45338 (golang.org/x/net)
-GOLANGCI_VERSION=$(get_github_version "golangci/golangci-lint" "1.63.4")
+# Quality & Linting - golangci-lint v2 (prebuilt)
+# v2.x is a major rewrite with breaking config changes (use .golangci.yml version: "2")
+GOLANGCI_VERSION=$(get_github_version "golangci/golangci-lint" "2.8.0")
 install_go_tool "golangci-lint" \
     "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_VERSION}/golangci-lint-${GOLANGCI_VERSION}-linux-${GO_ARCH}.tar.gz" \
-    "github.com/golangci/golangci-lint/cmd/golangci-lint" \
+    "github.com/golangci/golangci-lint/v2/cmd/golangci-lint" \
     "tar.gz"
 
 # Security - gosec (prebuilt)

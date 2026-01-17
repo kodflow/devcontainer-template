@@ -83,25 +83,36 @@ fi
 # ============================================================================
 # Ollama + grepai Initialization (for semantic code search MCP)
 # ============================================================================
-# Ollama provides embeddings for grepai semantic search
+# Ollama runs as a sidecar container (see docker-compose.yml)
+# Accessible via OLLAMA_HOST env var (default: ollama:11434)
 # Model is pulled on first start and persisted in ollama-data volume
 GREPAI_BIN="/usr/local/bin/grepai"
-OLLAMA_BIN="/usr/local/bin/ollama"
+OLLAMA_ENDPOINT="${OLLAMA_HOST:-ollama:11434}"
 
 init_semantic_search() {
-    # Start Ollama server in background if available
-    if [ -x "$OLLAMA_BIN" ]; then
-        if ! pgrep -x ollama >/dev/null 2>&1; then
-            log_info "Starting Ollama server..."
-            nohup "$OLLAMA_BIN" serve >/dev/null 2>&1 &
-            sleep 2
-        fi
+    local grepai_config="/workspace/.grepai/config.yaml"
 
-        # Pull embedding model if not present (background, non-blocking)
-        if ! "$OLLAMA_BIN" list 2>/dev/null | grep -q "nomic-embed-text"; then
-            log_info "Pulling nomic-embed-text model (background)..."
-            nohup "$OLLAMA_BIN" pull nomic-embed-text >/dev/null 2>&1 &
+    # Wait for Ollama sidecar to be ready (max 30s)
+    log_info "Waiting for Ollama sidecar at $OLLAMA_ENDPOINT..."
+    local retries=15
+    while [ $retries -gt 0 ]; do
+        if curl -sf "http://${OLLAMA_ENDPOINT}/api/tags" >/dev/null 2>&1; then
+            log_success "Ollama sidecar is ready"
+            break
         fi
+        retries=$((retries - 1))
+        sleep 2
+    done
+
+    if [ $retries -eq 0 ]; then
+        log_warning "Ollama sidecar not responding, grepai may not work"
+        return 0
+    fi
+
+    # Pull embedding model if not present (non-blocking check)
+    if ! curl -sf "http://${OLLAMA_ENDPOINT}/api/tags" 2>/dev/null | grep -q "nomic-embed-text"; then
+        log_info "Pulling nomic-embed-text model (background)..."
+        curl -sf "http://${OLLAMA_ENDPOINT}/api/pull" -d '{"name":"nomic-embed-text"}' >/dev/null 2>&1 &
     fi
 
     # Initialize grepai for the workspace
@@ -111,10 +122,32 @@ init_semantic_search() {
             if (cd /workspace && "$GREPAI_BIN" init --provider ollama --backend gob --yes 2>/dev/null); then
                 log_success "grepai initialized"
             else
-                log_warning "grepai init failed (Ollama may not be ready yet)"
+                log_warning "grepai init failed"
+                return 0
+            fi
+        fi
+
+        # Fix Ollama endpoint in grepai config (localhost -> sidecar)
+        if [ -f "$grepai_config" ]; then
+            if grep -q "localhost:11434" "$grepai_config"; then
+                log_info "Updating grepai config to use Ollama sidecar..."
+                sed -i "s|localhost:11434|${OLLAMA_ENDPOINT}|g" "$grepai_config"
+                log_success "grepai config updated (endpoint: $OLLAMA_ENDPOINT)"
+            fi
+        fi
+
+        # Start grepai watch daemon for real-time indexing (if not already running)
+        if ! pgrep -f "grepai watch" >/dev/null 2>&1; then
+            log_info "Starting grepai watch daemon for real-time indexing..."
+            (cd /workspace && nohup "$GREPAI_BIN" watch >/dev/null 2>&1 &)
+            sleep 2
+            if pgrep -f "grepai watch" >/dev/null 2>&1; then
+                log_success "grepai watch daemon started"
+            else
+                log_warning "grepai watch daemon failed to start"
             fi
         else
-            log_info "grepai already initialized"
+            log_info "grepai watch daemon already running"
         fi
     fi
 }

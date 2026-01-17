@@ -6,12 +6,12 @@
 
 ```yaml
 priority_order:
+  search:
+    1st: mcp__grepai__*          # Semantic code search (ALWAYS FIRST)
+    fallback: Grep tool          # Only if grepai unavailable/fails
   github:
     1st: mcp__github__*          # PR, Issues, Repos
     fallback: gh CLI
-  search:
-    1st: mcp__grepai__*          # Semantic code search
-    fallback: Grep tool
   code_quality:
     1st: mcp__codacy__*          # Code analysis
     fallback: codacy-cli
@@ -28,6 +28,46 @@ priority_order:
 - Structured JSON responses (no text parsing)
 - Single source of truth for credentials
 - NEVER ask user for tokens if MCP is configured
+
+## 1.1 GREPAI-FIRST RULE (MANDATORY)
+
+**ALWAYS use grepai MCP for code search. NEVER use Grep tool directly.**
+
+```yaml
+grepai_workflow:
+  step_1_check_index:
+    tool: mcp__grepai__grepai_index_status
+    verify: "total_files > 0"
+    if_zero: "Wait for indexing or run /init"
+
+  step_2_semantic_search:
+    tool: mcp__grepai__grepai_search
+    params:
+      query: "natural language description of what you're looking for"
+      limit: 10
+    example: mcp__grepai__grepai_search(query="error handling in authentication")
+
+  step_3_trace_analysis:
+    tools:
+      - mcp__grepai__grepai_trace_callers  # Who calls this function?
+      - mcp__grepai__grepai_trace_callees  # What does this function call?
+      - mcp__grepai__grepai_trace_graph    # Full call graph
+
+  fallback_only_when:
+    - "grepai MCP connection fails"
+    - "index_status shows 0 files after /init"
+    - "User explicitly requests Grep"
+```
+
+**When to use which tool:**
+
+| Task | Use grepai | Use Grep |
+|------|------------|----------|
+| Find code by meaning | ✅ `grepai_search` | ❌ |
+| Find function callers | ✅ `grepai_trace_callers` | ❌ |
+| Exact string match (rare) | ❌ | ✅ |
+| Regex pattern (rare) | ❌ | ✅ |
+| grepai unavailable | ❌ | ✅ fallback |
 
 ## 2. ENVIRONMENT AWARENESS (MANDATORY)
 
