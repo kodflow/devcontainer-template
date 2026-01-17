@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-The repository ships a reusable Dev Container template rather than application source. All infrastructure lives under `.devcontainer/`, with `devcontainer.json`, `docker-compose.yml`, lifecycle hooks, custom features, and the base image definition in `images/`. GitHub automation, workflow instructions, and AI reviewer policies live in `.github/`. Cross-cutting policies for contributors are in `CLAUDE.md`, `.qodo-merge.toml`, `.codacy.yaml`, and `.coderabbit.yaml` at the repo root. When you bootstrap an actual project from this template, migrate your application code into `/src` and `/tests` (per `CLAUDE.md`) and keep documentation in `/docs`.
+The repository ships a reusable Dev Container template rather than application source. All infrastructure lives under `.devcontainer/`, with `devcontainer.json`, `docker-compose.yml`, lifecycle hooks, custom features, and the base image definition in `images/`. GitHub automation, workflow instructions, and AI reviewer policies live in `.github/`. Cross-cutting policies for contributors are in `CLAUDE.md`, `.qodo-merge.toml`, and `.codacy.yaml` at the repo root. When you bootstrap an actual project from this template, migrate your application code into `/src` and `/tests` (per `CLAUDE.md`) and keep documentation in `/docs`.
 
 ## Build, Test, and Development Commands
 
@@ -22,7 +22,7 @@ docker compose -f .devcontainer/docker-compose.yml down -v
 - **Indentation**: Two spaces for YAML, JSON, and shell snippets shipped in this repo. Language-specific rules come from `.devcontainer/features/languages/<lang>/RULES.md` (for Node.js: TypeScript + ESLint + Prettier, strict TS compiler options, ES modules).
 - **File naming**: Template assets use kebab-case or snake_case; Node code that you scaffold must keep files and directories in kebab-case (see `nodejs/RULES.md`).
 - **Function/variable naming**: Align with the selected language RULES (e.g., camelCase for functions/variables, PascalCase for classes and types in TypeScript).
-- **Linting**: Shell scripts must satisfy ShellCheck (see `.coderabbit.yaml`). Language-specific lint/format tooling is bootstrapped via devcontainer features (Node feature installs ESLint, Prettier, TypeScript, tsx, pnpm, etc.).
+- **Linting**: Shell scripts must satisfy ShellCheck. Language-specific lint/format tooling is bootstrapped via devcontainer features (Node feature installs ESLint, Prettier, TypeScript, tsx, pnpm, etc.).
 
 ## Testing Guidelines
 
@@ -34,7 +34,7 @@ docker compose -f .devcontainer/docker-compose.yml down -v
 ## Commit & Pull Request Guidelines
 
 - **Commit format**: Use conventional commits with branch-scoped prefixes described in `CLAUDE.md`, e.g., `feat(devcontainer): add carbon feature` or `fix(hooks): improve postStart reliability`.
-- **PR process**: Always work through `/feature` or `/fix` flows (planning mode, `/plan` phases, `/apply` implementation). PRs are reviewed by Codacy and CodeRabbit, and `pr_reviewer` in `.qodo-merge.toml` enforces security, test, and compliance gates.
+- **PR process**: Always work through `/feature` or `/fix` flows (planning mode, `/plan` phases, `/apply` implementation). PRs are reviewed by Codacy, and `pr_reviewer` in `.qodo-merge.toml` enforces security, test, and compliance gates.
 - **Branch naming**: `feat/<description>` for features, `fix/<description>` for bug fixes; never push directly to `main`.
 
 ---
@@ -43,7 +43,7 @@ docker compose -f .devcontainer/docker-compose.yml down -v
 
 ## 🎯 What This Repository Does
 
-Kodflow DevContainer Template provides a batteries-included VS Code Dev Container configuration that ships Claude CLI, CodeRabbit, major cloud CLIs, HashiCorp tooling, and language features so new projects can bootstrap a consistent, secure development workstation in seconds.
+Kodflow DevContainer Template provides a batteries-included VS Code Dev Container configuration that ships Claude CLI, major cloud CLIs, HashiCorp tooling, and language features so new projects can bootstrap a consistent, secure development workstation in seconds.
 
 **Key responsibilities:**
 
@@ -82,8 +82,8 @@ MCP servers (github, codacy, taskwarrior) via /workspace/mcp.json
 - **`.devcontainer/devcontainer.json`** – Declares the docker-compose service, features, VS Code settings, and lifecycle commands that bootstrap the container.
 - **Lifecycle hooks (`hooks/lifecycle/*.sh`)** – Harden environment setup (safe directories, alias injection, Claude restore, MCP template generation).
 - **Custom devcontainer features** – Modular installers for languages (`features/languages/*`) and Claude-specific assets (`features/claude`).
-- **Base image (`images/Dockerfile`)** – Builds the GHCR image with Ubuntu 24.04, shell tooling, Claude CLI, CodeRabbit CLI, and CLIs for AWS/GCP/Azure/Kubernetes/HashiCorp.
-- **Automation configs (`.qodo-merge.toml`, `.codacy.yaml`, `.coderabbit.yaml`)** – Enforce review severity, compliance, and lint exclusions across downstream repos.
+- **Base image (`images/Dockerfile`)** – Builds the GHCR image with Ubuntu 24.04, shell tooling, Claude CLI, and CLIs for AWS/GCP/Azure/Kubernetes/HashiCorp.
+- **Automation configs (`.qodo-merge.toml`, `.codacy.yaml`)** – Enforce review severity, compliance, and lint exclusions across downstream repos.
 
 ### Data Flow
 
@@ -110,8 +110,7 @@ workspace/
 ├── CLAUDE.md                 # Mandatory repository/branch/product rules
 ├── README.md                 # High-level template overview
 ├── .qodo-merge.toml          # Qodo Merge reviewer configuration
-├── .codacy.yaml              # Codacy path exclusions
-└── .coderabbit.yaml          # CodeRabbit reviewer profile
+└── .codacy.yaml              # Codacy path exclusions
 ```
 
 ### Key Files to Know
@@ -136,7 +135,9 @@ workspace/
 ### Core Technologies
 
 - **Container base:** `mcr.microsoft.com/devcontainers/base:ubuntu-24.04` extended in `.devcontainer/images/Dockerfile` for a reproducible Ubuntu environment.
-- **Tooling layer:** HashiCorp suite (Terraform, Vault, Consul, Nomad, Packer), AWS CLI v2, Google Cloud SDK, Azure CLI, Kubernetes (kubectl v1.35.0, Helm v4.0.4), Ansible, Bazelisk, Claude CLI, and CodeRabbit CLI are preinstalled globally.
+- **Tooling layer:** HashiCorp suite (Terraform, Vault, Consul, Nomad, Packer),
+  AWS CLI v2, Google Cloud SDK, Azure CLI, Kubernetes (kubectl, Helm),
+  Ansible, Bazelisk, and Claude CLI are preinstalled globally.
 - **Orchestration:** VS Code Dev Containers + Docker Compose single-service stack defined in `.devcontainer/docker-compose.yml`.
 - **Language expansion:** Custom features under `.devcontainer/features/languages/` install Node.js (via NVM), Python (via pyenv), Go, Rust, Carbon, etc., on demand with pinned versions.
 
@@ -197,7 +198,7 @@ These ensure every major package manager (npm, pnpm, pip, poetry, Go, Cargo, Com
 
 ### Generate project-scoped MCP credentials
 
-1. Provide `CODACY_API_TOKEN`, `GITHUB_API_TOKEN`, and (optionally) `CODERABBIT_API_KEY` via `.devcontainer/.env` or 1Password service account env vars referenced in `postStart.sh`.
+1. Provide `CODACY_API_TOKEN` and `GITHUB_API_TOKEN` via `.devcontainer/.env` or 1Password service account env vars referenced in `postStart.sh`.
 2. On container start, the hook pulls secrets from env vars or the vault (`get_1password_field`), renders `/workspace/mcp.json`, and appends dynamic exports to `~/.devcontainer-env.sh`.
 3. Run `super-claude /review --all` or Codacy MCP tools; they automatically use the regenerated JSON without manual auth.
 

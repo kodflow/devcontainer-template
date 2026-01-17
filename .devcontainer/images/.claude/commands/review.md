@@ -381,7 +381,6 @@ feedback_collection:
 |----------|------|-------|----------|
 | Human | Question | 2 | HIGH |
 | Human | Comment | 3 | MEDIUM |
-| AI (coderabbit) | Suggestion | 5 | EXTRACT |
 | AI (qodo) | Suggestion | 3 | EXTRACT |
 
 ---
