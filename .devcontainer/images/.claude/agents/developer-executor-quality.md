@@ -142,3 +142,46 @@ Look for positive patterns:
 - Error handling with specific exceptions
 - Tests alongside code
 - Clean separation of concerns
+- DTOs properly tagged with `dto:"dir,ctx,sec"`
+
+## DTO Convention Check
+
+Detect missing or invalid `dto:"direction,context,security"` tags:
+
+```yaml
+dto_check:
+  name: "Missing DTO Tags"
+  severity: "MEDIUM"
+
+  detection:
+    suffixes:
+      - Request
+      - Response
+      - DTO
+      - Input
+      - Output
+      - Payload
+      - Message
+      - Event
+      - Command
+      - Query
+    serialization_tags: [json:, yaml:, xml:, protobuf:]
+
+  pattern: |
+    Struct name matches *Request/*Response/*DTO/etc.
+    AND has serialization tags (json:, yaml:, etc.)
+    AND missing dto:"dir,ctx,sec" tag
+
+  valid_format: 'dto:"<direction>,<context>,<security>"'
+  valid_values:
+    direction: [in, out, inout]
+    context: [api, cmd, query, event, msg, priv]
+    security: [pub, priv, pii, secret]
+
+  suggestion: "Add dto:\"dir,ctx,sec\" on all public DTO fields"
+
+  commendation_trigger: |
+    DTOs correctly use dto:"dir,ctx,sec" format with appropriate security classification
+```
+
+**Reference:** `.claude/docs/conventions/dto-tags.md`
