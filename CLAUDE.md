@@ -117,51 +117,54 @@ Before complex tasks, apply these patterns from [Recursive Language Models](http
 Complex request → Peek/grepai → Decompose → Parallel Task agents → Synthesize
 ```
 
-## GREPAI-FIRST RULE (MANDATORY)
+## GREPAI-FIRST RULE (MANDATORY - ABSOLUTE)
 
-**ALWAYS use grepai MCP for code search BEFORE falling back to Grep tool.**
+**NEVER use Grep tool. ALWAYS use grepai MCP for ALL code searches.**
 
 ```yaml
-grepai_priority:
-  rule: "grepai is the PRIMARY search interface"
-  fallback: "Grep tool only when grepai unavailable"
+grepai_mandatory:
+  rule: "grepai MCP is the ONLY search interface"
+  grep_allowed: "ONLY when grepai MCP explicitly fails"
 
-  workflow:
-    1_init: "Ensure grepai is initialized (grepai init)"
-    2_search: "Call mcp__grepai__grepai_search for semantic search"
-    3_trace: "Use mcp__grepai__grepai_trace_* for call graph analysis"
-    4_fallback: "Grep tool only if MCP fails"
+  pre_search_check:
+    1_verify_index: "mcp__grepai__grepai_index_status"
+    2_if_zero_files: "Run /init to initialize grepai"
+    3_then_search: "Proceed with grepai search"
 
-  tools:
-    grepai_search:
-      description: "Semantic code search with natural language"
-      priority: "ALWAYS use first"
-      example: "mcp__grepai__grepai_search(query='error handling')"
+  search_workflow:
+    semantic_query:
+      tool: "mcp__grepai__grepai_search"
+      use: "Finding code by meaning/intent"
+      example: "mcp__grepai__grepai_search(query='authentication error handling')"
 
-    grepai_trace_callers:
-      description: "Find all callers of a function"
-      use_case: "Before modifying a function"
+    impact_analysis:
+      tool: "mcp__grepai__grepai_trace_callers"
+      use: "Before modifying ANY function"
+      example: "mcp__grepai__grepai_trace_callers(symbol='handleLogin')"
 
-    grepai_trace_callees:
-      description: "Find all functions called by a symbol"
-      use_case: "Understanding dependencies"
+    dependency_analysis:
+      tool: "mcp__grepai__grepai_trace_callees"
+      use: "Understanding what a function calls"
 
-    grepai_trace_graph:
-      description: "Build call graph around a symbol"
-      use_case: "Impact analysis"
+    full_graph:
+      tool: "mcp__grepai__grepai_trace_graph"
+      use: "Complete call graph analysis"
 
-    grepai_index_status:
-      description: "Check index health and stats"
-      use_case: "Debugging search issues"
-
-  examples:
-    semantic_search:
-      priority: "mcp__grepai__grepai_search"
-      fallback: "Grep tool"
-    call_analysis:
-      priority: "mcp__grepai__grepai_trace_callers"
-      fallback: "Grep for function name"
+  grep_fallback_conditions:
+    - "mcp__grepai__* returns connection error"
+    - "grepai_index_status shows total_files: 0 AFTER /init"
+    - "User explicitly requests exact regex match"
 ```
+
+**Decision matrix:**
+
+| Search Task | Tool | Reason |
+|-------------|------|--------|
+| "Find authentication code" | `grepai_search` | Semantic |
+| "Who calls handleLogin?" | `grepai_trace_callers` | Call graph |
+| "What does processOrder call?" | `grepai_trace_callees` | Dependencies |
+| Exact string `"ERROR_CODE_42"` | `Grep` (fallback) | Literal match |
+| grepai MCP unavailable | `Grep` (fallback) | Degraded mode |
 
 **Why grepai-first:**
 
@@ -169,7 +172,16 @@ grepai_priority:
 - Call graph analysis (callers/callees)
 - Context-aware results (file paths, line numbers)
 - Faster than regex for complex patterns
-- Local processing (no cloud dependency)
+- Local processing (Ollama sidecar, no cloud)
+
+**Initialization (automatic via /init):**
+
+```bash
+# Automatically run by /init or postStart.sh:
+grepai init --provider ollama --backend gob --yes
+sed -i 's/localhost:11434/ollama:11434/g' .grepai/config.yaml
+nohup grepai watch >/dev/null 2>&1 &
+```
 
 ## SAFEGUARDS (ABSOLUTE - NO BYPASS)
 

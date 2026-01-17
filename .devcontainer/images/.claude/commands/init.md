@@ -2,7 +2,7 @@
 name: init
 description: |
   Project initialization check with RLM decomposition.
-  Validates environment, dependencies, and configuration.
+  Validates environment, dependencies, configuration, and grepai indexing.
   Use when: starting work on a project, verifying setup,
   or troubleshooting environment issues.
 allowed-tools:
@@ -13,12 +13,16 @@ allowed-tools:
   - "Bash(node:*)"
   - "Bash(python:*)"
   - "Bash(go:*)"
+  - "Bash(grepai:*)"
+  - "Bash(curl:*)"
+  - "Bash(pgrep:*)"
+  - "Bash(nohup:*)"
   - "Read(**/*)"
   - "Glob(**/*)"
-  - "Grep(**/*)"
   - "Task(*)"
   - "mcp__github__*"
   - "mcp__codacy__*"
+  - "mcp__grepai__*"
 ---
 
 # /init - Project Initialization (RLM Architecture)
@@ -162,6 +166,7 @@ decompose_workflow:
         - terraform
         - docker
         - kubectl
+        - grepai
 
     dependencies:
       description: "Vérifier les dépendances du projet"
@@ -183,6 +188,14 @@ decompose_workflow:
         - "Required env vars set"
         - "MCP servers configured"
         - "Tokens available"
+
+    semantic_search:
+      description: "Initialiser grepai pour recherche sémantique"
+      checks:
+        - "Ollama sidecar accessible"
+        - ".grepai/ config exists"
+        - "grepai watch daemon running"
+        - "Index status (files indexed)"
 ```
 
 ---
@@ -193,7 +206,7 @@ decompose_workflow:
 
 ```yaml
 parallel_checks:
-  mode: "PARALLEL (single message, 4 Task calls)"
+  mode: "PARALLEL (single message, 5 Task calls)"
 
   agents:
     - task: "tools-checker"
@@ -205,6 +218,7 @@ parallel_checks:
         - go version
         - terraform version
         - docker version
+        - grepai version
         Return: {tool, required, installed, status}
 
     - task: "deps-checker"
@@ -232,9 +246,22 @@ parallel_checks:
         - Required env vars
         - MCP tokens (GITHUB_TOKEN, CODACY_TOKEN)
         Return: {variable, status, source}
+
+    - task: "grepai-checker"
+      type: "Explore"
+      prompt: |
+        Initialize and check grepai semantic search:
+        1. Check Ollama: curl -sf http://ollama:11434/api/tags
+        2. Check .grepai/config.yaml exists
+        3. If missing: grepai init --provider ollama --backend gob --yes
+        4. Fix endpoint: sed -i 's/localhost:11434/ollama:11434/g' .grepai/config.yaml
+        5. Check daemon: pgrep -f "grepai watch"
+        6. If not running: nohup grepai watch >/dev/null 2>&1 &
+        7. Check index: mcp__grepai__grepai_index_status
+        Return: {ollama, config, daemon, index_files, status}
 ```
 
-**IMPORTANT** : Lancer les 4 agents dans UN SEUL message.
+**IMPORTANT** : Lancer les 5 agents dans UN SEUL message.
 
 ---
 
@@ -304,6 +331,15 @@ synthesize_workflow:
 | CODACY_TOKEN | ⚠ MISSING | Required |
 | DATABASE_URL | ⚠ MISSING | .env |
 
+## Semantic Search (grepai)
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Ollama | ✓ READY | ollama:11434 |
+| Config | ✓ EXISTS | .grepai/config.yaml |
+| Daemon | ✓ RUNNING | grepai watch (PID 1234) |
+| Index | ✓ INDEXED | 296 files, 1.2MB |
+
 ## Recommended Actions
 
 1. `cp .env.example .env` - Create env file
@@ -317,6 +353,15 @@ cp .env.example .env
 # Edit .env with your values
 npm install
 npm run dev
+```
+
+## Search Usage
+
+```yaml
+# MANDATORY: Use grepai MCP for ALL code searches
+semantic_search: mcp__grepai__grepai_search(query="...")
+call_analysis: mcp__grepai__grepai_trace_callers(symbol="...")
+fallback_only: Grep tool (only if grepai fails)
 ```
 
 ═══════════════════════════════════════════════════════════════
