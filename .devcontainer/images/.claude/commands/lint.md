@@ -79,6 +79,7 @@ KTN-RECEIVER-NAME    → Corriger nom receiver (1-2 chars)
 ```
 
 **PHASE 3 - LOGIC** (corriger erreurs de logique)
+
 ```text
 KTN-VAR-SHADOW       → Renommer variable qui shadow
 KTN-CONST-SHADOW     → Renommer const qui shadow builtin
@@ -95,6 +96,7 @@ KTN-GOVET-*          → Corriger tous les govet
 ```
 
 **PHASE 4 - PERFORMANCE** (optimisations memoire)
+
 ```text
 KTN-VAR-HOTLOOP      → Sortir allocation de la boucle
 KTN-VAR-BIGSTRUCT    → Passer par pointeur si >64 bytes
@@ -109,6 +111,7 @@ KTN-VAR-ARRAY        → Utiliser array si <=64 bytes
 ```
 
 **PHASE 5 - MODERN** (idiomes Go 1.18-1.25)
+
 ```text
 KTN-VAR-USEANY       → interface{} → any
 KTN-VAR-USECLEAR     → boucle delete → clear()
@@ -127,6 +130,7 @@ MODERNIZE-*          → Tous les modernize
 ```
 
 **PHASE 6 - STYLE** (conventions de nommage)
+
 ```text
 KTN-VAR-CAMEL        → snake_case → camelCase
 KTN-CONST-CAMEL      → UPPER_CASE → UpperCase
@@ -144,6 +148,7 @@ KTN-INTERFACE-ERNAME → Ajouter suffix -er
 ```
 
 **PHASE 7 - DOCS** (documentation - EN DERNIER)
+
 ```text
 KTN-COMMENT-PKGDOC   → Ajouter doc package
 KTN-COMMENT-FUNC     → Ajouter doc fonction
@@ -156,6 +161,7 @@ KTN-GOROUTINE-LIFECYCLE → Documenter lifecycle goroutine
 ```
 
 **PHASE 8 - TESTS** (patterns de test)
+
 ```text
 KTN-TEST-TABLE       → Convertir en table-driven
 KTN-TEST-COVERAGE    → Ajouter tests manquants
