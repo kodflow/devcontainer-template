@@ -58,7 +58,7 @@ puis exécute les mécaniques définies dans cette version fraîche.
 | `commands` | `.devcontainer/images/.claude/commands/` | manifest.commands |
 | `agents` | `.devcontainer/images/.claude/agents/` | manifest.agents |
 | `p10k` | `.devcontainer/images/.p10k.zsh` | manifest.config_files |
-| `settings` | `.devcontainer/images/.claude/settings.json` | manifest.config_files |
+| `settings` | `.../images/.claude/settings.json` | manifest.config_files |
 
 ---
 
@@ -156,8 +156,8 @@ bootstrap_workflow:
 **Pourquoi ce pattern :**
 
 | Problème sans Bootstrap | Solution avec Bootstrap |
-|------------------------|------------------------|
-| Listes hardcodées dans le fichier local | Listes dynamiques depuis le template |
+|-------------------------|-------------------------|
+| Listes hardcodées locales | Listes dynamiques du template |
 | Nouveau langage non détecté | Langages mis à jour automatiquement |
 | Nouveaux scripts ignorés | Scripts découverts via manifest |
 | Fichiers deprecated oubliés | Liste deprecated à jour |
@@ -420,7 +420,8 @@ done
 
 ```bash
 # MANIFEST_SCRIPTS: Liste extraite du manifest distant (source of truth)
-for script in format imports lint security test commit-validate pre-validate post-edit post-compact; do
+for script in format imports lint security test \
+              commit-validate pre-validate post-edit post-compact; do
     curl -sL "$BASE/.devcontainer/images/.claude/scripts/$script.sh" \
          -o ".devcontainer/images/.claude/scripts/$script.sh" 2>/dev/null
     chmod +x ".devcontainer/images/.claude/scripts/$script.sh"
@@ -442,11 +443,14 @@ done
 ```bash
 # MANIFEST_AGENTS: Liste extraite du manifest distant (source of truth)
 mkdir -p ".devcontainer/images/.claude/agents"
-for agent in devops-executor-bsd devops-executor-linux devops-executor-osx \
-             devops-executor-qemu devops-executor-vmware devops-executor-windows \
-             devops-orchestrator devops-specialist-aws devops-specialist-azure \
-             devops-specialist-docker devops-specialist-finops devops-specialist-gcp \
-             devops-specialist-hashicorp devops-specialist-infrastructure \
+for agent in devops-executor-bsd devops-executor-linux \
+             devops-executor-osx devops-executor-qemu \
+             devops-executor-vmware devops-executor-windows \
+             devops-orchestrator devops-specialist-aws \
+             devops-specialist-azure devops-specialist-docker \
+             devops-specialist-finops devops-specialist-gcp \
+             devops-specialist-hashicorp \
+             devops-specialist-infrastructure \
              devops-specialist-kubernetes devops-specialist-security \
              developer-executor-quality developer-executor-security \
              developer-orchestrator developer-specialist-carbon \
