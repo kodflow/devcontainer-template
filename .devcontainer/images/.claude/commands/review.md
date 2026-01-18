@@ -910,10 +910,10 @@ merge_dedupe:
     - "evidence is empty"
     - "recommendation is empty"
     - "impact == 'correctness' AND severity >= HIGH AND repro is empty"
-    - "impact == 'security' AND severity >= HIGH AND source is empty"
+    - "impact == 'security' AND category == 'injection' AND severity >= HIGH AND source is empty"
 
   dedupe:
-    key: "{impact}:{category}:{file}:{normalize(title)}"
+    key: "{impact}:{category}:{file}:{line}:{normalize(title)}"
     merge_strategy: "keep highest severity, merge evidence"
 
   promote:

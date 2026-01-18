@@ -676,7 +676,9 @@ review_integration:
 
     4_validate:
       action: "Run quick /review (no loop) on modified files"
-      check: "New issues introduced?"
+      check:
+        - "Were original issues from the plan fixed?"
+        - "Were any new CRITICAL/HIGH issues introduced?"
 
     5_report:
       action: "Summary of fixes applied"

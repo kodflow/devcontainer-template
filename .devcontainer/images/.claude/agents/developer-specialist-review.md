@@ -10,7 +10,6 @@ tools:
   # Core tools
   - Read
   - Glob
-  - Grep
   - mcp__grepai__grepai_search
   - mcp__grepai__grepai_trace_callers
   - mcp__grepai__grepai_trace_callees
@@ -169,6 +168,7 @@ parallel_dispatch:
       {file_list}
 
       Repo profile: {repo_profile}
+      Diff context: {diff_snippet}
       Consult: .claude/docs/ for patterns
 
       Check: antipatterns, DDD, layering, SOLID
