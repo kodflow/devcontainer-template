@@ -25,4 +25,4 @@ Development container setup for consistent dev environments across languages.
 ## Usage
 
 Features are enabled in `devcontainer.json` under `features`.
-Each language feature has its own RULES.md for conventions.
+Language conventions are enforced by specialist agents (e.g., `developer-specialist-go`).

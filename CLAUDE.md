@@ -20,13 +20,14 @@
 
 ## Language Rules
 
-**STRICT**: Follow rules in `.devcontainer/features/languages/<lang>/RULES.md`
+**Language conventions are enforced by specialist agents** (e.g., `developer-specialist-go`,
+`developer-specialist-python`). Each agent knows the latest stable version and best practices.
 
-Each RULES.md contains:
-1. **Line 1**: Required version (NEVER downgrade)
-2. Code style and conventions
-3. Project structure requirements
-4. Testing standards
+Key principles:
+1. Use **latest stable version** of each language
+2. Follow language-specific code style (enforced by linters)
+3. ALL code in `/src`, tests in `/tests` (except Go: tests alongside code)
+4. Security-first approach with full test coverage
 
 ## Workflow (MANDATORY)
 
@@ -62,7 +63,7 @@ Creates `fix/<description>` branch, **mandatory planning mode**, CI check, PR cr
 
 ## Code Quality
 
-- Latest stable version ONLY (see RULES.md)
+- Latest stable version ONLY (specialist agents know current versions)
 - No deprecated APIs
 - No legacy patterns
 - Security-first approach

@@ -112,12 +112,51 @@ init_semantic_search() {
         return 0
     fi
 
-    # Pull embedding model if not present (non-blocking check)
-    # Using qwen3-embedding:0.6b for optimal performance/quality balance
-    if ! curl -sf "http://${OLLAMA_ENDPOINT}/api/tags" 2>/dev/null | grep -q "$EMBEDDING_MODEL"; then
-        log_info "Pulling $EMBEDDING_MODEL model (background)..."
-        curl -sf "http://${OLLAMA_ENDPOINT}/api/pull" -d "{\"name\":\"$EMBEDDING_MODEL\"}" >/dev/null 2>&1 &
+    # Check if embedding model is already available
+    local model_available=false
+    if curl -sf "http://${OLLAMA_ENDPOINT}/api/tags" 2>/dev/null | grep -q "$EMBEDDING_MODEL"; then
+        model_available=true
+        log_success "Model $EMBEDDING_MODEL already available"
     fi
+
+    # Pull embedding model if not present (with progress feedback)
+    if [ "$model_available" = false ]; then
+        log_info "Pulling $EMBEDDING_MODEL model..."
+        local pull_start=$(date +%s)
+        local pull_timeout=120  # 2 minutes max for model pull
+        local pull_pid
+
+        # Start pull in background to allow timeout
+        curl -sf "http://${OLLAMA_ENDPOINT}/api/pull" -d "{\"name\":\"$EMBEDDING_MODEL\"}" >/dev/null 2>&1 &
+        pull_pid=$!
+
+        # Wait for pull with timeout and progress dots
+        local elapsed=0
+        while kill -0 $pull_pid 2>/dev/null; do
+            sleep 5
+            elapsed=$(($(date +%s) - pull_start))
+            if [ $elapsed -ge $pull_timeout ]; then
+                log_warning "Model pull taking too long, continuing in background..."
+                break
+            fi
+            printf "."  # Progress indicator
+        done
+        echo ""  # Newline after progress dots
+
+        # Verify model is now available
+        sleep 2  # Brief pause for Ollama to register model
+        if curl -sf "http://${OLLAMA_ENDPOINT}/api/tags" 2>/dev/null | grep -q "$EMBEDDING_MODEL"; then
+            local pull_duration=$(($(date +%s) - pull_start))
+            log_success "Model $EMBEDDING_MODEL ready (${pull_duration}s)"
+        else
+            log_warning "Model $EMBEDDING_MODEL may still be downloading"
+        fi
+    fi
+
+    # Show currently loaded models for debugging
+    local loaded_models
+    loaded_models=$(curl -sf "http://${OLLAMA_ENDPOINT}/api/tags" 2>/dev/null | grep -o '"name":"[^"]*"' | sed 's/"name":"//g;s/"//g' | tr '\n' ' ' || echo "none")
+    log_info "Available Ollama models: ${loaded_models:-none}"
 
     # Initialize grepai for the workspace
     if [ -x "$GREPAI_BIN" ]; then
@@ -163,12 +202,41 @@ init_semantic_search() {
             (cd /workspace && nohup "$GREPAI_BIN" watch >/dev/null 2>&1 &)
             sleep 2
             if pgrep -f "grepai watch" >/dev/null 2>&1; then
-                log_success "grepai watch daemon started"
+                log_success "grepai watch daemon started (PID: $(pgrep -f 'grepai watch'))"
             else
                 log_warning "grepai watch daemon failed to start"
             fi
         else
-            log_info "grepai watch daemon already running"
+            log_info "grepai watch daemon already running (PID: $(pgrep -f 'grepai watch'))"
+        fi
+
+        # Check initial indexing status
+        sleep 3  # Give grepai time to start indexing
+        if [ -x "$GREPAI_BIN" ]; then
+            local index_status
+            index_status=$(cd /workspace && "$GREPAI_BIN" status 2>/dev/null || echo "")
+            if [ -n "$index_status" ]; then
+                # Extract key metrics from status
+                local indexed_files
+                indexed_files=$(echo "$index_status" | grep -oE 'Indexed: [0-9]+' | grep -oE '[0-9]+' || echo "0")
+                local pending_files
+                pending_files=$(echo "$index_status" | grep -oE 'Pending: [0-9]+' | grep -oE '[0-9]+' || echo "0")
+
+                if [ "$indexed_files" != "0" ] || [ "$pending_files" != "0" ]; then
+                    log_info "grepai index: $indexed_files files indexed, $pending_files pending"
+                else
+                    # Try alternative parsing
+                    local file_count
+                    file_count=$(echo "$index_status" | grep -oE '[0-9]+ files?' | head -1 || echo "")
+                    if [ -n "$file_count" ]; then
+                        log_info "grepai index: $file_count"
+                    else
+                        log_info "grepai indexing in progress..."
+                    fi
+                fi
+            else
+                log_info "grepai indexing starting (status check pending)..."
+            fi
         fi
     fi
 }
