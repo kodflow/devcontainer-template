@@ -94,21 +94,70 @@ EMBEDDING_MODEL="qwen3-embedding:0.6b"
 init_semantic_search() {
     local grepai_dir="/workspace/.grepai"
     local grepai_config="${grepai_dir}/config.yaml"
+    local ollama_ready=false
 
-    # Wait for Ollama sidecar to be ready (max 30s)
+    # =========================================================================
+    # STEP 1: Initialize grepai config FIRST (before checking Ollama)
+    # This ensures config exists even if Ollama is not available
+    # =========================================================================
+    if [ -x "$GREPAI_BIN" ]; then
+        # Always create/update .grepai config from template
+        log_info "Initializing grepai configuration..."
+        mkdir -p "$grepai_dir"
+
+        if [ -f "$GREPAI_CONFIG_TPL" ]; then
+            if cp "$GREPAI_CONFIG_TPL" "$grepai_config"; then
+                log_success "grepai config initialized from template"
+                # Log provider and model for visibility
+                local cfg_provider cfg_model cfg_endpoint
+                cfg_provider=$(grep -E "^[[:space:]]+provider:" "$grepai_config" | head -1 | awk '{print $2}' || echo "unknown")
+                cfg_model=$(grep -E "^[[:space:]]+model:" "$grepai_config" | head -1 | awk '{print $2}' || echo "unknown")
+                cfg_endpoint=$(grep -E "^[[:space:]]+endpoint:" "$grepai_config" | head -1 | awk '{print $2}' || echo "unknown")
+                log_info "grepai config: provider=$cfg_provider model=$cfg_model endpoint=$cfg_endpoint"
+            else
+                log_warning "Failed to copy grepai config template"
+            fi
+        else
+            # Fallback to grepai init if template not found
+            log_warning "Config template not found at $GREPAI_CONFIG_TPL, using grepai init..."
+            if (cd /workspace && "$GREPAI_BIN" init --provider ollama --backend gob --yes 2>/dev/null); then
+                log_success "grepai initialized via CLI"
+            else
+                log_warning "grepai init failed"
+            fi
+        fi
+
+        # Ensure Ollama endpoint is correct in config
+        if [ -f "$grepai_config" ]; then
+            if ! grep -q "endpoint: http://${OLLAMA_ENDPOINT}" "$grepai_config"; then
+                log_info "Updating grepai endpoint to $OLLAMA_ENDPOINT..."
+                sed -i -E "s|(endpoint: http://)[^[:space:]]+|\1${OLLAMA_ENDPOINT}|" "$grepai_config"
+            fi
+        fi
+    else
+        log_warning "grepai binary not found at $GREPAI_BIN"
+        return 0
+    fi
+
+    # =========================================================================
+    # STEP 2: Wait for Ollama sidecar (optional - grepai config already exists)
+    # =========================================================================
     log_info "Waiting for Ollama sidecar at $OLLAMA_ENDPOINT..."
     local retries=15
     while [ $retries -gt 0 ]; do
         if curl -sf "http://${OLLAMA_ENDPOINT}/api/tags" >/dev/null 2>&1; then
             log_success "Ollama sidecar is ready"
+            ollama_ready=true
             break
         fi
         retries=$((retries - 1))
         sleep 2
     done
 
-    if [ $retries -eq 0 ]; then
-        log_warning "Ollama sidecar not responding, grepai may not work"
+    if [ "$ollama_ready" = false ]; then
+        log_warning "Ollama sidecar not responding at $OLLAMA_ENDPOINT"
+        log_warning "grepai config exists but semantic search will not work until Ollama is available"
+        log_info "To start Ollama manually: docker compose up -d ollama"
         return 0
     fi
 
@@ -158,86 +207,51 @@ init_semantic_search() {
     loaded_models=$(curl -sf "http://${OLLAMA_ENDPOINT}/api/tags" 2>/dev/null | grep -o '"name":"[^"]*"' | sed 's/"name":"//g;s/"//g' | tr '\n' ' ' || echo "none")
     log_info "Available Ollama models: ${loaded_models:-none}"
 
-    # Initialize grepai for the workspace
-    if [ -x "$GREPAI_BIN" ]; then
-        # Create .grepai directory with optimized config from template
-        if [ ! -d "$grepai_dir" ]; then
-            log_info "Initializing grepai with optimized config (12 languages)..."
-            mkdir -p "$grepai_dir"
+    # =========================================================================
+    # STEP 3: Start grepai watch daemon (config already initialized in STEP 1)
+    # =========================================================================
+    local grepai_pid
+    grepai_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
 
-            # Copy optimized template config
-            if [ -f "$GREPAI_CONFIG_TPL" ]; then
-                if cp "$GREPAI_CONFIG_TPL" "$grepai_config"; then
-                    log_success "grepai initialized with optimized config"
-                else
-                    log_warning "Failed to copy grepai config template"
-                    return 0  # Continue container startup anyway
-                fi
-            else
-                # Fallback to grepai init if template not found
-                log_warning "Config template not found, using grepai init..."
-                if (cd /workspace && "$GREPAI_BIN" init --provider ollama --backend gob --yes 2>/dev/null); then
-                    log_success "grepai initialized"
-                else
-                    log_warning "grepai init failed"
-                    return 0
-                fi
-            fi
-        fi
-
-        # Ensure Ollama endpoint is correct in config
-        # The template has ollama:11434, fallback (grepai init) uses localhost:11434
-        # Always ensure the correct endpoint from environment is used
-        if [ -f "$grepai_config" ]; then
-            if ! grep -q "endpoint: http://${OLLAMA_ENDPOINT}" "$grepai_config"; then
-                log_info "Ensuring grepai config uses Ollama sidecar endpoint..."
-                sed -i -E "s|(endpoint: http://)[^[:space:]]+|\1${OLLAMA_ENDPOINT}|" "$grepai_config"
-                log_success "grepai config updated (endpoint: $OLLAMA_ENDPOINT)"
-            fi
-        fi
-
-        # Start grepai watch daemon for real-time indexing (if not already running)
-        if ! pgrep -f "grepai watch" >/dev/null 2>&1; then
-            log_info "Starting grepai watch daemon for real-time indexing..."
-            (cd /workspace && nohup "$GREPAI_BIN" watch >/dev/null 2>&1 &)
-            sleep 2
-            if pgrep -f "grepai watch" >/dev/null 2>&1; then
-                log_success "grepai watch daemon started (PID: $(pgrep -f 'grepai watch'))"
-            else
-                log_warning "grepai watch daemon failed to start"
-            fi
+    if [ -z "$grepai_pid" ]; then
+        log_info "Starting grepai watch daemon for real-time indexing..."
+        (cd /workspace && nohup "$GREPAI_BIN" watch >/dev/null 2>&1 &)
+        sleep 2
+        grepai_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
+        if [ -n "$grepai_pid" ]; then
+            log_success "grepai watch daemon started (PID: $grepai_pid)"
         else
-            log_info "grepai watch daemon already running (PID: $(pgrep -f 'grepai watch'))"
+            log_warning "grepai watch daemon failed to start"
         fi
+    else
+        log_info "grepai watch daemon already running (PID: $grepai_pid)"
+    fi
 
-        # Check initial indexing status
-        sleep 3  # Give grepai time to start indexing
-        if [ -x "$GREPAI_BIN" ]; then
-            local index_status
-            index_status=$(cd /workspace && "$GREPAI_BIN" status 2>/dev/null || echo "")
-            if [ -n "$index_status" ]; then
-                # Extract key metrics from status
-                local indexed_files
-                indexed_files=$(echo "$index_status" | grep -oE 'Indexed: [0-9]+' | grep -oE '[0-9]+' || echo "0")
-                local pending_files
-                pending_files=$(echo "$index_status" | grep -oE 'Pending: [0-9]+' | grep -oE '[0-9]+' || echo "0")
+    # Check initial indexing status
+    sleep 3  # Give grepai time to start indexing
+    local index_status
+    index_status=$(cd /workspace && "$GREPAI_BIN" status 2>/dev/null || echo "")
+    if [ -n "$index_status" ]; then
+        # Extract key metrics from status
+        local indexed_files
+        indexed_files=$(echo "$index_status" | grep -oE 'Indexed: [0-9]+' | grep -oE '[0-9]+' || echo "0")
+        local pending_files
+        pending_files=$(echo "$index_status" | grep -oE 'Pending: [0-9]+' | grep -oE '[0-9]+' || echo "0")
 
-                if [ "$indexed_files" != "0" ] || [ "$pending_files" != "0" ]; then
-                    log_info "grepai index: $indexed_files files indexed, $pending_files pending"
-                else
-                    # Try alternative parsing
-                    local file_count
-                    file_count=$(echo "$index_status" | grep -oE '[0-9]+ files?' | head -1 || echo "")
-                    if [ -n "$file_count" ]; then
-                        log_info "grepai index: $file_count"
-                    else
-                        log_info "grepai indexing in progress..."
-                    fi
-                fi
+        if [ "$indexed_files" != "0" ] || [ "$pending_files" != "0" ]; then
+            log_info "grepai index: $indexed_files files indexed, $pending_files pending"
+        else
+            # Try alternative parsing
+            local file_count
+            file_count=$(echo "$index_status" | grep -oE '[0-9]+ files?' | head -1 || echo "")
+            if [ -n "$file_count" ]; then
+                log_info "grepai index: $file_count"
             else
-                log_info "grepai indexing starting (status check pending)..."
+                log_info "grepai indexing in progress..."
             fi
         fi
+    else
+        log_info "grepai indexing starting (status check pending)..."
     fi
 }
 
