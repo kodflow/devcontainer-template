@@ -444,6 +444,7 @@ merge_ollama_service() {
     fi
 }
 
+
 if [ ! -f ".devcontainer/docker-compose.yml" ]; then
     # No file exists - download full template
     safe_download \
