@@ -4,6 +4,7 @@ description: |
   Main Developer orchestrator using RLM decomposition. Coordinates code review,
   refactoring, testing, and development tasks. Handles complex architectural
   decisions and delegates to specialists. Use for development planning and coordination.
+  Supports both GitHub (PRs) and GitLab (MRs) - auto-detected from git remote.
 tools:
   - Read
   - Glob
@@ -17,15 +18,25 @@ tools:
   - TodoWrite
   - Bash
   - WebFetch
+  # GitHub MCP
   - mcp__github__get_pull_request
   - mcp__github__get_pull_request_files
   - mcp__github__create_pull_request
   - mcp__github__list_pull_requests
+  # GitLab MCP
+  - mcp__gitlab__get_merge_request
+  - mcp__gitlab__get_merge_request_changes
+  - mcp__gitlab__create_merge_request
+  - mcp__gitlab__list_merge_requests
+  - mcp__gitlab__list_pipelines
+  # Codacy MCP
   - mcp__codacy__codacy_list_repository_issues
   - mcp__codacy__codacy_get_repository_with_analysis
 model: opus
 allowed-tools:
   - "Bash(git:*)"
+  - "Bash(gh:*)"
+  - "Bash(glab:*)"
   - "Bash(npm:*)"
   - "Bash(yarn:*)"
   - "Bash(pnpm:*)"

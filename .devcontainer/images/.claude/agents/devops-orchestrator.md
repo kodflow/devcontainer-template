@@ -4,6 +4,7 @@ description: |
   Main DevOps/DevSecOps/FinOps orchestrator using RLM decomposition. Coordinates
   specialized sub-agents for infrastructure, security, cost, software, sysadmin,
   and cloud operations. Dispatches sub-agents in parallel via Task tool.
+  Supports both GitHub (PRs) and GitLab (MRs) - auto-detected from git remote.
 tools:
   # Core tools
   - Read
@@ -24,12 +25,21 @@ tools:
   - mcp__github__create_pull_request
   - mcp__github__list_pull_requests
   - mcp__github__add_issue_comment
+  # GitLab MCP
+  - mcp__gitlab__get_merge_request
+  - mcp__gitlab__get_merge_request_changes
+  - mcp__gitlab__create_merge_request
+  - mcp__gitlab__list_merge_requests
+  - mcp__gitlab__create_merge_request_note
+  - mcp__gitlab__list_pipelines
   # Codacy MCP (Security)
   - mcp__codacy__codacy_search_repository_srm_items
   - mcp__codacy__codacy_cli_analyze
 model: opus
 allowed-tools:
   - "Bash(git:*)"
+  - "Bash(gh:*)"
+  - "Bash(glab:*)"
   - "Bash(terraform:*)"
   - "Bash(tofu:*)"
   - "Bash(kubectl:*)"
@@ -285,10 +295,27 @@ approval_required:
 
 ## MCP Priority
 
-Always use MCP tools before CLI fallback:
+Always use MCP tools before CLI fallback. Platform auto-detected from git remote.
+
+### GitHub
 
 | Action | MCP Tool | CLI Fallback |
 |--------|----------|--------------|
 | PR Files | `mcp__github__get_pull_request_files` | `gh pr view` |
-| Security | `mcp__codacy__codacy_search_repository_srm_items` | `trivy`, `checkov` |
 | Create PR | `mcp__github__create_pull_request` | `gh pr create` |
+| List PRs | `mcp__github__list_pull_requests` | `gh pr list` |
+
+### GitLab
+
+| Action | MCP Tool | CLI Fallback |
+|--------|----------|--------------|
+| MR Changes | `mcp__gitlab__get_merge_request_changes` | `glab mr view` |
+| Create MR | `mcp__gitlab__create_merge_request` | `glab mr create` |
+| List MRs | `mcp__gitlab__list_merge_requests` | `glab mr list` |
+| Pipelines | `mcp__gitlab__list_pipelines` | `glab ci status` |
+
+### Common
+
+| Action | MCP Tool | CLI Fallback |
+|--------|----------|--------------|
+| Security | `mcp__codacy__codacy_search_repository_srm_items` | `trivy`, `checkov` |

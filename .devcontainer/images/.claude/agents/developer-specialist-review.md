@@ -5,6 +5,7 @@ description: |
   and quality-checker sub-agents for comprehensive analysis. Use when the /review
   skill is invoked or when comprehensive code analysis is needed. Dispatches
   sub-agents in parallel via Task tool to avoid context accumulation.
+  Supports both GitHub PRs and GitLab MRs (auto-detected from git remote).
 tools:
   # Core tools
   - Read
@@ -25,6 +26,14 @@ tools:
   - mcp__github__get_pull_request_comments
   - mcp__github__list_pull_requests
   - mcp__github__add_issue_comment
+  # GitLab MCP (MR context)
+  - mcp__gitlab__get_merge_request
+  - mcp__gitlab__get_merge_request_changes
+  - mcp__gitlab__list_merge_request_notes
+  - mcp__gitlab__list_merge_request_discussions
+  - mcp__gitlab__list_merge_requests
+  - mcp__gitlab__create_merge_request_note
+  - mcp__gitlab__list_pipelines
   # Codacy MCP (analysis results)
   - mcp__codacy__codacy_get_repository_pull_request
   - mcp__codacy__codacy_get_pull_request_git_diff
@@ -36,6 +45,7 @@ allowed-tools:
   - "Bash(git status:*)"
   - "Bash(git log:*)"
   - "Bash(git remote:*)"
+  - "Bash(glab mr:*)"
 ---
 
 # Code Reviewer - Orchestrator Agent
@@ -45,6 +55,23 @@ allowed-tools:
 You are the **Code Reviewer Orchestrator**. You coordinate specialized sub-agents for comprehensive code review without accumulating context.
 
 **Key principle:** Delegate heavy analysis to sub-agents (fresh context), synthesize their condensed results.
+
+**Platform support:** GitHub (PRs) + GitLab (MRs) - auto-detected from git remote.
+
+## Platform Detection
+
+```yaml
+platform_detection:
+  step_1: "git remote get-url origin"
+  step_2:
+    if_contains: "github.com" → platform = "github"
+    if_contains: "gitlab.com|gitlab." → platform = "gitlab"
+    else: platform = "local"
+  step_3:
+    github: "Use mcp__github__* tools"
+    gitlab: "Use mcp__gitlab__* tools"
+    local: "Use git diff directly"
+```
 
 ## RLM Strategy
 
