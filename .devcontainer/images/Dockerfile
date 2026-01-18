@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y --no-install-recommends \
         curl ca-certificates gnupg gnupg2 lsb-release \
         build-essential g++ gcc make cmake pkg-config \
-        git jq yq zsh unzip zip tar xz-utils file \
+        git jq zsh unzip zip tar xz-utils file \
         libssl-dev libpam0g-dev software-properties-common apt-transport-https \
         libffi-dev libbz2-dev libreadline-dev libsqlite3-dev \
         libncurses5-dev libncursesw5-dev liblzma-dev zlib1g-dev \
@@ -113,6 +113,15 @@ ARG BAZELISK_VERSION=1.27.0
 RUN ARCH_BAZEL=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     curl -fsSL "https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VERSION}/bazelisk-linux-${ARCH_BAZEL}" -o /usr/local/bin/bazel && \
     chmod +x /usr/local/bin/bazel
+
+# =============================================================================
+# yq (YAML processor) - mikefarah/yq (Go version, NOT python-yq)
+# Used by /update skill to merge docker-compose.yml
+# =============================================================================
+ARG YQ_VERSION=4.45.1
+RUN ARCH_YQ=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+    curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_${ARCH_YQ}" -o /usr/local/bin/yq && \
+    chmod +x /usr/local/bin/yq
 
 # =============================================================================
 # grepai (Semantic Code Search for AI agents)
