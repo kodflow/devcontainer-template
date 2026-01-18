@@ -173,24 +173,26 @@ RUN chmod -R 755 /home/vscode/.claude/scripts/ && \
     mkdir -p /home/vscode/.claude/sessions
 
 # =============================================================================
-# Claude Defaults Backup (for volume restoration)
+# System Templates (root-owned, copied at runtime)
 # =============================================================================
+# All /etc/* templates are consolidated here to minimize USER switches
 USER root
-RUN mkdir -p /etc/claude-defaults
+
+# Claude defaults backup (for volume restoration)
+RUN mkdir -p /etc/claude-defaults /etc/mcp /etc/grepai
 COPY --chown=root:root .claude/commands/ /etc/claude-defaults/commands/
 COPY --chown=root:root .claude/scripts/ /etc/claude-defaults/scripts/
 COPY --chown=root:root .claude/agents/ /etc/claude-defaults/agents/
 COPY --chown=root:root .claude/docs/ /etc/claude-defaults/docs/
 COPY --chown=root:root .claude/settings.json /etc/claude-defaults/settings.json
 RUN chmod -R 755 /etc/claude-defaults/
-USER vscode
 
-# =============================================================================
-# MCP Template (secrets injected at runtime via postStart.sh)
-# =============================================================================
-USER root
-RUN mkdir -p /etc/mcp
+# MCP template (secrets injected at runtime via postStart.sh)
 COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
+
+# GrepAI config template (optimized for 12 languages)
+COPY --chown=vscode:vscode grepai.config.yaml /etc/grepai/config.yaml
+
 USER vscode
 
 # =============================================================================

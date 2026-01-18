@@ -85,12 +85,15 @@ fi
 # ============================================================================
 # Ollama runs as a sidecar container (see docker-compose.yml)
 # Accessible via OLLAMA_HOST env var (default: ollama:11434)
-# Model is pulled on first start and persisted in ollama-data volume
+# Model: qwen3-embedding:0.6b (fast, high-quality, 32K context, code-aware)
 GREPAI_BIN="/usr/local/bin/grepai"
+GREPAI_CONFIG_TPL="/etc/grepai/config.yaml"
 OLLAMA_ENDPOINT="${OLLAMA_HOST:-ollama:11434}"
+EMBEDDING_MODEL="qwen3-embedding:0.6b"
 
 init_semantic_search() {
-    local grepai_config="/workspace/.grepai/config.yaml"
+    local grepai_dir="/workspace/.grepai"
+    local grepai_config="${grepai_dir}/config.yaml"
 
     # Wait for Ollama sidecar to be ready (max 30s)
     log_info "Waiting for Ollama sidecar at $OLLAMA_ENDPOINT..."
@@ -110,28 +113,46 @@ init_semantic_search() {
     fi
 
     # Pull embedding model if not present (non-blocking check)
-    if ! curl -sf "http://${OLLAMA_ENDPOINT}/api/tags" 2>/dev/null | grep -q "nomic-embed-text"; then
-        log_info "Pulling nomic-embed-text model (background)..."
-        curl -sf "http://${OLLAMA_ENDPOINT}/api/pull" -d '{"name":"nomic-embed-text"}' >/dev/null 2>&1 &
+    # Using qwen3-embedding:0.6b for optimal performance/quality balance
+    if ! curl -sf "http://${OLLAMA_ENDPOINT}/api/tags" 2>/dev/null | grep -q "$EMBEDDING_MODEL"; then
+        log_info "Pulling $EMBEDDING_MODEL model (background)..."
+        curl -sf "http://${OLLAMA_ENDPOINT}/api/pull" -d "{\"name\":\"$EMBEDDING_MODEL\"}" >/dev/null 2>&1 &
     fi
 
     # Initialize grepai for the workspace
     if [ -x "$GREPAI_BIN" ]; then
-        if [ ! -d "/workspace/.grepai" ]; then
-            log_info "Initializing grepai for semantic code search..."
-            if (cd /workspace && "$GREPAI_BIN" init --provider ollama --backend gob --yes 2>/dev/null); then
-                log_success "grepai initialized"
+        # Create .grepai directory with optimized config from template
+        if [ ! -d "$grepai_dir" ]; then
+            log_info "Initializing grepai with optimized config (12 languages)..."
+            mkdir -p "$grepai_dir"
+
+            # Copy optimized template config
+            if [ -f "$GREPAI_CONFIG_TPL" ]; then
+                if cp "$GREPAI_CONFIG_TPL" "$grepai_config"; then
+                    log_success "grepai initialized with optimized config"
+                else
+                    log_warning "Failed to copy grepai config template"
+                    return 0  # Continue container startup anyway
+                fi
             else
-                log_warning "grepai init failed"
-                return 0
+                # Fallback to grepai init if template not found
+                log_warning "Config template not found, using grepai init..."
+                if (cd /workspace && "$GREPAI_BIN" init --provider ollama --backend gob --yes 2>/dev/null); then
+                    log_success "grepai initialized"
+                else
+                    log_warning "grepai init failed"
+                    return 0
+                fi
             fi
         fi
 
-        # Fix Ollama endpoint in grepai config (localhost -> sidecar)
+        # Ensure Ollama endpoint is correct in config
+        # The template has ollama:11434, fallback (grepai init) uses localhost:11434
+        # Always ensure the correct endpoint from environment is used
         if [ -f "$grepai_config" ]; then
-            if grep -q "localhost:11434" "$grepai_config"; then
-                log_info "Updating grepai config to use Ollama sidecar..."
-                sed -i "s|localhost:11434|${OLLAMA_ENDPOINT}|g" "$grepai_config"
+            if ! grep -q "endpoint: http://${OLLAMA_ENDPOINT}" "$grepai_config"; then
+                log_info "Ensuring grepai config uses Ollama sidecar endpoint..."
+                sed -i -E "s|(endpoint: http://)[^[:space:]]+|\1${OLLAMA_ENDPOINT}|" "$grepai_config"
                 log_success "grepai config updated (endpoint: $OLLAMA_ENDPOINT)"
             fi
         fi

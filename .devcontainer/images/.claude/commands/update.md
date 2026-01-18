@@ -293,18 +293,24 @@ decompose_workflow:
       description: "Configuration Claude"
       source: "manifest.config_files[1]"
 
-  output: "6 composants à analyser (liste dynamique depuis manifest)"
+    lifecycle:
+      path: ".devcontainer/hooks/lifecycle/"
+      files: ["*.sh"]
+      description: "Lifecycle hooks (postStart, etc.)"
+      source: "manifest.components.lifecycle_hooks"
+
+  output: "7 composants à analyser (liste dynamique depuis manifest)"
 ```
 
 ---
 
 ## Phase 3 : Parallelize (RLM Pattern)
 
-**Lancer 6 Task agents en PARALLÈLE pour analyser chaque composant :**
+**Lancer 7 Task agents en PARALLÈLE pour analyser chaque composant :**
 
 ```yaml
 parallel_analysis:
-  mode: "PARALLEL (single message, 6 Task calls)"
+  mode: "PARALLEL (single message, 7 Task calls)"
   source: "Composants listés dans le MANIFEST distant"
 
   agents:
@@ -343,6 +349,15 @@ parallel_analysis:
         Agents from MANIFEST: ${manifest.components.agents}
         For each agent: check content differences
         Return: {agent, status, changes[]}
+
+    - task: "lifecycle-analyzer"
+      type: "Explore"
+      model: "haiku"
+      prompt: |
+        Compare hooks/lifecycle/ local vs remote
+        Hooks from MANIFEST: ${manifest.components.lifecycle_hooks}
+        For each hook: check content differences
+        Return: {hook, status, changes[]}
 
     - task: "p10k-analyzer"
       type: "Explore"
@@ -479,6 +494,18 @@ curl -sL "$BASE/.devcontainer/images/.claude/settings.json" \
      -o ".devcontainer/images/.claude/settings.json" 2>/dev/null
 ```
 
+#### Lifecycle Hooks
+
+```bash
+# MANIFEST_LIFECYCLE_HOOKS: Liste extraite du manifest distant (source of truth)
+mkdir -p ".devcontainer/hooks/lifecycle"
+for hook in postStart; do
+    curl -sL "$BASE/.devcontainer/hooks/lifecycle/$hook.sh" \
+         -o ".devcontainer/hooks/lifecycle/$hook.sh" 2>/dev/null
+    chmod +x ".devcontainer/hooks/lifecycle/$hook.sh"
+done
+```
+
 ### 4.2 : Cleanup deprecated files
 
 ```yaml
@@ -541,13 +568,16 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
     ✓ hooks       (9 scripts)
     ✓ commands    (9 commands)
     ✓ agents      (32 agents)
+    ✓ lifecycle   (1 hook)
     - p10k        (unchanged)
     ✓ settings    (1 file)
+
+  Note: grepai config is in Docker image (no sync needed)
 
   Cleanup (deprecated from MANIFEST):
     ✓ .coderabbit.yaml removed
 
-  Total: 63 files synchronized
+  Total: 64 files synchronized
 
   Note: Restart terminal to apply p10k changes.
 
@@ -582,6 +612,9 @@ Mode dry-run : affiche les différences sans appliquer.
   agents (2 changes):
     ~ developer-specialist-go  → Updated
     + developer-specialist-zig → New (discovered in manifest)
+
+  lifecycle (1 change):
+    ~ postStart.sh     → Updated grepai model (qwen3)
 
   deprecated (1 file):
     - .coderabbit.yaml → Will be removed
@@ -633,7 +666,7 @@ Met à jour un seul composant.
 
 | Élément | Parallèle? | Raison |
 |---------|------------|--------|
-| Analyse des 5 composants | ✅ Parallèle | Comparaisons indépendantes |
+| Analyse des 7 composants | ✅ Parallèle | Comparaisons indépendantes |
 | Application des mises à jour | ❌ Séquentiel | Ordre peut importer |
 | Validation finale | ✅ Parallèle | Checks indépendants |
 
@@ -645,13 +678,22 @@ Met à jour un seul composant.
 ```
 .devcontainer/
 ├── features/languages/*/RULES.md
+├── hooks/lifecycle/postStart.sh   # NEW: Lifecycle hooks
 ├── images/
 │   ├── .p10k.zsh
 │   └── .claude/
+│       ├── agents/*.md
 │       ├── commands/*.md
 │       ├── scripts/*.sh
 │       └── settings.json
 └── .template-version
+```
+
+**Dans l'image Docker (PAS de sync nécessaire) :**
+```
+/etc/grepai/config.yaml            # GrepAI config optimisée (baked in)
+/etc/mcp/mcp.json.tpl              # MCP template
+/etc/claude-defaults/*             # Claude defaults
 ```
 
 **JAMAIS modifiés :**
@@ -659,8 +701,7 @@ Met à jour un seul composant.
 .devcontainer/
 ├── devcontainer.json      # Config projet
 ├── docker-compose.yml     # Services locaux
-├── Dockerfile             # Customisations
-└── hooks/                 # Hooks lifecycle
+└── Dockerfile             # Customisations
 ```
 
 ---
@@ -755,12 +796,18 @@ components:
     - developer-specialist-rust
     - developer-specialist-scala
 
+  # Lifecycle hooks (.sh files in hooks/lifecycle/)
+  lifecycle_hooks:
+    - postStart
+
   # Static config files
   config_files:
     - path: ".devcontainer/images/.p10k.zsh"
       description: "Powerlevel10k configuration"
     - path: ".devcontainer/images/.claude/settings.json"
       description: "Claude settings"
+    # NOTE: grepai.config.yaml is NOT synced - it's baked into the Docker image
+    # at /etc/grepai/config.yaml and copied at runtime by postStart.sh
 
 # Files to remove from downstream projects (deprecated)
 deprecated:
