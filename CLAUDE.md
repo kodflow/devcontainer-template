@@ -117,43 +117,48 @@ Before complex tasks, apply these patterns from [Recursive Language Models](http
 Complex request → Peek/grepai → Decompose → Parallel Task agents → Synthesize
 ```
 
-## GREPAI-FIRST RULE (MANDATORY - ABSOLUTE)
+## GREPAI-FIRST RULE (MANDATORY)
 
-**NEVER use Grep tool. ALWAYS use grepai MCP for ALL code searches.**
+**ALWAYS try grepai FIRST. Use Grep as FALLBACK only.**
 
 ```yaml
-grepai_mandatory:
-  rule: "grepai MCP is the ONLY search interface"
-  grep_allowed: "ONLY when grepai MCP explicitly fails"
+search_strategy:
+  primary:
+    tool: mcp__grepai__grepai_search
+    for: "Semantic search, meaning-based queries"
 
-  pre_search_check:
-    1_verify_index: "mcp__grepai__grepai_index_status"
-    2_if_zero_files: "Run /init to initialize grepai"
-    3_then_search: "Proceed with grepai search"
+  trace:
+    tools: [mcp__grepai__grepai_trace_callers, mcp__grepai__grepai_trace_callees, mcp__grepai__grepai_trace_graph]
+    for: "Impact analysis, call graphs"
 
-  search_workflow:
-    semantic_query:
-      tool: "mcp__grepai__grepai_search"
-      use: "Finding code by meaning/intent"
-      example: "mcp__grepai__grepai_search(query='authentication error handling')"
+  fallback:
+    tool: Grep
+    conditions:
+      - "grepai returns 0 results AND query is valid"
+      - "Exact regex/literal match needed (ERROR_CODE_42)"
+      - "grepai MCP unavailable (connection error)"
 
-    impact_analysis:
-      tool: "mcp__grepai__grepai_trace_callers"
-      use: "Before modifying ANY function"
-      example: "mcp__grepai__grepai_trace_callers(symbol='handleLogin')"
+  cross_reference:
+    rule: "Validate with 2+ sources when possible"
 
-    dependency_analysis:
-      tool: "mcp__grepai__grepai_trace_callees"
-      use: "Understanding what a function calls"
+grepai_workflow:
+  step_1_semantic:
+    tool: mcp__grepai__grepai_search
+    example: grepai_search(query="authentication error handling")
 
-    full_graph:
-      tool: "mcp__grepai__grepai_trace_graph"
-      use: "Complete call graph analysis"
+  step_2_evaluate:
+    if: "results.count == 0 OR exact_match_needed"
+    then: "Proceed to Grep fallback"
 
-  grep_fallback_conditions:
-    - "mcp__grepai__* returns connection error"
-    - "grepai_index_status shows total_files: 0 AFTER /init"
-    - "User explicitly requests exact regex match"
+  step_3_fallback:
+    tool: Grep
+    use_for:
+      - "Exact string (ERROR_CODE_42)"
+      - "Regex pattern (func.*Handler)"
+      - "grepai MCP failed"
+
+  step_4_cross_reference:
+    action: "Compare & validate from multiple sources"
 ```
 
 **Decision matrix:**
@@ -161,23 +166,14 @@ grepai_mandatory:
 | Search Task | Tool | Reason |
 |-------------|------|--------|
 | "Find authentication code" | `grepai_search` | Semantic |
-| "Who calls handleLogin?" | `grepai_trace_callers` | Call graph |
-| "What does processOrder call?" | `grepai_trace_callees` | Dependencies |
+| "Who calls handleLogin?" | `mcp__grepai__grepai_trace_callers` | Call graph |
 | Exact string `"ERROR_CODE_42"` | `Grep` (fallback) | Literal match |
-| grepai MCP unavailable | `Grep` (fallback) | Degraded mode |
-
-**Why grepai-first:**
-
-- Semantic understanding (natural language queries)
-- Call graph analysis (callers/callees)
-- Context-aware results (file paths, line numbers)
-- Faster than regex for complex patterns
-- Local processing (Ollama sidecar, no cloud)
+| Regex `func.*Handler` | `Grep` (fallback) | Pattern match |
+| grepai returns 0 results | `Grep` (fallback) | Degraded mode |
 
 **Initialization (automatic via /init):**
 
 ```bash
-# Automatically run by /init or postStart.sh:
 grepai init --provider ollama --backend gob --yes
 sed -i 's/localhost:11434/ollama:11434/g' .grepai/config.yaml
 nohup grepai watch >/dev/null 2>&1 &

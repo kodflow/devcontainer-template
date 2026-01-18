@@ -15,8 +15,8 @@ allowed-tools:
   - "Write(.env)"
   - "Edit(.env)"
   - "Glob(**/*)"
-  - "Grep(**/*)"
   - "mcp__grepai__*"
+  - "Grep(**/*)"
   - "Task(*)"
   - "AskUserQuestion(*)"
 ---
