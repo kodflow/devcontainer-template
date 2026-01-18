@@ -110,9 +110,9 @@ init_semantic_search() {
                 log_success "grepai config initialized from template"
                 # Log provider and model for visibility
                 local cfg_provider cfg_model cfg_endpoint
-                cfg_provider=$(grep -E "^\s+provider:" "$grepai_config" | head -1 | awk '{print $2}' || echo "unknown")
-                cfg_model=$(grep -E "^\s+model:" "$grepai_config" | head -1 | awk '{print $2}' || echo "unknown")
-                cfg_endpoint=$(grep -E "^\s+endpoint:" "$grepai_config" | head -1 | awk '{print $2}' || echo "unknown")
+                cfg_provider=$(grep -E "^[[:space:]]+provider:" "$grepai_config" | head -1 | awk '{print $2}' || echo "unknown")
+                cfg_model=$(grep -E "^[[:space:]]+model:" "$grepai_config" | head -1 | awk '{print $2}' || echo "unknown")
+                cfg_endpoint=$(grep -E "^[[:space:]]+endpoint:" "$grepai_config" | head -1 | awk '{print $2}' || echo "unknown")
                 log_info "grepai config: provider=$cfg_provider model=$cfg_model endpoint=$cfg_endpoint"
             else
                 log_warning "Failed to copy grepai config template"
@@ -210,17 +210,21 @@ init_semantic_search() {
     # =========================================================================
     # STEP 3: Start grepai watch daemon (config already initialized in STEP 1)
     # =========================================================================
-    if ! pgrep -f "grepai watch" >/dev/null 2>&1; then
+    local grepai_pid
+    grepai_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
+
+    if [ -z "$grepai_pid" ]; then
         log_info "Starting grepai watch daemon for real-time indexing..."
         (cd /workspace && nohup "$GREPAI_BIN" watch >/dev/null 2>&1 &)
         sleep 2
-        if pgrep -f "grepai watch" >/dev/null 2>&1; then
-            log_success "grepai watch daemon started (PID: $(pgrep -f 'grepai watch'))"
+        grepai_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
+        if [ -n "$grepai_pid" ]; then
+            log_success "grepai watch daemon started (PID: $grepai_pid)"
         else
             log_warning "grepai watch daemon failed to start"
         fi
     else
-        log_info "grepai watch daemon already running (PID: $(pgrep -f 'grepai watch'))"
+        log_info "grepai watch daemon already running (PID: $grepai_pid)"
     fi
 
     # Check initial indexing status

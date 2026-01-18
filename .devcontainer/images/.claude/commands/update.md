@@ -34,7 +34,7 @@ les fichiers existants au lieu de listes hardcodées.
 - **Agents** - Définitions d'agents (specialists, executors)
 - **Lifecycle** - Hooks de cycle de vie (postStart)
 - **Config** - p10k, settings.json
-- **Compose** - docker-compose.yml (services: ollama, etc.)
+- **Compose** - docker-compose.yml (merge ollama service si absent)
 - **Grepai** - Configuration grepai optimisée
 
 **Source** : `github.com/kodflow/devcontainer-template`
@@ -60,7 +60,7 @@ les fichiers existants au lieu de listes hardcodées.
 | `lifecycle` | `.devcontainer/hooks/lifecycle/` | Hooks de cycle de vie |
 | `p10k` | `.devcontainer/images/.p10k.zsh` | Config Powerlevel10k |
 | `settings` | `.../images/.claude/settings.json` | Config Claude |
-| `compose` | `.devcontainer/docker-compose.yml` | Services Docker (ollama) |
+| `compose` | `.devcontainer/docker-compose.yml` | Merge ollama service (non-destructif) |
 | `grepai` | `.devcontainer/images/grepai.config.yaml` | Config grepai |
 
 ---
@@ -87,7 +87,7 @@ Composants:
   lifecycle   Lifecycle hooks (postStart)
   p10k        Powerlevel10k config
   settings    Claude settings.json
-  compose     docker-compose.yml (ollama service)
+  compose     docker-compose.yml (merge ollama)
   grepai      grepai config (provider, model)
 
 Exemples:
@@ -197,9 +197,14 @@ discover_workflow:
       local_path: ".devcontainer/images/.claude/settings.json"
 
     compose:
+      strategy: "MERGE (non-destructive)"
       raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/docker-compose.yml"
       local_path: ".devcontainer/docker-compose.yml"
-      note: "Contains ollama service for grepai embeddings"
+      note: |
+        - Si fichier absent → télécharger complet
+        - Si ollama manquant → injecter le service
+        - Si ollama présent → ne rien faire
+        - JAMAIS écraser les customisations utilisateur
 
     grepai:
       raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/images/grepai.config.yaml"
@@ -383,10 +388,38 @@ safe_download \
     "$BASE/.devcontainer/images/.claude/settings.json" \
     ".devcontainer/images/.claude/settings.json"
 
-# docker-compose.yml (ollama service for grepai)
-safe_download \
-    "$BASE/.devcontainer/docker-compose.yml" \
-    ".devcontainer/docker-compose.yml"
+# docker-compose.yml (merge ollama service - non-destructive)
+if [ ! -f ".devcontainer/docker-compose.yml" ]; then
+    # No file exists - download full template
+    safe_download \
+        "$BASE/.devcontainer/docker-compose.yml" \
+        ".devcontainer/docker-compose.yml"
+elif ! grep -q "ollama:" ".devcontainer/docker-compose.yml"; then
+    # File exists but ollama service missing - show instructions
+    echo "⚠ ollama service not found in docker-compose.yml"
+    echo "  Add the following to enable grepai semantic search:"
+    echo ""
+    echo "  services:"
+    echo "    ollama:"
+    echo "      image: ollama/ollama:latest"
+    echo "      container_name: dev_ollama"
+    echo "      volumes:"
+    echo "        - ollama-data:/root/.ollama"
+    echo "      networks:"
+    echo "        - default"
+    echo "      healthcheck:"
+    echo "        test: [\"CMD\", \"ollama\", \"list\"]"
+    echo "        interval: 10s"
+    echo "        timeout: 5s"
+    echo "        retries: 5"
+    echo "        start_period: 30s"
+    echo "      restart: unless-stopped"
+    echo ""
+    echo "  Also add 'ollama-data:' to volumes section"
+    echo "  And add to devcontainer: depends_on: ollama: condition: service_healthy"
+else
+    echo "✓ ollama service already present in docker-compose.yml"
+fi
 
 # grepai config (optimized with qwen3-embedding)
 safe_download \
@@ -429,7 +462,7 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
     ✓ lifecycle   (6 hooks)
     ✓ p10k        (1 file)
     ✓ settings    (1 file)
-    ✓ compose     (1 file - ollama service)
+    ✓ compose     (merge ollama if missing)
     ✓ grepai      (1 file - qwen3-embedding config)
 
   Grepai config:
@@ -463,7 +496,7 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
 **Mis à jour par /update :**
 ```
 .devcontainer/
-├── docker-compose.yml        # Services (ollama pour grepai)
+├── docker-compose.yml        # Merge ollama (non-destructif)
 ├── hooks/lifecycle/*.sh
 ├── images/
 │   ├── .p10k.zsh
@@ -585,10 +618,17 @@ echo "Updating config files..."
 safe_download "$BASE/.devcontainer/images/.p10k.zsh" ".devcontainer/images/.p10k.zsh"
 safe_download "$BASE/.devcontainer/images/.claude/settings.json" ".devcontainer/images/.claude/settings.json"
 
-# Docker compose (ollama service for grepai)
+# Docker compose (merge ollama service - non-destructive)
 echo ""
-echo "Updating docker-compose.yml..."
-safe_download "$BASE/.devcontainer/docker-compose.yml" ".devcontainer/docker-compose.yml"
+echo "Checking docker-compose.yml..."
+if [ ! -f ".devcontainer/docker-compose.yml" ]; then
+    echo "  No docker-compose.yml found, downloading template..."
+    safe_download "$BASE/.devcontainer/docker-compose.yml" ".devcontainer/docker-compose.yml"
+elif ! grep -q "ollama:" ".devcontainer/docker-compose.yml"; then
+    echo "  ⚠ ollama service missing - please add it manually (see /update docs)"
+else
+    echo "  ✓ ollama service present"
+fi
 
 # Grepai config
 echo ""
