@@ -121,6 +121,8 @@ Workflow:
 | Docker | docs.docker.com |
 | Kubernetes | kubernetes.io |
 | Terraform | developer.hashicorp.com |
+| GitLab | docs.gitlab.com |
+| GitHub | docs.github.com |
 
 ### Frameworks
 | Framework | Domaines |

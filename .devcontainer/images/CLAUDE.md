@@ -73,6 +73,7 @@ Configured in `mcp.json.tpl`:
 | **grepai** | `grepai` (binary) | Semantic code search, Call graph | None (local) |
 | **context7** | `@upstash/context7-mcp` | Up-to-date documentation for prompts | None (rate-limited) |
 | **GitHub** | `ghcr.io/github/github-mcp-server` (Docker) | PR, Issues, Repos | `GITHUB_TOKEN` |
+| **GitLab** | `@zereight/mcp-gitlab` | MR, Issues, Pipelines, Wiki | `GITLAB_TOKEN` |
 | **Codacy** | `@codacy/codacy-mcp` | Code quality, Security | `CODACY_TOKEN` |
 | **Playwright** | `@playwright/mcp` | Browser automation, E2E tests | None |
 
@@ -85,6 +86,19 @@ Configured in `mcp.json.tpl`:
 | `grepai_trace_callees` | Find called functions | Dependency analysis |
 | `grepai_trace_graph` | Build call graph | Architecture understanding |
 | `grepai_index_status` | Check index health | Debugging |
+
+**GitLab tools (when GITLAB_TOKEN configured):**
+
+| Tool | Description | Use Case |
+|------|-------------|----------|
+| `gitlab_list_projects` | List accessible projects | Project discovery |
+| `gitlab_get_project` | Get project details | Project info |
+| `gitlab_list_merge_requests` | List MRs | Code review |
+| `gitlab_get_merge_request` | Get MR details | Review analysis |
+| `gitlab_list_issues` | List project issues | Issue tracking |
+| `gitlab_list_pipelines` | List CI pipelines | CI/CD status |
+
+**GitLab env vars:** `GITLAB_TOKEN`, `GITLAB_API_URL` (default: gitlab.com)
 
 **Context7 usage:** Add "use context7" in prompts to fetch up-to-date documentation.
 
