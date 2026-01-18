@@ -31,32 +31,47 @@ priority_order:
 
 ## 1.1 GREPAI-FIRST RULE (MANDATORY)
 
-**ALWAYS use grepai MCP for code search. NEVER use Grep tool directly.**
+**ALWAYS try grepai FIRST. Use Grep as FALLBACK only.**
 
 ```yaml
-grepai_workflow:
-  step_1_check_index:
-    tool: mcp__grepai__grepai_index_status
-    verify: "total_files > 0"
-    if_zero: "Wait for indexing or run /init"
-
-  step_2_semantic_search:
+search_strategy:
+  primary:
     tool: mcp__grepai__grepai_search
-    params:
-      query: "natural language description of what you're looking for"
-      limit: 10
-    example: mcp__grepai__grepai_search(query="error handling in authentication")
+    for: "Semantic search, meaning-based queries"
+    example: grepai_search(query="authentication error handling")
 
-  step_3_trace_analysis:
-    tools:
-      - mcp__grepai__grepai_trace_callers  # Who calls this function?
-      - mcp__grepai__grepai_trace_callees  # What does this function call?
-      - mcp__grepai__grepai_trace_graph    # Full call graph
+  trace:
+    tools: [mcp__grepai__grepai_trace_callers, mcp__grepai__grepai_trace_callees, mcp__grepai__grepai_trace_graph]
+    for: "Impact analysis, call graphs, dependency tracking"
 
-  fallback_only_when:
-    - "grepai MCP connection fails"
-    - "index_status shows 0 files after /init"
-    - "User explicitly requests Grep"
+  fallback:
+    tool: Grep
+    conditions:
+      - "grepai returns 0 results AND query is valid"
+      - "Exact regex/literal match needed (ERROR_CODE_42)"
+      - "grepai MCP unavailable (connection error)"
+
+  cross_reference:
+    rule: "Always validate with 2+ sources when possible"
+
+grepai_workflow:
+  step_1_semantic:
+    tool: mcp__grepai__grepai_search
+    example: grepai_search(query="authentication error handling")
+
+  step_2_evaluate:
+    if: "results.count == 0 OR results.relevance < threshold"
+    then: "Proceed to Grep fallback"
+
+  step_3_fallback:
+    tool: Grep
+    use_for:
+      - "Exact string match (ERROR_CODE_42)"
+      - "Regex pattern (func.*Handler)"
+      - "grepai MCP connection failed"
+
+  step_4_cross_reference:
+    action: "Compare & validate results from multiple sources"
 ```
 
 **When to use which tool:**
@@ -64,9 +79,10 @@ grepai_workflow:
 | Task | Use grepai | Use Grep |
 |------|------------|----------|
 | Find code by meaning | ✅ `grepai_search` | ❌ |
-| Find function callers | ✅ `grepai_trace_callers` | ❌ |
-| Exact string match (rare) | ❌ | ✅ |
-| Regex pattern (rare) | ❌ | ✅ |
+| Find function callers | ✅ `mcp__grepai__grepai_trace_callers` | ❌ |
+| Exact string `"ERROR_CODE_42"` | ❌ | ✅ |
+| Regex pattern `func.*Handler` | ❌ | ✅ |
+| grepai returns 0 results | ❌ | ✅ fallback |
 | grepai unavailable | ❌ | ✅ fallback |
 
 ## 2. ENVIRONMENT AWARENESS (MANDATORY)

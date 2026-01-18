@@ -8,6 +8,7 @@ description: |
 allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
+  - "mcp__grepai__*"
   - "Grep(**/*)"
   - "Write(**/*)"
   - "Edit(**/*)"

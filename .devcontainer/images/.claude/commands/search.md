@@ -10,6 +10,7 @@ allowed-tools:
   - "WebFetch(*)"
   - "Read(**/*)"
   - "Glob(**/*)"
+  - "mcp__grepai__*"
   - "Grep(**/*)"
   - "Write(.context.md)"
   - "Task(*)"
