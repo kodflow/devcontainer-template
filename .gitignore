@@ -116,9 +116,10 @@ out/
 
 
 # ============================================
-# DevContainer internal docs (generated)
+# DevContainer internal files (generated)
 # ============================================
 .devcontainer/docs/
+.devcontainer/.template-version
 
 # ============================================
 # Ignore vscode AI rules
