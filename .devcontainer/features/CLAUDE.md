@@ -15,12 +15,12 @@ features/
 
 ## Key Components
 
-- Each language has `install.sh` + `RULES.md`
-- RULES.md line 1 = minimum version (NEVER downgrade)
+- Each language has `install.sh` + `devcontainer-feature.json`
+- Conventions enforced by specialist agents (e.g., `developer-specialist-go`)
 - install.sh runs on devcontainer build
 
 ## Adding a Language
 
 1. Create `languages/<name>/`
-2. Add `install.sh` for installation
-3. Add `RULES.md` with conventions
+2. Add `devcontainer-feature.json` for metadata
+3. Add `install.sh` for installation
