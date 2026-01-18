@@ -86,7 +86,8 @@ fi
 # === Vérification avec yq si disponible ===
 if [[ "$USE_YQ" == "true" ]]; then
     # Lire les patterns protégés depuis le fichier YAML
-    YAML_PATTERNS=$(yq -r '.protected[]' "$CONFIG_FILE" 2>/dev/null || echo "")
+    # mikefarah/yq syntax (no -r flag needed, raw output is default)
+    YAML_PATTERNS=$(yq '.protected[]' "$CONFIG_FILE" 2>/dev/null || echo "")
 
     for pattern in $YAML_PATTERNS; do
         [[ -z "$pattern" ]] && continue
