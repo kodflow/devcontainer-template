@@ -236,6 +236,7 @@ ENV TF_PLUGIN_CACHE_DIR=/home/vscode/.cache/terraform \
     KUBECONFIG=/home/vscode/.kube/config \
     BAZEL_USER_ROOT=/home/vscode/.cache/bazel \
     CLAUDE_CONFIG_DIR=/home/vscode/.claude \
+    ENABLE_TOOL_SEARCH=auto \
     PATH=/home/vscode/.local/bin:$PATH
 
 WORKDIR /workspace
