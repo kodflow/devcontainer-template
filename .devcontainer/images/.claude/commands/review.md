@@ -1,16 +1,18 @@
 ---
 name: review
 description: |
-  AI-powered code review (RLM decomposition) for PRs or local diffs.
+  AI-powered code review (RLM decomposition) for PRs/MRs or local diffs.
   Focus: security, quality, maintainability, shell safety, and review synthesis.
-  Works in Claude Code with Git + MCP (GitHub/Codacy).
+  Works in Claude Code with Git + MCP (GitHub/GitLab/Codacy).
 allowed-tools:
   - "Bash(git *)"
   - "Bash(gh *)"
+  - "Bash(glab *)"
   - "Read(**/*)"
   - "Glob(**/*)"
   - "Grep(**/*)"
   - "mcp__github__*"
+  - "mcp__gitlab__*"
   - "mcp__codacy__*"
   - "mcp__grepai__*"
   - "Task(*)"
@@ -24,9 +26,9 @@ Intelligent code review using **Recursive Language Model** decomposition:
 
 | Phase | Name | Action |
 |-------|------|--------|
-| 0 | Context | Detect PR, branch, CI status |
-| 1 | Intent | Analyze PR title/description/scope |
-| 1.5 | Describe | Auto-generate PR description if empty (PR-Agent inspired) |
+| 0 | Context | Detect PR/MR, branch, CI status (GitHub/GitLab) |
+| 1 | Intent | Analyze PR/MR title/description/scope |
+| 1.5 | Describe | Auto-generate PR/MR description if empty |
 | 2 | Feedback | Collect ALL comments/reviews |
 | 3 | Peek | Snapshot diff, categorize files |
 | 4 | Analyze | Parallel sub-agents (security, quality, shell) |
@@ -35,19 +37,22 @@ Intelligent code review using **Recursive Language Model** decomposition:
 
 **Principe RLM** : Peek → Decompose → Parallelize → Synthesize
 
+**Platform Support:** GitHub (PRs) + GitLab (MRs) - auto-detected from git remote.
+
 ---
 
 ## Usage
 
 ```
-/review                    # Review current changes (auto-detect PR or local)
-/review --pr [number]      # Review specific PR
+/review                    # Review current changes (auto-detect PR/MR or local)
+/review --pr [number]      # Review specific PR (GitHub)
+/review --mr [number]      # Review specific MR (GitLab)
 /review --staged           # Review staged changes only
 /review --file <path>      # Review specific file
 /review --security         # Security-focused review only
 /review --quality          # Quality-focused review only
-/review --triage           # Large PR mode (>30 files or >1500 lines)
-/review --describe         # Force auto-describe even if PR has description
+/review --triage           # Large PR/MR mode (>30 files or >1500 lines)
+/review --describe         # Force auto-describe even if PR/MR has description
 ```
 
 ---
@@ -90,7 +95,7 @@ budget_controller:
 
 ## Phase 0 : Context Detection
 
-**Identifier le contexte d'exécution :**
+**Identifier le contexte d'exécution (GitHub/GitLab auto-détecté) :**
 
 ```yaml
 context_detection:
@@ -104,19 +109,36 @@ context_detection:
       upstream: string
       remote: "origin" | "upstream"
 
-  2_pr_detection:
-    tools:
-      - "mcp__github__list_pull_requests(head: current_branch)"
+  1.5_platform_detection:
+    rule: |
+      remote_url = git remote get-url origin
+      SI remote_url contains "github.com":
+        platform = "github"
+        mcp_prefix = "mcp__github__"
+      SINON SI remote_url contains "gitlab.com" OR "gitlab.":
+        platform = "gitlab"
+        mcp_prefix = "mcp__gitlab__"
+      SINON:
+        platform = "local"
+        mcp_prefix = null
     output:
-      on_pr: boolean
-      pr_number: number | null
-      pr_url: string | null
-      target_branch: string  # base branch de la PR
+      platform: "github" | "gitlab" | "local"
+      mcp_prefix: string | null
+
+  2_pr_mr_detection:
+    tools:
+      github: "mcp__github__list_pull_requests(head: current_branch)"
+      gitlab: "mcp__gitlab__list_merge_requests(source_branch: current_branch)"
+    output:
+      on_pr_mr: boolean
+      pr_mr_number: number | null
+      pr_mr_url: string | null
+      target_branch: string  # base branch
 
   3_diff_source:
     rule: |
-      SI on_pr == true:
-        source = "PR diff via MCP"
+      SI on_pr_mr == true:
+        source = "PR/MR diff via MCP"
         base = target_branch
         head = current_branch
       SINON:
@@ -124,13 +146,15 @@ context_detection:
         base = "git merge-base origin/main HEAD"
         head = "HEAD"
     output:
-      diff_source: "pr" | "local"
+      diff_source: "pr" | "mr" | "local"
       merge_base: string
       display: "Reviewing: {base}...{head}"
 
   4_ci_status:
-    condition: "on_pr == true"
-    tool: "mcp__github__get_pull_request_status"
+    condition: "on_pr_mr == true"
+    tools:
+      github: "mcp__github__get_pull_request_status"
+      gitlab: "mcp__gitlab__list_pipelines(ref: current_branch)"
     strategy:
       max_polls: 2
       poll_interval: 30s
@@ -141,13 +165,14 @@ context_detection:
       ci_jobs: [{name, status, conclusion}]
 ```
 
-**Output Phase 0 :**
+**Output Phase 0 (GitHub) :**
 
 ```
 ═══════════════════════════════════════════════════════════════
   /review - Context Detection
 ═══════════════════════════════════════════════════════════════
 
+  Platform: GitHub
   Branch: feat/post-compact-hook
   PR: #97 (open) → main
   Diff source: PR (mcp__github)
@@ -163,18 +188,46 @@ context_detection:
 ═══════════════════════════════════════════════════════════════
 ```
 
+**Output Phase 0 (GitLab) :**
+
+```
+═══════════════════════════════════════════════════════════════
+  /review - Context Detection
+═══════════════════════════════════════════════════════════════
+
+  Platform: GitLab
+  Branch: feat/post-compact-hook
+  MR: !42 (open) → main
+  Diff source: MR (mcp__gitlab)
+  Merge base: a60a896...847d6db
+
+  CI Status: ✓ passed (pipeline #12345)
+    ├─ build: passed (1m 23s)
+    ├─ test: passed (2m 45s)
+    └─ lint: passed (45s)
+
+  Mode: NORMAL (18 files, 375 lines)
+
+═══════════════════════════════════════════════════════════════
+```
+
 ---
 
 ## Phase 1 : Intent Analysis
 
-**Comprendre l'intention de la PR AVANT analyse lourde :**
+**Comprendre l'intention de la PR/MR AVANT analyse lourde :**
 
 ```yaml
 intent_analysis:
   inputs:
-    - "mcp__github__get_pull_request (title, body, labels)"
-    - "mcp__github__get_pull_request_files (file list)"
-    - "git diff --stat"
+    github:
+      - "mcp__github__get_pull_request (title, body, labels)"
+      - "mcp__github__get_pull_request_files (file list)"
+    gitlab:
+      - "mcp__gitlab__get_merge_request (title, description, labels)"
+      - "mcp__gitlab__get_merge_request_changes (file list)"
+    common:
+      - "git diff --stat"
 
   extract:
     title: string
@@ -231,25 +284,27 @@ intent_analysis:
 
 ## Phase 1.5 : Auto-Describe (PR-Agent inspired)
 
-**Générer description si PR vide ou insuffisante :**
+**Générer description si PR/MR vide ou insuffisante :**
 
 ```yaml
 auto_describe:
   trigger:
-    - "pr_body is empty OR pr_body.length < 50"
-    - "pr_body contains only template placeholders"
+    - "pr_mr_body is empty OR pr_mr_body.length < 50"
+    - "pr_mr_body contains only template placeholders"
     - "--describe flag passed"
 
   skip_if:
-    - "pr_body.length >= 200 AND contains_summary_section"
-    - "mode == 'local' (no PR)"
+    - "pr_mr_body.length >= 200 AND contains_summary_section"
+    - "mode == 'local' (no PR/MR)"
 
   workflow:
     1_analyze_diff:
       inputs:
-        - "mcp__github__get_pull_request_files"
-        - "git diff --stat"
-        - "git log --oneline {base}..HEAD"
+        github: "mcp__github__get_pull_request_files"
+        gitlab: "mcp__gitlab__get_merge_request_changes"
+        common:
+          - "git diff --stat"
+          - "git log --oneline {base}..HEAD"
       extract:
         main_changes: [string]  # Max 5 key changes
         breaking_changes: [string]
@@ -285,23 +340,27 @@ auto_describe:
     3_user_validation:
       tool: AskUserQuestion
       prompt: |
-        📝 Description générée pour PR #{pr_number}:
+        📝 Description générée pour {PR|MR} #{pr_mr_number}:
 
         {generated_description}
 
         Action?
       options:
         - label: "Poster"
-          description: "Mettre à jour la description PR"
+          description: "Mettre à jour la description"
         - label: "Éditer"
           description: "Modifier avant de poster"
         - label: "Ignorer"
-          description: "Ne pas modifier la PR"
+          description: "Ne pas modifier"
 
-    4_update_pr:
+    4_update_pr_mr:
       condition: "user_choice in ['Poster', 'Éditer']"
-      tool: "gh pr edit {pr_number} --body '{final_description}'"
-      fallback: "mcp__github__update_issue (body: final_description)"
+      tools:
+        github: "gh pr edit {pr_number} --body '{final_description}'"
+        gitlab: "glab mr update {mr_number} --description '{final_description}'"
+      fallback:
+        github: "mcp__github__update_pull_request (body: final_description)"
+        gitlab: "mcp__gitlab__update_merge_request (description: final_description)"
 ```
 
 **Output Phase 1.5 :**
@@ -340,9 +399,14 @@ auto_describe:
 feedback_collection:
   1_fetch:
     tools:
-      - "mcp__github__get_pull_request_reviews"
-      - "mcp__github__get_pull_request_comments"
-      - "mcp__codacy__codacy_list_pull_request_issues"
+      github:
+        - "mcp__github__get_pull_request_reviews"
+        - "mcp__github__get_pull_request_comments"
+      gitlab:
+        - "mcp__gitlab__list_merge_request_notes"
+        - "mcp__gitlab__list_merge_request_discussions"
+      common:
+        - "mcp__codacy__codacy_list_pull_request_issues"
 
   2_budget_filter:
     rule: |
@@ -416,7 +480,9 @@ question_handling:
         [Post / Edit / Skip]
 
     4_user_validates: "AskUserQuestion avant de poster"
-    5_post: "mcp__github__add_issue_comment (si validé)"
+    5_post:
+      github: "mcp__github__add_issue_comment (si validé)"
+      gitlab: "mcp__gitlab__create_merge_request_note (si validé)"
 ```
 
 ---
@@ -459,8 +525,10 @@ behavior_extraction:
 peek_decompose:
   1_diff_snapshot:
     tool: |
-      SI diff_source == "pr":
+      SI diff_source == "pr" (GitHub):
         mcp__codacy__codacy_get_pull_request_git_diff
+      SINON SI diff_source == "mr" (GitLab):
+        mcp__gitlab__get_merge_request_changes
       SINON:
         git diff --merge-base {base}...HEAD
 

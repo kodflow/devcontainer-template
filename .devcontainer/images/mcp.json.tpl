@@ -35,6 +35,14 @@
         "--headless",
         "--caps", "core,pdf,testing,tracing"
       ]
+    },
+    "gitlab": {
+      "command": "npx",
+      "args": ["-y", "@zereight/mcp-gitlab"],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "{{GITLAB_TOKEN}}",
+        "GITLAB_API_URL": "{{GITLAB_API_URL:-https://gitlab.com/api/v4}}"
+      }
     }
   }
 }
