@@ -907,10 +907,10 @@ merge_dedupe:
       - effort (all)
 
   drop_rules:
-    - "evidence is empty"
-    - "recommendation is empty"
-    - "impact == 'correctness' AND severity >= HIGH AND repro is empty"
-    - "impact == 'security' AND category == 'injection' AND severity >= HIGH AND source is empty"
+    - "evidence is missing OR evidence is empty"
+    - "recommendation is missing OR recommendation is empty"
+    - "impact == 'correctness' AND severity >= HIGH AND (repro is missing OR repro is empty) AND (failure_mode is missing OR failure_mode is empty)"
+    - "impact == 'security' AND category == 'injection' AND severity >= HIGH AND (source is missing OR source is empty)"
 
   dedupe:
     key: "{impact}:{category}:{file}:{line}:{normalize(title)}"
