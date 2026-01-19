@@ -1,9 +1,9 @@
 services:
   # ========== OLLAMA (LLM Runtime) ==========
   # For grepai semantic code search embeddings
+  # NOTE: No container_name to avoid conflicts between projects
   ollama:
     image: ollama/ollama:latest
-    container_name: dev_ollama
     volumes:
       - ollama-data:/root/.ollama
     networks:
