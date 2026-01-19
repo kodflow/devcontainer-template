@@ -579,6 +579,7 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
 # /update implementation - API-FIRST with validation
 
 set -euo pipefail
+set +H  # Disable bash history expansion (! in YAML causes errors)
 
 BASE="https://raw.githubusercontent.com/kodflow/devcontainer-template/main"
 API="https://api.github.com/repos/kodflow/devcontainer-template/contents"
