@@ -34,7 +34,7 @@ les fichiers existants au lieu de listes hardcodées.
 - **Agents** - Définitions d'agents (specialists, executors)
 - **Lifecycle** - Hooks de cycle de vie (postStart)
 - **Config** - p10k, settings.json
-- **Compose** - docker-compose.yml (merge ollama service automatique)
+- **Compose** - docker-compose.yml (FORCE ollama+devcontainer, preserve custom)
 - **Grepai** - Configuration grepai optimisée
 
 **Source** : `github.com/kodflow/devcontainer-template`
@@ -60,7 +60,7 @@ les fichiers existants au lieu de listes hardcodées.
 | `lifecycle` | `.devcontainer/hooks/lifecycle/` | Hooks de cycle de vie |
 | `p10k` | `.devcontainer/images/.p10k.zsh` | Config Powerlevel10k |
 | `settings` | `.../images/.claude/settings.json` | Config Claude |
-| `compose` | `.devcontainer/docker-compose.yml` | Merge ollama service (automatique) |
+| `compose` | `.devcontainer/docker-compose.yml` | FORCE update ollama+devcontainer |
 | `grepai` | `.devcontainer/images/grepai.config.yaml` | Config grepai |
 
 ---
@@ -87,7 +87,7 @@ Composants:
   lifecycle   Lifecycle hooks (postStart)
   p10k        Powerlevel10k config
   settings    Claude settings.json
-  compose     docker-compose.yml (merge ollama)
+  compose     docker-compose.yml (FORCE ollama+devcontainer)
   grepai      grepai config (provider, model)
 
 Exemples:
@@ -197,19 +197,18 @@ discover_workflow:
       local_path: ".devcontainer/images/.claude/settings.json"
 
     compose:
-      strategy: "MERGE (automatic, non-destructive)"
+      strategy: "FORCE UPDATE core services, PRESERVE custom"
       raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/docker-compose.yml"
       local_path: ".devcontainer/docker-compose.yml"
       note: |
         - Si fichier absent → télécharger complet
-        - Si ollama manquant → MERGE automatique via yq:
-          • Ajoute service ollama
-          • Ajoute volume ollama-data
-          • Ajoute depends_on au devcontainer
-          • Ajoute OLLAMA_HOST dans environment
-        - Si ollama présent → ne rien faire
+        - TOUJOURS forcer la MAJ de:
+          • services.ollama (écrasé depuis template)
+          • services.devcontainer (écrasé depuis template)
+          • volumes.ollama-data (ajouté si absent)
+        - PRÉSERVER les services custom (autres que ollama/devcontainer)
         - Backup créé avant modification, restauré si échec
-        - JAMAIS écraser les customisations utilisateur
+        - Utilise mikefarah/yq (Go version) pour le merge
 
     grepai:
       raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/images/grepai.config.yaml"
@@ -393,9 +392,9 @@ safe_download \
     "$BASE/.devcontainer/images/.claude/settings.json" \
     ".devcontainer/images/.claude/settings.json"
 
-# docker-compose.yml (merge ollama service - AUTOMATIC)
+# docker-compose.yml (FORCE update ollama + devcontainer, PRESERVE custom services)
 # Note: Uses mikefarah/yq (Go version) - simpler syntax with -i for in-place
-merge_ollama_service() {
+update_compose_services() {
     local compose_file=".devcontainer/docker-compose.yml"
     local temp_template=$(mktemp --suffix=.yaml)
     local backup_file="${compose_file}.backup"
@@ -410,19 +409,17 @@ merge_ollama_service() {
     # Backup original
     cp "$compose_file" "$backup_file"
 
-    # Merge ollama service from template (mikefarah/yq syntax)
+    # FORCE update ollama service from template (always overwrite)
     yq -i ".services.ollama = load(\"$temp_template\").services.ollama" "$compose_file"
 
-    # Add ollama-data volume if missing
+    # FORCE update devcontainer service from template (always overwrite)
+    yq -i ".services.devcontainer = load(\"$temp_template\").services.devcontainer" "$compose_file"
+
+    # FORCE update volumes from template (merge, don't remove custom)
     yq -i '.volumes["ollama-data"] = null' "$compose_file"
 
-    # Add depends_on to devcontainer if missing
-    yq -i '.services.devcontainer.depends_on.ollama.condition = "service_healthy"' "$compose_file"
-
-    # Add OLLAMA_HOST to environment if missing
-    if ! grep -q "OLLAMA_HOST" "$compose_file"; then
-        yq -i '.services.devcontainer.environment += ["OLLAMA_HOST=ollama:11434"]' "$compose_file"
-    fi
+    # FORCE update networks from template
+    yq -i ".networks = load(\"$temp_template\").networks" "$compose_file"
 
     # Cleanup temp template
     rm -f "$temp_template"
@@ -430,11 +427,12 @@ merge_ollama_service() {
     # Verify YAML is valid
     if yq '.' "$compose_file" > /dev/null 2>&1; then
         rm -f "$backup_file"
-        echo "  ✓ ollama service merged successfully"
-        echo "    - Added: ollama service"
-        echo "    - Added: ollama-data volume"
-        echo "    - Added: depends_on (devcontainer → ollama)"
-        echo "    - Added: OLLAMA_HOST environment"
+        echo "  ✓ docker-compose.yml updated"
+        echo "    - FORCED: services.ollama (from template)"
+        echo "    - FORCED: services.devcontainer (from template)"
+        echo "    - FORCED: networks (from template)"
+        echo "    - MERGED: volumes.ollama-data"
+        echo "    - PRESERVED: custom services (if any)"
         return 0
     else
         # Restore backup on failure
@@ -450,12 +448,10 @@ if [ ! -f ".devcontainer/docker-compose.yml" ]; then
         "$BASE/.devcontainer/docker-compose.yml" \
         ".devcontainer/docker-compose.yml"
     echo "  ✓ docker-compose.yml created from template"
-elif ! grep -q "ollama:" ".devcontainer/docker-compose.yml"; then
-    # File exists but ollama service missing - MERGE automatically
-    echo "  ollama service missing - merging from template..."
-    merge_ollama_service
 else
-    echo "  ✓ ollama service already present"
+    # File exists - FORCE update ollama + devcontainer services
+    echo "  Forcing update of ollama + devcontainer services..."
+    update_compose_services
 fi
 
 # grepai config (optimized with qwen3-embedding)
@@ -499,7 +495,7 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
     ✓ lifecycle   (6 hooks)
     ✓ p10k        (1 file)
     ✓ settings    (1 file)
-    ✓ compose     (merge ollama if missing)
+    ✓ compose     (FORCED ollama+devcontainer update)
     ✓ grepai      (1 file - qwen3-embedding config)
 
   Grepai config:
@@ -533,7 +529,7 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
 **Mis à jour par /update :**
 ```
 .devcontainer/
-├── docker-compose.yml        # Merge ollama (automatique)
+├── docker-compose.yml        # FORCE update ollama+devcontainer
 ├── hooks/lifecycle/*.sh
 ├── images/
 │   ├── .p10k.zsh
@@ -655,12 +651,12 @@ echo "Updating config files..."
 safe_download "$BASE/.devcontainer/images/.p10k.zsh" ".devcontainer/images/.p10k.zsh"
 safe_download "$BASE/.devcontainer/images/.claude/settings.json" ".devcontainer/images/.claude/settings.json"
 
-# Docker compose (merge ollama service - AUTOMATIC)
+# Docker compose (FORCE update ollama + devcontainer, PRESERVE custom services)
 # Note: Uses mikefarah/yq (Go version) - simpler syntax with -i for in-place
 echo ""
-echo "Checking docker-compose.yml..."
+echo "Updating docker-compose.yml..."
 
-merge_ollama_service() {
+update_compose_services() {
     local compose_file=".devcontainer/docker-compose.yml"
     local temp_template=$(mktemp --suffix=.yaml)
     local backup_file="${compose_file}.backup"
@@ -675,19 +671,17 @@ merge_ollama_service() {
     # Backup original
     cp "$compose_file" "$backup_file"
 
-    # Merge ollama service from template (mikefarah/yq syntax)
+    # FORCE update ollama service (always overwrite)
     yq -i ".services.ollama = load(\"$temp_template\").services.ollama" "$compose_file"
 
-    # Add ollama-data volume
+    # FORCE update devcontainer service (always overwrite)
+    yq -i ".services.devcontainer = load(\"$temp_template\").services.devcontainer" "$compose_file"
+
+    # FORCE update volumes (merge, preserve custom)
     yq -i '.volumes["ollama-data"] = null' "$compose_file"
 
-    # Add depends_on to devcontainer
-    yq -i '.services.devcontainer.depends_on.ollama.condition = "service_healthy"' "$compose_file"
-
-    # Add OLLAMA_HOST to environment if missing
-    if ! grep -q "OLLAMA_HOST" "$compose_file"; then
-        yq -i '.services.devcontainer.environment += ["OLLAMA_HOST=ollama:11434"]' "$compose_file"
-    fi
+    # FORCE update networks
+    yq -i ".networks = load(\"$temp_template\").networks" "$compose_file"
 
     # Cleanup temp template
     rm -f "$temp_template"
@@ -695,7 +689,7 @@ merge_ollama_service() {
     # Verify YAML is valid
     if yq '.' "$compose_file" > /dev/null 2>&1; then
         rm -f "$backup_file"
-        echo "  ✓ ollama service merged"
+        echo "  ✓ ollama + devcontainer services updated"
         return 0
     else
         mv "$backup_file" "$compose_file"
@@ -707,11 +701,9 @@ merge_ollama_service() {
 if [ ! -f ".devcontainer/docker-compose.yml" ]; then
     echo "  No docker-compose.yml found, downloading template..."
     safe_download "$BASE/.devcontainer/docker-compose.yml" ".devcontainer/docker-compose.yml"
-elif ! grep -q "ollama:" ".devcontainer/docker-compose.yml"; then
-    echo "  ollama service missing - merging from template..."
-    merge_ollama_service
 else
-    echo "  ✓ ollama service present"
+    echo "  Forcing update of core services..."
+    update_compose_services
 fi
 
 # Grepai config
