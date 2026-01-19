@@ -117,11 +117,12 @@ RUN ARCH_BAZEL=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") &&
 # =============================================================================
 # yq (YAML processor) - mikefarah/yq (Go version, NOT python-yq)
 # Used by /update skill to merge docker-compose.yml
+# NOTE: Install to /usr/bin to OVERWRITE python-yq from base image
 # =============================================================================
 ARG YQ_VERSION=4.45.1
 RUN ARCH_YQ=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
-    curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_${ARCH_YQ}" -o /usr/local/bin/yq && \
-    chmod +x /usr/local/bin/yq
+    curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_${ARCH_YQ}" -o /usr/bin/yq && \
+    chmod +x /usr/bin/yq
 
 # =============================================================================
 # grepai (Semantic Code Search for AI agents)
