@@ -3,9 +3,10 @@
 # Usage: pre-validate.sh <file_path>
 # Exit 0 = allow, Exit 2 = block
 
-set -euo pipefail
+set -uo pipefail
+# Note: Removed -e (errexit) to fail-open on unexpected errors
 
-FILE="$1"
+FILE="${1:-}"
 if [ -z "$FILE" ]; then
     exit 0
 fi

@@ -9,9 +9,9 @@
 # Note: This focuses on TYPE SAFETY, not general linting.
 # lint.sh handles general code quality issues.
 
-set -e
+set +e  # Fail-open: hooks should never block unexpectedly
 
-FILE="$1"
+FILE="${1:-}"
 if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
     exit 0
 fi
