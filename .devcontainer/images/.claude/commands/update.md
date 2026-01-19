@@ -408,6 +408,13 @@ update_compose_services() {
         return 1
     fi
 
+    # Validate downloaded template is not empty and contains expected content
+    if [ ! -s "$temp_template" ] || ! grep -q "^services:" "$temp_template"; then
+        echo "  ✗ Downloaded template is empty or invalid (check network/rate limit)"
+        rm -f "$temp_template"
+        return 1
+    fi
+
     # Backup original
     cp "$compose_file" "$backup_file"
 
@@ -426,8 +433,16 @@ update_compose_services() {
     # Cleanup temp files
     rm -f "$temp_template" "$temp_custom"
 
-    # Verify YAML is valid
-    if yq '.' "$compose_file" > /dev/null 2>&1; then
+    # Verify file is not empty and contains required structure
+    if [ ! -s "$compose_file" ] || ! grep -q "^services:" "$compose_file"; then
+        # File is empty or missing services - restore backup
+        mv "$backup_file" "$compose_file"
+        echo "  ✗ Result file is empty or invalid, restored backup"
+        return 1
+    fi
+
+    # Verify YAML is valid and has expected content
+    if yq '.services.devcontainer' "$compose_file" > /dev/null 2>&1; then
         rm -f "$backup_file"
         echo "  ✓ docker-compose.yml updated"
         echo "    - REPLACED: from template (preserves order)"
@@ -436,7 +451,7 @@ update_compose_services() {
     else
         # Restore backup on failure
         mv "$backup_file" "$compose_file"
-        echo "  ✗ YAML validation failed, restored backup"
+        echo "  ✗ YAML validation failed (missing devcontainer service), restored backup"
         return 1
     fi
 }
@@ -668,6 +683,13 @@ update_compose_services() {
         return 1
     fi
 
+    # Validate downloaded template is not empty and contains expected content
+    if [ ! -s "$temp_template" ] || ! grep -q "^services:" "$temp_template"; then
+        echo "  ✗ Downloaded template is empty or invalid (check network/rate limit)"
+        rm -f "$temp_template"
+        return 1
+    fi
+
     # Backup original
     cp "$compose_file" "$backup_file"
 
@@ -689,14 +711,22 @@ update_compose_services() {
     # Cleanup temp files
     rm -f "$temp_template" "$temp_custom"
 
-    # Verify YAML is valid
-    if yq '.' "$compose_file" > /dev/null 2>&1; then
+    # Verify file is not empty and contains required structure
+    if [ ! -s "$compose_file" ] || ! grep -q "^services:" "$compose_file"; then
+        # File is empty or missing services - restore backup
+        mv "$backup_file" "$compose_file"
+        echo "  ✗ Result file is empty or invalid, restored backup"
+        return 1
+    fi
+
+    # Verify YAML is valid and has expected content
+    if yq '.services.devcontainer' "$compose_file" > /dev/null 2>&1; then
         rm -f "$backup_file"
         echo "  ✓ ollama + devcontainer services updated"
         return 0
     else
         mv "$backup_file" "$compose_file"
-        echo "  ✗ YAML validation failed, restored backup"
+        echo "  ✗ YAML validation failed (missing devcontainer service), restored backup"
         return 1
     fi
 }
