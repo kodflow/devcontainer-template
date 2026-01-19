@@ -197,16 +197,16 @@ discover_workflow:
       local_path: ".devcontainer/images/.claude/settings.json"
 
     compose:
-      strategy: "FORCE UPDATE core services, PRESERVE custom"
+      strategy: "REPLACE from template, PRESERVE custom services"
       raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/docker-compose.yml"
       local_path: ".devcontainer/docker-compose.yml"
       note: |
         - Si fichier absent → télécharger complet
-        - TOUJOURS forcer la MAJ de:
-          • services.ollama (écrasé depuis template)
-          • services.devcontainer (écrasé depuis template)
-          • volumes.ollama-data (ajouté si absent)
-        - PRÉSERVER les services custom (autres que ollama/devcontainer)
+        - Si fichier existe:
+          1. Extraire services custom (pas ollama ni devcontainer)
+          2. Remplacer entièrement par le template (préserve ordre/commentaires)
+          3. Merger les services custom extraits
+        - Ordre préservé: ollama → devcontainer → custom
         - Backup créé avant modification, restauré si échec
         - Utilise mikefarah/yq (Go version) pour le merge
 
@@ -394,9 +394,11 @@ safe_download \
 
 # docker-compose.yml (FORCE update ollama + devcontainer, PRESERVE custom services)
 # Note: Uses mikefarah/yq (Go version) - simpler syntax with -i for in-place
+# Strategy: Start fresh from template (preserves order), merge back custom services
 update_compose_services() {
     local compose_file=".devcontainer/docker-compose.yml"
     local temp_template=$(mktemp --suffix=.yaml)
+    local temp_custom=$(mktemp --suffix=.yaml)
     local backup_file="${compose_file}.backup"
 
     # Download template
@@ -409,29 +411,26 @@ update_compose_services() {
     # Backup original
     cp "$compose_file" "$backup_file"
 
-    # FORCE update ollama service from template (always overwrite)
-    yq -i ".services.ollama = load(\"$temp_template\").services.ollama" "$compose_file"
+    # Extract custom services (anything that's NOT ollama or devcontainer)
+    yq '.services | to_entries | map(select(.key != "ollama" and .key != "devcontainer")) | from_entries' "$compose_file" > "$temp_custom"
 
-    # FORCE update devcontainer service from template (always overwrite)
-    yq -i ".services.devcontainer = load(\"$temp_template\").services.devcontainer" "$compose_file"
+    # Start fresh from template (preserves order: ollama first, then devcontainer)
+    cp "$temp_template" "$compose_file"
 
-    # FORCE update volumes from template (merge, don't remove custom)
-    yq -i '.volumes["ollama-data"] = null' "$compose_file"
+    # Merge back custom services if any exist
+    if [ -s "$temp_custom" ] && [ "$(yq '. | length' "$temp_custom")" != "0" ]; then
+        yq -i ".services *= load(\"$temp_custom\")" "$compose_file"
+        echo "    - Preserved custom services"
+    fi
 
-    # FORCE update networks from template
-    yq -i ".networks = load(\"$temp_template\").networks" "$compose_file"
-
-    # Cleanup temp template
-    rm -f "$temp_template"
+    # Cleanup temp files
+    rm -f "$temp_template" "$temp_custom"
 
     # Verify YAML is valid
     if yq '.' "$compose_file" > /dev/null 2>&1; then
         rm -f "$backup_file"
         echo "  ✓ docker-compose.yml updated"
-        echo "    - FORCED: services.ollama (from template)"
-        echo "    - FORCED: services.devcontainer (from template)"
-        echo "    - FORCED: networks (from template)"
-        echo "    - MERGED: volumes.ollama-data"
+        echo "    - REPLACED: from template (preserves order)"
         echo "    - PRESERVED: custom services (if any)"
         return 0
     else
@@ -659,6 +658,7 @@ echo "Updating docker-compose.yml..."
 update_compose_services() {
     local compose_file=".devcontainer/docker-compose.yml"
     local temp_template=$(mktemp --suffix=.yaml)
+    local temp_custom=$(mktemp --suffix=.yaml)
     local backup_file="${compose_file}.backup"
 
     # Download template
@@ -671,20 +671,23 @@ update_compose_services() {
     # Backup original
     cp "$compose_file" "$backup_file"
 
-    # FORCE update ollama service (always overwrite)
-    yq -i ".services.ollama = load(\"$temp_template\").services.ollama" "$compose_file"
+    # Extract custom services (anything that's NOT ollama or devcontainer)
+    yq '.services | to_entries | map(select(.key != "ollama" and .key != "devcontainer")) | from_entries' "$compose_file" > "$temp_custom"
 
-    # FORCE update devcontainer service (always overwrite)
-    yq -i ".services.devcontainer = load(\"$temp_template\").services.devcontainer" "$compose_file"
+    # Extract custom volumes (anything that's NOT in template)
+    local template_volumes=$(yq '.volumes | keys | .[]' "$temp_template" 2>/dev/null | tr '\n' '|')
 
-    # FORCE update volumes (merge, preserve custom)
-    yq -i '.volumes["ollama-data"] = null' "$compose_file"
+    # Start fresh from template (preserves order: ollama first, then devcontainer)
+    cp "$temp_template" "$compose_file"
 
-    # FORCE update networks
-    yq -i ".networks = load(\"$temp_template\").networks" "$compose_file"
+    # Merge back custom services if any exist
+    if [ -s "$temp_custom" ] && [ "$(yq '. | length' "$temp_custom")" != "0" ]; then
+        yq -i ".services *= load(\"$temp_custom\")" "$compose_file"
+        echo "    - Preserved custom services"
+    fi
 
-    # Cleanup temp template
-    rm -f "$temp_template"
+    # Cleanup temp files
+    rm -f "$temp_template" "$temp_custom"
 
     # Verify YAML is valid
     if yq '.' "$compose_file" > /dev/null 2>&1; then
