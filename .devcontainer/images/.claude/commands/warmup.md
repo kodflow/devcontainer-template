@@ -594,6 +594,88 @@ apply_workflow:
       - "Verify structure section matches reality"
 ```
 
+### Phase 5 : GrepAI Config Update (Project-Specific Exclusions)
+
+**Met à jour la configuration grepai avec les exclusions spécifiques au projet.**
+
+```yaml
+grepai_config_update:
+  trigger: "Always executed with --update"
+  config_path: "/workspace/.grepai/config.yaml"
+  template_path: "/etc/grepai/config.yaml"
+
+  workflow:
+    1_detect_project_patterns:
+      action: "Analyser les patterns spécifiques au projet"
+      checks:
+        - ".gitignore patterns non couverts par template"
+        - "Dossiers générés dynamiquement (logs, cache)"
+        - "Frameworks spécifiques (Next.js .next/, Nuxt .nuxt/)"
+
+    2_compare_with_template:
+      action: "Comparer config actuelle vs template"
+      detect:
+        - "Nouvelles exclusions à ajouter"
+        - "Exclusions obsolètes à retirer"
+
+    3_merge_exclusions:
+      action: "Fusionner les exclusions"
+      rules:
+        - "Garder toutes les exclusions du template"
+        - "Ajouter les exclusions projet-spécifiques"
+        - "Marquer les ajouts avec commentaire # Project-specific"
+
+    4_apply_config:
+      action: "Écrire la config mise à jour"
+      tool: Write
+      backup: true
+
+  project_detection:
+    nextjs:
+      detect: "next.config.{js,ts,mjs}"
+      add: [".next", ".vercel"]
+    nuxt:
+      detect: "nuxt.config.{js,ts}"
+      add: [".nuxt", ".output"]
+    vite:
+      detect: "vite.config.{js,ts}"
+      add: [".vite"]
+    turbo:
+      detect: "turbo.json"
+      add: [".turbo"]
+    nx:
+      detect: "nx.json"
+      add: [".nx", "nx-cloud.env"]
+    docker:
+      detect: "docker-compose*.{yml,yaml}"
+      add: [".docker"]
+    terraform:
+      detect: "*.tf"
+      add: [".terraform", "*.tfstate*"]
+
+  output: |
+    ═══════════════════════════════════════════════════════════
+      /warmup --update - Phase 5: GrepAI Config
+    ═══════════════════════════════════════════════════════════
+
+    Config: /workspace/.grepai/config.yaml
+
+    Project patterns detected:
+      ├─ Next.js → adding .next, .vercel
+      └─ Terraform → adding .terraform
+
+    Exclusions updated:
+      + .next (Project-specific)
+      + .vercel (Project-specific)
+      + .terraform (Project-specific)
+
+    ✓ grepai config updated
+
+    ═══════════════════════════════════════════════════════════
+```
+
+---
+
 **Output Final (Mode --update) :**
 
 ```
@@ -615,6 +697,9 @@ apply_workflow:
   New attention points added:
     + <n> TODO items documented
     + <n> FIXME flagged
+
+  GrepAI config:
+    ✓ Project-specific exclusions added
 
   Validation:
     ✓ Line thresholds: 0 FORBIDDEN, 0 CRITICAL, 2 WARNING
