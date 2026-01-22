@@ -172,13 +172,42 @@ grepai_workflow:
 | Regex `func.*Handler` | `Grep` (fallback) | Pattern match |
 | grepai returns 0 results | `Grep` (fallback) | Degraded mode |
 
-**Initialization (automatic via /init):**
+**Initialization (automatic via initialize.sh + postStart.sh):**
+
+Ollama runs on HOST machine for GPU acceleration (Metal on Mac, CUDA on Linux).
+Installed automatically via `initialize.sh` during DevContainer build.
 
 ```bash
-grepai init --provider ollama --backend gob --yes
-sed -i 's/localhost:11434/ollama:11434/g' .grepai/config.yaml
-nohup grepai watch >/dev/null 2>&1 &
+# Detection:
+# 1. OLLAMA_HOST env var (override)
+# 2. host.docker.internal:11434 (host Ollama with GPU)
 ```
+
+**GPU Acceleration (10x faster):**
+
+Ollama is automatically installed on your host machine during DevContainer build:
+
+```bash
+# Manual setup (if needed):
+# macOS (Metal GPU)
+brew install ollama
+ollama serve
+ollama pull qwen3-embedding:0.6b
+
+# Linux (NVIDIA GPU)
+curl -fsSL https://ollama.ai/install.sh | sh
+ollama serve
+ollama pull qwen3-embedding:0.6b
+
+# Then restart DevContainer - host Ollama auto-detected
+```
+
+**Performance:**
+
+| Configuration | Speed | Hardware |
+|---------------|-------|----------|
+| Host Ollama (Mac) | ~10ms/embed | Metal GPU |
+| Host Ollama (Linux) | ~5ms/embed | NVIDIA GPU |
 
 ## SAFEGUARDS (ABSOLUTE - NO BYPASS)
 
