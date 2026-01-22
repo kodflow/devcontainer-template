@@ -228,7 +228,7 @@ init_semantic_search() {
 
     if [ -z "$grepai_pid" ]; then
         log_info "Starting grepai watch daemon for real-time indexing..."
-        (cd /workspace && nohup "$GREPAI_BIN" watch >/dev/null 2>&1 &)
+        (cd /workspace && nohup "$GREPAI_BIN" watch >/tmp/grepai.log 2>&1 &)
         sleep 2
         grepai_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
         if [ -n "$grepai_pid" ]; then
