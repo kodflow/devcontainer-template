@@ -186,6 +186,9 @@ ignore:
     # GrepAI
     - .grepai
 
+    # Claude Code (logs change constantly, causing infinite re-indexing)
+    - .claude
+
     # IDE / Editors
     - .idea
     - .vscode
