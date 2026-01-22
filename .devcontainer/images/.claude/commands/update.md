@@ -504,13 +504,15 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
 
   Updated components:
     ✓ hooks       (10 scripts)
-    ✓ commands    (9 commands)
+    ✓ commands    (10 commands)
     ✓ agents      (35 agents)
     ✓ lifecycle   (6 hooks)
     ✓ p10k        (1 file)
     ✓ settings    (1 file)
     ✓ compose     (FORCED ollama+devcontainer update)
     ✓ grepai      (1 file - qwen3-embedding config)
+    ✓ user-hooks  (synchronized with template)
+    ✓ validation  (all scripts exist)
 
   Grepai config:
     provider: ollama
@@ -527,6 +529,156 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
 
 ---
 
+## Phase 5 : Hook Synchronization
+
+**But :** Synchroniser les hooks de `~/.claude/settings.json` avec le template.
+
+**Problème résolu :** Les utilisateurs avec un ancien `settings.json` peuvent avoir
+des références à des scripts obsolètes (bash-validate.sh, phase-validate.sh, etc.)
+car `postStart.sh` ne copie `settings.json` que s'il n'existe pas.
+
+```yaml
+hook_sync_workflow:
+  1_backup:
+    action: "Backup user settings.json"
+    command: "cp ~/.claude/settings.json ~/.claude/settings.json.backup"
+
+  2_merge_hooks:
+    action: "Remplacer la section hooks avec le template"
+    strategy: "REPLACE (pas merge) - le template est la source de vérité"
+    tool: jq
+    preserves:
+      - permissions
+      - model
+      - env
+      - statusLine
+      - disabledMcpjsonServers
+
+  3_restore_on_failure:
+    action: "Restaurer le backup si le merge échoue"
+```
+
+**Implémentation :**
+
+```bash
+sync_user_hooks() {
+    local user_settings="$HOME/.claude/settings.json"
+    local template_settings=".devcontainer/images/.claude/settings.json"
+
+    if [ ! -f "$user_settings" ]; then
+        echo "  ⚠ No user settings.json, skipping hook sync"
+        return 0
+    fi
+
+    if [ ! -f "$template_settings" ]; then
+        echo "  ✗ Template settings.json not found"
+        return 1
+    fi
+
+    echo "  Synchronizing user hooks with template..."
+
+    # Backup
+    cp "$user_settings" "${user_settings}.backup"
+
+    # Replace hooks section only (preserve all other settings)
+    if jq --slurpfile tpl "$template_settings" '.hooks = $tpl[0].hooks' \
+       "$user_settings" > "${user_settings}.tmp"; then
+
+        # Validate JSON
+        if jq empty "${user_settings}.tmp" 2>/dev/null; then
+            mv "${user_settings}.tmp" "$user_settings"
+            rm -f "${user_settings}.backup"
+            echo "  ✓ User hooks synchronized with template"
+            return 0
+        else
+            mv "${user_settings}.backup" "$user_settings"
+            rm -f "${user_settings}.tmp"
+            echo "  ✗ Hook merge produced invalid JSON, restored backup"
+            return 1
+        fi
+    else
+        mv "${user_settings}.backup" "$user_settings"
+        echo "  ✗ Hook merge failed, restored backup"
+        return 1
+    fi
+}
+```
+
+---
+
+## Phase 6 : Script Validation
+
+**But :** Valider que tous les scripts référencés dans les hooks existent.
+
+```yaml
+validate_workflow:
+  1_extract:
+    action: "Extraire tous les chemins de scripts depuis les hooks"
+    tool: jq
+    pattern: ".hooks | .. | .command? // empty"
+
+  2_verify:
+    action: "Vérifier que chaque script existe"
+    for_each: script_path
+    check: "[ -f $script_path ]"
+
+  3_report:
+    on_missing: "Lister les scripts manquants avec suggestion de fix"
+    on_success: "Tous les scripts validés"
+```
+
+**Implémentation :**
+
+```bash
+validate_hook_scripts() {
+    local settings_file="$HOME/.claude/settings.json"
+    local scripts_dir="$HOME/.claude/scripts"
+    local missing_count=0
+
+    if [ ! -f "$settings_file" ]; then
+        echo "  ⚠ No settings.json to validate"
+        return 0
+    fi
+
+    # Extract all script paths from hooks
+    local scripts
+    scripts=$(jq -r '.hooks | .. | .command? // empty' "$settings_file" 2>/dev/null \
+        | grep -oE '/home/vscode/.claude/scripts/[^ "]+' \
+        | sed 's/ .*//' \
+        | sort -u)
+
+    if [ -z "$scripts" ]; then
+        echo "  ⚠ No hook scripts found in settings.json"
+        return 0
+    fi
+
+    echo "  Validating hook scripts..."
+
+    for script in $scripts; do
+        local script_name=$(basename "$script")
+
+        if [ -f "$script" ]; then
+            echo "    ✓ $script_name"
+        else
+            echo "    ✗ $script_name (MISSING)"
+            missing_count=$((missing_count + 1))
+        fi
+    done
+
+    if [ $missing_count -gt 0 ]; then
+        echo ""
+        echo "  ⚠ $missing_count missing script(s) detected!"
+        echo "  → Run: /update --component hooks"
+        return 1
+    fi
+
+    echo "  ✓ All hook scripts validated"
+    return 0
+}
+```
+
+---
+
 ## GARDE-FOUS (ABSOLUS)
 
 | Action | Status | Raison |
@@ -535,6 +687,9 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
 | Écrire sans validation | ❌ **INTERDIT** | Risque de corruption |
 | Skip vérification HTTP | ❌ **INTERDIT** | Fichiers 404 possibles |
 | Source non-officielle | ❌ **INTERDIT** | Sécurité |
+| Hook sync sans backup | ❌ **INTERDIT** | Toujours backup first |
+| Supprimer user settings | ❌ **INTERDIT** | Seulement merge hooks |
+| Skip script validation | ❌ **INTERDIT** | Détection erreurs obligatoire |
 
 ---
 
@@ -613,6 +768,85 @@ safe_download() {
     mkdir -p "$(dirname "$output")"
     mv "$temp_file" "$output"
     echo "✓ $(basename "$output")"
+    return 0
+}
+
+# Hook synchronization function (Phase 5)
+sync_user_hooks() {
+    local user_settings="$HOME/.claude/settings.json"
+    local template_settings=".devcontainer/images/.claude/settings.json"
+
+    if [ ! -f "$user_settings" ]; then
+        echo "  ⚠ No user settings.json, skipping hook sync"
+        return 0
+    fi
+
+    if [ ! -f "$template_settings" ]; then
+        echo "  ✗ Template settings.json not found"
+        return 1
+    fi
+
+    echo "  Synchronizing user hooks with template..."
+    cp "$user_settings" "${user_settings}.backup"
+
+    if jq --slurpfile tpl "$template_settings" '.hooks = $tpl[0].hooks' \
+       "$user_settings" > "${user_settings}.tmp"; then
+        if jq empty "${user_settings}.tmp" 2>/dev/null; then
+            mv "${user_settings}.tmp" "$user_settings"
+            rm -f "${user_settings}.backup"
+            echo "  ✓ User hooks synchronized"
+            return 0
+        else
+            mv "${user_settings}.backup" "$user_settings"
+            rm -f "${user_settings}.tmp"
+            echo "  ✗ Invalid JSON, restored backup"
+            return 1
+        fi
+    else
+        mv "${user_settings}.backup" "$user_settings"
+        echo "  ✗ Hook merge failed, restored backup"
+        return 1
+    fi
+}
+
+# Script validation function (Phase 6)
+validate_hook_scripts() {
+    local settings_file="$HOME/.claude/settings.json"
+    local missing_count=0
+
+    if [ ! -f "$settings_file" ]; then
+        echo "  ⚠ No settings.json to validate"
+        return 0
+    fi
+
+    local scripts
+    scripts=$(jq -r '.hooks | .. | .command? // empty' "$settings_file" 2>/dev/null \
+        | grep -oE '/home/vscode/.claude/scripts/[^ "]+' \
+        | sed 's/ .*//' | sort -u)
+
+    if [ -z "$scripts" ]; then
+        echo "  ⚠ No hook scripts found"
+        return 0
+    fi
+
+    echo "  Validating hook scripts..."
+    for script in $scripts; do
+        local script_name=$(basename "$script")
+        if [ -f "$script" ]; then
+            echo "    ✓ $script_name"
+        else
+            echo "    ✗ $script_name (MISSING)"
+            missing_count=$((missing_count + 1))
+        fi
+    done
+
+    if [ $missing_count -gt 0 ]; then
+        echo "  ⚠ $missing_count missing script(s)!"
+        echo "  → Run: /update --component hooks"
+        return 1
+    fi
+
+    echo "  ✓ All scripts validated"
     return 0
 }
 
@@ -744,6 +978,16 @@ fi
 echo ""
 echo "Updating grepai config..."
 safe_download "$BASE/.devcontainer/images/grepai.config.yaml" ".devcontainer/images/grepai.config.yaml"
+
+# Phase 5: Synchronize user hooks
+echo ""
+echo "Phase 5: Synchronizing user hooks..."
+sync_user_hooks
+
+# Phase 6: Validate hook scripts
+echo ""
+echo "Phase 6: Validating hook scripts..."
+validate_hook_scripts
 
 # Version
 COMMIT=$(curl -sL "https://api.github.com/repos/kodflow/devcontainer-template/commits/main" | jq -r '.sha[:7]')
