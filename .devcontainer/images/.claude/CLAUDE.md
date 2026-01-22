@@ -149,7 +149,7 @@ Forbidden patterns:
 - Read `/workspace/CLAUDE.md` at session start
 - Read relevant CLAUDE.md when entering a directory
 - UPDATE CLAUDE.md when modifying code structure
-- More details deeper in tree, each <60 lines
+- More details deeper in tree, each <100 lines (WARNING), <150 (CRITICAL)
 
 ## 6. GIT WORKFLOW (MANDATORY)
 
