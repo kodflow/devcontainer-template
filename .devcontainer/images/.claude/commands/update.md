@@ -34,7 +34,7 @@ les fichiers existants au lieu de listes hardcodées.
 - **Agents** - Définitions d'agents (specialists, executors)
 - **Lifecycle** - Hooks de cycle de vie (postStart)
 - **Config** - p10k, settings.json
-- **Compose** - docker-compose.yml (FORCE ollama+devcontainer, preserve custom)
+- **Compose** - docker-compose.yml (update devcontainer, preserve custom)
 - **Grepai** - Configuration grepai optimisée
 
 **Source** : `github.com/kodflow/devcontainer-template`
@@ -60,7 +60,7 @@ les fichiers existants au lieu de listes hardcodées.
 | `lifecycle` | `.devcontainer/hooks/lifecycle/` | Hooks de cycle de vie |
 | `p10k` | `.devcontainer/images/.p10k.zsh` | Config Powerlevel10k |
 | `settings` | `.../images/.claude/settings.json` | Config Claude |
-| `compose` | `.devcontainer/docker-compose.yml` | FORCE update ollama+devcontainer |
+| `compose` | `.devcontainer/docker-compose.yml` | Update devcontainer service |
 | `grepai` | `.devcontainer/images/grepai.config.yaml` | Config grepai |
 
 ---
@@ -87,7 +87,7 @@ Composants:
   lifecycle   Lifecycle hooks (postStart)
   p10k        Powerlevel10k config
   settings    Claude settings.json
-  compose     docker-compose.yml (FORCE ollama+devcontainer)
+  compose     docker-compose.yml (devcontainer service)
   grepai      grepai config (provider, model)
 
 Exemples:
@@ -203,12 +203,13 @@ discover_workflow:
       note: |
         - Si fichier absent → télécharger complet
         - Si fichier existe:
-          1. Extraire services custom (pas ollama ni devcontainer)
+          1. Extraire services custom (pas devcontainer)
           2. Remplacer entièrement par le template (préserve ordre/commentaires)
           3. Merger les services custom extraits
-        - Ordre préservé: ollama → devcontainer → custom
+        - Ordre: devcontainer → custom
         - Backup créé avant modification, restauré si échec
         - Utilise mikefarah/yq (Go version) pour le merge
+        - Note: Ollama runs on HOST (installed via initialize.sh)
 
     grepai:
       raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/images/grepai.config.yaml"
@@ -392,9 +393,10 @@ safe_download \
     "$BASE/.devcontainer/images/.claude/settings.json" \
     ".devcontainer/images/.claude/settings.json"
 
-# docker-compose.yml (FORCE update ollama + devcontainer, PRESERVE custom services)
+# docker-compose.yml (update devcontainer service, PRESERVE custom services)
 # Note: Uses mikefarah/yq (Go version) - simpler syntax with -i for in-place
-# Strategy: Start fresh from template (preserves order), merge back custom services
+# Strategy: Start fresh from template, merge back custom services
+# Note: Ollama runs on HOST (installed via initialize.sh), not in container
 update_compose_services() {
     local compose_file=".devcontainer/docker-compose.yml"
     local temp_template=$(mktemp --suffix=.yaml)
@@ -418,10 +420,10 @@ update_compose_services() {
     # Backup original
     cp "$compose_file" "$backup_file"
 
-    # Extract custom services (anything that's NOT ollama or devcontainer)
-    yq '.services | to_entries | map(select(.key != "ollama" and .key != "devcontainer")) | from_entries' "$compose_file" > "$temp_custom"
+    # Extract custom services (anything that's NOT devcontainer)
+    yq '.services | to_entries | map(select(.key != "devcontainer")) | from_entries' "$compose_file" > "$temp_custom"
 
-    # Start fresh from template (preserves order: ollama first, then devcontainer)
+    # Start fresh from template (devcontainer service)
     cp "$temp_template" "$compose_file"
 
     # Merge back custom services if any exist
@@ -445,7 +447,7 @@ update_compose_services() {
     if yq '.services.devcontainer' "$compose_file" > /dev/null 2>&1; then
         rm -f "$backup_file"
         echo "  ✓ docker-compose.yml updated"
-        echo "    - REPLACED: from template (preserves order)"
+        echo "    - REPLACED: devcontainer from template"
         echo "    - PRESERVED: custom services (if any)"
         return 0
     else
@@ -463,8 +465,8 @@ if [ ! -f ".devcontainer/docker-compose.yml" ]; then
         ".devcontainer/docker-compose.yml"
     echo "  ✓ docker-compose.yml created from template"
 else
-    # File exists - FORCE update ollama + devcontainer services
-    echo "  Forcing update of ollama + devcontainer services..."
+    # File exists - update devcontainer service
+    echo "  Updating devcontainer service..."
     update_compose_services
 fi
 
@@ -509,7 +511,7 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
     ✓ lifecycle   (6 hooks)
     ✓ p10k        (1 file)
     ✓ settings    (1 file)
-    ✓ compose     (FORCED ollama+devcontainer update)
+    ✓ compose     (devcontainer service updated)
     ✓ grepai      (1 file - qwen3-embedding config)
     ✓ user-hooks  (synchronized with template)
     ✓ validation  (all scripts exist)
@@ -517,7 +519,7 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
   Grepai config:
     provider: ollama
     model: qwen3-embedding:0.6b
-    endpoint: ollama:11434
+    endpoint: host.docker.internal:11434 (GPU-accelerated)
 
   Cleanup:
     ✓ .coderabbit.yaml removed (if existed)
@@ -698,7 +700,7 @@ validate_hook_scripts() {
 **Mis à jour par /update :**
 ```
 .devcontainer/
-├── docker-compose.yml        # FORCE update ollama+devcontainer
+├── docker-compose.yml        # Update devcontainer service
 ├── hooks/lifecycle/*.sh
 ├── images/
 │   ├── .p10k.zsh
@@ -900,8 +902,9 @@ echo "Updating config files..."
 safe_download "$BASE/.devcontainer/images/.p10k.zsh" ".devcontainer/images/.p10k.zsh"
 safe_download "$BASE/.devcontainer/images/.claude/settings.json" ".devcontainer/images/.claude/settings.json"
 
-# Docker compose (FORCE update ollama + devcontainer, PRESERVE custom services)
+# Docker compose (update devcontainer service, PRESERVE custom services)
 # Note: Uses mikefarah/yq (Go version) - simpler syntax with -i for in-place
+# Ollama runs on HOST (installed via initialize.sh), not in container
 echo ""
 echo "Updating docker-compose.yml..."
 
@@ -928,13 +931,13 @@ update_compose_services() {
     # Backup original
     cp "$compose_file" "$backup_file"
 
-    # Extract custom services (anything that's NOT ollama or devcontainer)
-    yq '.services | to_entries | map(select(.key != "ollama" and .key != "devcontainer")) | from_entries' "$compose_file" > "$temp_custom"
+    # Extract custom services (anything that's NOT devcontainer)
+    yq '.services | to_entries | map(select(.key != "devcontainer")) | from_entries' "$compose_file" > "$temp_custom"
 
     # Extract custom volumes (anything that's NOT in template)
     local template_volumes=$(yq '.volumes | keys | .[]' "$temp_template" 2>/dev/null | tr '\n' '|')
 
-    # Start fresh from template (preserves order: ollama first, then devcontainer)
+    # Start fresh from template (devcontainer service)
     cp "$temp_template" "$compose_file"
 
     # Merge back custom services if any exist
@@ -957,7 +960,7 @@ update_compose_services() {
     # Verify YAML is valid and has expected content
     if yq '.services.devcontainer' "$compose_file" > /dev/null 2>&1; then
         rm -f "$backup_file"
-        echo "  ✓ ollama + devcontainer services updated"
+        echo "  ✓ devcontainer service updated"
         return 0
     else
         mv "$backup_file" "$compose_file"
@@ -970,7 +973,7 @@ if [ ! -f ".devcontainer/docker-compose.yml" ]; then
     echo "  No docker-compose.yml found, downloading template..."
     safe_download "$BASE/.devcontainer/docker-compose.yml" ".devcontainer/docker-compose.yml"
 else
-    echo "  Forcing update of core services..."
+    echo "  Updating devcontainer service..."
     update_compose_services
 fi
 
