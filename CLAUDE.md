@@ -231,4 +231,4 @@ Cible : `/workspace/.devcontainer/images/.claude/docs/`
 └── src/CLAUDE.md               # Source code context
 ```
 
-**Principle:** More details deeper in tree, <60 lines each, ALL committed.
+**Principle:** More details deeper in tree, <100 lines each (WARNING), <150 (CRITICAL), ALL committed.
