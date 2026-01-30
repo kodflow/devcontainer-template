@@ -27,6 +27,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # =============================================================================
 # System Dependencies
 # =============================================================================
+# Core build tools + libraries needed by multiple languages
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
@@ -40,6 +41,21 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libgdbm-dev libyaml-dev \
         libsecret-1-0 libsecret-1-dev \
         shellcheck && \
+    apt-get clean
+
+# =============================================================================
+# Desktop App Libraries (Tauri/WebKitGTK, Electron, GTK)
+# =============================================================================
+# Pre-installed in base image to avoid 30+ min rebuild in features
+# Used by: Rust (Tauri), Node.js (Electron), Python (PyGTK)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libwebkit2gtk-4.1-dev \
+        libxdo-dev \
+        libayatana-appindicator3-dev \
+        librsvg2-dev && \
     apt-get clean
 
 # =============================================================================
