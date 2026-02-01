@@ -113,9 +113,11 @@ RUN add-apt-repository --yes --update ppa:ansible/ansible && \
 # MkDocs Material (Documentation Server)
 # =============================================================================
 # Pre-installed for /docs skill - avoids reinstall on each rebuild
-RUN apt-get update && apt-get install -y --no-install-recommends python3-pip && \
-    pip3 install --break-system-packages mkdocs-material mkdocs-mermaid2-plugin && \
-    rm -rf /var/lib/apt/lists/*
+# Uses virtual environment to avoid system package conflicts (Markdown 3.5.2)
+# Note: mkdocs-material >= 8.2.0 has native Mermaid support (no plugin needed)
+RUN python3 -m venv /opt/mkdocs && \
+    /opt/mkdocs/bin/pip install --no-cache-dir mkdocs-material && \
+    ln -s /opt/mkdocs/bin/mkdocs /usr/local/bin/mkdocs
 
 # =============================================================================
 # 1Password CLI (op) - For secrets management
