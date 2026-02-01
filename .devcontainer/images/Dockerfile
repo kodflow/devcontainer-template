@@ -115,9 +115,14 @@ RUN add-apt-repository --yes --update ppa:ansible/ansible && \
 # Pre-installed for /docs skill - avoids reinstall on each rebuild
 # Uses virtual environment to avoid system package conflicts (Markdown 3.5.2)
 # Note: mkdocs-material >= 8.2.0 has native Mermaid support (no plugin needed)
-RUN python3 -m venv /opt/mkdocs && \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends python3-venv && \
+    python3 -m venv /opt/mkdocs && \
     /opt/mkdocs/bin/pip install --no-cache-dir mkdocs-material && \
-    ln -s /opt/mkdocs/bin/mkdocs /usr/local/bin/mkdocs
+    ln -s /opt/mkdocs/bin/mkdocs /usr/local/bin/mkdocs && \
+    apt-get clean
 
 # =============================================================================
 # 1Password CLI (op) - For secrets management
