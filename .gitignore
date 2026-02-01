@@ -133,3 +133,4 @@ plans/
 # Claude Code session logs (context recovery)
 # ============================================
 .claude/logs/
+docs/site/

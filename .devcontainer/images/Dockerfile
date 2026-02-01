@@ -110,6 +110,14 @@ RUN add-apt-repository --yes --update ppa:ansible/ansible && \
     apt-get install -y --no-install-recommends ansible && rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
+# MkDocs Material (Documentation Server)
+# =============================================================================
+# Pre-installed for /docs skill - avoids reinstall on each rebuild
+RUN apt-get update && apt-get install -y --no-install-recommends python3-pip && \
+    pip3 install --break-system-packages mkdocs-material mkdocs-mermaid2-plugin && \
+    rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
 # 1Password CLI (op) - For secrets management
 # =============================================================================
 RUN curl -fsSL https://downloads.1password.com/linux/keys/1password.asc | gpg --dearmor -o /usr/share/keyrings/1password-archive-keyring.gpg && \
