@@ -57,6 +57,12 @@ if [ -d "$CLAUDE_DEFAULTS" ]; then
         cp -r "$CLAUDE_DEFAULTS/docs/"* "$HOME/.claude/docs/" 2>/dev/null || true
     fi
 
+    # Restore templates (Documentation and C4 templates - fresh copy from image)
+    if [ -d "$CLAUDE_DEFAULTS/templates" ]; then
+        mkdir -p "$HOME/.claude/templates"
+        cp -r "$CLAUDE_DEFAULTS/templates/"* "$HOME/.claude/templates/" 2>/dev/null || true
+    fi
+
     # Restore settings.json only if it does not exist (user customizations preserved)
     if [ -f "$CLAUDE_DEFAULTS/settings.json" ] && [ ! -f "$HOME/.claude/settings.json" ]; then
         cp "$CLAUDE_DEFAULTS/settings.json" "$HOME/.claude/settings.json"

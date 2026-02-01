@@ -211,6 +211,7 @@ COPY --chown=root:root .claude/scripts/ /etc/claude-defaults/scripts/
 COPY --chown=root:root .claude/agents/ /etc/claude-defaults/agents/
 COPY --chown=root:root .claude/docs/ /etc/claude-defaults/docs/
 COPY --chown=root:root .claude/settings.json /etc/claude-defaults/settings.json
+COPY --chown=root:root .claude/templates/ /etc/claude-defaults/templates/
 RUN chmod -R 755 /etc/claude-defaults/
 
 # MCP template (secrets injected at runtime via postStart.sh)
