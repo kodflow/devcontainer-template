@@ -503,7 +503,6 @@ theme:
 
 plugins:
   - search
-  - mermaid2
 
 markdown_extensions:
   - pymdownx.highlight
