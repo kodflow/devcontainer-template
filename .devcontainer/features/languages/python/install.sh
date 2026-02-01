@@ -146,6 +146,11 @@ pip_install bandit
 # Testing
 pip_install pytest pytest-cov
 
+# Documentation Tools (MkDocs Material)
+echo -e "${YELLOW}Installing documentation tools...${NC}"
+pip_install mkdocs mkdocs-material mkdocs-mermaid2-plugin
+pip_install mkdocs-minify-plugin mkdocs-awesome-pages-plugin
+
 echo -e "${GREEN}✓ Python development tools installed${NC}"
 
 # Setup shell integration for pyenv (if installed)
@@ -180,6 +185,10 @@ echo "  - pylint (linter)"
 echo "  - mypy (type checker)"
 echo "  - bandit (security scanner)"
 echo "  - pytest + pytest-cov (testing)"
+echo ""
+echo "Documentation tools:"
+echo "  - mkdocs + mkdocs-material (static site generator)"
+echo "  - mkdocs-mermaid2-plugin (C4/Mermaid diagrams)"
 echo ""
 echo "Cache directory:"
 echo "  - pip: $PIP_CACHE_DIR"
