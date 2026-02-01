@@ -2,13 +2,14 @@
 name: docs
 description: |
   Documentation Server with MkDocs Material (auto-setup).
-  Serves /docs folder, creates structure if missing.
-  Use --update to generate C4 architecture diagrams.
+  Detects project type and generates appropriate docs.
+  Uses /warmup for context - adapts to actual content.
 allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
   - "Grep(**/*)"
   - "Write(docs/**)"
+  - "Write(mkdocs.yml)"
   - "Task(*)"
   - "Bash(mkdocs:*)"
   - "Bash(cd:*)"
@@ -21,25 +22,39 @@ allowed-tools:
   - "mcp__grepai__grepai_trace_graph"
 ---
 
-# /docs - Documentation Server (RLM Architecture)
+# /docs - Documentation Server (Adaptive)
 
-Serve project documentation with **MkDocs Material**. Auto-setup structure, generate C4 architecture with `--update`.
+Serve project documentation with **MkDocs Material**. Detects project type and adapts content.
 
 $ARGUMENTS
 
 ---
 
-## Core Principle: Just Works
+## Core Principles
 
 ```yaml
-just_works:
-  rule: "Run /docs - everything is automatic"
+principles:
+  adaptive_content:
+    rule: "Detect project type, generate appropriate docs"
+    workflow: "/warmup → detect → adapt → generate"
 
-  modes:
-    serve: "/docs → creates structure if missing, serves on :8080"
-    update: "/docs --update → analyzes codebase, generates C4 diagrams"
+  no_empty_content:
+    rule: "NEVER create empty sections or placeholder pages"
+    reason: "Empty pages = broken UX"
 
-  pattern: "Same as /warmup"
+  context_aware:
+    rule: "Use /warmup to understand project before generating"
+    example: "Template project ≠ Application project"
+
+  human_readable:
+    rule: "Write for humans, not for templates"
+    example: "Quick Start guide, not 'Overview of overview'"
+
+  project_types:
+    template: "How to use this template"
+    library: "API reference + usage examples"
+    application: "Architecture + guides + API"
+    empty: "Getting started with this project"
 ```
 
 ---
@@ -48,10 +63,10 @@ just_works:
 
 | Argument | Action |
 |----------|--------|
-| (none) | Create structure if missing, serve on :8080 |
-| `--update` | Analyze codebase and generate/update C4 architecture |
+| (none) | Create minimal structure if missing, serve on :8080 |
+| `--update` | Regenerate from codebase analysis |
 | `--stop` | Stop running MkDocs server |
-| `--status` | Show server status and documentation structure |
+| `--status` | Show server status |
 | `--port <n>` | Custom port (default: 8080) |
 | `--help` | Show help |
 
@@ -61,54 +76,45 @@ just_works:
 
 ```
 ═══════════════════════════════════════════════════════════════
-  /docs - Documentation Server (RLM Architecture)
+  /docs - Documentation Server
 ═══════════════════════════════════════════════════════════════
 
   DESCRIPTION
     Serves project documentation with MkDocs Material theme.
-    Creates /docs folder structure automatically if missing.
-    Use --update to generate C4 architecture diagrams.
+    Creates minimal structure - NO empty placeholder pages.
 
   USAGE
     /docs [OPTIONS]
 
   OPTIONS
-    (none)              Create structure if missing, serve on :8080
-    --update            Generate/update C4 architecture diagrams
+    (none)              Create minimal structure, serve on :8080
+    --update            Regenerate from codebase analysis
     --stop              Stop running MkDocs server
-    --status            Show server and structure status
+    --status            Show server status
     --port <n>          Custom port (default: 8080)
     --help              Show this help
 
   EXAMPLES
-    /docs                   # Just works - serve docs
-    /docs --update          # Generate C4 architecture
+    /docs                   # Serve docs
+    /docs --update          # Regenerate content
     /docs --stop            # Stop server
-    /docs --status          # Check status
 
-  STRUCTURE (auto-created)
+  MINIMAL STRUCTURE (auto-created)
+    mkdocs.yml              # Config at project root
     docs/
-    ├── mkdocs.yml          # MkDocs configuration
-    ├── index.md            # Homepage
-    ├── architecture/       # C4 diagrams (via --update)
-    │   ├── README.md
-    │   ├── c4-context.md
-    │   ├── c4-container.md
-    │   └── c4-component.md
-    ├── adr/                # Architecture Decision Records
-    ├── api/                # API documentation
-    ├── runbooks/           # Operational guides
-    └── guides/             # User/developer guides
+    ├── index.md            # Quick Start (required)
+    └── guides/             # How-to guides (required)
+        └── README.md
 
-  ERROR HANDLING
-    - MkDocs not installed → auto-install
-    - Port in use → kill existing or suggest --port
-    - Templates missing → copy from defaults
-    - Existing doc system → ask before replacing
+  OPTIONAL SECTIONS (created only if content exists)
+    architecture/           # Only if codebase has clear structure
+    adr/                    # Only if ADRs exist
+    api/                    # Only if API detected (OpenAPI, etc.)
 
-  PATTERN
-    /docs           ≈ /warmup           (serve/load)
-    /docs --update  ≈ /warmup --update  (generate/update)
+  CONTENT DETECTION
+    API:  openapi.yaml | swagger.json | **/routes/** | **/api/**
+    ADR:  docs/adr/0*.md | decisions/0*.md
+    Arch: Complex multi-module project
 
 ═══════════════════════════════════════════════════════════════
 ```
@@ -119,91 +125,197 @@ just_works:
 
 ## Mode Normal (Serve)
 
-### Phase 1: Detect & Create Structure
+### Phase 0: Context Detection (WARMUP)
 
 ```yaml
-phase_1_structure:
-  description: "Check /docs folder, create if missing"
+phase_0_warmup:
+  description: "Load project context BEFORE generating docs"
+  mandatory: true
 
-  check:
-    tool: "Glob(pattern='docs/mkdocs.yml')"
-    result: "exists | missing"
+  actions:
+    1_read_claude_md:
+      tool: "Read('/workspace/CLAUDE.md')"
+      extract: "Project type, structure, conventions"
 
-  if_missing:
-    actions:
-      1_create_dirs:
-        command: |
-          mkdir -p docs/architecture
-          mkdir -p docs/adr
-          mkdir -p docs/api
-          mkdir -p docs/runbooks
-          mkdir -p docs/guides
+    2_detect_project_type:
+      checks:
+        - "Glob(pattern='src/**/*.{go,py,ts,rs,java}')" → has_code
+        - "Glob(pattern='{package.json,go.mod,Cargo.toml,pyproject.toml}')" → has_manifest
+        - "Glob(pattern='**/openapi.{yaml,yml,json}')" → has_api
+        - "Glob(pattern='.devcontainer/**')" → is_devcontainer
+        - "Glob(pattern='**/*.tpl')" → has_templates
 
-      2_detect_project:
-        sources:
-          - "package.json → name, description"
-          - "go.mod → module name"
-          - "Cargo.toml → package.name"
-          - "pyproject.toml → project.name"
-          - "fallback → directory name"
-        output: "PROJECT_NAME, PROJECT_DESCRIPTION"
+      classification:
+        template:
+          signals: ["is_devcontainer", "has_templates", "!has_code"]
+          docs_type: "How to use this template"
 
-      3_create_mkdocs_yml:
-        template: "~/.claude/templates/docs/mkdocs.yml.tpl"
-        fallback: "/etc/claude-defaults/templates/docs/mkdocs.yml.tpl"
-        variables:
-          PROJECT_NAME: "{detected}"
-          PROJECT_DESCRIPTION: "{detected}"
+        library:
+          signals: ["has_manifest", "has_code", "!has_api"]
+          docs_type: "API reference + usage"
 
-      4_create_index_md:
-        template: "~/.claude/templates/docs/index.md.tpl"
+        application:
+          signals: ["has_manifest", "has_code", "has_api"]
+          docs_type: "Full docs (arch + guides + API)"
 
-      5_create_section_readmes:
-        files:
-          - "docs/architecture/README.md"
-          - "docs/adr/README.md"
-          - "docs/api/README.md"
-          - "docs/runbooks/README.md"
-          - "docs/guides/README.md"
+        empty:
+          signals: ["!has_manifest", "!has_code"]
+          docs_type: "Getting started scaffold"
 
-      6_update_gitignore:
-        check: "grep -q 'docs/site' .gitignore"
-        action: "echo 'docs/site/' >> .gitignore"
+    3_analyze_if_code_exists:
+      condition: "has_code == true"
+      tools:
+        - "mcp__grepai__grepai_search(query='main entry point')"
+        - "mcp__grepai__grepai_search(query='public functions exports')"
+        - "Grep(pattern='TODO|FIXME|@api|@doc')"
+      extract: "Entry points, public API, doc comments"
 
-  output_if_created: |
-    ═══════════════════════════════════════════════════════════
-      /docs - Structure Created
-    ═══════════════════════════════════════════════════════════
-
-      Created /docs folder:
-        docs/
-        ├── mkdocs.yml
-        ├── index.md
-        ├── architecture/
-        ├── adr/
-        ├── api/
-        ├── runbooks/
-        └── guides/
-
-      Next: Run /docs --update to generate C4 architecture
-
-    ═══════════════════════════════════════════════════════════
+  output:
+    project_type: "template | library | application | empty"
+    project_context: "{extracted from CLAUDE.md}"
+    detected_features: [list of features]
 ```
 
-### Phase 2: Start Server
+### Phase 1: Detect Existing Structure
 
 ```yaml
-phase_2_serve:
+phase_1_detect:
+  description: "Check what exists before creating anything"
+
+  checks:
+    1_mkdocs_yml:
+      tool: "Glob(pattern='mkdocs.yml')"
+      if_exists: "Use existing config"
+      if_missing: "Will create"
+
+    2_docs_folder:
+      tool: "Glob(pattern='docs/index.md')"
+      if_exists: "Has content"
+      if_missing: "Will create based on project_type"
+
+    3_conflict_detection:
+      tool: "Glob(pattern='docs/{.vuepress,docusaurus.config.*,_config.yml}')"
+      if_found: "Ask user before replacing"
+
+  output: "detection_result"
+```
+
+### Phase 2: Generate Adapted Content
+
+```yaml
+phase_2_generate:
+  description: "Generate docs based on detected project type"
+
+  condition: "docs/index.md missing OR --update flag"
+
+  by_project_type:
+
+    template:
+      description: "DevContainer, boilerplate, starter kit"
+      generate:
+        - "docs/index.md"           # What is this template
+        - "docs/getting-started.md" # How to use it
+        - "docs/customization.md"   # How to customize (if features exist)
+      content_from:
+        - "CLAUDE.md hierarchy"
+        - ".devcontainer/ structure"
+        - "features/ available"
+        - "commands/ skills"
+
+    library:
+      description: "Package, module, SDK"
+      generate:
+        - "docs/index.md"         # Quick start
+        - "docs/api/README.md"    # Auto-generated from code
+        - "docs/examples.md"      # From tests/examples/
+      content_from:
+        - "Docstrings (grepai_search)"
+        - "Public exports"
+        - "README sections"
+        - "Example files"
+
+    application:
+      description: "Service, app, full project"
+      generate:
+        - "docs/index.md"         # Overview + quick start
+        - "docs/guides/README.md" # How-to guides
+        - "docs/api/README.md"    # If API detected
+      content_from:
+        - "Entry points (main, handlers)"
+        - "Route definitions"
+        - "Config options"
+        - "Env variables"
+
+    empty:
+      description: "New/empty project"
+      action: "AskUserQuestion"
+      question: "What type of project will this be?"
+      options:
+        - "Web Application"
+        - "CLI Tool"
+        - "Library/SDK"
+        - "Microservice"
+      then: "Generate scaffold for chosen type"
+
+  extraction_tools:
+    docstrings: "grepai_search('docstring documentation comment')"
+    exports: "grepai_search('export public module')"
+    routes: "grepai_search('route endpoint handler')"
+    config: "grepai_search('config env environment')"
+
+  important: |
+    - Content MUST reflect actual project
+    - Use grepai to extract real info from code
+    - If empty/unclear, ASK user
+    - NEVER generate generic placeholder content
+```
+
+### Phase 3: Generate Nav (content-aware)
+
+```yaml
+phase_3_nav:
+  description: "Build nav only from existing content"
+
+  rules:
+    - "Every nav entry MUST point to a file with real content"
+    - "No placeholder pages in nav"
+    - "No 'Coming Soon' entries"
+
+  example_minimal:
+    nav:
+      - Home: index.md
+      - Guides: guides/README.md
+
+  example_with_api:
+    nav:
+      - Home: index.md
+      - Guides: guides/README.md
+      - API: api/README.md  # Only if API detected
+
+  example_full:
+    nav:
+      - Home: index.md
+      - Guides: guides/README.md
+      - Architecture: architecture/README.md  # Only if complex project
+      - API: api/README.md                     # Only if API detected
+      - ADR: adr/index.md                      # Only if ADRs exist
+```
+
+### Phase 4: Start Server
+
+```yaml
+phase_4_serve:
   description: "Start MkDocs development server"
 
   pre_check:
     - "pkill -f 'mkdocs serve' 2>/dev/null || true"
-    - "Verify mkdocs installed"
+
+  note: |
+    MkDocs is PRE-INSTALLED in the Docker image.
+    No pip install needed - persists across rebuilds.
 
   command: |
-    cd docs && mkdocs serve -a 0.0.0.0:{PORT} &
-
-  default_port: 8080
+    mkdocs serve -a 0.0.0.0:{PORT}
 
   output: |
     ═══════════════════════════════════════════════════════════
@@ -212,348 +324,45 @@ phase_2_serve:
 
       URL: http://localhost:{PORT}
 
-      Features:
-        ✓ Live reload enabled
-        ✓ Mermaid diagrams supported
-        ✓ Material theme active
-
       Sections:
-        /                   Homepage
-        /architecture/      C4 diagrams
-        /adr/               Architecture decisions
-        /api/               API documentation
-        /runbooks/          Operational guides
-        /guides/            User guides
+        {ONLY_EXISTING_SECTIONS}
 
       Commands:
-        /docs --update      Generate C4 architecture
+        /docs --update      Regenerate from codebase
         /docs --stop        Stop server
-        /docs --status      Check status
 
     ═══════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Mode --update (C4 Architecture Generation)
+## Mode --update
 
-### Phase U0: Peek (Quick Scan)
+### Purpose
 
-```yaml
-phase_u0_peek:
-  description: "Quick scan before analysis"
-
-  checks:
-    1_structure_exists:
-      tool: "Glob(pattern='docs/mkdocs.yml')"
-      if_missing: "Will create structure first"
-
-    2_architecture_exists:
-      tool: "Glob(pattern='docs/architecture/*.md')"
-      if_exists: "Will update existing (preserve <!-- MANUAL -->)"
-      if_missing: "Will generate fresh"
-
-    3_conflict_detection:
-      tool: "Glob(pattern='docs/{.vuepress,docusaurus.config.*,_config.yml}')"
-      if_found: |
-        WARNING: Existing documentation system detected
-        Ask user: "Replace with MkDocs?" or "Abort"
-
-    4_check_metadata:
-      tool: "Read(file_path='docs/.docs-metadata.json')"
-      extract: "last_update, detected_stack"
-      if_missing: "First generation"
-
-  output: |
-    ═══════════════════════════════════════════════════════════
-      /docs --update - Peek Analysis
-    ═══════════════════════════════════════════════════════════
-
-      Existing Structure: {EXISTS|MISSING}
-      Architecture Files: {COUNT} files
-      Last Update: {DATE or "Never"}
-
-      Conflicts: {NONE|DETECTED}
-
-      Strategy: {FRESH|UPDATE}
-
-    ═══════════════════════════════════════════════════════════
-```
-
-### Phase U1: Load Project Context
+Analyze codebase and regenerate documentation content.
 
 ```yaml
-phase_u1_context:
-  description: "Read CLAUDE.md hierarchy for project understanding"
-
-  actions:
-    1_find_claude_md:
-      tool: "Glob(pattern='**/CLAUDE.md')"
-
-    2_read_hierarchy:
-      files:
-        - "/workspace/CLAUDE.md"
-        - ".devcontainer/CLAUDE.md"
-        - "src/CLAUDE.md (if exists)"
-
-    3_extract_context:
-      - "Project structure"
-      - "Language conventions"
-      - "Detected frameworks"
-
-  output: "project_context"
-```
-
-### Phase U2: Detect Technology Stack
-
-```yaml
-phase_u2_detect:
-  description: "Identify actual frameworks from manifest files"
-
-  manifest_detection:
-    nodejs:
-      file: "package.json"
-      read: "dependencies, devDependencies"
-
-    go:
-      file: "go.mod"
-      read: "require block"
-
-    rust:
-      file: "Cargo.toml"
-      read: "[dependencies]"
-
-    python:
-      file: "pyproject.toml | requirements.txt"
-      read: "dependencies"
-
-    java:
-      file: "pom.xml | build.gradle*"
-      read: "dependencies"
-
-    # ... other languages from devcontainer features
-
-  output:
-    detected_stack:
-      languages: []
-      frameworks: []
-```
-
-### Phase U3: Delegate to Specialist Agents
-
-```yaml
-phase_u3_delegate:
-  description: "Launch specialist agents for extraction"
-
-  agent_mapping:
-    go: "developer-specialist-go"
-    nodejs: "developer-specialist-nodejs"
-    python: "developer-specialist-python"
-    rust: "developer-specialist-rust"
-    java: "developer-specialist-java"
-    scala: "developer-specialist-scala"
-    php: "developer-specialist-php"
-    ruby: "developer-specialist-ruby"
-    elixir: "developer-specialist-elixir"
-    dart: "developer-specialist-dart"
-    cpp: "developer-specialist-cpp"
-    carbon: "developer-specialist-carbon"
-
-  parallel_extraction:
-    tool: "Task"
-    model: "haiku"
-
-    prompt_template: |
-      Analyze {language} codebase using {framework}.
-
-      PROJECT CONTEXT:
-      {project_context}
-
-      EXTRACT (using grepai semantic search):
-
-      1. ENTRY POINTS
-         Query: "application entry points main functions HTTP handlers"
-
-      2. MODULES
-         Query: "modules packages their responsibilities"
-         Use: grepai_trace_graph(depth=3)
-
-      3. EXTERNAL SYSTEMS
-         Query: "external service connections database clients"
-
-      4. COMPONENTS
-         Query: "service classes controllers repositories"
-
-      5. RELATIONSHIPS
-         Use: grepai_trace_callers, grepai_trace_callees
-
-      OUTPUT JSON:
-      {
-        "entry_points": [...],
-        "modules": [...],
-        "external_systems": [...],
-        "components": [...],
-        "relationships": [...]
-      }
-
-  output: "extracted_entities"
-```
-
-### Phase U4: Cross-Reference with .claude/docs/
-
-```yaml
-phase_u4_validate:
-  description: "Validate against local architecture knowledge"
-
-  knowledge_sources:
-    - ".claude/docs/architectural/"
-    - ".claude/docs/enterprise/"
-    - ".claude/docs/integration/"
-    - ".claude/docs/ddd/"
-
-  validation:
-    - "Check components map to known patterns"
-    - "Validate relationships follow integration patterns"
-    - "Detect anti-patterns"
-
-  output: "validated_entities"
-```
-
-### Phase U5: Generate C4 Diagrams
-
-```yaml
-phase_u5_generate:
-  description: "Generate Mermaid C4 diagrams"
-
-  files:
-    context:
-      path: "docs/architecture/c4-context.md"
-      content: |
-        # C4 Context Diagram
-
-        System context showing users and external systems.
-
-        ```mermaid
-        C4Context
-            title System Context - {PROJECT_NAME}
-
-            {PERSONS}
-            System(main, "{PROJECT_NAME}", "{DESCRIPTION}")
-            {EXTERNAL_SYSTEMS}
-            {RELATIONSHIPS}
-        ```
-
-        ## Description
-        {CONTEXT_DESCRIPTION}
-
-    container:
-      path: "docs/architecture/c4-container.md"
-      content: |
-        # C4 Container Diagram
-
-        Technical building blocks of the system.
-
-        ```mermaid
-        C4Container
-            title Container Diagram - {PROJECT_NAME}
-
-            {PERSONS}
-            System_Boundary(boundary, "{PROJECT_NAME}") {
-                {CONTAINERS}
-            }
-            {EXTERNAL_SYSTEMS}
-            {RELATIONSHIPS}
-        ```
-
-        ## Containers
-        {CONTAINER_DESCRIPTIONS}
-
-    component:
-      path: "docs/architecture/c4-component.md"
-      content: |
-        # C4 Component Diagram
-
-        Internal structure of containers.
-
-        ```mermaid
-        C4Component
-            title Component Diagram - {CONTAINER_NAME}
-
-            Container_Boundary(container, "{CONTAINER_NAME}") {
-                {COMPONENTS}
-            }
-            {RELATIONSHIPS}
-        ```
-
-        ## Components
-        {COMPONENT_DESCRIPTIONS}
-
-    readme:
-      path: "docs/architecture/README.md"
-      content: |
-        # Architecture Overview
-
-        Generated: {DATE}
-        Stack: {LANGUAGES} / {FRAMEWORKS}
-
-        ## Diagrams
-
-        - [Context](c4-context.md) - System + external actors
-        - [Container](c4-container.md) - Technical building blocks
-        - [Component](c4-component.md) - Internal structure
-
-        ## Detected Stack
-
-        | Type | Technology |
-        |------|------------|
-        {STACK_TABLE}
-```
-
-### Phase U6: Write and Report
-
-```yaml
-phase_u6_write:
-  description: "Write files and report"
-
-  incremental_mode:
-    preserve: "<!-- MANUAL --> sections"
-    note: "Git handles versioning - no backup needed"
-
-  output: |
-    ═══════════════════════════════════════════════════════════
-      /docs --update - Architecture Generated
-    ═══════════════════════════════════════════════════════════
-
-      Project: {PROJECT_NAME}
-
-      Detected Stack:
-        Languages:  {LANGUAGES}
-        Frameworks: {FRAMEWORKS}
-
-      Specialist Agents:
-        {AGENTS_USED}
-
-      Entities Extracted:
-        Persons:          {persons_count}
-        External Systems: {external_count}
-        Containers:       {containers_count}
-        Components:       {components_count}
-        Relationships:    {relationships_count}
-
-      Generated Files:
-        ✓ docs/architecture/README.md
-        ✓ docs/architecture/c4-context.md
-        ✓ docs/architecture/c4-container.md
-        ✓ docs/architecture/c4-component.md
-
-      Pattern Validation:
-        ✓ Cross-referenced with .claude/docs/
-        {PATTERNS_FOUND}
-
-      View: http://localhost:8080/architecture/
-            (if server running)
-
-    ═══════════════════════════════════════════════════════════
+update_workflow:
+  1_analyze:
+    - "Read CLAUDE.md hierarchy"
+    - "Detect technology stack"
+    - "Find entry points, modules, patterns"
+
+  2_detect_content:
+    - "Check for API definitions"
+    - "Check for existing ADRs"
+    - "Assess architecture complexity"
+
+  3_generate:
+    - "Update existing pages with fresh content"
+    - "Add new sections ONLY if content detected"
+    - "Remove sections if content no longer exists"
+
+  4_preserve:
+    - "<!-- MANUAL --> sections"
+    - "User-added pages"
+    - "Custom nav entries"
 ```
 
 ---
@@ -561,18 +370,9 @@ phase_u6_write:
 ## --stop
 
 ```yaml
-stop_workflow:
+stop:
   command: "pkill -f 'mkdocs serve'"
-
-  output: |
-    ═══════════════════════════════════════════════════════════
-      /docs - Server Stopped
-    ═══════════════════════════════════════════════════════════
-
-      MkDocs server stopped.
-      Restart: /docs
-
-    ═══════════════════════════════════════════════════════════
+  output: "Server stopped. Restart: /docs"
 ```
 
 ---
@@ -580,128 +380,15 @@ stop_workflow:
 ## --status
 
 ```yaml
-status_workflow:
+status:
   checks:
-    server: "pgrep -f 'mkdocs serve'"
-    structure: "ls docs/"
-    files: "find docs -name '*.md' | wc -l"
-
+    - "Server running? (pgrep)"
+    - "Docs structure exists?"
+    - "Content files count"
   output: |
-    ═══════════════════════════════════════════════════════════
-      /docs - Status
-    ═══════════════════════════════════════════════════════════
-
-      Server: {RUNNING|STOPPED}
-      {URL if running}
-
-      Structure:
-        docs/
-        ├── mkdocs.yml        {EXISTS|MISSING}
-        ├── index.md          {EXISTS|MISSING}
-        ├── architecture/     {FILE_COUNT} files
-        ├── adr/              {FILE_COUNT} files
-        ├── api/              {FILE_COUNT} files
-        ├── runbooks/         {FILE_COUNT} files
-        └── guides/           {FILE_COUNT} files
-
-      Total: {TOTAL} markdown files
-
-      Last --update: {DATE or "Never"}
-
-    ═══════════════════════════════════════════════════════════
-```
-
----
-
-## Mermaid C4 Syntax Reference
-
-```yaml
-context:
-  - "Person(id, 'Name', 'Description')"
-  - "System(id, 'Name', 'Description')"
-  - "System_Ext(id, 'Name', 'Description')"
-  - "Rel(from, to, 'Label')"
-
-container:
-  - "Container(id, 'Name', 'Tech', 'Description')"
-  - "ContainerDb(id, 'Name', 'Tech', 'Description')"
-  - "ContainerQueue(id, 'Name', 'Tech', 'Description')"
-  - "System_Boundary(id, 'Name') { ... }"
-
-component:
-  - "Component(id, 'Name', 'Tech', 'Description')"
-  - "Container_Boundary(id, 'Name') { ... }"
-```
-
----
-
-## Error Handling
-
-```yaml
-error_handling:
-  mkdocs_not_installed:
-    detect: "command -v mkdocs"
-    action: |
-      echo "MkDocs not installed. Installing..."
-      pip install mkdocs-material mkdocs-mermaid2-plugin
-    fallback: "Abort with instructions"
-
-  port_in_use:
-    detect: "lsof -i :{PORT} 2>/dev/null"
-    action: |
-      echo "Port {PORT} in use. Killing existing mkdocs..."
-      pkill -f 'mkdocs serve' || true
-    fallback: "Suggest --port <other>"
-
-  templates_missing:
-    detect: "ls ~/.claude/templates/docs/ 2>/dev/null"
-    action: |
-      mkdir -p ~/.claude/templates/docs
-      cp -r /etc/claude-defaults/templates/docs/* ~/.claude/templates/docs/
-    fallback: "Use inline defaults"
-
-  docs_folder_conflict:
-    detect: "ls docs/.vuepress docs/docusaurus.config.* 2>/dev/null"
-    action: "Ask user before overwriting"
-    output: |
-      ⚠️ Existing documentation system detected:
-        {DETECTED_SYSTEM}
-
-      Options:
-        1. Replace with MkDocs (backup existing)
-        2. Abort and keep existing
-```
-
----
-
-## Metadata Tracking
-
-```yaml
-metadata:
-  file: "docs/.docs-metadata.json"
-
-  structure:
-    last_update: "ISO8601 timestamp"
-    detected_stack:
-      languages: []
-      frameworks: []
-    entities:
-      persons: 0
-      external_systems: 0
-      containers: 0
-      components: 0
-      relationships: 0
-    agents_used: []
-
-  update_action: |
-    Write metadata after each --update:
-    {
-      "last_update": "{ISO8601}",
-      "detected_stack": {...},
-      "entities": {...}
-    }
-
-  gitignore: "docs/.docs-metadata.json should NOT be gitignored (track history)"
+    Server: {RUNNING|STOPPED}
+    Structure: {EXISTS|MISSING}
+    Content: {N} pages
 ```
 
 ---
@@ -710,93 +397,170 @@ metadata:
 
 | Action | Status | Raison |
 |--------|--------|--------|
-| Skip Phase U0 (Peek) | ❌ **INTERDIT** | Détection conflits obligatoire |
-| Skip context loading in --update | ❌ **INTERDIT** | RLM context-first |
-| Use hardcoded framework patterns | ❌ **INTERDIT** | Détection dynamique uniquement |
-| Overwrite `<!-- MANUAL -->` sections | ❌ **INTERDIT** | Préserver éditions utilisateur |
-| Delete user content in docs/ | ❌ **INTERDIT** | Seule mise à jour autorisée |
-| Write outside docs/ | ❌ **INTERDIT** | Scope limité |
-| Ignorer conflit doc system | ❌ **INTERDIT** | Demander confirmation |
-| Générer sans validation grepai | ⚠ **WARNING** | Qualité réduite |
-| Ignorer .gitignore dans scan | ❌ **INTERDIT** | Respect exclusions |
-
-**Note:** Pas de backup nécessaire - git versionne tout. Utiliser `git diff` et `git checkout` si besoin.
+| Créer page vide/placeholder | ❌ **INTERDIT** | UX cassée |
+| Créer section sans contenu | ❌ **INTERDIT** | Navigation polluée |
+| Nav vers page inexistante | ❌ **INTERDIT** | Liens cassés |
+| "Coming Soon" / "TBD" | ❌ **INTERDIT** | Pas de promesses vides |
+| Template avec instructions | ❌ **INTERDIT** | Doc = contenu, pas meta |
+| Créer api/ sans API détectée | ❌ **INTERDIT** | Faux positif |
+| Créer adr/ sans ADR existant | ❌ **INTERDIT** | Section inutile |
+| Overwrite `<!-- MANUAL -->` | ❌ **INTERDIT** | Préserver éditions user |
 
 ---
 
-## Validation Thresholds
+## Content Templates
+
+### index.md (Required)
+
+```markdown
+# {PROJECT_NAME}
+
+{ONE_LINE_DESCRIPTION}
+
+## Quick Start
+
+\`\`\`bash
+# Installation
+{INSTALL_COMMAND}
+
+# Run
+{RUN_COMMAND}
+\`\`\`
+
+## What's Included
+
+| Component | Description |
+|-----------|-------------|
+{ACTUAL_COMPONENTS}
+
+## Navigation
+
+- [Guides](guides/README.md) - How to use
+{OPTIONAL_LINKS_ONLY_IF_EXIST}
+```
+
+### guides/README.md (Required)
+
+```markdown
+# Guides
+
+## Getting Started
+
+{ACTUAL_GETTING_STARTED_CONTENT}
+
+## Common Tasks
+
+{ACTUAL_TASKS_FOR_THIS_PROJECT}
+```
+
+### api/README.md (Only if API detected)
+
+```markdown
+# API Reference
+
+{ACTUAL_API_DOCUMENTATION}
+
+## Endpoints
+
+{GENERATED_FROM_OPENAPI_OR_CODE}
+```
+
+### adr/index.md (Only if ADRs exist)
+
+```markdown
+# Architecture Decision Records
+
+| ADR | Title | Status | Date |
+|-----|-------|--------|------|
+{ACTUAL_ADR_LIST_FROM_FILES}
+```
+
+---
+
+## MkDocs Configuration
+
+```yaml
+# mkdocs.yml (at project root)
+site_name: {PROJECT_NAME}
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep purple
+      toggle:
+        icon: material/brightness-4
+    - scheme: default
+      primary: deep purple
+      toggle:
+        icon: material/brightness-7
+  features:
+    - navigation.tabs
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+
+plugins:
+  - search
+  - mermaid2
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  # ONLY entries with actual content
+  - Home: index.md
+  - Guides: guides/README.md
+  # Add more ONLY if content exists
+```
+
+---
+
+## Validation
 
 ```yaml
 validation:
-  architecture_files:
-    ideal: "50-100 lines"
-    warning: "101-200 lines"
-    critical: "> 200 lines"
-    action_if_critical: "Split into sub-components"
+  before_serve:
+    - "Every nav entry points to existing file"
+    - "No file < 10 lines (likely placeholder)"
+    - "No 'TODO', 'TBD', 'Coming Soon' in content"
 
-  mermaid_diagrams:
-    max_entities: 20
-    warning: "> 15 entities (readability)"
-    action: "Suggest splitting into multiple diagrams"
-
-  relationships:
-    orphan_check: "Warn if component has 0 relationships"
-    circular_check: "Detect circular dependencies"
+  warnings:
+    - "File > 200 lines → suggest splitting"
+    - "Broken internal links"
+    - "Images without alt text"
 ```
 
 ---
 
-## Design Patterns Applied
-
-| Pattern | Category | Usage |
-|---------|----------|-------|
-| Lazy Loading | Performance | Créer structure on-demand |
-| Template Method | Behavioral | Templates + variables |
-| Observer | Behavioral | Hot-reload MkDocs |
-| Facade | Structural | /docs unifie serve + update |
-
-**Références :**
-- `.claude/docs/performance/lazy-load.md`
-- `.claude/docs/behavioral/template-method.md`
-- `.claude/docs/structural/facade.md`
-
----
-
-## Intégration Workflow
-
-```
-/warmup                     # Précharger contexte
-    ↓
-/docs                       # Lancer serveur docs
-    ↓
-/docs --update              # Générer architecture C4
-    ↓
-(edit docs/guides/*.md)     # Ajouter guides manuels
-    ↓
-/git --commit               # Commiter la doc
-```
-
-**Intégration avec autres skills :**
-
-| Avant /docs | Après /docs |
-|-------------|-------------|
-| /warmup | /review (avec context) |
-| /init | /git --commit |
-
----
-
-## Template Location
+## Error Messages
 
 ```yaml
-templates:
-  user: "~/.claude/templates/docs/"
-  system: "/etc/claude-defaults/templates/docs/"
+errors:
+  empty_section_detected:
+    message: |
+      ⚠️ Empty section detected: {SECTION}
 
-  files:
-    - "mkdocs.yml.tpl"
-    - "index.md.tpl"
-    - "architecture/README.md.tpl"
-    - "adr/README.md.tpl"
-    - "api/README.md.tpl"
-    - "guides/README.md.tpl"
+      This section has no real content.
+      Either add content or remove the section.
+
+      DO NOT create placeholder pages.
+
+  placeholder_detected:
+    message: |
+      ⚠️ Placeholder content detected in {FILE}
+
+      Found: "{PLACEHOLDER_TEXT}"
+
+      Replace with actual content or remove the file.
 ```
