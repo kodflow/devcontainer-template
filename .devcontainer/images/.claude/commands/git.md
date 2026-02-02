@@ -404,29 +404,102 @@ decompose_workflow:
 
 ---
 
-### Phase 3 : Parallelize (RLM Pattern)
+### Phase 3 : Parallelize (RLM Pattern) - Multi-Language Pre-commit
 
-**Pré-commit checks en parallèle :**
+**Auto-detect ALL project languages and run checks for each:**
 
 ```yaml
+language_detection:
+  script: ".claude/scripts/pre-commit-checks.sh"
+
+  detection_files:
+    go.mod: "Go"
+    Cargo.toml: "Rust"
+    package.json: "Node.js"
+    pyproject.toml: "Python"
+    requirements.txt: "Python"
+    Gemfile: "Ruby"
+    pom.xml: "Java (Maven)"
+    build.gradle: "Java/Kotlin (Gradle)"
+    mix.exs: "Elixir"
+    composer.json: "PHP"
+    pubspec.yaml: "Dart/Flutter"
+    build.sbt: "Scala"
+    CMakeLists.txt: "C++ (CMake)"
+    meson.build: "C++ (Meson)"
+
 parallel_checks:
   mode: "PARALLEL (single message, multiple calls)"
 
-  agents:
+  for_each_detected_language:
     - task: "lint-check"
-      action: "Run linter on modified files"
-      command: "{lint_command}"
-
-    - task: "test-check"
-      action: "Run related tests"
-      command: "{test_command} --findRelatedTests"
+      priority: "Makefile target > language-specific tool"
+      commands:
+        go: "golangci-lint run ./..."
+        rust: "cargo clippy -- -D warnings"
+        nodejs: "npm run lint"
+        python: "ruff check ."
+        ruby: "bundle exec rubocop"
+        java-maven: "mvn checkstyle:check"
+        java-gradle: "./gradlew check"
+        elixir: "mix credo --strict"
+        php: "vendor/bin/phpstan analyse"
+        dart: "dart analyze --fatal-infos"
 
     - task: "build-check"
-      action: "Verify build works"
-      command: "{build_command}"
+      commands:
+        go: "go build ./..."
+        rust: "cargo build --release"
+        nodejs: "npm run build"
+        java-maven: "mvn compile -q"
+        java-gradle: "./gradlew build -x test"
+        elixir: "mix compile --warnings-as-errors"
+
+    - task: "test-check"
+      commands:
+        go: "go test -race ./..."
+        rust: "cargo test"
+        nodejs: "npm test"
+        python: "pytest"
+        ruby: "bundle exec rspec"
+        java-maven: "mvn test -q"
+        java-gradle: "./gradlew test"
+        elixir: "mix test"
+        php: "vendor/bin/phpunit"
+        dart: "dart test"
 ```
 
-**IMPORTANT** : Lancer les 3 checks dans UN SEUL message.
+**Output Multi-Language:**
+
+```
+═══════════════════════════════════════════════════════════════
+   Pre-commit Checks
+═══════════════════════════════════════════════════════════════
+
+  Languages detected: Go, Rust
+
+--- Rust Checks ---
+[CHECK] Rust lint (clippy)...
+[PASS] Rust lint (clippy)
+[CHECK] Rust build...
+[PASS] Rust build
+[CHECK] Rust tests...
+[PASS] Rust tests
+
+--- Go Checks ---
+[CHECK] Go lint (golangci-lint)...
+[PASS] Go lint (golangci-lint)
+[CHECK] Go build...
+[PASS] Go build
+[CHECK] Go tests (with race detection)...
+[PASS] Go tests (with race detection)
+
+═══════════════════════════════════════════════════════════════
+   All pre-commit checks passed
+═══════════════════════════════════════════════════════════════
+```
+
+**IMPORTANT** : Run `.claude/scripts/pre-commit-checks.sh` which auto-detects languages.
 
 ---
 
@@ -507,31 +580,151 @@ URL: https://gitlab.com/<owner>/<repo>/-/merge_requests/42
 
 ## Action: --merge
 
-### Phase 1 : Peek (RLM Pattern)
+### MCP-ONLY Policy (STRICT - Issue #142)
+
+**NEVER use CLI for pipeline status. Always use MCP tools:**
+
+```yaml
+mcp_only_policy:
+  MANDATORY:
+    github:
+      pipeline_status: "mcp__github__get_pull_request"
+      check_runs: "mcp__github__list_check_runs (via pull_request_read)"
+    gitlab:
+      pipeline_status: "mcp__gitlab__list_pipelines"
+      pipeline_jobs: "mcp__gitlab__list_pipeline_jobs"
+
+  FORBIDDEN:
+    - "gh pr checks"
+    - "gh run view"
+    - "glab ci status"
+    - "glab ci view"
+    - "curl api.github.com"
+    - "curl gitlab.com/api"
+
+  rationale: |
+    CLI commands return stale/cached data and require parsing
+    MCP provides structured JSON with real-time status
+```
+
+---
+
+### Phase 1 : Peek + Commit-Pinned Tracking
+
+**CRITICAL: Track pipeline for SPECIFIC commit SHA**
 
 ```yaml
 peek_workflow:
+  0_get_pushed_commit:
+    action: "Get SHA of just-pushed commit"
+    command: "git rev-parse HEAD"
+    store: "pushed_commit_sha"
+    critical: true
+
   1_pr_mr_info:
     action: "Récupérer info PR/MR"
     tools:
       github: mcp__github__get_pull_request
       gitlab: mcp__gitlab__get_merge_request
-    output: "pr_mr_number, status, checks"
+    verify: "head_sha == pushed_commit_sha"
+    output: "pr_mr_number, head_sha, status, checks"
 
-  2_ci_status:
-    action: "Vérifier statut CI"
-    tools:
-      github: mcp__github__get_pull_request_status
-      gitlab: mcp__gitlab__list_pipelines
+  2_find_pipeline:
+    action: "Find pipeline triggered by THIS commit"
+    github: |
+      # Verify: check_run.head_sha == pushed_commit_sha
+      mcp__github__pull_request_read(method="get")
+    gitlab: |
+      # Filter: pipeline.sha == pushed_commit_sha
+      mcp__gitlab__list_pipelines(sha=pushed_commit_sha)
 
-  3_conflicts:
+  3_validate_pipeline:
+    action: "Abort if pipeline not found within 60s"
+    timeout: 60s
+    on_timeout: "ERROR: No pipeline triggered for commit {sha}"
+
+  4_conflicts:
     action: "Vérifier les conflits"
     command: "git fetch && git merge-base..."
 ```
 
+**Output Phase 1:**
+
+```
+═══════════════════════════════════════════════════════════════
+  /git --merge - Pipeline Tracking
+═══════════════════════════════════════════════════════════════
+
+  Commit: abc1234 (verified)
+  PR: #42
+
+  Pipeline found:
+    ├─ ID: 12345
+    ├─ SHA: abc1234 ✓ (matches pushed commit)
+    ├─ Triggered: 15s ago
+    └─ Status: running
+
+═══════════════════════════════════════════════════════════════
+```
+
 ---
 
-### Phase 2 : CI Monitoring avec Backoff Exponentiel
+### Phase 2 : Job-Level Status Parsing (CRITICAL)
+
+**Parse EACH job individually, not overall status:**
+
+```yaml
+status_parsing:
+  github:
+    statuses:
+      success: ["success", "neutral"]
+      pending: ["queued", "in_progress", "waiting", "pending"]
+      failure: ["failure", "action_required", "timed_out"]
+      cancelled: ["cancelled", "stale"]
+      skipped: ["skipped"]
+
+    aggregation_rule: |
+      # CRITICAL: A single failed job = PIPELINE FAILED
+      pipeline_success = ALL jobs in [success, skipped, neutral]
+      pipeline_failure = ANY job in [failure, cancelled, timed_out]
+      pipeline_pending = ANY job in [pending, queued, in_progress]
+
+      # DO NOT report success if any job failed!
+
+  gitlab:
+    statuses:
+      success: ["success", "manual"]
+      pending: ["created", "waiting_for_resource", "preparing", "pending", "running"]
+      failure: ["failed"]
+      cancelled: ["canceled"]
+      skipped: ["skipped"]
+
+job_by_job_output:
+  format: |
+    ═══════════════════════════════════════════════════════════════
+      CI Status - Commit {sha}
+    ═══════════════════════════════════════════════════════════════
+
+      Pipeline: #{id} (triggered {time_ago})
+      Branch:   {branch}
+      Commit:   {sha} ✓ (verified)
+
+      Jobs:
+        ├─ lint      : ✓ passed (45s)
+        ├─ build     : ✓ passed (1m 23s)
+        ├─ test      : ✗ FAILED (2m 15s)    <-- FAILED
+        └─ deploy    : ⊘ skipped
+
+      Overall: ✗ FAILED (1 job failed)
+
+    ═══════════════════════════════════════════════════════════════
+```
+
+---
+
+### Phase 2.5 : CI Monitoring avec Backoff Exponentiel et Hard Timeout
+
+**ABSOLUTE LIMIT: 10 minutes / 30 polls**
 
 ```yaml
 ci_monitoring:
@@ -541,52 +734,32 @@ ci_monitoring:
   # CONFIGURATION
   #---------------------------------------------------------------------------
   config:
-    initial_interval: 10s          # Intervalle initial (compatible gh --interval)
+    initial_interval: 10s          # Intervalle initial
     max_interval: 120s             # Plafonné à 2 minutes
     backoff_multiplier: 1.5        # 10s → 15s → 22s → 33s → 50s → 75s → 112s → 120s
     jitter_percent: 20             # +/- 20% aléatoire (évite thundering herd)
-    timeout: 600s                  # 10 minutes timeout total
+    timeout: 600s                  # 10 minutes HARD timeout total
     max_poll_attempts: 30          # Limite de sécurité
 
   #---------------------------------------------------------------------------
-  # STRATÉGIE DE POLLING (MCP-FIRST)
+  # STRATÉGIE DE POLLING (MCP-ONLY - NO CLI FALLBACK)
   #---------------------------------------------------------------------------
   polling_strategy:
     github:
-      primary:
-        tool: mcp__github__get_pull_request_status
-        params:
-          pull_number: "{pr_number}"
-        response_fields: ["state", "statuses[]", "check_runs[]"]
-      fallback:
-        command: "gh pr checks {pr_number} --watch --interval 10"
+      tool: mcp__github__get_pull_request
+      params:
+        pull_number: "{pr_number}"
+      response_fields: ["state", "statuses[]", "check_runs[]"]
+      # NO FALLBACK - CLI FORBIDDEN
 
     gitlab:
-      primary:
-        tool: mcp__gitlab__list_pipelines
-        params:
-          project_id: "{project_id}"
-          ref: "{branch}"
-          per_page: 1
-        response_fields: ["status", "id", "web_url"]
-      fallback:
-        command: "glab ci status --branch {branch}"
-
-  #---------------------------------------------------------------------------
-  # MAPPING DES STATUTS
-  #---------------------------------------------------------------------------
-  status_mapping:
-    github:
-      SUCCESS: [success, neutral]
-      PENDING: [pending, queued, in_progress, waiting]
-      FAILURE: [failure, action_required, timed_out, cancelled]
-      ERROR: [error, stale]
-
-    gitlab:
-      SUCCESS: [success, manual]
-      PENDING: [created, waiting_for_resource, preparing, pending, running]
-      FAILURE: [failed]
-      ERROR: [canceled, skipped]
+      tool: mcp__gitlab__list_pipelines
+      params:
+        project_id: "{project_id}"
+        ref: "{branch}"
+        per_page: 1
+      response_fields: ["status", "id", "web_url"]
+      # NO FALLBACK - CLI FORBIDDEN
 
   #---------------------------------------------------------------------------
   # ALGORITHME DE BACKOFF EXPONENTIEL
@@ -598,7 +771,7 @@ ci_monitoring:
       attempt = 0
 
       WHILE elapsed < timeout AND attempt < max_poll_attempts:
-        status = poll_ci_status()
+        status = poll_ci_status()  # MCP ONLY
 
         IF status == SUCCESS:
           RETURN {status: "passed", duration: elapsed}
@@ -617,6 +790,32 @@ ci_monitoring:
       RETURN {status: "timeout", duration: elapsed}
 
   #---------------------------------------------------------------------------
+  # ON TIMEOUT
+  #---------------------------------------------------------------------------
+  on_timeout:
+    action: "ABORT immediately"
+    output: |
+      ═══════════════════════════════════════════════════════════════
+        ⛔ Pipeline Timeout
+      ═══════════════════════════════════════════════════════════════
+
+        Waited: 10 minutes
+        Polls:  30 attempts
+        Status: Still pending
+
+        This usually means:
+        - Pipeline is stuck
+        - Pipeline was cancelled externally
+        - Wrong pipeline being monitored
+
+        Actions:
+        1. Check pipeline manually: {pipeline_url}
+        2. Re-run: /git --merge
+        3. Force: /git --merge --skip-ci (if CI is broken)
+
+      ═══════════════════════════════════════════════════════════════
+
+  #---------------------------------------------------------------------------
   # PARALLEL TASKS (pendant le polling)
   #---------------------------------------------------------------------------
   parallel_tasks:
@@ -629,28 +828,28 @@ ci_monitoring:
       on_behind: "git rebase origin/main"
 ```
 
-**Output Phase 2 :**
+**Output Phase 2.5 :**
 
 ```
 ═══════════════════════════════════════════════════════════════
-  /git --merge - CI Monitoring (Phase 2)
+  /git --merge - CI Monitoring (Phase 2.5)
 ═══════════════════════════════════════════════════════════════
 
   PR/MR    : #42 (feat/add-auth)
   Platform : GitHub
-  Timeout  : 10 minutes
+  Timeout  : 10 minutes (HARD LIMIT)
 
-  Polling CI status...
+  Polling CI status (MCP-ONLY)...
     [10:30:15] Poll #1: pending (10s elapsed, next in 10s)
     [10:30:27] Poll #2: running (22s elapsed, next in 15s)
     [10:30:45] Poll #3: running (40s elapsed, next in 22s)
     [10:31:12] Poll #4: running (67s elapsed, next in 33s)
     [10:31:50] ✓ CI PASSED (95s)
 
-  Checks:
-    ├─ build: passed (1m 23s)
-    ├─ test: passed (2m 45s)
-    └─ lint: passed (45s)
+  Job-level verification:
+    ├─ lint: ✓ passed (45s)
+    ├─ build: ✓ passed (1m 23s)
+    └─ test: ✓ passed (2m 45s)
 
   Proceeding to Phase 3...
 
@@ -659,7 +858,66 @@ ci_monitoring:
 
 ---
 
-### Phase 3 : Auto-fix Loop avec Catégories d'Erreurs
+### Phase 3 : Error Log Extraction (on failure)
+
+**When pipeline fails, extract actionable information:**
+
+```yaml
+error_extraction:
+  step_1_identify:
+    action: "Get list of failed jobs"
+    output: "[job_name, job_id, failure_reason]"
+
+  step_2_parse_error:
+    patterns:
+      lint_error:
+        - "eslint.*error"
+        - "golangci-lint"
+        - "clippy::"
+        - "ruff.*error"
+      build_error:
+        - "cannot find module"
+        - "compilation failed"
+        - "cargo build.*error"
+        - "tsc.*error"
+      test_error:
+        - "FAIL.*test"
+        - "AssertionError"
+        - "--- FAIL:"
+        - "pytest.*FAILED"
+      security_error:
+        - "CRITICAL.*vulnerability"
+        - "CVE-"
+        - "HIGH.*severity"
+
+  step_3_generate_debug_plan:
+    output: |
+      ═══════════════════════════════════════════════════════════════
+        Pipeline Failed - Debug Plan
+      ═══════════════════════════════════════════════════════════════
+
+        Failed Job: {job_name}
+        Error Type: {error_type}
+        Exit Code:  {exit_code}
+
+        Error Summary:
+        ┌─────────────────────────────────────────────────────────────
+        │ {error_excerpt_20_lines}
+        └─────────────────────────────────────────────────────────────
+
+        Suggested Actions:
+        1. {action_1_based_on_error_type}
+        2. {action_2_based_on_error_type}
+        3. Run locally: {local_command}
+
+        Next Step: Run `/plan debug {error_type}` to investigate
+
+      ═══════════════════════════════════════════════════════════════
+```
+
+---
+
+### Phase 4 : Auto-fix Loop avec Catégories d'Erreurs
 
 ```yaml
 autofix_loop:
@@ -820,7 +1078,7 @@ autofix_loop:
 
           # Step 6: Attendre cooldown puis re-poll CI
           sleep(cooldown_between_attempts)
-          ci_status = poll_ci_with_backoff()  # Re-use Phase 2
+          ci_status = poll_ci_with_backoff()  # Re-use Phase 2.5
 
           IF ci_status == SUCCESS:
             RETURN success_report(attempt, fix_history)
@@ -890,11 +1148,11 @@ autofix_loop:
       block_merge: true
 ```
 
-**Output Phase 3 (Auto-fix Success) :**
+**Output Phase 4 (Auto-fix Success) :**
 
 ```
 ═══════════════════════════════════════════════════════════════
-  /git --merge - Auto-fix Loop (Phase 3)
+  /git --merge - Auto-fix Loop (Phase 4)
 ═══════════════════════════════════════════════════════════════
 
   Attempt 1/3 - lint_error
@@ -924,12 +1182,12 @@ autofix_loop:
   Commits added: 1
     └─ fix(lint): auto-fix eslint errors in parser.ts
 
-  Proceeding to Phase 4 (Merge)...
+  Proceeding to Phase 5 (Merge)...
 
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output Phase 3 (Security Block) :**
+**Output Phase 4 (Security Block) :**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -960,17 +1218,24 @@ autofix_loop:
 
 ---
 
-### Phase 4 : Synthesize (Merge & Cleanup)
+### Phase 5 : Synthesize (Merge & Cleanup)
 
 ```yaml
 merge_workflow:
-  1_merge:
+  1_final_verify:
+    action: "Verify ALL jobs passed (job-level check)"
+    tools:
+      github: mcp__github__get_pull_request
+      gitlab: mcp__gitlab__get_merge_request
+    condition: "ALL check_runs.conclusion == 'success'"
+
+  2_merge:
     tools:
       github: mcp__github__merge_pull_request
       gitlab: mcp__gitlab__merge_merge_request
     method: "squash"
 
-  2_cleanup:
+  3_cleanup:
     actions:
       - "git push origin --delete <branch>"
       - "git branch -D <branch>"
@@ -988,7 +1253,15 @@ merge_workflow:
   Branch  : feat/add-auth → main
   Method  : squash
   Rebase  : ✓ Synced (was 3 commits behind)
-  CI      : ✓ Passed (2m 34s)
+
+  CI (job-level verification):
+    ├─ lint      : ✓ passed
+    ├─ build     : ✓ passed
+    ├─ test      : ✓ passed
+    └─ security  : ✓ passed
+
+  Total CI Time: 2m 34s
+
   Commits : 5 commits → 1 squashed
 
   Cleanup:
@@ -1050,6 +1323,10 @@ merge_workflow:
 | Push sans --force-with-lease | ❌ **INTERDIT** | Sécurité |
 | Mentions IA dans commits | ❌ **INTERDIT** | Discrétion |
 | Commit sans identité validée | ❌ **INTERDIT** | Traçabilité |
+| CLI for CI status | ❌ **INTERDIT** | MCP-ONLY policy |
+| Report success if ANY job failed | ❌ **INTERDIT** | Job-level parsing |
+| Wait > 10 min for pipeline | ❌ **INTERDIT** | Hard timeout |
+| Monitor wrong commit's pipeline | ❌ **INTERDIT** | Commit-pinned tracking |
 
 ### Auto-fix Safeguards
 
@@ -1071,12 +1348,36 @@ merge_workflow:
 | Cooldown entre tentatives | 30s | Laisser CI démarrer |
 | Jitter polling | ±20% | Éviter thundering herd |
 
+### CLI Commands FORBIDDEN for CI Monitoring
+
+```yaml
+forbidden_cli:
+  github:
+    - "gh pr checks"
+    - "gh run view"
+    - "gh run list"
+    - "gh api repos/.../check-runs"
+  gitlab:
+    - "glab ci status"
+    - "glab ci view"
+    - "glab pipeline status"
+  generic:
+    - "curl *api.github.com*"
+    - "curl *gitlab.com/api*"
+
+required_mcp:
+  github: "mcp__github__get_pull_request, mcp__github__pull_request_read"
+  gitlab: "mcp__gitlab__list_pipelines, mcp__gitlab__list_pipeline_jobs"
+```
+
 ### Parallélisation légitime
 
 | Élément | Parallèle? | Raison |
 |---------|------------|--------|
 | Pré-commit checks (lint+test+build) | ✅ Parallèle | Indépendants |
+| Language checks (Go+Rust+Node) | ✅ Parallèle | Indépendants |
 | CI polling + conflict check | ✅ Parallèle | Indépendants |
 | Opérations git (branch→commit→push→PR) | ❌ Séquentiel | Chaîne de dépendances |
 | Tentatives auto-fix | ❌ Séquentiel | Dépend du résultat CI |
 | CI checks en attente | ❌ Séquentiel | Attendre résultat |
+| Pipeline polling | ❌ Séquentiel | État change entre polls |
