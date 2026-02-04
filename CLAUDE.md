@@ -275,30 +275,20 @@ script: ".claude/scripts/pre-commit-checks.sh"
 
 ## Project-Specific Commands
 
-### /improve - Continuous Documentation Enhancement (RLM Multi-Agent)
+### /improve - Continuous Enhancement (RLM Multi-Agent)
 
-Skill d'amélioration continue avec deux modes selon le projet :
-
-| Mode | Projet | Action |
-|------|--------|--------|
-| **DOCS** | devcontainer-template | Améliore `.claude/docs/` (MAJ, cohérence, best practices) |
-| **ANTI-PATTERN** | Autres projets | Détecte violations, crée issues sur le template |
+Amélioration continue automatique. **Pas d'arguments** - détecte le contexte et agit.
 
 ```
-/improve --help            # Afficher l'aide
-/improve                   # Audit complet (mode auto-détecté)
-/improve --check           # Dry-run (sans modification)
-/improve --fix             # Corriger automatiquement
-/improve --missing         # Patterns manquants
-/improve --category <name> # Auditer une catégorie
-/improve --issues          # Créer issues GitHub uniquement
-/improve --report          # Générer rapport détaillé
+/improve
 ```
 
-**RLM Patterns :** Partition+Map (1 agent par .md), WebSearch (MAJ best practices), Cross-Reference
+| Contexte | Action |
+|----------|--------|
+| `kodflow/devcontainer-template` | Améliore `.claude/docs/` (MAJ best practices, cohérence) |
+| Autre projet | Détecte anti-patterns → crée issues sur le template |
 
-Cible docs : `/workspace/.devcontainer/images/.claude/docs/`
-Cible issues : `github.com/kodflow/devcontainer-template/issues`
+**RLM :** 1 agent par fichier (parallèle), WebSearch validation
 
 ## Context Hierarchy (Funnel Documentation)
 
