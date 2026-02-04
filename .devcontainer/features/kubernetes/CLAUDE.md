@@ -6,34 +6,25 @@ Local Kubernetes development using kind (Kubernetes in Docker).
 
 ## Components
 
-| Tool | Version | Description |
-|------|---------|-------------|
-| kind | latest | Kubernetes clusters in Docker |
-| kubectl | latest | Kubernetes CLI |
-| Helm | latest | Package manager for K8s |
+| Tool | Description |
+|------|-------------|
+| kind | Kubernetes clusters in Docker |
+| kubectl | Kubernetes CLI |
+| Helm | Package manager |
 
 ## Quick Start
 
 ```bash
-# Create a cluster
-kind create cluster --name dev
-
-# Check cluster
-kubectl cluster-info
-kubectl get nodes
-
-# Delete cluster
-kind delete cluster --name dev
+kind create cluster --name dev    # Create
+kubectl cluster-info              # Check
+kind delete cluster --name dev    # Delete
 ```
 
 ## Configuration
 
-Enable in `devcontainer.json`:
-
 ```json
 "features": {
   "./features/kubernetes": {
-    "kindVersion": "latest",
     "enableHelm": true,
     "enableRegistry": true
   }
@@ -48,24 +39,20 @@ Enable in `devcontainer.json`:
 | `kubectlVersion` | latest | kubectl version |
 | `helmVersion` | latest | Helm version |
 | `enableHelm` | true | Install Helm |
-| `enableRegistry` | true | Local registry on :5001 |
+| `enableRegistry` | true | Local registry :5001 |
 | `clusterName` | dev | Default cluster name |
 
 ## Advanced Usage
 
-### Custom Cluster Config
+### Custom Cluster
 
 ```bash
-# Use provided config
-kind create cluster --config /workspace/.devcontainer/features/kubernetes/kind-config.yaml
-
-# Multi-node cluster
+# Multi-node
 kind create cluster --config - <<EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
-- role: worker
 - role: worker
 EOF
 ```
@@ -73,34 +60,21 @@ EOF
 ### Local Registry
 
 ```bash
-# Push image to local registry
-docker tag myapp:latest localhost:5001/myapp:latest
-docker push localhost:5001/myapp:latest
-
-# Use in K8s
-kubectl create deployment myapp --image=localhost:5001/myapp:latest
+docker tag myapp localhost:5001/myapp && docker push localhost:5001/myapp
+kubectl create deployment myapp --image=localhost:5001/myapp
 ```
 
-### Helm Charts
+### Helm
 
 ```bash
-# Add repo
 helm repo add bitnami https://charts.bitnami.com/bitnami
-
-# Install chart
 helm install myrelease bitnami/nginx
-
-# List releases
-helm list
 ```
 
 ## CI Integration
 
-For GitHub Actions, kind works out of the box:
-
 ```yaml
-- name: Create kind cluster
-  uses: helm/kind-action@v1
+- uses: helm/kind-action@v1
   with:
     cluster_name: test
 ```
