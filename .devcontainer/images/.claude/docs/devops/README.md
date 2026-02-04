@@ -6,6 +6,8 @@ Stratégies de déploiement et pratiques d'infrastructure moderne.
 
 ## Fichiers
 
+### Stratégies de déploiement
+
 | Fichier | Contenu | Usage |
 |---------|---------|-------|
 | [gitops.md](gitops.md) | Git comme source de vérité | Déploiement déclaratif |
@@ -16,6 +18,16 @@ Stratégies de déploiement et pratiques d'infrastructure moderne.
 | [rolling-update.md](rolling-update.md) | Rolling Update | Mise à jour progressive |
 | [immutable-infrastructure.md](immutable-infrastructure.md) | Infrastructure immuable | Serveurs jetables |
 | [ab-testing.md](ab-testing.md) | A/B Testing | Expérimentation |
+
+### Infrastructure & Outils
+
+| Fichier | Contenu | Usage |
+|---------|---------|-------|
+| [vault-patterns.md](vault-patterns.md) | HashiCorp Vault | PKI, VSO, AppRole |
+| [terragrunt-patterns.md](terragrunt-patterns.md) | Terragrunt | Multi-environment IaC |
+| [terraform-documentation.md](terraform-documentation.md) | Terraform docs | Structure & terraform-docs |
+| [cilium-l2-loadbalancer.md](cilium-l2-loadbalancer.md) | Cilium CNI | L2 LoadBalancer bare-metal |
+| [ansible-roles-structure.md](ansible-roles-structure.md) | Ansible roles | Validate-first pattern |
 
 ---
 
