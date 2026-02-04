@@ -38,6 +38,16 @@
 | Acces temporaire securise | Valet Key | [valet-key.md](valet-key.md) |
 | Assets statiques | Static Content Hosting | [static-content-hosting.md](static-content-hosting.md) |
 | Migration progressive | Strangler Fig | [strangler-fig.md](strangler-fig.md) |
+| Cross-cutting concerns | Ambassador | [ambassador.md](ambassador.md) |
+| Payloads volumineux | Claim Check | [claim-check.md](claim-check.md) |
+| Annulation transactions | Compensating Transaction | [compensating-transaction.md](compensating-transaction.md) |
+| Optimisation ressources | Compute Resource Consolidation | [compute-resource-consolidation.md](compute-resource-consolidation.md) |
+| Configuration externe | External Configuration | [external-configuration.md](external-configuration.md) |
+| Multiples appels backend | Gateway Aggregation | [gateway-aggregation.md](gateway-aggregation.md) |
+| Decharge gateway | Gateway Offloading | [gateway-offloading.md](gateway-offloading.md) |
+| Routage intelligent | Gateway Routing | [gateway-routing.md](gateway-routing.md) |
+| Deploiement geographique | Geode | [geode.md](geode.md) |
+| Actions distribuees | Scheduler Agent Supervisor | [scheduler-agent-supervisor.md](scheduler-agent-supervisor.md) |
 
 ## Categories
 
@@ -49,6 +59,8 @@
 | **Saga** | Transactions distribuees avec compensation | E-commerce multi-services |
 | **Retry** | Reessaie les operations transitoires | Erreurs reseau temporaires |
 | **Bulkhead** | Isole les ressources par domaine | Eviter contamination |
+| **Compensating Transaction** | Annule operations distribuees | Rollback multi-services |
+| **Scheduler Agent Supervisor** | Coordonne actions distribuees | Workflows complexes |
 
 ### Gestion des donnees
 
@@ -59,6 +71,8 @@
 | **Materialized View** | Vues pre-calculees | Queries analytiques |
 | **CQRS** | Separation read/write | Domaines complexes |
 | **Event Sourcing** | Historique evenementiel | Audit, replay |
+| **Claim Check** | Separe message du payload | Messages volumineux |
+| **External Configuration** | Configuration externalisee | Multi-environnements |
 
 ### Messaging et queues
 
@@ -67,6 +81,23 @@
 | **Priority Queue** | Traitement par priorite | SLA differencies |
 | **Queue Load Leveling** | Lissage de charge | Pics previsibles |
 | **Competing Consumers** | Parallelisation traitement | Scalabilite horizontale |
+
+### Gateway patterns
+
+| Pattern | Description | Cas d'usage |
+|---------|-------------|-------------|
+| **Ambassador** | Proxy sidecar cross-cutting | Logging, retry, circuit breaking |
+| **Gateway Aggregation** | Agrege requetes backend | Reduire latence client |
+| **Gateway Offloading** | Decharge fonctions partagees | SSL, auth, compression |
+| **Gateway Routing** | Route vers backends | Microservices facade |
+
+### Infrastructure et scalabilite
+
+| Pattern | Description | Cas d'usage |
+|---------|-------------|-------------|
+| **Compute Resource Consolidation** | Optimise utilisation ressources | Reduction couts cloud |
+| **Geode** | Deploiement geographique | Latence globale |
+| **Leader Election** | Coordination cluster | Instance maitre unique |
 
 ### Securite et acces
 

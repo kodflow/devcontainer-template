@@ -144,6 +144,145 @@ echo "Traffic now routing to $NEW"
 kubectl get svc myapp -o wide
 ```
 
+## Implémentation Go
+
+```go
+package bluegreen
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync/atomic"
+	"time"
+)
+
+// Environment représente un environnement Blue ou Green.
+type Environment string
+
+const (
+	Blue  Environment = "blue"
+	Green Environment = "green"
+)
+
+// Deployment représente un déploiement dans un environnement.
+type Deployment struct {
+	Env       Environment
+	Version   string
+	Healthy   bool
+	Instances int
+}
+
+// BlueGreenController gère le basculement entre environnements.
+type BlueGreenController struct {
+	blue    atomic.Pointer[Deployment]
+	green   atomic.Pointer[Deployment]
+	active  atomic.Value // Environment
+	router  Router
+	checker HealthChecker
+}
+
+// Router définit l'interface de routage du trafic.
+type Router interface {
+	SwitchTo(ctx context.Context, env Environment) error
+	GetActiveEnvironment(ctx context.Context) (Environment, error)
+}
+
+// HealthChecker vérifie la santé d'un déploiement.
+type HealthChecker interface {
+	Check(ctx context.Context, env Environment) (bool, error)
+}
+
+// NewController crée un nouveau contrôleur Blue-Green.
+func NewController(router Router, checker HealthChecker) *BlueGreenController {
+	c := &BlueGreenController{
+		router:  router,
+		checker: checker,
+	}
+	c.active.Store(Blue)
+	return c
+}
+
+// Deploy déploie une nouvelle version sur l'environnement inactif.
+func (c *BlueGreenController) Deploy(ctx context.Context, version string) error {
+	inactive := c.getInactiveEnv()
+
+	deployment := &Deployment{
+		Env:       inactive,
+		Version:   version,
+		Instances: 3,
+	}
+
+	// Stocker le déploiement
+	if inactive == Blue {
+		c.blue.Store(deployment)
+	} else {
+		c.green.Store(deployment)
+	}
+
+	// Attendre que l'environnement soit healthy
+	if err := c.waitHealthy(ctx, inactive); err != nil {
+		return fmt.Errorf("deployment unhealthy: %w", err)
+	}
+
+	return nil
+}
+
+// Switch bascule le trafic vers l'environnement inactif.
+func (c *BlueGreenController) Switch(ctx context.Context) error {
+	inactive := c.getInactiveEnv()
+
+	// Vérifier la santé avant switch
+	healthy, err := c.checker.Check(ctx, inactive)
+	if err != nil {
+		return fmt.Errorf("health check failed: %w", err)
+	}
+	if !healthy {
+		return errors.New("cannot switch: target environment unhealthy")
+	}
+
+	// Basculer le trafic
+	if err := c.router.SwitchTo(ctx, inactive); err != nil {
+		return fmt.Errorf("router switch failed: %w", err)
+	}
+
+	c.active.Store(inactive)
+	return nil
+}
+
+// Rollback revient à l'environnement précédent.
+func (c *BlueGreenController) Rollback(ctx context.Context) error {
+	return c.Switch(ctx) // Switch inverse automatiquement
+}
+
+func (c *BlueGreenController) getInactiveEnv() Environment {
+	if c.active.Load().(Environment) == Blue {
+		return Green
+	}
+	return Blue
+}
+
+func (c *BlueGreenController) waitHealthy(ctx context.Context, env Environment) error {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			healthy, err := c.checker.Check(ctx, env)
+			if err != nil {
+				continue
+			}
+			if healthy {
+				return nil
+			}
+		}
+	}
+}
+```
+
 ## Gestion de la base de données
 
 ### Option 1: Base partagée (simple)
