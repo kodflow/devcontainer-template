@@ -2,78 +2,142 @@
 
 ## Purpose
 
-Docker base image with development tools. Claude Code + MCP servers included.
+Docker base image with all development tools pre-installed.
+Claude Code and MCP servers are included; languages added via features.
 
 ## Structure
 
 ```text
 .devcontainer/images/
-├── Dockerfile          # Base image
-├── docker-compose.yml  # Services
-├── mcp.json.tpl        # MCP config template
-└── .claude/            # Claude Code config
-    ├── commands/       # Skills (/git, /review, etc.)
+├── Dockerfile          # Base image definition
+├── docker-compose.yml  # Service composition
+├── mcp.json.tpl        # MCP server template
+├── .p10k.zsh           # Powerlevel10k config
+└── .claude/            # Claude Code configuration
+    ├── commands/       # Slash commands (/git, /review, etc.)
     ├── scripts/        # Hook scripts
     ├── agents/         # Agent definitions
-    └── docs/           # 300+ Design Patterns
+    ├── docs/           # Design Patterns Knowledge Base (250+ patterns)
+    └── settings.json   # Claude settings
 ```
 
-## Container Paths
+## Container Paths (Runtime)
 
-| Source | Container | Backup |
-|--------|-----------|--------|
-| `.claude/` | `~/.claude/` | `/etc/claude-defaults/` |
+| Source (Build) | Container Path | Backup Location |
+|----------------|----------------|-----------------|
+| `.claude/` | `/home/vscode/.claude/` | `/etc/claude-defaults/` |
+| `.claude/commands/` | `~/.claude/commands/` | `/etc/claude-defaults/commands/` |
+| `.claude/scripts/` | `~/.claude/scripts/` | `/etc/claude-defaults/scripts/` |
+| `.claude/agents/` | `~/.claude/agents/` | `/etc/claude-defaults/agents/` |
+| `.claude/docs/` | `~/.claude/docs/` | `/etc/claude-defaults/docs/` |
 | `mcp.json.tpl` | `/etc/mcp/mcp.json.tpl` | - |
 
-**Note:** Files restored from backup at container start via `postStart.sh`.
+**Note:** Files are restored from `/etc/claude-defaults/` at each container start via `postStart.sh`.
+
+## Design Patterns Knowledge Base
+
+**Container Location:** `~/.claude/docs/` (restored at startup)
+
+Base de connaissances exhaustive de 250+ design patterns, consultée automatiquement par les skills `/plan` et `/review`.
+
+| Category | Patterns | Examples |
+|----------|----------|----------|
+| GoF (23) | creational, structural, behavioral | Factory, Observer, Strategy |
+| Performance (12) | performance/ | Object Pool, Cache, Lazy Load |
+| Concurrency (15) | concurrency/ | Thread Pool, Actor, Mutex |
+| Enterprise (40+) | enterprise/ | PoEAA (Martin Fowler) |
+| Messaging (31) | messaging/ | EIP patterns |
+| DDD (14) | ddd/ | Aggregate, Repository, Entity |
+| Functional (15) | functional/ | Monad, Either, Lens |
+| Security (12) | security/ | OAuth, JWT, RBAC |
+| Testing (15) | testing/ | Mock, Stub, Fixture |
+
+**Usage par les agents :** Voir `.claude/docs/CLAUDE.md`
 
 ## Installed Tools
 
 | Category | Tools |
 |----------|-------|
-| Cloud | AWS, GCP, Azure, 1Password |
-| IaC | Terraform, Vault, Consul, Ansible |
-| Container | kubectl, Helm |
-| Quality | ShellCheck, ktn-linter, grepai |
+| Cloud CLIs | AWS, GCP, Azure, 1Password |
+| IaC | Terraform, Vault, Consul, Nomad, Packer, Ansible |
+| Container | Docker (via feature), kubectl, Helm |
+| Code Quality | ShellCheck, ktn-linter, grepai |
+| Shell | Zsh + Oh My Zsh + Powerlevel10k |
 
-## MCP Servers
+## MCP Servers (Runtime)
 
-| Server | Usage | Auth |
-|--------|-------|------|
-| grepai | Semantic search, call graphs | None |
-| context7 | Library documentation | None |
-| GitHub | PR, Issues, Repos | `GITHUB_TOKEN` |
-| GitLab | MR, Issues, Pipelines | `GITLAB_TOKEN` |
-| Codacy | Code quality | `CODACY_TOKEN` |
-| Playwright | Browser automation | None |
+Configured in `mcp.json.tpl`:
 
-**grepai tools:** `grepai_search`, `grepai_trace_callers`, `grepai_trace_callees`, `grepai_trace_graph`
+| Server | Package | Usage | Auth |
+|--------|---------|-------|------|
+| **grepai** | `grepai` (binary) | Semantic code search, Call graph | None (local) |
+| **context7** | `@upstash/context7-mcp` | Up-to-date documentation for prompts | None (rate-limited) |
+| **GitHub** | `ghcr.io/github/github-mcp-server` (Docker) | PR, Issues, Repos | `GITHUB_TOKEN` |
+| **GitLab** | `@zereight/mcp-gitlab` | MR, Issues, Pipelines, Wiki | `GITLAB_TOKEN` |
+| **Codacy** | `@codacy/codacy-mcp` | Code quality, Security | `CODACY_TOKEN` |
+| **Playwright** | `@playwright/mcp` | Browser automation, E2E tests | None |
 
-## Skills
+**grepai tools (MANDATORY - use instead of Grep):**
+
+| Tool | Description | Use Case |
+|------|-------------|----------|
+| `grepai_search` | Semantic code search | Natural language queries |
+| `grepai_trace_callers` | Find function callers | Impact analysis |
+| `grepai_trace_callees` | Find called functions | Dependency analysis |
+| `grepai_trace_graph` | Build call graph | Architecture understanding |
+| `grepai_index_status` | Check index health | Debugging |
+
+**GitLab tools (when GITLAB_TOKEN configured):**
+
+| Tool | Description | Use Case |
+|------|-------------|----------|
+| `gitlab_list_projects` | List accessible projects | Project discovery |
+| `gitlab_get_project` | Get project details | Project info |
+| `gitlab_list_merge_requests` | List MRs | Code review |
+| `gitlab_get_merge_request` | Get MR details | Review analysis |
+| `gitlab_list_issues` | List project issues | Issue tracking |
+| `gitlab_list_pipelines` | List CI pipelines | CI/CD status |
+
+**GitLab env vars:** `GITLAB_TOKEN`, `GITLAB_API_URL` (default: gitlab.com)
+
+**Context7 usage:** Add "use context7" in prompts to fetch up-to-date documentation.
+
+**Playwright capabilities:** `core`, `pdf`, `testing`, `tracing` (headless mode)
+
+## Skills (Slash Commands)
 
 | Skill | Description |
 |-------|-------------|
-| `/git` | Branch + commit + PR |
-| `/plan` | Planning mode |
-| `/do` | Iterative execution |
-| `/review` | Code review RLM |
-| `/improve` | Docs enhancement |
-| `/search` | Documentation research |
-| `/test` | E2E with Playwright |
-| `/infra` | Terraform/Terragrunt |
-| `/warmup` | Context pre-loading |
+| `/do` | Ralph Wiggum iterative loop - persistent task execution |
+| `/git` | Workflow Git automation (commit, push, PR, merge) |
+| `/plan` | Planning mode for implementation strategy |
+| `/apply` | Execute a validated plan |
+| `/review` | AI-powered code review (RLM decomposition) |
+| `/search` | Documentation research with official sources |
+| `/test` | E2E testing with Playwright MCP |
+| `/init` | Project initialization check |
+| `/update` | DevContainer update from template |
+| `/infra` | Infrastructure automation (Terraform/Terragrunt) |
+| `/improve` | Continuous docs enhancement & anti-pattern detection |
 
 ## Hooks
 
-| Hook | Action |
-|------|--------|
-| `commit-validate.sh` | Block AI mentions |
-| `security.sh` | Secret detection |
-| `pre-validate.sh` | Protect files |
-| `post-edit.sh` | Format + Lint |
-| `test.sh` | Run tests |
+| Hook | Trigger | Action |
+|------|---------|--------|
+| `commit-validate.sh` | PreToolUse (Bash) | Block AI mentions in commits |
+| `security.sh` | PreToolUse (Bash) + PostToolUse (Write/Edit) | Secret detection on commit + edit |
+| `pre-validate.sh` | PreToolUse (Write/Edit) | Protect sensitive files |
+| `post-edit.sh` | PostToolUse (Write/Edit) | Format + Lint + Typecheck |
+| `test.sh` | PostToolUse (Write/Edit) | Run related tests |
+| `post-compact.sh` | SessionStart (compact) | Restore RLM context rules
 
-**Makefile-first:** Hooks use `make fmt/lint/test FILE=<path>` if available.
+**Makefile-first pattern:** All scripts (format, lint, typecheck, test) check for Makefile targets first:
+- `make fmt FILE=<path>` or `make format FILE=<path>`
+- `make lint FILE=<path>`
+- `make typecheck FILE=<path>`
+- `make test FILE=<path>`
+
+Falls back to direct tool invocation (prettier, eslint, ruff, etc.) if no Makefile target exists.
 
 ## Build
 
