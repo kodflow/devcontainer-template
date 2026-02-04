@@ -123,6 +123,109 @@ API_URL: "https://api.github.com/repos/${REPO}/contents"
 
 ---
 
+## Phase 0 : Environment Detection (NEW)
+
+**MANDATORY: Detect execution context before any operation.**
+
+```yaml
+environment_detection:
+  1_container_check:
+    action: "Detect if running inside container"
+    method: "[ -f /.dockerenv ]"
+    output: "IS_CONTAINER (true|false)"
+
+  2_devcontainer_check:
+    action: "Check DEVCONTAINER env var"
+    method: "[ -n \"${DEVCONTAINER:-}\" ]"
+    note: "Set by VS Code when attached to devcontainer"
+
+  3_determine_target:
+    container_mode:
+      target: "/workspace/.devcontainer/images/.claude"
+      behavior: "Update template source (requires rebuild)"
+      propagation: "Changes applied at next container start"
+
+    host_mode:
+      target: "$HOME/.claude"
+      behavior: "Update user Claude configuration"
+      propagation: "Immediate (no rebuild needed)"
+
+  4_display_context:
+    output: |
+      Environment: {CONTAINER|HOST}
+      Update target: {path}
+      Mode: {template|user}
+```
+
+**Implementation:**
+
+```bash
+# Detect environment context
+detect_context() {
+    # Check if running inside container
+    if [ -f /.dockerenv ]; then
+        CONTEXT="container"
+        UPDATE_TARGET="/workspace/.devcontainer/images/.claude"
+        echo "Detected: Container environment"
+    else
+        CONTEXT="host"
+        UPDATE_TARGET="$HOME/.claude"
+        echo "Detected: Host machine"
+    fi
+
+    # Additional checks
+    if [ -n "${DEVCONTAINER:-}" ]; then
+        echo "  (DevContainer detected via DEVCONTAINER env var)"
+    fi
+
+    echo "Update target: $UPDATE_TARGET"
+    echo "Mode: $CONTEXT"
+}
+
+# Call at start of update
+detect_context
+```
+
+**Output Phase 0:**
+
+```
+═══════════════════════════════════════════════
+  /update - Environment Detection
+═══════════════════════════════════════════════
+
+  Environment: HOST MACHINE
+  Update target: /home/user/.claude
+  Mode: user configuration
+
+  Changes will be:
+    - Applied immediately
+    - No container rebuild needed
+    - Synced to container via postStart.sh
+
+═══════════════════════════════════════════════
+```
+
+Or in container:
+
+```
+═══════════════════════════════════════════════
+  /update - Environment Detection
+═══════════════════════════════════════════════
+
+  Environment: DEVCONTAINER
+  Update target: /workspace/.devcontainer/images/.claude
+  Mode: template source
+
+  Changes will be:
+    - Applied to template files
+    - Require container rebuild to propagate
+    - Or wait for next postStart.sh sync
+
+═══════════════════════════════════════════════
+```
+
+---
+
 ## Phase 1 : Peek (Version Check)
 
 ```yaml
@@ -733,13 +836,35 @@ validate_hook_scripts() {
 
 ```bash
 #!/bin/bash
-# /update implementation - API-FIRST with validation
+# /update implementation - API-FIRST with validation + Environment Detection
 
 set -euo pipefail
 set +H  # Disable bash history expansion (! in YAML causes errors)
 
 BASE="https://raw.githubusercontent.com/kodflow/devcontainer-template/main"
 API="https://api.github.com/repos/kodflow/devcontainer-template/contents"
+
+# Environment detection function (Phase 0)
+detect_context() {
+    # Check if running inside container
+    if [ -f /.dockerenv ]; then
+        CONTEXT="container"
+        UPDATE_TARGET="/workspace/.devcontainer/images/.claude"
+        echo "Detected: Container environment"
+    else
+        CONTEXT="host"
+        UPDATE_TARGET="$HOME/.claude"
+        echo "Detected: Host machine"
+    fi
+
+    # Additional checks
+    if [ -n "${DEVCONTAINER:-}" ]; then
+        echo "  (DevContainer detected via DEVCONTAINER env var)"
+    fi
+
+    echo "Update target: $UPDATE_TARGET"
+    echo "Mode: $CONTEXT"
+}
 
 # Safe download function
 safe_download() {
@@ -857,13 +982,17 @@ echo "  /update - DevContainer Environment Update"
 echo "═══════════════════════════════════════════════"
 echo ""
 
+# Phase 0: Environment Detection
+detect_context
+echo ""
+
 # Hooks
 echo "Updating hooks..."
 SCRIPTS=$(curl -sL "$API/.devcontainer/images/.claude/scripts" | jq -r '.[].name' | grep '\.sh$' || true)
 for script in $SCRIPTS; do
     safe_download "$BASE/.devcontainer/images/.claude/scripts/$script" \
-                  ".devcontainer/images/.claude/scripts/$script" \
-    && chmod +x ".devcontainer/images/.claude/scripts/$script"
+                  "$UPDATE_TARGET/scripts/$script" \
+    && chmod +x "$UPDATE_TARGET/scripts/$script"
 done
 
 # Commands
@@ -872,43 +1001,48 @@ echo "Updating commands..."
 COMMANDS=$(curl -sL "$API/.devcontainer/images/.claude/commands" | jq -r '.[].name' | grep '\.md$' || true)
 for cmd in $COMMANDS; do
     safe_download "$BASE/.devcontainer/images/.claude/commands/$cmd" \
-                  ".devcontainer/images/.claude/commands/$cmd"
+                  "$UPDATE_TARGET/commands/$cmd"
 done
 
 # Agents
 echo ""
 echo "Updating agents..."
-mkdir -p ".devcontainer/images/.claude/agents"
+mkdir -p "$UPDATE_TARGET/agents"
 AGENTS=$(curl -sL "$API/.devcontainer/images/.claude/agents" | jq -r '.[].name' | grep '\.md$' || true)
 for agent in $AGENTS; do
     safe_download "$BASE/.devcontainer/images/.claude/agents/$agent" \
-                  ".devcontainer/images/.claude/agents/$agent"
+                  "$UPDATE_TARGET/agents/$agent"
 done
 
-# Lifecycle
-echo ""
-echo "Updating lifecycle hooks..."
-mkdir -p ".devcontainer/hooks/lifecycle"
-LIFECYCLE=$(curl -sL "$API/.devcontainer/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' || true)
-for hook in $LIFECYCLE; do
-    safe_download "$BASE/.devcontainer/hooks/lifecycle/$hook" \
-                  ".devcontainer/hooks/lifecycle/$hook" \
-    && chmod +x ".devcontainer/hooks/lifecycle/$hook"
-done
+# Lifecycle (only in container mode - skip on host)
+if [ "$CONTEXT" = "container" ]; then
+    echo ""
+    echo "Updating lifecycle hooks..."
+    mkdir -p ".devcontainer/hooks/lifecycle"
+    LIFECYCLE=$(curl -sL "$API/.devcontainer/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' || true)
+    for hook in $LIFECYCLE; do
+        safe_download "$BASE/.devcontainer/hooks/lifecycle/$hook" \
+                      ".devcontainer/hooks/lifecycle/$hook" \
+        && chmod +x ".devcontainer/hooks/lifecycle/$hook"
+    done
+fi
 
 # Config files
 echo ""
 echo "Updating config files..."
-safe_download "$BASE/.devcontainer/images/.p10k.zsh" ".devcontainer/images/.p10k.zsh"
-safe_download "$BASE/.devcontainer/images/.claude/settings.json" ".devcontainer/images/.claude/settings.json"
+if [ "$CONTEXT" = "container" ]; then
+    safe_download "$BASE/.devcontainer/images/.p10k.zsh" ".devcontainer/images/.p10k.zsh"
+fi
+safe_download "$BASE/.devcontainer/images/.claude/settings.json" "$UPDATE_TARGET/settings.json"
 
-# Docker compose (update devcontainer service, PRESERVE custom services)
-# Note: Uses mikefarah/yq (Go version) - simpler syntax with -i for in-place
-# Ollama runs on HOST (installed via initialize.sh), not in container
-echo ""
-echo "Updating docker-compose.yml..."
+# Docker compose (only in container mode - not applicable on host)
+if [ "$CONTEXT" = "container" ]; then
+    # Note: Uses mikefarah/yq (Go version) - simpler syntax with -i for in-place
+    # Ollama runs on HOST (installed via initialize.sh), not in container
+    echo ""
+    echo "Updating docker-compose.yml..."
 
-update_compose_services() {
+    update_compose_services() {
     local compose_file=".devcontainer/docker-compose.yml"
     local temp_template=$(mktemp --suffix=.yaml)
     local temp_custom=$(mktemp --suffix=.yaml)
@@ -969,20 +1103,21 @@ update_compose_services() {
     fi
 }
 
-if [ ! -f ".devcontainer/docker-compose.yml" ]; then
-    echo "  No docker-compose.yml found, downloading template..."
-    safe_download "$BASE/.devcontainer/docker-compose.yml" ".devcontainer/docker-compose.yml"
-else
-    echo "  Updating devcontainer service..."
-    update_compose_services
-fi
+    if [ ! -f ".devcontainer/docker-compose.yml" ]; then
+        echo "  No docker-compose.yml found, downloading template..."
+        safe_download "$BASE/.devcontainer/docker-compose.yml" ".devcontainer/docker-compose.yml"
+    else
+        echo "  Updating devcontainer service..."
+        update_compose_services
+    fi
 
-# Grepai config
-echo ""
-echo "Updating grepai config..."
-safe_download "$BASE/.devcontainer/images/grepai.config.yaml" ".devcontainer/images/grepai.config.yaml"
+    # Grepai config
+    echo ""
+    echo "Updating grepai config..."
+    safe_download "$BASE/.devcontainer/images/grepai.config.yaml" ".devcontainer/images/grepai.config.yaml"
+fi  # End container-only updates
 
-# Phase 5: Synchronize user hooks
+# Phase 5: Synchronize user hooks (both container and host)
 echo ""
 echo "Phase 5: Synchronizing user hooks..."
 sync_user_hooks
@@ -995,10 +1130,17 @@ validate_hook_scripts
 # Version
 COMMIT=$(curl -sL "https://api.github.com/repos/kodflow/devcontainer-template/commits/main" | jq -r '.sha[:7]')
 DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.template-version
+
+if [ "$CONTEXT" = "container" ]; then
+    echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.template-version
+else
+    echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > "$UPDATE_TARGET/.template-version"
+fi
 
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "  ✓ Update complete - version: $COMMIT"
+echo "  Context: $CONTEXT"
+echo "  Target: $UPDATE_TARGET"
 echo "═══════════════════════════════════════════════"
 ```
