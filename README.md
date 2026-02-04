@@ -2,6 +2,54 @@
 
 Template DevContainer complet pour le développement avec Claude Code et tous les outils DevOps/Cloud essentiels.
 
+## Installation Rapide
+
+### One-Liner (Machine Hôte ou Projet Existant)
+
+Installez Claude Code avec **TOUS les assets** (35 agents, 11 commands, 11 scripts, 155+ patterns) en une seule commande :
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/install.sh | bash
+```
+
+**Ce qui est installé :**
+- ✅ Claude CLI (si pas déjà installé)
+- ✅ 35 agents spécialisés (Go, Python, Rust, Node.js, etc.)
+- ✅ 11 commandes slash (`/git`, `/review`, `/plan`, `/do`, etc.)
+- ✅ 11 scripts de hooks (security, lint, format, test)
+- ✅ 155+ design patterns (GoF, Cloud, DDD, Enterprise)
+- ✅ Outils additionnels (grepai, status-line)
+
+**Total :** 239 fichiers (~3.2MB) en 1-2 minutes
+
+**Installation minimale (sans documentation) :**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/install.sh | bash -s -- --minimal
+```
+
+**Installation avec target personnalisé :**
+
+```bash
+DC_TARGET=/path/to/project curl -fsSL https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/install.sh | bash
+```
+
+**Emplacements d'installation :**
+- **Machine hôte :** `~/.claude/`
+- **DevContainer :** `/workspace/.devcontainer/images/.claude/`
+
+**Mise à jour ultérieure :**
+
+```bash
+# Dans Claude Code
+/update
+
+# Ou manuellement (dans DevContainer)
+bash .devcontainer/install.sh
+```
+
+---
+
 ## Outils inclus
 
 ### Base
