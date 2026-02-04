@@ -16,12 +16,21 @@ source "$SCRIPT_DIR/../shared/utils.sh"
 log_info "postStart: Container starting..."
 
 # ============================================================================
-# Restore Claude commands/scripts from image defaults
+# Restore Claude commands/scripts from image defaults OR host installation
 # ============================================================================
-# Volume mounts overwrite image content, so we restore from /etc/claude-defaults/
+# Priority:
+#   1. Host installation ($HOME/.claude/ with .template-version)
+#   2. Image defaults (/etc/claude-defaults/)
+# ============================================================================
 CLAUDE_DEFAULTS="/etc/claude-defaults"
 
-if [ -d "$CLAUDE_DEFAULTS" ]; then
+# Check if user has a host-installed Claude configuration
+# (installed via install.sh - indicated by .template-version file)
+if [ -f "$HOME/.claude/.template-version" ]; then
+    log_info "Detected host-installed Claude configuration (via install.sh)"
+    log_info "Skipping image defaults restore - using host installation"
+    log_success "Claude configuration from host (priority)"
+elif [ -d "$CLAUDE_DEFAULTS" ]; then
     log_info "Restoring Claude configuration from image defaults..."
 
     # Ensure base directory exists
@@ -68,7 +77,9 @@ if [ -d "$CLAUDE_DEFAULTS" ]; then
         cp "$CLAUDE_DEFAULTS/settings.json" "$HOME/.claude/settings.json"
     fi
 
-    log_success "Claude configuration restored (clean)"
+    log_success "Claude configuration restored from image defaults"
+else
+    log_warning "No Claude configuration found (neither host nor image defaults)"
 fi
 
 # ============================================================================
