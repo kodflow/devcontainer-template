@@ -28,6 +28,7 @@ Stratégies de déploiement et pratiques d'infrastructure moderne.
 | [terraform-documentation.md](terraform-documentation.md) | Terraform docs | Structure & terraform-docs |
 | [cilium-l2-loadbalancer.md](cilium-l2-loadbalancer.md) | Cilium CNI | L2 LoadBalancer bare-metal |
 | [ansible-roles-structure.md](ansible-roles-structure.md) | Ansible roles | Validate-first pattern |
+| [mcp-optimization.md](mcp-optimization.md) | MCP Context | Tool Search optimization |
 
 ---
 
