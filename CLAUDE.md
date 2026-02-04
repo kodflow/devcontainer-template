@@ -275,20 +275,30 @@ script: ".claude/scripts/pre-commit-checks.sh"
 
 ## Project-Specific Commands
 
-### /improve - Documentation QA
+### /improve - Continuous Documentation Enhancement (RLM Multi-Agent)
 
-Commande spécifique à ce projet pour auditer la base de connaissances Design Patterns.
+Skill d'amélioration continue avec deux modes selon le projet :
+
+| Mode | Projet | Action |
+|------|--------|--------|
+| **DOCS** | devcontainer-template | Améliore `.claude/docs/` (MAJ, cohérence, best practices) |
+| **ANTI-PATTERN** | Autres projets | Détecte violations, crée issues sur le template |
 
 ```
 /improve --help            # Afficher l'aide
-/improve                   # Audit complet
+/improve                   # Audit complet (mode auto-détecté)
 /improve --check           # Dry-run (sans modification)
 /improve --fix             # Corriger automatiquement
 /improve --missing         # Patterns manquants
 /improve --category <name> # Auditer une catégorie
+/improve --issues          # Créer issues GitHub uniquement
+/improve --report          # Générer rapport détaillé
 ```
 
-Cible : `/workspace/.devcontainer/images/.claude/docs/`
+**RLM Patterns :** Partition+Map (1 agent par .md), WebSearch (MAJ best practices), Cross-Reference
+
+Cible docs : `/workspace/.devcontainer/images/.claude/docs/`
+Cible issues : `github.com/kodflow/devcontainer-template/issues`
 
 ## Context Hierarchy (Funnel Documentation)
 

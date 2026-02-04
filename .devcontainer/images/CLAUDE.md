@@ -117,6 +117,8 @@ Configured in `mcp.json.tpl`:
 | `/test` | E2E testing with Playwright MCP |
 | `/init` | Project initialization check |
 | `/update` | DevContainer update from template |
+| `/infra` | Infrastructure automation (Terraform/Terragrunt) |
+| `/improve` | Continuous docs enhancement & anti-pattern detection |
 
 ## Hooks
 
