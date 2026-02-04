@@ -62,11 +62,11 @@ Options:
   --help            Affiche cette aide
 
 Line Thresholds (CLAUDE.md):
-  IDEAL       :   0-60 lignes (simple directories)
-  ACCEPTABLE  :  61-80 lignes (medium complexity)
-  WARNING     : 81-100 lignes (review recommended)
-  CRITICAL    : 101-150 lignes (must be condensed)
-  FORBIDDEN   :  150+ lignes (split required)
+  IDEAL       :   0-150 lignes (simple directories)
+  ACCEPTABLE  : 151-200 lignes (medium complexity)
+  WARNING     : 201-250 lignes (review recommended)
+  CRITICAL    : 251-300 lignes (must be condensed)
+  FORBIDDEN   :  301+ lignes (split required)
 
 Exclusions (STRICT .gitignore respect):
   - vendor/, node_modules/, .git/
@@ -537,8 +537,8 @@ update_generation:
     - <point d'attention détecté dans le code>
 
   constraints:
-    max_lines: 100  # WARNING threshold
-    critical_threshold: 150  # Must be condensed or split
+    max_lines: 200  # ACCEPTABLE threshold
+    critical_threshold: 300  # Must be condensed or split
     no_implementation_details: true
     no_obsolete_info: true
     maintain_existing_structure: true
@@ -588,8 +588,8 @@ apply_workflow:
 
   validation:
     post_apply:
-      - "Verify file lines: IDEAL(0-60), ACCEPTABLE(61-80), WARNING(81-100), CRITICAL(101-150)"
-      - "Flag files > 150 lines as FORBIDDEN (must split)"
+      - "Verify file lines: IDEAL(0-150), ACCEPTABLE(151-200), WARNING(201-250), CRITICAL(251-300)"
+      - "Flag files > 300 lines as FORBIDDEN (must split)"
       - "Verify no obsolete references"
       - "Verify structure section matches reality"
 ```
@@ -702,7 +702,7 @@ grepai_config_update:
     ✓ Project-specific exclusions added
 
   Validation:
-    ✓ Line thresholds: 0 FORBIDDEN, 0 CRITICAL, 2 WARNING
+    ✓ Line thresholds: 0 FORBIDDEN, 0 CRITICAL, 0 WARNING
     ✓ Structure sections match reality
     ✓ No broken file references
 
@@ -720,9 +720,9 @@ grepai_config_update:
 | Supprimer CLAUDE.md | ❌ **INTERDIT** | Seule mise à jour autorisée |
 | Ignorer .gitignore | ❌ **INTERDIT** | Source de vérité pour exclusions |
 | Créer CLAUDE.md dans gitignored | ❌ **INTERDIT** | vendor/, node_modules/, etc. |
-| CLAUDE.md > 150 lignes | ❌ **FORBIDDEN** | Doit être splitté |
-| CLAUDE.md 101-150 lignes | 🔴 **CRITICAL** | Condensation obligatoire |
-| CLAUDE.md 81-100 lignes | ⚠ **WARNING** | Révision recommandée |
+| CLAUDE.md > 300 lignes | ❌ **FORBIDDEN** | Doit être splitté |
+| CLAUDE.md 251-300 lignes | 🔴 **CRITICAL** | Condensation obligatoire |
+| CLAUDE.md 201-250 lignes | ⚠ **WARNING** | Révision recommandée |
 | Lecture aléatoire | ❌ **INTERDIT** | Funnel (root→leaves) obligatoire |
 | Détails d'implémentation | ❌ **INTERDIT** | Contexte, pas code |
 | --update sans backup | ⚠ **WARNING** | Risque de perte |
@@ -733,27 +733,27 @@ grepai_config_update:
 ┌────────────┬─────────┬───────────────────────────────────────┐
 │   Niveau   │ Lignes  │             Action                    │
 ├────────────┼─────────┼───────────────────────────────────────┤
-│ IDEAL      │ 0-60    │ ✅ Aucune action                      │
+│ IDEAL      │ 0-150   │ ✅ Aucune action                      │
 ├────────────┼─────────┼───────────────────────────────────────┤
-│ ACCEPTABLE │ 61-80   │ ✅ Dossier moyen, acceptable          │
+│ ACCEPTABLE │ 151-200 │ ✅ Dossier moyen, acceptable          │
 ├────────────┼─────────┼───────────────────────────────────────┤
-│ WARNING    │ 81-100  │ ⚠️ Révision recommandée à la prochaine│
+│ WARNING    │ 201-250 │ ⚠️ Révision recommandée à la prochaine│
 ├────────────┼─────────┼───────────────────────────────────────┤
-│ CRITICAL   │ 101-150 │ 🔴 Condensation obligatoire           │
+│ CRITICAL   │ 251-300 │ 🔴 Condensation obligatoire           │
 ├────────────┼─────────┼───────────────────────────────────────┤
-│ FORBIDDEN  │ 150+    │ ❌ Doit être splitté ou restructuré   │
+│ FORBIDDEN  │ 301+    │ ❌ Doit être splitté ou restructuré   │
 └────────────┴─────────┴───────────────────────────────────────┘
 ```
 
 **Justification des seuils :**
 
-| Critère | 100 lignes (WARNING) | 150 lignes (CRITICAL) |
+| Critère | 250 lignes (WARNING) | 300 lignes (CRITICAL) |
 |---------|----------------------|-----------------------|
-| Temps lecture | ~5 min | ~7-8 min |
-| Tokens LLM | ~1000 | ~1500 |
-| Flexibilité | Projets volumineux OK | Limite absolue |
+| Temps lecture | ~10 min | ~15 min |
+| Tokens LLM | ~2500 | ~3000 |
+| Flexibilité | Projets complexes OK | Limite absolue |
 
-**Quand 150+ lignes ?** → Le dossier doit être splitté en sous-dossiers avec leurs propres CLAUDE.md.
+**Quand 300+ lignes ?** → Le dossier doit être splitté en sous-dossiers avec leurs propres CLAUDE.md.
 
 ---
 
