@@ -196,6 +196,55 @@ install_claude_cli() {
 }
 
 # ============================================================================
+# Download Assets Archive (single file, ~1MB)
+# ============================================================================
+# Priority method: download pre-built tar.gz instead of 20+ API calls
+download_assets_archive() {
+    local target_dir="$1"
+    local archive_url="$BASE/.devcontainer/claude-assets.tar.gz"
+    local temp_archive
+    temp_archive=$(mktemp)
+
+    echo "→ Trying assets archive (faster)..."
+
+    # Download archive
+    local http_code
+    http_code=$(curl -sL -w "%{http_code}" -o "$temp_archive" "$archive_url" 2>/dev/null || echo "000")
+
+    if [ "$http_code" != "200" ]; then
+        echo "  ⚠ Archive not available, will use API discovery"
+        rm -f "$temp_archive"
+        return 1
+    fi
+
+    # Validate it's a gzip file
+    if ! file "$temp_archive" 2>/dev/null | grep -q "gzip"; then
+        echo "  ⚠ Invalid archive format"
+        rm -f "$temp_archive"
+        return 1
+    fi
+
+    # Extract to target directory
+    mkdir -p "$target_dir"
+    if tar -xzf "$temp_archive" -C "$target_dir" 2>/dev/null; then
+        local file_count
+        file_count=$(tar -tzf "$temp_archive" 2>/dev/null | wc -l)
+        echo "  ✓ Extracted $file_count files from archive"
+        rm -f "$temp_archive"
+
+        # Make scripts executable
+        chmod -R 755 "$target_dir/scripts/" 2>/dev/null || true
+        chmod -R 755 "$target_dir/agents/" 2>/dev/null || true
+
+        return 0
+    else
+        echo "  ⚠ Failed to extract archive"
+        rm -f "$temp_archive"
+        return 1
+    fi
+}
+
+# ============================================================================
 # Download Agents (35 files)
 # ============================================================================
 download_agents() {
@@ -906,11 +955,20 @@ main() {
     echo "  Target: $TARGET_DIR"
     echo ""
 
-    download_agents "$TARGET_DIR"
-    download_commands "$TARGET_DIR"
-    download_scripts "$TARGET_DIR"
-    download_docs "$TARGET_DIR"
-    download_configs "$TARGET_DIR"
+    # Try archive first (1 request vs 20+)
+    if download_assets_archive "$TARGET_DIR"; then
+        echo "  → Using archive (fast path)"
+        # Only download configs separately (may need dynamic generation)
+        download_configs "$TARGET_DIR"
+    else
+        # Fallback to individual API discovery
+        echo "  → Using API discovery (slow path)"
+        download_agents "$TARGET_DIR"
+        download_commands "$TARGET_DIR"
+        download_scripts "$TARGET_DIR"
+        download_docs "$TARGET_DIR"
+        download_configs "$TARGET_DIR"
+    fi
 
     echo ""
     download_tools
