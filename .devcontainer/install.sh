@@ -763,24 +763,22 @@ super-claude() {
 }
 '
 
-    # Add to .bashrc if not already present
-    if [ -f "$HOME_DIR/.bashrc" ]; then
-        if ! grep -q "super-claude()" "$HOME_DIR/.bashrc" 2>/dev/null; then
-            echo "$super_claude_func" >> "$HOME_DIR/.bashrc"
-            echo "  ✓ Added to ~/.bashrc"
-        else
-            echo "  ✓ Already in ~/.bashrc"
-        fi
+    # Add to .bashrc (create if doesn't exist)
+    touch "$HOME_DIR/.bashrc" 2>/dev/null || true
+    if ! grep -q "super-claude()" "$HOME_DIR/.bashrc" 2>/dev/null; then
+        echo "$super_claude_func" >> "$HOME_DIR/.bashrc"
+        echo "  ✓ Added to ~/.bashrc"
+    else
+        echo "  ✓ Already in ~/.bashrc"
     fi
 
-    # Add to .zshrc if not already present
-    if [ -f "$HOME_DIR/.zshrc" ]; then
-        if ! grep -q "super-claude()" "$HOME_DIR/.zshrc" 2>/dev/null; then
-            echo "$super_claude_func" >> "$HOME_DIR/.zshrc"
-            echo "  ✓ Added to ~/.zshrc"
-        else
-            echo "  ✓ Already in ~/.zshrc"
-        fi
+    # Add to .zshrc (create if doesn't exist)
+    touch "$HOME_DIR/.zshrc" 2>/dev/null || true
+    if ! grep -q "super-claude()" "$HOME_DIR/.zshrc" 2>/dev/null; then
+        echo "$super_claude_func" >> "$HOME_DIR/.zshrc"
+        echo "  ✓ Added to ~/.zshrc"
+    else
+        echo "  ✓ Already in ~/.zshrc"
     fi
 
     echo ""
