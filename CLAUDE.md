@@ -1,8 +1,8 @@
-# Kodflow DevContainer Template
+# devcontainer-template
 
-## Why This Exists
+## Purpose
 
-A batteries-included Dev Container for consistent, secure development environments. Ships Claude CLI, cloud CLIs, and language tooling so projects bootstrap in seconds with repeatable workflows.
+Universal DevContainer shell providing cutting-edge AI agents, skills, and workflows to bootstrap any project. Reliability first: agents reason deeply, cross-reference sources, and self-correct until the output meets quality standards.
 
 ## Project Structure
 
@@ -14,23 +14,36 @@ A batteries-included Dev Container for consistent, secure development environmen
 └── CLAUDE.md     # This file
 ```
 
+## Tech Stack
+
+- **Languages**: Go, Python, Node.js, Rust, Elixir, Java, PHP, Ruby, Scala, Dart, C++, Carbon
+- **Cloud CLIs**: AWS v2, GCP SDK, Azure CLI
+- **IaC**: Terraform, Vault, Consul, Nomad, Packer, Ansible
+- **Containers**: Docker, kubectl, Helm
+- **AI**: Claude Code, MCP servers (GitHub, Codacy, Playwright, context7, grepai)
+
 ## How to Work
 
-1. **Generate context**: `/build --context` creates CLAUDE.md in subdirectories
+1. **New project**: `/init` → conversational discovery → doc generation
 2. **New feature**: `/feature "description"` → planning mode → PR
 3. **Bug fix**: `/fix "description"` → planning mode → PR
+4. **Code review**: `/review` → 5 specialist executors in parallel
 
 Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
 
 ## Key Principles
 
-**MCP-first**: Use MCP tools (`mcp__github__*`, `mcp__codacy__*`) before CLI fallbacks. MCP has pre-configured auth.
+**Reliability first**: Verify before generating. Agents consult context7 and official docs before producing non-trivial code.
 
-**Semantic search**: Use `grepai_search` for meaning-based queries. Fall back to Grep for exact strings or regex.
+**MCP-first**: Use MCP tools (`mcp__github__*`, `mcp__codacy__*`) before CLI fallbacks. Auth is pre-configured.
 
-**Specialist agents**: Language conventions enforced by agents (`developer-specialist-go`, etc.). They know current stable versions.
+**Self-correction**: When linting or tests fail, agents fix and retry automatically.
 
-**Reasoning patterns**: For complex tasks, apply: Peek → Decompose → Parallelize → Synthesize.
+**Semantic search**: Use `grepai_search` for meaning-based queries. Fall back to Grep for exact strings.
+
+**Specialist agents**: Language conventions enforced by agents that know current stable versions.
+
+**Deep reasoning**: For complex tasks — Peek, Decompose, Parallelize, Synthesize.
 
 ## Safeguards
 
@@ -72,17 +85,14 @@ Principle: More detail deeper in tree. Each file < 100 lines.
 
 | Command | Purpose |
 |---------|---------|
-| `/init` | **Setup** - Conversational project discovery + doc generation |
+| `/init` | Conversational project discovery + doc generation |
 | `/feature` | Start feature branch with planning |
 | `/fix` | Start fix branch with planning |
-| `/review` | Code review with specialist agents |
+| `/review` | Code review with 5 specialist agents |
+| `/plan` | Analyze codebase and design implementation approach |
+| `/do` | Execute approved plans iteratively |
+| `/git` | Conventional commits, branch management |
 | `/improve` | Documentation QA for design patterns |
-
-## New Project Setup
-
-After creating a project from this template:
-1. Run `/init` (auto-detects template, asks questions, validates)
-2. Start with `/feature <description>`
 
 ## Verification
 
