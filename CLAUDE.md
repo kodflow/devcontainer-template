@@ -58,6 +58,7 @@ Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.).
 
 ```
 CLAUDE.md                    # This overview
+├── AGENTS.md                # Specialist agents for tech stack
 ├── docs/vision.md           # Objectives, success criteria
 ├── docs/architecture.md     # System design, components
 ├── docs/workflows.md        # Detailed workflows
@@ -71,7 +72,7 @@ Principle: More detail deeper in tree. Each file < 100 lines.
 
 | Command | Purpose |
 |---------|---------|
-| `/init` | **Setup** - Personalize + validate environment |
+| `/init` | **Setup** - Conversational project discovery + doc generation |
 | `/feature` | Start feature branch with planning |
 | `/fix` | Start fix branch with planning |
 | `/review` | Code review with specialist agents |

@@ -1,11 +1,10 @@
 ---
 name: init
 description: |
-  Project initialization with RLM decomposition.
-  Auto-detects if personalization needed, then validates environment.
+  Conversational project discovery + doc generation.
+  Open-ended dialogue builds rich context, then synthesizes all project docs.
   Use when: creating new project, starting work, verifying setup.
 allowed-tools:
-  - AskUserQuestion
   - Write
   - Edit
   - "Bash(git:*)"
@@ -30,7 +29,7 @@ allowed-tools:
   - "mcp__codacy__*"
 ---
 
-# /init - Project Initialization (RLM)
+# /init - Conversational Project Discovery
 
 $ARGUMENTS
 
@@ -38,12 +37,13 @@ $ARGUMENTS
 
 ## Overview
 
-Initialisation complète avec patterns **RLM** :
+Conversational initialization with **progressive context building**:
 
-1. **Detect** - Projet personnalisé ou template?
-2. **Personalize** - Wizard si template détecté
-3. **Validate** - Environment, tools, deps, config
-4. **Report** - Consolidated status
+1. **Detect** - Template or already personalized?
+2. **Discover** - Open-ended conversation to understand the project
+3. **Synthesize** - Review accumulated context with user
+4. **Generate** - Produce all project docs from rich context
+5. **Validate** - Environment, tools, deps, config
 
 ---
 
@@ -53,17 +53,17 @@ Initialisation complète avec patterns **RLM** :
 /init                # Everything automatic
 ```
 
-**Comportement intelligent :**
-- Détecte si template → lance wizard
-- Détecte si personnalisé → valide seulement
-- Détecte problèmes → auto-fix quand possible
-- Pas de flags, pas de questions inutiles
+**Intelligent behavior:**
+- Detects template → starts discovery conversation
+- Detects personalized → skips to validation
+- Detects problems → auto-fix when possible
+- No flags, no unnecessary questions
 
 ---
 
-## Phase 0 : Detect (Template vs Personalized)
+## Phase 0: Detect (Template vs Personalized)
 
-**Détecter si le projet nécessite personnalisation :**
+**Detect if the project needs personalization:**
 
 ```yaml
 detect_workflow:
@@ -75,14 +75,14 @@ detect_workflow:
 
   decision:
     if_template_detected:
-      action: "Run Phase 1 (Personalization Wizard)"
-      message: "Template detected. Let's personalize your project."
+      action: "Run Phase 1 (Discovery Conversation)"
+      message: "Template detected. Let's discover your project."
     if_personalized:
-      action: "Skip to Phase 2 (Validation)"
+      action: "Skip to Phase 4 (Validation)"
       message: "Project already personalized. Validating..."
 ```
 
-**Output Phase 0 :**
+**Output Phase 0:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -93,197 +93,261 @@ detect_workflow:
   Result  : Template markers found
 
   → Project needs personalization
-  → Starting wizard...
+  → Starting discovery conversation...
 
 ═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Phase 1 : Personalization Wizard
+## Phase 1: Discovery Conversation
 
-**Si template détecté, poser les questions de personnalisation.**
+**RULES (ABSOLUTE):**
 
-### Block 1: Project Identity
+- Ask **ONE question at a time** as plain text output
+- **NEVER** use AskUserQuestion tool
+- **NEVER** offer predefined options or multiple-choice lists
+- After **EACH** user response, display the updated **Project Context** block
+- Adapt the next question based on accumulated context
+- Minimum **4** exchanges, maximum **10**
+- Questions must be open-ended and conversational
+
+### Question Strategy
+
+**Fixed questions (always asked first):**
 
 ```yaml
-ask_identity:
-  tool: AskUserQuestion
-  questions:
-    - question: "What is your project name?"
-      header: "Name"
-      options:
-        - label: "my-api"
-          description: "REST/GraphQL API service"
-        - label: "my-cli"
-          description: "Command-line tool"
-        - label: "my-lib"
-          description: "Reusable library/package"
-      multiSelect: false
+round_1:
+  question: |
+    Tell me about your project. What are you building
+    and what problem does it solve?
+  extracts: [purpose, problem]
 
-    - question: "What type of project?"
-      header: "Type"
-      options:
-        - label: "API/Backend"
-          description: "REST or GraphQL service"
-        - label: "CLI Tool"
-          description: "Command-line utility"
-        - label: "Library"
-          description: "Reusable module"
-        - label: "Fullstack"
-          description: "Frontend + Backend"
-      multiSelect: false
+round_2:
+  question: |
+    Who will use this? Describe the people or systems
+    that will interact with it.
+  extracts: [users]
+
+round_3:
+  question: |
+    What should we call this project?
+  extracts: [name]
 ```
 
-### Block 2: Tech Stack
+**Adaptive questions (selected based on gaps in context):**
 
 ```yaml
-ask_stack:
-  tool: AskUserQuestion
-  questions:
-    - question: "Which primary language(s)?"
-      header: "Language"
-      options:
-        - label: "Go"
-          description: "Backend, CLI, microservices"
-        - label: "TypeScript/Node"
-          description: "Backend, frontend, fullstack"
-        - label: "Python"
-          description: "ML, scripting, backend"
-        - label: "Rust"
-          description: "Systems, performance"
-      multiSelect: true
+adaptive_pool:
+  tech_stack:
+    trigger: "tech stack unknown"
+    question: "What languages, frameworks, or tools are you planning to use?"
+    extracts: [tech_stack]
 
-    - question: "Which database(s)?"
-      header: "Database"
-      options:
-        - label: "PostgreSQL"
-          description: "Relational, ACID"
-        - label: "MongoDB"
-          description: "Document store"
-        - label: "Redis"
-          description: "Cache, pub/sub"
-        - label: "None"
-          description: "No database"
-      multiSelect: true
+  data_storage:
+    trigger: "data storage relevant AND unknown"
+    question: "How will your project store and manage data?"
+    extracts: [database]
+
+  deployment:
+    trigger: "deployment unknown"
+    question: "Where and how will this run in production?"
+    extracts: [deployment]
+
+  quality:
+    trigger: "quality priorities unknown"
+    question: "What matters most for quality — test coverage, performance, security, or something else?"
+    extracts: [quality]
+
+  constraints:
+    trigger: "constraints unknown"
+    question: "Are there any constraints I should know about — team size, timeline, compliance requirements?"
+    extracts: [constraints]
+
+  architecture:
+    trigger: "complex project AND architecture unclear"
+    question: "Do you have a particular architecture in mind — monolith, microservices, event-driven, or something else?"
+    extracts: [architecture]
+
+  follow_up:
+    trigger: "previous answer was brief"
+    question: "Can you tell me more about {topic}? I want to make sure I capture the full picture."
+    extracts: [varies]
 ```
 
-### Block 3: Infrastructure
+### Project Context Block
 
-```yaml
-ask_infra:
-  tool: AskUserQuestion
-  questions:
-    - question: "Which cloud provider(s)?"
-      header: "Cloud"
-      options:
-        - label: "AWS"
-          description: "Amazon Web Services"
-        - label: "GCP"
-          description: "Google Cloud"
-        - label: "Azure"
-          description: "Microsoft Azure"
-        - label: "Self-hosted"
-          description: "On-premise"
-      multiSelect: true
+**Display this block after EVERY exchange, updated with new information:**
 
-    - question: "Container strategy?"
-      header: "Containers"
-      options:
-        - label: "Kubernetes"
-          description: "K8s orchestration"
-        - label: "Docker Compose"
-          description: "Simple deployment"
-        - label: "Serverless"
-          description: "Lambda, Cloud Functions"
-        - label: "None"
-          description: "Traditional"
-      multiSelect: false
+```
+═════════════════════════════════════════════════════
+  PROJECT CONTEXT
+═════════════════════════════════════════════════════
+  Name        : {name or "---"}
+  Purpose     : {1-2 sentence summary or "---"}
+  Problem     : {problem statement or "---"}
+  Users       : {target users or "---"}
+  Tech Stack  : {languages, frameworks or "---"}
+  Database    : {database choices or "---"}
+  Deployment  : {cloud/hosting or "---"}
+  Architecture: {architecture approach or "---"}
+  Quality     : {quality priorities or "---"}
+  Constraints : {known constraints or "---"}
+  [Discovery — exchange {N}/10]
+═════════════════════════════════════════════════════
 ```
 
-### Block 4: Quality Goals
+### Transition Criteria
+
+Move to Phase 2 when **ALL** of these are true:
+
+- Name is known
+- Purpose/Problem is known
+- Users are known
+- At least one tech element is concrete
+- At least 4 exchanges completed
+
+**OR:** User signals readiness / 10 exchanges reached.
+
+---
+
+## Phase 2: Vision Synthesis
+
+**Review the accumulated context with the user before generating files.**
 
 ```yaml
-ask_quality:
-  tool: AskUserQuestion
-  questions:
-    - question: "Quality priorities?"
-      header: "Quality"
-      options:
-        - label: "High test coverage (>80%)"
-          description: "Comprehensive testing"
-        - label: "Performance (<100ms)"
-          description: "Low latency"
-        - label: "Security-first"
-          description: "Compliance, auditing"
-        - label: "Rapid iteration"
-          description: "Move fast"
-      multiSelect: true
-```
+synthesis_workflow:
+  step_1:
+    action: "Display FINAL Project Context with all fields populated"
+    output: |
+      ═════════════════════════════════════════════════════
+        FINAL PROJECT CONTEXT
+      ═════════════════════════════════════════════════════
+        Name        : {name}
+        Purpose     : {purpose}
+        Problem     : {problem}
+        Users       : {users}
+        Tech Stack  : {tech_stack}
+        Database    : {database}
+        Deployment  : {deployment}
+        Architecture: {architecture}
+        Quality     : {quality}
+        Constraints : {constraints}
+      ═════════════════════════════════════════════════════
 
-### File Generation
+  step_2:
+    message: |
+      Here is what I understand about your project.
+      Review and tell me if anything needs to change.
+      Say "generate" when you're ready for me to create
+      your project documentation.
 
-**Après les questions, générer les fichiers en PARALLÈLE :**
-
-```yaml
-generate_files:
-  - path: "/workspace/CLAUDE.md"
-    content: |
-      # {project_name}
-
-      ## Purpose
-      {project_type} built with {languages}.
-
-      ## How to Work
-      1. `/init` - Verify setup (already done!)
-      2. `/feature <desc>` - New feature
-      3. `/fix <desc>` - Bug fix
-
-      ## Key Principles
-      - MCP-first for integrations
-      - Semantic search with grepai
-      - Specialist agents for {primary_language}
-
-      ## Verification
-      - Tests: `{test_command}`
-      - Lint: auto via hooks
-
-  - path: "/workspace/docs/vision.md"
-    content: |
-      # Vision: {project_name}
-
-      ## Purpose
-      {project_description}
-
-      ## Goals
-      {quality_goals}
-
-      ## Success Criteria
-      | Criterion | Target |
-      |-----------|--------|
-      | Test Coverage | {coverage} |
-      | Availability | {sla} |
-
-  - path: "/workspace/.env.example"
-    condition: "databases.length > 0 OR cloud.length > 0"
-    content: |
-      # {project_name} Environment
-      APP_NAME={project_name}
-      {database_vars}
-      {cloud_vars}
-
-  - path: "/workspace/Makefile"
-    condition: "language in [Go, Rust, Python]"
-    content: |
-      # {project_name} Makefile
-      {language_targets}
+  step_3:
+    loop: "Process any refinements, update context, repeat"
+    exit: "User says 'generate' or confirms"
 ```
 
 ---
 
-## Phase 2 : Environment Validation
+## Phase 3: File Generation
 
-**Vérifier l'environnement (parallèle via Task agents).**
+**Generate all files DIRECTLY from accumulated context. No templates.**
+
+```yaml
+generation_rules:
+  - NO mustache/handlebars placeholders
+  - NO template files referenced
+  - Content is SYNTHESIZED from the full conversation context
+  - Every file must contain real, specific, actionable content
+  - Write vision.md FIRST, then remaining files in parallel
+```
+
+### Files to Generate
+
+```yaml
+files:
+  # PRIMARY OUTPUT - written first
+  - path: "/workspace/docs/vision.md"
+    description: "Rich project vision synthesized from conversation"
+    structure:
+      - "# Vision: {name}"
+      - "## Purpose — what and why"
+      - "## Problem Statement — pain points addressed"
+      - "## Target Users — who benefits and how"
+      - "## Goals — prioritized list"
+      - "## Success Criteria — measurable targets table"
+      - "## Design Principles — guiding decisions"
+      - "## Non-Goals — explicit exclusions"
+      - "## Key Decisions — tech choices with rationale"
+
+  # SUPPORTING FILES - written in parallel after vision.md
+  - path: "/workspace/CLAUDE.md"
+    description: "Project overview, tech stack, how to work"
+    structure:
+      - "# {name}"
+      - "## Purpose — 2-3 sentences"
+      - "## Tech Stack — languages, frameworks, databases"
+      - "## How to Work — /init, /feature, /fix"
+      - "## Key Principles — MCP-first, semantic search, specialists"
+      - "## Verification — test, lint, security commands"
+      - "## Documentation — links to vision, architecture, workflows"
+
+  - path: "/workspace/AGENTS.md"
+    description: "Map tech stack to available specialist agents"
+    structure:
+      - "# Specialist Agents"
+      - "## Primary — agents matching tech stack"
+      - "## Supporting — review, devops, security agents"
+      - "## Usage — when to invoke each agent"
+
+  - path: "/workspace/docs/architecture.md"
+    description: "System context, components, data flow"
+    structure:
+      - "# Architecture: {name}"
+      - "## System Context — high-level view"
+      - "## Components — key modules/services"
+      - "## Data Flow — how data moves"
+      - "## Technology Stack — detailed breakdown"
+      - "## Constraints — technical boundaries"
+
+  - path: "/workspace/docs/workflows.md"
+    description: "Development processes adapted to tech stack"
+    structure:
+      - "# Development Workflows"
+      - "## Setup — prerequisites, installation"
+      - "## Development Loop — code, test, commit"
+      - "## Testing Strategy — unit, integration, e2e"
+      - "## Deployment — build, release process"
+      - "## CI/CD — pipeline stages"
+
+  - path: "/workspace/README.md"
+    description: "Update description section only, preserve existing structure"
+    mode: "edit"
+    note: "Only update the project description. Keep all other content."
+
+  # CONDITIONAL FILES
+  - path: "/workspace/.env.example"
+    condition: "database OR cloud services mentioned"
+    description: "Environment variable template"
+    structure:
+      - "# {name} Environment Variables"
+      - "APP_NAME={name}"
+      - "# Database, cloud, API vars as relevant"
+
+  - path: "/workspace/Makefile"
+    condition: "language with build tooling (Go, Rust, Python, Node)"
+    description: "Build targets adapted to tech stack"
+    structure:
+      - "# {name} targets"
+      - "Standard targets: build, test, lint, fmt, clean"
+      - "Language-specific targets as relevant"
+```
+
+---
+
+## Phase 4: Environment Validation
+
+**Verify the environment (parallel via Task agents).**
 
 ```yaml
 parallel_checks:
@@ -307,27 +371,29 @@ parallel_checks:
 
 ---
 
-## Phase 3 : Report
+## Phase 5: Report
 
 ```
 ═══════════════════════════════════════════════════════════════
   /init - Complete
 ═══════════════════════════════════════════════════════════════
 
-  Project: {project_name}
-  Type   : {project_type}
-  Stack  : {languages}
+  Project: {name}
+  Purpose: {purpose summary}
 
-  Personalization:
-    ✓ CLAUDE.md updated
-    ✓ docs/vision.md updated
-    ✓ .env.example created
-    ✓ Makefile created
+  Generated:
+    ✓ docs/vision.md
+    ✓ CLAUDE.md
+    ✓ AGENTS.md
+    ✓ docs/architecture.md
+    ✓ docs/workflows.md
+    ✓ README.md (updated)
+    {conditional files}
 
   Environment:
-    ✓ Tools installed (git, go, docker)
+    ✓ Tools installed ({tool list})
     ✓ Dependencies ready
-    ✓ grepai indexed (296 files)
+    ✓ grepai indexed ({N} files)
 
   Ready to develop!
     → /feature "description" to start
@@ -337,16 +403,16 @@ parallel_checks:
 
 ---
 
-## Auto-fix (automatique)
+## Auto-fix (automatic)
 
-Quand un problème est détecté, fix automatique si possible :
+When a problem is detected, auto-fix if possible:
 
-| Problème | Action auto |
-|----------|-------------|
-| `.env` manquant | `cp .env.example .env` |
-| deps pas installées | `npm ci` / `go mod download` |
-| grepai pas lancé | `nohup grepai watch &` |
-| Ollama pas accessible | Instructions HOST affichées |
+| Problem | Auto Action |
+|---------|-------------|
+| `.env` missing | `cp .env.example .env` |
+| deps not installed | `npm ci` / `go mod download` |
+| grepai not running | `nohup grepai watch &` |
+| Ollama not reachable | Display HOST instructions |
 
 ---
 
@@ -354,6 +420,8 @@ Quand un problème est détecté, fix automatique si possible :
 
 | Action | Status |
 |--------|--------|
-| Skip detection | ❌ INTERDIT |
-| Placeholders dans output | ❌ INTERDIT |
-| Fix destructif sans demander | ❌ INTERDIT |
+| Skip detection | INTERDIT |
+| Closed questions / AskUserQuestion | INTERDIT |
+| Placeholders in generated files | INTERDIT |
+| Skip vision synthesis review | INTERDIT |
+| Destructive fix without asking | INTERDIT |
