@@ -32,8 +32,9 @@ allowed-tools:
 Generate and serve **comprehensive** project documentation using MkDocs Material.
 
 **Key Difference:** This skill launches **N parallel analysis agents**, each specialized
-for a different aspect (languages, commands, hooks, agents, etc.). Results are scored
-and consolidated into real, useful documentation.
+for a different aspect (languages, commands, hooks, agents, architecture, etc.).
+Results are scored and consolidated into real, useful documentation with Mermaid
+diagrams, concrete examples, and progressive architecture zoom.
 
 $ARGUMENTS
 
@@ -53,23 +54,48 @@ principles:
     bad: "Available commands: /git, /review, /plan"
     good: "### /git - Full workflow with phases, arguments, examples"
 
+  product_pitch_first:
+    rule: "index.md MUST answer 'What problem does this solve?' before anything technical"
+    structure: "Problem → Solution → Key features → Quick start"
+    reason: "Readers decide in 30 seconds if the project is relevant to them"
+
+  progressive_zoom:
+    rule: "Architecture docs follow Google Maps analogy: macro → micro"
+    levels:
+      - "Level 1: System context — big blocks, external dependencies"
+      - "Level 2: Components — modules, services, their roles"
+      - "Level 3: Internal — implementation details, algorithms, data structures"
+    reason: "Reader picks the zoom level they need"
+
+  diagrams_mandatory:
+    rule: "Every architecture or flow page MUST include at least one Mermaid diagram"
+    types: ["flowchart", "sequence", "C4 context", "ER diagram", "state machine"]
+    reason: "Visual comprehension is 60,000x faster than text"
+
+  link_dont_copy:
+    rule: "Reference source files via links, not inline copies"
+    bad: "```yaml\n# Copy of docker-compose.yml\nservices:\n  app: ...\n```"
+    good: "See [`docker-compose.yml`](../docker-compose.yml) for full service definition."
+    reason: "Copied content desynchronizes immediately"
+
   project_specific:
     rule: "Every analysis is unique to THIS project"
-    reason: "Questions asked for template ≠ questions for app using template"
+    reason: "Questions asked for template != questions for app using template"
 
   scoring_mechanism:
     rule: "Identify what's IMPORTANT to surface"
     criteria:
-      - "Complexity score (1-10): How complex is this component?"
+      - "Complexity (1-10): How complex is this component?"
       - "Usage frequency (1-10): How often will users need this?"
       - "Uniqueness (1-10): How specific to this project?"
       - "Documentation gap (1-10): How underdocumented currently?"
+      - "Diagram bonus (+3): Complex component without any diagram"
     threshold: "Score >= 24 → Include in main docs"
 
   adaptive_structure:
     template_project: "How to use, languages, commands, agents, hooks"
-    library_project: "API reference, usage examples, integration guides"
-    application_project: "Architecture, API, deployment, configuration"
+    library_project: "API reference, usage examples, integration guides, internal architecture"
+    application_project: "Architecture, API, deployment, data flow, cluster, configuration"
 ```
 
 ---
@@ -98,8 +124,9 @@ principles:
   DESCRIPTION
     Generates comprehensive documentation using multi-agent
     parallel analysis. Each agent specializes in one aspect
-    (languages, commands, hooks, etc.). Results are scored
-    and consolidated into useful documentation.
+    (languages, commands, hooks, architecture, etc.). Results
+    are scored and consolidated into rich documentation with
+    Mermaid diagrams and progressive architecture zoom.
 
   USAGE
     /docs [OPTIONS]
@@ -114,20 +141,22 @@ principles:
     --help              Show this help
 
   ANALYSIS AGENTS (launched in parallel)
-    1. languages-analyzer   Parses install.sh → tools, versions, why
-    2. commands-analyzer    Parses commands/*.md → workflows, args
-    3. agents-analyzer      Parses agents/*.md → capabilities
-    4. hooks-analyzer       Parses lifecycle/*.sh → automation
-    5. mcp-analyzer         Parses mcp.json → integrations
-    6. patterns-analyzer    Indexes .claude/docs/ → patterns KB
-    7. structure-analyzer   Maps codebase → architecture
-    8. config-analyzer      Reads env, settings → configuration
+    1. languages-analyzer     install.sh → tools, versions, why
+    2. commands-analyzer      commands/*.md → workflows, args
+    3. agents-analyzer        agents/*.md → capabilities
+    4. hooks-analyzer         lifecycle/*.sh → automation
+    5. mcp-analyzer           mcp.json → integrations
+    6. patterns-analyzer      .claude/docs/ → patterns KB
+    7. structure-analyzer     codebase → directory map
+    8. config-analyzer        env, settings → configuration
+    9. architecture-analyzer  code → components, flows, protocols
 
   SCORING (what to document)
     Complexity:     1-10 (how complex?)
     Usage:          1-10 (how often needed?)
     Uniqueness:     1-10 (how project-specific?)
     Gap:            1-10 (how underdocumented?)
+    Diagram bonus:  +3 (complex component, no diagram yet)
     Total >= 24     → Primary documentation
     Total 16-23     → Secondary documentation
     Total < 16      → Reference only
@@ -153,32 +182,36 @@ principles:
 
 Phase 0: Project Detection
 ├─ Detect project type (template/library/app/empty)
-└─ Choose analysis strategy
+└─ Choose analysis strategy + agent list
 
-Phase 1: Parallel Analysis (N agents in ONE message)
-├─ Task(languages-analyzer)  ──┐
-├─ Task(commands-analyzer)   ──┤
-├─ Task(agents-analyzer)     ──┤ ALL PARALLEL
-├─ Task(hooks-analyzer)      ──┤ (single message)
-├─ Task(mcp-analyzer)        ──┤
-├─ Task(patterns-analyzer)   ──┤
-├─ Task(structure-analyzer)  ──┤
-└─ Task(config-analyzer)     ──┘
+Phase 1: Parallel Analysis (9 agents in ONE message)
+├─ Task(languages-analyzer)     ──┐
+├─ Task(commands-analyzer)      ──┤
+├─ Task(agents-analyzer)        ──┤
+├─ Task(hooks-analyzer)         ──┤ ALL PARALLEL
+├─ Task(mcp-analyzer)           ──┤ (single message)
+├─ Task(patterns-analyzer)      ──┤
+├─ Task(structure-analyzer)     ──┤
+├─ Task(config-analyzer)        ──┤
+└─ Task(architecture-analyzer)  ──┘
 
-Phase 2: Consolidation
+Phase 2: Consolidation + Scoring
 ├─ Collect all agent results
-├─ Apply scoring formula
+├─ Apply scoring formula (with diagram bonus)
 ├─ Identify high-priority sections
-└─ Build documentation structure
+└─ Build documentation tree
 
-Phase 3: Generation
+Phase 3: Content Generation
+├─ Generate index.md (product pitch first)
 ├─ For each scored section:
-│   ├─ If score >= 24: Full documentation page
+│   ├─ If score >= 24: Full page + Mermaid diagram
 │   ├─ If score 16-23: Summary in parent page
 │   └─ If score < 16: Reference link only
+├─ Generate architecture pages (progressive zoom)
 └─ Generate nav structure
 
-Phase 4: Serve
+Phase 4: Validation + Serve
+├─ Check: no placeholders, no empty pages, diagrams present
 └─ Start MkDocs on specified port
 ```
 
@@ -440,15 +473,96 @@ config_analyzer:
 
     1. Find .env, .env.example files
     2. Parse devcontainer.json settings
-    3. Extract docker-compose.yml services
+    3. Extract docker-compose.yml services and volumes
     4. Identify required vs optional config
     5. Document environment variables
+    6. List exposed ports and their purpose
+    7. Identify secrets/tokens needed and their source
 
     Return:
     - Required configuration (must-have)
     - Optional configuration (nice-to-have)
-    - Secrets/tokens needed
+    - Secrets/tokens needed with source (env var, 1Password, etc.)
     - Default values
+    - Network configuration (ports, services, volumes)
+```
+
+### Agent 9: Architecture Analyzer (NEW)
+
+```yaml
+architecture_analyzer:
+  trigger: "PROJECT_TYPE in [library, application] OR src/ exists"
+  subagent_type: "Explore"
+  model: "sonnet"
+  reason: "Architecture analysis requires deeper reasoning than haiku"
+
+  prompt: |
+    Deep architecture analysis of the project. Produce a MULTI-LEVEL
+    progressive zoom analysis (Google Maps analogy: macro → micro).
+
+    ## Level 1: System Context (macro view)
+    - What are the major blocks/services?
+    - What external systems does this project depend on?
+    - What is the boundary of the system?
+    - Generate a Mermaid C4 context diagram description
+
+    ## Level 2: Components (zoom in)
+    For EACH major block identified in Level 1:
+    - What modules/packages compose it?
+    - What is each module's responsibility?
+    - How do modules communicate internally?
+    - Generate a Mermaid component diagram description
+
+    ## Level 3: Technical Details (deep zoom)
+    For key components (most complex or most used):
+    - Internal data structures and algorithms
+    - Key design patterns used (reference .claude/docs/ if available)
+    - Error handling strategy
+    - Performance considerations
+
+    ## Data Flow Analysis
+    - Trace the main data flows through the system
+    - Identify ALL communication protocols:
+      HTTP/HTTPS, gRPC, WebSocket, AMQP, MQTT, etc.
+    - Identify ALL data formats:
+      JSON, YAML, Protobuf, XML, MessagePack, etc.
+    - For each API endpoint found (OpenAPI, routes, handlers):
+      Document request/response formats with field descriptions
+    - Generate a Mermaid sequence diagram for the primary flow
+
+    ## Cluster & Scalability (if applicable)
+    Detect signals: docker-compose replicas, K8s manifests, load balancer
+    config, consensus code (Raft, Paxos), replication settings.
+    If found:
+    - Describe the scaling strategy (horizontal/vertical)
+    - Recommended minimum node configuration
+    - Data replication approach
+    - Fault tolerance mechanisms
+    - Network best practices (TLS between services, segmentation)
+
+    ## Secondary Features Detection
+    Search for non-obvious features embedded in the code:
+    - Consensus mechanisms (Raft, Paxos, PBFT)
+    - Caching layers (Redis, in-memory, CDN)
+    - Event sourcing / CQRS patterns
+    - Rate limiting, circuit breakers
+    - Observability (metrics, tracing, logging)
+    For each detected: explain what it does, why it exists, how it works.
+
+    ## Output Format
+    Return structured JSON with:
+    - levels: [level1, level2, level3] each with components and diagrams
+    - data_flows: [{name, source, destination, protocol, format}]
+    - apis: [{path, method, request_format, response_format, description}]
+    - cluster: {strategy, min_nodes, replication, fault_tolerance} or null
+    - secondary_features: [{name, purpose, mechanism, files}]
+    - diagrams: [{type, title, mermaid_code}]
+
+    Scoring:
+    - Complexity (1-10)
+    - Usage (1-10)
+    - Uniqueness (1-10)
+    - Gap (1-10)
 ```
 
 ---
@@ -457,40 +571,68 @@ config_analyzer:
 
 ```yaml
 phase_2_consolidation:
-  description: "Merge agent results and apply scoring"
+  description: "Merge agent results and apply enhanced scoring"
 
   scoring_formula:
-    total: "complexity + usage + uniqueness + gap"
+    base: "complexity + usage + uniqueness + gap"
+    diagram_bonus: "+3 if complexity >= 7 AND no diagram exists yet"
+    total_max: 43
     thresholds:
-      primary: ">= 24 (full documentation page)"
-      secondary: "16-23 (summary section)"
+      primary: ">= 24 (full documentation page with diagram)"
+      secondary: "16-23 (summary section in parent page)"
       reference: "< 16 (link only)"
+
+  diagram_requirement:
+    rule: |
+      IF score >= 24 AND component is architectural:
+        MUST include at least one Mermaid diagram
+      IF score >= 24 AND component has data flow:
+        MUST include sequence or flowchart diagram
+      IF cluster/scaling detected:
+        MUST include deployment diagram
 
   consolidation_steps:
     1_collect:
       action: "Gather all agent JSON results"
 
     2_deduplicate:
-      action: "Merge overlapping information"
+      action: "Merge overlapping information (structure + architecture)"
 
     3_score:
-      action: "Calculate total score per component"
+      action: "Calculate total score per component with diagram bonus"
 
     4_prioritize:
       action: "Sort by score descending"
 
-    5_structure:
-      action: "Build documentation tree"
+    5_identify_diagrams:
+      action: "For each primary section, determine required diagram types"
 
-  output_structure_template:
-    docs_root:
-      - "index.md (always)"
+    6_structure:
+      action: "Build documentation tree adapted to PROJECT_TYPE"
+
+  output_structure:
+    common:
+      - "index.md (always — product pitch format)"
+      - "architecture/ (if application/library, score >= 24)"
+    template:
       - "getting-started/ (score >= 24)"
-      - "languages/ (if template, score >= 24)"
+      - "languages/ (score >= 24)"
       - "commands/ (score >= 24)"
-      - "agents/ (if template, score >= 20)"
+      - "agents/ (score >= 20)"
       - "automation/ (hooks + mcp, score >= 20)"
       - "patterns/ (if KB exists, score >= 16)"
+      - "reference/ (aggregated low-score items)"
+    application:
+      - "architecture/ (always for app)"
+      - "api/ (if endpoints detected)"
+      - "deployment/ (if cluster/docker detected)"
+      - "guides/ (score >= 20)"
+      - "reference/ (aggregated low-score items)"
+    library:
+      - "architecture/ (if complex internal structure)"
+      - "api/ (always for library)"
+      - "examples/ (score >= 20)"
+      - "guides/ (score >= 20)"
       - "reference/ (aggregated low-score items)"
 ```
 
@@ -509,106 +651,245 @@ phase_3_generate:
       - "NEVER create empty sections"
 
     content_requirements:
-      - "Every page must have real content"
+      - "Every page must have real content from agent analysis"
       - "Every code block must be functional"
       - "Every table must have data"
+      - "Every architecture page must have at least one Mermaid diagram"
+      - "Every flow description must have a sequence or flowchart diagram"
 
-    extraction_priority:
-      - "Use agent-extracted data directly"
-      - "Quote from source files when appropriate"
-      - "Link to source files for details"
+    link_not_copy:
+      - "Reference source files via relative links"
+      - "NEVER copy entire config files inline"
+      - "Quote only the relevant excerpt (max 15 lines) with link to full file"
 
+    editorial_rules:
+      - "No generic filler: 'This module handles X' → explain HOW it handles X"
+      - "Every section must contain information extractable ONLY from this project"
+      - "Prefer 'The auth module exposes /login and /logout, uses JWT stored in Redis'"
+      - "Over 'The auth module manages authentication'"
+
+  #---------------------------------------------------------------------------
+  # UNIVERSAL TEMPLATES (applied to all project types)
+  #---------------------------------------------------------------------------
+  universal_templates:
+
+    index_md:
+      description: "Product pitch page — answers 'Why should I care?' in 30 seconds"
+      structure:
+        - "# {PROJECT_NAME}"
+        - ""
+        - "## What is this?"
+        - "{2-3 sentences: what problem it solves, for whom}"
+        - ""
+        - "## Key Features"
+        - "{Bullet list of 5-8 major capabilities with one-line explanations}"
+        - ""
+        - "## How it works"
+        - "{Mermaid flowchart: high-level system overview}"
+        - ""
+        - "## Quick Start"
+        - "{3-5 steps to get running, with code blocks}"
+        - ""
+        - "## What's Inside"
+        - "{Table: component → description → link to detailed page}"
+
+    architecture_overview_md:
+      description: "Level 1 zoom — system context, big picture"
+      structure:
+        - "# Architecture Overview"
+        - ""
+        - "## System Context"
+        - "{Mermaid C4 context diagram: system + external dependencies}"
+        - "{Paragraph explaining the diagram and key interactions}"
+        - ""
+        - "## Major Components"
+        - "{Table: component → responsibility → technology → link}"
+        - ""
+        - "## Technology Stack"
+        - "{Table: category → tool → version → purpose}"
+
+    architecture_components_md:
+      description: "Level 2 zoom — inside each major block"
+      structure:
+        - "# Components"
+        - ""
+        - "For EACH major component:"
+        - "## {Component Name}"
+        - "{Mermaid component diagram showing internal modules}"
+        - "{Paragraph explaining the component's role}"
+        - "### Modules"
+        - "{Table: module → responsibility → key files}"
+        - "### Dependencies"
+        - "{List of internal and external dependencies}"
+
+    architecture_flow_md:
+      description: "Data flows and communication patterns"
+      structure:
+        - "# Data Flow"
+        - ""
+        - "## Primary Flow"
+        - "{Mermaid sequence diagram: main user journey}"
+        - "{Step-by-step explanation of the flow}"
+        - ""
+        - "## Communication Protocols"
+        - "{Table: source → destination → protocol → format → purpose}"
+        - ""
+        - "## API Endpoints"
+        - "{For each endpoint: method, path, request/response format, description}"
+        - "{Link to OpenAPI spec if exists}"
+
+    architecture_deployment_md:
+      description: "Cluster, scaling, network — only if detected"
+      condition: "cluster/scaling signals detected by architecture-analyzer"
+      structure:
+        - "# Deployment & Scaling"
+        - ""
+        - "## Deployment Architecture"
+        - "{Mermaid deployment diagram: nodes, services, networks}"
+        - ""
+        - "## Scaling Strategy"
+        - "{Horizontal/vertical, min nodes, replication}"
+        - ""
+        - "## Network Configuration"
+        - "{Table: service → port → protocol → access (internal/external)}"
+        - ""
+        - "## Best Practices"
+        - "{Concrete recommendations: TLS, segmentation, load balancing}"
+        - ""
+        - "## Recommended Configuration"
+        - "{Table: scenario → nodes → RAM → storage → notes}"
+
+  #---------------------------------------------------------------------------
+  # PROJECT-TYPE SPECIFIC STRUCTURES
+  #---------------------------------------------------------------------------
   generation_by_project_type:
 
     template:
       structure:
-        index.md: "What is this template, Quick Start, What's Included"
+        index.md: "Product pitch: what this template provides, key features, quick start"
         getting-started/:
-          README.md: "Installation, First Steps"
-          workflow.md: "Feature development workflow"
+          README.md: "Installation methods (template, one-liner, manual)"
+          workflow.md: "Feature development workflow with diagram"
+          configuration.md: "Environment setup, tokens, MCP config"
+        architecture/:
+          README.md: "System context: DevContainer + Claude + MCP ecosystem"
+          components.md: "Features, hooks, agents, commands — how they connect"
+          flow.md: "Container lifecycle flow with sequence diagram"
         languages/:
-          README.md: "Overview of all 12 languages"
-          "{lang}.md": "One page per language with tools table"
+          README.md: "Overview of all languages with comparison table"
+          "{lang}.md": "One page per language: tools, linters, versions, why"
         commands/:
-          README.md: "Overview of all commands"
-          "{cmd}.md": "One page per command with full details"
+          README.md: "All commands overview with when-to-use decision tree"
+          "{cmd}.md": "Full command doc: phases, args, examples, diagrams"
         agents/:
-          README.md: "Agent architecture overview"
-          language-specialists.md: "All 12 language agents"
-          devops-specialists.md: "All 8+ devops agents"
-          executors.md: "All executor agents"
+          README.md: "Agent ecosystem: orchestrators → specialists → executors"
+          language-specialists.md: "All language agents with capabilities"
+          devops-specialists.md: "All DevOps agents with domains"
+          executors.md: "All executor agents with analysis types"
         automation/:
-          README.md: "Automation overview"
-          hooks.md: "All lifecycle hooks detailed"
-          mcp-servers.md: "All MCP integrations"
+          README.md: "Automation overview: hooks + MCP + pre-commit"
+          hooks.md: "All lifecycle hooks with execution order diagram"
+          mcp-servers.md: "All MCP integrations with tools and auth"
         patterns/:
-          README.md: "Design patterns KB overview"
-          by-category.md: "Patterns organized by category"
+          README.md: "Design patterns KB: categories, counts, usage"
+          by-category.md: "Patterns organized by category with links"
         reference/:
-          conventions.md: "Coding conventions"
-          troubleshooting.md: "Common issues"
+          conventions.md: "Coding conventions, commit format, branch naming"
+          troubleshooting.md: "Common issues and solutions"
 
     library:
       structure:
-        index.md: "What is this library, Quick Start"
+        index.md: "Product pitch: what this library does, install, basic example"
+        architecture/:
+          README.md: "System context: library boundary and dependencies"
+          components.md: "Internal module breakdown with diagram"
+          flow.md: "Data flow through the library with sequence diagram"
         api/:
-          README.md: "API overview"
-          "{module}.md": "Per-module documentation"
+          README.md: "API overview: main types, functions, interfaces"
+          "{module}.md": "Per-module: exported API, parameters, return types, examples"
         examples/:
-          README.md: "Example index"
-          "{example}.md": "Each example explained"
+          README.md: "Example index with difficulty levels"
+          "{example}.md": "Each example: problem, solution, code, explanation"
         guides/:
-          installation.md: "Installation guide"
-          usage.md: "Usage patterns"
+          installation.md: "Installation and setup"
+          usage.md: "Usage patterns and best practices"
+          migration.md: "Version migration guide (if applicable)"
 
     application:
       structure:
-        index.md: "What is this app, Quick Start"
+        index.md: "Product pitch: what this app does, who it's for, quick start"
         architecture/:
-          README.md: "Architecture overview"
-          components.md: "Component breakdown"
+          README.md: "Level 1: system context with C4 diagram"
+          components.md: "Level 2: component breakdown with internal diagrams"
+          flow.md: "Data flows with sequence diagrams per major flow"
+          deployment.md: "Level 3: cluster, scaling, network (if applicable)"
+          decisions.md: "Key architectural decisions with rationale"
         api/:
-          README.md: "API reference"
-          endpoints.md: "Endpoint documentation"
+          README.md: "API overview: base URL, auth, rate limiting"
+          endpoints.md: "All endpoints: method, path, request/response formats"
+          protocols.md: "Communication protocols: HTTP, gRPC, WebSocket, etc."
         deployment/:
-          README.md: "Deployment guide"
-          configuration.md: "Configuration reference"
+          README.md: "Deployment guide: prerequisites, steps"
+          configuration.md: "All config options: env vars, files, secrets"
+          cluster.md: "Cluster setup: nodes, replication, fault tolerance"
+          network.md: "Network: ports, TLS, segmentation, load balancing"
         guides/:
-          README.md: "User guides"
+          README.md: "User guides index"
+          getting-started.md: "First steps after deployment"
+          operations.md: "Day-to-day operations and maintenance"
 ```
 
 ---
 
-## Phase 4: Serve
+## Phase 4: Validation + Serve
 
 ```yaml
-phase_4_serve:
-  description: "Start MkDocs server"
+phase_4_validate_and_serve:
+  description: "Validate quality then start MkDocs server"
 
-  pre_check:
-    - "pkill -f 'mkdocs serve' 2>/dev/null || true"
+  validation:
+    mandatory_checks:
+      - "Every nav entry points to existing file"
+      - "No file < 20 lines (likely placeholder)"
+      - "No 'TODO', 'TBD', 'Coming Soon' in content"
+      - "All code blocks have language tag"
+      - "All internal links resolve"
+      - "Every architecture page has at least one Mermaid diagram"
+      - "index.md starts with product pitch (not technical details)"
+      - "No full config files copied inline (use links)"
 
-  command: "mkdocs serve -a 0.0.0.0:{PORT}"
+    warnings:
+      - "File > 300 lines → suggest splitting"
+      - "Architecture page without sequence diagram"
+      - "API page without request/response examples"
+      - "Deployment page without recommended config table"
 
-  output_template: |
-    ═══════════════════════════════════════════════════════════════
-      /docs - Server Running (Deep Analysis Complete)
-    ═══════════════════════════════════════════════════════════════
+  serve:
+    pre_check:
+      - "pkill -f 'mkdocs serve' 2>/dev/null || true"
 
-      Project Type: {PROJECT_TYPE}
-      Analysis:     {N} agents completed
+    command: "mkdocs serve -a 0.0.0.0:{PORT}"
 
-      URL: http://localhost:{PORT}
+    output_template: |
+      ═══════════════════════════════════════════════════════════════
+        /docs - Server Running (Deep Analysis Complete)
+      ═══════════════════════════════════════════════════════════════
 
-      Generated Sections (by score):
-      {SECTIONS_WITH_SCORES}
+        Project Type: {PROJECT_TYPE}
+        Analysis:     {N} agents completed
+        Diagrams:     {D} Mermaid diagrams generated
 
-      Commands:
-        /docs --update      Re-analyze and regenerate
-        /docs --stop        Stop server
-        /docs --status      Show coverage stats
+        URL: http://localhost:{PORT}
 
-    ═══════════════════════════════════════════════════════════════
+        Generated Sections (by score):
+        {SECTIONS_WITH_SCORES}
+
+        Commands:
+          /docs --update      Re-analyze and regenerate
+          /docs --stop        Stop server
+          /docs --status      Show coverage stats
+
+      ═══════════════════════════════════════════════════════════════
 ```
 
 ---
@@ -631,12 +912,14 @@ status:
     - "Server running? (pgrep -f 'mkdocs serve')"
     - "Docs structure exists? (ls docs/)"
     - "Content files count"
+    - "Mermaid diagrams count"
     - "Last analysis timestamp"
 
   output_template: |
     Server:     {RUNNING|STOPPED}
     Structure:  {EXISTS|MISSING}
     Pages:      {N} files
+    Diagrams:   {D} Mermaid blocks
     Coverage:   {PERCENTAGE}%
     Last scan:  {TIMESTAMP}
 ```
@@ -663,13 +946,18 @@ quick:
 
 | Action | Status | Raison |
 |--------|--------|--------|
-| Créer page vide/placeholder | ❌ **INTERDIT** | UX cassée |
-| Lancer agents séquentiellement | ❌ **INTERDIT** | Performance dégradée |
-| Skip scoring | ❌ **INTERDIT** | Perte de priorisation |
-| Générer sans analyse | ❌ **INTERDIT** | Contenu superficiel |
-| "Coming Soon" / "TBD" | ❌ **INTERDIT** | Promesses vides |
-| Créer section score < 16 standalone | ❌ **INTERDIT** | Pollution navigation |
-| Ignorer PROJECT_TYPE | ❌ **INTERDIT** | Structure inadaptée |
+| Creer page vide/placeholder | **INTERDIT** | UX cassee |
+| Lancer agents sequentiellement | **INTERDIT** | Performance degradee |
+| Skip scoring | **INTERDIT** | Perte de priorisation |
+| Generer sans analyse | **INTERDIT** | Contenu superficiel |
+| "Coming Soon" / "TBD" | **INTERDIT** | Promesses vides |
+| Creer section score < 16 standalone | **INTERDIT** | Pollution navigation |
+| Ignorer PROJECT_TYPE | **INTERDIT** | Structure inadaptee |
+| Page architecture sans diagramme | **INTERDIT** | Comprehension degradee |
+| Copier fichier config entier inline | **INTERDIT** | Desynchronisation |
+| Phrase generique sans info specifique | **INTERDIT** | Contenu creux |
+| index.md qui commence par du technique | **INTERDIT** | Pitch produit d'abord |
+| Skip architecture-analyzer pour app | **INTERDIT** | Architecture est critique |
 
 ---
 
@@ -734,32 +1022,13 @@ nav:
 
 ---
 
-## Validation
-
-```yaml
-validation:
-  before_serve:
-    - "Every nav entry points to existing file"
-    - "No file < 20 lines (likely placeholder)"
-    - "No 'TODO', 'TBD', 'Coming Soon' in content"
-    - "All code blocks have language tag"
-    - "All internal links resolve"
-
-  warnings:
-    - "File > 300 lines → suggest splitting"
-    - "Missing code examples"
-    - "Missing tables in reference pages"
-```
-
----
-
 ## Error Messages
 
 ```yaml
 errors:
   analysis_failed:
     message: |
-      ⚠️ Analysis agent failed: {AGENT_NAME}
+      Analysis agent failed: {AGENT_NAME}
 
       Error: {ERROR_MESSAGE}
 
@@ -767,10 +1036,19 @@ errors:
 
   empty_section_detected:
     message: |
-      ⚠️ Empty section detected: {SECTION}
+      Empty section detected: {SECTION}
 
-      Score: {SCORE}/40
+      Score: {SCORE}/43
 
       This section has no real content.
       Moving to reference section.
+
+  missing_diagram:
+    message: |
+      Architecture page without diagram: {PAGE}
+
+      Score: {SCORE}/43 (includes +3 diagram bonus)
+
+      Adding placeholder Mermaid diagram from agent analysis.
+      Review and refine the generated diagram.
 ```
