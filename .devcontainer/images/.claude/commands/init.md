@@ -1,11 +1,13 @@
 ---
 name: init
 description: |
-  Project initialization check with RLM decomposition.
-  Validates environment, dependencies, configuration, and grepai indexing.
-  Use when: starting work on a project, verifying setup,
-  or troubleshooting environment issues.
+  Project initialization with RLM decomposition.
+  Auto-detects if personalization needed, then validates environment.
+  Use when: creating new project, starting work, verifying setup.
 allowed-tools:
+  - AskUserQuestion
+  - Write
+  - Edit
   - "Bash(git:*)"
   - "Bash(docker:*)"
   - "Bash(terraform:*)"
@@ -17,6 +19,8 @@ allowed-tools:
   - "Bash(curl:*)"
   - "Bash(pgrep:*)"
   - "Bash(nohup:*)"
+  - "Bash(mkdir:*)"
+  - "Bash(wc:*)"
   - "Read(**/*)"
   - "Glob(**/*)"
   - "mcp__grepai__*"
@@ -26,7 +30,7 @@ allowed-tools:
   - "mcp__codacy__*"
 ---
 
-# /init - Project Initialization (RLM Architecture)
+# /init - Project Initialization (RLM)
 
 $ARGUMENTS
 
@@ -34,407 +38,322 @@ $ARGUMENTS
 
 ## Overview
 
-Vérification d'initialisation projet avec patterns **RLM** :
+Initialisation complète avec patterns **RLM** :
 
-- **Peek** - Scan rapide du projet (type, structure)
-- **Decompose** - Catégoriser les vérifications (tools, deps, config, env)
-- **Parallelize** - Checks simultanés par catégorie
-- **Synthesize** - Rapport consolidé avec actions
+1. **Detect** - Projet personnalisé ou template?
+2. **Personalize** - Wizard si template détecté
+3. **Validate** - Environment, tools, deps, config
+4. **Report** - Consolidated status
 
 ---
 
 ## Usage
 
 ```
-/init                      # Full initialization check
-/init --tools              # Check tools only
-/init --deps               # Check dependencies only
-/init --env                # Check environment only
-/init --fix                # Attempt auto-fix issues
-/init --help               # Show help
+/init                # Everything automatic
 ```
+
+**Comportement intelligent :**
+- Détecte si template → lance wizard
+- Détecte si personnalisé → valide seulement
+- Détecte problèmes → auto-fix quand possible
+- Pas de flags, pas de questions inutiles
 
 ---
 
-## --help
+## Phase 0 : Detect (Template vs Personalized)
 
-```
-═══════════════════════════════════════════════════════════════
-  /init - Project Initialization (RLM)
-═══════════════════════════════════════════════════════════════
-
-Usage: /init [options]
-
-Options:
-  (none)            Full initialization check
-  --tools           Check tools only
-  --deps            Check dependencies only
-  --env             Check environment only
-  --fix             Attempt auto-fix issues
-  --help            Show this help
-
-RLM Patterns:
-  1. Peek       - Detect project type
-  2. Decompose  - Categorize checks
-  3. Parallelize - Run checks simultaneously
-  4. Synthesize - Consolidated report
-
-Exemples:
-  /init                       Full check
-  /init --tools               Tools versions only
-  /init --fix                 Auto-fix issues
-
-═══════════════════════════════════════════════════════════════
-```
-
----
-
-## Phase 1 : Peek (RLM Pattern)
-
-**Scan rapide du projet :**
+**Détecter si le projet nécessite personnalisation :**
 
 ```yaml
-peek_workflow:
-  1_structure:
-    action: "Scanner la structure du projet"
-    tools: [Glob]
-    patterns:
-      - "package.json"
-      - "go.mod"
-      - "Cargo.toml"
-      - "pyproject.toml"
-      - "*.tf"
-      - "Dockerfile"
-      - "*.yaml"
+detect_workflow:
+  check_markers:
+    - file: "/workspace/CLAUDE.md"
+      template_marker: "Kodflow DevContainer Template"
+    - file: "/workspace/docs/vision.md"
+      template_marker: "batteries-included VS Code Dev Container"
 
-  2_identify_type:
-    action: "Identifier le type de projet"
-    mapping:
-      - "package.json → Node.js"
-      - "go.mod → Go"
-      - "Cargo.toml → Rust"
-      - "pyproject.toml → Python"
-      - "*.tf → Terraform"
-      - "Dockerfile → Container"
-      - "deployment.yaml → Kubernetes"
-
-  3_detect_requirements:
-    action: "Extraire les requirements"
-    tools: [Grep]
-    patterns:
-      - "engines" in package.json
-      - "go" version in go.mod
-      - "rust-version" in Cargo.toml
+  decision:
+    if_template_detected:
+      action: "Run Phase 1 (Personalization Wizard)"
+      message: "Template detected. Let's personalize your project."
+    if_personalized:
+      action: "Skip to Phase 2 (Validation)"
+      message: "Project already personalized. Validating..."
 ```
 
-**Output Phase 1 :**
+**Output Phase 0 :**
 
 ```
 ═══════════════════════════════════════════════════════════════
-  /init - Peek Analysis
+  /init - Project Detection
 ═══════════════════════════════════════════════════════════════
 
-  Project: /workspace
+  Checking: /workspace/CLAUDE.md
+  Result  : Template markers found
 
-  Detected Types:
-    ✓ Node.js (package.json)
-    ✓ Terraform (*.tf)
-    ✓ Docker (Dockerfile)
-
-  Requirements extracted:
-    - Node.js >= 20.x
-    - Terraform >= 1.6.x
-    - Docker >= 24.x
+  → Project needs personalization
+  → Starting wizard...
 
 ═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Phase 2 : Decompose (RLM Pattern)
+## Phase 1 : Personalization Wizard
 
-**Catégoriser les vérifications :**
+**Si template détecté, poser les questions de personnalisation.**
+
+### Block 1: Project Identity
 
 ```yaml
-decompose_workflow:
-  categories:
-    tools:
-      description: "Vérifier les outils installés et versions"
-      checks:
-        - git
-        - node/npm
-        - go
-        - terraform
-        - docker
-        - kubectl
-        - grepai
+ask_identity:
+  tool: AskUserQuestion
+  questions:
+    - question: "What is your project name?"
+      header: "Name"
+      options:
+        - label: "my-api"
+          description: "REST/GraphQL API service"
+        - label: "my-cli"
+          description: "Command-line tool"
+        - label: "my-lib"
+          description: "Reusable library/package"
+      multiSelect: false
 
-    dependencies:
-      description: "Vérifier les dépendances du projet"
-      checks:
-        - "npm ci / npm install"
-        - "go mod download"
-        - "terraform init"
+    - question: "What type of project?"
+      header: "Type"
+      options:
+        - label: "API/Backend"
+          description: "REST or GraphQL service"
+        - label: "CLI Tool"
+          description: "Command-line utility"
+        - label: "Library"
+          description: "Reusable module"
+        - label: "Fullstack"
+          description: "Frontend + Backend"
+      multiSelect: false
+```
 
-    configuration:
-      description: "Vérifier les fichiers de configuration"
-      checks:
-        - ".env exists if .env.example"
-        - "Config files valid syntax"
-        - "CLAUDE.md present"
+### Block 2: Tech Stack
 
-    environment:
-      description: "Vérifier les variables d'environnement"
-      checks:
-        - "Required env vars set"
-        - "MCP servers configured"
-        - "Tokens available"
+```yaml
+ask_stack:
+  tool: AskUserQuestion
+  questions:
+    - question: "Which primary language(s)?"
+      header: "Language"
+      options:
+        - label: "Go"
+          description: "Backend, CLI, microservices"
+        - label: "TypeScript/Node"
+          description: "Backend, frontend, fullstack"
+        - label: "Python"
+          description: "ML, scripting, backend"
+        - label: "Rust"
+          description: "Systems, performance"
+      multiSelect: true
 
-    semantic_search:
-      description: "Initialiser grepai pour recherche sémantique"
-      checks:
-        - "Ollama sidecar accessible"
-        - ".grepai/ config exists"
-        - "grepai watch daemon running"
-        - "Index status (files indexed)"
+    - question: "Which database(s)?"
+      header: "Database"
+      options:
+        - label: "PostgreSQL"
+          description: "Relational, ACID"
+        - label: "MongoDB"
+          description: "Document store"
+        - label: "Redis"
+          description: "Cache, pub/sub"
+        - label: "None"
+          description: "No database"
+      multiSelect: true
+```
+
+### Block 3: Infrastructure
+
+```yaml
+ask_infra:
+  tool: AskUserQuestion
+  questions:
+    - question: "Which cloud provider(s)?"
+      header: "Cloud"
+      options:
+        - label: "AWS"
+          description: "Amazon Web Services"
+        - label: "GCP"
+          description: "Google Cloud"
+        - label: "Azure"
+          description: "Microsoft Azure"
+        - label: "Self-hosted"
+          description: "On-premise"
+      multiSelect: true
+
+    - question: "Container strategy?"
+      header: "Containers"
+      options:
+        - label: "Kubernetes"
+          description: "K8s orchestration"
+        - label: "Docker Compose"
+          description: "Simple deployment"
+        - label: "Serverless"
+          description: "Lambda, Cloud Functions"
+        - label: "None"
+          description: "Traditional"
+      multiSelect: false
+```
+
+### Block 4: Quality Goals
+
+```yaml
+ask_quality:
+  tool: AskUserQuestion
+  questions:
+    - question: "Quality priorities?"
+      header: "Quality"
+      options:
+        - label: "High test coverage (>80%)"
+          description: "Comprehensive testing"
+        - label: "Performance (<100ms)"
+          description: "Low latency"
+        - label: "Security-first"
+          description: "Compliance, auditing"
+        - label: "Rapid iteration"
+          description: "Move fast"
+      multiSelect: true
+```
+
+### File Generation
+
+**Après les questions, générer les fichiers en PARALLÈLE :**
+
+```yaml
+generate_files:
+  - path: "/workspace/CLAUDE.md"
+    content: |
+      # {project_name}
+
+      ## Purpose
+      {project_type} built with {languages}.
+
+      ## How to Work
+      1. `/init` - Verify setup (already done!)
+      2. `/feature <desc>` - New feature
+      3. `/fix <desc>` - Bug fix
+
+      ## Key Principles
+      - MCP-first for integrations
+      - Semantic search with grepai
+      - Specialist agents for {primary_language}
+
+      ## Verification
+      - Tests: `{test_command}`
+      - Lint: auto via hooks
+
+  - path: "/workspace/docs/vision.md"
+    content: |
+      # Vision: {project_name}
+
+      ## Purpose
+      {project_description}
+
+      ## Goals
+      {quality_goals}
+
+      ## Success Criteria
+      | Criterion | Target |
+      |-----------|--------|
+      | Test Coverage | {coverage} |
+      | Availability | {sla} |
+
+  - path: "/workspace/.env.example"
+    condition: "databases.length > 0 OR cloud.length > 0"
+    content: |
+      # {project_name} Environment
+      APP_NAME={project_name}
+      {database_vars}
+      {cloud_vars}
+
+  - path: "/workspace/Makefile"
+    condition: "language in [Go, Rust, Python]"
+    content: |
+      # {project_name} Makefile
+      {language_targets}
 ```
 
 ---
 
-## Phase 3 : Parallelize (RLM Pattern)
+## Phase 2 : Environment Validation
 
-**Lancer les checks en PARALLÈLE via Task agents :**
+**Vérifier l'environnement (parallèle via Task agents).**
 
 ```yaml
 parallel_checks:
-  mode: "PARALLEL (single message, 5 Task calls)"
-
   agents:
-    - task: "tools-checker"
-      type: "Explore"
-      prompt: |
-        Check installed tools:
-        - git --version
-        - node --version
-        - go version
-        - terraform version
-        - docker version
-        - grepai version
-        Return: {tool, required, installed, status}
+    - name: "tools-checker"
+      checks: [git, node, go, terraform, docker, grepai]
+      output: "{tool, required, installed, status}"
 
-    - task: "deps-checker"
-      type: "Explore"
-      prompt: |
-        Check dependencies:
-        - npm ci (if package.json)
-        - go mod download (if go.mod)
-        - terraform init (if *.tf)
-        Return: {manager, status, issues}
+    - name: "deps-checker"
+      checks: [npm ci, go mod, terraform init]
+      output: "{manager, status, issues}"
 
-    - task: "config-checker"
-      type: "Explore"
-      prompt: |
-        Check configuration:
-        - .env exists if .env.example
-        - CLAUDE.md present
-        - Config files valid
-        Return: {file, status, issue}
+    - name: "config-checker"
+      checks: [.env, CLAUDE.md, mcp.json]
+      output: "{file, status, issue}"
 
-    - task: "env-checker"
-      type: "Explore"
-      prompt: |
-        Check environment:
-        - Required env vars
-        - MCP tokens (GITHUB_TOKEN, CODACY_TOKEN)
-        Return: {variable, status, source}
-
-    - task: "grepai-checker"
-      type: "Explore"
-      prompt: |
-        Initialize and check grepai semantic search:
-        1. Check Host Ollama (GPU-accelerated): curl -sf http://host.docker.internal:11434/api/tags
-        2. Check .grepai/config.yaml exists
-        3. Verify endpoint in config is host.docker.internal:11434
-        4. Check daemon: pgrep -f "grepai watch"
-        5. If not running: nohup grepai watch >/tmp/grepai.log 2>&1 &
-        6. Check index: mcp__grepai__grepai_index_status
-        Return: {ollama_host, gpu_accelerated, config, daemon, index_files, status}
-
-        If Ollama unavailable, provide HOST setup instructions:
-        - macOS: brew install ollama && ollama serve && ollama pull qwen3-embedding:0.6b
-        - Linux: curl -fsSL https://ollama.ai/install.sh | sh
-        Note: Ollama runs on HOST for GPU acceleration (Metal/CUDA)
+    - name: "grepai-checker"
+      checks: [Ollama, daemon, index]
+      output: "{component, status, details}"
 ```
-
-**IMPORTANT** : Lancer les 5 agents dans UN SEUL message.
 
 ---
 
-## Phase 4 : Synthesize (RLM Pattern)
-
-**Consolider les résultats :**
-
-```yaml
-synthesize_workflow:
-  1_collect:
-    action: "Rassembler les résultats des 4 agents"
-
-  2_categorize:
-    action: "Classer par sévérité"
-    levels:
-      - CRITICAL: "Bloquant, impossible de travailler"
-      - WARNING: "Problème potentiel"
-      - INFO: "Suggestion d'amélioration"
-      - PASS: "OK"
-
-  3_generate_report:
-    action: "Générer rapport structuré"
-
-  4_suggest_fixes:
-    action: "Proposer des actions correctives"
-```
-
-**Output Final :**
+## Phase 3 : Report
 
 ```
 ═══════════════════════════════════════════════════════════════
-  /init - Project Initialization Report
+  /init - Complete
 ═══════════════════════════════════════════════════════════════
 
-  Project: example-app
-  Types  : Node.js, Terraform, Docker
+  Project: {project_name}
+  Type   : {project_type}
+  Stack  : {languages}
 
-## Tools Status
+  Personalization:
+    ✓ CLAUDE.md updated
+    ✓ docs/vision.md updated
+    ✓ .env.example created
+    ✓ Makefile created
 
-| Tool | Required | Installed | Status |
-|------|----------|-----------|--------|
-| git | 2.40+ | 2.42.0 | ✓ PASS |
-| node | 20.x | 20.10.0 | ✓ PASS |
-| terraform | 1.6+ | 1.7.0 | ✓ PASS |
-| docker | 24+ | 24.0.7 | ✓ PASS |
+  Environment:
+    ✓ Tools installed (git, go, docker)
+    ✓ Dependencies ready
+    ✓ grepai indexed (296 files)
 
-## Dependencies
-
-| Manager | Status | Issues |
-|---------|--------|--------|
-| npm | ✓ PASS | 0 vulnerabilities |
-| terraform | ✓ PASS | Initialized |
-
-## Configuration
-
-| File | Status | Issue |
-|------|--------|-------|
-| .env | ⚠ MISSING | Copy from .env.example |
-| CLAUDE.md | ✓ PASS | - |
-| .gitignore | ✓ PASS | - |
-
-## Environment
-
-| Variable | Status | Source |
-|----------|--------|--------|
-| GITHUB_TOKEN | ✓ SET | mcp.json |
-| CODACY_TOKEN | ⚠ MISSING | Required |
-| DATABASE_URL | ⚠ MISSING | .env |
-
-## Semantic Search (grepai)
-
-| Component | Status | Details |
-|-----------|--------|---------|
-| Ollama | ✓ READY | host.docker.internal:11434 (GPU) |
-| Config | ✓ EXISTS | .grepai/config.yaml |
-| Daemon | ✓ RUNNING | grepai watch (PID 1234) |
-| Index | ✓ INDEXED | 296 files, 1.2MB |
-
-## Recommended Actions
-
-1. `cp .env.example .env` - Create env file
-2. Set `CODACY_TOKEN` in environment
-3. Set `DATABASE_URL` in .env
-
-## Quick Start
-
-```bash
-cp .env.example .env
-# Edit .env with your values
-npm install
-npm run dev
-```
-
-## Search Usage
-
-```yaml
-# MANDATORY: Use grepai MCP for ALL code searches
-semantic_search: mcp__grepai__grepai_search(query="...")
-call_analysis: mcp__grepai__grepai_trace_callers(symbol="...")
-fallback_only: Grep tool (only if grepai fails)
-```
+  Ready to develop!
+    → /feature "description" to start
 
 ═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## --fix Mode
+## Auto-fix (automatique)
 
-**Auto-fix avec parallélisation :**
+Quand un problème est détecté, fix automatique si possible :
 
-```yaml
-fix_workflow:
-  parallel_fixes:
-    - action: "cp .env.example .env"
-      condition: ".env missing && .env.example exists"
-
-    - action: "npm audit fix"
-      condition: "npm vulnerabilities > 0"
-
-    - action: "terraform init -upgrade"
-      condition: "terraform not initialized"
-
-  mode: "PARALLEL where independent"
-```
+| Problème | Action auto |
+|----------|-------------|
+| `.env` manquant | `cp .env.example .env` |
+| deps pas installées | `npm ci` / `go mod download` |
+| grepai pas lancé | `nohup grepai watch &` |
+| Ollama pas accessible | Instructions HOST affichées |
 
 ---
 
-## Detection Patterns
-
-```yaml
-project_types:
-  nodejs:
-    files: ["package.json"]
-    tools: ["node", "npm"]
-    deps: "npm ci"
-
-  go:
-    files: ["go.mod"]
-    tools: ["go"]
-    deps: "go mod download"
-
-  python:
-    files: ["pyproject.toml", "requirements.txt"]
-    tools: ["python", "pip"]
-    deps: "pip install -r requirements.txt"
-
-  terraform:
-    files: ["*.tf"]
-    tools: ["terraform", "tflint"]
-    deps: "terraform init"
-
-  kubernetes:
-    files: ["**/deployment.yaml", "helm/"]
-    tools: ["kubectl", "helm"]
-
-  docker:
-    files: ["Dockerfile", "docker-compose.yml"]
-    tools: ["docker"]
-```
-
----
-
-## GARDE-FOUS (ABSOLUS)
+## GARDE-FOUS
 
 | Action | Status |
 |--------|--------|
-| Skip Phase 1 (Peek) | ❌ **INTERDIT** |
-| Checks séquentiels | ❌ **INTERDIT** |
-| Ignorer CRITICAL issues | ❌ **INTERDIT** |
-| Auto-fix sans --fix flag | ⚠ WARNING |
+| Skip detection | ❌ INTERDIT |
+| Placeholders dans output | ❌ INTERDIT |
+| Fix destructif sans demander | ❌ INTERDIT |

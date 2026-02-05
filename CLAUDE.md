@@ -71,10 +71,17 @@ Principle: More detail deeper in tree. Each file < 100 lines.
 
 | Command | Purpose |
 |---------|---------|
-| `/improve` | Documentation QA for design patterns |
+| `/init` | **Setup** - Personalize + validate environment |
 | `/feature` | Start feature branch with planning |
 | `/fix` | Start fix branch with planning |
 | `/review` | Code review with specialist agents |
+| `/improve` | Documentation QA for design patterns |
+
+## New Project Setup
+
+After creating a project from this template:
+1. Run `/init` (auto-detects template, asks questions, validates)
+2. Start with `/feature <description>`
 
 ## Verification
 
