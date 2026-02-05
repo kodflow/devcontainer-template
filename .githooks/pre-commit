@@ -1,0 +1,23 @@
+#!/bin/bash
+# ============================================================================
+# pre-commit hook - Regenerate claude-assets.tar.gz if source files changed
+# ============================================================================
+
+set -e
+
+CLAUDE_DIR=".devcontainer/images/.claude"
+ARCHIVE_FILE=".devcontainer/claude-assets.tar.gz"
+SCRIPT=".devcontainer/scripts/generate-assets-archive.sh"
+
+# Check if any Claude assets are staged for commit
+if git diff --cached --name-only | grep -q "^$CLAUDE_DIR/"; then
+    echo "[pre-commit] Claude assets changed, regenerating archive..."
+
+    if [ -x "$SCRIPT" ]; then
+        "$SCRIPT"
+    else
+        echo "[pre-commit] Warning: generate-assets-archive.sh not found or not executable"
+    fi
+fi
+
+exit 0
