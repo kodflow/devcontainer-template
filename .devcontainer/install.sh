@@ -117,6 +117,20 @@ detect_environment() {
 # ============================================================================
 # Safe Download with Validation
 # ============================================================================
+# GitHub API call with optional authentication
+# Uses GITHUB_TOKEN if available (5000 req/h vs 60 req/h)
+github_api_call() {
+    local url="$1"
+    local auth_header=""
+
+    # Use token if available for higher rate limit
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        auth_header="-H \"Authorization: token ${GITHUB_TOKEN}\""
+    fi
+
+    eval curl -sL $auth_header "$url" 2>/dev/null
+}
+
 safe_download() {
     local url="$1"
     local output="$2"
@@ -190,9 +204,9 @@ download_agents() {
 
     echo "→ Downloading agents..."
 
-    # Discover via GitHub API
+    # Discover via GitHub API (uses GITHUB_TOKEN if available for higher rate limit)
     local agents
-    agents=$(curl -sL "$API/.devcontainer/images/.claude/agents" 2>/dev/null | jq -r '.[].name' 2>/dev/null | grep '\.md$' || echo "")
+    agents=$(github_api_call "$API/.devcontainer/images/.claude/agents" | jq -r '.[].name' 2>/dev/null | grep '\.md$' || echo "")
 
     if [ -z "$agents" ]; then
         echo "  ⚠ Could not discover agents via API, using fallback"
@@ -226,7 +240,7 @@ download_commands() {
 
     # Discover via GitHub API
     local commands
-    commands=$(curl -sL "$API/.devcontainer/images/.claude/commands" 2>/dev/null | jq -r '.[].name' 2>/dev/null | grep '\.md$' || echo "")
+    commands=$(github_api_call "$API/.devcontainer/images/.claude/commands" | jq -r '.[].name' 2>/dev/null | grep '\.md$' || echo "")
 
     if [ -z "$commands" ]; then
         echo "  ⚠ Could not discover commands via API, using fallback"
@@ -259,7 +273,7 @@ download_scripts() {
 
     # Discover via GitHub API
     local scripts
-    scripts=$(curl -sL "$API/.devcontainer/images/.claude/scripts" 2>/dev/null | jq -r '.[].name' 2>/dev/null | grep '\.sh$' || echo "")
+    scripts=$(github_api_call "$API/.devcontainer/images/.claude/scripts" | jq -r '.[].name' 2>/dev/null | grep '\.sh$' || echo "")
 
     if [ -z "$scripts" ]; then
         echo "  ⚠ Could not discover scripts via API, using fallback"
@@ -309,7 +323,7 @@ download_docs() {
 
     # Download category directories (20 categories)
     local categories
-    categories=$(curl -sL "$API/.devcontainer/images/.claude/docs" 2>/dev/null | jq -r '.[] | select(.type == "dir") | .name' 2>/dev/null || echo "")
+    categories=$(github_api_call "$API/.devcontainer/images/.claude/docs" | jq -r '.[] | select(.type == "dir") | .name' 2>/dev/null || echo "")
 
     if [ -z "$categories" ]; then
         echo "  ⚠ Could not discover doc categories, skipping patterns"
@@ -324,7 +338,7 @@ download_docs() {
 
         # Download all .md files in category
         local category_files
-        category_files=$(curl -sL "$API/.devcontainer/images/.claude/docs/$category" 2>/dev/null | jq -r '.[].name' 2>/dev/null | grep '\.md$' || echo "")
+        category_files=$(github_api_call "$API/.devcontainer/images/.claude/docs/$category" | jq -r '.[].name' 2>/dev/null | grep '\.md$' || echo "")
 
         for file in $category_files; do
             if safe_download "$BASE/.devcontainer/images/.claude/docs/$category/$file" "$target_dir/docs/$category/$file"; then
