@@ -267,7 +267,7 @@ download_scripts() {
 
     if [ -z "$scripts" ]; then
         echo "  ⚠ Could not discover scripts via API, using fallback"
-        scripts="format.sh lint.sh security.sh test.sh"
+        scripts="commit-validate.sh format.sh lint.sh log.sh post-compact.sh post-edit.sh pre-commit-checks.sh pre-validate.sh security.sh test.sh typecheck.sh"
     fi
 
     local count=0
