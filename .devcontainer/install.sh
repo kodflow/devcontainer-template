@@ -513,7 +513,7 @@ load_env_file() {
 
 # List all vaults from service account
 get_1password_vaults() {
-    if command -v op &>/dev/null && [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+    if command -v op &>/dev/null && [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]; then
         op vault list --format=json 2>/dev/null | jq -r '.[].name' 2>/dev/null || echo ""
     fi
 }
@@ -525,7 +525,7 @@ get_1password_field() {
     local value=""
     local vaults
 
-    if ! command -v op &>/dev/null || [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+    if ! command -v op &>/dev/null || [ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]; then
         echo ""
         return
     fi
@@ -571,7 +571,7 @@ fetch_1password_tokens() {
         return 0
     fi
 
-    if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+    if [ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]; then
         echo "  ⚠ OP_SERVICE_ACCOUNT_TOKEN not set"
         echo "    Set it in .env or export it"
         return 0
