@@ -88,6 +88,27 @@ fi
 mkdir -p "$HOME/.claude/sessions" "$HOME/.claude/plans"
 log_success "Claude directories initialized"
 
+# ============================================================================
+# Ensure shell environment is properly configured (repair mechanism)
+# ============================================================================
+# postCreate.sh creates ~/.devcontainer-env.sh with super-claude() and other
+# shell functions. If the source line is missing from RC files (stale image,
+# volume issue, or .bashrc never configured), inject it here on every start.
+DC_SOURCE_LINE='[[ -f ~/.devcontainer-env.sh ]] && source ~/.devcontainer-env.sh'
+
+for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+    if [ -f "$rc_file" ] && ! grep -q "devcontainer-env.sh" "$rc_file" 2>/dev/null; then
+        printf '\n%s\n' "$DC_SOURCE_LINE" >> "$rc_file"
+        log_info "Added devcontainer-env source to $(basename "$rc_file")"
+    fi
+done
+
+# Ensure zsh is the default login shell
+if [ "$(getent passwd "$(whoami)" | cut -d: -f7)" != "/bin/zsh" ]; then
+    sudo chsh -s /bin/zsh "$(whoami)" 2>/dev/null || true
+    log_success "Default shell set to zsh"
+fi
+
 # Reload .env file to get updated tokens
 ENV_FILE="/workspace/.devcontainer/.env"
 if [ -f "$ENV_FILE" ]; then

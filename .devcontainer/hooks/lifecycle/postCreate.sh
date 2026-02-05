@@ -76,8 +76,9 @@ fi
 # Note: Tools (status-line, ktn-linter) are now baked into the Docker image
 # No longer need to update on each rebuild
 
-# Check if already initialized
-if [ -f /home/vscode/.devcontainer-initialized ]; then
+# Check if already initialized (but only if env file also exists)
+# If ~/.devcontainer-env.sh is missing, we must recreate it even if marker exists
+if [ -f /home/vscode/.devcontainer-initialized ] && [ -f /home/vscode/.devcontainer-env.sh ]; then
     log_success "DevContainer already initialized"
     echo ""
     exit 0
