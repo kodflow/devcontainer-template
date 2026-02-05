@@ -187,10 +187,11 @@ RUN rm -rf ~/.oh-my-zsh && \
 # Copy p10k configuration
 COPY --chown=vscode:vscode .p10k.zsh /home/vscode/.p10k.zsh
 
-# Configure zsh
+# Configure zsh + bash (ensure devcontainer-env is sourced in both shells)
 RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc && \
     sed -i 's/^plugins=.*/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc && \
-    printf '\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\nexport HISTFILE=~/.zsh_history_dir/.zsh_history\nexport HISTSIZE=50000\nexport SAVEHIST=50000\n[[ -f ~/.devcontainer-env.sh ]] && source ~/.devcontainer-env.sh\n' >> ~/.zshrc
+    printf '\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\nexport HISTFILE=~/.zsh_history_dir/.zsh_history\nexport HISTSIZE=50000\nexport SAVEHIST=50000\n[[ -f ~/.devcontainer-env.sh ]] && source ~/.devcontainer-env.sh\n' >> ~/.zshrc && \
+    printf '\n[[ -f ~/.devcontainer-env.sh ]] && source ~/.devcontainer-env.sh\n' >> ~/.bashrc
 
 # =============================================================================
 # Claude Code (standalone installation - no Node.js required)
@@ -234,6 +235,9 @@ COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
 
 # GrepAI config template (optimized for 12 languages)
 COPY --chown=vscode:vscode grepai.config.yaml /etc/grepai/config.yaml
+
+# Ensure zsh is the default login shell for vscode user
+RUN chsh -s /bin/zsh vscode
 
 USER vscode
 
