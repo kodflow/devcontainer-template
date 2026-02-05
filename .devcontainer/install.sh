@@ -40,9 +40,8 @@ Options:
   --minimal    Skip documentation installation (saves ~2.4MB, 155 files)
   --help       Show this help message
 
-Installation Locations:
-  Host Machine:    \$HOME/.claude/
-  DevContainer:    /workspace/.devcontainer/images/.claude/
+Installation Location:
+  Always:          \$HOME/.claude/ (both host and container)
 
 What Gets Installed:
   - Claude CLI (if not already installed)
@@ -102,12 +101,9 @@ detect_environment() {
     # Home Directory Detection
     HOME_DIR="${HOME:-/home/vscode}"
 
-    # Target Directory (override via DC_TARGET env var)
-    if [ "$IS_CONTAINER" = true ]; then
-        TARGET_DIR="${DC_TARGET:-/workspace/.devcontainer/images/.claude}"
-    else
-        TARGET_DIR="${DC_TARGET:-$HOME_DIR/.claude}"
-    fi
+    # Target Directory - ALWAYS in $HOME/.claude/ (same behavior for host and container)
+    # This ensures no Claude files pollute the project workspace
+    TARGET_DIR="${DC_TARGET:-$HOME_DIR/.claude}"
 
     echo "→ Environment Detection:"
     echo "  OS:         $OS"
@@ -730,6 +726,86 @@ super-claude() {
 }
 
 # ============================================================================
+# Configure Git Hooks (global, pointing to ~/.claude/hooks/)
+# ============================================================================
+configure_git_hooks() {
+    local target_dir="$1"
+    local hooks_dir="$target_dir/hooks"
+
+    echo "→ Configuring Git hooks..."
+
+    # Create hooks directory
+    mkdir -p "$hooks_dir"
+
+    # Create pre-commit hook that calls our validation scripts
+    cat > "$hooks_dir/pre-commit" << 'HOOKEOF'
+#!/bin/bash
+# Pre-commit hook - calls Claude Code validation scripts
+SCRIPTS_DIR="$HOME/.claude/scripts"
+
+# Run commit validation (blocks AI mentions)
+if [ -x "$SCRIPTS_DIR/commit-validate.sh" ]; then
+    "$SCRIPTS_DIR/commit-validate.sh" || exit 1
+fi
+
+# Run pre-commit checks (lint, format, test)
+if [ -x "$SCRIPTS_DIR/pre-commit-checks.sh" ]; then
+    "$SCRIPTS_DIR/pre-commit-checks.sh" || exit 1
+fi
+
+exit 0
+HOOKEOF
+
+    # Create commit-msg hook
+    cat > "$hooks_dir/commit-msg" << 'HOOKEOF'
+#!/bin/bash
+# Commit-msg hook - validates commit message format
+COMMIT_MSG_FILE="$1"
+SCRIPTS_DIR="$HOME/.claude/scripts"
+
+# Check for AI mentions in commit message
+if [ -f "$COMMIT_MSG_FILE" ]; then
+    MSG=$(cat "$COMMIT_MSG_FILE")
+
+    # Forbidden patterns (case insensitive)
+    FORBIDDEN=(
+        "co-authored-by.*claude"
+        "co-authored-by.*anthropic"
+        "co-authored-by.*ai"
+        "co-authored-by.*gpt"
+        "generated.*by.*ai"
+        "generated.*by.*claude"
+        "🤖"
+    )
+
+    for pattern in "${FORBIDDEN[@]}"; do
+        if echo "$MSG" | grep -iE "$pattern" > /dev/null 2>&1; then
+            echo "❌ Commit blocked: AI mention detected in commit message"
+            echo "   Pattern: $pattern"
+            echo "   Remove AI references and try again."
+            exit 1
+        fi
+    done
+fi
+
+exit 0
+HOOKEOF
+
+    # Make hooks executable
+    chmod +x "$hooks_dir/pre-commit" "$hooks_dir/commit-msg"
+
+    # Configure git to use our hooks directory (global)
+    git config --global core.hooksPath "$hooks_dir"
+
+    echo "  ✓ Git hooks installed in $hooks_dir"
+    echo "  ✓ Global core.hooksPath configured"
+    echo ""
+    echo "  Hooks installed:"
+    echo "    pre-commit  → runs validation scripts"
+    echo "    commit-msg  → blocks AI mentions"
+}
+
+# ============================================================================
 # Verification
 # ============================================================================
 verify_installation() {
@@ -782,6 +858,17 @@ verify_installation() {
         errors=$((errors + 1))
     fi
 
+    # Check Git hooks
+    local hooks_path
+    hooks_path=$(git config --global core.hooksPath 2>/dev/null || echo "")
+    if [ -n "$hooks_path" ] && [ -d "$hooks_path" ]; then
+        local hook_count
+        hook_count=$(find "$hooks_path" -type f -executable 2>/dev/null | wc -l)
+        echo "  ✓ Git hooks: $hook_count hooks in $hooks_path"
+    else
+        echo "  ⚠ Git hooks not configured (run configure_git_hooks)"
+    fi
+
     echo ""
     if [ $errors -eq 0 ]; then
         echo "✓ Installation verified successfully"
@@ -822,6 +909,9 @@ main() {
 
     echo ""
     install_super_claude
+
+    echo ""
+    configure_git_hooks "$TARGET_DIR"
 
     verify_installation "$TARGET_DIR"
 
