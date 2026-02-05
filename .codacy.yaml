@@ -3,9 +3,15 @@
 
 ---
 exclude_paths:
-  # Documentation files (knowledge bases, guides)
+  # Root documentation files
+  - "CLAUDE.md"
+  - "AGENTS.md"
+  - "README.md"
+  # Project documentation
+  - "docs/**"
+  # DevContainer documentation and prompts
   - ".devcontainer/docs/**"
-  # Agent prompt files (Markdown used as prompts, not documentation)
-  - ".devcontainer/images/.claude/agents/**/*.md"
-  # Command skill files (Markdown used as prompts)
-  - ".devcontainer/images/.claude/commands/**/*.md"
+  - ".devcontainer/**/*.md"
+  # Claude agent and command files (Markdown used as prompts)
+  - ".claude/**/*.md"
+  - ".devcontainer/images/.claude/**/*.md"

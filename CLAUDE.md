@@ -1,306 +1,93 @@
 # Kodflow DevContainer Template
 
-## Project Structure (MANDATORY)
+## Why This Exists
 
-```text
+A batteries-included Dev Container for consistent, secure development environments. Ships Claude CLI, cloud CLIs, and language tooling so projects bootstrap in seconds with repeatable workflows.
+
+## Project Structure
+
+```
 /workspace
-+-- src/                    # ALL source code (mandatory)
-|   +-- components/
-|   +-- services/
-|   +-- ...
-+-- tests/                  # Unit tests (optional, not for Go)
-+-- docs/                   # Documentation
-+-- CLAUDE.md
+├── src/          # All source code (mandatory)
+├── tests/        # Unit tests (Go: alongside code in src/)
+├── docs/         # Documentation (vision, architecture, workflows)
+└── CLAUDE.md     # This file
 ```
 
-**Rules:**
-- ALL code MUST be in `/src` regardless of language
-- Tests in `/tests` (except Go: tests alongside code in `/src`)
-- Never put code at project root
+## How to Work
 
-## Language Rules
+1. **Generate context**: `/build --context` creates CLAUDE.md in subdirectories
+2. **New feature**: `/feature "description"` → planning mode → PR
+3. **Bug fix**: `/fix "description"` → planning mode → PR
 
-**Language conventions are enforced by specialist agents** (e.g., `developer-specialist-go`,
-`developer-specialist-python`). Each agent knows the latest stable version and best practices.
+Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
 
-Key principles:
-1. Use **latest stable version** of each language
-2. Follow language-specific code style (enforced by linters)
-3. ALL code in `/src`, tests in `/tests` (except Go: tests alongside code)
-4. Security-first approach with full test coverage
+## Key Principles
 
-## Workflow (MANDATORY)
+**MCP-first**: Use MCP tools (`mcp__github__*`, `mcp__codacy__*`) before CLI fallbacks. MCP has pre-configured auth.
 
-### 1. Context Generation
-```
-/build --context
-```
-Generates CLAUDE.md in all subdirectories + fetches latest language versions.
+**Semantic search**: Use `grepai_search` for meaning-based queries. Fall back to Grep for exact strings or regex.
 
-### 2. Feature Development
-```
-/feature <description>
-```
-Creates `feat/<description>` branch, **mandatory planning mode**, CI check, PR creation (no auto-merge).
+**Specialist agents**: Language conventions enforced by agents (`developer-specialist-go`, etc.). They know current stable versions.
 
-### 3. Bug Fixes
-```
-/fix <description>
-```
-Creates `fix/<description>` branch, **mandatory planning mode**, CI check, PR creation (no auto-merge).
+**Reasoning patterns**: For complex tasks, apply: Peek → Decompose → Parallelize → Synthesize.
 
-**Flow:**
-```
-/build --context → /feature "..." ou /fix "..."
-```
+## Safeguards
 
-## Branch Conventions
+Ask before:
+- Deleting files in `.claude/` or `.devcontainer/`
+- Removing features from `.claude/commands/*.md`
+- Removing hooks from `.devcontainer/hooks/`
 
-| Type | Branch | Commit prefix |
-|------|--------|---------------|
-| Feature | `feat/<desc>` | `feat(scope): message` |
-| Bugfix | `fix/<desc>` | `fix(scope): message` |
+When refactoring: move content to separate files, preserve logic.
 
-## Code Quality
+## Pre-commit
 
-- Latest stable version ONLY (specialist agents know current versions)
-- No deprecated APIs
-- No legacy patterns
-- Security-first approach
-- Full test coverage
+Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.). Priority: Makefile targets, then language-specific commands.
 
-## MCP-FIRST RULE (MANDATORY)
+## Hooks
 
-**ALWAYS use MCP tools BEFORE falling back to CLI binaries.**
+| Hook | Purpose |
+|------|---------|
+| pre-validate | Protect sensitive files |
+| post-edit | Format + lint |
+| security | Secret detection |
+| test | Run related tests |
 
-```yaml
-mcp_priority:
-  rule: "MCP tools are the PRIMARY interface"
-  fallback: "CLI only when MCP unavailable or fails"
-
-  workflow:
-    1_check_mcp: "Verify MCP server is available in mcp.json"
-    2_use_mcp: "Call mcp__<server>__<action> tool"
-    3_on_failure: "Log error, inform user, then try CLI fallback"
-    4_never_ask: "NEVER ask user for tokens if MCP is configured"
-
-  examples:
-    github:
-      priority: "mcp__github__list_pull_requests"
-      fallback: "gh pr list"
-    codacy:
-      priority: "mcp__codacy__codacy_cli_analyze"
-      fallback: "codacy-cli analyze"
-    playwright:
-      priority: "mcp__playwright__browser_navigate"
-      fallback: "npx playwright test"
-```
-
-**Why MCP-first:**
-
-- MCP servers have pre-configured authentication (tokens in mcp.json)
-- CLI tools require separate auth (`gh auth login`, etc.)
-- MCP provides structured responses (JSON vs text parsing)
-- Single source of truth for credentials
-
-## Reasoning Patterns (RLM)
-
-Before complex tasks, apply these patterns from [Recursive Language Models](https://arxiv.org/abs/2512.24601):
-
-1. **Peek** - Read aperçu (Glob, Read partial) before full analysis
-2. **Semantic Search** - Use grepai MCP for intelligent code search (replaces Grep)
-3. **Decompose** - Divide into sub-tasks (Task agents)
-4. **Parallelize** - Execute independents in parallel (single message, multiple tools)
-5. **Synthesize** - Combine results into coherent answer
-
-**Application:**
-```
-Complex request → Peek/grepai → Decompose → Parallel Task agents → Synthesize
-```
-
-## GREPAI-FIRST RULE (MANDATORY)
-
-**ALWAYS try grepai FIRST. Use Grep as FALLBACK only.**
-
-```yaml
-search_strategy:
-  primary:
-    tool: mcp__grepai__grepai_search
-    for: "Semantic search, meaning-based queries"
-
-  trace:
-    tools: [mcp__grepai__grepai_trace_callers, mcp__grepai__grepai_trace_callees, mcp__grepai__grepai_trace_graph]
-    for: "Impact analysis, call graphs"
-
-  fallback:
-    tool: Grep
-    conditions:
-      - "grepai returns 0 results AND query is valid"
-      - "Exact regex/literal match needed (ERROR_CODE_42)"
-      - "grepai MCP unavailable (connection error)"
-
-  cross_reference:
-    rule: "Validate with 2+ sources when possible"
-
-grepai_workflow:
-  step_1_semantic:
-    tool: mcp__grepai__grepai_search
-    example: grepai_search(query="authentication error handling")
-
-  step_2_evaluate:
-    if: "results.count == 0 OR exact_match_needed"
-    then: "Proceed to Grep fallback"
-
-  step_3_fallback:
-    tool: Grep
-    use_for:
-      - "Exact string (ERROR_CODE_42)"
-      - "Regex pattern (func.*Handler)"
-      - "grepai MCP failed"
-
-  step_4_cross_reference:
-    action: "Compare & validate from multiple sources"
-```
-
-**Decision matrix:**
-
-| Search Task | Tool | Reason |
-|-------------|------|--------|
-| "Find authentication code" | `grepai_search` | Semantic |
-| "Who calls handleLogin?" | `mcp__grepai__grepai_trace_callers` | Call graph |
-| Exact string `"ERROR_CODE_42"` | `Grep` (fallback) | Literal match |
-| Regex `func.*Handler` | `Grep` (fallback) | Pattern match |
-| grepai returns 0 results | `Grep` (fallback) | Degraded mode |
-
-**Initialization (automatic via initialize.sh + postStart.sh):**
-
-Ollama runs on HOST machine for GPU acceleration (Metal on Mac, CUDA on Linux).
-Installed automatically via `initialize.sh` during DevContainer build.
-
-```bash
-# Detection:
-# 1. OLLAMA_HOST env var (override)
-# 2. host.docker.internal:11434 (host Ollama with GPU)
-```
-
-**GPU Acceleration (10x faster):**
-
-Ollama is automatically installed on your host machine during DevContainer build:
-
-```bash
-# Manual setup (if needed):
-# macOS (Metal GPU)
-brew install ollama
-ollama serve
-ollama pull qwen3-embedding:0.6b
-
-# Linux (NVIDIA GPU)
-curl -fsSL https://ollama.ai/install.sh | sh
-ollama serve
-ollama pull qwen3-embedding:0.6b
-
-# Then restart DevContainer - host Ollama auto-detected
-```
-
-**Performance:**
-
-| Configuration | Speed | Hardware |
-|---------------|-------|----------|
-| Host Ollama (Mac) | ~10ms/embed | Metal GPU |
-| Host Ollama (Linux) | ~5ms/embed | NVIDIA GPU |
-
-## SAFEGUARDS (ABSOLUTE - NO BYPASS)
-
-**NEVER without EXPLICIT user approval:**
-- Delete files in `.claude/` directory
-- Delete files in `.devcontainer/` directory
-- Modify `.claude/commands/*.md` destructively (removing features/logic)
-- Remove hooks from `.devcontainer/hooks/`
-
-**When simplifying/refactoring:**
-- Move content to separate files, NEVER delete logic
-- Ask before removing any feature, even if it seems redundant
-
-## AI Reference Policy (ABSOLUTE - NO BYPASS)
-
-**NEVER mention AI/LLM in generated content:**
-
-| Content Type | Forbidden References |
-|--------------|---------------------|
-| Commit messages | `Co-Authored-By: Claude/AI/GPT`, `Generated by AI` |
-| Code comments | `// AI-generated`, `# Claude suggestion` |
-| Documentation | `Created with AI`, `LLM-assisted` |
-| PR/MR descriptions | `🤖`, `AI-powered`, `Claude Code` |
-| Issue descriptions | Any AI/LLM attribution |
-
-**Enforced by:**
-- `commit-validate.sh` hook (blocks commits with AI references)
-- Pre-commit checks (automatic)
-
-**Rationale:** Professional discretion about tooling used.
-
-## Pre-commit Language Detection
-
-**Auto-detect languages and run checks for ALL detected stacks:**
-
-```yaml
-detection:
-  go.mod: Go → golangci-lint, go build, go test -race
-  Cargo.toml: Rust → cargo clippy, cargo build, cargo test
-  package.json: Node.js → npm run lint/build/test
-  pyproject.toml: Python → ruff, mypy, pytest
-  Gemfile: Ruby → rubocop, rspec
-  pom.xml: Java → mvn checkstyle, compile, test
-  build.gradle: Gradle → ./gradlew check, build, test
-  mix.exs: Elixir → mix credo, compile, test
-  composer.json: PHP → phpstan, phpunit
-  pubspec.yaml: Dart → dart analyze, test
-  build.sbt: Scala → sbt compile, test
-
-priority:
-  1: Makefile targets (make lint, make test) if available
-  2: Language-specific commands
-
-script: ".claude/scripts/pre-commit-checks.sh"
-```
-
-## Hooks (Auto-applied)
-
-| Hook | Action |
-|------|--------|
-| `pre-validate.sh` | Protect sensitive files |
-| `post-edit.sh` | Format + Imports + Lint |
-| `security.sh` | Secret detection |
-| `test.sh` | Run related tests |
-
-## Project-Specific Commands
-
-### /improve - Continuous Enhancement (RLM Multi-Agent)
-
-Amélioration continue automatique. **Pas d'arguments** - détecte le contexte et agit.
+## Documentation Hierarchy
 
 ```
-/improve
+CLAUDE.md                    # This overview
+├── AGENTS.md                # Specialist agents for tech stack
+├── docs/vision.md           # Objectives, success criteria
+├── docs/architecture.md     # System design, components
+├── docs/workflows.md        # Detailed workflows
+├── .devcontainer/CLAUDE.md  # Container config details
+└── .claude/commands/        # Slash commands
 ```
 
-| Contexte | Action |
-|----------|--------|
-| `kodflow/devcontainer-template` | Améliore `.claude/docs/` (MAJ best practices, cohérence) |
-| Autre projet | Détecte anti-patterns → crée issues sur le template |
+Principle: More detail deeper in tree. Each file < 100 lines.
 
-**RLM :** 1 agent par fichier (parallèle), WebSearch validation
+## Commands
 
-## Context Hierarchy (Funnel Documentation)
+| Command | Purpose |
+|---------|---------|
+| `/init` | **Setup** - Conversational project discovery + doc generation |
+| `/feature` | Start feature branch with planning |
+| `/fix` | Start fix branch with planning |
+| `/review` | Code review with specialist agents |
+| `/improve` | Documentation QA for design patterns |
 
-```
-/CLAUDE.md                      # Project overview (this file)
-├── .claude/commands/           # Project-specific commands
-│   └── improve.md              # /improve - docs QA
-├── .devcontainer/CLAUDE.md     # DevContainer config
-│   ├── features/CLAUDE.md      # Features overview
-│   │   └── kubernetes/CLAUDE.md # K8s details
-│   └── images/CLAUDE.md        # Docker images
-└── src/CLAUDE.md               # Source code context
-```
+## New Project Setup
 
-**Principle:** More details deeper in tree, <100 lines each (WARNING), <150 (CRITICAL), ALL committed.
+After creating a project from this template:
+1. Run `/init` (auto-detects template, asks questions, validates)
+2. Start with `/feature <description>`
+
+## Verification
+
+Changes are complete when:
+- Tests pass (`make test` or language equivalent)
+- Linting passes (auto-run by hooks)
+- No secrets in commits (checked by security hook)
+- Commit follows conventional format
