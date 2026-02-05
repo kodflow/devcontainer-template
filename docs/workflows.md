@@ -4,31 +4,62 @@
 
 | Task | Command |
 |------|---------|
-| Generate context | `/build --context` |
+| Initialize project | `/init` |
 | New feature | `/feature <description>` |
 | Bug fix | `/fix <description>` |
 | Code review | `/review` |
+| Plan implementation | `/plan` |
+| Execute plan | `/do` |
+| Commit changes | `/git --commit` |
 | Run tests | `make test` or language-specific |
+
+## Project Initialization
+
+```
+/init → detect template → discovery conversation → generate docs → validate environment
+```
+
+Run once after creating a project from this template. Produces vision, architecture, workflows, and agent configuration.
 
 ## Feature Development
 
 ```
-/build --context → /feature "add user auth" → implement → /review → PR
+/feature "add user auth" → plan → implement → /review → PR
 ```
 
-1. Generate CLAUDE.md files with `/build --context`
-2. Create feature branch with `/feature "description"`
-3. Implement changes (planning mode activated)
-4. Run `/review` for code quality check
-5. PR created automatically (no auto-merge)
+1. Creates `feat/<desc>` branch
+2. Enters planning mode — analyzes codebase, designs approach
+3. Implement changes (agents consult context7 for latest best practices)
+4. `/review` runs 5 executor agents in parallel (correctness, security, design, quality, shell)
+5. PR created via MCP GitHub integration
 
 ## Bug Fixes
 
 ```
-/build --context → /fix "login timeout" → implement → /review → PR
+/fix "login timeout" → plan → implement → /review → PR
 ```
 
-Same flow as features, uses `fix/` branch prefix.
+Same flow as features, uses `fix/` branch prefix and `fix(scope):` commits.
+
+## Code Review Pipeline
+
+`/review` triggers 5 parallel analysis passes:
+
+| Executor | Focus |
+|----------|-------|
+| Correctness | Invariants, state machines, off-by-one, concurrency |
+| Security | Taint analysis, OWASP Top 10, secrets, injection |
+| Design | Patterns, SOLID, DDD, antipatterns |
+| Quality | Complexity, code smells, maintainability |
+| Shell | Shell scripts, Dockerfiles, CI/CD safety |
+
+## Self-Correction Loop
+
+When agents detect issues:
+1. Generate code → run linting/tests
+2. If failure → analyze error → fix → retry
+3. Repeat until quality criteria are met
+4. If stuck after 3 attempts → escalate to user
 
 ## Branch Conventions
 
@@ -39,7 +70,7 @@ Same flow as features, uses `fix/` branch prefix.
 
 ## Pre-commit Checks
 
-Auto-detected by language:
+Auto-detected by language marker:
 
 | Marker | Language | Checks |
 |--------|----------|--------|
@@ -50,25 +81,18 @@ Auto-detected by language:
 
 Priority: Makefile targets → Language-specific commands
 
-## MCP Integration
-
-Prefer MCP tools over CLI:
-- `mcp__github__*` before `gh` CLI
-- `mcp__codacy__*` before `codacy-cli`
-
-MCP servers have pre-configured auth via `mcp.json`.
-
 ## Search Strategy
 
 1. **Semantic search**: `grepai_search` for meaning-based queries
 2. **Call graphs**: `grepai_trace_callers/callees` for impact analysis
-3. **Fallback to Grep**: Exact strings, regex patterns, or when grepai unavailable
+3. **Official docs**: context7 for library documentation
+4. **Fallback**: Grep for exact strings, regex patterns
 
 ## Hooks
 
 | Hook | Action |
 |------|--------|
 | `pre-validate.sh` | Protect sensitive files |
-| `post-edit.sh` | Format + lint |
+| `post-edit.sh` | Format + lint after edits |
 | `security.sh` | Secret detection |
 | `test.sh` | Run related tests |

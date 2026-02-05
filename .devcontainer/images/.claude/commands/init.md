@@ -61,12 +61,35 @@ Conversational initialization with **progressive context building**:
 
 ---
 
-## Phase 0: Detect (Template vs Personalized)
+## Phase 0: Detect (Repository Identity → Template vs Personalized)
 
-**Detect if the project needs personalization:**
+**Step 1: Identify the repository via git remote.**
 
 ```yaml
-detect_workflow:
+detect_repository:
+  command: "git remote get-url origin 2>/dev/null"
+  check: "does the URL contain 'kodflow/devcontainer-template'?"
+
+  decision:
+    if_is_devcontainer_template:
+      action: "Continue to Step 2 (template marker check)"
+      message: "devcontainer-template repo detected."
+    if_is_other_project:
+      action: "RESET — erase all generated docs, restart Phase 1 from scratch"
+      message: "Different project detected. Resetting for fresh initialization."
+      reset_files:
+        - "/workspace/CLAUDE.md"
+        - "/workspace/AGENTS.md"
+        - "/workspace/docs/vision.md"
+        - "/workspace/docs/architecture.md"
+        - "/workspace/docs/workflows.md"
+      note: "README.md is NOT erased — only its description will be updated in Phase 3"
+```
+
+**Step 2 (only for devcontainer-template repo): Check template markers.**
+
+```yaml
+detect_template:
   check_markers:
     - file: "/workspace/CLAUDE.md"
       template_marker: "Kodflow DevContainer Template"
@@ -82,12 +105,38 @@ detect_workflow:
       message: "Project already personalized. Validating..."
 ```
 
-**Output Phase 0:**
+**Output Phase 0 (other project — reset):**
 
 ```
 ═══════════════════════════════════════════════════════════════
   /init - Project Detection
 ═══════════════════════════════════════════════════════════════
+
+  Checking: git remote origin
+  Result  : {remote_url} (NOT devcontainer-template)
+
+  → Different project detected
+  → Resetting docs for fresh initialization...
+    ✗ CLAUDE.md        (reset)
+    ✗ AGENTS.md        (reset)
+    ✗ docs/vision.md   (reset)
+    ✗ docs/architecture.md (reset)
+    ✗ docs/workflows.md    (reset)
+
+  → Starting discovery conversation...
+
+═══════════════════════════════════════════════════════════════
+```
+
+**Output Phase 0 (devcontainer-template — template markers):**
+
+```
+═══════════════════════════════════════════════════════════════
+  /init - Project Detection
+═══════════════════════════════════════════════════════════════
+
+  Checking: git remote origin
+  Result  : kodflow/devcontainer-template
 
   Checking: /workspace/CLAUDE.md
   Result  : Template markers found

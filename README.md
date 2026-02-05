@@ -1,6 +1,6 @@
-# Kodflow DevContainer Template
+# devcontainer-template
 
-Template DevContainer complet pour le développement avec Claude Code et tous les outils DevOps/Cloud essentiels.
+Coquille DevContainer universelle fournissant un ecosysteme IA complet — 35 agents specialistes, 11 commandes slash, workflows auto-correctifs — pour bootstrapper et developper n'importe quel projet avec une qualite maximale. Fiabilite d'abord : les agents raisonnent en profondeur, recoupent les sources officielles, et s'auto-corrigent jusqu'a ce que le resultat respecte les standards.
 
 ## Installation Rapide
 
