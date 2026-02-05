@@ -744,7 +744,14 @@ generate_mcp_config() {
 install_super_claude() {
     echo "→ Installing super-claude function..."
 
-    local super_claude_func='
+    local shell_functions="$HOME_DIR/.shell-functions.sh"
+
+    # Create ~/.shell-functions.sh with super-claude (and any future functions)
+    # This file is sourced by both .bashrc and .zshrc
+    cat > "$shell_functions" << 'FUNCSEOF'
+# Shell functions - sourced by .bashrc and .zshrc
+# Created by Claude Code installer
+
 # super-claude: runs claude with MCP config and centralized config directory
 super-claude() {
     local mcp_config="$HOME/.claude/mcp.json"
@@ -761,24 +768,30 @@ super-claude() {
         claude --dangerously-skip-permissions "$@"
     fi
 }
-'
+FUNCSEOF
+    echo "  ✓ Created ~/.shell-functions.sh"
 
-    # Add to .bashrc (create if doesn't exist)
+    # Source line to add to shell configs (generic, no Claude mention)
+    local source_line='[[ -f ~/.shell-functions.sh ]] && source ~/.shell-functions.sh'
+
+    # Add source line to .bashrc (create if doesn't exist)
     touch "$HOME_DIR/.bashrc" 2>/dev/null || true
-    if ! grep -q "super-claude()" "$HOME_DIR/.bashrc" 2>/dev/null; then
-        echo "$super_claude_func" >> "$HOME_DIR/.bashrc"
-        echo "  ✓ Added to ~/.bashrc"
+    if ! grep -q "shell-functions.sh" "$HOME_DIR/.bashrc" 2>/dev/null; then
+        echo "" >> "$HOME_DIR/.bashrc"
+        echo "$source_line" >> "$HOME_DIR/.bashrc"
+        echo "  ✓ Added source line to ~/.bashrc"
     else
-        echo "  ✓ Already in ~/.bashrc"
+        echo "  ✓ Source line already in ~/.bashrc"
     fi
 
-    # Add to .zshrc (create if doesn't exist)
+    # Add source line to .zshrc (create if doesn't exist)
     touch "$HOME_DIR/.zshrc" 2>/dev/null || true
-    if ! grep -q "super-claude()" "$HOME_DIR/.zshrc" 2>/dev/null; then
-        echo "$super_claude_func" >> "$HOME_DIR/.zshrc"
-        echo "  ✓ Added to ~/.zshrc"
+    if ! grep -q "shell-functions.sh" "$HOME_DIR/.zshrc" 2>/dev/null; then
+        echo "" >> "$HOME_DIR/.zshrc"
+        echo "$source_line" >> "$HOME_DIR/.zshrc"
+        echo "  ✓ Added source line to ~/.zshrc"
     else
-        echo "  ✓ Already in ~/.zshrc"
+        echo "  ✓ Source line already in ~/.zshrc"
     fi
 
     echo ""
