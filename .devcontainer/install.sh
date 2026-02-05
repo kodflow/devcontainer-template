@@ -50,7 +50,17 @@ What Gets Installed:
   - 11 slash commands (/git, /review, /plan, etc.)
   - 11 hook scripts (security, lint, format, etc.)
   - 155+ design patterns (unless --minimal)
-  - Configuration files (settings.json, etc.)
+  - Configuration files (settings.json, mcp.json, etc.)
+  - super-claude function (in ~/.bashrc and ~/.zshrc)
+
+1Password Integration (REQUIRED for MCP tokens):
+  OP_SERVICE_ACCOUNT_TOKEN  1Password Service Account Token
+                            (vault auto-detected from service account)
+
+  Items to create in 1Password:
+    mcp-github    → GitHub Personal Access Token (field: credential)
+    mcp-codacy    → Codacy Account Token (field: credential)
+    mcp-gitlab    → GitLab Personal Access Token (field: credential)
 
 Total: 239 files (~3.2MB) or 84 files (~0.8MB) with --minimal
 EOF
@@ -427,6 +437,299 @@ download_tools() {
 }
 
 # ============================================================================
+# Ensure sensitive files are in .gitignore
+# ============================================================================
+ensure_gitignore() {
+    local gitignore="$HOME_DIR/.gitignore"
+
+    # Use project .gitignore if we're in a git repo
+    if [ -d ".git" ]; then
+        gitignore=".gitignore"
+    fi
+
+    echo "→ Updating .gitignore..."
+
+    # Create .gitignore if it doesn't exist
+    if [ ! -f "$gitignore" ]; then
+        touch "$gitignore"
+        echo "  ✓ Created $gitignore"
+    fi
+
+    # Add .env if not present
+    if ! grep -qE '^\.env$|^\*\*\/\.env$' "$gitignore" 2>/dev/null; then
+        echo "" >> "$gitignore"
+        echo "# Environment files (contain secrets)" >> "$gitignore"
+        echo ".env" >> "$gitignore"
+        echo "**/.env" >> "$gitignore"
+        echo "  ✓ Added .env"
+    else
+        echo "  ✓ .env already ignored"
+    fi
+
+    # Add CLAUDE.md if not present
+    if ! grep -qE '^CLAUDE\.md$|^\*\*\/CLAUDE\.md$' "$gitignore" 2>/dev/null; then
+        echo "" >> "$gitignore"
+        echo "# Claude Code configuration (local preferences)" >> "$gitignore"
+        echo "CLAUDE.md" >> "$gitignore"
+        echo "**/CLAUDE.md" >> "$gitignore"
+        echo "  ✓ Added CLAUDE.md"
+    else
+        echo "  ✓ CLAUDE.md already ignored"
+    fi
+
+    # Add .claude/ directory if not present
+    if ! grep -qE '^\.claude\/?$|^\*\*\/\.claude\/?$' "$gitignore" 2>/dev/null; then
+        echo "" >> "$gitignore"
+        echo "# Claude Code local directory (created per project)" >> "$gitignore"
+        echo ".claude/" >> "$gitignore"
+        echo "**/.claude/" >> "$gitignore"
+        echo "  ✓ Added .claude/"
+    else
+        echo "  ✓ .claude/ already ignored"
+    fi
+}
+
+# ============================================================================
+# 1Password Integration
+# ============================================================================
+
+# Load .env file if exists (for OP_SERVICE_ACCOUNT_TOKEN)
+load_env_file() {
+    local env_file="$1"
+    if [ -f "$env_file" ]; then
+        echo "  → Loading $env_file"
+        while IFS='=' read -r key value; do
+            # Skip comments and empty lines
+            [[ "$key" =~ ^#.*$ ]] && continue
+            [[ -z "$key" ]] && continue
+            # Remove quotes from value
+            value="${value%\"}"
+            value="${value#\"}"
+            # Export only OP token
+            case "$key" in
+                OP_SERVICE_ACCOUNT_TOKEN)
+                    export "$key=$value"
+                    ;;
+            esac
+        done < "$env_file"
+    fi
+}
+
+# List all vaults from service account
+get_1password_vaults() {
+    if command -v op &>/dev/null && [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+        op vault list --format=json 2>/dev/null | jq -r '.[].name' 2>/dev/null || echo ""
+    fi
+}
+
+# Get field from 1Password (searches all vaults)
+get_1password_field() {
+    local item="$1"
+    local field="${2:-credential}"
+    local value=""
+    local vaults
+
+    if ! command -v op &>/dev/null || [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+        echo ""
+        return
+    fi
+
+    # Get all vaults
+    vaults=$(get_1password_vaults)
+
+    # Search item in each vault
+    for vault in $vaults; do
+        value=$(op item get "$item" --vault "$vault" --fields "$field" --reveal 2>/dev/null || echo "")
+        if [ -n "$value" ]; then
+            echo "$value"
+            return
+        fi
+    done
+
+    echo ""
+}
+
+# Fetch tokens from 1Password vault "halys"
+fetch_1password_tokens() {
+    echo "→ Checking 1Password for tokens..."
+
+    # Try to load .env from common locations
+    local env_locations=(
+        "./.devcontainer/.env"
+        "./.env"
+        "$HOME_DIR/.env"
+        "$HOME_DIR/.claude/.env"
+    )
+
+    for env_file in "${env_locations[@]}"; do
+        if [ -f "$env_file" ]; then
+            load_env_file "$env_file"
+            break
+        fi
+    done
+
+    # Check if 1Password CLI is available and configured
+    if ! command -v op &>/dev/null; then
+        echo "  ⚠ 1Password CLI (op) not installed"
+        echo "    Install: https://developer.1password.com/docs/cli/get-started/"
+        return 0
+    fi
+
+    if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+        echo "  ⚠ OP_SERVICE_ACCOUNT_TOKEN not set"
+        echo "    Set it in .env or export it"
+        return 0
+    fi
+
+    echo "  ✓ 1Password CLI available"
+
+    # List available vaults
+    local vaults
+    vaults=$(get_1password_vaults)
+
+    if [ -z "$vaults" ]; then
+        echo "  ⚠ No vaults accessible"
+        return 0
+    fi
+
+    echo "  → Vaults: $(echo $vaults | tr '\n' ' ')"
+    echo "  → Searching for tokens..."
+
+    # Fetch tokens from 1Password (searches all vaults)
+    local op_github op_codacy op_gitlab
+
+    op_github=$(get_1password_field "mcp-github" "credential")
+    op_codacy=$(get_1password_field "mcp-codacy" "credential")
+    op_gitlab=$(get_1password_field "mcp-gitlab" "credential")
+
+    # Use 1Password tokens if found
+    [ -n "$op_github" ] && export GITHUB_TOKEN="$op_github" && echo "    ✓ mcp-github"
+    [ -n "$op_codacy" ] && export CODACY_TOKEN="$op_codacy" && echo "    ✓ mcp-codacy"
+    [ -n "$op_gitlab" ] && export GITLAB_TOKEN="$op_gitlab" && echo "    ✓ mcp-gitlab"
+
+    # Report what wasn't found
+    [ -z "$op_github" ] && echo "    ⚠ mcp-github not found"
+    [ -z "$op_codacy" ] && echo "    ⚠ mcp-codacy not found"
+    [ -z "$op_gitlab" ] && echo "    ⚠ mcp-gitlab not found"
+}
+
+# ============================================================================
+# Generate MCP Configuration
+# ============================================================================
+generate_mcp_config() {
+    local target_dir="$1"
+    local mcp_output="$HOME_DIR/.claude/mcp.json"
+
+    # First, try to fetch tokens from 1Password
+    fetch_1password_tokens
+
+    echo ""
+    echo "→ Generating MCP configuration..."
+
+    # Download template
+    local mcp_tpl
+    mcp_tpl=$(mktemp)
+
+    if ! safe_download "$BASE/.devcontainer/images/mcp.json.tpl" "$mcp_tpl"; then
+        echo "  ⚠ Could not download MCP template"
+        rm -f "$mcp_tpl"
+        return 0
+    fi
+
+    # Get tokens (set by 1Password only)
+    local github_token="${GITHUB_TOKEN:-}"
+    local codacy_token="${CODACY_TOKEN:-}"
+    local gitlab_token="${GITLAB_TOKEN:-}"
+    local gitlab_api="${GITLAB_API_URL:-https://gitlab.com/api/v4}"
+
+    # Escape tokens for sed
+    local escaped_github escaped_codacy escaped_gitlab escaped_gitlab_api
+    escaped_github=$(printf '%s' "$github_token" | sed 's/[&/\]/\\&/g')
+    escaped_codacy=$(printf '%s' "$codacy_token" | sed 's/[&/\]/\\&/g')
+    escaped_gitlab=$(printf '%s' "$gitlab_token" | sed 's/[&/\]/\\&/g')
+    escaped_gitlab_api=$(printf '%s' "$gitlab_api" | sed 's/[&/\]/\\&/g')
+
+    # Generate mcp.json from template
+    mkdir -p "$(dirname "$mcp_output")"
+
+    if sed -e "s|{{GITHUB_TOKEN}}|${escaped_github}|g" \
+           -e "s|{{CODACY_TOKEN}}|${escaped_codacy}|g" \
+           -e "s|{{GITLAB_TOKEN}}|${escaped_gitlab}|g" \
+           -e "s|{{GITLAB_API_URL:-https://gitlab.com/api/v4}}|${escaped_gitlab_api}|g" \
+           "$mcp_tpl" > "$mcp_output"; then
+
+        chmod 600 "$mcp_output"
+
+        # Validate JSON
+        if command -v jq &>/dev/null && jq empty "$mcp_output" 2>/dev/null; then
+            echo "  ✓ mcp.json generated at $mcp_output"
+        else
+            echo "  ⚠ mcp.json created but could not validate (jq not available)"
+        fi
+    else
+        echo "  ⚠ Failed to generate mcp.json"
+    fi
+
+    rm -f "$mcp_tpl"
+
+    # Show final token status
+    echo "  Token status:"
+    [ -n "$github_token" ] && echo "    GITHUB_TOKEN: ✓ configured" || echo "    GITHUB_TOKEN: ✗ not set"
+    [ -n "$codacy_token" ] && echo "    CODACY_TOKEN: ✓ configured" || echo "    CODACY_TOKEN: ✗ not set"
+    [ -n "$gitlab_token" ] && echo "    GITLAB_TOKEN: ✓ configured" || echo "    GITLAB_TOKEN: ✗ not set"
+}
+
+# ============================================================================
+# Install super-claude Function
+# ============================================================================
+install_super_claude() {
+    echo "→ Installing super-claude function..."
+
+    local super_claude_func='
+# super-claude: runs claude with MCP config and centralized config directory
+super-claude() {
+    local mcp_config="$HOME/.claude/mcp.json"
+
+    # Centralize Claude config in ~/.claude (not project root)
+    export CLAUDE_CONFIG_DIR="$HOME/.claude"
+
+    if [ -f "$mcp_config" ] && command -v jq &>/dev/null && jq empty "$mcp_config" 2>/dev/null; then
+        claude --dangerously-skip-permissions --mcp-config "$mcp_config" "$@"
+    elif [ -f "$mcp_config" ]; then
+        # jq not available, try anyway if file exists
+        claude --dangerously-skip-permissions --mcp-config "$mcp_config" "$@"
+    else
+        claude --dangerously-skip-permissions "$@"
+    fi
+}
+'
+
+    # Add to .bashrc if not already present
+    if [ -f "$HOME_DIR/.bashrc" ]; then
+        if ! grep -q "super-claude()" "$HOME_DIR/.bashrc" 2>/dev/null; then
+            echo "$super_claude_func" >> "$HOME_DIR/.bashrc"
+            echo "  ✓ Added to ~/.bashrc"
+        else
+            echo "  ✓ Already in ~/.bashrc"
+        fi
+    fi
+
+    # Add to .zshrc if not already present
+    if [ -f "$HOME_DIR/.zshrc" ]; then
+        if ! grep -q "super-claude()" "$HOME_DIR/.zshrc" 2>/dev/null; then
+            echo "$super_claude_func" >> "$HOME_DIR/.zshrc"
+            echo "  ✓ Added to ~/.zshrc"
+        else
+            echo "  ✓ Already in ~/.zshrc"
+        fi
+    fi
+
+    echo ""
+    echo "  Usage: super-claude [args]"
+    echo "  → Runs claude with ~/.claude/mcp.json automatically"
+}
+
+# ============================================================================
 # Verification
 # ============================================================================
 verify_installation() {
@@ -511,6 +814,15 @@ main() {
     echo ""
     download_tools
 
+    echo ""
+    ensure_gitignore
+
+    echo ""
+    generate_mcp_config "$TARGET_DIR"
+
+    echo ""
+    install_super_claude
+
     verify_installation "$TARGET_DIR"
 
     echo ""
@@ -530,8 +842,12 @@ main() {
     echo ""
     if [ "$IS_CONTAINER" = false ]; then
         echo "  Next steps:"
-        echo "    1. Restart your shell (or source ~/.bashrc)"
-        echo "    2. Run: claude"
+        echo "    1. Restart your shell (or source ~/.zshrc)"
+        echo "    2. Create items in 1Password:"
+        echo "       - mcp-github (GitHub token)"
+        echo "       - mcp-codacy (Codacy token)"
+        echo "       - mcp-gitlab (GitLab token)"
+        echo "    3. Run: super-claude"
         echo ""
     else
         echo "  → Restart the DevContainer to apply changes"
