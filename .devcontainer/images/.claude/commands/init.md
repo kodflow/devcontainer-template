@@ -19,6 +19,7 @@ allowed-tools:
   - "Bash(pgrep:*)"
   - "Bash(nohup:*)"
   - "Bash(mkdir:*)"
+  - "Bash(rm:*)"
   - "Bash(wc:*)"
   - "Read(**/*)"
   - "Glob(**/*)"
@@ -80,9 +81,8 @@ detect_repository:
       reset_files:
         - "/workspace/CLAUDE.md"
         - "/workspace/AGENTS.md"
-        - "/workspace/docs/vision.md"
-        - "/workspace/docs/architecture.md"
-        - "/workspace/docs/workflows.md"
+      reset_directories:
+        - "/workspace/docs/"    # rm -rf — template docs don't apply to new projects
       note: "README.md is NOT erased — only its description will be updated in Phase 3"
 ```
 
@@ -119,9 +119,7 @@ detect_template:
   → Resetting docs for fresh initialization...
     ✗ CLAUDE.md        (reset)
     ✗ AGENTS.md        (reset)
-    ✗ docs/vision.md   (reset)
-    ✗ docs/architecture.md (reset)
-    ✗ docs/workflows.md    (reset)
+    ✗ docs/            (removed)
 
   → Starting discovery conversation...
 
