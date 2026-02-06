@@ -46,7 +46,7 @@ $ARGUMENTS
 principles:
   deep_analysis:
     rule: "Launch N agents in parallel, each analyzing independently"
-    iterations: "One pass per major category (C iterations)"
+    iterations: "One pass per major category (9 parallel agents = 9 iterations)"
     output: "Consolidated results with importance scoring"
 
   no_superficial_content:
@@ -56,8 +56,9 @@ principles:
 
   product_pitch_first:
     rule: "index.md MUST answer 'What problem does this solve?' before anything technical"
-    structure: "Problem → Solution → Key features → Quick start"
+    structure: "Problem → Solution → Key features → Quick start → What's inside → Support"
     reason: "Readers decide in 30 seconds if the project is relevant to them"
+    entry_point: "Landing page provides: About, Access, Usage, Resources, Support"
 
   progressive_zoom:
     rule: "Architecture docs follow Google Maps analogy: macro → micro"
@@ -89,8 +90,11 @@ principles:
       - "Usage frequency (1-10): How often will users need this?"
       - "Uniqueness (1-10): How specific to this project?"
       - "Documentation gap (1-10): How underdocumented currently?"
-      - "Diagram bonus (+3): Complex component without any diagram"
-    threshold: "Score >= 24 → Include in main docs"
+      - "Diagram bonus (+3): complexity >= 7 AND no diagram exists yet"
+    thresholds:
+      primary: "Score >= 24 → full page + mandatory diagram"
+      standard: "Score 16-23 → own page, diagram recommended"
+      reference: "Score < 16 → aggregated in reference section"
 
   adaptive_structure:
     template_project: "How to use, languages, commands, agents, hooks"
@@ -104,12 +108,12 @@ principles:
 
 | Argument | Action |
 |----------|--------|
-| (none) | Deep analysis + generate + serve on :8080 |
-| `--update` | Re-analyze and regenerate all documentation |
+| (none) | Freshness check → incremental or full analysis → serve on :8080 |
+| `--update` | Force full re-analysis, ignore freshness (regenerate everything) |
 | `--stop` | Stop running MkDocs server |
-| `--status` | Show server status and docs coverage |
+| `--status` | Show freshness report, stale pages, server status |
 | `--port <n>` | Custom port (default: 8080) |
-| `--quick` | Skip deep analysis, use cached results |
+| `--quick` | Skip analysis entirely, serve existing docs as-is |
 | `--help` | Show help |
 
 ---
@@ -132,12 +136,12 @@ principles:
     /docs [OPTIONS]
 
   OPTIONS
-    (none)              Deep analysis + generate + serve
-    --update            Re-analyze and regenerate all
+    (none)              Freshness check + incremental/full + serve
+    --update            Force full regeneration (ignore freshness)
     --stop              Stop running MkDocs server
-    --status            Show coverage and server status
+    --status            Freshness report + stale pages + server status
     --port <n>          Custom port (default: 8080)
-    --quick             Use cached analysis, skip re-scan
+    --quick             Serve existing docs as-is, skip analysis
     --help              Show this help
 
   ANALYSIS AGENTS (launched in parallel)
@@ -156,21 +160,71 @@ principles:
     Usage:          1-10 (how often needed?)
     Uniqueness:     1-10 (how project-specific?)
     Gap:            1-10 (how underdocumented?)
-    Diagram bonus:  +3 (complex component, no diagram yet)
-    Total >= 24     → Primary documentation
-    Total 16-23     → Secondary documentation
-    Total < 16      → Reference only
+    Diagram bonus:  +3 (complexity >= 7, no diagram yet)
+    Total >= 24     → Primary (full page + mandatory diagram)
+    Total 16-23     → Standard (own page, diagram recommended)
+    Total < 16      → Reference (aggregated)
 
   EXAMPLES
-    /docs                   # Full analysis + serve
-    /docs --update          # Regenerate all docs
-    /docs --quick           # Use cache, skip analysis
+    /docs                   # Freshness check → update stale pages → serve
+    /docs --update          # Force full regeneration from scratch
+    /docs --status          # Show what's stale without regenerating
+    /docs --quick           # Serve existing docs immediately
     /docs --stop            # Stop server
 
 ═══════════════════════════════════════════════════════════════
 ```
 
 **SI `$ARGUMENTS` contient `--help`** : Afficher l'aide ci-dessus et STOP.
+
+---
+
+## Template Variables
+
+All `{VARIABLE}` placeholders used in output templates and generated files:
+
+```yaml
+variables:
+  # Derived from project analysis (Phase 0-1)
+  PROJECT_NAME: "From CLAUDE.md title, package.json name, go.mod module, or git repo name"
+  PROJECT_TYPE: "template | library | application | empty (detected in Phase 0)"
+  GENERATED_DESCRIPTION: "2-3 sentence summary synthesized from agent analysis results"
+
+  # Derived from scoring (Phase 2)
+  SECTIONS_WITH_SCORES: "Formatted list: section name + score, sorted descending"
+
+  # Derived from agent results (Phase 1)
+  N: "Number of analysis agents that completed successfully"
+  D: "Total count of Mermaid diagrams generated across all pages"
+
+  # Derived from git (Phase 0)
+  GIT_REMOTE_URL: "From git remote get-url origin (for repo_url in mkdocs.yml)"
+  REPO_NAME: "Auto-detected from remote URL host (GitHub/GitLab/Bitbucket)"
+
+  # Freshness (Phase 0.5)
+  LAST_COMMIT_SHA: "Git SHA from generation marker in docs/index.md"
+  MARKER_DATE: "ISO8601 date from generation marker"
+  MARKER_COMMIT: "Short SHA from generation marker"
+  DAYS_AGO: "Days since last generation"
+  COMMITS_SINCE: "Number of commits between marker SHA and HEAD"
+  CHANGED_COUNT: "Number of files changed since marker commit"
+  STALE_COUNT: "Number of doc pages affected by changed files"
+  STALE_LIST: "Formatted list of stale page paths"
+  BROKEN_COUNT: "Number of broken internal links in docs/"
+  BROKEN_LIST: "Formatted list of broken links with source page"
+  OUTDATED_COUNT: "Number of dependency version mismatches"
+  OUTDATED_LIST: "Formatted list: dep name, docs version vs actual version"
+  TOTAL_PAGES: "Total number of pages in docs/"
+
+  # User-configurable
+  PORT: "MkDocs serve port (default: 8080, override with --port)"
+
+  # Runtime
+  RUNNING: "pgrep -f 'mkdocs serve' returns 0"
+  STOPPED: "pgrep -f 'mkdocs serve' returns non-zero"
+  TIMESTAMP: "date -Iseconds of last analysis run"
+  PERCENTAGE: "(pages_with_content / total_nav_entries) * 100"
+```
 
 ---
 
@@ -183,6 +237,13 @@ principles:
 Phase 0: Project Detection
 ├─ Detect project type (template/library/app/empty)
 └─ Choose analysis strategy + agent list
+
+Phase 0.5: Freshness Check
+├─ Read generation marker from docs/index.md
+├─ git diff <last_sha>..HEAD → changed files
+├─ Map changed files → stale doc pages
+├─ Check broken links + outdated deps
+└─ Decision: INCREMENTAL (stale pages only) or FULL
 
 Phase 1: Parallel Analysis (9 agents in ONE message)
 ├─ Task(languages-analyzer)     ──┐
@@ -197,21 +258,27 @@ Phase 1: Parallel Analysis (9 agents in ONE message)
 
 Phase 2: Consolidation + Scoring
 ├─ Collect all agent results
+├─ Build dependency DAG, topological sort
 ├─ Apply scoring formula (with diagram bonus)
 ├─ Identify high-priority sections
 └─ Build documentation tree
 
-Phase 3: Content Generation
+Phase 3: Content Generation (dependency order)
 ├─ Generate index.md (product pitch first)
 ├─ For each scored section:
-│   ├─ If score >= 24: Full page + Mermaid diagram
-│   ├─ If score 16-23: Summary in parent page
-│   └─ If score < 16: Reference link only
-├─ Generate architecture pages (progressive zoom)
+│   ├─ If score >= 24: Primary — full page + mandatory diagram
+│   ├─ If score 16-23: Standard — own page, diagram recommended
+│   └─ If score < 16: Reference — aggregated in reference section
+├─ Generate architecture pages (C4 progressive zoom)
 └─ Generate nav structure
 
-Phase 4: Validation + Serve
-├─ Check: no placeholders, no empty pages, diagrams present
+Phase 4: Verification (DocAgent-inspired)
+├─ Verify: completeness, accuracy, quality, no placeholders
+├─ Feedback loop: fix issues and re-verify (max 2 iterations)
+└─ Proceed with warnings if max iterations reached
+
+Phase 5: Serve
+├─ Final checks
 └─ Start MkDocs on specified port
 ```
 
@@ -221,8 +288,22 @@ Phase 4: Validation + Serve
 
 ```yaml
 phase_0_detect:
-  description: "Identify project type to choose analysis strategy"
+  description: "Identify project type and handle existing docs/"
   mandatory: true
+
+  existing_docs_handling:
+    check: "ls docs/ 2>/dev/null"
+    decision:
+      if_mkdocs_generated:
+        signal: "docs/ contains mkdocs-generated content (index.md with '<!-- generated by /docs -->')"
+        action: "Overwrite — regenerate all content"
+        message: "Previous /docs output detected. Regenerating..."
+      if_user_content:
+        signal: "docs/ contains files without generation marker (from /init or manual)"
+        action: "Preserve user files in docs/_preserved/, generate around them"
+        message: "Existing documentation found. Preserving user content in docs/_preserved/."
+      if_empty_or_missing:
+        action: "Create docs/ fresh"
 
   detection_signals:
     template_project:
@@ -263,9 +344,106 @@ phase_0_detect:
 
 ---
 
+## Phase 0.5: Freshness Check
+
+```yaml
+phase_05_freshness:
+  description: "Detect stale docs and decide incremental vs full regeneration"
+  skip_if: "--update flag (force full) OR no docs/ exists (first run)"
+
+  generation_marker:
+    location: "First line of docs/index.md"
+    format: "<!-- /docs-generated: {JSON} -->"
+    fields:
+      date: "ISO8601 timestamp of last generation"
+      commit: "Git SHA at time of generation"
+      pages: "Number of pages generated"
+      agents: "Number of agents used"
+    example: '<!-- /docs-generated: {"date":"2026-02-06T14:30:00Z","commit":"abc1234","pages":12,"agents":9} -->'
+
+  freshness_checks:
+    1_code_drift:
+      command: "git diff --name-only {marker.commit}..HEAD"
+      output: "List of files changed since last generation"
+      mapping: |
+        For each changed file, find doc pages that reference it:
+        - Grep docs/*.md for the filename
+        - Mark matching pages as STALE
+
+    2_broken_links:
+      action: |
+        For each relative link in docs/*.md:
+          Check if target file exists on disk
+        For each code path mentioned in docs:
+          Check if the path still exists
+      output: "List of broken internal links"
+
+    3_outdated_deps:
+      action: |
+        Compare versions mentioned in docs vs actual:
+        - package.json dependencies vs docs mentions
+        - go.mod versions vs docs mentions
+        - Cargo.toml versions vs docs mentions
+        - install.sh versions vs docs mentions
+      output: "List of version mismatches"
+
+    4_dead_external_links:
+      action: |
+        For each external URL in docs/*.md:
+          curl -s -o /dev/null -w "%{http_code}" <url>
+          → 404 = DEAD, 301 = MOVED, 200 = OK
+      output: "List of dead/moved external links"
+      note: "Only check if < 50 external links (avoid rate limiting)"
+
+  decision:
+    if_no_marker:
+      action: "FULL generation (first run)"
+    if_zero_stale:
+      action: "SKIP analysis, serve existing docs"
+      message: "Docs are up to date (last generated {date}, {commits} commits, 0 stale)."
+    if_stale_pages:
+      action: "INCREMENTAL — only re-analyze and regenerate stale pages"
+      optimization: |
+        Only launch agents whose scope covers the changed files:
+        - src/ changed → architecture-analyzer
+        - commands/ changed → commands-analyzer
+        - hooks/ changed → hooks-analyzer
+        - package.json changed → config-analyzer + dependencies
+        - etc.
+    if_update_flag:
+      action: "FULL generation regardless of freshness"
+
+  output_template: |
+    ═══════════════════════════════════════════════════════════════
+      /docs - Freshness Check
+    ═══════════════════════════════════════════════════════════════
+
+      Last generated : {MARKER_DATE} ({DAYS_AGO} days ago)
+      Last commit    : {MARKER_COMMIT} → HEAD ({COMMITS_SINCE} commits)
+
+      Code drift:
+        Changed files  : {CHANGED_COUNT}
+        Stale pages    : {STALE_COUNT} / {TOTAL_PAGES}
+        {STALE_LIST}
+
+      Broken links   : {BROKEN_COUNT}
+        {BROKEN_LIST}
+
+      Outdated deps  : {OUTDATED_COUNT}
+        {OUTDATED_LIST}
+
+      Decision: {INCREMENTAL|FULL|UP_TO_DATE}
+        → {ACTION_DESCRIPTION}
+
+    ═══════════════════════════════════════════════════════════════
+```
+
+---
+
 ## Phase 1: Parallel Analysis Agents
 
 **CRITICAL:** Launch ALL agents in a SINGLE message with multiple Task calls.
+**INCREMENTAL MODE:** Only launch agents whose scope covers stale pages.
 
 ### Agent 1: Languages Analyzer
 
@@ -273,7 +451,7 @@ phase_0_detect:
 languages_analyzer:
   trigger: "PROJECT_TYPE in [template, library, application]"
   subagent_type: "Explore"
-  model: "haiku"
+  model: "opus"
 
   prompt: |
     Analyze ALL language features in .devcontainer/features/languages/.
@@ -306,7 +484,7 @@ languages_analyzer:
 commands_analyzer:
   trigger: "Always"
   subagent_type: "Explore"
-  model: "haiku"
+  model: "opus"
 
   prompt: |
     Analyze ALL Claude commands/skills in:
@@ -338,7 +516,7 @@ commands_analyzer:
 agents_analyzer:
   trigger: "PROJECT_TYPE == template OR .claude/agents/ exists"
   subagent_type: "Explore"
-  model: "haiku"
+  model: "opus"
 
   prompt: |
     Analyze ALL specialist agents in .devcontainer/images/.claude/agents/.
@@ -365,7 +543,7 @@ agents_analyzer:
 hooks_analyzer:
   trigger: "PROJECT_TYPE == template OR .devcontainer/hooks/ exists"
   subagent_type: "Explore"
-  model: "haiku"
+  model: "opus"
 
   prompt: |
     Analyze ALL hooks in .devcontainer/hooks/.
@@ -389,7 +567,7 @@ hooks_analyzer:
 mcp_analyzer:
   trigger: "mcp.json exists"
   subagent_type: "Explore"
-  model: "haiku"
+  model: "opus"
 
   prompt: |
     Analyze MCP server configuration:
@@ -413,7 +591,7 @@ mcp_analyzer:
 patterns_analyzer:
   trigger: ".claude/docs/ OR .devcontainer/images/.claude/docs/ exists"
   subagent_type: "Explore"
-  model: "haiku"
+  model: "opus"
 
   prompt: |
     Analyze design patterns knowledge base in .devcontainer/images/.claude/docs/.
@@ -437,7 +615,7 @@ patterns_analyzer:
 structure_analyzer:
   trigger: "Always"
   subagent_type: "Explore"
-  model: "haiku"
+  model: "opus"
 
   prompt: |
     Map the complete project structure:
@@ -466,7 +644,7 @@ structure_analyzer:
 config_analyzer:
   trigger: "Always"
   subagent_type: "Explore"
-  model: "haiku"
+  model: "opus"
 
   prompt: |
     Analyze all configuration:
@@ -493,29 +671,48 @@ config_analyzer:
 architecture_analyzer:
   trigger: "PROJECT_TYPE in [library, application] OR src/ exists"
   subagent_type: "Explore"
-  model: "sonnet"
-  reason: "Architecture analysis requires deeper reasoning than haiku"
+  model: "opus"
+  reason: "Deep reasoning for architecture analysis"
+
+  c4_best_practices:
+    - "Levels 1-2 provide most value; Levels 3-4 need more maintenance for smaller audiences"
+    - "Focus on elements difficult to discover from code alone: coordination, business rules, non-obvious dependencies"
+    - "Link to READMEs, ADRs, and repository docs — don't duplicate generated content (OpenAPI, AsyncAPI)"
+    - "Keep diagrams lightweight — add numbered relationships for flow instead of separate dynamic diagrams"
+    - "Match diagrams to how the organization actually understands the system, not just technical boundaries"
+    - "Consider landscape diagrams as entry point for small-to-medium architectures"
 
   prompt: |
     Deep architecture analysis of the project. Produce a MULTI-LEVEL
-    progressive zoom analysis (Google Maps analogy: macro → micro).
+    progressive zoom analysis following C4 Model best practices.
 
-    ## Level 1: System Context (macro view)
+    ## C4 Guidelines
+    - Levels 1-2 provide the most value; only go deeper for complex components
+    - Focus on what's hard to discover from code alone: coordination patterns,
+      business rules, non-obvious data dependencies
+    - Link to source files (READMEs, ADRs, OpenAPI specs) — never duplicate
+      content already generated by specialized tools
+    - Keep diagrams lightweight; add numbered relationships for flow clarity
+    - Match diagram boundaries to how the team understands the system
+
+    ## Level 1: System Context (C4 Context)
     - What are the major blocks/services?
     - What external systems does this project depend on?
     - What is the boundary of the system?
-    - Generate a Mermaid C4 context diagram description
+    - Generate a Mermaid C4 context diagram
+    - Consider a landscape diagram for small-to-medium projects
 
-    ## Level 2: Components (zoom in)
+    ## Level 2: Containers (C4 Container)
     For EACH major block identified in Level 1:
-    - What modules/packages compose it?
-    - What is each module's responsibility?
-    - How do modules communicate internally?
-    - Generate a Mermaid component diagram description
+    - What deployable units (apps, services, databases) compose it?
+    - What is each unit's responsibility?
+    - How do they communicate? (protocols, formats)
+    - Generate a Mermaid container diagram with numbered flows
+    - Include deployment details directly (pragmatic over separate diagrams)
 
-    ## Level 3: Technical Details (deep zoom)
+    ## Level 3: Components (C4 Component — only for complex blocks)
     For key components (most complex or most used):
-    - Internal data structures and algorithms
+    - Internal modules and their responsibilities
     - Key design patterns used (reference .claude/docs/ if available)
     - Error handling strategy
     - Performance considerations
@@ -578,9 +775,9 @@ phase_2_consolidation:
     diagram_bonus: "+3 if complexity >= 7 AND no diagram exists yet"
     total_max: 43
     thresholds:
-      primary: ">= 24 (full documentation page with diagram)"
-      secondary: "16-23 (summary section in parent page)"
-      reference: "< 16 (link only)"
+      primary: ">= 24 (full page + mandatory Mermaid diagram)"
+      standard: "16-23 (own page, diagram recommended)"
+      reference: "< 16 (aggregated in reference section)"
 
   diagram_requirement:
     rule: |
@@ -590,6 +787,16 @@ phase_2_consolidation:
         MUST include sequence or flowchart diagram
       IF cluster/scaling detected:
         MUST include deployment diagram
+
+  # DocAgent-inspired: dependencies-first ordering ensures components are
+  # documented only after their dependencies have been processed.
+  dependency_ordering:
+    rule: "Topological sort of component dependencies before content generation"
+    reason: "A module's docs can reference its dependency's docs via links"
+    implementation:
+      - "Build dependency DAG from agent results (imports, calls, data flow)"
+      - "Topological sort → processing order for Phase 3"
+      - "Earlier components provide context for later ones"
 
   consolidation_steps:
     1_collect:
@@ -602,7 +809,7 @@ phase_2_consolidation:
       action: "Calculate total score per component with diagram bonus"
 
     4_prioritize:
-      action: "Sort by score descending"
+      action: "Sort by score descending, then by dependency order"
 
     5_identify_diagrams:
       action: "For each primary section, determine required diagram types"
@@ -613,27 +820,27 @@ phase_2_consolidation:
   output_structure:
     common:
       - "index.md (always — product pitch format)"
-      - "architecture/ (if application/library, score >= 24)"
+      - "architecture/ (if application/library, primary: score >= 24)"
     template:
-      - "getting-started/ (score >= 24)"
-      - "languages/ (score >= 24)"
-      - "commands/ (score >= 24)"
-      - "agents/ (score >= 20)"
-      - "automation/ (hooks + mcp, score >= 20)"
-      - "patterns/ (if KB exists, score >= 16)"
-      - "reference/ (aggregated low-score items)"
+      - "getting-started/ (primary: score >= 24)"
+      - "languages/ (primary: score >= 24)"
+      - "commands/ (primary: score >= 24)"
+      - "agents/ (standard: score >= 16)"
+      - "automation/ (hooks + mcp, standard: score >= 16)"
+      - "patterns/ (if KB exists, standard: score >= 16)"
+      - "reference/ (aggregated: score < 16)"
     application:
       - "architecture/ (always for app)"
       - "api/ (if endpoints detected)"
       - "deployment/ (if cluster/docker detected)"
-      - "guides/ (score >= 20)"
-      - "reference/ (aggregated low-score items)"
+      - "guides/ (standard: score >= 16)"
+      - "reference/ (aggregated: score < 16)"
     library:
       - "architecture/ (if complex internal structure)"
       - "api/ (always for library)"
-      - "examples/ (score >= 20)"
-      - "guides/ (score >= 20)"
-      - "reference/ (aggregated low-score items)"
+      - "examples/ (standard: score >= 16)"
+      - "guides/ (standard: score >= 16)"
+      - "reference/ (aggregated: score < 16)"
 ```
 
 ---
@@ -669,29 +876,59 @@ phase_3_generate:
       - "Over 'The auth module manages authentication'"
 
   #---------------------------------------------------------------------------
+  # DOCUMENTATION PHILOSOPHY (Divio System)
+  #---------------------------------------------------------------------------
+  # Every page falls into one of four categories (never mix them):
+  #   Tutorial    → learning-oriented, practical steps for beginners
+  #   How-to      → task-oriented, steps for working developers
+  #   Reference   → factual, structured lookup during active work
+  #   Explanation → theoretical, conceptual understanding
+  # Maintaining clear boundaries prevents "gravitational pull" toward
+  # merging types, which degrades both author and reader experience.
+  #---------------------------------------------------------------------------
+
+  #---------------------------------------------------------------------------
   # UNIVERSAL TEMPLATES (applied to all project types)
   #---------------------------------------------------------------------------
   universal_templates:
 
     index_md:
-      description: "Product pitch page — answers 'Why should I care?' in 30 seconds"
+      description: "Product pitch landing page — readers decide in 30 seconds"
+      # Inspired by: product documentation best practices (entry point pattern)
+      # Provides: About, Access, Usage, Resources, Support
+      generation_marker:
+        first_line: '<!-- /docs-generated: {"date":"{TIMESTAMP}","commit":"{LAST_COMMIT_SHA}","pages":{TOTAL_PAGES},"agents":{N}} -->'
+        rule: "ALWAYS insert as first line of index.md — enables freshness detection"
       structure:
+        - "<!-- /docs-generated: {JSON_MARKER} -->"
         - "# {PROJECT_NAME}"
         - ""
         - "## What is this?"
         - "{2-3 sentences: what problem it solves, for whom}"
+        - "{One sentence: who the target users are}"
         - ""
         - "## Key Features"
         - "{Bullet list of 5-8 major capabilities with one-line explanations}"
+        - "{Each feature answers 'what does this DO for me?'}"
         - ""
         - "## How it works"
         - "{Mermaid flowchart: high-level system overview}"
+        - "{2-3 sentences explaining the diagram}"
         - ""
         - "## Quick Start"
-        - "{3-5 steps to get running, with code blocks}"
+        - "{3-5 numbered steps to get running, with code blocks}"
+        - "{Each step has expected output or verification}"
         - ""
         - "## What's Inside"
-        - "{Table: component → description → link to detailed page}"
+        - "{Table: component → description → doc type (Tutorial/Guide/Reference) → link}"
+        - ""
+        - "## Support"
+        - "{Links: issues, discussions, contributing guide}"
+      anti_patterns:
+        - "Starting with technical details before the pitch"
+        - "Listing features without explaining their benefit"
+        - "Quick start that requires more than 5 steps"
+        - "Missing verification step after quick start"
 
     architecture_overview_md:
       description: "Level 1 zoom — system context, big picture"
@@ -841,11 +1078,49 @@ phase_3_generate:
 
 ---
 
-## Phase 4: Validation + Serve
+## Phase 4: Verification (DocAgent-inspired)
 
 ```yaml
-phase_4_validate_and_serve:
-  description: "Validate quality then start MkDocs server"
+phase_4_verify:
+  description: "Iterative quality verification before serving"
+  inspiration: "DocAgent multi-agent pattern: Writer → Verifier feedback loop"
+  max_iterations: 2
+
+  verifier_checks:
+    completeness:
+      - "Every primary section (score >= 24) has a full page"
+      - "Every standard section (score >= 16) has an own page"
+      - "No section references information not present in agent results"
+    accuracy:
+      - "Mermaid diagrams match actual component names from code"
+      - "File paths in links point to real files"
+      - "Version numbers match what install scripts actually install"
+    quality:
+      - "No generic filler ('This module handles X' without explaining HOW)"
+      - "Every table has >= 2 rows of real data"
+      - "Every code block is syntactically valid"
+    no_placeholders:
+      - "No 'Coming Soon', 'TBD', 'TODO', 'WIP' in any page"
+      - "No '{VARIABLE}' patterns remaining in generated content"
+      - "No empty sections or stub pages"
+
+  feedback_loop:
+    on_failure:
+      action: "Fix the specific issue and re-verify (up to max_iterations)"
+      strategy: "Targeted fix — only regenerate the failing section, not all docs"
+    on_success:
+      action: "Proceed to Phase 5 (Serve)"
+    on_max_iterations:
+      action: "Proceed with warnings listed in serve output"
+```
+
+---
+
+## Phase 5: Validation + Serve
+
+```yaml
+phase_5_validate_and_serve:
+  description: "Final validation then start MkDocs server"
 
   validation:
     mandatory_checks:
@@ -855,7 +1130,8 @@ phase_4_validate_and_serve:
       - "All code blocks have language tag"
       - "All internal links resolve"
       - "Every architecture page has at least one Mermaid diagram"
-      - "index.md starts with product pitch (not technical details)"
+      - "index.md has generation marker as first line (<!-- /docs-generated: ... -->)"
+      - "index.md starts with product pitch after marker (not technical details)"
       - "No full config files copied inline (use links)"
 
     warnings:
@@ -911,17 +1187,37 @@ status:
   checks:
     - "Server running? (pgrep -f 'mkdocs serve')"
     - "Docs structure exists? (ls docs/)"
+    - "Generation marker? (head -1 docs/index.md)"
+    - "Git diff since marker commit"
     - "Content files count"
     - "Mermaid diagrams count"
-    - "Last analysis timestamp"
+    - "Broken internal links"
+    - "Outdated dependency versions"
 
   output_template: |
-    Server:     {RUNNING|STOPPED}
-    Structure:  {EXISTS|MISSING}
-    Pages:      {N} files
-    Diagrams:   {D} Mermaid blocks
-    Coverage:   {PERCENTAGE}%
-    Last scan:  {TIMESTAMP}
+    ═══════════════════════════════════════════════════════════════
+      /docs - Status Report
+    ═══════════════════════════════════════════════════════════════
+
+      Server      : {RUNNING|STOPPED}
+      Structure   : {EXISTS|MISSING}
+
+      Freshness:
+        Generated   : {TIMESTAMP} ({DAYS_AGO} days ago)
+        Commit      : {MARKER_COMMIT} → HEAD ({COMMITS_SINCE} commits)
+        Stale pages : {STALE_COUNT} / {TOTAL_PAGES}
+        Broken links: {BROKEN_COUNT}
+        Outdated    : {OUTDATED_COUNT} deps
+
+      Content:
+        Pages       : {TOTAL_PAGES} files
+        Diagrams    : {D} Mermaid blocks
+        Coverage    : {PERCENTAGE}%
+
+      {IF_STALE: "Run /docs to update stale pages (incremental)"}
+      {IF_FRESH: "Docs are up to date."}
+
+    ═══════════════════════════════════════════════════════════════
 ```
 
 ---
@@ -958,6 +1254,9 @@ quick:
 | Phrase generique sans info specifique | **INTERDIT** | Contenu creux |
 | index.md qui commence par du technique | **INTERDIT** | Pitch produit d'abord |
 | Skip architecture-analyzer pour app | **INTERDIT** | Architecture est critique |
+| Skip freshness check (Phase 0.5) | **INTERDIT** | Regeneration inutile |
+| Generer sans marker dans index.md | **INTERDIT** | Freshness impossible ensuite |
+| Full regen si incremental suffit | **EVITER** | Gaspillage de tokens/temps |
 
 ---
 
@@ -966,8 +1265,12 @@ quick:
 ```yaml
 # mkdocs.yml (generated at project root)
 site_name: "{PROJECT_NAME}"
-docs_dir: docs
 site_description: "{GENERATED_DESCRIPTION}"
+docs_dir: docs
+repo_url: "{GIT_REMOTE_URL}"       # auto-detected from git remote
+repo_name: "{REPO_NAME}"           # auto-detected (GitHub/GitLab/Bitbucket)
+edit_uri: "blob/main/docs/"        # read-only link (use "edit/main/docs/" for edit link)
+use_directory_urls: true
 
 theme:
   name: material
@@ -1016,8 +1319,30 @@ markdown_extensions:
       permalink: true
 
 nav:
-  # GENERATED FROM PHASE 3
-  # Only sections with score >= threshold
+  # GENERATED by nav_algorithm below — never hand-edited
+  # ---
+  # nav_algorithm:
+  #   1. Start with index.md (always first)
+  #   2. For each section in output_structure[PROJECT_TYPE]:
+  #      - Skip if no component scored >= section threshold
+  #      - Add section header (directory name, title-cased)
+  #      - Add README.md as section landing page
+  #      - Add child pages sorted by score descending
+  #   3. Always end with reference/ section (aggregates score < 16)
+  #   4. Validate: every nav entry points to an existing file
+  #   5. Warn if total nav depth > 3 levels (flatten if possible)
+  #
+  # Example output for template project:
+  #   - Home: index.md
+  #   - Getting Started:
+  #     - Overview: getting-started/README.md
+  #     - Workflow: getting-started/workflow.md
+  #     - Configuration: getting-started/configuration.md
+  #   - Architecture:
+  #     - Overview: architecture/README.md
+  #     - Components: architecture/components.md
+  #   - Reference:
+  #     - Conventions: reference/conventions.md
 ```
 
 ---
@@ -1049,6 +1374,22 @@ errors:
 
       Score: {SCORE}/43 (includes +3 diagram bonus)
 
-      Adding placeholder Mermaid diagram from agent analysis.
-      Review and refine the generated diagram.
+      Generating Mermaid diagram from agent analysis data.
+      The diagram uses real component names from the codebase.
 ```
+
+---
+
+## Sources and References
+
+This skill's design draws from the following methodologies and research:
+
+| Source | Contribution | Reference |
+|--------|-------------|-----------|
+| **C4 Model** (Simon Brown) | Progressive architecture zoom (Context → Container → Component), diagram practices | [Practical C4 Modeling Tips](https://revision.app/blog/practical-c4-modeling-tips) |
+| **DocAgent** (arXiv 2504.08725) | Multi-agent coordination: Reader → Searcher → Writer → Verifier, dependency-first ordering, iterative feedback loops | [DocAgent: Multi-Agent Collaboration](https://arxiv.org/html/2504.08725v1) |
+| **Divio Documentation System** | Four documentation types (Tutorial, How-to, Reference, Explanation), boundary maintenance | [Divio Documentation Structure](https://docs.divio.com/documentation-system/structure/) |
+| **MkDocs** | Configuration options: repo_url, edit_uri, nav structure, validation, plugins | [MkDocs Configuration Guide](https://www.mkdocs.org/user-guide/configuration/) |
+| **MkDocs Material** | Theme: dark/light palette, navigation features, code copy, search, Mermaid diagrams | [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) |
+| **Product Documentation Tips** | Entry point pattern (About/Access/Usage/Resources/Support), chunking, navigation depth | [10 Tips for Product Documentation](https://developerhub.io/blog/10-tips-for-structuring-your-product-documentation/) |
+| **Mermaid** | Diagram types: flowchart, sequence, C4 context, ER, state machine, deployment | [Mermaid Documentation](https://mermaid.js.org/) |
