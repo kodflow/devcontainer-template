@@ -47,7 +47,7 @@ if [ -d "/home/vscode/.gnupg" ] && [ -n "$(gpg --list-secret-keys --keyid-format
         GIT_EMAIL=$(grep -E "^GIT_EMAIL=" /workspace/.env 2>/dev/null | cut -d'=' -f2 | tr -d '"')
     fi
     if [ -z "$GIT_EMAIL" ]; then
-        GIT_EMAIL=$(git config --global user.email 2>/dev/null)
+        GIT_EMAIL=$(git config --global user.email 2>/dev/null || true)
     fi
 
     GPG_KEY=""
