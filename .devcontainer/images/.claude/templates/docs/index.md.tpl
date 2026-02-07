@@ -6,7 +6,7 @@
 
 **{{PROJECT_TAGLINE}}**
 
-[How to use :material-arrow-right:](docs/){ .md-button .md-button--primary }
+[Get Started :material-arrow-right:](#how-it-works){ .md-button .md-button--primary }
 
 </div>
 

@@ -284,11 +284,11 @@ color_derivation:
       edge: "#d4d8e0"
 
   preset_table:
-    "#df41fb":  { data: "#41fbdf", async: "#fbdf41" }  # Purple (default)
-    "#4196fb":  { data: "#fb4196", async: "#96fb41" }  # Blue
-    "#41fbd3":  { data: "#d341fb", async: "#fbd341" }  # Teal
-    "#41fb96":  { data: "#9641fb", async: "#fb9641" }  # Green
-    "#fb9641":  { data: "#41fb96", async: "#9641fb" }  # Orange
+    "#9D76FB":  { data: "#76fb9d", async: "#fb9d76" }  # Purple (default)
+    "#6BA3FF":  { data: "#a3ff6b", async: "#ff6ba3" }  # Blue
+    "#4DD0E1":  { data: "#d0e14d", async: "#e14dd0" }  # Teal
+    "#66BB6A":  { data: "#bb6a66", async: "#6a66bb" }  # Green
+    "#FFB74D":  { data: "#b74dff", async: "#4dffb7" }  # Orange
 
   semantic_mapping:
     Person: "primary"
@@ -427,15 +427,15 @@ phase_neg1_config:
           header: "Theme Color"
           options:
             - label: "Purple (Recommended)"
-              description: "#df41fb — creative, modern (default MkDocs Material)"
+              description: "#9D76FB — Material dark-theme purple, elegant on slate"
             - label: "Blue"
-              description: "#4196fb — professional, tech-forward"
+              description: "#6BA3FF — professional, tech-forward"
             - label: "Teal"
-              description: "#41fbd3 — calm, data-centric"
+              description: "#4DD0E1 — calm, data-centric"
             - label: "Green"
-              description: "#41fb96 — growth, reliability"
+              description: "#66BB6A — growth, reliability"
             - label: "Orange"
-              description: "#fb9641 — energetic, action-oriented"
+              description: "#FFB74D — energetic, action-oriented"
           persist_as: "accent_color (hex string from option description, or custom hex if 'Other')"
 
     3_persist:
@@ -1136,7 +1136,7 @@ phase_3_generate:
         - "<!-- /docs-generated: {JSON_MARKER} -->"
         - "# {PROJECT_NAME}"
         - "{PROJECT_TAGLINE} — bold, one sentence"
-        - "[ How to use → ] button linking to docs section"
+        - "[ Get Started → ] button linking to #how-it-works anchor"
         - ""
         - "## Features (conditional on INTERNAL_PROJECT)"
         - "IF INTERNAL_PROJECT == true:"
@@ -1744,6 +1744,9 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - admonition
   - attr_list
   - md_in_html
