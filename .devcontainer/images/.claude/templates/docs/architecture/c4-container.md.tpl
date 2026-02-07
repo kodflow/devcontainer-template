@@ -21,7 +21,32 @@ C4Container
     {{C4_CONTAINER_RELATIONSHIPS}}
 
     UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+
+    %% Color: applied per-element (C4 ignores Mermaid themes)
+    {{C4_CONTAINER_STYLES}}
 ```
+
+<!-- COLOR RULES:
+  Apply UpdateElementStyle to EVERY element in the diagram:
+
+  Person (reused from Level 1):
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_PRIMARY_BG}}", $borderColor="{{COLOR_PRIMARY_BORDER}}")
+
+  Container (internal):
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_PRIMARY_BG}}", $borderColor="{{COLOR_PRIMARY_BORDER}}")
+
+  ContainerDb:
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_DATA_BG}}", $borderColor="{{COLOR_DATA_BORDER}}")
+
+  ContainerQueue:
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_ASYNC_BG}}", $borderColor="{{COLOR_ASYNC_BORDER}}")
+
+  System_Ext:
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_EXTERNAL_BG}}", $borderColor="{{COLOR_EXTERNAL_BORDER}}")
+
+  Relationships:
+    UpdateRelStyle(from, to, $textColor="{{COLOR_TEXT}}", $lineColor="{{COLOR_EDGE}}")
+-->
 
 <!-- GENERATION RULES:
   Elements inside System_Boundary:

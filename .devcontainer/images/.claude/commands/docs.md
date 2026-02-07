@@ -228,6 +228,22 @@ variables:
   FORMATS: "Array of {name, content_type, used_by_apis[], deduced: boolean}"
   PROJECT_TAGLINE: "One-sentence tagline synthesized from analysis"
 
+  # Color system (derived from accent_color via color_derivation algorithm)
+  ACCENT_HEX: "hex from config accent_color (e.g. '#df41fb')"
+  COLOR_PRIMARY_BORDER: "ACCENT_HEX (e.g. '#df41fb')"
+  COLOR_PRIMARY_BG: "ACCENT_HEX + '1a' (10% alpha, e.g. '#df41fb1a')"
+  COLOR_DATA_BORDER: "triadic left: hsl_to_hex((H-120+360)%360, S, L)"
+  COLOR_DATA_BG: "COLOR_DATA_BORDER + '1a' (10% alpha)"
+  COLOR_ASYNC_BORDER: "triadic right: hsl_to_hex((H+120)%360, S, L)"
+  COLOR_ASYNC_BG: "COLOR_ASYNC_BORDER + '1a' (10% alpha)"
+  COLOR_EXTERNAL_BORDER: "'#6c7693' (fixed desaturated gray)"
+  COLOR_EXTERNAL_BG: "'#6c76931a' (fixed)"
+  COLOR_ERROR_BORDER: "'#e83030' (fixed red)"
+  COLOR_ERROR_BG: "'#e830301a' (fixed)"
+  COLOR_TEXT: "'#d4d8e0' (constant — light text for dark mode)"
+  COLOR_LABEL_BG: "'#1e2129' (constant — slate dark)"
+  COLOR_EDGE: "'#d4d8e0' (constant — same as text)"
+
   # User-configurable
   PORT: "MkDocs serve port (default: 8080, override with --port)"
 
@@ -240,6 +256,62 @@ variables:
 
 ---
 
+## Color Derivation Algorithm
+
+Given `accent_color` from Phase -1 config, derive the full semantic palette:
+
+```yaml
+color_derivation:
+  input: "ACCENT_HEX from .claude/docs/config.json accent_color"
+
+  algorithm:
+    1_parse_hsl: "Convert ACCENT_HEX to HSL (H, S, L)"
+    2_primary:
+      border: "ACCENT_HEX (unchanged)"
+      background: "ACCENT_HEX + '1a' (append 10% alpha suffix)"
+    3_data_triadic_left:
+      border: "hsl_to_hex((H - 120 + 360) % 360, S, L)"
+      background: "data_border + '1a'"
+    4_async_triadic_right:
+      border: "hsl_to_hex((H + 120) % 360, S, L)"
+      background: "async_border + '1a'"
+    5_fixed_roles:
+      external: { border: "#6c7693", background: "#6c76931a" }
+      error: { border: "#e83030", background: "#e830301a" }
+    6_constants:
+      text: "#d4d8e0"
+      label_bg: "#1e2129"
+      edge: "#d4d8e0"
+
+  preset_table:
+    "#df41fb":  { data: "#41fbdf", async: "#fbdf41" }  # Purple (default)
+    "#4196fb":  { data: "#fb4196", async: "#96fb41" }  # Blue
+    "#41fbd3":  { data: "#d341fb", async: "#fbd341" }  # Teal
+    "#41fb96":  { data: "#9641fb", async: "#fb9641" }  # Green
+    "#fb9641":  { data: "#41fb96", async: "#9641fb" }  # Orange
+
+  semantic_mapping:
+    Person: "primary"
+    System: "primary"
+    Container: "primary"
+    Component: "primary"
+    System_Ext: "external"
+    Person_Ext: "external"
+    ContainerDb: "data"
+    ComponentDb: "data"
+    ContainerQueue: "async"
+    ComponentQueue: "async"
+    Deployment_Node: "external (border only, fill #2d2d2d)"
+
+  application_layers:
+    css_theme: "theme.css.tpl → stylesheets/theme.css (MkDocs + C4 global)"
+    init_block: "%%{init}%% directive in flowchart/sequence/state diagrams"
+    classDef: "classDef declarations in flowcharts for semantic node roles"
+    UpdateElementStyle: "Per-element inline in C4 diagrams (belt-and-suspenders with CSS)"
+```
+
+---
+
 ## Architecture Overview
 
 ```
@@ -248,11 +320,13 @@ variables:
 
 Phase -1: Configuration Gate
 ├─ Read .claude/docs/config.json
-├─ If missing/incomplete: ask 2 mandatory questions (AskUserQuestion)
+├─ If missing/incomplete: ask 3 mandatory questions (AskUserQuestion)
 │   ├─ Q1: "Is this repository public?"  → public_repo
-│   └─ Q2: "Is this an internal project?" → internal_project
+│   ├─ Q2: "Is this an internal project?" → internal_project
+│   └─ Q3: "Choose your accent color"    → accent_color
 ├─ Persist answers to .claude/docs/config.json
-└─ Load config into template variables (PUBLIC_REPO, INTERNAL_PROJECT)
+├─ Derive semantic color palette from accent_color (triadic HSL)
+└─ Load config into template variables (PUBLIC_REPO, INTERNAL_PROJECT, ACCENT_COLOR)
 
 Phase 0: Project Detection
 ├─ Detect project type (template/library/app/empty)
@@ -310,12 +384,13 @@ Phase 5: Serve
 phase_neg1_config:
   description: "Mandatory configuration gate — runs before any analysis"
   mandatory: true
-  skip_if: ".claude/docs/config.json exists AND contains both keys (public_repo, internal_project)"
+  skip_if: ".claude/docs/config.json exists AND contains all keys (public_repo, internal_project, accent_color)"
 
   config_file: ".claude/docs/config.json"
   config_schema:
     public_repo: "boolean — controls GitHub links, repo_url, footer icon, nav GitHub tab"
     internal_project: "boolean — controls feature table style (simple description vs competitive comparison)"
+    accent_color: "hex string — accent color for MkDocs theme and Mermaid diagrams (e.g. '#df41fb')"
     apis: "array — auto-filled by architecture-analyzer in Phase 1 (never asked to user)"
 
   workflow:
@@ -348,12 +423,28 @@ phase_neg1_config:
               description: "Competitive comparison table (Us vs Competitors) with ✅/⚠️/❌"
           persist_as: "internal_project (Internal → true, External → false)"
 
+        - question: "Choose your documentation accent color"
+          header: "Theme Color"
+          options:
+            - label: "Purple (Recommended)"
+              description: "#df41fb — creative, modern (default MkDocs Material)"
+            - label: "Blue"
+              description: "#4196fb — professional, tech-forward"
+            - label: "Teal"
+              description: "#41fbd3 — calm, data-centric"
+            - label: "Green"
+              description: "#41fb96 — growth, reliability"
+            - label: "Orange"
+              description: "#fb9641 — energetic, action-oriented"
+          persist_as: "accent_color (hex string from option description, or custom hex if 'Other')"
+
     3_persist:
       action: "Write .claude/docs/config.json"
       content: |
         {
           "public_repo": {Q1_ANSWER},
           "internal_project": {Q2_ANSWER},
+          "accent_color": "{Q3_ANSWER}",
           "apis": []
         }
       note: "apis array populated automatically by architecture-analyzer in Phase 1"
@@ -361,6 +452,7 @@ phase_neg1_config:
   output_variables:
     PUBLIC_REPO: "boolean from config → controls repo_url, GitHub nav tab, footer link"
     INTERNAL_PROJECT: "boolean from config → controls index.md feature table style"
+    ACCENT_COLOR: "hex string from config → input for color derivation algorithm"
 
   conditional_effects:
     public_repo_false:
@@ -1088,7 +1180,7 @@ phase_3_generate:
     # C4 ARCHITECTURE TEMPLATES (Mermaid C4 diagrams)
     #---------------------------------------------------------------------------
     # Templates: .devcontainer/images/.claude/templates/docs/architecture/
-    # Dark mode fix: docs/stylesheets/c4-fix.css (custom CSS override)
+    # Theme: docs/stylesheets/theme.css (derived from theme.css.tpl + accent_color)
     #
     # DECISION FRAMEWORK — which C4 levels to generate:
     #   ALWAYS: Level 1 (Context) + Level 2 (Container)
@@ -1194,6 +1286,72 @@ phase_3_generate:
         - "Max 3 nesting levels for Deployment_Node"
         - "Production environment only (not dev/staging)"
         - "Include replica counts"
+
+  #---------------------------------------------------------------------------
+  # MERMAID COLOR DIRECTIVES (non-C4 diagrams)
+  #---------------------------------------------------------------------------
+  # C4 diagrams are styled by theme.css (CSS) + UpdateElementStyle (inline).
+  # Non-C4 diagrams (flowchart, sequence, state) need %%{init}%% + classDef.
+  #---------------------------------------------------------------------------
+  mermaid_color_directives:
+    applies_to:
+      - "flowchart"
+      - "sequenceDiagram"
+      - "stateDiagram-v2"
+    does_NOT_apply_to:
+      - "C4Context"
+      - "C4Container"
+      - "C4Component"
+      - "C4Dynamic"
+      - "C4Deployment"
+
+    init_block: |
+      %%{init: {'theme': 'dark', 'themeVariables': {
+        'primaryColor': '{{COLOR_PRIMARY_BG}}',
+        'primaryBorderColor': '{{COLOR_PRIMARY_BORDER}}',
+        'primaryTextColor': '{{COLOR_TEXT}}',
+        'lineColor': '{{COLOR_EDGE}}',
+        'textColor': '{{COLOR_TEXT}}',
+        'secondaryColor': '{{COLOR_DATA_BG}}',
+        'secondaryBorderColor': '{{COLOR_DATA_BORDER}}',
+        'secondaryTextColor': '{{COLOR_TEXT}}',
+        'tertiaryColor': '{{COLOR_ASYNC_BG}}',
+        'tertiaryBorderColor': '{{COLOR_ASYNC_BORDER}}',
+        'tertiaryTextColor': '{{COLOR_TEXT}}',
+        'noteBkgColor': '{{COLOR_LABEL_BG}}',
+        'noteTextColor': '{{COLOR_TEXT}}',
+        'noteBorderColor': '{{COLOR_EXTERNAL_BORDER}}',
+        'actorBkg': '{{COLOR_PRIMARY_BG}}',
+        'actorBorder': '{{COLOR_PRIMARY_BORDER}}',
+        'actorTextColor': '{{COLOR_TEXT}}',
+        'activationBkgColor': '{{COLOR_PRIMARY_BG}}',
+        'activationBorderColor': '{{COLOR_PRIMARY_BORDER}}',
+        'signalColor': '{{COLOR_EDGE}}',
+        'signalTextColor': '{{COLOR_TEXT}}'
+      }}}%%
+
+    classDef_block: |
+      classDef primary fill:{{COLOR_PRIMARY_BG}},stroke:{{COLOR_PRIMARY_BORDER}},color:{{COLOR_TEXT}}
+      classDef data fill:{{COLOR_DATA_BG}},stroke:{{COLOR_DATA_BORDER}},color:{{COLOR_TEXT}}
+      classDef async fill:{{COLOR_ASYNC_BG}},stroke:{{COLOR_ASYNC_BORDER}},color:{{COLOR_TEXT}}
+      classDef external fill:{{COLOR_EXTERNAL_BG}},stroke:{{COLOR_EXTERNAL_BORDER}},color:{{COLOR_TEXT}}
+      classDef error fill:{{COLOR_ERROR_BG}},stroke:{{COLOR_ERROR_BORDER}},color:{{COLOR_TEXT}}
+
+    usage_rules:
+      - "Every flowchart MUST start with the %%{init}%% block"
+      - "Every flowchart MUST include classDef declarations"
+      - "Assign semantic classes to nodes: A:::primary, B:::data, C:::async"
+      - "Sequence and state diagrams need only %%{init}%% (no classDef)"
+      - "The OVERVIEW_DIAGRAM in index.md MUST follow these rules"
+
+    c4_inline_rules:
+      - "Every C4 diagram MUST include UpdateElementStyle for each element"
+      - "Mapping: Person/System/Container/Component → primary colors"
+      - "Mapping: *Db → data colors, *Queue → async colors"
+      - "Mapping: *_Ext → external colors"
+      - "Mapping: error flows → error colors (in C4Dynamic)"
+      - "Template: UpdateElementStyle(alias, $fontColor=\"{{COLOR_TEXT}}\", $bgColor=\"{{COLOR_*_BG}}\", $borderColor=\"{{COLOR_*_BORDER}}\")"
+      - "Template: UpdateRelStyle(from, to, $textColor=\"{{COLOR_TEXT}}\", $lineColor=\"{{COLOR_EDGE}}\")"
 
   #---------------------------------------------------------------------------
   # PROJECT-TYPE SPECIFIC STRUCTURES
@@ -1525,6 +1683,13 @@ quick:
 | Menu API si API_COUNT=0 | **INTERDIT** | Section nav vide |
 | Transport page sans cross-links vers API | **INTERDIT** | Cross-linking est la feature cle |
 | API page sans cross-links vers Transport | **INTERDIT** | Bidirectionnel obligatoire |
+| Palette toggle dans mkdocs.yml | **INTERDIT** | Dark-only, scheme: slate uniquement |
+| Couleurs hardcodees dans C4 templates | **INTERDIT** | Utiliser COLOR_* variables |
+| c4-fix.css dans mkdocs.yml | **INTERDIT** | Remplace par theme.css |
+| Flowchart/sequence sans %%{init}%% | **INTERDIT** | Couleurs incoherentes |
+| C4 sans UpdateElementStyle | **INTERDIT** | C4 ignore les themes Mermaid |
+| Background hex sans suffixe "1a" | **INTERDIT** | Pattern: border=full, bg=10% alpha |
+| Skip accent_color question | **INTERDIT** | Couleur pilote tout le theme |
 
 ---
 
@@ -1545,18 +1710,9 @@ docs_dir: docs
 theme:
   name: material
   palette:
-    - scheme: slate
-      primary: deep purple
-      accent: purple
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-    - scheme: default
-      primary: deep purple
-      accent: purple
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
+    scheme: slate
+    primary: custom
+    accent: custom
   features:
     - navigation.tabs
     - navigation.sections
@@ -1622,6 +1778,9 @@ nav:
   #     - Raft API: api/raft-api.md
   #   - Changelog: changelog.md
   #   - GitHub: https://github.com/org/repo
+
+extra_css:
+  - stylesheets/theme.css
 
 extra:
   generator: false

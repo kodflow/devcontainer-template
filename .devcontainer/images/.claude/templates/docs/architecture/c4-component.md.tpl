@@ -35,7 +35,32 @@ C4Component
     {{C4_COMPONENT_EXTERNAL_STORES}}
 
     {{C4_COMPONENT_RELATIONSHIPS}}
+
+    %% Color: applied per-element (C4 ignores Mermaid themes)
+    {{C4_COMPONENT_STYLES}}
 ```
+
+<!-- COLOR RULES:
+  Apply UpdateElementStyle to EVERY element in the diagram:
+
+  Component (internal):
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_PRIMARY_BG}}", $borderColor="{{COLOR_PRIMARY_BORDER}}")
+
+  ComponentDb:
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_DATA_BG}}", $borderColor="{{COLOR_DATA_BORDER}}")
+
+  ComponentQueue:
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_ASYNC_BG}}", $borderColor="{{COLOR_ASYNC_BORDER}}")
+
+  Container (adjacent, outside boundary):
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_PRIMARY_BG}}", $borderColor="{{COLOR_PRIMARY_BORDER}}")
+
+  ContainerDb (outside boundary):
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_DATA_BG}}", $borderColor="{{COLOR_DATA_BORDER}}")
+
+  Relationships:
+    UpdateRelStyle(from, to, $textColor="{{COLOR_TEXT}}", $lineColor="{{COLOR_EDGE}}")
+-->
 
 <!-- GENERATION RULES:
   Elements inside Container_Boundary:
