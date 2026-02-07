@@ -13,18 +13,9 @@ site_dir: site
 theme:
   name: material
   palette:
-    - scheme: slate
-      primary: deep purple
-      accent: purple
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-    - scheme: default
-      primary: deep purple
-      accent: purple
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
+    scheme: slate
+    primary: custom
+    accent: custom
   features:
     - navigation.tabs
     - navigation.sections
@@ -108,7 +99,7 @@ nav:
 # --- END CONDITIONAL ---
 
 extra_css:
-  - stylesheets/c4-fix.css
+  - stylesheets/theme.css
 
 extra:
   generator: false

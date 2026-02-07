@@ -26,7 +26,27 @@ C4Deployment
     {{C4_DEPLOYMENT_RELATIONSHIPS}}
 
     UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
+
+    %% Color: applied per-element (C4 ignores Mermaid themes)
+    {{C4_DEPLOYMENT_STYLES}}
 ```
+
+<!-- COLOR RULES:
+  Apply UpdateElementStyle to EVERY element in the diagram:
+
+  Container (inside Deployment_Node):
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_PRIMARY_BG}}", $borderColor="{{COLOR_PRIMARY_BORDER}}")
+
+  ContainerDb (inside Deployment_Node):
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_DATA_BG}}", $borderColor="{{COLOR_DATA_BORDER}}")
+
+  Deployment_Node:
+    Styled via CSS (.node .outer → fill:#2d2d2d, stroke:{{COLOR_EXTERNAL_BORDER}})
+    No UpdateElementStyle needed — CSS handles it globally
+
+  Relationships:
+    UpdateRelStyle(from, to, $textColor="{{COLOR_TEXT}}", $lineColor="{{COLOR_EDGE}}")
+-->
 
 <!-- GENERATION RULES:
   Elements:

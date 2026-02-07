@@ -29,7 +29,35 @@ C4Dynamic
     {{C4_DYNAMIC_RELATIONSHIPS}}
 
     {{C4_DYNAMIC_STYLES}}
+
+    %% Color: applied per-element (C4 ignores Mermaid themes)
+    {{C4_DYNAMIC_ELEMENT_STYLES}}
 ```
+
+<!-- COLOR RULES:
+  Apply UpdateElementStyle to EVERY element in the diagram:
+
+  Container/Component (internal):
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_PRIMARY_BG}}", $borderColor="{{COLOR_PRIMARY_BORDER}}")
+
+  ContainerDb/ComponentDb:
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_DATA_BG}}", $borderColor="{{COLOR_DATA_BORDER}}")
+
+  ContainerQueue/ComponentQueue:
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_ASYNC_BG}}", $borderColor="{{COLOR_ASYNC_BORDER}}")
+
+  System_Ext:
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_EXTERNAL_BG}}", $borderColor="{{COLOR_EXTERNAL_BORDER}}")
+
+  Relationships (normal flow):
+    UpdateRelStyle(from, to, $textColor="{{COLOR_TEXT}}", $lineColor="{{COLOR_EDGE}}")
+
+  Relationships (error path):
+    UpdateRelStyle(from, to, $textColor="{{COLOR_TEXT}}", $lineColor="{{COLOR_ERROR_BORDER}}")
+
+  Relationships (async operation):
+    UpdateRelStyle(from, to, $textColor="{{COLOR_TEXT}}", $lineColor="{{COLOR_ASYNC_BORDER}}")
+-->
 
 <!-- GENERATION RULES:
   Elements:
@@ -42,8 +70,8 @@ C4Dynamic
     - Order of Rel() statements determines sequence (Mermaid ignores RelIndex)
 
   Styling:
-    - UpdateRelStyle(from, to, $textColor="red") for error paths
-    - UpdateRelStyle(from, to, $textColor="blue") for async operations
+    - UpdateRelStyle(from, to, $textColor="{{COLOR_TEXT}}", $lineColor="{{COLOR_ERROR_BORDER}}") for error paths
+    - UpdateRelStyle(from, to, $textColor="{{COLOR_TEXT}}", $lineColor="{{COLOR_ASYNC_BORDER}}") for async operations
 
   Constraints:
     - Max 10 steps per flow diagram

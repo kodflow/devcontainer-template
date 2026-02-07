@@ -17,7 +17,23 @@ C4Context
     {{C4_CONTEXT_RELATIONSHIPS}}
 
     UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+
+    %% Color: applied per-element (C4 ignores Mermaid themes)
+    {{C4_CONTEXT_STYLES}}
 ```
+
+<!-- COLOR RULES:
+  Apply UpdateElementStyle to EVERY element in the diagram:
+
+  Person/System (internal):
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_PRIMARY_BG}}", $borderColor="{{COLOR_PRIMARY_BORDER}}")
+
+  System_Ext/Person_Ext/SystemDb_Ext/SystemQueue_Ext:
+    UpdateElementStyle(alias, $fontColor="{{COLOR_TEXT}}", $bgColor="{{COLOR_EXTERNAL_BG}}", $borderColor="{{COLOR_EXTERNAL_BORDER}}")
+
+  Relationships:
+    UpdateRelStyle(from, to, $textColor="{{COLOR_TEXT}}", $lineColor="{{COLOR_EDGE}}")
+-->
 
 <!-- GENERATION RULES:
   Elements:
