@@ -1,41 +1,53 @@
+<!-- /docs-generated: {"date":"{{TIMESTAMP}}","commit":"{{LAST_COMMIT_SHA}}","pages":{{TOTAL_PAGES}},"agents":{{N}}} -->
+
+<div class="hero" markdown>
+
 # {{PROJECT_NAME}}
 
-Welcome to the **{{PROJECT_NAME}}** documentation.
+**{{PROJECT_TAGLINE}}**
 
-## Quick Links
+[How to use :material-arrow-right:](docs/){ .md-button .md-button--primary }
 
-| Section | Description |
-|---------|-------------|
-| [Architecture](architecture/README.md) | C4 diagrams and system design |
-| [ADR](adr/README.md) | Architecture Decision Records |
-| [API](api/README.md) | API documentation |
-| [Runbooks](runbooks/README.md) | Operational procedures |
-| [Guides](guides/README.md) | Developer and user guides |
-
-## Getting Started
-
-1. Review the [Architecture](architecture/README.md) overview
-2. Check [ADR](adr/README.md) for design decisions
-3. Follow the [Guides](guides/README.md) for setup instructions
-
-## Project Structure
-
-```
-{{PROJECT_NAME}}/
-├── src/                    # Source code
-├── tests/                  # Test files
-├── docs/                   # Additional documentation
-└── .docs/                  # MkDocs documentation (this site)
-```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `/docs --serve` | Start documentation server on :8080 |
-| `/docs --build` | Build static documentation |
-| `/c4` | Generate C4 architecture diagrams |
+</div>
 
 ---
 
-*Documentation generated with [Claude Code](https://claude.ai/claude-code) and [MkDocs Material](https://squidfunk.github.io/mkdocs-material/)*
+<!-- IF INTERNAL_PROJECT == true: simple feature table -->
+<!-- USE THIS VARIANT for internal projects -->
+<!--
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **{{FEATURE_NAME}}** | {{FEATURE_DESCRIPTION}} |
+-->
+
+<!-- IF INTERNAL_PROJECT == false: competitive comparison table -->
+<!-- USE THIS VARIANT for external projects -->
+<!--
+## Feature Comparison
+
+| Feature | {{PROJECT_NAME}} :star: | {{COMPETITOR_A}} | {{COMPETITOR_B}} | {{COMPETITOR_C}} |
+|---------|:-:|:-:|:-:|:-:|
+| **{{FEATURE_NAME}}** | :white_check_mark: | :warning: | :x: | :x: |
+| **Price** | Free | $$$ | Free | $$ |
+{{IF_PUBLIC_REPO}}| **Open Source** | :white_check_mark: | :x: | :white_check_mark: | :x: |{{/IF_PUBLIC_REPO}}
+
+> :white_check_mark: Full support | :warning: Partial | :x: Not available
+-->
+
+## How it works
+
+```mermaid
+{{OVERVIEW_DIAGRAM}}
+```
+
+{{OVERVIEW_EXPLANATION}}
+
+## Quick Start
+
+{{QUICK_START_STEPS}}
+
+---
+
+*{{PROJECT_NAME}} · {{LICENSE}}{{IF_PUBLIC_REPO}} · [:material-github: GitHub]({{GIT_REMOTE_URL}}){{/IF_PUBLIC_REPO}}*
