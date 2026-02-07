@@ -1,0 +1,114 @@
+/*
+ * C4 Diagram Dark Mode Fix
+ *
+ * Mermaid C4 diagrams have hardcoded light colors that become
+ * unreadable in dark mode (MkDocs Material "slate" scheme).
+ * This stylesheet overrides those defaults.
+ *
+ * Reference: https://github.com/mermaid-js/mermaid/issues/4906
+ */
+
+/* --- Dark mode overrides --- */
+[data-md-color-scheme="slate"] {
+
+  /* Person elements */
+  .person .outer,
+  .personext .outer {
+    fill: #1a3a5c !important;
+    stroke: #4a90d9 !important;
+  }
+
+  .person text,
+  .personext text {
+    fill: #e0e0e0 !important;
+  }
+
+  /* System elements */
+  .system .outer {
+    fill: #1a3a5c !important;
+    stroke: #4a90d9 !important;
+  }
+
+  .systemext .outer,
+  .system_ext .outer {
+    fill: #3a3a3a !important;
+    stroke: #888888 !important;
+  }
+
+  .system text,
+  .systemext text,
+  .system_ext text {
+    fill: #e0e0e0 !important;
+  }
+
+  /* Container elements */
+  .container .outer {
+    fill: #1a3a5c !important;
+    stroke: #4a90d9 !important;
+  }
+
+  .containerdb .outer,
+  .containerqueue .outer {
+    fill: #1a3a5c !important;
+    stroke: #4a90d9 !important;
+  }
+
+  .container text,
+  .containerdb text,
+  .containerqueue text {
+    fill: #e0e0e0 !important;
+  }
+
+  /* Component elements */
+  .component .outer {
+    fill: #2a4a6c !important;
+    stroke: #5aa0e9 !important;
+  }
+
+  .componentdb .outer,
+  .componentqueue .outer {
+    fill: #2a4a6c !important;
+    stroke: #5aa0e9 !important;
+  }
+
+  .component text,
+  .componentdb text,
+  .componentqueue text {
+    fill: #e0e0e0 !important;
+  }
+
+  /* Deployment nodes */
+  .node .outer {
+    fill: #2d2d2d !important;
+    stroke: #666666 !important;
+  }
+
+  .node text {
+    fill: #e0e0e0 !important;
+  }
+
+  /* Boundaries */
+  .boundary {
+    stroke: #666666 !important;
+    stroke-dasharray: 5 5 !important;
+  }
+
+  .boundary text {
+    fill: #bbbbbb !important;
+  }
+
+  /* Relationships (arrows + labels) */
+  .messageLine0,
+  .messageLine1 {
+    stroke: #888888 !important;
+  }
+
+  .messageText {
+    fill: #cccccc !important;
+  }
+
+  /* C4 diagram background */
+  .mermaid svg {
+    background-color: transparent !important;
+  }
+}
