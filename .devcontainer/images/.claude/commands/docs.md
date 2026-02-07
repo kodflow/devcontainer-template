@@ -11,6 +11,7 @@ allowed-tools:
   - "Grep(**/*)"
   - "Write(docs/**)"
   - "Write(mkdocs.yml)"
+  - "Write(.claude/docs/config.json)"
   - "Task(*)"
   - "Bash(mkdocs:*)"
   - "Bash(cd:*)"
@@ -216,6 +217,17 @@ variables:
   OUTDATED_LIST: "Formatted list: dep name, docs version vs actual version"
   TOTAL_PAGES: "Total number of pages in docs/"
 
+  # From Phase -1 config (.claude/docs/config.json)
+  PUBLIC_REPO: "Boolean — controls GitHub links in header/footer/nav and repo_url in mkdocs.yml"
+  INTERNAL_PROJECT: "Boolean — controls feature table style (simple vs comparison)"
+
+  # From architecture-analyzer (Phase 1, stored in config)
+  APIS: "Array of {name, path, method, transport, format, description}"
+  API_COUNT: "len(APIS) — controls nav: 0=hidden, 1='API' direct, N='APIs' dropdown"
+  TRANSPORTS: "Array of {protocol, direction, port, tls, used_by_apis[]}"
+  FORMATS: "Array of {name, content_type, used_by_apis[], deduced: boolean}"
+  PROJECT_TAGLINE: "One-sentence tagline synthesized from analysis"
+
   # User-configurable
   PORT: "MkDocs serve port (default: 8080, override with --port)"
 
@@ -233,6 +245,14 @@ variables:
 ```
 /docs Execution Flow
 ────────────────────────────────────────────────────────────────
+
+Phase -1: Configuration Gate
+├─ Read .claude/docs/config.json
+├─ If missing/incomplete: ask 2 mandatory questions (AskUserQuestion)
+│   ├─ Q1: "Is this repository public?"  → public_repo
+│   └─ Q2: "Is this an internal project?" → internal_project
+├─ Persist answers to .claude/docs/config.json
+└─ Load config into template variables (PUBLIC_REPO, INTERNAL_PROJECT)
 
 Phase 0: Project Detection
 ├─ Detect project type (template/library/app/empty)
@@ -280,6 +300,84 @@ Phase 4: Verification (DocAgent-inspired)
 Phase 5: Serve
 ├─ Final checks
 └─ Start MkDocs on specified port
+```
+
+---
+
+## Phase -1: Configuration Gate
+
+```yaml
+phase_neg1_config:
+  description: "Mandatory configuration gate — runs before any analysis"
+  mandatory: true
+  skip_if: ".claude/docs/config.json exists AND contains both keys (public_repo, internal_project)"
+
+  config_file: ".claude/docs/config.json"
+  config_schema:
+    public_repo: "boolean — controls GitHub links, repo_url, footer icon, nav GitHub tab"
+    internal_project: "boolean — controls feature table style (simple description vs competitive comparison)"
+    apis: "array — auto-filled by architecture-analyzer in Phase 1 (never asked to user)"
+
+  workflow:
+    1_check_existing:
+      action: "Read .claude/docs/config.json"
+      if_exists_and_complete:
+        action: "Load config into template variables, skip to Phase 0"
+        message: "Config loaded: public_repo={public_repo}, internal_project={internal_project}"
+      if_missing_or_incomplete:
+        action: "Proceed to questions"
+
+    2_ask_questions:
+      tool: "AskUserQuestion"
+      questions:
+        - question: "Is this repository public?"
+          header: "Visibility"
+          options:
+            - label: "Public"
+              description: "GitHub links visible in header, footer, and nav"
+            - label: "Private"
+              description: "No GitHub links exposed, no repo URL in documentation"
+          persist_as: "public_repo (Public → true, Private → false)"
+
+        - question: "Is this an internal project?"
+          header: "Audience"
+          options:
+            - label: "Internal"
+              description: "Simple feature table (Feature | Description), no competitor comparison"
+            - label: "External"
+              description: "Competitive comparison table (Us vs Competitors) with ✅/⚠️/❌"
+          persist_as: "internal_project (Internal → true, External → false)"
+
+    3_persist:
+      action: "Write .claude/docs/config.json"
+      content: |
+        {
+          "public_repo": {Q1_ANSWER},
+          "internal_project": {Q2_ANSWER},
+          "apis": []
+        }
+      note: "apis array populated automatically by architecture-analyzer in Phase 1"
+
+  output_variables:
+    PUBLIC_REPO: "boolean from config → controls repo_url, GitHub nav tab, footer link"
+    INTERNAL_PROJECT: "boolean from config → controls index.md feature table style"
+
+  conditional_effects:
+    public_repo_false:
+      - "mkdocs.yml: no repo_url, no repo_name, no edit_uri"
+      - "mkdocs.yml: no icon.repo"
+      - "mkdocs.yml: no GitHub tab in nav"
+      - "mkdocs.yml: no extra.social GitHub link"
+      - "index.md: no GitHub link in footer"
+      - "Comparison table: no 'Open Source' row"
+    internal_project_true:
+      - "index.md: simple Feature | Description table"
+      - "No competitor research needed"
+      - "No comparison table generation"
+    internal_project_false:
+      - "index.md: comparison table Us ★ | Compet A | Compet B | Compet C"
+      - "Phase 1 agents research competitors for the comparison"
+      - "Comparison uses ✅ (full) | ⚠️ (partial) | ❌ (none)"
 ```
 
 ---
@@ -746,11 +844,39 @@ architecture_analyzer:
     - Observability (metrics, tracing, logging)
     For each detected: explain what it does, why it exists, how it works.
 
+    ## Transport & Format Detection
+    Systematically detect ALL transport protocols in use:
+    - HTTP/HTTPS: net/http, express, gin, fasthttp, axum, actix, Flask, Django
+    - WebSocket: gorilla/websocket, ws, socket.io, tungstenite
+    - gRPC: .proto files, protoc, tonic, grpc-go
+    - ICMP: ping, icmp, net.IP
+    - TCP raw: net.Listen("tcp"), net.createServer
+    - UDP: net.ListenPacket("udp"), dgram
+    - AMQP: rabbitmq client libraries
+    - MQTT: mosquitto, paho-mqtt
+
+    Systematically detect ALL exchange formats:
+    - JSON: encoding/json, serde_json, JSON.parse, json.dumps
+    - XML: encoding/xml, etree, lxml, xml2js
+    - Protobuf: .proto files, protoc-gen-*
+    - DIAMETER: diameter protocol libraries, AVP parsing
+    - TLV: tag-length-value encoding/parsing patterns
+    - MessagePack: msgpack libraries
+    - YAML: used as data exchange (not just config files)
+
+    For formats not explicitly imported, DEDUCE from context:
+    - HTTP handler + json.Marshal → JSON (deduced: true)
+    - gRPC service → Protobuf (deduced: true)
+    - SOAP endpoint → XML (deduced: true)
+    Mark deduced formats with deduced: true in the output.
+
     ## Output Format
     Return structured JSON with:
     - levels: [level1, level2, level3] each with components and diagrams
     - data_flows: [{name, source, destination, protocol, format}]
-    - apis: [{path, method, request_format, response_format, description}]
+    - apis: [{name, path, method, transport, format, description}]
+    - transports: [{protocol, direction, port, tls, used_by_apis[]}]
+    - formats: [{name, content_type, used_by_apis[], deduced: boolean}]
     - cluster: {strategy, min_nodes, replication, fault_tolerance} or null
     - secondary_features: [{name, purpose, mechanism, files}]
     - diagrams: [{type, title, mermaid_code}]
@@ -814,12 +940,29 @@ phase_2_consolidation:
     5_identify_diagrams:
       action: "For each primary section, determine required diagram types"
 
+    5b_cross_link_transport_api:
+      action: |
+        Build cross-reference maps between APIs and Transports:
+        - For each API: resolve its transport protocol and exchange format
+        - For each Transport: list all APIs that use it
+        - For each Format: list all APIs that use it
+        These maps drive the "Used by" columns in transport.md
+        and the "Transport/Format" columns in api/overview.md
+
+    5c_persist_apis:
+      action: |
+        Update .claude/docs/config.json apis array with detected APIs:
+        Read existing config → merge apis field → write back.
+        This enables subsequent incremental runs to skip full API detection.
+
     6_structure:
       action: "Build documentation tree adapted to PROJECT_TYPE"
 
   output_structure:
     common:
-      - "index.md (always — product pitch format)"
+      - "index.md (always — hero + conditional features)"
+      - "transport.md (always — auto-detected protocols and formats)"
+      - "api/ (conditional: only if API_COUNT > 0)"
       - "architecture/ (if application/library, primary: score >= 24)"
     template:
       - "getting-started/ (primary: score >= 24)"
@@ -893,108 +1036,164 @@ phase_3_generate:
   universal_templates:
 
     index_md:
-      description: "Product pitch landing page — readers decide in 30 seconds"
-      # Inspired by: product documentation best practices (entry point pattern)
-      # Provides: About, Access, Usage, Resources, Support
+      description: "Hero landing page with conditional feature section"
       generation_marker:
         first_line: '<!-- /docs-generated: {"date":"{TIMESTAMP}","commit":"{LAST_COMMIT_SHA}","pages":{TOTAL_PAGES},"agents":{N}} -->'
         rule: "ALWAYS insert as first line of index.md — enables freshness detection"
       structure:
         - "<!-- /docs-generated: {JSON_MARKER} -->"
         - "# {PROJECT_NAME}"
+        - "{PROJECT_TAGLINE} — bold, one sentence"
+        - "[ How to use → ] button linking to docs section"
         - ""
-        - "## What is this?"
-        - "{2-3 sentences: what problem it solves, for whom}"
-        - "{One sentence: who the target users are}"
-        - ""
-        - "## Key Features"
-        - "{Bullet list of 5-8 major capabilities with one-line explanations}"
-        - "{Each feature answers 'what does this DO for me?'}"
+        - "## Features (conditional on INTERNAL_PROJECT)"
+        - "IF INTERNAL_PROJECT == true:"
+        - "  Simple table: Feature | Description"
+        - "  List all detected features with one-line descriptions"
+        - "IF INTERNAL_PROJECT == false:"
+        - "  Comparison table: Feature | {PROJECT_NAME} ★ | Competitor A | B | C"
+        - "  Each cell: ✅ full support | ⚠️ partial | ❌ not available"
+        - "  Include Price row"
+        - "  Include Open Source row ONLY IF PUBLIC_REPO == true"
+        - "  Competitors identified by agent analysis (contextually relevant)"
         - ""
         - "## How it works"
         - "{Mermaid flowchart: high-level system overview}"
         - "{2-3 sentences explaining the diagram}"
         - ""
         - "## Quick Start"
-        - "{3-5 numbered steps to get running, with code blocks}"
-        - "{Each step has expected output or verification}"
+        - "{3-5 numbered steps to get running}"
         - ""
-        - "## What's Inside"
-        - "{Table: component → description → doc type (Tutorial/Guide/Reference) → link}"
-        - ""
-        - "## Support"
-        - "{Links: issues, discussions, contributing guide}"
+        - "--- footer ---"
+        - "{PROJECT_NAME} · {LICENSE}"
+        - "IF PUBLIC_REPO == true: · GitHub ↗ link to {GIT_REMOTE_URL}"
+      conditional_rules:
+        public_repo_false:
+          - "No GitHub link in footer"
+          - "No 'Open Source' row in comparison table"
+        internal_project_true:
+          - "Use simple Feature | Description table"
+          - "No competitor columns, no comparison research"
+        internal_project_false:
+          - "Use comparison table with up to 3 competitors"
+          - "Competitors contextually researched by agents"
       anti_patterns:
         - "Starting with technical details before the pitch"
         - "Listing features without explaining their benefit"
         - "Quick start that requires more than 5 steps"
-        - "Missing verification step after quick start"
+        - "GitHub link when PUBLIC_REPO is false"
+        - "Comparison table when INTERNAL_PROJECT is true"
 
-    architecture_overview_md:
-      description: "Level 1 zoom — system context, big picture"
-      structure:
-        - "# Architecture Overview"
-        - ""
-        - "## System Context"
-        - "{Mermaid C4 context diagram: system + external dependencies}"
-        - "{Paragraph explaining the diagram and key interactions}"
-        - ""
-        - "## Major Components"
-        - "{Table: component → responsibility → technology → link}"
-        - ""
-        - "## Technology Stack"
-        - "{Table: category → tool → version → purpose}"
+    #---------------------------------------------------------------------------
+    # C4 ARCHITECTURE TEMPLATES (Mermaid C4 diagrams)
+    #---------------------------------------------------------------------------
+    # Templates: .devcontainer/images/.claude/templates/docs/architecture/
+    # Dark mode fix: docs/stylesheets/c4-fix.css (custom CSS override)
+    #
+    # DECISION FRAMEWORK — which C4 levels to generate:
+    #   ALWAYS: Level 1 (Context) + Level 2 (Container)
+    #   CONDITIONAL: Level 3 (Component) — only if container has >5 modules
+    #   CONDITIONAL: Dynamic — only for critical flows (max 3)
+    #   CONDITIONAL: Deployment — only if infra signals detected
+    #   NEVER: Level 4 (Code) — use IDE tools instead
+    #
+    # ELEMENT LIMITS:
+    #   - Max 15 elements per diagram (split if more)
+    #   - Every relationship has protocol label ("JSON/HTTPS", "JDBC")
+    #   - Title format: "[Type] — {PROJECT_NAME}"
+    #   - UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+    #
+    # CROSS-LINKING with Transport page:
+    #   - Container table Transport/Format columns link to transport.md#{anchor}
+    #   - Communication Map links to transport.md for protocol details
+    #---------------------------------------------------------------------------
 
-    architecture_components_md:
-      description: "Level 2 zoom — inside each major block"
+    architecture_hub_md:
+      description: "C4 hub page — progressive zoom navigation"
+      template: "architecture/README.md.tpl"
       structure:
-        - "# Components"
-        - ""
-        - "For EACH major component:"
-        - "## {Component Name}"
-        - "{Mermaid component diagram showing internal modules}"
-        - "{Paragraph explaining the component's role}"
-        - "### Modules"
-        - "{Table: module → responsibility → key files}"
-        - "### Dependencies"
-        - "{List of internal and external dependencies}"
+        - "# Architecture"
+        - "Progressive zoom table: Level | Diagram | Audience | Focus"
+        - "Mermaid legend diagram showing C4 element types"
+        - "Links to context, container, component, dynamic, deployment"
 
-    architecture_flow_md:
-      description: "Data flows and communication patterns"
+    c4_context_md:
+      description: "C4 Level 1 — System Context"
+      condition: "ALWAYS generated"
+      template: "architecture/c4-context.md.tpl"
+      diagram_type: "C4Context"
       structure:
-        - "# Data Flow"
-        - ""
-        - "## Primary Flow"
-        - "{Mermaid sequence diagram: main user journey}"
-        - "{Step-by-step explanation of the flow}"
-        - ""
-        - "## Communication Protocols"
-        - "{Table: source → destination → protocol → format → purpose}"
-        - ""
-        - "## API Endpoints"
-        - "{For each endpoint: method, path, request/response format, description}"
-        - "{Link to OpenAPI spec if exists}"
+        - "# System Context"
+        - "C4Context Mermaid diagram: Person, System, System_Ext, Rel"
+        - "Key Interactions table: From | To | Protocol | Purpose"
+        - "External Dependencies table: System | Type | Purpose | Criticality"
+      rules:
+        - "Exactly ONE internal System element (the project)"
+        - "Every Rel has protocol label"
+        - "Max 15 elements"
 
-    architecture_deployment_md:
-      description: "Cluster, scaling, network — only if detected"
-      condition: "cluster/scaling signals detected by architecture-analyzer"
+    c4_container_md:
+      description: "C4 Level 2 — Container Diagram"
+      condition: "ALWAYS generated"
+      template: "architecture/c4-container.md.tpl"
+      diagram_type: "C4Container"
       structure:
-        - "# Deployment & Scaling"
-        - ""
-        - "## Deployment Architecture"
-        - "{Mermaid deployment diagram: nodes, services, networks}"
-        - ""
-        - "## Scaling Strategy"
-        - "{Horizontal/vertical, min nodes, replication}"
-        - ""
-        - "## Network Configuration"
-        - "{Table: service → port → protocol → access (internal/external)}"
-        - ""
-        - "## Best Practices"
-        - "{Concrete recommendations: TLS, segmentation, load balancing}"
-        - ""
-        - "## Recommended Configuration"
-        - "{Table: scenario → nodes → RAM → storage → notes}"
+        - "# Container Diagram"
+        - "C4Container Mermaid: System_Boundary, Container, ContainerDb, ContainerQueue"
+        - "Containers table: Container | Technology | Responsibility | Transport | Format"
+        - "Data Stores table: Store | Technology | Purpose | Access Pattern"
+        - "Communication Map: Source | Destination | Protocol | Format | Direction"
+      rules:
+        - "All containers inside System_Boundary"
+        - "Every container has Technology specified"
+        - "Transport/Format columns link to transport.md"
+        - "Integrate deployment details (don't create separate diagram unless complex)"
+
+    c4_component_md:
+      description: "C4 Level 3 — Component Diagram (conditional)"
+      condition: "Container has >5 significant modules AND is critical path"
+      template: "architecture/c4-component.md.tpl"
+      diagram_type: "C4Component"
+      structure:
+        - "One section per qualifying container"
+        - "C4Component Mermaid: Container_Boundary, Component, ComponentDb"
+        - "Components table: Component | Technology | Responsibility | Key Files"
+        - "Design Patterns table: Pattern | Where | Why"
+      rules:
+        - "Max 12 components per diagram"
+        - "Focus on what's hard to discover from code"
+        - "Reference .claude/docs/ patterns when applicable"
+
+    c4_dynamic_md:
+      description: "C4 Dynamic — Critical flow diagrams"
+      condition: "Critical user journeys or complex data flows detected"
+      template: "architecture/c4-dynamic.md.tpl"
+      diagram_type: "C4Dynamic"
+      structure:
+        - "One C4Dynamic per critical flow (max 3 flows)"
+        - "Flow Steps table: Step | From | To | Action | Protocol"
+        - "Error Scenarios table: Step | Condition | Response | HTTP Code"
+      rules:
+        - "Max 10 steps per flow"
+        - "Number steps in Rel labels: '1. Submit credentials'"
+        - "Show error/failure paths for critical flows"
+        - "Statement order determines sequence (Mermaid ignores RelIndex)"
+
+    c4_deployment_md:
+      description: "C4 Deployment — Infrastructure topology"
+      condition: "Deployment signals detected (docker-compose replicas, K8s, Terraform)"
+      template: "architecture/c4-deployment.md.tpl"
+      diagram_type: "C4Deployment"
+      structure:
+        - "C4Deployment Mermaid: Deployment_Node (nested), Container, ContainerDb"
+        - "Infrastructure table: Node | Type | Spec | Containers"
+        - "Scaling Strategy table: Aspect | Strategy | Details"
+        - "Network table: Source | Destination | Port | Protocol | TLS"
+        - "Recommended Configuration: Scenario | Nodes | CPU | RAM | Storage"
+      rules:
+        - "Max 3 nesting levels for Deployment_Node"
+        - "Production environment only (not dev/staging)"
+        - "Include replica counts"
 
   #---------------------------------------------------------------------------
   # PROJECT-TYPE SPECIFIC STRUCTURES
@@ -1074,6 +1273,48 @@ phase_3_generate:
           README.md: "User guides index"
           getting-started.md: "First steps after deployment"
           operations.md: "Day-to-day operations and maintenance"
+
+  #---------------------------------------------------------------------------
+  # COMMON PAGES (all project types)
+  #---------------------------------------------------------------------------
+  common_pages:
+    transport.md:
+      description: "Protocols and exchange formats — auto-detected from code"
+      condition: "Always generated (at minimum documents HTTP/JSON)"
+      template: ".devcontainer/images/.claude/templates/docs/transport.md.tpl"
+      cross_linking:
+        to_api: "Each 'Used by' cell links to api/{slug}.md"
+        from_api: "API overview Transport/Format columns link back here"
+
+    api/:
+      overview.md:
+        description: "API overview with transport cross-links"
+        condition: "API_COUNT >= 1"
+        template: ".devcontainer/images/.claude/templates/docs/api/overview.md.tpl"
+      "{api_slug}.md":
+        description: "Per-API detail page with endpoints"
+        condition: "API_COUNT > 1 (one page per API)"
+        template: ".devcontainer/images/.claude/templates/docs/api/detail.md.tpl"
+
+    changelog.md:
+      description: "Changelog from git conventional commits"
+      condition: "Always generated"
+      source: "git log --oneline with conventional commit parsing"
+      structure:
+        - "# Changelog"
+        - "## [version] - date (grouped by feat/fix/docs/refactor)"
+
+  #---------------------------------------------------------------------------
+  # CROSS-LINKING RULES (Transport ↔ API)
+  #---------------------------------------------------------------------------
+  cross_linking:
+    transport_to_api:
+      rule: "Each protocol/format 'Used by' cell links to relevant api/{slug}.md"
+      anchor_convention: "protocol.toLowerCase() for transport anchors"
+    api_to_transport:
+      rule: "API overview Transport/Format columns link to transport.md#{anchor}"
+      anchor_convention: "format.toLowerCase() for format anchors"
+    slug_convention: "api_name.toLowerCase().replace(/\\s+/g, '-') for API slugs"
 ```
 
 ---
@@ -1103,6 +1344,17 @@ phase_4_verify:
       - "No 'Coming Soon', 'TBD', 'TODO', 'WIP' in any page"
       - "No '{VARIABLE}' patterns remaining in generated content"
       - "No empty sections or stub pages"
+    cross_linking:
+      - "Every Transport column in api/overview.md links to valid transport.md anchor"
+      - "Every 'Used by' cell in transport.md links to valid api/*.md page"
+      - "GitHub links only present when PUBLIC_REPO == true"
+      - "Comparison table only present when INTERNAL_PROJECT == false"
+      - "Simple feature table only present when INTERNAL_PROJECT == true"
+    config_consistency:
+      - ".claude/docs/config.json exists and contains public_repo + internal_project"
+      - "apis[] array matches detected APIs in generated pages"
+      - "mkdocs.yml repo_url present only if PUBLIC_REPO == true"
+      - "mkdocs.yml nav has no GitHub tab if PUBLIC_REPO == false"
 
   feedback_loop:
     on_failure:
@@ -1131,14 +1383,23 @@ phase_5_validate_and_serve:
       - "All internal links resolve"
       - "Every architecture page has at least one Mermaid diagram"
       - "index.md has generation marker as first line (<!-- /docs-generated: ... -->)"
-      - "index.md starts with product pitch after marker (not technical details)"
+      - "index.md starts with hero section after marker (not technical details)"
       - "No full config files copied inline (use links)"
+      - "transport.md exists and has >= 1 protocol row"
+      - "If API_COUNT >= 1: api/overview.md exists with endpoint table"
+      - "If API_COUNT > 1: one api/{slug}.md per detected API"
+      - "If PUBLIC_REPO == false: no repo_url in mkdocs.yml"
+      - "If PUBLIC_REPO == false: no GitHub icon or tab in nav/footer"
+      - "If INTERNAL_PROJECT == true: index.md has simple feature table (no comparison)"
+      - "If INTERNAL_PROJECT == false: index.md has comparison table with competitors"
+      - "Cross-links between transport.md and api/*.md pages resolve bidirectionally"
 
     warnings:
       - "File > 300 lines → suggest splitting"
       - "Architecture page without sequence diagram"
       - "API page without request/response examples"
       - "Deployment page without recommended config table"
+      - "Transport page without protocol details subsections"
 
   serve:
     pre_check:
@@ -1257,6 +1518,13 @@ quick:
 | Skip freshness check (Phase 0.5) | **INTERDIT** | Regeneration inutile |
 | Generer sans marker dans index.md | **INTERDIT** | Freshness impossible ensuite |
 | Full regen si incremental suffit | **EVITER** | Gaspillage de tokens/temps |
+| Skip Phase -1 (config questions) | **INTERDIT** | Config pilote tout le contenu conditionnel |
+| GitHub links si PUBLIC_REPO=false | **INTERDIT** | Fuite URL repo prive |
+| Tableau comparatif si INTERNAL_PROJECT=true | **INTERDIT** | Pas de concurrents pour projet interne |
+| Tableau simple si INTERNAL_PROJECT=false | **INTERDIT** | Doit montrer avantage competitif |
+| Menu API si API_COUNT=0 | **INTERDIT** | Section nav vide |
+| Transport page sans cross-links vers API | **INTERDIT** | Cross-linking est la feature cle |
+| API page sans cross-links vers Transport | **INTERDIT** | Bidirectionnel obligatoire |
 
 ---
 
@@ -1264,13 +1532,15 @@ quick:
 
 ```yaml
 # mkdocs.yml (generated at project root)
+# See template: .devcontainer/images/.claude/templates/docs/mkdocs.yml.tpl
 site_name: "{PROJECT_NAME}"
 site_description: "{GENERATED_DESCRIPTION}"
 docs_dir: docs
-repo_url: "{GIT_REMOTE_URL}"       # auto-detected from git remote
-repo_name: "{REPO_NAME}"           # auto-detected (GitHub/GitLab/Bitbucket)
-edit_uri: "blob/main/docs/"        # read-only link (use "edit/main/docs/" for edit link)
-use_directory_urls: true
+
+# CONDITIONAL — only if PUBLIC_REPO == true:
+# repo_url: "{GIT_REMOTE_URL}"
+# repo_name: "{REPO_NAME}"
+# edit_uri: "edit/main/docs/"
 
 theme:
   name: material
@@ -1296,6 +1566,9 @@ theme:
     - search.highlight
     - content.code.copy
     - content.tabs.link
+  # CONDITIONAL — only if PUBLIC_REPO == true:
+  # icon:
+  #   repo: fontawesome/brands/github
 
 plugins:
   - search
@@ -1303,6 +1576,8 @@ plugins:
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences:
@@ -1310,39 +1585,54 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
-  - admonition
-  - pymdownx.details
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.details
+  - admonition
+  - attr_list
+  - md_in_html
   - tables
   - toc:
       permalink: true
 
 nav:
-  # GENERATED by nav_algorithm below — never hand-edited
+  # GENERATED by nav_algorithm — never hand-edited
   # ---
   # nav_algorithm:
-  #   1. Start with index.md (always first)
-  #   2. For each section in output_structure[PROJECT_TYPE]:
-  #      - Skip if no component scored >= section threshold
-  #      - Add section header (directory name, title-cased)
-  #      - Add README.md as section landing page
-  #      - Add child pages sorted by score descending
-  #   3. Always end with reference/ section (aggregates score < 16)
-  #   4. Validate: every nav entry points to an existing file
-  #   5. Warn if total nav depth > 3 levels (flatten if possible)
+  #   1. "Docs" tab: index.md + scored sections from Phase 3
+  #   2. "Transport" tab: transport.md (always present)
+  #   3. API tab (conditional on API_COUNT):
+  #      - API_COUNT == 0 → no nav item
+  #      - API_COUNT == 1 → "API: api/overview.md" (direct link)
+  #      - API_COUNT > 1  → "APIs:" dropdown with Overview + per-API pages
+  #   4. "Changelog" tab: changelog.md (always present)
+  #   5. "GitHub" tab: external link to GIT_REMOTE_URL (only if PUBLIC_REPO == true)
+  #   6. Validate: every nav entry points to an existing file
   #
-  # Example output for template project:
-  #   - Home: index.md
-  #   - Getting Started:
-  #     - Overview: getting-started/README.md
-  #     - Workflow: getting-started/workflow.md
-  #     - Configuration: getting-started/configuration.md
-  #   - Architecture:
-  #     - Overview: architecture/README.md
-  #     - Components: architecture/components.md
-  #   - Reference:
-  #     - Conventions: reference/conventions.md
+  # Example output (public repo, external project, 2 APIs):
+  #   - Docs:
+  #     - Home: index.md
+  #     - Architecture:
+  #       - Overview: architecture/README.md
+  #       - Components: architecture/components.md
+  #   - Transport: transport.md
+  #   - APIs:
+  #     - Overview: api/overview.md
+  #     - HTTP API: api/http-api.md
+  #     - Raft API: api/raft-api.md
+  #   - Changelog: changelog.md
+  #   - GitHub: https://github.com/org/repo
+
+extra:
+  generator: false
+  # CONDITIONAL — only if PUBLIC_REPO == true:
+  # social:
+  #   - icon: fontawesome/brands/github
+  #     link: "{GIT_REMOTE_URL}"
+
+# CONDITIONAL copyright:
+#   PUBLIC_REPO true:  "{PROJECT_NAME} · {LICENSE} · <a href='{GIT_REMOTE_URL}'>GitHub</a>"
+#   PUBLIC_REPO false: "{PROJECT_NAME} · {LICENSE}"
 ```
 
 ---
