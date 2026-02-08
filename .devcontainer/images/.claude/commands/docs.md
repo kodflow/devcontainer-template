@@ -46,9 +46,9 @@ $ARGUMENTS
 ```yaml
 principles:
   deep_analysis:
-    rule: "Launch N agents in parallel, each analyzing independently"
-    iterations: "One pass per major category (9 parallel agents = 9 iterations)"
-    output: "Consolidated results with importance scoring"
+    rule: "Launch N agents with context: fork, each writing JSON to /tmp/docs-analysis/"
+    iterations: "Phase 1A: 8 haiku agents parallel, Phase 1B: 1 sonnet agent with context"
+    output: "File-based JSON results with scoring, 1-line summaries in main context"
 
   no_superficial_content:
     rule: "NEVER list without explaining"
@@ -145,16 +145,18 @@ principles:
     --quick             Serve existing docs as-is, skip analysis
     --help              Show this help
 
-  ANALYSIS AGENTS (launched in parallel)
-    1. languages-analyzer     install.sh → tools, versions, why
-    2. commands-analyzer      commands/*.md → workflows, args
-    3. agents-analyzer        agents/*.md → capabilities
-    4. hooks-analyzer         lifecycle/*.sh → automation
-    5. mcp-analyzer           mcp.json → integrations
-    6. patterns-analyzer      .claude/docs/ → patterns KB
-    7. structure-analyzer     codebase → directory map
-    8. config-analyzer        env, settings → configuration
-    9. architecture-analyzer  code → components, flows, protocols
+  ANALYSIS AGENTS (file-based, context: fork)
+    Phase 1A (8 haiku agents, parallel → /tmp/docs-analysis/):
+      languages     install.sh → tools, versions, why
+      commands      commands/*.md → workflows, args
+      agents        agents/*.md → capabilities
+      hooks         lifecycle/*.sh → automation
+      mcp           mcp.json → integrations
+      patterns      .claude/docs/ → patterns KB
+      structure     codebase → directory map
+      config        env, settings → configuration
+    Phase 1B (1 sonnet agent, reads Phase 1A results):
+      architecture  code → components, flows, protocols
 
   SCORING (what to document)
     Complexity:     1-10 (how complex?)
@@ -339,19 +341,21 @@ Phase 0.5: Freshness Check
 ├─ Check broken links + outdated deps
 └─ Decision: INCREMENTAL (stale pages only) or FULL
 
-Phase 1: Parallel Analysis (9 agents in ONE message)
-├─ Task(languages-analyzer)     ──┐
-├─ Task(commands-analyzer)      ──┤
-├─ Task(agents-analyzer)        ──┤
-├─ Task(hooks-analyzer)         ──┤ ALL PARALLEL
-├─ Task(mcp-analyzer)           ──┤ (single message)
-├─ Task(patterns-analyzer)      ──┤
-├─ Task(structure-analyzer)     ──┤
-├─ Task(config-analyzer)        ──┤
-└─ Task(architecture-analyzer)  ──┘
+Phase 1A: Category Analyzers (8 haiku agents, ONE message)
+├─ Task(docs-analyzer-languages)   ──┐
+├─ Task(docs-analyzer-commands)    ──┤
+├─ Task(docs-analyzer-agents)      ──┤
+├─ Task(docs-analyzer-hooks)       ──┤ ALL PARALLEL
+├─ Task(docs-analyzer-mcp)         ──┤ → /tmp/docs-analysis/*.json
+├─ Task(docs-analyzer-patterns)    ──┤
+├─ Task(docs-analyzer-structure)   ──┤
+└─ Task(docs-analyzer-config)      ──┘
+
+Phase 1B: Architecture Analyzer (1 sonnet agent, reads Phase 1A)
+└─ Task(docs-analyzer-architecture) → /tmp/docs-analysis/architecture.json
 
 Phase 2: Consolidation + Scoring
-├─ Collect all agent results
+├─ Read all JSON from /tmp/docs-analysis/
 ├─ Build dependency DAG, topological sort
 ├─ Apply scoring formula (with diagram bonus)
 ├─ Identify high-priority sections
@@ -628,356 +632,123 @@ phase_05_freshness:
     ═══════════════════════════════════════════════════════════════
 ```
 
+
 ---
 
-## Phase 1: Parallel Analysis Agents
+## Phase 1: Parallel Analysis Agents (File-Based Dispatch)
 
-**CRITICAL:** Launch ALL agents in a SINGLE message with multiple Task calls.
+**Architecture:** Each analyzer is a separate agent file in `.claude/agents/docs-analyzer-*.md`
+with `context: fork` (isolated context) and file-based output to `/tmp/docs-analysis/`.
+This prevents context saturation — each agent writes JSON results to disk and returns
+a 1-line summary to the main context.
+
 **INCREMENTAL MODE:** Only launch agents whose scope covers stale pages.
 
-### Agent 1: Languages Analyzer
+### Setup
 
-```yaml
-languages_analyzer:
-  trigger: "PROJECT_TYPE in [template, library, application]"
-  subagent_type: "Explore"
-  model: "opus"
+Create output directory before launching agents:
 
-  prompt: |
-    Analyze ALL language features in .devcontainer/features/languages/.
-
-    For EACH language directory found:
-    1. Read devcontainer-feature.json (version, options)
-    2. Read install.sh (extract ALL tools installed with versions)
-    3. Read RULES.md if exists (conventions)
-
-    Extract for each language:
-    - Version strategy (latest/LTS/configurable)
-    - Package manager
-    - Linters with versions
-    - Formatters
-    - Test tools
-    - Security tools
-    - Desktop/WASM support
-    - Why these specific tools were chosen
-
-    Return structured summary with scoring:
-    - Complexity (1-10): How complex is this language setup?
-    - Usage (1-10): How often will devs use this?
-    - Uniqueness (1-10): How specific to this template?
-    - Gap (1-10): How underdocumented is this?
+```bash
+mkdir -p /tmp/docs-analysis
 ```
 
-### Agent 2: Commands Analyzer
+### Phase 1A: Category Analyzers (8 parallel haiku agents)
+
+**CRITICAL:** Launch ALL 8 agents in a SINGLE message with multiple Task calls.
 
 ```yaml
-commands_analyzer:
-  trigger: "Always"
-  subagent_type: "Explore"
-  model: "opus"
+phase_1a_dispatch:
+  agents:
+    - subagent_type: "docs-analyzer-languages"
+      max_turns: 12
+      prompt: "Analyze language features. Write JSON to /tmp/docs-analysis/languages.json."
+      trigger: "PROJECT_TYPE in [template, library, application]"
 
-  prompt: |
-    Analyze ALL Claude commands/skills in:
-    - .claude/commands/
-    - .devcontainer/images/.claude/commands/
+    - subagent_type: "docs-analyzer-commands"
+      max_turns: 12
+      prompt: "Analyze Claude commands/skills. Write JSON to /tmp/docs-analysis/commands.json."
+      trigger: "Always"
 
-    For EACH .md file found:
-    1. Extract command name from YAML frontmatter
-    2. Extract description
-    3. Parse arguments table
-    4. Identify workflow phases (from headers/content)
-    5. Extract when to use
-    6. Find example usages
+    - subagent_type: "docs-analyzer-agents"
+      max_turns: 12
+      prompt: "Analyze specialist agents. Write JSON to /tmp/docs-analysis/agents.json."
+      trigger: "PROJECT_TYPE == template OR .claude/agents/ exists"
 
-    Return for each command:
-    - Name (/git, /review, etc.)
-    - Description (one-liner)
-    - Arguments with descriptions
-    - Workflow phases in order
-    - When to use this command
-    - Example usage snippets
+    - subagent_type: "docs-analyzer-hooks"
+      max_turns: 12
+      prompt: "Analyze lifecycle and Claude hooks. Write JSON to /tmp/docs-analysis/hooks.json."
+      trigger: "PROJECT_TYPE == template OR .devcontainer/hooks/ exists"
 
-    Include scoring for the commands system overall.
+    - subagent_type: "docs-analyzer-mcp"
+      max_turns: 10
+      prompt: "Analyze MCP server configuration. Write JSON to /tmp/docs-analysis/mcp.json."
+      trigger: "mcp.json exists"
+
+    - subagent_type: "docs-analyzer-patterns"
+      max_turns: 10
+      prompt: "Analyze design patterns KB. Write JSON to /tmp/docs-analysis/patterns.json."
+      trigger: ".claude/docs/ exists"
+
+    - subagent_type: "docs-analyzer-structure"
+      max_turns: 10
+      prompt: "Map project structure. Write JSON to /tmp/docs-analysis/structure.json."
+      trigger: "Always"
+
+    - subagent_type: "docs-analyzer-config"
+      max_turns: 10
+      prompt: "Analyze configuration and env vars. Write JSON to /tmp/docs-analysis/config.json."
+      trigger: "Always"
+
+  output: "Each agent writes JSON to /tmp/docs-analysis/{name}.json"
+  return: "Each agent returns 1-line: 'DONE: {name} - N items, score X/10'"
+  wait: "ALL Phase 1A agents must complete before Phase 1B"
 ```
 
-### Agent 3: Agents Analyzer
+### Phase 1B: Architecture Analyzer (1 sonnet agent)
+
+**Runs AFTER Phase 1A completes.** The architecture analyzer reads Phase 1A JSON results
+from `/tmp/docs-analysis/` to gain project context before performing deep analysis.
 
 ```yaml
-agents_analyzer:
-  trigger: "PROJECT_TYPE == template OR .claude/agents/ exists"
-  subagent_type: "Explore"
-  model: "opus"
+phase_1b_dispatch:
+  agent:
+    subagent_type: "docs-analyzer-architecture"
+    max_turns: 20
+    prompt: |
+      Deep architecture analysis. Phase 1A results are available in
+      /tmp/docs-analysis/*.json — read them first for project context.
+      Write your results to /tmp/docs-analysis/architecture.json.
+    trigger: "PROJECT_TYPE in [library, application] OR src/ exists"
 
-  prompt: |
-    Analyze ALL specialist agents in .devcontainer/images/.claude/agents/.
-
-    For EACH .md file:
-    1. Extract agent name from filename
-    2. Read content for specialization
-    3. Identify model used (opus/sonnet/haiku from frontmatter)
-    4. List tools available (from allowed-tools)
-    5. When is this agent invoked
-
-    Categorize agents:
-    - Language specialists (developer-specialist-*)
-    - DevOps specialists (devops-specialist-*)
-    - Executors (developer-executor-*, devops-executor-*)
-    - Orchestrators (developer-orchestrator, devops-orchestrator)
-
-    Return structured inventory with counts per category.
+  output: "/tmp/docs-analysis/architecture.json"
+  return: "1-line: 'DONE: architecture - N components, M APIs, score X/10'"
 ```
 
-### Agent 4: Hooks Analyzer
+### Agent File Reference
 
-```yaml
-hooks_analyzer:
-  trigger: "PROJECT_TYPE == template OR .devcontainer/hooks/ exists"
-  subagent_type: "Explore"
-  model: "opus"
+| Agent File | Model | Max Turns | Scope |
+|------------|-------|-----------|-------|
+| `docs-analyzer-languages.md` | haiku | 12 | `.devcontainer/features/languages/` |
+| `docs-analyzer-commands.md` | haiku | 12 | `.claude/commands/` |
+| `docs-analyzer-agents.md` | haiku | 12 | `.claude/agents/` |
+| `docs-analyzer-hooks.md` | haiku | 12 | `.devcontainer/hooks/` |
+| `docs-analyzer-mcp.md` | haiku | 10 | `mcp.json`, `mcp.json.tpl` |
+| `docs-analyzer-patterns.md` | haiku | 10 | `.claude/docs/` |
+| `docs-analyzer-structure.md` | haiku | 10 | Project root (depth 3) |
+| `docs-analyzer-config.md` | haiku | 10 | `.env`, `devcontainer.json`, `docker-compose.yml` |
+| `docs-analyzer-architecture.md` | sonnet | 20 | `src/`, APIs, data flows, C4 diagrams |
 
-  prompt: |
-    Analyze ALL hooks in .devcontainer/hooks/.
+### Output Format
 
-    For EACH .sh file in lifecycle/:
-    1. Read file content completely
-    2. Extract trigger (which devcontainer.json field)
-    3. List key operations (from comments and code analysis)
-    4. Identify files created/modified
+All agents write to `/tmp/docs-analysis/{name}.json` with structure:
 
-    Also analyze shared/utils.sh:
-    - List all utility functions
-    - What each function does
-
-    Return execution order and dependencies between hooks.
-```
-
-### Agent 5: MCP Analyzer
-
-```yaml
-mcp_analyzer:
-  trigger: "mcp.json exists"
-  subagent_type: "Explore"
-  model: "opus"
-
-  prompt: |
-    Analyze MCP server configuration:
-    - /workspace/mcp.json (active config)
-    - .devcontainer/features/claude/.mcp.json (template)
-    - .devcontainer/images/mcp.json.tpl (source template)
-
-    For EACH server configured:
-    1. Server name
-    2. Command to run
-    3. Authentication method (env var names)
-    4. List ALL tools provided by this server
-    5. When to use (from CLAUDE.md rules)
-
-    Document the MCP-FIRST and GREPAI-FIRST rules.
-```
-
-### Agent 6: Patterns Analyzer
-
-```yaml
-patterns_analyzer:
-  trigger: ".claude/docs/ OR .devcontainer/images/.claude/docs/ exists"
-  subagent_type: "Explore"
-  model: "opus"
-
-  prompt: |
-    Analyze design patterns knowledge base in .devcontainer/images/.claude/docs/.
-
-    1. Read main README.md for structure
-    2. Count patterns per category (from directory listing)
-    3. List all categories with their purpose
-    4. Identify template files for pattern documentation
-    5. Find the most important/commonly used patterns
-
-    Return inventory:
-    - Total pattern count
-    - Categories with counts
-    - Template structure
-    - How patterns are used by /plan and /review
-```
-
-### Agent 7: Structure Analyzer
-
-```yaml
-structure_analyzer:
-  trigger: "Always"
-  subagent_type: "Explore"
-  model: "opus"
-
-  prompt: |
-    Map the complete project structure:
-
-    1. Directory tree (depth 3 max)
-    2. Purpose of each major directory
-    3. CLAUDE.md hierarchy (funnel documentation)
-    4. Technology stack detected
-    5. Entry points and main files
-    6. Build/config files present
-
-    For template projects, focus on:
-    - features/ structure
-    - images/ structure
-    - hooks/ structure
-
-    For application projects, focus on:
-    - src/ structure
-    - API definitions
-    - Configuration files
-```
-
-### Agent 8: Config Analyzer
-
-```yaml
-config_analyzer:
-  trigger: "Always"
-  subagent_type: "Explore"
-  model: "opus"
-
-  prompt: |
-    Analyze all configuration:
-
-    1. Find .env, .env.example files
-    2. Parse devcontainer.json settings
-    3. Extract docker-compose.yml services and volumes
-    4. Identify required vs optional config
-    5. Document environment variables
-    6. List exposed ports and their purpose
-    7. Identify secrets/tokens needed and their source
-
-    Return:
-    - Required configuration (must-have)
-    - Optional configuration (nice-to-have)
-    - Secrets/tokens needed with source (env var, 1Password, etc.)
-    - Default values
-    - Network configuration (ports, services, volumes)
-```
-
-### Agent 9: Architecture Analyzer (NEW)
-
-```yaml
-architecture_analyzer:
-  trigger: "PROJECT_TYPE in [library, application] OR src/ exists"
-  subagent_type: "Explore"
-  model: "opus"
-  reason: "Deep reasoning for architecture analysis"
-
-  c4_best_practices:
-    - "Levels 1-2 provide most value; Levels 3-4 need more maintenance for smaller audiences"
-    - "Focus on elements difficult to discover from code alone: coordination, business rules, non-obvious dependencies"
-    - "Link to READMEs, ADRs, and repository docs — don't duplicate generated content (OpenAPI, AsyncAPI)"
-    - "Keep diagrams lightweight — add numbered relationships for flow instead of separate dynamic diagrams"
-    - "Match diagrams to how the organization actually understands the system, not just technical boundaries"
-    - "Consider landscape diagrams as entry point for small-to-medium architectures"
-
-  prompt: |
-    Deep architecture analysis of the project. Produce a MULTI-LEVEL
-    progressive zoom analysis following C4 Model best practices.
-
-    ## C4 Guidelines
-    - Levels 1-2 provide the most value; only go deeper for complex components
-    - Focus on what's hard to discover from code alone: coordination patterns,
-      business rules, non-obvious data dependencies
-    - Link to source files (READMEs, ADRs, OpenAPI specs) — never duplicate
-      content already generated by specialized tools
-    - Keep diagrams lightweight; add numbered relationships for flow clarity
-    - Match diagram boundaries to how the team understands the system
-
-    ## Level 1: System Context (C4 Context)
-    - What are the major blocks/services?
-    - What external systems does this project depend on?
-    - What is the boundary of the system?
-    - Generate a Mermaid C4 context diagram
-    - Consider a landscape diagram for small-to-medium projects
-
-    ## Level 2: Containers (C4 Container)
-    For EACH major block identified in Level 1:
-    - What deployable units (apps, services, databases) compose it?
-    - What is each unit's responsibility?
-    - How do they communicate? (protocols, formats)
-    - Generate a Mermaid container diagram with numbered flows
-    - Include deployment details directly (pragmatic over separate diagrams)
-
-    ## Level 3: Components (C4 Component — only for complex blocks)
-    For key components (most complex or most used):
-    - Internal modules and their responsibilities
-    - Key design patterns used (reference .claude/docs/ if available)
-    - Error handling strategy
-    - Performance considerations
-
-    ## Data Flow Analysis
-    - Trace the main data flows through the system
-    - Identify ALL communication protocols:
-      HTTP/HTTPS, gRPC, WebSocket, AMQP, MQTT, etc.
-    - Identify ALL data formats:
-      JSON, YAML, Protobuf, XML, MessagePack, etc.
-    - For each API endpoint found (OpenAPI, routes, handlers):
-      Document request/response formats with field descriptions
-    - Generate a Mermaid sequence diagram for the primary flow
-
-    ## Cluster & Scalability (if applicable)
-    Detect signals: docker-compose replicas, K8s manifests, load balancer
-    config, consensus code (Raft, Paxos), replication settings.
-    If found:
-    - Describe the scaling strategy (horizontal/vertical)
-    - Recommended minimum node configuration
-    - Data replication approach
-    - Fault tolerance mechanisms
-    - Network best practices (TLS between services, segmentation)
-
-    ## Secondary Features Detection
-    Search for non-obvious features embedded in the code:
-    - Consensus mechanisms (Raft, Paxos, PBFT)
-    - Caching layers (Redis, in-memory, CDN)
-    - Event sourcing / CQRS patterns
-    - Rate limiting, circuit breakers
-    - Observability (metrics, tracing, logging)
-    For each detected: explain what it does, why it exists, how it works.
-
-    ## Transport & Format Detection
-    Systematically detect ALL transport protocols in use:
-    - HTTP/HTTPS: net/http, express, gin, fasthttp, axum, actix, Flask, Django
-    - WebSocket: gorilla/websocket, ws, socket.io, tungstenite
-    - gRPC: .proto files, protoc, tonic, grpc-go
-    - ICMP: ping, icmp, net.IP
-    - TCP raw: net.Listen("tcp"), net.createServer
-    - UDP: net.ListenPacket("udp"), dgram
-    - AMQP: rabbitmq client libraries
-    - MQTT: mosquitto, paho-mqtt
-
-    Systematically detect ALL exchange formats:
-    - JSON: encoding/json, serde_json, JSON.parse, json.dumps
-    - XML: encoding/xml, etree, lxml, xml2js
-    - Protobuf: .proto files, protoc-gen-*
-    - DIAMETER: diameter protocol libraries, AVP parsing
-    - TLV: tag-length-value encoding/parsing patterns
-    - MessagePack: msgpack libraries
-    - YAML: used as data exchange (not just config files)
-
-    For formats not explicitly imported, DEDUCE from context:
-    - HTTP handler + json.Marshal → JSON (deduced: true)
-    - gRPC service → Protobuf (deduced: true)
-    - SOAP endpoint → XML (deduced: true)
-    Mark deduced formats with deduced: true in the output.
-
-    ## Output Format
-    Return structured JSON with:
-    - levels: [level1, level2, level3] each with components and diagrams
-    - data_flows: [{name, source, destination, protocol, format}]
-    - apis: [{name, path, method, transport, format, description}]
-    - transports: [{protocol, direction, port, tls, used_by_apis[]}]
-    - formats: [{name, content_type, used_by_apis[], deduced: boolean}]
-    - cluster: {strategy, min_nodes, replication, fault_tolerance} or null
-    - secondary_features: [{name, purpose, mechanism, files}]
-    - diagrams: [{type, title, mermaid_code}]
-
-    Scoring:
-    - Complexity (1-10)
-    - Usage (1-10)
-    - Uniqueness (1-10)
-    - Gap (1-10)
+```json
+{
+  "agent": "{name}",
+  "...": "agent-specific data",
+  "scoring": {"complexity": 7, "usage": 9, "uniqueness": 8, "gap": 6},
+  "summary": "One-line summary"
+}
 ```
 
 ---
@@ -1018,7 +789,7 @@ phase_2_consolidation:
 
   consolidation_steps:
     1_collect:
-      action: "Gather all agent JSON results"
+      action: "Read all JSON files from /tmp/docs-analysis/*.json"
 
     2_deduplicate:
       action: "Merge overlapping information (structure + architecture)"
