@@ -154,6 +154,58 @@ plan_detection:
 
 ---
 
+## Phase -0.5 : Secret Discovery (1Password)
+
+**Verifier si des secrets sont disponibles pour ce projet :**
+
+```yaml
+secret_discovery:
+  trigger: "ALWAYS (avant Phase 0)"
+  blocking: false  # Informatif seulement
+
+  1_check_available:
+    condition: "command -v op && test -n $OP_SERVICE_ACCOUNT_TOKEN"
+    on_failure: "Skip silently (1Password not configured)"
+
+  2_resolve_path:
+    action: "Extraire org/repo depuis git remote origin"
+    command: |
+      REMOTE=$(git config --get remote.origin.url)
+      # Extract org/repo from HTTPS, SSH, or token-embedded URLs
+      PROJECT_PATH=$(echo "${REMOTE%.git}" | grep -oP '[:/]\K[^/]+/[^/]+$')
+
+  3_list_project_secrets:
+    action: "Lister les secrets du projet"
+    command: |
+      op item list --vault='$VAULT_ID' --format=json \
+        | jq -r '.[] | select(.title | startswith("'$PROJECT_PATH'/")) | .title'
+    extract: "Supprimer le prefix pour garder les noms de cles"
+
+  4_check_task_needs:
+    action: "Si la tache mentionne secret/token/credential/password/API key"
+    match_keywords: ["secret", "token", "credential", "password", "api key", "api_key", "auth"]
+    if_match_and_secrets_exist:
+      output: |
+        ═══════════════════════════════════════════════════════════════
+          /do - Secrets Available
+        ═══════════════════════════════════════════════════════════════
+
+          Project: {PROJECT_PATH}
+          Available secrets in 1Password:
+            ├─ DB_PASSWORD
+            ├─ API_KEY
+            └─ JWT_SECRET
+
+          Use /secret --get <key> to retrieve a value
+          These may help with the current task.
+
+        ═══════════════════════════════════════════════════════════════
+    if_no_secrets:
+      output: "(no project secrets in 1Password, continuing...)"
+```
+
+---
+
 ## Phase 0 : Questions Interactives (SI PAS DE PLAN)
 
 **Poser ces 4 questions UNIQUEMENT si aucun plan approuvé n'est détecté :**

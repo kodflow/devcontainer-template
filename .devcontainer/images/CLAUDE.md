@@ -118,6 +118,7 @@ Configured in `mcp.json.tpl`:
 | `/init` | Project initialization check |
 | `/update` | DevContainer update from template |
 | `/infra` | Infrastructure automation (Terraform/Terragrunt) |
+| `/secret` | Secure secret management (1Password + Vault-like paths) |
 | `/improve` | Continuous docs enhancement & anti-pattern detection |
 
 ## Hooks

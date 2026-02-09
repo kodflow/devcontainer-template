@@ -414,6 +414,10 @@ parallel_checks:
     - name: "grepai-checker"
       checks: [Ollama, daemon, index]
       output: "{component, status, details}"
+
+    - name: "secret-checker"
+      checks: [op CLI, OP_SERVICE_ACCOUNT_TOKEN, vault access, project secrets]
+      output: "{op_installed, token_set, vault_name, project_path, secrets_count, status}"
 ```
 
 ---
@@ -441,6 +445,10 @@ parallel_checks:
     ✓ Tools installed ({tool list})
     ✓ Dependencies ready
     ✓ grepai indexed ({N} files)
+
+  1Password:
+    ✓ op CLI installed
+    ✓ Vault connected ({N} project secrets)
 
   Ready to develop!
     → /feature "description" to start
