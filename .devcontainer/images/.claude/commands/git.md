@@ -503,6 +503,64 @@ parallel_checks:
 
 ---
 
+### Phase 3.5 : Secret Scan (1Password Integration)
+
+**Scanner les fichiers staged pour des secrets hardcodes :**
+
+```yaml
+secret_scan:
+  trigger: "ALWAYS run in parallel with language checks"
+  blocking: false  # WARNING only, ne bloque PAS le commit
+
+  1_get_staged_files:
+    command: "git diff --cached --name-only"
+    exclude: [".env", ".env.*", "*.lock", "*.sum"]
+
+  2_scan_patterns:
+    patterns:
+      tokens:
+        - 'ghp_[a-zA-Z0-9]{36}'           # GitHub PAT
+        - 'glpat-[a-zA-Z0-9\-]{20}'       # GitLab PAT
+        - 'sk-[a-zA-Z0-9]{48}'            # OpenAI/Stripe secret key
+        - 'pk_[a-zA-Z0-9]{24,}'           # Stripe publishable key
+        - 'ops_[a-zA-Z0-9]{50,}'          # 1Password service account
+        - 'AKIA[0-9A-Z]{16}'             # AWS access key
+      connection_strings:
+        - 'postgres://[^\s]+'
+        - 'mysql://[^\s]+'
+        - 'mongodb(\+srv)?://[^\s]+'
+      generic:
+        - '[a-zA-Z0-9+/]{40,}={0,2}'     # Long base64 (potential secrets)
+
+  3_if_secrets_found:
+    action: "WARNING + suggestion"
+    output: |
+      ═══════════════════════════════════════════════════════════════
+        ⚠ Hardcoded Secrets Detected
+      ═══════════════════════════════════════════════════════════════
+
+        Found {count} potential secret(s) in staged files:
+
+        File: src/config.go
+          Line 42: ghp_xxxx... (GitHub PAT)
+          Suggestion: /secret --push GITHUB_TOKEN=<value>
+                      Replace with: os.Getenv("GITHUB_TOKEN")
+
+        File: .env.production
+          Line 5: postgres://user:pass@host/db
+          Suggestion: /secret --push DATABASE_URL=<value>
+
+        Action: Use /secret --push to store in 1Password
+        Note: This is a WARNING, commit is NOT blocked
+
+      ═══════════════════════════════════════════════════════════════
+
+  4_if_no_secrets:
+    output: "[PASS] No hardcoded secrets detected"
+```
+
+---
+
 ### Phase 4 : Execute & Synthesize
 
 ```yaml

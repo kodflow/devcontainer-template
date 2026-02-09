@@ -126,6 +126,64 @@ detection:
 
 ---
 
+### Phase 1.5: Secret Discovery (1Password)
+
+**Check 1Password for infrastructure secrets before any operation:**
+
+```yaml
+infra_secret_discovery:
+  trigger: "Before --plan, --apply, --validate"
+  blocking: false  # Informatif seulement
+
+  1_check_1password:
+    condition: "command -v op && test -n $OP_SERVICE_ACCOUNT_TOKEN"
+    on_failure: "Skip (1Password not configured)"
+
+  2_resolve_project_path:
+    action: "Extract org/repo from git remote"
+
+  3_scan_tfvars:
+    action: "Detect variables referenced in *.tf and *.tfvars"
+    command: 'grep -rh "variable\s" *.tf | sed "s/variable\s*\"/TF_VAR_/;s/\".*//"'
+    output: "required_vars[]"
+
+  4_check_vault_for_secrets:
+    action: "List 1Password items matching project path + TF_VAR_ prefix"
+    command: |
+      op item list --vault='$VAULT_ID' --format=json \
+        | jq -r '.[] | select(.title | startswith("'$PROJECT_PATH'/")) | .title'
+    filter: "Items matching TF_VAR_*, AWS_*, AZURE_*, GCP_*"
+
+  5_cross_path_check:
+    action: "Also check shared-infra path for common secrets"
+    paths:
+      - "${ORG}/shared-infra"
+      - "${ORG}/infrastructure"
+    match: "AWS_*, AZURE_*, GCP_*, TF_VAR_*"
+
+  6_output:
+    if_secrets_found: |
+      ═══════════════════════════════════════════════════════════════
+        /infra - 1Password Secrets Available
+      ═══════════════════════════════════════════════════════════════
+
+        Project secrets ({PROJECT_PATH}):
+          ├─ TF_VAR_db_password
+          └─ TF_VAR_api_key
+
+        Shared secrets ({ORG}/shared-infra):
+          ├─ AWS_CREDENTIALS
+          └─ TF_VAR_region
+
+        Use /secret --get <key> to retrieve
+        Or /secret --get <key> --path <org>/shared-infra
+
+      ═══════════════════════════════════════════════════════════════
+    if_no_secrets: "(no infra secrets found in 1Password)"
+```
+
+---
+
 ### Phase 2: Validation (--validate)
 
 Run comprehensive validation suite:

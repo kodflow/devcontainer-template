@@ -36,6 +36,8 @@ Enforced by `commit-validate.sh` hook.
 | `/plan` | Planning mode |
 | `/do` | Task execution |
 
+| `/secret` | Secure secrets (1Password + Vault-like paths) |
+
 ## 5. CONTEXT HIERARCHY
 
 ```

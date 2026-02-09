@@ -67,6 +67,19 @@ Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.).
 | security | Secret detection |
 | test | Run related tests |
 
+## /secret - Secure Secret Management (1Password)
+
+```
+/secret --push DB_PASSWORD=mypass     # Store secret
+/secret --get DB_PASSWORD             # Retrieve secret
+/secret --list                        # List project secrets
+/secret --push KEY=val --path org/other  # Cross-project
+```
+
+**Path convention:** `<org>/<repo>/<key>` (auto-resolved from git remote)
+**Backend:** 1Password CLI (`op`) with `OP_SERVICE_ACCOUNT_TOKEN`
+**Integration:** `/init` (check), `/git` (scan), `/do` (discover), `/infra` (TF_VAR_*)
+
 ## Documentation Hierarchy
 
 ```
