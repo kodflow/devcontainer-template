@@ -681,8 +681,8 @@ init_openvpn() {
         --daemon ovpn-client
         --log /tmp/openvpn.log
         --script-security 2
-        --up /etc/openvpn/update-resolv-conf
-        --down /etc/openvpn/update-resolv-conf
+        --up /etc/openvpn/update-dns
+        --down /etc/openvpn/update-dns
         --keepalive 10 60
         --connect-retry 5
         --connect-retry-max 0

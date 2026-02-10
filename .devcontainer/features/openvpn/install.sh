@@ -17,10 +17,10 @@ TARGET_HOME="$(getent passwd "$TARGET_USER" 2>/dev/null | cut -d: -f6 || echo "/
 # ─────────────────────────────────────────────────────────────────────────────
 # Install OpenVPN + DNS resolution
 # ─────────────────────────────────────────────────────────────────────────────
-echo -e "${YELLOW}Installing openvpn and resolvconf...${NC}"
+echo -e "${YELLOW}Installing openvpn...${NC}"
 
 apt-get update -y
-apt-get install -y --no-install-recommends openvpn resolvconf
+apt-get install -y --no-install-recommends openvpn
 rm -rf /var/lib/apt/lists/*
 
 echo -e "${GREEN}✓ openvpn $(openvpn --version 2>&1 | head -1 | awk '{print $2}') installed${NC}"
@@ -34,6 +34,61 @@ mkdir -p "${TARGET_HOME}/.config/openvpn"
 chown -R "${TARGET_USER}:${TARGET_USER}" "${TARGET_HOME}/.config/openvpn" 2>/dev/null || true
 chmod 700 "${TARGET_HOME}/.config/openvpn"
 echo -e "${GREEN}✓ Config directory created: ${TARGET_HOME}/.config/openvpn${NC}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Create container-friendly DNS update script
+# ─────────────────────────────────────────────────────────────────────────────
+# In Docker containers, the standard update-resolv-conf relies on resolvconf
+# which is a transitional package for systemd-resolved on Ubuntu 24.04.
+# systemd-resolved requires D-Bus, which is not available in containers.
+# This script writes /etc/resolv.conf directly instead.
+echo -e "${YELLOW}Creating container-friendly DNS update script...${NC}"
+
+cat > /etc/openvpn/update-dns << 'DNS_SCRIPT'
+#!/bin/bash
+# Container-friendly DNS update for OpenVPN
+# Writes directly to /etc/resolv.conf (no systemd-resolved/D-Bus dependency)
+
+[ "$script_type" ] || exit 0
+[ "$dev" ] || exit 0
+
+BACKUP="/etc/resolv.conf.ovpn-backup"
+
+case "$script_type" in
+  up)
+    # Backup original resolv.conf (Docker DNS)
+    [ ! -f "$BACKUP" ] && cp /etc/resolv.conf "$BACKUP"
+
+    # Parse OpenVPN DHCP options
+    NMSRVRS=""
+    SRCHS=""
+    for optionvarname in $(printf '%s\n' ${!foreign_option_*} | sort -t _ -k 3 -g); do
+        option="${!optionvarname}"
+        # shellcheck disable=SC2086
+        set -- $option
+        if [ "$1" = "dhcp-option" ]; then
+            [ "$2" = "DNS" ] && NMSRVRS="${NMSRVRS:+$NMSRVRS }$3"
+            [ "$2" = "DOMAIN" ] && SRCHS="${SRCHS:+$SRCHS }$3"
+        fi
+    done
+
+    # Write new resolv.conf (VPN DNS + Docker fallback)
+    {
+        [ -n "$SRCHS" ] && echo "search $SRCHS"
+        for ns in $NMSRVRS; do echo "nameserver $ns"; done
+        # Keep Docker DNS as fallback
+        grep '^nameserver' "$BACKUP" 2>/dev/null || true
+    } > /etc/resolv.conf
+    ;;
+  down)
+    # Restore original resolv.conf
+    [ -f "$BACKUP" ] && mv "$BACKUP" /etc/resolv.conf
+    ;;
+esac
+DNS_SCRIPT
+
+chmod +x /etc/openvpn/update-dns
+echo -e "${GREEN}✓ /etc/openvpn/update-dns created${NC}"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Create helper scripts
@@ -64,8 +119,8 @@ VPN_ARGS=(
     --daemon ovpn-client
     --log /tmp/openvpn.log
     --script-security 2
-    --up /etc/openvpn/update-resolv-conf
-    --down /etc/openvpn/update-resolv-conf
+    --up /etc/openvpn/update-dns
+    --down /etc/openvpn/update-dns
 )
 
 if [ -f "$OVPN_AUTH" ] && [ -s "$OVPN_AUTH" ]; then
@@ -170,7 +225,7 @@ echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "Installed components:"
 echo "  - openvpn $(openvpn --version 2>&1 | head -1 | awk '{print $2}')"
-echo "  - resolvconf (DNS for VPN routes)"
+echo "  - update-dns (container-friendly DNS for VPN routes)"
 echo "  - vpn-connect (start VPN)"
 echo "  - vpn-disconnect (stop VPN)"
 echo "  - vpn-status (check VPN state)"
