@@ -41,6 +41,10 @@ Thumbs.db
 mcp.json
 **/mcp.json
 
+# OpenVPN (never commit VPN configs or credentials)
+*.ovpn
+**/vpn-auth.txt
+
 # ============================================
 # Language-specific modules & dependencies
 # ============================================

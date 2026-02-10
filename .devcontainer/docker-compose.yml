@@ -47,6 +47,12 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+    # Capabilities for optional OpenVPN (no-op when openvpn not installed)
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+
     # Keep container running
     command: /bin/sh -c "while sleep 1000; do :; done"
 

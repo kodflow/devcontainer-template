@@ -553,6 +553,139 @@ fi
 fi  # End of symlink security check
 
 # ============================================================================
+# OpenVPN Auto-Connect (optional - skipped if no config found)
+# ============================================================================
+# Config source: OPENVPN_CONFIG_REF=op://VAULT/PROFILE
+#   - DOCUMENT "PROFILE" in vault → .ovpn file (op document get)
+#   - LOGIN "PROFILE" in vault → username/password (resolved via UUID to avoid ambiguity)
+#   - Fallback: file on disk at $OPENVPN_CONFIG
+#   - Nothing found → skip silently
+#
+# Convention: each VPN profile = 2 items with same title in the vault:
+#   "HOME" (DOCUMENT) + "HOME" (LOGIN)
+#   "OFFICE" (DOCUMENT) + "OFFICE" (LOGIN)
+init_openvpn() {
+    local ovpn_config="${OPENVPN_CONFIG:-/home/vscode/.config/openvpn/client.ovpn}"
+    local ovpn_auth="${OPENVPN_AUTH:-/tmp/vpn-auth.txt}"
+    local ovpn_dir
+    ovpn_dir=$(dirname "$ovpn_config")
+
+    # Skip if openvpn not installed
+    if ! command -v openvpn &> /dev/null; then
+        log_debug "OpenVPN not installed, skipping"
+        return 0
+    fi
+
+    log_info "OpenVPN client detected, checking configuration..."
+
+    # Skip if already connected
+    if pgrep -x openvpn &>/dev/null; then
+        log_info "OpenVPN already running, skipping"
+        return 0
+    fi
+
+    # Source 1: Resolve from 1Password vault
+    if [ -n "${OPENVPN_CONFIG_REF:-}" ] && [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &> /dev/null; then
+        # Parse vault/profile from reference (strip op:// prefix if present)
+        local ref="${OPENVPN_CONFIG_REF#op://}"
+        local vault profile
+        vault=$(echo "$ref" | cut -d'/' -f1)
+        profile=$(echo "$ref" | cut -d'/' -f2)
+
+        log_info "Resolving VPN profile '$profile' from 1Password ($vault)..."
+        mkdir -p "$ovpn_dir"
+
+        # Resolve UUIDs by category to avoid same-title ambiguity
+        # (same profile name exists as both DOCUMENT and LOGIN)
+        local doc_uuid login_uuid
+        doc_uuid=$(op item list --vault "$vault" --categories DOCUMENT --format json 2>/dev/null \
+            | jq -r --arg t "$profile" '.[] | select(.title==$t) | .id' 2>/dev/null || echo "")
+        login_uuid=$(op item list --vault "$vault" --categories LOGIN --format json 2>/dev/null \
+            | jq -r --arg t "$profile" '.[] | select(.title==$t) | .id' 2>/dev/null || echo "")
+
+        # Get .ovpn file by UUID
+        if [ -n "$doc_uuid" ] && op document get "$doc_uuid" --vault "$vault" > "$ovpn_config" 2>/dev/null; then
+            chmod 600 "$ovpn_config"
+            log_success "Resolved .ovpn config ($vault/$profile)"
+        else
+            log_warning "No DOCUMENT '$profile' in vault '$vault', skipping VPN"
+            return 0
+        fi
+
+        if [ -n "$login_uuid" ]; then
+            local vpn_user vpn_pass
+            vpn_user=$(op read "op://$vault/$login_uuid/username" 2>/dev/null || echo "")
+            vpn_pass=$(op read "op://$vault/$login_uuid/password" 2>/dev/null || echo "")
+            if [ -n "$vpn_user" ] && [ -n "$vpn_pass" ]; then
+                printf '%s\n%s\n' "$vpn_user" "$vpn_pass" > "$ovpn_auth"
+                chmod 600 "$ovpn_auth"
+                log_success "Resolved VPN credentials ($vault/$profile)"
+            else
+                log_warning "LOGIN item '$profile' found but missing username/password fields"
+            fi
+        else
+            log_warning "No LOGIN item '$profile' in vault '$vault', connecting without auth"
+        fi
+    fi
+
+    # Source 2: File on disk (volume mount or previously resolved)
+    if [ ! -f "$ovpn_config" ]; then
+        log_info "No .ovpn config found, skipping VPN"
+        return 0
+    fi
+
+    # Validate
+    if [ ! -s "$ovpn_config" ]; then
+        log_warning "OpenVPN config is empty: $ovpn_config"
+        return 0
+    fi
+
+    # Build openvpn command with auto-reconnect options
+    local -a vpn_args=(
+        --config "$ovpn_config"
+        --daemon ovpn-client
+        --log /tmp/openvpn.log
+        --script-security 2
+        --up /etc/openvpn/update-resolv-conf
+        --down /etc/openvpn/update-resolv-conf
+        --keepalive 10 60
+        --connect-retry 5
+        --connect-retry-max 0
+        --persist-tun
+        --persist-key
+        --resolv-retry infinite
+    )
+
+    # Add auth-user-pass if credentials file exists
+    if [ -f "$ovpn_auth" ] && [ -s "$ovpn_auth" ]; then
+        vpn_args+=(--auth-user-pass "$ovpn_auth")
+    fi
+
+    # Connect
+    log_info "Starting OpenVPN..."
+    if sudo openvpn "${vpn_args[@]}"; then
+        # Wait for tun0
+        local attempt=0
+        while [ $attempt -lt 15 ]; do
+            if ip link show tun0 &>/dev/null; then
+                local vpn_ip
+                vpn_ip=$(ip -4 addr show tun0 2>/dev/null | grep -oP 'inet \K[\d.]+' || echo "unknown")
+                log_success "VPN connected (tun0: $vpn_ip)"
+                return 0
+            fi
+            sleep 1
+            ((attempt++))
+        done
+        log_warning "VPN started but tun0 not detected after 15s (check /tmp/openvpn.log)"
+    else
+        log_warning "OpenVPN failed to start (check /tmp/openvpn.log)"
+    fi
+    return 0
+}
+
+init_openvpn &
+
+# ============================================================================
 # Git Credential Cleanup (remove macOS-specific helpers)
 # ============================================================================
 log_info "Cleaning git credential helpers..."
