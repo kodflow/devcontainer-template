@@ -10,7 +10,7 @@ Entirely opt-in: without configuration, nothing happens.
 | Component | Description |
 |-----------|-------------|
 | openvpn | OpenVPN client daemon |
-| openresolv | DNS resolution for VPN routes |
+| resolvconf | DNS resolution for VPN routes |
 | vpn-connect | Start VPN connection |
 | vpn-disconnect | Stop VPN connection |
 | vpn-status | Check VPN state |
@@ -71,5 +71,5 @@ Place `.ovpn` file at `~/.config/openvpn/client.ovpn` (volume mount or manual co
 | `RTNETLINK: Operation not permitted` | Missing `NET_ADMIN` capability in docker-compose.yml |
 | `Cannot open TUN/TAP dev` | Missing `/dev/net/tun` device in docker-compose.yml |
 | `auth-user-pass` error | Check `OPENVPN_AUTH_USER_REF` / `OPENVPN_AUTH_PASS_REF` |
-| DNS not resolving | Check `openresolv` is installed: `resolvconf --version` |
+| DNS not resolving | Check `resolvconf` is installed: `resolvconf --version` |
 | Logs | `cat /tmp/openvpn.log` |

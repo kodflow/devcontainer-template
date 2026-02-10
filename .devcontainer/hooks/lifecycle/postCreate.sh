@@ -88,38 +88,52 @@ log_info "Setting up environment variables and aliases..."
 
 # Create environment initialization script
 cat > /home/vscode/.devcontainer-env.sh << 'ENVEOF'
-# DevContainer Environment Initialization
+# DevContainer Environment Initialization (v2 - two-phase)
 # This file is sourced by ~/.zshrc and ~/.bashrc
+#
+# Architecture: Two-phase loading for fast shell startup
+#   Phase 1 (always): PATH exports, env vars — fast, no subprocesses
+#   Phase 2 (real terminal only): completions, version manager init, aliases
+#
+# Why: VS Code's ptyHost spawns a shell to resolve env vars with a 10s timeout.
+# Heavy init (eval, source <(...), nvm.sh) easily exceeds this on ARM64.
+# Phase 1 gives VS Code the PATH/env it needs; Phase 2 only runs in terminals.
+
+# ============================================================================
+# Phase 1: Fast PATH and Environment Variables (no subprocesses)
+# ============================================================================
 
 # NVM (Node.js Version Manager)
-# NVM installed in system location (not volume) - Microsoft best practice
 export NVM_DIR="/usr/local/share/nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+export NVM_SYMLINK_CURRENT=true
+# Add NVM current bin to PATH directly (no need to source heavy nvm.sh)
+[ -d "$NVM_DIR/current/bin" ] && export PATH="$NVM_DIR/current/bin:$PATH"
 
 # pyenv (Python Version Manager)
 export PYENV_ROOT="/home/vscode/.cache/pyenv"
 if [ -d "$PYENV_ROOT" ]; then
-    export PATH="$PYENV_ROOT/bin:$PATH"
-    eval "$(pyenv init -)" 2>/dev/null || true
-    eval "$(pyenv virtualenv-init -)" 2>/dev/null || true
+    export PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
 fi
 
 # rbenv (Ruby Version Manager)
 export RBENV_ROOT="/home/vscode/.cache/rbenv"
 if [ -d "$RBENV_ROOT" ]; then
-    export PATH="$RBENV_ROOT/bin:$PATH"
-    eval "$(rbenv init -)" 2>/dev/null || true
+    export PATH="$RBENV_ROOT/shims:$RBENV_ROOT/bin:$PATH"
 fi
 
 # SDKMAN (Java/JVM SDK Manager)
 export SDKMAN_DIR="/home/vscode/.cache/sdkman"
-[[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"
+if [ -d "$SDKMAN_DIR/candidates" ]; then
+    for _sdk_bin in "$SDKMAN_DIR"/candidates/*/current/bin; do
+        [ -d "$_sdk_bin" ] && PATH="$_sdk_bin:$PATH"
+    done
+    unset _sdk_bin
+fi
 
 # Rust/Cargo
 export CARGO_HOME="/home/vscode/.cache/cargo"
 export RUSTUP_HOME="/home/vscode/.cache/rustup"
-[ -f "$CARGO_HOME/env" ] && source "$CARGO_HOME/env"
+[ -d "$CARGO_HOME/bin" ] && export PATH="$CARGO_HOME/bin:$PATH"
 
 # Go
 export GOPATH="/home/vscode/.cache/go"
@@ -163,6 +177,33 @@ export PATH="$CARBON_PATH/bin:$PATH"
 
 # Bazel
 export BAZEL_USER_ROOT="/home/vscode/.cache/bazel"
+
+# ============================================================================
+# Phase 2: Interactive Terminal Features (completions, version managers, aliases)
+# ============================================================================
+# Skip when stdout is not a real terminal (e.g., VS Code env resolution).
+# This is the key optimization: VS Code only needs PATH/env from Phase 1.
+if [ ! -t 1 ]; then
+    return 0 2>/dev/null || true
+fi
+
+# NVM full initialization (provides 'nvm' command and bash completion)
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+# pyenv full initialization (provides 'pyenv' shim rehash and virtualenv hooks)
+if [ -d "$PYENV_ROOT" ]; then
+    eval "$(pyenv init -)" 2>/dev/null || true
+    eval "$(pyenv virtualenv-init -)" 2>/dev/null || true
+fi
+
+# rbenv full initialization (provides 'rbenv' shim rehash)
+if [ -d "$RBENV_ROOT" ]; then
+    eval "$(rbenv init -)" 2>/dev/null || true
+fi
+
+# SDKMAN full initialization (provides 'sdk' command)
+[[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"
 
 # Aliases
 # super-claude: runs claude with MCP config if available, otherwise without
