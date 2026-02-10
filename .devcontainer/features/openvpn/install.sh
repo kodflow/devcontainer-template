@@ -17,10 +17,10 @@ TARGET_HOME="$(getent passwd "$TARGET_USER" 2>/dev/null | cut -d: -f6 || echo "/
 # ─────────────────────────────────────────────────────────────────────────────
 # Install OpenVPN + DNS resolution
 # ─────────────────────────────────────────────────────────────────────────────
-echo -e "${YELLOW}Installing openvpn and openresolv...${NC}"
+echo -e "${YELLOW}Installing openvpn and resolvconf...${NC}"
 
 apt-get update -y
-apt-get install -y --no-install-recommends openvpn openresolv
+apt-get install -y --no-install-recommends openvpn resolvconf
 rm -rf /var/lib/apt/lists/*
 
 echo -e "${GREEN}✓ openvpn $(openvpn --version 2>&1 | head -1 | awk '{print $2}') installed${NC}"
@@ -170,7 +170,7 @@ echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "Installed components:"
 echo "  - openvpn $(openvpn --version 2>&1 | head -1 | awk '{print $2}')"
-echo "  - openresolv (DNS for VPN routes)"
+echo "  - resolvconf (DNS for VPN routes)"
 echo "  - vpn-connect (start VPN)"
 echo "  - vpn-disconnect (stop VPN)"
 echo "  - vpn-status (check VPN state)"

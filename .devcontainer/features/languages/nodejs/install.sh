@@ -286,22 +286,10 @@ if [ -d "$NVM_DIR" ]; then
     log_success "NVM directory ownership set to vscode"
 fi
 
-# Add NVM to zshrc for interactive shells
-ZSHRC="/home/vscode/.zshrc"
-if [ -f "$ZSHRC" ]; then
-    if ! grep -q "NVM_DIR" "$ZSHRC"; then
-        log_info "Adding NVM to .zshrc..."
-        cat >> "$ZSHRC" <<'EOF'
-
-# NVM (Node Version Manager)
-# NVM installed in system location (not volume) - Microsoft best practice
-# See: https://github.com/microsoft/vscode-dev-containers/blob/main/script-library/docs/node.md
-export NVM_DIR="/usr/local/share/nvm"
-export NVM_SYMLINK_CURRENT=true
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-EOF
-    fi
-fi
+# NVM is loaded via ~/.devcontainer-env.sh (sourced by both .zshrc and .bashrc)
+# No need to inject NVM into .zshrc directly — avoids double-loading which
+# causes VS Code ptyHost shell environment resolution timeout
+log_info "NVM will be loaded via ~/.devcontainer-env.sh (two-phase loading)"
 
 echo ""
 echo -e "${GREEN}=========================================${NC}"

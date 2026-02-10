@@ -103,6 +103,41 @@ for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
     fi
 done
 
+# ============================================================================
+# Upgrade devcontainer-env.sh to two-phase loading (v2)
+# ============================================================================
+# v1 loaded heavy init (nvm.sh, eval pyenv/rbenv, 15+ completions) unconditionally,
+# causing VS Code ptyHost to timeout resolving shell environment.
+# v2 splits into: Phase 1 (fast PATH exports) + Phase 2 (heavy init, terminal only).
+DC_ENV="$HOME/.devcontainer-env.sh"
+if [ -f "$DC_ENV" ] && ! grep -q "two-phase" "$DC_ENV" 2>/dev/null; then
+    log_info "Upgrading devcontainer-env.sh to two-phase loading (v2)..."
+
+    # Trigger postCreate.sh to regenerate the env file
+    # Remove the guard marker so postCreate regenerates, but preserve initialization state
+    if [ -f /home/vscode/.devcontainer-initialized ]; then
+        rm -f /home/vscode/.devcontainer-initialized
+        if [ -f /workspace/.devcontainer/hooks/lifecycle/postCreate.sh ]; then
+            bash /workspace/.devcontainer/hooks/lifecycle/postCreate.sh 2>/dev/null || true
+        fi
+        # Restore marker (postCreate.sh recreates it, but ensure it exists)
+        touch /home/vscode/.devcontainer-initialized
+    fi
+    log_success "devcontainer-env.sh upgraded to v2 (two-phase)"
+fi
+
+# ============================================================================
+# Remove duplicate NVM from .zshrc (added by nodejs feature, already in env.sh)
+# ============================================================================
+if [ -f "$HOME/.zshrc" ] && grep -c "NVM_DIR" "$HOME/.zshrc" 2>/dev/null | grep -q "^[2-9]"; then
+    # Remove the nodejs-feature-injected NVM block (lines after devcontainer-env source)
+    # Pattern: block starting with "# NVM" and containing nvm.sh, after the devcontainer-env line
+    sed -i '/^# NVM (Node Version Manager)$/,/^\[ -s "\$NVM_DIR\/nvm\.sh" \]/d' "$HOME/.zshrc" 2>/dev/null || true
+    # Also clean up NVM_SYMLINK_CURRENT if orphaned
+    sed -i '/^export NVM_SYMLINK_CURRENT=true$/d' "$HOME/.zshrc" 2>/dev/null || true
+    log_info "Removed duplicate NVM from .zshrc (handled by devcontainer-env.sh)"
+fi
+
 # Ensure zsh is the default login shell
 if [ "$(getent passwd "$(whoami)" | cut -d: -f7)" != "/bin/zsh" ]; then
     sudo chsh -s /bin/zsh "$(whoami)" 2>/dev/null || true
