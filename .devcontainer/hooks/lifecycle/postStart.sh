@@ -553,6 +553,109 @@ fi
 fi  # End of symlink security check
 
 # ============================================================================
+# OpenVPN Auto-Connect (optional - skipped if no config found)
+# ============================================================================
+# Config sources (priority order):
+#   1. op:// references: OPENVPN_CONFIG_REF, OPENVPN_AUTH_USER_REF, OPENVPN_AUTH_PASS_REF
+#   2. File on disk: $OPENVPN_CONFIG (~/.config/openvpn/client.ovpn)
+#   3. Nothing → skip silently
+init_openvpn() {
+    local ovpn_config="${OPENVPN_CONFIG:-/home/vscode/.config/openvpn/client.ovpn}"
+    local ovpn_auth="${OPENVPN_AUTH:-/tmp/vpn-auth.txt}"
+    local ovpn_dir
+    ovpn_dir=$(dirname "$ovpn_config")
+
+    # Skip if openvpn not installed
+    if ! command -v openvpn &> /dev/null; then
+        log_debug "OpenVPN not installed, skipping"
+        return 0
+    fi
+
+    log_info "OpenVPN client detected, checking configuration..."
+
+    # Skip if already connected
+    if pgrep -x openvpn &>/dev/null; then
+        log_info "OpenVPN already running, skipping"
+        return 0
+    fi
+
+    # Source 1: Resolve op:// references
+    if [ -n "${OPENVPN_CONFIG_REF:-}" ] && [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &> /dev/null; then
+        log_info "Resolving .ovpn from 1Password (op://)..."
+        mkdir -p "$ovpn_dir"
+        if op read "$OPENVPN_CONFIG_REF" > "$ovpn_config" 2>/dev/null; then
+            chmod 600 "$ovpn_config"
+            log_success "Resolved .ovpn config from 1Password"
+        else
+            log_warning "Failed to resolve OPENVPN_CONFIG_REF, skipping VPN"
+            return 0
+        fi
+
+        # Resolve auth credentials if provided
+        if [ -n "${OPENVPN_AUTH_USER_REF:-}" ] && [ -n "${OPENVPN_AUTH_PASS_REF:-}" ]; then
+            local vpn_user vpn_pass
+            vpn_user=$(op read "$OPENVPN_AUTH_USER_REF" 2>/dev/null || echo "")
+            vpn_pass=$(op read "$OPENVPN_AUTH_PASS_REF" 2>/dev/null || echo "")
+            if [ -n "$vpn_user" ] && [ -n "$vpn_pass" ]; then
+                printf '%s\n%s\n' "$vpn_user" "$vpn_pass" > "$ovpn_auth"
+                chmod 600 "$ovpn_auth"
+                log_success "Resolved VPN credentials from 1Password"
+            fi
+        fi
+    fi
+
+    # Source 2: File on disk (volume mount or previously resolved)
+    if [ ! -f "$ovpn_config" ]; then
+        log_info "No .ovpn config found, skipping VPN"
+        return 0
+    fi
+
+    # Validate
+    if [ ! -s "$ovpn_config" ]; then
+        log_warning "OpenVPN config is empty: $ovpn_config"
+        return 0
+    fi
+
+    # Build openvpn command
+    local -a vpn_args=(
+        --config "$ovpn_config"
+        --daemon ovpn-client
+        --log /tmp/openvpn.log
+        --script-security 2
+        --up /etc/openvpn/update-resolv-conf
+        --down /etc/openvpn/update-resolv-conf
+    )
+
+    # Add auth-user-pass if credentials file exists
+    if [ -f "$ovpn_auth" ] && [ -s "$ovpn_auth" ]; then
+        vpn_args+=(--auth-user-pass "$ovpn_auth")
+    fi
+
+    # Connect
+    log_info "Starting OpenVPN..."
+    if sudo openvpn "${vpn_args[@]}"; then
+        # Wait for tun0
+        local attempt=0
+        while [ $attempt -lt 15 ]; do
+            if ip link show tun0 &>/dev/null; then
+                local vpn_ip
+                vpn_ip=$(ip -4 addr show tun0 2>/dev/null | grep -oP 'inet \K[\d.]+' || echo "unknown")
+                log_success "VPN connected (tun0: $vpn_ip)"
+                return 0
+            fi
+            sleep 1
+            ((attempt++))
+        done
+        log_warning "VPN started but tun0 not detected after 15s (check /tmp/openvpn.log)"
+    else
+        log_warning "OpenVPN failed to start (check /tmp/openvpn.log)"
+    fi
+    return 0
+}
+
+init_openvpn &
+
+# ============================================================================
 # Git Credential Cleanup (remove macOS-specific helpers)
 # ============================================================================
 log_info "Cleaning git credential helpers..."
