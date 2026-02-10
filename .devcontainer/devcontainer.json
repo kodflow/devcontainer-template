@@ -30,7 +30,7 @@
     // ========== NETWORKING ==========
     // OpenVPN client for VPN connectivity
     // Configure credentials in .env with op:// references
-    // "./features/openvpn": {},
+    "./features/openvpn": {},
     // ========== EXTERNAL ==========
     // Docker support
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
