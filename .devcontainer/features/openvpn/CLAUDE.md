@@ -26,14 +26,25 @@ vpn-disconnect
 
 ## Configuration
 
-### Option 1: 1Password op:// references (recommended)
+### Option 1: 1Password references (recommended)
 
 Set in `.devcontainer/.env` (git-ignored):
 
 ```bash
-OPENVPN_CONFIG_REF=op://Vault/vpn-config/client.ovpn
-OPENVPN_AUTH_USER_REF=op://Vault/vpn-config/username
-OPENVPN_AUTH_PASS_REF=op://Vault/vpn-config/password
+# Format: op://VAULT/PROFILE
+# Each profile = 2 items with same title in the vault:
+#   "HOME" (DOCUMENT) → .ovpn file
+#   "HOME" (LOGIN)    → username + password
+OPENVPN_CONFIG_REF=op://VPN/HOME
+```
+
+Multiple profiles supported — add more items in the vault:
+
+```
+VPN vault:
+├── "HOME"       (DOCUMENT) + "HOME"       (LOGIN)
+├── "OFFICE"     (DOCUMENT) + "OFFICE"     (LOGIN)
+└── "DATACENTER" (DOCUMENT) + "DATACENTER" (LOGIN)
 ```
 
 Auto-connects on container start via `postStart.sh`.
@@ -44,7 +55,7 @@ Place `.ovpn` file at `~/.config/openvpn/client.ovpn` (volume mount or manual co
 
 ### Priority order
 
-1. `op://` references in `.env` (resolved at runtime)
+1. `op://` reference in `.env` (resolved at runtime)
 2. File on disk at `$OPENVPN_CONFIG`
 3. Nothing found: skip silently
 
