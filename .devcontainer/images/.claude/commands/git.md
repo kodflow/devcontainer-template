@@ -45,6 +45,7 @@ Automatisation Git avec patterns **RLM** :
 - **Peek** - Analyser l'état git avant action
 - **Decompose** - Identifier les fichiers par catégorie
 - **Parallelize** - Checks en parallèle (lint, test, CI)
+- **Context** - `/warmup --update` sur fichiers modifiés (branch diff)
 - **Synthesize** - Rapport consolidé
 
 **Note :** L'identité git (user.name/user.email) est stockée dans `/workspace/.env` et synchronisée automatiquement avec git config à chaque exécution.
@@ -97,6 +98,7 @@ RLM Patterns:
   1. Peek          - Analyser état git
   2. Decompose     - Catégoriser fichiers
   3. Parallelize   - Checks simultanés
+  3.8. Context     - /warmup --update (branch diff, 5min staleness)
   4. Synthesize    - Rapport consolidé
 
 Options --commit:
@@ -655,6 +657,105 @@ secret_scan:
 
 ---
 
+### Phase 3.8 : Context Update (MANDATORY before commit)
+
+**Met à jour les fichiers CLAUDE.md pour refléter les modifications de la branche.**
+
+**IMPORTANT** : Cette phase s'exécute APRÈS lint/test/build (Phase 3) pour éviter de
+relancer `/warmup --update` si les checks échouent et nécessitent des corrections.
+
+```yaml
+context_update_workflow:
+  trigger: "ALWAYS (mandatory before commit)"
+  position: "After Phase 3 + 3.5 (all checks pass), before Phase 4 (commit)"
+  tool: "/warmup --update"
+
+  1_collect_branch_diff:
+    action: "Identifier TOUS les fichiers modifiés sur la branche"
+    command: |
+      # Fichiers modifiés dans la branche entière (vs main)
+      git diff main...HEAD --name-only 2>/dev/null || git diff HEAD --name-only
+      # + fichiers non-staged/non-committed (en cours)
+      git diff --name-only
+      git diff --cached --name-only
+      # Dédupliquer
+    output: "changed_files[] (unique list)"
+
+  2_resolve_claude_files:
+    action: "Trouver les CLAUDE.md concernés par les fichiers modifiés"
+    algorithm: |
+      POUR chaque fichier modifié:
+        dir = dirname(fichier)
+        TANT QUE dir != /workspace:
+          SI existe(dir/CLAUDE.md):
+            ajouter(dir/CLAUDE.md) au set
+          dir = parent(dir)
+      # Toujours inclure /workspace/CLAUDE.md (racine)
+    output: "claude_files_to_update[] (unique set)"
+
+  3_check_staleness:
+    action: "Vérifier le timestamp de dernière mise à jour"
+    algorithm: |
+      POUR chaque claude_file DANS claude_files_to_update:
+        first_line = read_first_line(claude_file)
+        SI first_line match '<!-- updated: YYYY-MM-DDTHH:MM:SSZ -->':
+          timestamp = parse_iso(first_line)
+          age = now() - timestamp
+          SI age < 5 minutes:
+            skip(claude_file)  # Déjà à jour
+            log("Skipping {claude_file} (updated {age} ago)")
+        SINON:
+          include(claude_file)  # Pas de timestamp = toujours mettre à jour
+    output: "stale_claude_files[] (files needing update)"
+
+  4_run_warmup_update:
+    condition: "stale_claude_files is not empty"
+    action: "Exécuter /warmup --update sur les fichiers périmés"
+    tool: "Skill(warmup, --update)"
+    scope: "Limité aux répertoires des stale_claude_files"
+    note: |
+      /warmup --update ajoutera automatiquement le timestamp ISO
+      en première ligne de chaque CLAUDE.md mis à jour:
+        <!-- updated: 2026-02-11T14:30:00Z -->
+
+  5_stage_updated_docs:
+    action: "Ajouter les CLAUDE.md mis à jour au staging"
+    command: "git add **/CLAUDE.md"
+    note: "Inclus dans le même commit que les modifications de code"
+
+  timestamp_format:
+    format: "<!-- updated: YYYY-MM-DDTHH:MM:SSZ -->"
+    example: "<!-- updated: 2026-02-11T14:30:00Z -->"
+    position: "Première ligne du fichier CLAUDE.md"
+    purpose: "Détection de fraîcheur (staleness check 5 minutes)"
+    parse: "ISO 8601 - format le plus facile à parser programmatiquement"
+```
+
+**Output Phase 3.8 :**
+
+```
+═══════════════════════════════════════════════════════════════
+  /git --commit - Context Update (Phase 3.8)
+═══════════════════════════════════════════════════════════════
+
+  Branch diff: 12 files changed
+
+  CLAUDE.md resolution:
+    ├─ /workspace/CLAUDE.md (stale, 2h ago)
+    ├─ .devcontainer/CLAUDE.md (stale, no timestamp)
+    ├─ .devcontainer/images/CLAUDE.md (fresh, 3m ago) → SKIP
+    └─ .devcontainer/hooks/CLAUDE.md (stale, 45m ago)
+
+  /warmup --update:
+    ✓ 3 CLAUDE.md files updated
+    ✓ Timestamps refreshed
+    ✓ Staged for commit
+
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
 ### Phase 4 : Execute & Synthesize
 
 ```yaml
@@ -711,6 +812,7 @@ execute_workflow:
 |---------|----------------------------------|
 | Peek    | ✓ 5 files analyzed               |
 | Checks  | ✓ lint, test, build PASS         |
+| Context | ✓ 3 CLAUDE.md updated            |
 | Branch  | `feat/add-user-auth`             |
 | Commit  | `feat(auth): add user auth`      |
 | Push    | origin/feat/add-user-auth        |
@@ -732,6 +834,7 @@ URL: https://github.com/<owner>/<repo>/pull/42
 |---------|----------------------------------|
 | Peek    | ✓ 5 files analyzed               |
 | Checks  | ✓ lint, test, build PASS         |
+| Context | ✓ 3 CLAUDE.md updated            |
 | Branch  | `feat/add-user-auth`             |
 | Commit  | `feat(auth): add user auth`      |
 | Push    | origin/feat/add-user-auth        |
@@ -1482,6 +1585,7 @@ merge_workflow:
 |--------|--------|--------|
 | Skip Phase 0.5 (Identity) sans flag | ❌ **INTERDIT** | Identité git requise |
 | Skip Phase 1 (Peek) | ❌ **INTERDIT** | git status avant action |
+| Skip Phase 3.8 (Context) | ❌ **INTERDIT** | CLAUDE.md doivent refléter les changements |
 | Skip Phase 2 (CI Polling) | ❌ **INTERDIT** | CI validation obligatoire |
 | Merge automatique sans CI | ❌ **INTERDIT** | Qualité code |
 | Push sur main/master | ❌ **INTERDIT** | Branche protégée |

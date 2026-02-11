@@ -566,74 +566,48 @@ init_semantic_search() {
 }
 
 # ============================================================================
-# OpenVPN Auto-Connect (optional - skipped if no config found)
+# VPN Auto-Connect (optional - skipped if no config found)
 # ============================================================================
-init_openvpn() {
+# Multi-protocol VPN support: OpenVPN, WireGuard, IPsec/IKEv2, PPTP
+# Config source: VPN_CONFIG_REF=op://VAULT/PROFILE (or legacy OPENVPN_CONFIG_REF)
+#   - DOCUMENT "PROFILE" in vault → config file (protocol determined by tags)
+#   - LOGIN "PROFILE" in vault → username/password (not needed for WireGuard)
+#   - Tags: "openvpn" (default), "wireguard", "ipsec", "pptp"
+#   - Fallback: file on disk at $OPENVPN_CONFIG
+#   - Nothing found → skip silently
+
+# --- OpenVPN connect (extracted for multi-protocol support) ---
+connect_openvpn() {
+    local vault="$1" profile="$2" doc_uuid="$3" login_uuid="$4"
     local ovpn_config="${OPENVPN_CONFIG:-/home/vscode/.config/openvpn/client.ovpn}"
     local ovpn_auth="${OPENVPN_AUTH:-/tmp/vpn-auth.txt}"
     local ovpn_dir
     ovpn_dir=$(dirname "$ovpn_config")
 
-    # Skip if openvpn not installed
-    if ! command -v openvpn &> /dev/null; then
-        log_debug "OpenVPN not installed, skipping"
+    mkdir -p "$ovpn_dir"
+
+    # Download .ovpn config
+    if [ -n "$doc_uuid" ] && op document get "$doc_uuid" --vault "$vault" > "$ovpn_config" 2>/dev/null; then
+        chmod 600 "$ovpn_config"
+        log_success "Resolved .ovpn config ($vault/$profile)"
+    else
+        log_warning "No DOCUMENT '$profile' in vault '$vault', skipping VPN"
         return 0
     fi
 
-    log_info "OpenVPN client detected, checking configuration..."
-
-    # Skip if already connected
-    if pgrep -x openvpn &>/dev/null; then
-        log_info "OpenVPN already running, skipping"
-        return 0
-    fi
-
-    # Source 1: Resolve from 1Password vault
-    if [ -n "${OPENVPN_CONFIG_REF:-}" ] && [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &> /dev/null; then
-        local ref="${OPENVPN_CONFIG_REF#op://}"
-        local vault profile
-        vault=$(echo "$ref" | cut -d'/' -f1)
-        profile=$(echo "$ref" | cut -d'/' -f2)
-
-        log_info "Resolving VPN profile '$profile' from 1Password ($vault)..."
-        mkdir -p "$ovpn_dir"
-
-        local doc_uuid login_uuid
-        doc_uuid=$(op item list --vault "$vault" --categories DOCUMENT --format json 2>/dev/null \
-            | jq -r --arg t "$profile" '.[] | select(.title==$t) | .id' 2>/dev/null || echo "")
-        login_uuid=$(op item list --vault "$vault" --categories LOGIN --format json 2>/dev/null \
-            | jq -r --arg t "$profile" '.[] | select(.title==$t) | .id' 2>/dev/null || echo "")
-
-        if [ -n "$doc_uuid" ] && op document get "$doc_uuid" --vault "$vault" > "$ovpn_config" 2>/dev/null; then
-            chmod 600 "$ovpn_config"
-            log_success "Resolved .ovpn config ($vault/$profile)"
-        else
-            log_warning "No DOCUMENT '$profile' in vault '$vault', skipping VPN"
-            return 0
-        fi
-
-        if [ -n "$login_uuid" ]; then
-            local vpn_user vpn_pass
-            vpn_user=$(op read "op://$vault/$login_uuid/username" 2>/dev/null || echo "")
-            vpn_pass=$(op read "op://$vault/$login_uuid/password" 2>/dev/null || echo "")
-            if [ -n "$vpn_user" ] && [ -n "$vpn_pass" ]; then
-                printf '%s\n%s\n' "$vpn_user" "$vpn_pass" > "$ovpn_auth"
-                chmod 600 "$ovpn_auth"
-                log_success "Resolved VPN credentials ($vault/$profile)"
-            else
-                log_warning "LOGIN item '$profile' found but missing username/password fields"
-            fi
-        else
-            log_warning "No LOGIN item '$profile' in vault '$vault', connecting without auth"
+    # Resolve credentials
+    if [ -n "$login_uuid" ]; then
+        local vpn_user vpn_pass
+        vpn_user=$(op read "op://$vault/$login_uuid/username" 2>/dev/null || echo "")
+        vpn_pass=$(op read "op://$vault/$login_uuid/password" 2>/dev/null || echo "")
+        if [ -n "$vpn_user" ] && [ -n "$vpn_pass" ]; then
+            printf '%s\n%s\n' "$vpn_user" "$vpn_pass" > "$ovpn_auth"
+            chmod 600 "$ovpn_auth"
+            log_success "Resolved VPN credentials ($vault/$profile)"
         fi
     fi
 
-    # Source 2: File on disk (volume mount or previously resolved)
-    if [ ! -f "$ovpn_config" ]; then
-        log_info "No .ovpn config found, skipping VPN"
-        return 0
-    fi
-
+    # Validate config
     if [ ! -s "$ovpn_config" ]; then
         log_warning "OpenVPN config is empty: $ovpn_config"
         return 0
@@ -653,7 +627,6 @@ init_openvpn() {
         --persist-key
         --resolv-retry infinite
     )
-
     if [ -f "$ovpn_auth" ] && [ -s "$ovpn_auth" ]; then
         vpn_args+=(--auth-user-pass "$ovpn_auth")
     fi
@@ -665,16 +638,216 @@ init_openvpn() {
             if ip link show tun0 &>/dev/null; then
                 local vpn_ip
                 vpn_ip=$(ip -4 addr show tun0 2>/dev/null | grep -oP 'inet \K[\d.]+' || echo "unknown")
-                log_success "VPN connected (tun0: $vpn_ip)"
+                log_success "VPN connected via OpenVPN (tun0: $vpn_ip)"
                 return 0
             fi
             sleep 1
             ((attempt++))
         done
-        log_warning "VPN started but tun0 not detected after 15s (check /tmp/openvpn.log)"
+        log_warning "OpenVPN started but tun0 not detected after 15s (check /tmp/openvpn.log)"
     else
         log_warning "OpenVPN failed to start (check /tmp/openvpn.log)"
     fi
+}
+
+# --- WireGuard connect ---
+connect_wireguard() {
+    local vault="$1" profile="$2" doc_uuid="$3"
+    local wg_config="/home/vscode/.config/wireguard/wg0.conf"
+
+    mkdir -p "$(dirname "$wg_config")"
+
+    if [ -n "$doc_uuid" ] && op document get "$doc_uuid" --vault "$vault" > "$wg_config" 2>/dev/null; then
+        chmod 600 "$wg_config"
+        log_success "Resolved WireGuard config ($vault/$profile)"
+    else
+        log_warning "No DOCUMENT '$profile' in vault '$vault', skipping WireGuard"
+        return 0
+    fi
+
+    log_info "Starting WireGuard..."
+    if sudo wg-quick up "$wg_config" 2>/dev/null; then
+        local attempt=0
+        while [ $attempt -lt 10 ]; do
+            if ip link show wg0 &>/dev/null; then
+                local vpn_ip
+                vpn_ip=$(ip -4 addr show wg0 2>/dev/null | grep -oP 'inet \K[\d.]+' || echo "unknown")
+                log_success "VPN connected via WireGuard (wg0: $vpn_ip)"
+                return 0
+            fi
+            sleep 1
+            ((attempt++))
+        done
+        log_warning "WireGuard started but wg0 not detected after 10s"
+    else
+        log_warning "WireGuard failed to start"
+    fi
+}
+
+# --- IPsec/IKEv2 connect ---
+connect_ipsec() {
+    local vault="$1" profile="$2" doc_uuid="$3" login_uuid="$4"
+    local ipsec_config="/home/vscode/.config/strongswan/ipsec.conf"
+
+    mkdir -p "$(dirname "$ipsec_config")"
+
+    if [ -n "$doc_uuid" ] && op document get "$doc_uuid" --vault "$vault" > "$ipsec_config" 2>/dev/null; then
+        chmod 600 "$ipsec_config"
+        log_success "Resolved IPsec config ($vault/$profile)"
+    else
+        log_warning "No DOCUMENT '$profile' in vault '$vault', skipping IPsec"
+        return 0
+    fi
+
+    # Copy config and secrets to strongswan dir
+    sudo cp "$ipsec_config" /etc/ipsec.d/profile.conf
+    if [ -n "$login_uuid" ]; then
+        local vpn_user vpn_pass
+        vpn_user=$(op read "op://$vault/$login_uuid/username" 2>/dev/null || echo "")
+        vpn_pass=$(op read "op://$vault/$login_uuid/password" 2>/dev/null || echo "")
+        if [ -n "$vpn_user" ] && [ -n "$vpn_pass" ]; then
+            printf '%s : EAP "%s"\n' "$vpn_user" "$vpn_pass" | sudo tee /etc/ipsec.d/profile.secrets > /dev/null
+            sudo chmod 600 /etc/ipsec.d/profile.secrets
+        fi
+    fi
+
+    local conn_name
+    conn_name=$(grep -oP '(?<=^conn )\S+' "$ipsec_config" | head -1)
+    if [ -z "$conn_name" ]; then
+        log_warning "No connection name found in IPsec config"
+        return 0
+    fi
+
+    log_info "Starting IPsec ($conn_name)..."
+    sudo ipsec restart 2>/dev/null
+    sleep 2
+    if sudo ipsec up "$conn_name" 2>/dev/null; then
+        log_success "VPN connected via IPsec ($conn_name)"
+    else
+        log_warning "IPsec connection '$conn_name' failed"
+    fi
+}
+
+# --- PPTP connect ---
+connect_pptp() {
+    local vault="$1" profile="$2" doc_uuid="$3" login_uuid="$4"
+    local pptp_config="/home/vscode/.config/pptp/tunnel.conf"
+
+    mkdir -p "$(dirname "$pptp_config")"
+
+    if [ -n "$doc_uuid" ] && op document get "$doc_uuid" --vault "$vault" > "$pptp_config" 2>/dev/null; then
+        chmod 600 "$pptp_config"
+        log_success "Resolved PPTP config ($vault/$profile)"
+    else
+        log_warning "No DOCUMENT '$profile' in vault '$vault', skipping PPTP"
+        return 0
+    fi
+
+    if [ -n "$login_uuid" ]; then
+        local vpn_user vpn_pass
+        vpn_user=$(op read "op://$vault/$login_uuid/username" 2>/dev/null || echo "")
+        vpn_pass=$(op read "op://$vault/$login_uuid/password" 2>/dev/null || echo "")
+        if [ -n "$vpn_user" ] && [ -n "$vpn_pass" ]; then
+            printf '%s\n%s\n' "$vpn_user" "$vpn_pass" > /tmp/vpn-auth.txt
+            chmod 600 /tmp/vpn-auth.txt
+        fi
+    fi
+
+    log_info "Starting PPTP..."
+    # shellcheck disable=SC2024
+    if sudo pppd call tunnel nodetach < /dev/null > /tmp/pptp.log 2>&1 & then
+        local attempt=0
+        while [ $attempt -lt 15 ]; do
+            if ip link show ppp0 &>/dev/null; then
+                local vpn_ip
+                vpn_ip=$(ip -4 addr show ppp0 2>/dev/null | grep -oP 'inet \K[\d.]+' || echo "unknown")
+                log_success "VPN connected via PPTP (ppp0: $vpn_ip)"
+                return 0
+            fi
+            sleep 1
+            ((attempt++))
+        done
+        log_warning "PPTP started but ppp0 not detected after 15s"
+    else
+        log_warning "PPTP failed to start"
+    fi
+}
+
+# --- Main VPN auto-connect orchestrator ---
+init_vpn() {
+    # Skip if no VPN tools installed at all
+    local has_vpn=false
+    command -v openvpn &>/dev/null && has_vpn=true
+    command -v wg &>/dev/null && has_vpn=true
+    command -v ipsec &>/dev/null && has_vpn=true
+    command -v pptp &>/dev/null && has_vpn=true
+    if [ "$has_vpn" = "false" ]; then
+        log_debug "No VPN clients installed, skipping"
+        return 0
+    fi
+
+    log_info "VPN clients detected, checking configuration..."
+
+    # Skip if already connected (any protocol)
+    if pgrep -x openvpn &>/dev/null || ip link show wg0 &>/dev/null 2>&1 || \
+       pgrep -x charon &>/dev/null || pgrep -x pppd &>/dev/null; then
+        log_info "VPN already connected, skipping"
+        return 0
+    fi
+
+    # Backward compatible: support both VPN_CONFIG_REF and OPENVPN_CONFIG_REF
+    local vpn_ref="${VPN_CONFIG_REF:-${OPENVPN_CONFIG_REF:-}}"
+
+    # Source 1: Resolve from 1Password vault
+    if [ -n "$vpn_ref" ] && [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &> /dev/null; then
+        local ref="${vpn_ref#op://}"
+        local vault profile
+        vault=$(echo "$ref" | cut -d'/' -f1)
+        profile=$(echo "$ref" | cut -d'/' -f2)
+
+        log_info "Resolving VPN profile '$profile' from 1Password ($vault)..."
+
+        # Resolve DOCUMENT UUID and detect protocol from tags
+        local doc_item doc_uuid protocol tags
+        doc_item=$(op item list --vault "$vault" --categories DOCUMENT --format json 2>/dev/null \
+            | jq -r --arg t "$profile" '.[] | select(.title==$t)' 2>/dev/null || echo "")
+        doc_uuid=$(echo "$doc_item" | jq -r '.id // empty' 2>/dev/null || echo "")
+        tags=$(echo "$doc_item" | jq -r '.tags // [] | .[]' 2>/dev/null || echo "")
+
+        # Detect protocol (default: openvpn)
+        protocol="openvpn"
+        for tag in $tags; do
+            case "$tag" in
+                wireguard|ipsec|pptp) protocol="$tag"; break ;;
+            esac
+        done
+
+        # Resolve LOGIN UUID
+        local login_uuid
+        login_uuid=$(op item list --vault "$vault" --categories LOGIN --format json 2>/dev/null \
+            | jq -r --arg t "$profile" '.[] | select(.title==$t) | .id' 2>/dev/null || echo "")
+
+        log_info "VPN profile '$profile' → protocol: $protocol"
+
+        # Protocol-specific connect
+        case "$protocol" in
+            openvpn)   connect_openvpn "$vault" "$profile" "$doc_uuid" "$login_uuid" ;;
+            wireguard) connect_wireguard "$vault" "$profile" "$doc_uuid" ;;
+            ipsec)     connect_ipsec "$vault" "$profile" "$doc_uuid" "$login_uuid" ;;
+            pptp)      connect_pptp "$vault" "$profile" "$doc_uuid" "$login_uuid" ;;
+        esac
+        return 0
+    fi
+
+    # Source 2: File on disk (OpenVPN fallback for backward compat)
+    local ovpn_config="${OPENVPN_CONFIG:-/home/vscode/.config/openvpn/client.ovpn}"
+    if [ -f "$ovpn_config" ] && [ -s "$ovpn_config" ] && command -v openvpn &>/dev/null; then
+        log_info "Found OpenVPN config on disk, connecting..."
+        connect_openvpn "" "" "" ""
+    else
+        log_info "No VPN config found, skipping"
+    fi
+
     return 0
 }
 
@@ -693,7 +866,7 @@ run_step "Git credential cleanup"   step_git_credential_cleanup
 
 # Background tasks (have internal error handling, not tracked in summary)
 init_semantic_search &
-init_openvpn &
+init_vpn &
 
 # Export dynamic environment variables (appended to ~/.devcontainer-env.sh)
 # Note: ~/.devcontainer-env.sh is created by postCreate.sh with static content
