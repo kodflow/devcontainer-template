@@ -255,6 +255,62 @@ case "$EXT" in
             taplo fmt "$FILE" 2>/dev/null || true
         fi
         ;;
+
+    # Scala - scalafmt
+    scala)
+        if command -v scalafmt &>/dev/null; then
+            scalafmt --non-interactive "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # C# - dotnet format
+    cs)
+        if command -v dotnet &>/dev/null; then
+            dotnet format "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # R - styler
+    r|R)
+        if command -v Rscript &>/dev/null; then
+            Rscript -e "styler::style_file('$FILE')" 2>/dev/null || true
+        fi
+        ;;
+
+    # Fortran - fprettify
+    f|f90|f95|f03|f08)
+        if command -v fprettify &>/dev/null; then
+            fprettify "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # Pascal - ptop
+    pas|dpr|pp)
+        if command -v ptop &>/dev/null; then
+            ptop -i 2 "$FILE" "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # Visual Basic .NET - dotnet format
+    vb)
+        if command -v dotnet &>/dev/null; then
+            dotnet format "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # Ada - gnatpp
+    adb|ads)
+        if command -v gnatpp &>/dev/null; then
+            gnatpp "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # Perl - perltidy
+    pl|pm)
+        if command -v perltidy &>/dev/null; then
+            perltidy -b "$FILE" 2>/dev/null || true
+        fi
+        ;;
 esac
 
 exit 0

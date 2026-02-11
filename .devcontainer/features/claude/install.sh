@@ -40,7 +40,7 @@ mkdir -p "$TARGET/.claude/scripts"
 # 3. Télécharger les commandes
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Downloading commands..."
-for cmd in git search; do
+for cmd in git search prompt; do
     curl -sL "$BASE/.claude/commands/$cmd.md" -o "$TARGET/.claude/commands/$cmd.md" 2>/dev/null && echo "  ✓ /$cmd"
 done
 
@@ -49,7 +49,7 @@ done
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Downloading scripts..."
 download_failed=0
-for script in format imports lint post-edit pre-validate security test bash-validate commit-validate post-compact; do
+for script in format imports lint post-edit pre-validate security test bash-validate commit-validate post-compact on-stop notification session-init; do
     script_tmp="$(mktemp)"
     if curl -fsL --retry 2 "$BASE/.claude/scripts/$script.sh" -o "$script_tmp" 2>/dev/null; then
         install -m 0755 "$script_tmp" "$TARGET/.claude/scripts/$script.sh"
@@ -182,6 +182,7 @@ echo ""
 echo "  Commandes disponibles:"
 echo "    /git     - Workflow git (commit, branch, PR)"
 echo "    /search  - Recherche documentation"
+echo "    /prompt  - Write better /plan descriptions"
 echo ""
 echo "  Native Claude 2.x features:"
 echo "    EnterPlanMode - Planification intégrée"

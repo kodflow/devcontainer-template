@@ -244,6 +244,73 @@ case "$EXT" in
             buf lint "$FILE" 2>/dev/null || true
         fi
         ;;
+
+    # Scala - scalafix or scalac -Xlint
+    scala)
+        if command -v scalafix &>/dev/null; then
+            scalafix "$FILE" 2>/dev/null || true
+        elif command -v scalac &>/dev/null; then
+            scalac -Xlint "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # C# - dotnet build with warnings as errors
+    cs)
+        if command -v dotnet &>/dev/null; then
+            dotnet build /warnaserror 2>/dev/null || true
+        fi
+        ;;
+
+    # R - lintr
+    r|R)
+        if command -v Rscript &>/dev/null; then
+            Rscript -e "lintr::lint('$FILE')" 2>/dev/null || true
+        fi
+        ;;
+
+    # Fortran - gfortran warnings
+    f|f90|f95|f03|f08)
+        if command -v gfortran &>/dev/null; then
+            gfortran -Wall -Wextra -fsyntax-only "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # COBOL - cobc warnings
+    cob|cbl)
+        if command -v cobc &>/dev/null; then
+            cobc -Wall -fsyntax-only "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # Pascal - fpc syntax check
+    pas|dpr|pp)
+        if command -v fpc &>/dev/null; then
+            fpc -Se "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # Visual Basic .NET - dotnet build with warnings
+    vb)
+        if command -v dotnet &>/dev/null; then
+            dotnet build /warnaserror 2>/dev/null || true
+        fi
+        ;;
+
+    # Ada - gnat check
+    adb|ads)
+        if command -v gcc &>/dev/null; then
+            gcc -c -gnatwa "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # Perl - perlcritic or syntax check
+    pl|pm)
+        if command -v perlcritic &>/dev/null; then
+            perlcritic "$FILE" 2>/dev/null || true
+        elif command -v perl &>/dev/null; then
+            perl -cw "$FILE" 2>/dev/null || true
+        fi
+        ;;
 esac
 
 exit 0

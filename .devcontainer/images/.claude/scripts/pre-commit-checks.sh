@@ -89,6 +89,56 @@ detect_languages() {
     if [[ -f "$workspace/meson.build" ]]; then
         DETECTED_LANGUAGES["cpp-meson"]=1
     fi
+
+    # C# (.NET)
+    if compgen -G "$workspace/*.csproj" > /dev/null 2>&1 || compgen -G "$workspace/*.sln" > /dev/null 2>&1; then
+        DETECTED_LANGUAGES["csharp"]=1
+    fi
+
+    # Swift
+    if [[ -f "$workspace/Package.swift" ]]; then
+        DETECTED_LANGUAGES["swift"]=1
+    fi
+
+    # R
+    if [[ -f "$workspace/DESCRIPTION" ]] && grep -q "Package:" "$workspace/DESCRIPTION" 2>/dev/null; then
+        DETECTED_LANGUAGES["r"]=1
+    fi
+
+    # Perl
+    if [[ -f "$workspace/cpanfile" ]] || [[ -f "$workspace/Makefile.PL" ]] || [[ -f "$workspace/dist.ini" ]]; then
+        DETECTED_LANGUAGES["perl"]=1
+    fi
+
+    # Lua
+    if compgen -G "$workspace/*.rockspec" > /dev/null 2>&1 || [[ -f "$workspace/.luacheckrc" ]]; then
+        DETECTED_LANGUAGES["lua"]=1
+    fi
+
+    # Fortran
+    if [[ -f "$workspace/fpm.toml" ]]; then
+        DETECTED_LANGUAGES["fortran"]=1
+    fi
+
+    # Ada
+    if [[ -f "$workspace/alire.toml" ]] || compgen -G "$workspace/*.gpr" > /dev/null 2>&1; then
+        DETECTED_LANGUAGES["ada"]=1
+    fi
+
+    # COBOL
+    if compgen -G "$workspace/*.cob" > /dev/null 2>&1 || compgen -G "$workspace/*.cbl" > /dev/null 2>&1; then
+        DETECTED_LANGUAGES["cobol"]=1
+    fi
+
+    # Pascal
+    if compgen -G "$workspace/*.lpi" > /dev/null 2>&1 || compgen -G "$workspace/*.dproj" > /dev/null 2>&1 || compgen -G "$workspace/*.lpr" > /dev/null 2>&1; then
+        DETECTED_LANGUAGES["pascal"]=1
+    fi
+
+    # VB.NET
+    if compgen -G "$workspace/*.vbproj" > /dev/null 2>&1; then
+        DETECTED_LANGUAGES["vbnet"]=1
+    fi
 }
 
 # ============================================================================
@@ -419,6 +469,186 @@ check_cpp_meson() {
     return $failed
 }
 
+check_csharp() {
+    echo ""
+    echo -e "${CYAN}--- C# (.NET) Checks ---${NC}"
+    local failed=0
+
+    if has_make_target "lint"; then
+        run_check_verbose "C# lint (make)" "make lint" || failed=1
+    elif command -v dotnet &> /dev/null; then
+        run_check_verbose "C# build (warnings as errors)" "dotnet build /warnaserror" || failed=1
+    else
+        echo -e "${YELLOW}[SKIP]${NC} C# lint (dotnet not found)"
+    fi
+
+    if has_make_target "test"; then
+        run_check_verbose "C# tests (make)" "make test" || failed=1
+    elif command -v dotnet &> /dev/null; then
+        run_check_verbose "C# tests" "dotnet test" || failed=1
+    fi
+
+    return $failed
+}
+
+check_swift() {
+    echo ""
+    echo -e "${CYAN}--- Swift Checks ---${NC}"
+    local failed=0
+
+    if has_make_target "lint"; then
+        run_check_verbose "Swift lint (make)" "make lint" || failed=1
+    elif command -v swiftlint &> /dev/null; then
+        run_check_verbose "Swift lint (swiftlint)" "swiftlint lint" || failed=1
+    else
+        echo -e "${YELLOW}[SKIP]${NC} Swift lint (swiftlint not found)"
+    fi
+
+    if command -v swift &> /dev/null && [[ -f "Package.swift" ]]; then
+        run_check_verbose "Swift build" "swift build" || failed=1
+        run_check_verbose "Swift tests" "swift test" || failed=1
+    fi
+
+    return $failed
+}
+
+check_r() {
+    echo ""
+    echo -e "${CYAN}--- R Checks ---${NC}"
+    local failed=0
+
+    if command -v Rscript &> /dev/null; then
+        run_check_verbose "R lint (lintr)" "Rscript -e \"lintr::lint_dir('R')\"" || failed=1
+        if [[ -d "tests" ]]; then
+            run_check_verbose "R tests (testthat)" "Rscript -e \"testthat::test_dir('tests')\"" || failed=1
+        fi
+    else
+        echo -e "${YELLOW}[SKIP]${NC} R (Rscript not found)"
+    fi
+
+    return $failed
+}
+
+check_perl() {
+    echo ""
+    echo -e "${CYAN}--- Perl Checks ---${NC}"
+    local failed=0
+
+    if command -v perlcritic &> /dev/null; then
+        run_check_verbose "Perl lint (perlcritic)" "perlcritic --severity 4 lib/" || failed=1
+    elif command -v perl &> /dev/null; then
+        run_check_verbose "Perl syntax" "perl -cw lib/*.pl 2>&1" || failed=1
+    else
+        echo -e "${YELLOW}[SKIP]${NC} Perl lint (perlcritic not found)"
+    fi
+
+    if command -v prove &> /dev/null && [[ -d "t" ]]; then
+        run_check_verbose "Perl tests (prove)" "prove -l t/" || failed=1
+    fi
+
+    return $failed
+}
+
+check_lua() {
+    echo ""
+    echo -e "${CYAN}--- Lua Checks ---${NC}"
+    local failed=0
+
+    if command -v luacheck &> /dev/null; then
+        run_check_verbose "Lua lint (luacheck)" "luacheck ." || failed=1
+    else
+        echo -e "${YELLOW}[SKIP]${NC} Lua lint (luacheck not found)"
+    fi
+
+    if command -v busted &> /dev/null; then
+        run_check_verbose "Lua tests (busted)" "busted" || failed=1
+    fi
+
+    return $failed
+}
+
+check_fortran() {
+    echo ""
+    echo -e "${CYAN}--- Fortran Checks ---${NC}"
+    local failed=0
+
+    if command -v gfortran &> /dev/null; then
+        run_check_verbose "Fortran syntax" "gfortran -Wall -Wextra -fsyntax-only src/*.f90 2>&1" || failed=1
+    else
+        echo -e "${YELLOW}[SKIP]${NC} Fortran (gfortran not found)"
+    fi
+
+    if command -v fpm &> /dev/null && [[ -f "fpm.toml" ]]; then
+        run_check_verbose "Fortran build (fpm)" "fpm build" || failed=1
+        run_check_verbose "Fortran tests (fpm)" "fpm test" || failed=1
+    fi
+
+    return $failed
+}
+
+check_ada() {
+    echo ""
+    echo -e "${CYAN}--- Ada Checks ---${NC}"
+    local failed=0
+
+    if command -v alr &> /dev/null && [[ -f "alire.toml" ]]; then
+        run_check_verbose "Ada build (alire)" "alr build" || failed=1
+    elif command -v gprbuild &> /dev/null; then
+        run_check_verbose "Ada build (gprbuild)" "gprbuild -P *.gpr" || failed=1
+    elif command -v gnatmake &> /dev/null; then
+        echo -e "${YELLOW}[SKIP]${NC} Ada build (no project file found)"
+    else
+        echo -e "${YELLOW}[SKIP]${NC} Ada (gnat not found)"
+    fi
+
+    return $failed
+}
+
+check_cobol() {
+    echo ""
+    echo -e "${CYAN}--- COBOL Checks ---${NC}"
+    local failed=0
+
+    if command -v cobc &> /dev/null; then
+        run_check_verbose "COBOL syntax" "cobc -fsyntax-only *.cob *.cbl 2>/dev/null" || failed=1
+    else
+        echo -e "${YELLOW}[SKIP]${NC} COBOL (cobc not found)"
+    fi
+
+    return $failed
+}
+
+check_pascal() {
+    echo ""
+    echo -e "${CYAN}--- Pascal Checks ---${NC}"
+    local failed=0
+
+    if command -v lazbuild &> /dev/null && compgen -G "*.lpi" > /dev/null 2>&1; then
+        run_check_verbose "Pascal build (lazbuild)" "lazbuild *.lpi" || failed=1
+    elif command -v fpc &> /dev/null; then
+        run_check_verbose "Pascal syntax" "fpc -Se *.pas 2>&1" || failed=1
+    else
+        echo -e "${YELLOW}[SKIP]${NC} Pascal (fpc not found)"
+    fi
+
+    return $failed
+}
+
+check_vbnet() {
+    echo ""
+    echo -e "${CYAN}--- VB.NET Checks ---${NC}"
+    local failed=0
+
+    if command -v dotnet &> /dev/null; then
+        run_check_verbose "VB.NET build" "dotnet build /warnaserror" || failed=1
+        run_check_verbose "VB.NET tests" "dotnet test" || failed=1
+    else
+        echo -e "${YELLOW}[SKIP]${NC} VB.NET (dotnet not found)"
+    fi
+
+    return $failed
+}
+
 # ============================================================================
 # Main Execution
 # ============================================================================
@@ -440,7 +670,9 @@ main() {
         echo -e "${YELLOW}No supported languages detected.${NC}"
         echo "Supported dependency files: go.mod, Cargo.toml, package.json,"
         echo "pyproject.toml, Gemfile, pom.xml, build.gradle, mix.exs,"
-        echo "composer.json, pubspec.yaml, build.sbt, CMakeLists.txt, meson.build"
+        echo "composer.json, pubspec.yaml, build.sbt, CMakeLists.txt, meson.build,"
+        echo "*.csproj, Package.swift, DESCRIPTION (R), cpanfile, *.rockspec,"
+        echo "fpm.toml, alire.toml, *.cob, *.lpi, *.vbproj"
         echo ""
         exit 0
     fi
@@ -464,6 +696,16 @@ main() {
             scala)        check_scala || ((total_failed++)) ;;
             cpp-cmake)    check_cpp_cmake || ((total_failed++)) ;;
             cpp-meson)    check_cpp_meson || ((total_failed++)) ;;
+            csharp)       check_csharp || ((total_failed++)) ;;
+            swift)        check_swift || ((total_failed++)) ;;
+            r)            check_r || ((total_failed++)) ;;
+            perl)         check_perl || ((total_failed++)) ;;
+            lua)          check_lua || ((total_failed++)) ;;
+            fortran)      check_fortran || ((total_failed++)) ;;
+            ada)          check_ada || ((total_failed++)) ;;
+            cobol)        check_cobol || ((total_failed++)) ;;
+            pascal)       check_pascal || ((total_failed++)) ;;
+            vbnet)        check_vbnet || ((total_failed++)) ;;
         esac
     done
 

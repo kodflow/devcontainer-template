@@ -161,6 +161,69 @@ case "$EXT" in
             gcc -std=c23 -fsyntax-only -Werror "$FILE" 2>/dev/null || true
         fi
         ;;
+
+    # C# - dotnet build (type checking)
+    cs)
+        if command -v dotnet &>/dev/null; then
+            dotnet build --no-restore 2>/dev/null || true
+        fi
+        ;;
+
+    # Kotlin - kotlinc progressive check
+    kt|kts)
+        if command -v kotlinc &>/dev/null; then
+            kotlinc -progressive -Werror "$FILE" -d /tmp 2>/dev/null || true
+        fi
+        ;;
+
+    # Swift - swiftc typecheck
+    swift)
+        if command -v swiftc &>/dev/null; then
+            swiftc -typecheck "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # Perl - syntax check
+    pl|pm)
+        if command -v perl &>/dev/null; then
+            perl -c "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # Fortran - syntax check
+    f|f90|f95|f03|f08)
+        if command -v gfortran &>/dev/null; then
+            gfortran -fsyntax-only "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # COBOL - syntax check
+    cob|cbl)
+        if command -v cobc &>/dev/null; then
+            cobc -fsyntax-only "$FILE" 2>/dev/null || true
+        fi
+        ;;
+
+    # Pascal - syntax + type check
+    pas|dpr|pp)
+        if command -v fpc &>/dev/null; then
+            fpc -Sew "$FILE" -o/dev/null 2>/dev/null || true
+        fi
+        ;;
+
+    # Visual Basic .NET - dotnet build
+    vb)
+        if command -v dotnet &>/dev/null; then
+            dotnet build --no-restore 2>/dev/null || true
+        fi
+        ;;
+
+    # Ada - gnat compile check
+    adb|ads)
+        if command -v gcc &>/dev/null; then
+            gcc -c -gnatc "$FILE" 2>/dev/null || true
+        fi
+        ;;
 esac
 
 exit 0

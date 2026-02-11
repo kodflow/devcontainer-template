@@ -1,0 +1,67 @@
+#!/bin/bash
+set -e
+
+echo "========================================="
+echo "Installing Ada Development Environment"
+echo "========================================="
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# Detect architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64)  ALR_ARCH="x86_64" ;;
+    aarch64) ALR_ARCH="aarch64" ;;
+    *)
+        echo -e "${RED}Unsupported architecture: $ARCH${NC}"
+        exit 1
+        ;;
+esac
+
+# Install GNAT and GPRbuild
+echo -e "${YELLOW}Installing GNAT and GPRbuild...${NC}"
+sudo apt-get update && sudo apt-get install -y \
+    gnat \
+    gprbuild \
+    curl \
+    unzip
+
+GNAT_VERSION=$(gnat --version | head -n 1)
+GPRBUILD_VERSION=$(gprbuild --version | head -n 1)
+echo -e "${GREEN}✓ ${GNAT_VERSION} installed${NC}"
+echo -e "${GREEN}✓ ${GPRBUILD_VERSION} installed${NC}"
+
+# Install Alire (alr) from GitHub releases
+echo -e "${YELLOW}Installing Alire (package manager)...${NC}"
+ALR_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
+    "https://api.github.com/repos/alire-project/alire/releases/latest" \
+    | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+ALR_VERSION="${ALR_VERSION:-2.1.0}"
+
+ALR_URL="https://github.com/alire-project/alire/releases/download/v${ALR_VERSION}/alr-${ALR_VERSION}-bin-${ALR_ARCH}-linux.zip"
+if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/alr.zip "$ALR_URL"; then
+    sudo unzip -o /tmp/alr.zip -d /tmp/alr-extract
+    sudo mv /tmp/alr-extract/bin/alr /usr/local/bin/alr
+    sudo chmod +x /usr/local/bin/alr
+    rm -rf /tmp/alr.zip /tmp/alr-extract
+    echo -e "${GREEN}✓ Alire ${ALR_VERSION} installed${NC}"
+else
+    echo -e "${YELLOW}⚠ Alire download failed${NC}"
+fi
+
+echo ""
+echo -e "${GREEN}=========================================${NC}"
+echo -e "${GREEN}Ada environment installed successfully!${NC}"
+echo -e "${GREEN}=========================================${NC}"
+echo ""
+echo "Installed components:"
+echo "  - ${GNAT_VERSION}"
+echo "  - ${GPRBUILD_VERSION}"
+echo ""
+echo "Development tools:"
+echo "  - Alire (package manager)"
+echo ""

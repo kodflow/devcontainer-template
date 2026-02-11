@@ -120,6 +120,7 @@ Configured in `mcp.json.tpl`:
 | `/infra` | Infrastructure automation (Terraform/Terragrunt) |
 | `/secret` | Secure secret management (1Password + Vault-like paths) |
 | `/improve` | Continuous docs enhancement & anti-pattern detection |
+| `/prompt` | Generate ideal prompt structure for /plan |
 
 ## Hooks
 
@@ -130,7 +131,10 @@ Configured in `mcp.json.tpl`:
 | `pre-validate.sh` | PreToolUse (Write/Edit) | Protect sensitive files |
 | `post-edit.sh` | PostToolUse (Write/Edit) | Format + Lint + Typecheck |
 | `test.sh` | PostToolUse (Write/Edit) | Run related tests |
-| `post-compact.sh` | SessionStart (compact) | Restore RLM context rules
+| `session-init.sh` | SessionStart (all) | Cache git metadata as env vars |
+| `post-compact.sh` | SessionStart (compact) | Restore RLM context rules |
+| `on-stop.sh` | Stop (*) | Terminal bell + session summary |
+| `notification.sh` | Notification (*) | Terminal bell + notification log
 
 **Makefile-first pattern:** All scripts (format, lint, typecheck, test) check for Makefile targets first:
 - `make fmt FILE=<path>` or `make format FILE=<path>`

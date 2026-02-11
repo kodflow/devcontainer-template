@@ -8,18 +8,31 @@ Language-specific installation scripts. Conventions handled by specialist agents
 
 | Language | Version | Agent |
 |----------|---------|-------|
-| Go | >= 1.25.0 | `developer-specialist-go` |
-| Node.js | >= 25.0.0 | `developer-specialist-nodejs` |
 | Python | >= 3.14.0 | `developer-specialist-python` |
-| Rust | >= 1.92.0 | `developer-specialist-rust` |
-| Elixir | >= 1.19.0 | `developer-specialist-elixir` |
+| C | C23 | `developer-specialist-c` |
+| C++ | C++23 | `developer-specialist-cpp` |
 | Java | >= 25 | `developer-specialist-java` |
+| C# | .NET 9+ / C# 13+ | `developer-specialist-csharp` |
+| Node.js | >= 25.0.0 | `developer-specialist-nodejs` |
+| VB.NET | .NET 9+ | `developer-specialist-vbnet` |
+| R | >= 4.5.0 | `developer-specialist-r` |
+| Pascal | FPC 3.2+ | `developer-specialist-pascal` |
+| Perl | >= 5.40.0 | `developer-specialist-perl` |
+| Fortran | Fortran 2023 | `developer-specialist-fortran` |
 | PHP | >= 8.5.0 | `developer-specialist-php` |
+| Rust | >= 1.92.0 | `developer-specialist-rust` |
+| Go | >= 1.25.0 | `developer-specialist-go` |
+| Ada | Ada 2022 | `developer-specialist-ada` |
+| MATLAB/Octave | Octave 9+ | `developer-specialist-matlab` |
+| Assembly | NASM 2.16+ | `developer-specialist-assembly` |
+| Kotlin | >= 2.2.0 | `developer-specialist-kotlin` |
+| Swift | >= 6.2.0 | `developer-specialist-swift` |
+| COBOL | GnuCOBOL 3.2+ | `developer-specialist-cobol` |
 | Ruby | >= 4.0.0 | `developer-specialist-ruby` |
-| Scala | >= 3.7.0 | `developer-specialist-scala` |
 | Dart/Flutter | >= 3.10/3.38 | `developer-specialist-dart` |
-| C++ | >= C++23 | `developer-specialist-cpp` |
-| Carbon | >= 0.1.0 | `developer-specialist-carbon` |
+| Lua | >= 5.4.0 | `developer-specialist-lua` |
+| Scala | >= 3.7.0 | `developer-specialist-scala` |
+| Elixir | >= 1.19.0 | `developer-specialist-elixir` |
 
 ## Per-Language Structure
 
