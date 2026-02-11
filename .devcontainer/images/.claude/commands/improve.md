@@ -21,9 +21,9 @@ Amélioration continue automatique. Détecte le contexte et agit.
 │  kodflow/devcontainer-template│  Autre projet                       │
 │  ══════════════════════════════│══════════════════════════════════  │
 │                               │                                      │
-│  → Améliorer .claude/docs/    │  → Analyser le code                 │
+│  → Améliorer ~/.claude/docs/    │  → Analyser le code                 │
 │    ├─ MAJ best practices      │    ├─ Détecter anti-patterns        │
-│    ├─ Corriger incohérences   │    ├─ Comparer avec .claude/docs/   │
+│    ├─ Corriger incohérences   │    ├─ Comparer avec ~/.claude/docs/   │
 │    ├─ Affiner exemples        │    ├─ Trouver bonnes pratiques      │
 │    └─ WebSearch validations   │    └─ Créer issues sur template     │
 │                               │                                      │
@@ -44,7 +44,7 @@ detection:
   rules:
     - if: "contains 'kodflow/devcontainer-template'"
       mode: "DOCS_IMPROVEMENT"
-      scope: ".claude/docs/**/*.md"
+      scope: "~/.claude/docs/**/*.md"
       action: "Améliorer la documentation patterns"
 
     - else:
@@ -61,7 +61,7 @@ detection:
 ```yaml
 inventory:
   mode_docs:
-    action: Glob(".claude/docs/**/*.md")
+    action: Glob("~/.claude/docs/**/*.md")
     group_by: category (principles, creational, behavioral, etc.)
 
   mode_antipattern:
@@ -111,7 +111,7 @@ parallel_execution:
   mode_antipattern:
     prompt_per_file: |
       FICHIER: {path}
-      RÉFÉRENCE: .claude/docs/
+      RÉFÉRENCE: ~/.claude/docs/
 
       TÂCHES:
       1. Lire le code
@@ -238,7 +238,7 @@ report:
 
 ---
 
-## Catégories patterns (.claude/docs/)
+## Catégories patterns (~/.claude/docs/)
 
 | Catégorie | Scope |
 |-----------|-------|

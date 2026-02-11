@@ -204,7 +204,7 @@ parallel_exploration:
     - task: "patterns-consultant"
       type: "Explore"
       prompt: |
-        Consult .claude/docs/ for: {description}
+        Consult ~/.claude/docs/ for: {description}
         Find: applicable design patterns
         Return: {patterns[], references[]}
 ```
@@ -215,7 +215,7 @@ parallel_exploration:
 
 ## Phase 3.5 : Pattern Consultation (OBLIGATOIRE)
 
-**Consulter `.claude/docs/` pour les patterns :**
+**Consulter `~/.claude/docs/` pour les patterns :**
 
 ```yaml
 pattern_consultation:
@@ -229,7 +229,7 @@ pattern_consultation:
       - "Sécurité?" → security/README.md
 
   2_read_patterns:
-    action: "Read(.claude/docs/<category>/README.md)"
+    action: "Read(~/.claude/docs/<category>/README.md)"
     output: "2-3 patterns applicables"
 
   3_integrate:
@@ -249,9 +249,9 @@ pattern_consultation:
     ✓ Middleware (Enterprise) - Pour auth chain
 
   Références consultées:
-    → .claude/docs/ddd/README.md
-    → .claude/docs/creational/README.md
-    → .claude/docs/enterprise/README.md
+    → ~/.claude/docs/ddd/README.md
+    → ~/.claude/docs/creational/README.md
+    → ~/.claude/docs/enterprise/README.md
 
 ═══════════════════════════════════════════════════════════════
 ```
@@ -286,8 +286,8 @@ synthesize_workflow:
 
 | Pattern | Category | Justification | Reference |
 |---------|----------|---------------|-----------|
-| Repository | DDD | Data access abstraction | .claude/docs/ddd/README.md |
-| Factory | Creational | Token creation | .claude/docs/creational/README.md |
+| Repository | DDD | Data access abstraction | ~/.claude/docs/ddd/README.md |
+| Factory | Creational | Token creation | ~/.claude/docs/creational/README.md |
 
 ## Prerequisites
 - [ ] <Dépendance ou setup requis>
@@ -413,7 +413,7 @@ dto_reminder:
         Email string `dto:"in,api,pii" json:"email"`
     }
     ```
-    Ref: `.claude/docs/conventions/dto-tags.md`
+    Ref: `~/.claude/docs/conventions/dto-tags.md`
 ```
 
 ---

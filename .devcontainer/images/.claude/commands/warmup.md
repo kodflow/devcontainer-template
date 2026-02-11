@@ -258,7 +258,7 @@ parallel_analysis:
 
     - task: "docs-analyzer"
       type: "Explore"
-      scope: ".claude/docs/"
+      scope: "~/.claude/docs/"
       prompt: |
         Analyser la base de connaissances:
         - Catégories de patterns disponibles
@@ -826,6 +826,6 @@ grepai_config_update:
 | Progressive Disclosure | DevOps | Détail croissant par profondeur |
 
 **Références :**
-- `.claude/docs/cloud/cache-aside.md`
-- `.claude/docs/performance/lazy-load.md`
-- `.claude/docs/devops/feature-toggles.md`
+- `~/.claude/docs/cloud/cache-aside.md`
+- `~/.claude/docs/performance/lazy-load.md`
+- `~/.claude/docs/devops/feature-toggles.md`

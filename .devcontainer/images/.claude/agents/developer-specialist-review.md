@@ -172,7 +172,7 @@ parallel_dispatch:
 
       Repo profile: {repo_profile}
       Diff context: {diff_snippet}
-      Consult: .claude/docs/ for patterns
+      Consult: ~/.claude/docs/ for patterns
 
       Check: antipatterns, DDD, layering, SOLID
 
