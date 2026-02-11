@@ -26,6 +26,8 @@ DevContainer lifecycle scripts executed at specific container events.
 ## Conventions
 
 - All scripts must be executable (`chmod +x`)
-- Use bash strict mode: `set -euo pipefail`
+- Use `set -u` (not `set -euo pipefail`) to prevent undefined variable use without killing the script on errors
 - Source `../shared/utils.sh` for common functions
-- Exit 0 on success, non-zero on failure
+- Use `run_step "name" function` pattern to isolate each operation in a subshell
+- Each step tracks PASS/FAIL independently; script always exits 0
+- Call `print_step_summary "label"` at the end to display results

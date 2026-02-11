@@ -31,5 +31,7 @@ hooks/
 ## Conventions
 
 - Scripts must be executable (chmod +x)
-- Use bash strict mode (set -euo pipefail)
-- Log to stderr, results to stdout
+- Use `set -u` (not `set -euo pipefail`) — prevents undefined vars without killing script on errors
+- Use `run_step` pattern from `shared/utils.sh` to isolate each operation
+- Each step runs in a subshell; failures are logged but never block container startup
+- Call `print_step_summary` at end for PASS/FAIL report
