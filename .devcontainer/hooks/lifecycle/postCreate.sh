@@ -6,9 +6,13 @@
 # This script runs once after the dev container is assigned to a user.
 # Use it for: User-specific setup, environment variables, shell config.
 # Has access to user-specific secrets and permissions.
+#
+# Uses run_step pattern: each step runs in an isolated subshell so that
+# failures (e.g. unconfigured git email, missing GPG keys) never kill
+# the entire script. The container always starts successfully.
 # ============================================================================
 
-set -euo pipefail
+set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../shared/utils.sh"
@@ -19,75 +23,70 @@ echo -e "${CYAN}   DevContainer Setup${NC}"
 echo -e "${CYAN}=========================================${NC}"
 echo ""
 
+init_steps
+
 # ============================================================================
-# Git Safe Directory Configuration (ALWAYS run, even if already initialized)
+# Step functions
 # ============================================================================
+
 # Prevents "dubious ownership" errors when container user differs from
 # directory owner (common in Docker where /workspace may be owned by root)
-if ! git config --global --get-all safe.directory | grep -q "^/workspace$"; then
-    git config --global --add safe.directory /workspace
-    log_success "Git safe.directory configured for /workspace"
-else
-    log_info "Git safe.directory already configured"
-fi
-
-# ============================================================================
-# Git SSL and GPG Configuration
-# ============================================================================
+step_git_safe_directory() {
+    if ! git config --global --get-all safe.directory 2>/dev/null | grep -q "^/workspace$"; then
+        git config --global --add safe.directory /workspace
+        log_success "Git safe.directory configured for /workspace"
+    else
+        log_info "Git safe.directory already configured"
+    fi
+}
 
 # Disable SSL verification (for corporate proxies/self-signed certs)
-git config --global http.sslVerify false
-log_success "Git SSL verification disabled"
+step_git_ssl_config() {
+    git config --global http.sslVerify false
+    log_success "Git SSL verification disabled"
+}
 
 # GPG commit signing configuration
-if [ -d "/home/vscode/.gnupg" ] && [ -n "$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null)" ]; then
-    # Get GIT_EMAIL from .env or git config
-    GIT_EMAIL=""
-    if [ -f "/workspace/.env" ]; then
-        GIT_EMAIL=$(grep -E "^GIT_EMAIL=" /workspace/.env 2>/dev/null | cut -d'=' -f2 | tr -d '"')
-    fi
-    if [ -z "$GIT_EMAIL" ]; then
-        GIT_EMAIL=$(git config --global user.email 2>/dev/null || true)
+step_gpg_signing() {
+    if [ ! -d "/home/vscode/.gnupg" ] || [ -z "$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null)" ]; then
+        log_info "No GPG keys available - commit signing disabled"
+        return 0
     fi
 
-    GPG_KEY=""
-    if [ -n "$GIT_EMAIL" ]; then
+    # Get GIT_EMAIL from .env or git config
+    local git_email=""
+    if [ -f "/workspace/.env" ]; then
+        git_email=$(grep -E "^GIT_EMAIL=" /workspace/.env 2>/dev/null | cut -d'=' -f2 | tr -d '"' || true)
+    fi
+    if [ -z "$git_email" ]; then
+        git_email=$(git config --global user.email 2>/dev/null || true)
+    fi
+
+    local gpg_key=""
+    if [ -n "$git_email" ]; then
         # Priority: Find GPG key matching the configured GIT_EMAIL
-        # Note: || true prevents pipefail from failing the entire script when grep finds no match
-        GPG_KEY=$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null | \
-            grep -B1 "$GIT_EMAIL" 2>/dev/null | \
+        gpg_key=$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null | \
+            grep -B1 "$git_email" 2>/dev/null | \
             grep -E "^sec" 2>/dev/null | head -1 | awk '{print $2}' | cut -d'/' -f2 || true)
     fi
 
-    if [ -n "$GPG_KEY" ]; then
-        git config --global user.signingkey "$GPG_KEY"
+    if [ -n "$gpg_key" ]; then
+        git config --global user.signingkey "$gpg_key"
         git config --global commit.gpgsign true
         git config --global tag.forceSignAnnotated true
         git config --global gpg.program gpg
-        log_success "Git GPG signing configured with key: $GPG_KEY (matching $GIT_EMAIL)"
+        log_success "Git GPG signing configured with key: $gpg_key (matching $git_email)"
     else
         # No matching key found - GPG signing will be configured via /git skill
-        log_warning "No GPG key found for email '$GIT_EMAIL' - configure via /git skill"
+        log_warning "No GPG key found for email '$git_email' - configure via /git skill"
     fi
-else
-    log_info "No GPG keys available - commit signing disabled"
-fi
+}
 
-# Note: Tools (status-line, ktn-linter) are now baked into the Docker image
-# No longer need to update on each rebuild
+# Create environment initialization script (~/.devcontainer-env.sh)
+step_create_env_script() {
+    log_info "Setting up environment variables and aliases..."
 
-# Check if already initialized (but only if env file also exists)
-# If ~/.devcontainer-env.sh is missing, we must recreate it even if marker exists
-if [ -f /home/vscode/.devcontainer-initialized ] && [ -f /home/vscode/.devcontainer-env.sh ]; then
-    log_success "DevContainer already initialized"
-    echo ""
-    exit 0
-fi
-
-log_info "Setting up environment variables and aliases..."
-
-# Create environment initialization script
-cat > /home/vscode/.devcontainer-env.sh << 'ENVEOF'
+    cat > /home/vscode/.devcontainer-env.sh << 'ENVEOF'
 # DevContainer Environment Initialization (v2 - two-phase)
 # This file is sourced by ~/.zshrc and ~/.bashrc
 #
@@ -306,15 +305,38 @@ if command -v gh &> /dev/null; then
 fi
 ENVEOF
 
-log_success "Environment script created at ~/.devcontainer-env.sh"
+    log_success "Environment script created at ~/.devcontainer-env.sh"
+}
 
-# Mark as initialized
-touch /home/vscode/.devcontainer-initialized
+# Mark container as initialized
+step_mark_initialized() {
+    touch /home/vscode/.devcontainer-initialized
+    log_success "DevContainer marked as initialized"
+}
 
-echo ""
-echo -e "${CYAN}=========================================${NC}"
-echo -e "${CYAN}   postCreate Complete${NC}"
-echo -e "${CYAN}=========================================${NC}"
-echo ""
+# ============================================================================
+# Execution (always runs git steps, skips env if already initialized)
+# ============================================================================
+
+# Git steps run every time (safe directory, SSL, GPG)
+run_step "Git safe directory"    step_git_safe_directory
+run_step "Git SSL configuration" step_git_ssl_config
+run_step "GPG signing"           step_gpg_signing
+
+# Note: Tools (status-line, ktn-linter) are now baked into the Docker image
+# No longer need to update on each rebuild
+
+# Check if already initialized (but only if env file also exists)
+# If ~/.devcontainer-env.sh is missing, we must recreate it even if marker exists
+if [ -f /home/vscode/.devcontainer-initialized ] && [ -f /home/vscode/.devcontainer-env.sh ]; then
+    log_success "DevContainer already initialized"
+    echo ""
+    exit 0
+fi
+
+run_step "Environment script"    step_create_env_script
+run_step "Mark initialized"      step_mark_initialized
+
+print_step_summary "postCreate"
 
 exit 0
