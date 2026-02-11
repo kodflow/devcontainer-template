@@ -103,8 +103,10 @@ verify_checksum() {
 mkdir -p /home/vscode/.local/share/java
 
 # Download Google Java Format with checksum verification
-echo -e "${YELLOW}Installing Google Java Format...${NC}"
-GOOGLE_JAVA_FORMAT_VERSION="1.24.0"
+GOOGLE_JAVA_FORMAT_VERSION=$(curl -fsSL "https://api.github.com/repos/google/google-java-format/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+GOOGLE_JAVA_FORMAT_VERSION="${GOOGLE_JAVA_FORMAT_VERSION#v}"
+GOOGLE_JAVA_FORMAT_VERSION="${GOOGLE_JAVA_FORMAT_VERSION:-1.24.0}"
+echo -e "${YELLOW}Installing Google Java Format ${GOOGLE_JAVA_FORMAT_VERSION}...${NC}"
 GOOGLE_JAVA_FORMAT_JAR="/home/vscode/.local/share/java/google-java-format.jar"
 # Note: No official SHA-256 published - compute from downloaded file and update when version changes
 # To get checksum: curl -fsSL <url> | sha256sum
@@ -130,8 +132,10 @@ fi
 
 # Download Checkstyle with checksum verification
 # Note: Checkstyle is distributed via Maven Central, GitHub releases redirect there
-echo -e "${YELLOW}Installing Checkstyle...${NC}"
-CHECKSTYLE_VERSION="10.21.2"
+CHECKSTYLE_TAG=$(curl -fsSL "https://api.github.com/repos/checkstyle/checkstyle/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+CHECKSTYLE_VERSION="${CHECKSTYLE_TAG#checkstyle-}"
+CHECKSTYLE_VERSION="${CHECKSTYLE_VERSION:-10.21.2}"
+echo -e "${YELLOW}Installing Checkstyle ${CHECKSTYLE_VERSION}...${NC}"
 CHECKSTYLE_JAR="/home/vscode/.local/share/java/checkstyle.jar"
 # Download from GitHub releases (official -all.jar with all dependencies)
 CHECKSTYLE_SHA256=""
@@ -153,23 +157,21 @@ else
     exit 1
 fi
 
-# Download SpotBugs with checksum verification
-echo -e "${YELLOW}Installing SpotBugs...${NC}"
-SPOTBUGS_VERSION="4.8.6"
+# Download SpotBugs (latest version, no checksum - mitigated by HTTPS)
+SPOTBUGS_VERSION=$(curl -fsSL "https://api.github.com/repos/spotbugs/spotbugs/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+SPOTBUGS_VERSION="${SPOTBUGS_VERSION:-4.8.6}"
+echo -e "${YELLOW}Installing SpotBugs ${SPOTBUGS_VERSION}...${NC}"
 SPOTBUGS_DIR="/home/vscode/.local/share/spotbugs"
 SPOTBUGS_TGZ="/tmp/spotbugs.tgz"
-# SHA-256 checksum from official GitHub release page
-# https://github.com/spotbugs/spotbugs/releases/tag/4.8.6
-SPOTBUGS_SHA256="b9d4d25e53cd4202b2dc19c549c0ff54f8a72fc76a71a8c40dee94422c67ebea"
 mkdir -p "$SPOTBUGS_DIR"
 curl -fsSL "https://github.com/spotbugs/spotbugs/releases/download/${SPOTBUGS_VERSION}/spotbugs-${SPOTBUGS_VERSION}.tgz" \
     -o "$SPOTBUGS_TGZ"
-if verify_checksum "$SPOTBUGS_TGZ" "$SPOTBUGS_SHA256" "SpotBugs"; then
+if [ -f "$SPOTBUGS_TGZ" ] && [ -s "$SPOTBUGS_TGZ" ]; then
     tar -xzf "$SPOTBUGS_TGZ" -C "$SPOTBUGS_DIR" --strip-components=1
-    echo -e "${GREEN}✓ SpotBugs installed${NC}"
+    echo -e "${GREEN}✓ SpotBugs ${SPOTBUGS_VERSION} installed${NC}"
     rm -f "$SPOTBUGS_TGZ"
 else
-    echo -e "${RED}✗ SpotBugs installation failed (checksum verification failed)${NC}"
+    echo -e "${RED}✗ SpotBugs download failed${NC}"
     rm -f "$SPOTBUGS_TGZ"
     exit 1
 fi

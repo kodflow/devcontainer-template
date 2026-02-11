@@ -446,18 +446,24 @@ download_tools() {
         local grepai_ext=""
         [ "$OS" = "windows" ] && grepai_ext=".exe"
 
-        local grepai_url="https://github.com/yoanbernabeu/grepai/releases/latest/download/grepai_${OS}_${ARCH}${grepai_ext}"
-        local grepai_tmp
+        local grepai_latest
+        grepai_latest=$(curl -fsSL "https://api.github.com/repos/yoanbernabeu/grepai/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+        grepai_latest="${grepai_latest:-v0.30.0}"
+        local grepai_url="https://github.com/yoanbernabeu/grepai/releases/download/${grepai_latest}/grepai_${grepai_latest#v}_${OS}_${ARCH}.tar.gz"
+        local grepai_tmp grepai_extract
         grepai_tmp=$(mktemp)
+        grepai_extract=$(mktemp -d)
 
-        if curl -fsL --retry 3 --proto '=https' --tlsv1.2 "$grepai_url" -o "$grepai_tmp" 2>/dev/null; then
-            install -m 0755 "$grepai_tmp" "$HOME_DIR/.local/bin/grepai${grepai_ext}"
+        if curl -fsL --retry 3 --proto '=https' --tlsv1.2 "$grepai_url" -o "$grepai_tmp" 2>/dev/null && \
+           tar -xzf "$grepai_tmp" -C "$grepai_extract" grepai 2>/dev/null; then
+            install -m 0755 "$grepai_extract/grepai" "$HOME_DIR/.local/bin/grepai${grepai_ext}"
             tool_count=$((tool_count + 1))
-            echo "  ✓ grepai installed"
+            echo "  ✓ grepai ${grepai_latest} installed"
         else
             echo "  ⚠ grepai download failed (optional)"
         fi
         rm -f "$grepai_tmp"
+        rm -rf "$grepai_extract"
     else
         echo "  ✓ grepai already installed"
     fi

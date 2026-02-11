@@ -117,13 +117,19 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 # =============================================================================
 # Kubernetes Tools (kubectl, Helm)
 # =============================================================================
-ARG KUBECTL_VERSION=1.35.0
-ARG HELM_VERSION=4.0.4
+# CACHE_BUST_DYNAMIC: Forces cache invalidation for dynamic installations.
+# Set to current date (YYYY-MM-DD) during scheduled builds to pull latest versions.
+# See: https://docs.docker.com/build/cache/invalidation/
+ARG CACHE_BUST_DYNAMIC=stable
 
 RUN ARCH_K8S=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
-    curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${ARCH_K8S}/kubectl" -o /usr/local/bin/kubectl && \
+    KUBECTL_LATEST=$(curl -fsSL "https://dl.k8s.io/release/stable.txt") && \
+    echo "Installing kubectl ${KUBECTL_LATEST}..." && \
+    curl -fsSL "https://dl.k8s.io/release/${KUBECTL_LATEST}/bin/linux/${ARCH_K8S}/kubectl" -o /usr/local/bin/kubectl && \
     chmod +x /usr/local/bin/kubectl && \
-    curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${ARCH_K8S}.tar.gz" | tar xz -C /tmp && \
+    HELM_LATEST=$(curl -fsSL "https://api.github.com/repos/helm/helm/releases/latest" | jq -r '.tag_name') && \
+    echo "Installing Helm ${HELM_LATEST}..." && \
+    curl -fsSL "https://get.helm.sh/helm-${HELM_LATEST}-linux-${ARCH_K8S}.tar.gz" | tar xz -C /tmp && \
     mv /tmp/linux-${ARCH_K8S}/helm /usr/local/bin/helm && \
     rm -rf /tmp/linux-${ARCH_K8S}
 
@@ -162,11 +168,11 @@ RUN curl -fsSL https://downloads.1password.com/linux/keys/1password.asc | gpg --
 
 # =============================================================================
 # Bazelisk (Bazel version manager)
-# Pinned version for supply-chain security
 # =============================================================================
-ARG BAZELISK_VERSION=1.27.0
 RUN ARCH_BAZEL=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
-    curl -fsSL "https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VERSION}/bazelisk-linux-${ARCH_BAZEL}" -o /usr/local/bin/bazel && \
+    BAZELISK_LATEST=$(curl -fsSL "https://api.github.com/repos/bazelbuild/bazelisk/releases/latest" | jq -r '.tag_name') && \
+    echo "Installing Bazelisk ${BAZELISK_LATEST}..." && \
+    curl -fsSL "https://github.com/bazelbuild/bazelisk/releases/download/${BAZELISK_LATEST}/bazelisk-linux-${ARCH_BAZEL}" -o /usr/local/bin/bazel && \
     chmod +x /usr/local/bin/bazel
 
 # =============================================================================
@@ -174,18 +180,20 @@ RUN ARCH_BAZEL=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") &&
 # Used by /update skill to merge docker-compose.yml
 # NOTE: Install to /usr/bin to OVERWRITE python-yq from base image
 # =============================================================================
-ARG YQ_VERSION=4.45.1
 RUN ARCH_YQ=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
-    curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_${ARCH_YQ}" -o /usr/bin/yq && \
+    YQ_LATEST=$(curl -fsSL "https://api.github.com/repos/mikefarah/yq/releases/latest" | jq -r '.tag_name') && \
+    echo "Installing yq ${YQ_LATEST}..." && \
+    curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_LATEST}/yq_linux_${ARCH_YQ}" -o /usr/bin/yq && \
     chmod +x /usr/bin/yq
 
 # =============================================================================
 # grepai (Semantic Code Search for AI agents)
 # NOTE: Ollama runs as a sidecar service in docker-compose.yml
 # =============================================================================
-ARG GREPAI_VERSION=v0.14.0
 RUN ARCH_GREPAI=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
-    curl -fsSL "https://github.com/yoanbernabeu/grepai/releases/download/${GREPAI_VERSION}/grepai_${GREPAI_VERSION#v}_linux_${ARCH_GREPAI}.tar.gz" | \
+    GREPAI_LATEST=$(curl -fsSL "https://api.github.com/repos/yoanbernabeu/grepai/releases/latest" | jq -r '.tag_name') && \
+    echo "Installing grepai ${GREPAI_LATEST}..." && \
+    curl -fsSL "https://github.com/yoanbernabeu/grepai/releases/download/${GREPAI_LATEST}/grepai_${GREPAI_LATEST#v}_linux_${ARCH_GREPAI}.tar.gz" | \
     tar xz -C /usr/local/bin grepai
 
 # =============================================================================
@@ -226,10 +234,6 @@ RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc 
 # If you need Node.js for your project, enable the "nodejs" feature.
 # Note: The official installer creates the symlink at ~/.local/bin/claude automatically.
 #
-# CACHE_BUST_DYNAMIC: Forces cache invalidation for dynamic installations.
-# Set to current date (YYYY-MM-DD) during scheduled builds to pull latest versions.
-# See: https://docs.docker.com/build/cache/invalidation/
-ARG CACHE_BUST_DYNAMIC=stable
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
 # =============================================================================
