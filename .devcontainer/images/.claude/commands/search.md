@@ -2,7 +2,7 @@
 name: search
 description: |
   Documentation Research with RLM (Recursive Language Model) patterns.
-  LOCAL-FIRST: Searches internal docs (.claude/docs/) before external sources.
+  LOCAL-FIRST: Searches internal docs (~/.claude/docs/) before external sources.
   Cross-validates sources, generates .context.md, handles conflicts.
   Use when: researching technologies, APIs, or best practices before implementation.
 allowed-tools:
@@ -38,7 +38,7 @@ Recherche avec stratégie **LOCAL-FIRST** et patterns RLM.
 ### Priorité : Documentation locale validée
 
 ```
-.claude/docs/ (LOCAL)  →  Sources officielles (EXTERNE)
+~/.claude/docs/ (LOCAL)  →  Sources officielles (EXTERNE)
      ✓ Validée              ⚠ Peut être obsolète
      ✓ Cohérente            ⚠ Peut contredire local
      ✓ Immédiate            ⚠ Nécessite validation
@@ -46,7 +46,7 @@ Recherche avec stratégie **LOCAL-FIRST** et patterns RLM.
 
 **Patterns RLM appliqués :**
 
-- **Local-First** - Consultation `.claude/docs/` en priorité
+- **Local-First** - Consultation `~/.claude/docs/` en priorité
 - **Peek** - Aperçu rapide avant analyse complète
 - **Grep** - Filtrage par keywords avant fetch sémantique
 - **Partition+Map** - Recherches parallèles multi-domaines
@@ -163,14 +163,14 @@ Workflow:
 
 ```yaml
 local_first:
-  source: ".claude/docs/"
-  index: ".claude/docs/README.md"
+  source: "~/.claude/docs/"
+  index: "~/.claude/docs/README.md"
 
   workflow:
     1_search_local:
       action: |
-        Grep(".claude/docs/", pattern=<keywords>)
-        Glob(".claude/docs/**/*.md", pattern=<topic>)
+        Grep("~/.claude/docs/", pattern=<keywords>)
+        Glob("~/.claude/docs/**/*.md", pattern=<topic>)
       output: [matching_files]
 
     2_read_matches:
@@ -219,7 +219,7 @@ local_first:
   Query    : <query>
   Keywords : <k1>, <k2>, <k3>
 
-  Local Search (.claude/docs/):
+  Local Search (~/.claude/docs/):
     ├─ Matches: 3 files
     │   ├─ behavioral/observer.md (95% match)
     │   ├─ behavioral/README.md (70% match)
@@ -243,7 +243,7 @@ local_first:
   Query    : "OAuth2 JWT authentication"
   Keywords : OAuth2, JWT, authentication
 
-  Local Search (.claude/docs/):
+  Local Search (~/.claude/docs/):
     ├─ Matches: 1 file
     │   └─ security/README.md (50% match)
     │
@@ -409,7 +409,7 @@ conflict_resolution:
 
       **Sujet:** {topic}
 
-      **Documentation locale (.claude/docs/):**
+      **Documentation locale (~/.claude/docs/):**
       {local_content}
 
       **Documentation externe ({source}):**
@@ -443,7 +443,7 @@ conflict_resolution:
         **Date:** {ISO8601}
 
         ### Local Documentation
-        **File:** `.claude/docs/{path}`
+        **File:** `~/.claude/docs/{path}`
         **Content:**
         ```
         {local_excerpt}
@@ -491,7 +491,7 @@ conflict_resolution:
 
   Topic: Observer Pattern implementation
 
-  Local (.claude/docs/behavioral/observer.md):
+  Local (~/.claude/docs/behavioral/observer.md):
     → Uses EventEmitter interface
     → Recommends typed events
 
@@ -519,7 +519,7 @@ conflict_resolution:
 
   Topic: JWT expiration handling
 
-  Local (.claude/docs/security/jwt.md):
+  Local (~/.claude/docs/security/jwt.md):
     → Recommends 15min access token
 
   External (tools.ietf.org/html/rfc7519):
@@ -665,7 +665,7 @@ local_first_rule:
   reason: "Documentation locale est validée et cohérente"
 
   workflow:
-    1: "TOUJOURS chercher dans .claude/docs/ d'abord"
+    1: "TOUJOURS chercher dans ~/.claude/docs/ d'abord"
     2: "SI local suffisant → utiliser local uniquement"
     3: "SI conflit → demander à l'utilisateur"
     4: "SI mise à jour nécessaire → créer issue GitHub"

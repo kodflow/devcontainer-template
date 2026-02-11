@@ -2,7 +2,7 @@
 name: docs-analyzer-patterns
 description: |
   Docs analyzer: Design patterns knowledge base inventory.
-  Analyzes .claude/docs/ for pattern categories, counts, and templates.
+  Analyzes ~/.claude/docs/ for pattern categories, counts, and templates.
   Returns condensed JSON to /tmp/docs-analysis/patterns.json.
 tools:
   - Read

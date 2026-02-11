@@ -11,7 +11,7 @@ allowed-tools:
   - "Grep(**/*)"
   - "Write(docs/**)"
   - "Write(mkdocs.yml)"
-  - "Write(.claude/docs/config.json)"
+  - "Write(~/.claude/docs/config.json)"
   - "Task(*)"
   - "Bash(mkdocs:*)"
   - "Bash(cd:*)"
@@ -158,7 +158,7 @@ principles:
       agents        agents/*.md → capabilities
       hooks         lifecycle/*.sh → automation
       mcp           mcp.json → integrations
-      patterns      .claude/docs/ → patterns KB
+      patterns      ~/.claude/docs/ → patterns KB
       structure     codebase → directory map
       config        env, settings → configuration
     Phase 1B (1 sonnet agent, reads Phase 1A results):
@@ -225,7 +225,7 @@ variables:
   OUTDATED_LIST: "Formatted list: dep name, docs version vs actual version"
   TOTAL_PAGES: "Total number of pages in docs/"
 
-  # From Phase -1 config (.claude/docs/config.json)
+  # From Phase -1 config (~/.claude/docs/config.json)
   PUBLIC_REPO: "Boolean — controls GitHub links in header/footer/nav and repo_url in mkdocs.yml"
   INTERNAL_PROJECT: "Boolean — controls feature table style (simple vs comparison)"
 
@@ -270,7 +270,7 @@ Given `accent_color` from Phase -1 config, derive the full semantic palette:
 
 ```yaml
 color_derivation:
-  input: "ACCENT_HEX from .claude/docs/config.json accent_color"
+  input: "ACCENT_HEX from ~/.claude/docs/config.json accent_color"
 
   algorithm:
     1_parse_hsl: "Convert ACCENT_HEX to HSL (H, S, L)"
@@ -327,12 +327,12 @@ color_derivation:
 ────────────────────────────────────────────────────────────────
 
 Phase -1: Configuration Gate
-├─ Read .claude/docs/config.json
+├─ Read ~/.claude/docs/config.json
 ├─ If missing/incomplete: ask 3 mandatory questions (AskUserQuestion)
 │   ├─ Q1: "Is this repository public?"  → public_repo
 │   ├─ Q2: "Is this an internal project?" → internal_project
 │   └─ Q3: "Choose your accent color"    → accent_color
-├─ Persist answers to .claude/docs/config.json
+├─ Persist answers to ~/.claude/docs/config.json
 ├─ Derive semantic color palette from accent_color (triadic HSL)
 └─ Load config into template variables (PUBLIC_REPO, INTERNAL_PROJECT, ACCENT_COLOR)
 
@@ -394,9 +394,9 @@ Phase 5: Serve
 phase_neg1_config:
   description: "Mandatory configuration gate — runs before any analysis"
   mandatory: true
-  skip_if: ".claude/docs/config.json exists AND contains all keys (public_repo, internal_project, accent_color)"
+  skip_if: "~/.claude/docs/config.json exists AND contains all keys (public_repo, internal_project, accent_color)"
 
-  config_file: ".claude/docs/config.json"
+  config_file: "~/.claude/docs/config.json"
   config_schema:
     public_repo: "boolean — controls GitHub links, repo_url, footer icon, nav GitHub tab"
     internal_project: "boolean — controls feature table style (simple description vs competitive comparison)"
@@ -405,7 +405,7 @@ phase_neg1_config:
 
   workflow:
     1_check_existing:
-      action: "Read .claude/docs/config.json"
+      action: "Read ~/.claude/docs/config.json"
       if_exists_and_complete:
         action: "Load config into template variables, skip to Phase 0"
         message: "Config loaded: public_repo={public_repo}, internal_project={internal_project}"
@@ -449,7 +449,7 @@ phase_neg1_config:
           persist_as: "accent_color (hex string from option description, or custom hex if 'Other')"
 
     3_persist:
-      action: "Write .claude/docs/config.json"
+      action: "Write ~/.claude/docs/config.json"
       content: |
         {
           "public_repo": {Q1_ANSWER},
@@ -693,7 +693,7 @@ phase_1a_dispatch:
     - subagent_type: "docs-analyzer-patterns"
       max_turns: 10
       prompt: "Analyze design patterns KB. Write JSON to /tmp/docs-analysis/patterns.json."
-      trigger: ".claude/docs/ exists"
+      trigger: "~/.claude/docs/ exists"
 
     - subagent_type: "docs-analyzer-structure"
       max_turns: 10
@@ -739,7 +739,7 @@ phase_1b_dispatch:
 | `docs-analyzer-agents.md` | haiku | 12 | `.claude/agents/` |
 | `docs-analyzer-hooks.md` | haiku | 12 | `.devcontainer/hooks/` |
 | `docs-analyzer-mcp.md` | haiku | 10 | `mcp.json`, `mcp.json.tpl` |
-| `docs-analyzer-patterns.md` | haiku | 10 | `.claude/docs/` |
+| `docs-analyzer-patterns.md` | haiku | 10 | `~/.claude/docs/` |
 | `docs-analyzer-structure.md` | haiku | 10 | Project root (depth 3) |
 | `docs-analyzer-config.md` | haiku | 10 | `.env`, `devcontainer.json`, `docker-compose.yml` |
 | `docs-analyzer-architecture.md` | sonnet | 20 | `src/`, APIs, data flows, C4 diagrams |
@@ -820,7 +820,7 @@ phase_2_consolidation:
 
     5c_persist_apis:
       action: |
-        Update .claude/docs/config.json apis array with detected APIs:
+        Update ~/.claude/docs/config.json apis array with detected APIs:
         Read existing config → merge apis field → write back.
         This enables subsequent incremental runs to skip full API detection.
 
@@ -1031,7 +1031,7 @@ phase_3_generate:
       rules:
         - "Max 12 components per diagram"
         - "Focus on what's hard to discover from code"
-        - "Reference .claude/docs/ patterns when applicable"
+        - "Reference ~/.claude/docs/ patterns when applicable"
 
     c4_dynamic_md:
       description: "C4 Dynamic — Critical flow diagrams"
@@ -1286,7 +1286,7 @@ phase_4_verify:
       - "Comparison table only present when INTERNAL_PROJECT == false"
       - "Simple feature table only present when INTERNAL_PROJECT == true"
     config_consistency:
-      - ".claude/docs/config.json exists and contains public_repo + internal_project"
+      - "~/.claude/docs/config.json exists and contains public_repo + internal_project"
       - "apis[] array matches detected APIs in generated pages"
       - "mkdocs.yml repo_url present only if PUBLIC_REPO == true"
       - "mkdocs.yml nav has no GitHub tab if PUBLIC_REPO == false"
