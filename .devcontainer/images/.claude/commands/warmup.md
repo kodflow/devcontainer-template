@@ -607,12 +607,28 @@ apply_workflow:
       tool: Edit or Write
       backup: true
 
+  timestamp_injection:
+    action: "Ajouter/mettre à jour le timestamp ISO en première ligne"
+    algorithm: |
+      POUR chaque CLAUDE.md mis à jour:
+        timestamp = "<!-- updated: " + now().toISO8601() + "Z -->"
+        SI première_ligne match '<!-- updated: .* -->':
+          remplacer première_ligne par timestamp
+        SINON:
+          insérer timestamp en première ligne
+    format: "<!-- updated: YYYY-MM-DDTHH:MM:SSZ -->"
+    example: "<!-- updated: 2026-02-11T14:30:00Z -->"
+    purpose: |
+      Permet à /git Phase 3.8 de détecter la fraîcheur (staleness).
+      Les fichiers mis à jour il y a moins de 5 minutes sont ignorés.
+
   validation:
     post_apply:
       - "Verify file lines: IDEAL(0-150), ACCEPTABLE(151-200), WARNING(201-250), CRITICAL(251-300)"
       - "Flag files > 300 lines as FORBIDDEN (must split)"
       - "Verify no obsolete references"
       - "Verify structure section matches reality"
+      - "Verify timestamp injected in first line"
 ```
 
 ### Phase 5 : GrepAI Config Update (Project-Specific Exclusions)

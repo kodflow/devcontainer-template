@@ -44,6 +44,30 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get clean
 
 # =============================================================================
+# Network Diagnostic Tools
+# =============================================================================
+# Common networking utilities for debugging connectivity, DNS, routing
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        iputils-ping dnsutils net-tools nmap \
+        traceroute mtr-tiny tcpdump \
+        netcat-openbsd wget whois iperf3 && \
+    apt-get clean
+
+# =============================================================================
+# VPN Clients (OpenVPN, WireGuard, IPsec/IKEv2, PPTP)
+# =============================================================================
+# Multi-protocol VPN support - DNS update script and sudoers configured below
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        openvpn wireguard-tools strongswan pptp-linux && \
+    apt-get clean
+
+# =============================================================================
 # Desktop App Libraries (Tauri/WebKitGTK, Electron, GTK)
 # =============================================================================
 # Pre-installed in base image to avoid 30+ min rebuild in features
@@ -175,6 +199,7 @@ WORKDIR /home/vscode
 RUN mkdir -p .cache .config .local/bin .local/share .zsh_history_dir \
     .cache/{terraform,helm,aws,bazel} \
     .config/{aws,gcloud,azure,op} .kube \
+    .config/{openvpn,wireguard,strongswan,pptp} \
     .claude .config/@anthropic .cache/@anthropic .local/share/@anthropic
 
 # Oh My Zsh + Powerlevel10k (force fresh install to ensure completeness)
@@ -229,6 +254,31 @@ COPY --chown=root:root .claude/docs/ /etc/claude-defaults/docs/
 COPY --chown=root:root .claude/settings.json /etc/claude-defaults/settings.json
 COPY --chown=root:root .claude/templates/ /etc/claude-defaults/templates/
 RUN chmod -R 755 /etc/claude-defaults/
+
+# =============================================================================
+# VPN Infrastructure (DNS update, helper scripts, sudoers)
+# =============================================================================
+# VPN scripts (DNS update, multi-protocol helpers)
+COPY --chown=root:root scripts/vpn/update-dns.sh /etc/openvpn/update-dns
+COPY --chown=root:root scripts/vpn/vpn-connect.sh /usr/local/bin/vpn-connect
+COPY --chown=root:root scripts/vpn/vpn-disconnect.sh /usr/local/bin/vpn-disconnect
+COPY --chown=root:root scripts/vpn/vpn-status.sh /usr/local/bin/vpn-status
+RUN mkdir -p /etc/openvpn && \
+    chmod +x /etc/openvpn/update-dns /usr/local/bin/vpn-connect \
+             /usr/local/bin/vpn-disconnect /usr/local/bin/vpn-status
+
+# VPN sudoers - passwordless management for all VPN daemons
+RUN printf '%s\n' \
+      'vscode ALL=(ALL) NOPASSWD: /usr/sbin/openvpn' \
+      'vscode ALL=(ALL) NOPASSWD: /usr/bin/killall openvpn' \
+      'vscode ALL=(ALL) NOPASSWD: /usr/bin/wg' \
+      'vscode ALL=(ALL) NOPASSWD: /usr/bin/wg-quick' \
+      'vscode ALL=(ALL) NOPASSWD: /usr/sbin/ipsec' \
+      'vscode ALL=(ALL) NOPASSWD: /usr/bin/killall charon' \
+      'vscode ALL=(ALL) NOPASSWD: /usr/sbin/pppd' \
+      'vscode ALL=(ALL) NOPASSWD: /usr/sbin/pptp' \
+      > /etc/sudoers.d/vpn && \
+    chmod 440 /etc/sudoers.d/vpn
 
 # MCP template (secrets injected at runtime via postStart.sh)
 COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
