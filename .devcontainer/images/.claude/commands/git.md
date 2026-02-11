@@ -329,11 +329,16 @@ GIT_EMAIL="john.doe@example.com"
 ```yaml
 peek_workflow:
   1_status:
-    action: "Vérifier l'état du repo"
+    action: "Vérifier l'état du repo (TOUTES les modifications, pas seulement la tâche courante)"
     commands:
       - "git status --porcelain"
       - "git branch --show-current"
       - "git log -1 --format='%h %s'"
+    critical_rule: |
+      LISTER TOUS les fichiers modifiés — y compris CLAUDE.md, .devcontainer/,
+      .claude/commands/. Ne JAMAIS ignorer des fichiers trackés modifiés.
+      git status --porcelain montre TOUT ce qui est tracké et modifié.
+      Les fichiers gitignorés N'APPARAISSENT PAS → pas de risque de les inclure.
 
   2_changes:
     action: "Analyser les changements"
@@ -378,7 +383,7 @@ peek_workflow:
 decompose_workflow:
   categories:
     features:
-      patterns: ["src/**/*.ts", "src/**/*.js"]
+      patterns: ["src/**/*.ts", "src/**/*.js", "src/**/*.go", "src/**/*.rs", "src/**/*.py"]
       prefix: "feat"
 
     fixes:
@@ -386,20 +391,36 @@ decompose_workflow:
       prefix: "fix"
 
     tests:
-      patterns: ["tests/**", "**/*.test.*"]
+      patterns: ["tests/**", "**/*.test.*", "**/*_test.go"]
       prefix: "test"
 
     docs:
-      patterns: ["*.md", "docs/**"]
+      patterns: ["*.md", "docs/**", "**/CLAUDE.md", ".claude/commands/*.md"]
       prefix: "docs"
 
     config:
-      patterns: ["*.json", "*.yaml", "*.toml"]
+      patterns: ["*.json", "*.yaml", "*.toml", ".devcontainer/**"]
       prefix: "chore"
+
+    hooks:
+      patterns: [".devcontainer/hooks/**", ".claude/scripts/**", ".githooks/**"]
+      prefix: "fix"
 
   auto_detect:
     action: "Déduire le type dominant"
     output: "commit_type, scope, branch_name"
+
+  gitignore_awareness:
+    rule: |
+      AVANT de catégoriser, vérifier le statut gitignore de chaque fichier.
+      Utiliser `git status --porcelain` pour lister TOUS les fichiers modifiés.
+      Les fichiers gitignorés n'apparaissent pas dans git status → pas de risque.
+      Les fichiers trackés modifiés DOIVENT être inclus, même s'ils sont dans .claude/ ou CLAUDE.md.
+    check: |
+      # Lister TOUTES les modifications (staged + unstaged + untracked non-ignored)
+      git status --porcelain
+      # Vérifier que rien de tracké n'est oublié après staging
+      git diff --name-only  # Doit être vide après git add -A
 ```
 
 ---
@@ -570,8 +591,22 @@ execute_workflow:
     auto: true
 
   2_stage:
-    action: "Stage tous les fichiers"
-    command: "git add -A"
+    action: "Stage TOUS les fichiers modifiés trackés"
+    steps:
+      - command: "git add -A"
+        note: "git add -A respecte .gitignore automatiquement — aucun fichier ignoré ne sera stagé"
+      - command: "git diff --name-only"
+        verify: "DOIT être vide — sinon des fichiers trackés ont été oubliés"
+        on_failure: |
+          Si des fichiers trackés restent unstaged après git add -A :
+          → Les ajouter explicitement avec git add <file>
+          → Ne JAMAIS ignorer des modifications de fichiers trackés (CLAUDE.md, .claude/commands/, hooks/)
+    rules:
+      - "TOUJOURS utiliser git add -A (jamais de staging sélectif par nom de fichier)"
+      - "git add -A inclut automatiquement : CLAUDE.md, .devcontainer/, .claude/commands/"
+      - "git add -A exclut automatiquement : .env, mcp.json, .grepai/, .claude/* (sauf exceptions gitignore)"
+      - "Vérifier git diff --name-only après staging — si non-vide, il y a un problème"
+      - "Si un fichier tracké ne doit PAS être commité → git restore <file> AVANT staging, pas après"
 
   3_commit:
     action: "Créer le commit"
