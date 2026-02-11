@@ -24,7 +24,7 @@ curl -sL https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.d
 This feature leverages Claude's native capabilities:
 
 - **EnterPlanMode** - Built-in planning mode
-- **TodoWrite** - Task tracking without external tools
+- **TaskCreate/TaskUpdate/TaskList** - Task tracking with progress visualization
 - **Task agents** - Parallel execution
 
 ## Configuration

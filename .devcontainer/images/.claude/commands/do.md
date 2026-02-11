@@ -14,7 +14,10 @@ allowed-tools:
   - "Edit(**/*)"
   - "Bash(*)"
   - "Task(*)"
-  - "TodoWrite(*)"
+  - "TaskCreate(*)"
+  - "TaskUpdate(*)"
+  - "TaskList(*)"
+  - "TaskGet(*)"
   - "AskUserQuestion(*)"
   - "mcp__codacy__codacy_cli_analyze(*)"
 ---
@@ -22,6 +25,12 @@ allowed-tools:
 # /do - Iterative Task Loop (RLM Architecture)
 
 $ARGUMENTS
+
+## GREPAI-FIRST (MANDATORY)
+
+Use `grepai_search` for ALL semantic/meaning-based queries BEFORE Grep.
+Use `grepai_trace_callers`/`grepai_trace_callees` for impact analysis.
+Fallback to Grep ONLY for exact string matches or regex patterns.
 
 ---
 
@@ -382,7 +391,7 @@ decompose_workflow:
     principle: "Smallest change first"
 
   3_create_todos:
-    action: "Initialiser TodoWrite avec les sous-objectifs"
+    action: "Initialiser TaskCreate avec les sous-objectifs"
 ```
 
 **Output Phase 2 :**
@@ -604,28 +613,27 @@ synthesize_iteration:
 
 ---
 
-## TodoWrite Integration
+## TaskCreate Integration
 
 ```yaml
-todo_pattern:
+task_pattern:
   phase_0:
-    - content: "Questions de configuration"
-      status: "completed"
+    - TaskCreate: { subject: "Configuration questions", activeForm: "Asking configuration questions" }
+      → TaskUpdate: { status: "completed" }
 
   phase_1:
-    - content: "Peek: Analyse du codebase"
-      status: "in_progress"
+    - TaskCreate: { subject: "Peek: Analyze codebase", activeForm: "Analyzing codebase" }
+      → TaskUpdate: { status: "in_progress" }
 
   phase_2:
-    - content: "Decompose: {sub_objective_1}"
-      status: "pending"
-    - content: "Decompose: {sub_objective_2}"
-      status: "pending"
+    - TaskCreate: { subject: "{sub_objective_1}", activeForm: "Working on {sub_objective_1}" }
+    - TaskCreate: { subject: "{sub_objective_2}", activeForm: "Working on {sub_objective_2}" }
 
   per_iteration:
-    on_start: "Mark current → in_progress"
-    on_complete: "Mark current → completed"
-    on_success: "Mark all → completed"
+    on_start: "TaskUpdate → status: in_progress"
+    on_complete: "TaskUpdate → status: completed"
+    on_blocked: "TaskCreate new blocker task"
+    on_success: "TaskUpdate all → completed"
 ```
 
 ---
