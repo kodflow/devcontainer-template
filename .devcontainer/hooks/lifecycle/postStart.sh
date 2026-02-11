@@ -315,7 +315,7 @@ step_mcp_configuration() {
                     return 0
                 }
 
-                trap 'rm -f "$mcp_tmp" 2>/dev/null || true' RETURN
+                trap 'rm -f "${mcp_tmp:-}" 2>/dev/null || true' RETURN
 
                 if ! sed -e "s|{{CODACY_TOKEN}}|${escaped_codacy}|g" \
                         -e "s|{{GITHUB_TOKEN}}|${escaped_github}|g" \
