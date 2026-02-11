@@ -18,47 +18,22 @@ fi
 EXT="${FILE##*.}"
 DIR=$(dirname "$FILE")
 
-# Find project root
-find_project_root() {
-    local current="$1"
-    while [ "$current" != "/" ]; do
-        if [ -f "$current/Makefile" ] || \
-           [ -f "$current/package.json" ] || \
-           [ -f "$current/pyproject.toml" ] || \
-           [ -f "$current/go.mod" ] || \
-           [ -f "$current/Cargo.toml" ]; then
-            echo "$current"
-            return
-        fi
-        current=$(dirname "$current")
-    done
-    echo "$DIR"
-}
+# Source shared utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh
+[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
 
-PROJECT_ROOT=$(find_project_root "$DIR")
-
-# Check if Makefile has fmt or format target
-has_makefile_fmt() {
-    if [ -f "$PROJECT_ROOT/Makefile" ]; then
-        grep -qE "^(fmt|format):" "$PROJECT_ROOT/Makefile" 2>/dev/null
-        return $?
-    fi
-    return 1
-}
+PROJECT_ROOT=$(find_project_root "$DIR" "$DIR")
 
 # === Makefile-first approach ===
-if has_makefile_fmt; then
+if has_makefile_target "fmt" "$PROJECT_ROOT" || has_makefile_target "format" "$PROJECT_ROOT"; then
     cd "$PROJECT_ROOT" || exit 0
     # Try fmt first (more common), then format
     TARGET="fmt"
-    if ! grep -qE "^fmt:" "$PROJECT_ROOT/Makefile" 2>/dev/null; then
+    if ! has_makefile_target "fmt" "$PROJECT_ROOT"; then
         TARGET="format"
     fi
-    if grep -qE "FILE\s*[:?]?=" "$PROJECT_ROOT/Makefile" 2>/dev/null; then
-        make "$TARGET" FILE="$FILE" 2>/dev/null || true
-    else
-        make "$TARGET" 2>/dev/null || true
-    fi
+    run_makefile_target "$TARGET" "$FILE" "$PROJECT_ROOT"
     exit 0
 fi
 

@@ -11,6 +11,10 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Cleanup on failure
+cleanup() { rm -f /tmp/packages-microsoft-prod.deb; }
+trap cleanup EXIT
+
 # Detect architecture
 ARCH=$(uname -m)
 echo -e "${YELLOW}Detected architecture: ${ARCH}${NC}"
@@ -26,7 +30,7 @@ sudo apt-get update && sudo apt-get install -y \
 # Add Microsoft package repository for Debian
 echo -e "${YELLOW}Adding Microsoft package repository...${NC}"
 DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
-wget -q "https://packages.microsoft.com/config/debian/${DEBIAN_VERSION}/packages-microsoft-prod.deb" -O /tmp/packages-microsoft-prod.deb
+wget -q --retry-connrefused --tries=3 "https://packages.microsoft.com/config/debian/${DEBIAN_VERSION}/packages-microsoft-prod.deb" -O /tmp/packages-microsoft-prod.deb
 sudo dpkg -i /tmp/packages-microsoft-prod.deb
 rm -f /tmp/packages-microsoft-prod.deb
 

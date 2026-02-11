@@ -20,42 +20,16 @@ EXT="${FILE##*.}"
 DIR=$(dirname "$FILE")
 BASENAME=$(basename "$FILE")
 
-# Find project root
-find_project_root() {
-    local current="$1"
-    while [ "$current" != "/" ]; do
-        if [ -f "$current/Makefile" ] || \
-           [ -f "$current/package.json" ] || \
-           [ -f "$current/pyproject.toml" ] || \
-           [ -f "$current/go.mod" ] || \
-           [ -f "$current/Cargo.toml" ]; then
-            echo "$current"
-            return
-        fi
-        current=$(dirname "$current")
-    done
-    echo "$DIR"
-}
+# Source shared utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh
+[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
 
-PROJECT_ROOT=$(find_project_root "$DIR")
-
-# Check if Makefile has lint target
-has_makefile_lint() {
-    if [ -f "$PROJECT_ROOT/Makefile" ]; then
-        grep -qE "^lint:" "$PROJECT_ROOT/Makefile" 2>/dev/null
-        return $?
-    fi
-    return 1
-}
+PROJECT_ROOT=$(find_project_root "$DIR" "$DIR")
 
 # === Makefile-first approach ===
-if has_makefile_lint; then
-    cd "$PROJECT_ROOT" || exit 0
-    if grep -qE "FILE\s*[:?]?=" "$PROJECT_ROOT/Makefile" 2>/dev/null; then
-        make lint FILE="$FILE" 2>/dev/null || true
-    else
-        make lint 2>/dev/null || true
-    fi
+if has_makefile_target "lint" "$PROJECT_ROOT"; then
+    run_makefile_target "lint" "$FILE" "$PROJECT_ROOT"
     exit 0
 fi
 

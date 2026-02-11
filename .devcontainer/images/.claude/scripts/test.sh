@@ -21,49 +21,16 @@ EXT="${FILE##*.}"
 BASENAME=$(basename "$FILE")
 DIR=$(dirname "$FILE")
 
-# Find project root (look for Makefile or common config files)
-find_project_root() {
-    local current="$1"
-    while [ "$current" != "/" ]; do
-        if [ -f "$current/Makefile" ] || \
-           [ -f "$current/package.json" ] || \
-           [ -f "$current/pyproject.toml" ] || \
-           [ -f "$current/go.mod" ] || \
-           [ -f "$current/Cargo.toml" ] || \
-           [ -f "$current/pom.xml" ] || \
-           [ -f "$current/build.gradle" ] || \
-           [ -f "$current/build.sbt" ] || \
-           [ -f "$current/pubspec.yaml" ] || \
-           [ -f "$current/CMakeLists.txt" ]; then
-            echo "$current"
-            return
-        fi
-        current=$(dirname "$current")
-    done
-    echo "$DIR"
-}
+# Source shared utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh
+[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
 
-PROJECT_ROOT=$(find_project_root "$DIR")
-
-# Check if Makefile has test target
-has_makefile_test() {
-    if [ -f "$PROJECT_ROOT/Makefile" ]; then
-        grep -qE "^test:" "$PROJECT_ROOT/Makefile" 2>/dev/null
-        return $?
-    fi
-    return 1
-}
+PROJECT_ROOT=$(find_project_root "$DIR" "$DIR")
 
 # === Makefile-first approach ===
-if has_makefile_test; then
-    cd "$PROJECT_ROOT" || exit 0
-    # Try make test with FILE parameter (common convention)
-    if grep -qE "FILE\s*[:?]?=" "$PROJECT_ROOT/Makefile" 2>/dev/null; then
-        make test FILE="$FILE" 2>/dev/null || true
-    else
-        # Just run make test (will run all tests)
-        make test 2>/dev/null || true
-    fi
+if has_makefile_target "test" "$PROJECT_ROOT"; then
+    run_makefile_target "test" "$FILE" "$PROJECT_ROOT"
     exit 0
 fi
 
@@ -240,7 +207,7 @@ case "$EXT" in
     swift)
         if [[ "$BASENAME" == *"Tests.swift" ]] || [[ "$BASENAME" == *"Test.swift" ]]; then
             if command -v swift &>/dev/null && [ -f "$PROJECT_ROOT/Package.swift" ]; then
-                local SWIFT_CLASS="${BASENAME%.swift}"
+                SWIFT_CLASS="${BASENAME%.swift}"
                 (cd "$PROJECT_ROOT" && swift test --filter "$SWIFT_CLASS" 2>/dev/null) || true
             fi
         fi
@@ -299,10 +266,15 @@ case "$EXT" in
         fi
         ;;
 
-    # MATLAB/Octave - runtests
+    # MATLAB/Octave - runtests (skip if Objective-C project detected)
     m)
         if [[ "$BASENAME" == test_* ]]; then
-            if command -v octave &>/dev/null; then
+            # Heuristic: if Xcode project files exist, this is likely Objective-C, not MATLAB
+            if [ -f "$PROJECT_ROOT/Package.swift" ] || \
+               compgen -G "$PROJECT_ROOT/*.xcodeproj" > /dev/null 2>&1 || \
+               compgen -G "$PROJECT_ROOT/*.xcworkspace" > /dev/null 2>&1; then
+                : # Skip - likely Objective-C project
+            elif command -v octave &>/dev/null; then
                 octave --eval "runtests(argv(){1})" -- "$FILE" 2>/dev/null || true
             fi
         fi
