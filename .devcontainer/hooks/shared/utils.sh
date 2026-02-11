@@ -260,6 +260,92 @@ mkdir_safe() {
     fi
 }
 
+# ============================================================================
+# Step tracking functions (non-blocking lifecycle pattern)
+# ============================================================================
+# Usage:
+#   init_steps
+#   run_step "Step name" step_function
+#   print_step_summary "scriptName"
+#   if step_ok "Step name"; then ... fi
+
+# Internal arrays for step tracking
+_STEP_NAMES=()
+_STEP_RESULTS=()
+
+# Reset step tracking (call at start of script)
+init_steps() {
+    _STEP_NAMES=()
+    _STEP_RESULTS=()
+}
+
+# Run a function in an isolated subshell, track PASS/FAIL
+# Usage: run_step "Display name" function_name [args...]
+run_step() {
+    local name="$1"
+    shift
+    local func="$1"
+    shift
+
+    local rc=0
+    # Run in subshell with errexit/pipefail disabled for isolation
+    ( set +e +o pipefail; "$func" "$@" ) || rc=$?
+
+    _STEP_NAMES+=("$name")
+    if [ "$rc" -eq 0 ]; then
+        _STEP_RESULTS+=("PASS")
+    else
+        _STEP_RESULTS+=("FAIL")
+        log_warning "Step failed: $name (exit code $rc)"
+    fi
+    return 0
+}
+
+# Print summary table of all steps
+# Usage: print_step_summary "postCreate"
+print_step_summary() {
+    local label="${1:-Summary}"
+    local total=${#_STEP_NAMES[@]}
+    local fail_count=0
+
+    echo ""
+    echo -e "${CYAN}=========================================${NC}"
+    echo -e "${CYAN}   ${label} Summary${NC}"
+    echo -e "${CYAN}=========================================${NC}"
+
+    local i
+    for i in $(seq 0 $((total - 1))); do
+        if [ "${_STEP_RESULTS[$i]}" = "PASS" ]; then
+            echo -e "  ${GREEN}[PASS]${NC} ${_STEP_NAMES[$i]}"
+        else
+            echo -e "  ${RED}[FAIL]${NC} ${_STEP_NAMES[$i]}"
+            ((fail_count++))
+        fi
+    done
+
+    echo ""
+    if [ "$fail_count" -gt 0 ]; then
+        log_warning "$fail_count of $total steps failed (non-blocking)"
+    else
+        log_success "All $total steps passed"
+    fi
+    echo ""
+}
+
+# Check if a named step succeeded
+# Usage: if step_ok "Git safe directory"; then ...
+step_ok() {
+    local name="$1"
+    local i
+    for i in $(seq 0 $((${#_STEP_NAMES[@]} - 1))); do
+        if [ "${_STEP_NAMES[$i]}" = "$name" ]; then
+            [ "${_STEP_RESULTS[$i]}" = "PASS" ]
+            return $?
+        fi
+    done
+    return 1
+}
+
 # Export all functions for use in subscripts
 export -f log_info
 export -f log_success
@@ -274,3 +360,7 @@ export -f download_and_pipe
 export -f command_exists
 export -f wait_for_network
 export -f mkdir_safe
+export -f init_steps
+export -f run_step
+export -f print_step_summary
+export -f step_ok

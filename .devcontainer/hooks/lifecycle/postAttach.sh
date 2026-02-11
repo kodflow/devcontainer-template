@@ -8,7 +8,7 @@
 # Use it for: Welcome messages, status display, interactive prompts.
 # ============================================================================
 
-set -e
+set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../shared/utils.sh"
@@ -22,5 +22,12 @@ echo ""
 # Display useful information
 log_success "IDE connected to DevContainer"
 echo ""
-echo -e "Tip: Use ${GREEN}super-claude${NC} for Claude CLI with MCP config"
+
+# Verify super-claude is available before advertising it
+if [ -f "$HOME/.devcontainer-env.sh" ] && grep -q "super-claude" "$HOME/.devcontainer-env.sh" 2>/dev/null; then
+    echo -e "Tip: Use ${GREEN}super-claude${NC} for Claude CLI with MCP config"
+else
+    log_warning "super-claude not available - environment setup may have failed"
+    log_info "Try running: source ~/.devcontainer-env.sh"
+fi
 echo ""
