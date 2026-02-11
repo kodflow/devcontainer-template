@@ -101,12 +101,16 @@ esac
 GREPAI_EXT=""
 [ "$GREPAI_OS" = "windows" ] && GREPAI_EXT=".exe"
 
-# Télécharger depuis les releases officielles (avec sécurité download)
-GREPAI_URL="https://github.com/yoanbernabeu/grepai/releases/latest/download/grepai_${GREPAI_OS}_${GREPAI_ARCH}${GREPAI_EXT}"
+# Fetch latest version and download correct tar.gz asset
+GREPAI_LATEST=$(curl -fsSL "https://api.github.com/repos/yoanbernabeu/grepai/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
+GREPAI_LATEST="${GREPAI_LATEST:-v0.30.0}"
+GREPAI_URL="https://github.com/yoanbernabeu/grepai/releases/download/${GREPAI_LATEST}/grepai_${GREPAI_LATEST#v}_${GREPAI_OS}_${GREPAI_ARCH}.tar.gz"
 grepai_tmp="$(mktemp)"
-if curl -fsL --retry 3 --retry-delay 1 --proto '=https' --tlsv1.2 "$GREPAI_URL" -o "$grepai_tmp" 2>/dev/null; then
-    install -m 0755 "$grepai_tmp" "$HOME/.local/bin/grepai${GREPAI_EXT}"
-    echo "  ✓ grepai (${GREPAI_OS}/${GREPAI_ARCH})"
+grepai_extract="$(mktemp -d)"
+if curl -fsL --retry 3 --retry-delay 1 --proto '=https' --tlsv1.2 "$GREPAI_URL" -o "$grepai_tmp" 2>/dev/null && \
+   tar -xzf "$grepai_tmp" -C "$grepai_extract" grepai 2>/dev/null; then
+    install -m 0755 "$grepai_extract/grepai" "$HOME/.local/bin/grepai${GREPAI_EXT}"
+    echo "  ✓ grepai ${GREPAI_LATEST} (${GREPAI_OS}/${GREPAI_ARCH})"
 else
     # Fallback: try go install with binary discovery
     if command -v go &>/dev/null; then
@@ -127,6 +131,7 @@ else
     fi
 fi
 rm -f "$grepai_tmp"
+rm -rf "$grepai_extract"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 8. Installer status-line (binaire officiel)

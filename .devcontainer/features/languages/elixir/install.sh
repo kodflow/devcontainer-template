@@ -18,6 +18,10 @@ export MIX_HOME="${MIX_HOME:-/home/vscode/.cache/mix}"
 export HEX_HOME="${HEX_HOME:-/home/vscode/.cache/hex}"
 export ASDF_DATA_DIR="${ASDF_DATA_DIR:-/home/vscode/.cache/asdf}"
 
+# Resolve latest asdf version for fallback installations
+ASDF_LATEST=$(curl -fsSL "https://api.github.com/repos/asdf-vm/asdf/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+ASDF_LATEST="${ASDF_LATEST:-v0.14.1}"
+
 # Install base dependencies
 echo -e "${YELLOW}Installing dependencies...${NC}"
 sudo apt-get update && sudo apt-get install -y \
@@ -75,7 +79,7 @@ install_erlang_asdf() {
 
     # Install asdf if not present
     if [ ! -d "$ASDF_DATA_DIR" ]; then
-        git clone https://github.com/asdf-vm/asdf.git "$ASDF_DATA_DIR" --branch v0.14.1
+        git clone https://github.com/asdf-vm/asdf.git "$ASDF_DATA_DIR" --branch "${ASDF_LATEST}"
     fi
 
     # shellcheck source=/dev/null
@@ -146,7 +150,7 @@ install_elixir_asdf() {
 
     # Install asdf if not present
     if [ ! -d "$ASDF_DATA_DIR" ]; then
-        git clone https://github.com/asdf-vm/asdf.git "$ASDF_DATA_DIR" --branch v0.14.1
+        git clone https://github.com/asdf-vm/asdf.git "$ASDF_DATA_DIR" --branch "${ASDF_LATEST}"
     fi
 
     # shellcheck source=/dev/null
