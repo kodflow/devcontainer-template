@@ -523,6 +523,40 @@ init_semantic_search() {
     loaded_models=$(curl -sf "http://${ollama_endpoint}/api/tags" 2>/dev/null | grep -o '"name":"[^"]*"' | sed 's/"name":"//g;s/"//g' | tr '\n' ' ' || echo "none")
     log_info "Available Ollama models: ${loaded_models:-none}"
 
+    # --- Model-change detection (workaround for grepai#139) ---
+    # grepai does not track which model produced the index vectors.
+    # If the model changes, old embeddings become incompatible.
+    # We use a .model-stamp sidecar file to detect this ourselves.
+    local model_stamp="${grepai_dir}/.model-stamp"
+    local configured_model=""
+    configured_model=$(grep -E '^\s+model:' "$grepai_config" 2>/dev/null | awk '{print $2}' | head -1)
+
+    if [ -n "$configured_model" ] && [ -f "${grepai_dir}/index.gob" ]; then
+        local stored_model=""
+        stored_model=$(cat "$model_stamp" 2>/dev/null || echo "")
+
+        if [ -n "$stored_model" ] && [ "$configured_model" != "$stored_model" ]; then
+            log_warning "Embedding model changed: $stored_model → $configured_model"
+            log_warning "Invalidating stale index (vectors are incompatible)..."
+
+            # Stop watch daemon if running (it holds the index files)
+            local old_pid
+            old_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
+            if [ -n "$old_pid" ]; then
+                kill "$old_pid" 2>/dev/null || true
+                sleep 1
+            fi
+
+            rm -f "${grepai_dir}/index.gob" "${grepai_dir}/symbols.gob"
+            log_success "Index cleared — will rebuild with $configured_model"
+        fi
+    fi
+
+    # Always update the stamp to current configured model
+    if [ -n "$configured_model" ]; then
+        echo "$configured_model" > "$model_stamp"
+    fi
+
     local grepai_pid
     grepai_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
 
