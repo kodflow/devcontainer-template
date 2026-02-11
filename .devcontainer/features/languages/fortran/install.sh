@@ -1,0 +1,71 @@
+#!/bin/bash
+set -e
+
+echo "========================================="
+echo "Installing Fortran Development Environment"
+echo "========================================="
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# Detect architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64)  GH_ARCH="x86_64" ;;
+    aarch64) GH_ARCH="aarch64" ;;
+    *)
+        echo -e "${RED}Unsupported architecture: $ARCH${NC}"
+        exit 1
+        ;;
+esac
+
+# Install gfortran
+echo -e "${YELLOW}Installing gfortran...${NC}"
+sudo apt-get update && sudo apt-get install -y \
+    gfortran \
+    make \
+    curl \
+    python3-pip
+
+GFORTRAN_VERSION=$(gfortran --version | head -n 1)
+echo -e "${GREEN}✓ ${GFORTRAN_VERSION} installed${NC}"
+
+# Install fprettify (formatter) via pip
+echo -e "${YELLOW}Installing fprettify (formatter)...${NC}"
+if pip3 install fprettify --break-system-packages 2>/dev/null || pip3 install fprettify; then
+    echo -e "${GREEN}✓ fprettify $(fprettify --version 2>&1 | head -n 1) installed${NC}"
+else
+    echo -e "${YELLOW}⚠ fprettify installation failed${NC}"
+fi
+
+# Install fpm (Fortran Package Manager) from GitHub releases
+echo -e "${YELLOW}Installing fpm (Fortran Package Manager)...${NC}"
+FPM_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
+    "https://api.github.com/repos/fortran-lang/fpm/releases/latest" \
+    | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+FPM_VERSION="${FPM_VERSION:-0.11.0}"
+
+FPM_URL="https://github.com/fortran-lang/fpm/releases/download/v${FPM_VERSION}/fpm-${FPM_VERSION}-linux-${GH_ARCH}"
+if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/fpm "$FPM_URL"; then
+    sudo mv /tmp/fpm /usr/local/bin/fpm
+    sudo chmod +x /usr/local/bin/fpm
+    echo -e "${GREEN}✓ fpm ${FPM_VERSION} installed${NC}"
+else
+    echo -e "${YELLOW}⚠ fpm download failed${NC}"
+fi
+
+echo ""
+echo -e "${GREEN}=========================================${NC}"
+echo -e "${GREEN}Fortran environment installed successfully!${NC}"
+echo -e "${GREEN}=========================================${NC}"
+echo ""
+echo "Installed components:"
+echo "  - ${GFORTRAN_VERSION}"
+echo ""
+echo "Development tools:"
+echo "  - fprettify (formatter)"
+echo "  - fpm (Fortran Package Manager)"
+echo ""

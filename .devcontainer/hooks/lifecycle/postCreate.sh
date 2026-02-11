@@ -170,12 +170,16 @@ export PATH="/home/vscode/.local/bin:$PATH"
 export VCPKG_ROOT="/home/vscode/.cache/vcpkg"
 export PATH="$VCPKG_ROOT:$PATH"
 
-# Carbon
-export CARBON_PATH="/home/vscode/.cache/carbon"
-export PATH="$CARBON_PATH/bin:$PATH"
+# Scala (SBT)
+export SBT_HOME="/home/vscode/.cache/sbt"
+[ -d "$SBT_HOME/bin" ] && export PATH="$SBT_HOME/bin:$PATH"
 
-# Bazel
-export BAZEL_USER_ROOT="/home/vscode/.cache/bazel"
+# .NET (C#, VB.NET)
+export DOTNET_ROOT="/usr/share/dotnet"
+[ -d "$DOTNET_ROOT" ] && export PATH="$DOTNET_ROOT:$HOME/.dotnet/tools:$PATH"
+
+# R
+export R_HOME="/usr/lib/R"
 
 # ============================================================================
 # Phase 2: Interactive Terminal Features (completions, version managers, aliases)

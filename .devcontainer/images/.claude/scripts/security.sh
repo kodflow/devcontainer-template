@@ -84,6 +84,20 @@ if [ ! -t 0 ]; then
 
     # Check if this is a git commit/push command
     if [[ "$TOOL" == "Bash" ]] && [[ "$COMMAND" =~ ^git[[:space:]]+(commit|push) ]]; then
+        # === Auto-correct git push --force to --force-with-lease ===
+        if [[ "$COMMAND" =~ ^git[[:space:]]+push ]] && \
+           [[ "$COMMAND" =~ --force ]] && \
+           [[ ! "$COMMAND" =~ --force-with-lease ]]; then
+            CORRECTED="${COMMAND/--force/--force-with-lease}"
+            echo "⚠️  Auto-corrected: --force → --force-with-lease" >&2
+            if command -v jq &>/dev/null; then
+                jq -n --arg cmd "$CORRECTED" '{"decision":"allow","updatedInput":{"command":$cmd}}'
+            else
+                printf '{"decision":"allow","updatedInput":{"command":"%s"}}' "$CORRECTED"
+            fi
+            exit 0
+        fi
+
         # Scan all staged files
         STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || true)
         if [ -z "$STAGED_FILES" ]; then

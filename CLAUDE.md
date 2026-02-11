@@ -16,7 +16,7 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 
 ## Tech Stack
 
-- **Languages**: Go, Python, Node.js, Rust, Elixir, Java, PHP, Ruby, Scala, Dart, C++, Carbon
+- **Languages**: Python, C, C++, Java, C#, JavaScript/Node.js, Visual Basic, R, Pascal, Perl, Fortran, PHP, Rust, Go, Ada, MATLAB, Assembly, Kotlin, Swift, COBOL, Ruby, Dart, Lua, Scala, Elixir, SQL
 - **Cloud CLIs**: AWS v2, GCP SDK, Azure CLI
 - **IaC**: Terraform, Vault, Consul, Nomad, Packer, Ansible
 - **Containers**: Docker, kubectl, Helm
@@ -64,8 +64,11 @@ Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.).
 |------|---------|
 | pre-validate | Protect sensitive files |
 | post-edit | Format + lint |
-| security | Secret detection |
+| security | Secret detection + auto-correct --force |
 | test | Run related tests |
+| on-stop | Session summary + terminal bell |
+| notification | External monitoring notifications |
+| session-init | Cache project metadata as env vars |
 
 ## /secret - Secure Secret Management (1Password)
 
@@ -106,6 +109,7 @@ Principle: More detail deeper in tree. Each file < 100 lines.
 | `/do` | Execute approved plans iteratively |
 | `/git` | Conventional commits, branch management |
 | `/improve` | Documentation QA for design patterns |
+| `/prompt` | Generate ideal prompt structure for /plan requests |
 
 ## Verification
 

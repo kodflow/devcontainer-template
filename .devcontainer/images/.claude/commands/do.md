@@ -762,8 +762,25 @@ review_integration:
 | `.ts`, `.js` | `developer-specialist-nodejs` |
 | `.rs` | `developer-specialist-rust` |
 | `.rb` | `developer-specialist-ruby` |
-| `.ex` | `developer-specialist-elixir` |
+| `.ex`, `.exs` | `developer-specialist-elixir` |
 | `.php` | `developer-specialist-php` |
+| `.c`, `.h` | `developer-specialist-c` |
+| `.cpp`, `.cc`, `.hpp` | `developer-specialist-cpp` |
+| `.cs` | `developer-specialist-csharp` |
+| `.kt`, `.kts` | `developer-specialist-kotlin` |
+| `.swift` | `developer-specialist-swift` |
+| `.r`, `.R` | `developer-specialist-r` |
+| `.pl`, `.pm` | `developer-specialist-perl` |
+| `.lua` | `developer-specialist-lua` |
+| `.f90`, `.f95`, `.f03` | `developer-specialist-fortran` |
+| `.adb`, `.ads` | `developer-specialist-ada` |
+| `.cob`, `.cbl` | `developer-specialist-cobol` |
+| `.pas`, `.dpr`, `.pp` | `developer-specialist-pascal` |
+| `.vb` | `developer-specialist-vbnet` |
+| `.m` (Octave) | `developer-specialist-matlab` |
+| `.asm`, `.s` | `developer-specialist-assembly` |
+| `.scala` | `developer-specialist-scala` |
+| `.dart` | `developer-specialist-dart` |
 
 ---
 

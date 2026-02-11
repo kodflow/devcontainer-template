@@ -35,6 +35,7 @@ Enforced by `commit-validate.sh` hook.
 | `/review` | Code review |
 | `/plan` | Planning mode |
 | `/do` | Task execution |
+| `/prompt` | Write better /plan descriptions |
 
 | `/secret` | Secure secrets (1Password + Vault-like paths) |
 
