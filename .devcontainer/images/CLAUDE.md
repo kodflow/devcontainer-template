@@ -10,15 +10,18 @@ Claude Code and MCP servers are included; languages added via features.
 
 ```text
 .devcontainer/images/
-├── Dockerfile          # Base image definition
-├── docker-compose.yml  # Service composition
+├── Dockerfile          # Base image (~15 layers, consolidated)
+├── .dockerignore       # Build context exclusions
 ├── mcp.json.tpl        # MCP server template
+├── grepai.config.yaml  # GrepAI search config (12 languages)
 ├── .p10k.zsh           # Powerlevel10k config
+├── scripts/vpn/        # VPN helper scripts
 └── .claude/            # Claude Code configuration
-    ├── commands/       # Slash commands (/git, /review, etc.)
-    ├── scripts/        # Hook scripts
-    ├── agents/         # Agent definitions
+    ├── commands/       # Slash commands (16 skills)
+    ├── scripts/        # Hook scripts (15 scripts)
+    ├── agents/         # Agent definitions (57 agents)
     ├── docs/           # Design Patterns Knowledge Base (250+ patterns)
+    ├── templates/      # Project/docs/terraform templates
     └── settings.json   # Claude settings
 ```
 
@@ -111,18 +114,20 @@ Configured in `mcp.json.tpl`:
 
 | Skill | Description |
 |-------|-------------|
-| `/do` | Ralph Wiggum iterative loop - persistent task execution |
-| `/git` | Workflow Git automation (commit, push, PR, merge) |
-| `/plan` | Planning mode for implementation strategy |
-| `/apply` | Execute a validated plan |
-| `/review` | AI-powered code review (RLM decomposition) |
-| `/search` | Documentation research with official sources |
-| `/test` | E2E testing with Playwright MCP |
 | `/init` | Project initialization check |
-| `/update` | DevContainer update from template |
+| `/plan` | Planning mode for implementation strategy |
+| `/do` | Iterative task execution loop (RLM) |
+| `/review` | AI-powered code review (RLM decomposition) |
+| `/git` | Workflow Git automation (commit, push, PR, merge) |
+| `/search` | Documentation research with official sources |
+| `/docs` | Deep project documentation generation (multi-agent) |
+| `/test` | E2E testing with Playwright MCP |
+| `/lint` | Intelligent linting with ktn-linter (148 rules) |
 | `/infra` | Infrastructure automation (Terraform/Terragrunt) |
 | `/secret` | Secure secret management (1Password + Vault-like paths) |
 | `/vpn` | Multi-protocol VPN management (OpenVPN, WireGuard, IPsec, PPTP) |
+| `/warmup` | Context pre-loading and CLAUDE.md update |
+| `/update` | DevContainer update from template |
 | `/improve` | Continuous docs enhancement & anti-pattern detection |
 | `/prompt` | Generate ideal prompt structure for /plan |
 

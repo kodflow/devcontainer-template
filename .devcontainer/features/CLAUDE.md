@@ -8,9 +8,10 @@ Modular features for languages, tools, and architectures.
 
 ```text
 features/
-├── languages/      # Language-specific (go, nodejs, python, etc.)
-├── architectures/  # Architecture patterns
-└── claude/         # Claude Code integration
+├── languages/      # Language-specific (26 languages)
+├── architectures/  # Architecture patterns (14 patterns)
+├── claude/         # Claude Code standalone integration
+└── kubernetes/     # Local K8s via kind
 ```
 
 ## Key Components
