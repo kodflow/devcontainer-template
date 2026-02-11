@@ -9,10 +9,12 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 
 ```
 /workspace
-├── src/          # All source code (mandatory)
-├── tests/        # Unit tests (Go: alongside code in src/)
-├── docs/         # Documentation (vision, architecture, workflows)
-└── CLAUDE.md     # This file
+├── .devcontainer/   # Container config, features, hooks, images
+├── .github/         # GitHub Actions workflows
+├── src/             # All source code (mandatory)
+├── tests/           # Unit tests (Go: alongside code in src/)
+├── docs/            # Documentation (vision, architecture, workflows)
+└── CLAUDE.md        # This file
 ```
 
 ## Tech Stack
@@ -26,8 +28,8 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 ## How to Work
 
 1. **New project**: `/init` → conversational discovery → doc generation
-2. **New feature**: `/feature "description"` → planning mode → PR
-3. **Bug fix**: `/fix "description"` → planning mode → PR
+2. **New feature**: `/plan "description"` → planning mode → `/do` → `/git --commit`
+3. **Bug fix**: `/plan "description"` → planning mode → `/do` → `/git --commit`
 4. **Code review**: `/review` → 5 specialist executors in parallel
 
 Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
@@ -103,14 +105,19 @@ Principle: More detail deeper in tree. Each file < 100 lines.
 | Command | Purpose |
 |---------|---------|
 | `/init` | Conversational project discovery + doc generation |
-| `/feature` | Start feature branch with planning |
-| `/fix` | Start fix branch with planning |
-| `/review` | Code review with 5 specialist agents |
 | `/plan` | Analyze codebase and design implementation approach |
 | `/do` | Execute approved plans iteratively |
+| `/review` | Code review with 5 specialist agents |
 | `/git` | Conventional commits, branch management |
+| `/search` | Documentation research with official sources |
+| `/docs` | Deep project documentation generation |
+| `/test` | E2E testing with Playwright MCP |
+| `/lint` | Intelligent linting with ktn-linter |
+| `/infra` | Infrastructure automation (Terraform/Terragrunt) |
+| `/secret` | Secure secret management (1Password) |
+| `/vpn` | Multi-protocol VPN management |
 | `/warmup` | Context pre-loading and CLAUDE.md update |
-| `/vpn` | Multi-protocol VPN management (1Password) |
+| `/update` | DevContainer update from template |
 | `/improve` | Documentation QA for design patterns |
 | `/prompt` | Generate ideal prompt structure for /plan requests |
 

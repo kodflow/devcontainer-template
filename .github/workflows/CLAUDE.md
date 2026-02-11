@@ -12,13 +12,15 @@ CI/CD automation for the devcontainer template.
 
 ## docker-images.yml
 
-- **Trigger**: Push to main, PRs
+- **Trigger**: Push to main, PRs, daily schedule (4AM UTC)
 - **Registry**: ghcr.io
 - **Tags**: latest, commit SHA
+- **Platforms**: linux/amd64, linux/arm64
+- **Cache busting**: Scheduled builds pass `CACHE_BUST_DYNAMIC=YYYY-MM-DD` to pull latest tool versions
 
 ## Conventions
 
 - Use `ubuntu-latest` runners
 - Cache Docker layers for speed
-- Run tests before pushing images
+- Action SHAs pinned with version comments
 - Use GITHUB_TOKEN for authentication

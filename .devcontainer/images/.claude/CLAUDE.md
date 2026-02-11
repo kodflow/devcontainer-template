@@ -30,14 +30,22 @@ Enforced by `commit-validate.sh` hook.
 
 | Skill | Purpose |
 |-------|---------|
-| `/init` | **Personalize + validate** (merged wizard) |
-| `/git` | Branch + commit + PR |
-| `/review` | Code review |
+| `/init` | Personalize + validate |
 | `/plan` | Planning mode |
-| `/do` | Task execution |
-| `/prompt` | Write better /plan descriptions |
-
-| `/secret` | Secure secrets (1Password + Vault-like paths) |
+| `/do` | Iterative task execution |
+| `/review` | Code review (5 agents) |
+| `/git` | Branch + commit + PR |
+| `/search` | Documentation research |
+| `/docs` | Deep project docs generation |
+| `/test` | E2E testing (Playwright) |
+| `/lint` | Intelligent linting (ktn-linter) |
+| `/infra` | Infrastructure (Terraform) |
+| `/secret` | Secure secrets (1Password) |
+| `/vpn` | VPN management |
+| `/warmup` | Context pre-loading |
+| `/update` | DevContainer update |
+| `/improve` | Docs QA |
+| `/prompt` | Better /plan descriptions |
 
 ## 5. CONTEXT HIERARCHY
 

@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-11T07:30:19Z -->
+<!-- updated: 2026-02-11T21:58:22Z -->
 # DevContainer Configuration
 
 ## Purpose
@@ -11,10 +11,13 @@ Development container setup for consistent dev environments across languages.
 .devcontainer/
 ├── devcontainer.json    # Main config
 ├── docker-compose.yml   # Multi-service setup
-├── Dockerfile           # Base image
+├── Dockerfile           # Extends images/ base
+├── install.sh           # Standalone Claude installer
+├── claude-assets.tar.gz # Pre-built Claude assets
+├── scripts/             # Build utilities
 ├── features/            # Language & tool features
 ├── hooks/               # Lifecycle scripts
-└── images/              # Docker images
+└── images/              # Docker base image
 ```
 
 ## Key Files

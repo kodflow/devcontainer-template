@@ -8,6 +8,8 @@
 #
 # Build:
 #   docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/kodflow/devcontainer-template:latest .
+#
+# Layer optimization: ~15 real layers (consolidated from ~37)
 # =============================================================================
 
 # Base image uses tagged version for multi-arch support (amd64/arm64)
@@ -25,9 +27,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LC_ALL=en_US.UTF-8
 
 # =============================================================================
-# System Dependencies
+# System Dependencies (consolidated: core + network + VPN + desktop + python3-venv)
 # =============================================================================
-# Core build tools + libraries needed by multiple languages
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
@@ -40,188 +41,113 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libncurses5-dev libncursesw5-dev liblzma-dev zlib1g-dev \
         libgdbm-dev libyaml-dev \
         libsecret-1-0 libsecret-1-dev \
-        shellcheck && \
-    apt-get clean
-
-# =============================================================================
-# Network Diagnostic Tools
-# =============================================================================
-# Common networking utilities for debugging connectivity, DNS, routing
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
+        shellcheck python3-venv \
         iputils-ping dnsutils net-tools nmap \
         traceroute mtr-tiny tcpdump \
-        netcat-openbsd wget whois iperf3 && \
-    apt-get clean
-
-# =============================================================================
-# VPN Clients (OpenVPN, WireGuard, IPsec/IKEv2, PPTP)
-# =============================================================================
-# Multi-protocol VPN support - DNS update script and sudoers configured below
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        openvpn wireguard-tools strongswan pptp-linux && \
-    apt-get clean
-
-# =============================================================================
-# Desktop App Libraries (Tauri/WebKitGTK, Electron, GTK)
-# =============================================================================
-# Pre-installed in base image to avoid 30+ min rebuild in features
-# Used by: Rust (Tauri), Node.js (Electron), Python (PyGTK)
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
+        netcat-openbsd wget whois iperf3 \
+        openvpn wireguard-tools strongswan pptp-linux \
         libwebkit2gtk-4.1-dev \
         libxdo-dev \
         libayatana-appindicator3-dev \
         librsvg2-dev && \
     apt-get clean
 
-# =============================================================================
-# HashiCorp Tools (Terraform, Vault, Consul, Nomad, Packer)
-# =============================================================================
-RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list && \
-    apt-get update && apt-get install -y --no-install-recommends terraform vault consul nomad packer terraform-ls && \
-    rm -rf /var/lib/apt/lists/*
-
-# =============================================================================
-# Cloud CLIs (AWS, GCP, Azure)
-# =============================================================================
-# AWS CLI v2
-RUN ARCH_AWS=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") && \
-    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH_AWS}.zip" -o /tmp/awscliv2.zip && \
-    unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install && rm -rf /tmp/aws /tmp/awscliv2.zip
-
-# Google Cloud SDK
-RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-sdk.list && \
-    apt-get update && apt-get install -y --no-install-recommends google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin && \
-    rm -rf /var/lib/apt/lists/*
-
-# Azure CLI
-RUN curl -fsSL https://aka.ms/InstallAzureCLIDeb | bash
-
-# GitHub CLI (gh)
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
-    chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list && \
-    apt-get update && apt-get install -y --no-install-recommends gh && \
-    rm -rf /var/lib/apt/lists/*
-
-# =============================================================================
-# Kubernetes Tools (kubectl, Helm)
-# =============================================================================
-# CACHE_BUST_DYNAMIC: Forces cache invalidation for dynamic installations.
+# CACHE_BUST_DYNAMIC: Forces cache invalidation for all dynamic installations.
 # Set to current date (YYYY-MM-DD) during scheduled builds to pull latest versions.
 # See: https://docs.docker.com/build/cache/invalidation/
 ARG CACHE_BUST_DYNAMIC=stable
 
-RUN ARCH_K8S=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
-    KUBECTL_LATEST=$(curl -fsSL "https://dl.k8s.io/release/stable.txt") && \
-    echo "Installing kubectl ${KUBECTL_LATEST}..." && \
-    curl -fsSL "https://dl.k8s.io/release/${KUBECTL_LATEST}/bin/linux/${ARCH_K8S}/kubectl" -o /usr/local/bin/kubectl && \
-    chmod +x /usr/local/bin/kubectl && \
-    HELM_LATEST=$(curl -fsSL "https://api.github.com/repos/helm/helm/releases/latest" | jq -r '.tag_name') && \
-    echo "Installing Helm ${HELM_LATEST}..." && \
-    curl -fsSL "https://get.helm.sh/helm-${HELM_LATEST}-linux-${ARCH_K8S}.tar.gz" | tar xz -C /tmp && \
-    mv /tmp/linux-${ARCH_K8S}/helm /usr/local/bin/helm && \
-    rm -rf /tmp/linux-${ARCH_K8S}
-
 # =============================================================================
-# Ansible
+# PPA-Based Tools (HashiCorp, 1Password, Ansible) - consolidated
 # =============================================================================
-RUN add-apt-repository --yes --update ppa:ansible/ansible && \
-    apt-get install -y --no-install-recommends ansible && rm -rf /var/lib/apt/lists/*
-
-# =============================================================================
-# MkDocs Material (Documentation Server)
-# =============================================================================
-# Pre-installed for /docs skill - avoids reinstall on each rebuild
-# Uses virtual environment to avoid system package conflicts (Markdown 3.5.2)
-# Note: mkdocs-material >= 8.2.0 has native Mermaid support (no plugin needed)
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
-    apt-get install -y --no-install-recommends python3-venv && \
-    python3 -m venv /opt/mkdocs && \
-    /opt/mkdocs/bin/pip install --no-cache-dir mkdocs-material && \
-    ln -s /opt/mkdocs/bin/mkdocs /usr/local/bin/mkdocs && \
-    apt-get clean
-
-# =============================================================================
-# 1Password CLI (op) - For secrets management
-# =============================================================================
-RUN curl -fsSL https://downloads.1password.com/linux/keys/1password.asc | gpg --dearmor -o /usr/share/keyrings/1password-archive-keyring.gpg && \
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list && \
+    curl -fsSL https://downloads.1password.com/linux/keys/1password.asc | gpg --dearmor -o /usr/share/keyrings/1password-archive-keyring.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" > /etc/apt/sources.list.d/1password.list && \
     mkdir -p /etc/debsig/policies/AC2D62742012EA22/ && \
     curl -fsSL https://downloads.1password.com/linux/debian/debsig/1password.pol -o /etc/debsig/policies/AC2D62742012EA22/1password.pol && \
     mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22 && \
     curl -fsSL https://downloads.1password.com/linux/keys/1password.asc | gpg --dearmor -o /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg && \
-    apt-get update && apt-get install -y --no-install-recommends 1password-cli && \
+    add-apt-repository --yes --update ppa:ansible/ansible && \
+    apt-get install -y --no-install-recommends \
+        terraform vault consul nomad packer terraform-ls \
+        1password-cli \
+        ansible && \
     rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
-# Bazelisk (Bazel version manager)
+# Cloud CLIs (AWS, GCP, Azure, GitHub) - consolidated
 # =============================================================================
-RUN ARCH_BAZEL=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+RUN ARCH_AWS=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") && \
+    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH_AWS}.zip" -o /tmp/awscliv2.zip && \
+    unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install && rm -rf /tmp/aws /tmp/awscliv2.zip && \
+    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-sdk.list && \
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin gh && \
+    rm -rf /var/lib/apt/lists/* && \
+    curl -fsSL https://aka.ms/InstallAzureCLIDeb | bash
+
+# =============================================================================
+# Kubernetes + Binary Tools (kubectl, Helm, Bazelisk, yq, grepai) - consolidated
+# =============================================================================
+RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+    KUBECTL_LATEST=$(curl -fsSL "https://dl.k8s.io/release/stable.txt") && \
+    echo "Installing kubectl ${KUBECTL_LATEST}..." && \
+    curl -fsSL "https://dl.k8s.io/release/${KUBECTL_LATEST}/bin/linux/${ARCH}/kubectl" -o /usr/local/bin/kubectl && \
+    chmod +x /usr/local/bin/kubectl && \
+    HELM_LATEST=$(curl -fsSL "https://api.github.com/repos/helm/helm/releases/latest" | jq -r '.tag_name') && \
+    echo "Installing Helm ${HELM_LATEST}..." && \
+    curl -fsSL "https://get.helm.sh/helm-${HELM_LATEST}-linux-${ARCH}.tar.gz" | tar xz -C /tmp && \
+    mv /tmp/linux-${ARCH}/helm /usr/local/bin/helm && \
+    rm -rf /tmp/linux-${ARCH} && \
     BAZELISK_LATEST=$(curl -fsSL "https://api.github.com/repos/bazelbuild/bazelisk/releases/latest" | jq -r '.tag_name') && \
     echo "Installing Bazelisk ${BAZELISK_LATEST}..." && \
-    curl -fsSL "https://github.com/bazelbuild/bazelisk/releases/download/${BAZELISK_LATEST}/bazelisk-linux-${ARCH_BAZEL}" -o /usr/local/bin/bazel && \
-    chmod +x /usr/local/bin/bazel
-
-# =============================================================================
-# yq (YAML processor) - mikefarah/yq (Go version, NOT python-yq)
-# Used by /update skill to merge docker-compose.yml
-# NOTE: Install to /usr/bin to OVERWRITE python-yq from base image
-# =============================================================================
-RUN ARCH_YQ=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+    curl -fsSL "https://github.com/bazelbuild/bazelisk/releases/download/${BAZELISK_LATEST}/bazelisk-linux-${ARCH}" -o /usr/local/bin/bazel && \
+    chmod +x /usr/local/bin/bazel && \
     YQ_LATEST=$(curl -fsSL "https://api.github.com/repos/mikefarah/yq/releases/latest" | jq -r '.tag_name') && \
     echo "Installing yq ${YQ_LATEST}..." && \
-    curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_LATEST}/yq_linux_${ARCH_YQ}" -o /usr/bin/yq && \
-    chmod +x /usr/bin/yq
-
-# =============================================================================
-# grepai (Semantic Code Search for AI agents)
-# NOTE: Ollama runs as a sidecar service in docker-compose.yml
-# =============================================================================
-RUN ARCH_GREPAI=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+    curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_LATEST}/yq_linux_${ARCH}" -o /usr/bin/yq && \
+    chmod +x /usr/bin/yq && \
     GREPAI_LATEST=$(curl -fsSL "https://api.github.com/repos/yoanbernabeu/grepai/releases/latest" | jq -r '.tag_name') && \
     echo "Installing grepai ${GREPAI_LATEST}..." && \
-    curl -fsSL "https://github.com/yoanbernabeu/grepai/releases/download/${GREPAI_LATEST}/grepai_${GREPAI_LATEST#v}_linux_${ARCH_GREPAI}.tar.gz" | \
+    curl -fsSL "https://github.com/yoanbernabeu/grepai/releases/download/${GREPAI_LATEST}/grepai_${GREPAI_LATEST#v}_linux_${ARCH}.tar.gz" | \
     tar xz -C /usr/local/bin grepai
 
 # =============================================================================
-# User Setup
+# MkDocs Material (Documentation Server)
+# =============================================================================
+# python3-venv installed in base dependencies above
+# Uses virtual environment to avoid system package conflicts (Markdown 3.5.2)
+# Note: mkdocs-material >= 8.2.0 has native Mermaid support (no plugin needed)
+RUN python3 -m venv /opt/mkdocs && \
+    /opt/mkdocs/bin/pip install --no-cache-dir mkdocs-material && \
+    ln -s /opt/mkdocs/bin/mkdocs /usr/local/bin/mkdocs
+
+# =============================================================================
+# User Setup (directories + Oh My Zsh + shell config) - consolidated
 # =============================================================================
 USER vscode
 WORKDIR /home/vscode
 
-# Create cache and config directories
-# Note: .config/op must exist with correct ownership for 1Password CLI (requires 700 perms)
+# Copy p10k configuration (referenced at runtime by .zshrc)
+COPY --chown=vscode:vscode .p10k.zsh /home/vscode/.p10k.zsh
+
+# Create cache/config directories + install Oh My Zsh + configure shells
 RUN mkdir -p .cache .config .local/bin .local/share .zsh_history_dir \
     .cache/{terraform,helm,aws,bazel} \
     .config/{aws,gcloud,azure,op} .kube \
     .config/{openvpn,wireguard,strongswan,pptp} \
-    .claude .config/@anthropic .cache/@anthropic .local/share/@anthropic
-
-# Oh My Zsh + Powerlevel10k (force fresh install to ensure completeness)
-RUN rm -rf ~/.oh-my-zsh && \
+    .claude .config/@anthropic .cache/@anthropic .local/share/@anthropic && \
+    rm -rf ~/.oh-my-zsh && \
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.oh-my-zsh/custom/themes/powerlevel10k && \
     git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions.git ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions && \
-    git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
-
-# Copy p10k configuration
-COPY --chown=vscode:vscode .p10k.zsh /home/vscode/.p10k.zsh
-
-# Configure zsh + bash (ensure devcontainer-env is sourced in both shells)
-RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc && \
+    git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting && \
+    sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc && \
     sed -i 's/^plugins=.*/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc && \
     printf '\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\nexport HISTFILE=~/.zsh_history_dir/.zsh_history\nexport HISTSIZE=50000\nexport SAVEHIST=50000\n[[ -f ~/.devcontainer-env.sh ]] && source ~/.devcontainer-env.sh\n' >> ~/.zshrc && \
     printf '\n[[ -f ~/.devcontainer-env.sh ]] && source ~/.devcontainer-env.sh\n' >> ~/.bashrc
@@ -233,46 +159,42 @@ RUN sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc 
 # This avoids requiring Node.js/npm in the base image.
 # If you need Node.js for your project, enable the "nodejs" feature.
 # Note: The official installer creates the symlink at ~/.local/bin/claude automatically.
-#
-RUN curl -fsSL https://claude.ai/install.sh | bash
-
-# =============================================================================
-# Claude Configuration (backup to /etc/claude-defaults/ for volume restoration)
-# =============================================================================
-COPY --chown=vscode:vscode .claude/ /home/vscode/.claude/
-RUN chmod -R 755 /home/vscode/.claude/scripts/ && \
+RUN curl -fsSL https://claude.ai/install.sh | bash && \
     mkdir -p /home/vscode/.claude/sessions
 
 # =============================================================================
-# System Templates (root-owned, copied at runtime)
+# Claude Configuration
 # =============================================================================
-# All /etc/* templates are consolidated here to minimize USER switches
+COPY --chown=vscode:vscode .claude/ /home/vscode/.claude/
+
+# =============================================================================
+# System Templates (root-owned, copied at runtime via postStart.sh)
+# =============================================================================
 USER root
 
-# Claude defaults backup (for volume restoration)
-RUN mkdir -p /etc/claude-defaults /etc/mcp /etc/grepai
-COPY --chown=root:root .claude/commands/ /etc/claude-defaults/commands/
-COPY --chown=root:root .claude/scripts/ /etc/claude-defaults/scripts/
-COPY --chown=root:root .claude/agents/ /etc/claude-defaults/agents/
-COPY --chown=root:root .claude/docs/ /etc/claude-defaults/docs/
-COPY --chown=root:root .claude/settings.json /etc/claude-defaults/settings.json
-COPY --chown=root:root .claude/templates/ /etc/claude-defaults/templates/
-RUN chmod -R 755 /etc/claude-defaults/
+# Claude defaults backup (full directory for volume restoration)
+COPY --chown=root:root .claude/ /etc/claude-defaults/
 
-# =============================================================================
-# VPN Infrastructure (DNS update, helper scripts, sudoers)
-# =============================================================================
-# VPN scripts (DNS update, multi-protocol helpers)
-COPY --chown=root:root scripts/vpn/update-dns.sh /etc/openvpn/update-dns
-COPY --chown=root:root scripts/vpn/vpn-connect.sh /usr/local/bin/vpn-connect
-COPY --chown=root:root scripts/vpn/vpn-disconnect.sh /usr/local/bin/vpn-disconnect
-COPY --chown=root:root scripts/vpn/vpn-status.sh /usr/local/bin/vpn-status
-RUN mkdir -p /etc/openvpn && \
+# VPN scripts (staged in /tmp for renaming in consolidated RUN below)
+COPY --chown=root:root scripts/vpn/ /tmp/vpn/
+
+# MCP template (secrets injected at runtime via postStart.sh)
+COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
+
+# GrepAI config template (optimized for 12 languages)
+COPY --chown=vscode:vscode grepai.config.yaml /etc/grepai/config.yaml
+
+# Consolidated system setup: permissions, VPN scripts, sudoers, default shell
+RUN chmod -R 755 /etc/claude-defaults/ /home/vscode/.claude/scripts/ && \
+    mkdir -p /etc/openvpn && \
+    cp /tmp/vpn/update-dns.sh /etc/openvpn/update-dns && \
+    cp /tmp/vpn/vpn-connect.sh /usr/local/bin/vpn-connect && \
+    cp /tmp/vpn/vpn-disconnect.sh /usr/local/bin/vpn-disconnect && \
+    cp /tmp/vpn/vpn-status.sh /usr/local/bin/vpn-status && \
+    rm -rf /tmp/vpn && \
     chmod +x /etc/openvpn/update-dns /usr/local/bin/vpn-connect \
-             /usr/local/bin/vpn-disconnect /usr/local/bin/vpn-status
-
-# VPN sudoers - passwordless management for all VPN daemons
-RUN printf '%s\n' \
+             /usr/local/bin/vpn-disconnect /usr/local/bin/vpn-status && \
+    printf '%s\n' \
       'vscode ALL=(ALL) NOPASSWD: /usr/sbin/openvpn' \
       'vscode ALL=(ALL) NOPASSWD: /usr/bin/killall openvpn' \
       'vscode ALL=(ALL) NOPASSWD: /usr/bin/wg' \
@@ -282,49 +204,30 @@ RUN printf '%s\n' \
       'vscode ALL=(ALL) NOPASSWD: /usr/sbin/pppd' \
       'vscode ALL=(ALL) NOPASSWD: /usr/sbin/pptp' \
       > /etc/sudoers.d/vpn && \
-    chmod 440 /etc/sudoers.d/vpn
-
-# MCP template (secrets injected at runtime via postStart.sh)
-COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
-
-# GrepAI config template (optimized for 12 languages)
-COPY --chown=vscode:vscode grepai.config.yaml /etc/grepai/config.yaml
-
-# Ensure zsh is the default login shell for vscode user
-RUN chsh -s /bin/zsh vscode
+    chmod 440 /etc/sudoers.d/vpn && \
+    chsh -s /bin/zsh vscode
 
 USER vscode
 
 # =============================================================================
-# Status Line (pinned version with checksum verification)
+# User Tools (status-line, ktn-linter, xdg-open) - consolidated
 # =============================================================================
 ARG STATUS_LINE_VERSION=v0.6.2
 ARG STATUS_LINE_SHA256_AMD64=6ba6b53162444fbc87f40e76b236e459ac6f88b99d2bdc183379a693592240a3
 ARG STATUS_LINE_SHA256_ARM64=8bfd15968a836276a075fd6dd5b86f075ff3a7eb11dec8e3c5733bcef83ece74
-RUN mkdir -p ~/.local/bin && \
-    ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+    mkdir -p ~/.local/bin && \
     curl -fsSL "https://github.com/kodflow/status-line/releases/download/${STATUS_LINE_VERSION}/status-line-linux-${ARCH}" \
       -o ~/.local/bin/status-line && \
     EXPECTED_SL_SHA=$([ "$ARCH" = "arm64" ] && echo "$STATUS_LINE_SHA256_ARM64" || echo "$STATUS_LINE_SHA256_AMD64") && \
     echo "$EXPECTED_SL_SHA  $HOME/.local/bin/status-line" | sha256sum -c - && \
-    chmod +x ~/.local/bin/status-line
-
-# =============================================================================
-# ktn-linter (always fetches latest release)
-# =============================================================================
-# Note: No checksum verification as version is dynamic
-# CACHE_BUST_DYNAMIC ensures latest is pulled during scheduled builds
-RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+    chmod +x ~/.local/bin/status-line && \
     KTN_LATEST=$(curl -fsSL "https://api.github.com/repos/kodflow/ktn-linter/releases/latest" | jq -r '.tag_name') && \
     echo "Installing ktn-linter ${KTN_LATEST}..." && \
     curl -fsSL "https://github.com/kodflow/ktn-linter/releases/download/${KTN_LATEST}/ktn-linter-linux-${ARCH}" \
       -o ~/.local/bin/ktn-linter && \
-    chmod +x ~/.local/bin/ktn-linter
-
-# =============================================================================
-# xdg-open wrapper (for headless container - displays URL instead of opening)
-# =============================================================================
-RUN printf '%s\n' '#!/bin/sh' \
+    chmod +x ~/.local/bin/ktn-linter && \
+    printf '%s\n' '#!/bin/sh' \
     '[ $# -eq 0 ] && { echo "Usage: xdg-open <url> [url...]" >&2; exit 2; }' \
     'for url in "$@"; do printf "\n  Open in browser: %s\n" "$url"; done' \
     'echo ""' \
