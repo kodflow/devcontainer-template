@@ -518,9 +518,11 @@ check_r() {
     local failed=0
 
     if command -v Rscript &> /dev/null; then
-        run_check_verbose "R lint (lintr)" "Rscript -e \"lintr::lint_dir('R')\"" || failed=1
+        if [[ -d "R" ]]; then
+            run_check_verbose "R lint (lintr)" "Rscript -e 'lintr::lint_dir(\"R\")'" || failed=1
+        fi
         if [[ -d "tests" ]]; then
-            run_check_verbose "R tests (testthat)" "Rscript -e \"testthat::test_dir('tests')\"" || failed=1
+            run_check_verbose "R tests (testthat)" "Rscript -e 'testthat::test_dir(\"tests\")'" || failed=1
         fi
     else
         echo -e "${YELLOW}[SKIP]${NC} R (Rscript not found)"
@@ -537,7 +539,9 @@ check_perl() {
     if command -v perlcritic &> /dev/null; then
         run_check_verbose "Perl lint (perlcritic)" "perlcritic --severity 4 lib/" || failed=1
     elif command -v perl &> /dev/null; then
-        run_check_verbose "Perl syntax" "perl -cw lib/*.pl 2>&1" || failed=1
+        if compgen -G "lib/*.pl" > /dev/null 2>&1; then
+            run_check_verbose "Perl syntax" "perl -cw lib/*.pl 2>&1" || failed=1
+        fi
     else
         echo -e "${YELLOW}[SKIP]${NC} Perl lint (perlcritic not found)"
     fi
@@ -573,7 +577,9 @@ check_fortran() {
     local failed=0
 
     if command -v gfortran &> /dev/null; then
-        run_check_verbose "Fortran syntax" "gfortran -Wall -Wextra -fsyntax-only src/*.f90 2>&1" || failed=1
+        if compgen -G "src/*.f90" > /dev/null 2>&1 || compgen -G "src/*.f95" > /dev/null 2>&1 || compgen -G "src/*.f03" > /dev/null 2>&1; then
+            run_check_verbose "Fortran syntax" "find src/ -name '*.f90' -o -name '*.f95' -o -name '*.f03' -o -name '*.f08' | xargs gfortran -Wall -Wextra -fsyntax-only 2>&1" || failed=1
+        fi
     else
         echo -e "${YELLOW}[SKIP]${NC} Fortran (gfortran not found)"
     fi
@@ -593,8 +599,8 @@ check_ada() {
 
     if command -v alr &> /dev/null && [[ -f "alire.toml" ]]; then
         run_check_verbose "Ada build (alire)" "alr build" || failed=1
-    elif command -v gprbuild &> /dev/null; then
-        run_check_verbose "Ada build (gprbuild)" "gprbuild -P *.gpr" || failed=1
+    elif command -v gprbuild &> /dev/null && compgen -G "*.gpr" > /dev/null 2>&1; then
+        run_check_verbose "Ada build (gprbuild)" "gprbuild -P $(compgen -G '*.gpr' | head -n 1)" || failed=1
     elif command -v gnatmake &> /dev/null; then
         echo -e "${YELLOW}[SKIP]${NC} Ada build (no project file found)"
     else
@@ -610,7 +616,12 @@ check_cobol() {
     local failed=0
 
     if command -v cobc &> /dev/null; then
-        run_check_verbose "COBOL syntax" "cobc -fsyntax-only *.cob *.cbl 2>/dev/null" || failed=1
+        local cobol_files=""
+        compgen -G "*.cob" > /dev/null 2>&1 && cobol_files+="*.cob "
+        compgen -G "*.cbl" > /dev/null 2>&1 && cobol_files+="*.cbl "
+        if [[ -n "$cobol_files" ]]; then
+            run_check_verbose "COBOL syntax" "cobc -fsyntax-only $cobol_files 2>/dev/null" || failed=1
+        fi
     else
         echo -e "${YELLOW}[SKIP]${NC} COBOL (cobc not found)"
     fi
@@ -624,9 +635,9 @@ check_pascal() {
     local failed=0
 
     if command -v lazbuild &> /dev/null && compgen -G "*.lpi" > /dev/null 2>&1; then
-        run_check_verbose "Pascal build (lazbuild)" "lazbuild *.lpi" || failed=1
-    elif command -v fpc &> /dev/null; then
-        run_check_verbose "Pascal syntax" "fpc -Se *.pas 2>&1" || failed=1
+        run_check_verbose "Pascal build (lazbuild)" "lazbuild $(compgen -G '*.lpi' | head -n 1)" || failed=1
+    elif command -v fpc &> /dev/null && compgen -G "*.pas" > /dev/null 2>&1; then
+        run_check_verbose "Pascal syntax" "find . -maxdepth 2 -name '*.pas' | xargs -I{} fpc -Se {} 2>&1" || failed=1
     else
         echo -e "${YELLOW}[SKIP]${NC} Pascal (fpc not found)"
     fi

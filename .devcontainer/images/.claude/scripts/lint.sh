@@ -50,7 +50,7 @@ has_makefile_lint() {
 
 # === Makefile-first approach ===
 if has_makefile_lint; then
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || exit 0
     if grep -qE "FILE\s*[:?]?=" "$PROJECT_ROOT/Makefile" 2>/dev/null; then
         make lint FILE="$FILE" 2>/dev/null || true
     else
@@ -264,7 +264,7 @@ case "$EXT" in
     # R - lintr
     r|R)
         if command -v Rscript &>/dev/null; then
-            Rscript -e "lintr::lint('$FILE')" 2>/dev/null || true
+            Rscript -e "lintr::lint(commandArgs(TRUE)[1])" "$FILE" 2>/dev/null || true
         fi
         ;;
 

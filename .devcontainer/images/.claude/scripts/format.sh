@@ -48,7 +48,7 @@ has_makefile_fmt() {
 
 # === Makefile-first approach ===
 if has_makefile_fmt; then
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || exit 0
     # Try fmt first (more common), then format
     TARGET="fmt"
     if ! grep -qE "^fmt:" "$PROJECT_ROOT/Makefile" 2>/dev/null; then
@@ -273,7 +273,7 @@ case "$EXT" in
     # R - styler
     r|R)
         if command -v Rscript &>/dev/null; then
-            Rscript -e "styler::style_file('$FILE')" 2>/dev/null || true
+            Rscript -e "styler::style_file(commandArgs(TRUE)[1])" "$FILE" 2>/dev/null || true
         fi
         ;;
 

@@ -56,7 +56,7 @@ has_makefile_test() {
 
 # === Makefile-first approach ===
 if has_makefile_test; then
-    cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT" || exit 0
     # Try make test with FILE parameter (common convention)
     if grep -qE "FILE\s*[:?]?=" "$PROJECT_ROOT/Makefile" 2>/dev/null; then
         make test FILE="$FILE" 2>/dev/null || true
@@ -240,7 +240,8 @@ case "$EXT" in
     swift)
         if [[ "$BASENAME" == *"Tests.swift" ]] || [[ "$BASENAME" == *"Test.swift" ]]; then
             if command -v swift &>/dev/null && [ -f "$PROJECT_ROOT/Package.swift" ]; then
-                (cd "$PROJECT_ROOT" && swift test --filter "$CLASS_NAME" 2>/dev/null) || true
+                local SWIFT_CLASS="${BASENAME%.swift}"
+                (cd "$PROJECT_ROOT" && swift test --filter "$SWIFT_CLASS" 2>/dev/null) || true
             fi
         fi
         ;;
@@ -249,7 +250,7 @@ case "$EXT" in
     r|R)
         if [[ "$BASENAME" == test_* ]] || [[ "$FILE" == *"/tests/"* ]]; then
             if command -v Rscript &>/dev/null; then
-                Rscript -e "testthat::test_file('$FILE')" 2>/dev/null || true
+                Rscript -e "testthat::test_file(commandArgs(TRUE)[1])" "$FILE" 2>/dev/null || true
             fi
         fi
         ;;
@@ -302,7 +303,7 @@ case "$EXT" in
     m)
         if [[ "$BASENAME" == test_* ]]; then
             if command -v octave &>/dev/null; then
-                octave --eval "runtests('$FILE')" 2>/dev/null || true
+                octave --eval "runtests(argv(){1})" -- "$FILE" 2>/dev/null || true
             fi
         fi
         ;;

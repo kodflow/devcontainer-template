@@ -11,6 +11,13 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# Cleanup on failure
+cleanup() {
+    rm -f /tmp/swift-*.tar.gz /tmp/swiftformat.tar.gz /tmp/swiftlint.tar.gz
+    rm -rf /tmp/SwiftFormat /tmp/SwiftLint
+}
+trap cleanup EXIT
+
 # Environment variables
 export SWIFT_VERSION="${SWIFT_VERSION:-6.0.3}"
 export SWIFT_HOME="${SWIFT_HOME:-/usr/share/swift}"

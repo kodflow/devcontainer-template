@@ -30,7 +30,15 @@ export SDKMAN_DIR="/home/vscode/.sdkman"
 
 if [ ! -d "$SDKMAN_DIR" ]; then
     echo -e "${YELLOW}Installing SDKMAN...${NC}"
-    curl -s "https://get.sdkman.io?rcupdate=false" | bash
+    SDKMAN_SCRIPT=$(mktemp)
+    if curl -fsSL --retry 3 --retry-delay 5 -o "$SDKMAN_SCRIPT" "https://get.sdkman.io?rcupdate=false"; then
+        bash "$SDKMAN_SCRIPT"
+    else
+        echo -e "${RED}Failed to download SDKMAN installer${NC}"
+        rm -f "$SDKMAN_SCRIPT"
+        exit 1
+    fi
+    rm -f "$SDKMAN_SCRIPT"
 fi
 
 # Source SDKMAN
