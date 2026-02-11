@@ -172,8 +172,11 @@ apt_get_retry install -y curl git build-essential libssl-dev || {
 # Install NVM (Node Version Manager)
 log_info "Installing NVM..."
 mkdir_safe "$NVM_DIR"
-# Use v0.40.1 (latest stable version) instead of "latest" which doesn't exist
-download_and_pipe "https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh" bash || {
+# Fetch latest NVM version from GitHub API
+NVM_LATEST=$(curl -fsSL "https://api.github.com/repos/nvm-sh/nvm/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+NVM_LATEST="${NVM_LATEST:-v0.40.1}"
+log_info "Using NVM ${NVM_LATEST}"
+download_and_pipe "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_LATEST}/install.sh" bash || {
     log_error "Failed to install NVM"
     exit 1
 }
