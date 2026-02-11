@@ -755,22 +755,20 @@ connect_pptp() {
 
     log_info "Starting PPTP..."
     # shellcheck disable=SC2024
-    if sudo pppd call tunnel nodetach < /dev/null > /tmp/pptp.log 2>&1 & then
-        local attempt=0
-        while [ $attempt -lt 15 ]; do
-            if ip link show ppp0 &>/dev/null; then
-                local vpn_ip
-                vpn_ip=$(ip -4 addr show ppp0 2>/dev/null | grep -oP 'inet \K[\d.]+' || echo "unknown")
-                log_success "VPN connected via PPTP (ppp0: $vpn_ip)"
-                return 0
-            fi
-            sleep 1
-            ((attempt++))
-        done
-        log_warning "PPTP started but ppp0 not detected after 15s"
-    else
-        log_warning "PPTP failed to start"
-    fi
+    sudo pppd call tunnel nodetach < /dev/null > /tmp/pptp.log 2>&1 &
+
+    local attempt=0
+    while [ $attempt -lt 15 ]; do
+        if ip link show ppp0 &>/dev/null; then
+            local vpn_ip
+            vpn_ip=$(ip -4 addr show ppp0 2>/dev/null | grep -oP 'inet \K[\d.]+' || echo "unknown")
+            log_success "VPN connected via PPTP (ppp0: $vpn_ip)"
+            return 0
+        fi
+        sleep 1
+        ((attempt++))
+    done
+    log_warning "PPTP started but ppp0 not detected after 15s"
 }
 
 # --- Main VPN auto-connect orchestrator ---

@@ -1,4 +1,5 @@
 #!/bin/bash
+set +e
 # Container-friendly DNS update for OpenVPN
 # Writes directly to /etc/resolv.conf (no systemd-resolved/D-Bus dependency)
 # Called by OpenVPN via --up and --down script hooks

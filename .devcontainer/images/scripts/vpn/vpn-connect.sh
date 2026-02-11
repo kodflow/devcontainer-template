@@ -56,6 +56,12 @@ case "$PROTOCOL" in
         --script-security 2
         --up /etc/openvpn/update-dns
         --down /etc/openvpn/update-dns
+        --keepalive 10 60
+        --connect-retry 5
+        --connect-retry-max 0
+        --persist-tun
+        --persist-key
+        --resolv-retry infinite
     )
     [ -f "$OVPN_AUTH" ] && [ -s "$OVPN_AUTH" ] && VPN_ARGS+=(--auth-user-pass "$OVPN_AUTH")
 

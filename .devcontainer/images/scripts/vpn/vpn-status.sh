@@ -1,4 +1,5 @@
 #!/bin/bash
+set -u
 
 # Multi-protocol VPN status helper
 # Checks all supported VPN protocols
