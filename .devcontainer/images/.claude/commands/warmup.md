@@ -128,6 +128,24 @@ peek_workflow:
       - "Cargo.toml" → Rust
       - "pyproject.toml" → Python
       - "*.tf" → Terraform
+      - "pom.xml" → Java (Maven)
+      - "build.gradle" → Java/Kotlin (Gradle)
+      - "build.sbt" → Scala
+      - "mix.exs" → Elixir
+      - "composer.json" → PHP
+      - "Gemfile" → Ruby
+      - "pubspec.yaml" → Dart/Flutter
+      - "CMakeLists.txt" → C/C++ (CMake)
+      - "*.csproj" → C# (.NET)
+      - "Package.swift" → Swift
+      - "DESCRIPTION" → R
+      - "cpanfile" → Perl
+      - "*.rockspec" → Lua
+      - "fpm.toml" → Fortran
+      - "alire.toml" → Ada
+      - "*.cob" → COBOL
+      - "*.lpi" → Pascal
+      - "*.vbproj" → VB.NET
 ```
 
 **Output Phase 1 :**
