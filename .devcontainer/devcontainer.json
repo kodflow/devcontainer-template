@@ -41,9 +41,8 @@
       "helmVersion": "4.0.4"
     },
     // ========== NETWORKING ==========
-    // OpenVPN client for VPN connectivity
-    // Configure credentials in .env with op:// references
-    "./features/openvpn": {},
+    // VPN clients (OpenVPN, WireGuard, IPsec, PPTP) are built into the base image
+    // Configure credentials in .env with op:// references (see .env.example)
     // ========== EXTERNAL ==========
     // Docker support
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {

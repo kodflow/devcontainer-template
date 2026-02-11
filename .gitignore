@@ -41,8 +41,10 @@ Thumbs.db
 mcp.json
 **/mcp.json
 
-# OpenVPN (never commit VPN configs or credentials)
+# VPN configs and credentials (never commit)
 *.ovpn
+*.wgconf
+ipsec.secrets
 **/vpn-auth.txt
 
 # ============================================

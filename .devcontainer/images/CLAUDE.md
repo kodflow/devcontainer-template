@@ -1,3 +1,4 @@
+<!-- updated: 2026-02-11T07:30:19Z -->
 # DevContainer Images
 
 ## Purpose
@@ -61,6 +62,8 @@ Base de connaissances exhaustive de 250+ design patterns, consultée automatique
 | Cloud CLIs | AWS, GCP, Azure, 1Password |
 | IaC | Terraform, Vault, Consul, Nomad, Packer, Ansible |
 | Container | Docker (via feature), kubectl, Helm |
+| Network | ping, dig, nmap, traceroute, mtr, tcpdump, netcat, whois, iperf3, net-tools |
+| VPN | OpenVPN, WireGuard, StrongSwan (IPsec), PPTP |
 | Code Quality | ShellCheck, ktn-linter, grepai |
 | Shell | Zsh + Oh My Zsh + Powerlevel10k |
 
@@ -119,6 +122,7 @@ Configured in `mcp.json.tpl`:
 | `/update` | DevContainer update from template |
 | `/infra` | Infrastructure automation (Terraform/Terragrunt) |
 | `/secret` | Secure secret management (1Password + Vault-like paths) |
+| `/vpn` | Multi-protocol VPN management (OpenVPN, WireGuard, IPsec, PPTP) |
 | `/improve` | Continuous docs enhancement & anti-pattern detection |
 | `/prompt` | Generate ideal prompt structure for /plan |
 

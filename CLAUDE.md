@@ -1,3 +1,4 @@
+<!-- updated: 2026-02-11T07:30:19Z -->
 # devcontainer-template
 
 ## Purpose
@@ -108,6 +109,8 @@ Principle: More detail deeper in tree. Each file < 100 lines.
 | `/plan` | Analyze codebase and design implementation approach |
 | `/do` | Execute approved plans iteratively |
 | `/git` | Conventional commits, branch management |
+| `/warmup` | Context pre-loading and CLAUDE.md update |
+| `/vpn` | Multi-protocol VPN management (1Password) |
 | `/improve` | Documentation QA for design patterns |
 | `/prompt` | Generate ideal prompt structure for /plan requests |
 
