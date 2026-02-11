@@ -406,7 +406,7 @@ step_auto_init_check() {
 # ============================================================================
 GREPAI_BIN="/usr/local/bin/grepai"
 GREPAI_CONFIG_TPL="/etc/grepai/config.yaml"
-EMBEDDING_MODEL="qwen3-embedding:0.6b"
+EMBEDDING_MODEL="bge-m3"
 OLLAMA_HOST_ENDPOINT="host.docker.internal:11434"
 
 detect_ollama_endpoint() {

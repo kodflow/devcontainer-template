@@ -111,7 +111,7 @@ echo "All features validated successfully"
 # Ollama runs on the HOST to leverage GPU (Metal on Mac, CUDA on Linux)
 # The DevContainer connects via host.docker.internal:11434
 # ============================================================================
-OLLAMA_MODEL="qwen3-embedding:0.6b"
+OLLAMA_MODEL="bge-m3"
 
 echo ""
 echo "Setting up Ollama for GPU-accelerated semantic search..."

@@ -30,6 +30,12 @@ allowed-tools:
 
 # /docs - Documentation Server (Deep Analysis)
 
+## GREPAI-FIRST (MANDATORY)
+
+Use `grepai_search` for ALL semantic/meaning-based queries BEFORE Grep.
+Use `grepai_trace_callers`/`grepai_trace_callees` for impact analysis.
+Fallback to Grep ONLY for exact string matches or regex patterns.
+
 Generate and serve **comprehensive** project documentation using MkDocs Material.
 
 **Key Difference:** This skill launches **N parallel analysis agents**, each specialized
