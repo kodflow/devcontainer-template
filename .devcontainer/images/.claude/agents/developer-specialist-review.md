@@ -17,7 +17,9 @@ tools:
   - mcp__grepai__grepai_trace_graph
   - mcp__grepai__grepai_index_status
   - Task
-  - TodoWrite
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
   - Bash
   # GitHub MCP (PR context)
   - mcp__github__get_pull_request

@@ -317,7 +317,7 @@ discover_workflow:
     grepai:
       raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/images/grepai.config.yaml"
       local_path: ".devcontainer/images/grepai.config.yaml"
-      note: "Optimized config with qwen3-embedding model"
+      note: "Optimized config with bge-m3 model (best accuracy)"
 ```
 
 **Implémentation Discover :**
@@ -573,7 +573,7 @@ else
     update_compose_services
 fi
 
-# grepai config (optimized with qwen3-embedding)
+# grepai config (optimized with bge-m3)
 safe_download \
     "$BASE/.devcontainer/images/grepai.config.yaml" \
     ".devcontainer/images/grepai.config.yaml"
@@ -615,13 +615,13 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
     ✓ p10k        (1 file)
     ✓ settings    (1 file)
     ✓ compose     (devcontainer service updated)
-    ✓ grepai      (1 file - qwen3-embedding config)
+    ✓ grepai      (1 file - bge-m3 config)
     ✓ user-hooks  (synchronized with template)
     ✓ validation  (all scripts exist)
 
   Grepai config:
     provider: ollama
-    model: qwen3-embedding:0.6b
+    model: bge-m3
     endpoint: host.docker.internal:11434 (GPU-accelerated)
 
   Cleanup:

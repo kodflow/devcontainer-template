@@ -18,10 +18,20 @@ allowed-tools:
   - "mcp__grepai__*"
   - "Grep(**/*)"
   - "Task(*)"
+  - "TaskCreate(*)"
+  - "TaskUpdate(*)"
+  - "TaskList(*)"
+  - "TaskGet(*)"
   - "AskUserQuestion(*)"
 ---
 
 # /git - Workflow Git Automation (RLM Architecture)
+
+## GREPAI-FIRST (MANDATORY)
+
+Use `grepai_search` for ALL semantic/meaning-based queries BEFORE Grep.
+Use `grepai_trace_callers`/`grepai_trace_callees` for impact analysis.
+Fallback to Grep ONLY for exact string matches or regex patterns.
 
 $ARGUMENTS
 
@@ -526,16 +536,48 @@ parallel_checks:
 
 ### Phase 3.5 : Secret Scan (1Password Integration)
 
+**REGLE ABSOLUE : Aucun secret/mot de passe reel ne doit fuiter dans un commit.**
+
+**Politique secrets :**
+
+| Type | Action | Exemple |
+|------|--------|---------|
+| Secret reel (token, mdp prod) | **BLOQUER le commit** | `ghp_abc123...`, `postgres://user:realpass@prod/db` |
+| Mot de passe de test | **OK si dans fichier `.example`** | `.env.example`, `config.example.yaml` |
+| Mot de passe de test dans le code | **OK si commente explicitement** | `// TEST ONLY - not a real credential` |
+| Fichier `.env` avec vrais secrets | **JAMAIS committe** | Doit etre dans `.gitignore` |
+
+**Fichiers `.example` :** Les mots de passe de test dans des fichiers `.example` sont acceptes car ils servent de documentation. Ils DOIVENT avoir un commentaire expliquant que ce sont des valeurs de test :
+
+```bash
+# .env.example - Test/default values only, NOT real credentials
+DB_PASSWORD=test_password_change_me    # TEST ONLY
+API_KEY=sk-test-fake-key-for-dev       # TEST ONLY
+```
+
 **Scanner les fichiers staged pour des secrets hardcodes :**
 
 ```yaml
 secret_scan:
   trigger: "ALWAYS run in parallel with language checks"
-  blocking: false  # WARNING only, ne bloque PAS le commit
+  blocking: true  # BLOQUE le commit si secret reel detecte
+
+  0_policy:
+    real_secrets: "BLOCK - never commit real tokens, passwords, API keys"
+    test_passwords_in_example_files: "ALLOW - .example files are documentation"
+    test_passwords_in_code: "ALLOW if commented with '// TEST ONLY' or '# TEST ONLY'"
+    env_files: "BLOCK - .env must be in .gitignore, use .env.example instead"
 
   1_get_staged_files:
     command: "git diff --cached --name-only"
     exclude: [".env", ".env.*", "*.lock", "*.sum"]
+
+  1b_check_env_not_staged:
+    command: "git diff --cached --name-only | grep -E '^\.env$' || true"
+    action: |
+      SI .env est staged:
+        BLOQUER le commit
+        Message: ".env contient potentiellement des secrets reels. Utilisez .env.example pour les valeurs par defaut."
 
   2_scan_patterns:
     patterns:
@@ -553,11 +595,24 @@ secret_scan:
       generic:
         - '[a-zA-Z0-9+/]{40,}={0,2}'     # Long base64 (potential secrets)
 
+    exceptions:
+      - file_pattern: "*.example*"         # .env.example, config.example.yaml
+      - file_pattern: "*_example.*"
+      - file_pattern: "*.sample*"
+      - comment_marker: "TEST ONLY"        # Inline comment marks test value
+      - comment_marker: "FAKE"
+      - comment_marker: "PLACEHOLDER"
+      - value_pattern: "test_*"            # test_password, test_token
+      - value_pattern: "fake_*"
+      - value_pattern: "dummy_*"
+      - value_pattern: "changeme"
+      - value_pattern: "TODO:*"
+
   3_if_secrets_found:
-    action: "WARNING + suggestion"
+    action: "BLOCK commit + suggestion"
     output: |
       ═══════════════════════════════════════════════════════════════
-        ⚠ Hardcoded Secrets Detected
+        ⛔ REAL SECRETS DETECTED - COMMIT BLOCKED
       ═══════════════════════════════════════════════════════════════
 
         Found {count} potential secret(s) in staged files:
@@ -572,7 +627,10 @@ secret_scan:
           Suggestion: /secret --push DATABASE_URL=<value>
 
         Action: Use /secret --push to store in 1Password
-        Note: This is a WARNING, commit is NOT blocked
+                Then replace with env var reference
+
+        Test passwords? Put them in .env.example with comment:
+          DB_PASSWORD=test_pass  # TEST ONLY
 
       ═══════════════════════════════════════════════════════════════
 

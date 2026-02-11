@@ -12,7 +12,10 @@ allowed-tools:
   - "Write(**/*)"
   - "Edit(**/*)"
   - "Task(*)"
-  - "TodoWrite(*)"
+  - "TaskCreate(*)"
+  - "TaskUpdate(*)"
+  - "TaskList(*)"
+  - "TaskGet(*)"
   - "Bash(git:*)"
 ---
 

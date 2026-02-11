@@ -18,9 +18,19 @@ allowed-tools:
   - "mcp__codacy__*"
   - "mcp__grepai__*"
   - "Task(*)"
+  - "TaskCreate(*)"
+  - "TaskUpdate(*)"
+  - "TaskList(*)"
+  - "TaskGet(*)"
 ---
 
 # Review - AI Code Review (RLM Architecture)
+
+## GREPAI-FIRST (MANDATORY)
+
+Use `grepai_search` for ALL semantic/meaning-based queries BEFORE Grep.
+Use `grepai_trace_callers`/`grepai_trace_callees` for impact analysis.
+Fallback to Grep ONLY for exact string matches or regex patterns.
 
 ## Overview
 
