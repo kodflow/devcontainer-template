@@ -1,15 +1,26 @@
 #!/bin/bash
 set -e
 
-echo "========================================="
-echo "Installing Ada Development Environment"
-echo "========================================="
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+    get_github_latest_version() {
+        local repo="$1" fallback="$2" version
+        version=$(curl -s --connect-timeout 5 --max-time 10 \
+            "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+            | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+        echo "${version:-$fallback}"
+    }
+}
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+print_banner "Ada Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing Ada Development Environment"
+    echo "========================================="
+}
 
 # Detect architecture
 ARCH=$(uname -m)
@@ -53,11 +64,13 @@ else
     echo -e "${YELLOW}⚠ Alire download failed${NC}"
 fi
 
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}Ada environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+print_success_banner "Ada environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}Ada environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 echo "Installed components:"
 echo "  - ${GNAT_VERSION}"
 echo "  - ${GPRBUILD_VERSION}"

@@ -1,15 +1,19 @@
 #!/bin/bash
 set -e
 
-echo "========================================="
-echo "Installing Ruby Development Environment"
-echo "========================================="
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+}
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+print_banner "Ruby Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing Ruby Development Environment"
+    echo "========================================="
+}
 
 # Environment variables
 export RUBY_VERSION="${RUBY_VERSION:-3.3}"
@@ -109,33 +113,18 @@ mkdir -p "$GEM_HOME"
 mkdir -p "$BUNDLE_PATH"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Install Ruby Development Tools (latest versions)
+# Install Ruby Development Tools — batched for speed
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}Installing Ruby development tools...${NC}"
 
-# Helper for gem install
-install_gem() {
-    local name=$1
-    echo -e "${YELLOW}Installing ${name}...${NC}"
-    if gem install "$name" 2>/dev/null || sudo gem install "$name" 2>/dev/null; then
-        if [ -d "$RBENV_ROOT" ]; then rbenv rehash 2>/dev/null || true; fi
-        echo -e "${GREEN}✓ ${name} installed${NC}"
-    else
-        echo -e "${YELLOW}⚠ ${name} failed to install${NC}"
-    fi
-}
-
-# RuboCop (linter/formatter - mandatory per RULES.md)
-install_gem rubocop
-
-# SimpleCov (coverage - per RULES.md)
-install_gem simplecov
-
-# Solargraph (Language Server)
-install_gem solargraph
-
-# Ruby LSP (alternative language server)
-install_gem ruby-lsp
+# Batch install all gems in a single call
+if gem install rubocop simplecov solargraph ruby-lsp 2>/dev/null || \
+   sudo gem install rubocop simplecov solargraph ruby-lsp 2>/dev/null; then
+    if [ -d "$RBENV_ROOT" ]; then rbenv rehash 2>/dev/null || true; fi
+    echo -e "${GREEN}✓ rubocop, simplecov, solargraph, ruby-lsp installed${NC}"
+else
+    echo -e "${YELLOW}⚠ Some gems failed to install${NC}"
+fi
 
 echo -e "${GREEN}✓ Ruby development tools installed${NC}"
 
@@ -157,11 +146,13 @@ eval "$(rbenv init -)"'
     done
 fi
 
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}Ruby environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+print_success_banner "Ruby environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}Ruby environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 echo "Installed components:"
 echo "  - ${RUBY_INSTALLED}"
 echo "  - RubyGems ${GEM_VERSION}"

@@ -1,15 +1,27 @@
 #!/bin/bash
 set -e
 
-echo "========================================="
-echo "Installing Go Development Environment"
-echo "========================================="
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+    err() { echo -e "${RED}✗${NC} $*" >&2; }
+    get_github_latest_version() {
+        local repo="$1" fallback="$2" version
+        version=$(curl -s --connect-timeout 5 --max-time 10 \
+            "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+            | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+        echo "${version:-$fallback}"
+    }
+}
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+print_banner "Go Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing Go Development Environment"
+    echo "========================================="
+}
 
 # Environment variables
 export GO_VERSION="${GO_VERSION:-latest}"
@@ -134,99 +146,79 @@ install_go_tool() {
     fi
 }
 
-# Helper function: fetch latest version from GitHub API with fallback
-# Protects against rate limiting (60 req/h unauthenticated)
-get_github_version() {
-    local repo=$1
-    local fallback=$2
-    local version
-    # Use portable sed instead of grep -oP (PCRE not available on all systems)
-    version=$(curl -s --connect-timeout 5 --max-time 10 \
-        "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
-        | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
-    echo "${version:-$fallback}"
-}
+# Fetch latest versions (sequential, fast API calls with fallbacks)
+GOLANGCI_VERSION=$(get_github_latest_version "golangci/golangci-lint" "2.8.0")
+GOSEC_VERSION=$(get_github_latest_version "securego/gosec" "2.22.11")
+GOFUMPT_VERSION=$(get_github_latest_version "mvdan/gofumpt" "0.9.2")
+GOTESTSUM_VERSION=$(get_github_latest_version "gotestyourself/gotestsum" "1.13.0")
 
-# Quality & Linting - golangci-lint v2 (prebuilt)
-# v2.x is a major rewrite with breaking config changes (use .golangci.yml version: "2")
-GOLANGCI_VERSION=$(get_github_version "golangci/golangci-lint" "2.8.0")
+# gofumpt uses 'v' prefix in URLs
+[[ "$GOFUMPT_VERSION" != v* ]] && GOFUMPT_VERSION="v${GOFUMPT_VERSION}"
+
+# Install all tools in parallel
 install_go_tool "golangci-lint" \
     "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_VERSION}/golangci-lint-${GOLANGCI_VERSION}-linux-${GO_ARCH}.tar.gz" \
     "github.com/golangci/golangci-lint/v2/cmd/golangci-lint" \
-    "tar.gz"
+    "tar.gz" &
 
-# Security - gosec (prebuilt)
-GOSEC_VERSION=$(get_github_version "securego/gosec" "2.22.11")
 install_go_tool "gosec" \
     "https://github.com/securego/gosec/releases/download/v${GOSEC_VERSION}/gosec_${GOSEC_VERSION}_linux_${GO_ARCH}.tar.gz" \
     "github.com/securego/gosec/v2/cmd/gosec" \
-    "tar.gz"
+    "tar.gz" &
 
-# Formatting - gofumpt (prebuilt binary, no archive)
-GOFUMPT_VERSION=$(get_github_version "mvdan/gofumpt" "0.9.2")
-# gofumpt uses 'v' prefix in URLs
-[[ "$GOFUMPT_VERSION" != v* ]] && GOFUMPT_VERSION="v${GOFUMPT_VERSION}"
 install_go_tool "gofumpt" \
     "https://github.com/mvdan/gofumpt/releases/download/${GOFUMPT_VERSION}/gofumpt_${GOFUMPT_VERSION}_linux_${GO_ARCH}" \
     "mvdan.cc/gofumpt" \
-    "binary"
+    "binary" &
 
-# Testing tools - gotestsum (prebuilt)
-GOTESTSUM_VERSION=$(get_github_version "gotestyourself/gotestsum" "1.13.0")
 install_go_tool "gotestsum" \
     "https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VERSION}/gotestsum_${GOTESTSUM_VERSION}_linux_${GO_ARCH}.tar.gz" \
     "gotest.tools/gotestsum" \
-    "tar.gz"
+    "tar.gz" &
 
-# Import management - goimports (no prebuilt, go install only)
-echo -e "${YELLOW}Installing goimports...${NC}"
-go install golang.org/x/tools/cmd/goimports@latest
-echo -e "${GREEN}✓ goimports installed${NC}"
+(
+    echo -e "${YELLOW}Installing goimports...${NC}"
+    go install golang.org/x/tools/cmd/goimports@latest
+    echo -e "${GREEN}✓ goimports installed${NC}"
+) &
 
-# Optional: ktn-linter (prebuilt)
 install_go_tool "ktn-linter" \
     "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}" \
     "" \
-    "binary"
+    "binary" &
+
+wait
+echo -e "${GREEN}✓ All Go tools installed${NC}"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Install Wails v2 (Desktop GUI Framework)
+# Install Wails v2 + TinyGo in parallel
 # ─────────────────────────────────────────────────────────────────────────────
-echo -e "${YELLOW}Installing Wails v2 (desktop GUI framework)...${NC}"
-if go install github.com/wailsapp/wails/v2/cmd/wails@latest; then
-    if command -v wails &> /dev/null; then
-        WAILS_VERSION=$(wails version 2>/dev/null | head -n 1 || echo "installed")
-        echo -e "${GREEN}✓ Wails ${WAILS_VERSION}${NC}"
+
+# Wails v2 (Desktop GUI Framework)
+(
+    echo -e "${YELLOW}Installing Wails v2 (desktop GUI framework)...${NC}"
+    if go install github.com/wailsapp/wails/v2/cmd/wails@latest; then
+        if command -v wails &> /dev/null; then
+            WAILS_VERSION=$(wails version 2>/dev/null | head -n 1 || echo "installed")
+            echo -e "${GREEN}✓ Wails ${WAILS_VERSION}${NC}"
+        else
+            echo -e "${YELLOW}⚠ Wails installed but not in PATH yet${NC}"
+        fi
     else
-        echo -e "${YELLOW}⚠ Wails installed but not in PATH yet${NC}"
+        echo -e "${YELLOW}⚠ Wails installation failed${NC}"
     fi
-else
-    echo -e "${YELLOW}⚠ Wails installation failed${NC}"
-fi
+) &
+WAILS_PID=$!
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Install TinyGo (WebAssembly Compiler)
-# ─────────────────────────────────────────────────────────────────────────────
-echo -e "${YELLOW}Installing TinyGo (WASM/embedded compiler)...${NC}"
-
-# Get latest TinyGo version
-TINYGO_VERSION=$(get_github_version "tinygo-org/tinygo" "0.34.0")
-
-# Download and install TinyGo
-case "$GO_ARCH" in
-    amd64)
-        TINYGO_PKG="tinygo_${TINYGO_VERSION}_amd64.deb"
-        ;;
-    arm64)
-        TINYGO_PKG="tinygo_${TINYGO_VERSION}_arm64.deb"
-        ;;
-    *)
-        echo -e "${YELLOW}⚠ TinyGo not available for ${GO_ARCH}${NC}"
-        TINYGO_PKG=""
-        ;;
-esac
-
-if [ -n "$TINYGO_PKG" ]; then
+# TinyGo (WebAssembly Compiler)
+(
+    echo -e "${YELLOW}Installing TinyGo (WASM/embedded compiler)...${NC}"
+    TINYGO_VERSION=$(get_github_latest_version "tinygo-org/tinygo" "0.34.0")
+    case "$GO_ARCH" in
+        amd64) TINYGO_PKG="tinygo_${TINYGO_VERSION}_amd64.deb" ;;
+        arm64) TINYGO_PKG="tinygo_${TINYGO_VERSION}_arm64.deb" ;;
+        *)     echo -e "${YELLOW}⚠ TinyGo not available for ${GO_ARCH}${NC}"; exit 0 ;;
+    esac
     TINYGO_URL="https://github.com/tinygo-org/tinygo/releases/download/v${TINYGO_VERSION}/${TINYGO_PKG}"
     if curl -fsSL --connect-timeout 10 --max-time 120 -o "/tmp/${TINYGO_PKG}" "$TINYGO_URL" 2>/dev/null; then
         sudo dpkg -i "/tmp/${TINYGO_PKG}" 2>/dev/null || sudo apt-get install -f -y
@@ -240,13 +232,19 @@ if [ -n "$TINYGO_PKG" ]; then
     else
         echo -e "${YELLOW}⚠ TinyGo download failed, skipping${NC}"
     fi
-fi
+) &
+TINYGO_PID=$!
 
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}Go environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+wait "$WAILS_PID" 2>/dev/null || true
+wait "$TINYGO_PID" 2>/dev/null || true
+
+print_success_banner "Go environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}Go environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 echo "Installed components:"
 echo "  - ${GO_INSTALLED}"
 echo "  - Go Modules (package manager)"

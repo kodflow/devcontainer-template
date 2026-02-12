@@ -1,15 +1,19 @@
 #!/bin/bash
 set -e
 
-echo "========================================="
-echo "Installing Swift Development Environment"
-echo "========================================="
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+}
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+print_banner "Swift Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing Swift Development Environment"
+    echo "========================================="
+}
 
 # Cleanup on failure
 cleanup() {
@@ -72,63 +76,74 @@ SWIFT_INSTALLED=$(swift --version 2>&1 | head -n 1)
 echo -e "${GREEN}${SWIFT_INSTALLED} installed${NC}"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Install SwiftFormat (GitHub releases)
+# Install SwiftFormat + SwiftLint in parallel
 # ─────────────────────────────────────────────────────────────────────────────
-echo -e "${YELLOW}Installing SwiftFormat...${NC}"
-SWIFTFORMAT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-    "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/latest" 2>/dev/null \
-    | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
-SWIFTFORMAT_VERSION="${SWIFTFORMAT_VERSION:-0.54.6}"
 
-SWIFTFORMAT_URL="https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat_linux_${SWIFT_ARCH}.tar.gz"
-if curl -fsSL --connect-timeout 10 --max-time 120 -o /tmp/swiftformat.tar.gz "$SWIFTFORMAT_URL" 2>/dev/null; then
-    sudo tar -xzf /tmp/swiftformat.tar.gz -C /usr/local/bin/ 2>/dev/null || true
-    sudo chmod +x /usr/local/bin/swiftformat 2>/dev/null || true
-    rm -f /tmp/swiftformat.tar.gz
-    echo -e "${GREEN}SwiftFormat ${SWIFTFORMAT_VERSION} installed${NC}"
-else
-    echo -e "${YELLOW}SwiftFormat binary not available, building from source...${NC}"
-    git clone --depth 1 --branch "$SWIFTFORMAT_VERSION" https://github.com/nicklockwood/SwiftFormat.git /tmp/SwiftFormat
-    cd /tmp/SwiftFormat && swift build -c release
-    sudo cp /tmp/SwiftFormat/.build/release/swiftformat /usr/local/bin/
-    rm -rf /tmp/SwiftFormat
-    echo -e "${GREEN}SwiftFormat ${SWIFTFORMAT_VERSION} installed (compiled)${NC}"
-fi
+# SwiftFormat (GitHub releases)
+(
+    echo -e "${YELLOW}Installing SwiftFormat...${NC}"
+    SWIFTFORMAT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
+        "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/latest" 2>/dev/null \
+        | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+    SWIFTFORMAT_VERSION="${SWIFTFORMAT_VERSION:-0.54.6}"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Install SwiftLint (GitHub releases or build from source)
-# ─────────────────────────────────────────────────────────────────────────────
-echo -e "${YELLOW}Installing SwiftLint...${NC}"
-SWIFTLINT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-    "https://api.github.com/repos/realm/SwiftLint/releases/latest" 2>/dev/null \
-    | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
-SWIFTLINT_VERSION="${SWIFTLINT_VERSION:-0.57.0}"
+    SWIFTFORMAT_URL="https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat_linux_${SWIFT_ARCH}.tar.gz"
+    if curl -fsSL --connect-timeout 10 --max-time 120 -o /tmp/swiftformat.tar.gz "$SWIFTFORMAT_URL" 2>/dev/null; then
+        sudo tar -xzf /tmp/swiftformat.tar.gz -C /usr/local/bin/ 2>/dev/null || true
+        sudo chmod +x /usr/local/bin/swiftformat 2>/dev/null || true
+        rm -f /tmp/swiftformat.tar.gz
+        echo -e "${GREEN}SwiftFormat ${SWIFTFORMAT_VERSION} installed${NC}"
+    else
+        echo -e "${YELLOW}SwiftFormat binary not available, building from source...${NC}"
+        git clone --depth 1 --branch "$SWIFTFORMAT_VERSION" https://github.com/nicklockwood/SwiftFormat.git /tmp/SwiftFormat
+        cd /tmp/SwiftFormat && swift build -c release
+        sudo cp /tmp/SwiftFormat/.build/release/swiftformat /usr/local/bin/
+        rm -rf /tmp/SwiftFormat
+        echo -e "${GREEN}SwiftFormat ${SWIFTFORMAT_VERSION} installed (compiled)${NC}"
+    fi
+) &
+SWIFTFORMAT_PID=$!
 
-SWIFTLINT_URL="https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/swiftlint_linux_${SWIFT_ARCH}.tar.gz"
-if curl -fsSL --connect-timeout 10 --max-time 120 -o /tmp/swiftlint.tar.gz "$SWIFTLINT_URL" 2>/dev/null; then
-    sudo tar -xzf /tmp/swiftlint.tar.gz -C /usr/local/bin/ 2>/dev/null || true
-    sudo chmod +x /usr/local/bin/swiftlint 2>/dev/null || true
-    rm -f /tmp/swiftlint.tar.gz
-    echo -e "${GREEN}SwiftLint ${SWIFTLINT_VERSION} installed${NC}"
-else
-    echo -e "${YELLOW}SwiftLint binary not available, building from source...${NC}"
-    git clone --depth 1 --branch "$SWIFTLINT_VERSION" https://github.com/realm/SwiftLint.git /tmp/SwiftLint
-    cd /tmp/SwiftLint && swift build -c release
-    sudo cp /tmp/SwiftLint/.build/release/swiftlint /usr/local/bin/
-    rm -rf /tmp/SwiftLint
-    echo -e "${GREEN}SwiftLint ${SWIFTLINT_VERSION} installed (compiled)${NC}"
-fi
+# SwiftLint (GitHub releases or build from source)
+(
+    echo -e "${YELLOW}Installing SwiftLint...${NC}"
+    SWIFTLINT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
+        "https://api.github.com/repos/realm/SwiftLint/releases/latest" 2>/dev/null \
+        | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+    SWIFTLINT_VERSION="${SWIFTLINT_VERSION:-0.57.0}"
+
+    SWIFTLINT_URL="https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/swiftlint_linux_${SWIFT_ARCH}.tar.gz"
+    if curl -fsSL --connect-timeout 10 --max-time 120 -o /tmp/swiftlint.tar.gz "$SWIFTLINT_URL" 2>/dev/null; then
+        sudo tar -xzf /tmp/swiftlint.tar.gz -C /usr/local/bin/ 2>/dev/null || true
+        sudo chmod +x /usr/local/bin/swiftlint 2>/dev/null || true
+        rm -f /tmp/swiftlint.tar.gz
+        echo -e "${GREEN}SwiftLint ${SWIFTLINT_VERSION} installed${NC}"
+    else
+        echo -e "${YELLOW}SwiftLint binary not available, building from source...${NC}"
+        git clone --depth 1 --branch "$SWIFTLINT_VERSION" https://github.com/realm/SwiftLint.git /tmp/SwiftLint
+        cd /tmp/SwiftLint && swift build -c release
+        sudo cp /tmp/SwiftLint/.build/release/swiftlint /usr/local/bin/
+        rm -rf /tmp/SwiftLint
+        echo -e "${GREEN}SwiftLint ${SWIFTLINT_VERSION} installed (compiled)${NC}"
+    fi
+) &
+SWIFTLINT_PID=$!
+
+wait "$SWIFTFORMAT_PID" 2>/dev/null || true
+wait "$SWIFTLINT_PID" 2>/dev/null || true
 
 # Add Swift to system profile
 echo "export PATH=\"$SWIFT_HOME/usr/bin:\$PATH\"" | sudo tee /etc/profile.d/swift.sh >/dev/null
 
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}Swift environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+print_success_banner "Swift environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}Swift environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 echo "Installed components:"
 echo "  - ${SWIFT_INSTALLED}"
-echo "  - SwiftFormat ${SWIFTFORMAT_VERSION} (formatter)"
-echo "  - SwiftLint ${SWIFTLINT_VERSION} (linter)"
+echo "  - SwiftFormat (formatter)"
+echo "  - SwiftLint (linter)"
 echo ""

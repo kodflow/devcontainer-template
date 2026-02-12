@@ -1,15 +1,19 @@
 #!/bin/bash
 set -e
 
-echo "========================================="
-echo "Installing PHP Development Environment"
-echo "========================================="
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+}
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+print_banner "PHP Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing PHP Development Environment"
+    echo "========================================="
+}
 
 # Environment variables
 export PHP_VERSION="${PHP_VERSION:-8.3}"
@@ -73,26 +77,19 @@ mkdir -p "$COMPOSER_HOME"
 mkdir -p "$COMPOSER_CACHE_DIR"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Install PHP Development Tools (latest versions)
+# Install PHP Development Tools — batched for speed
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}Installing PHP development tools...${NC}"
 
-# PHP-CS-Fixer (PSR-12 formatter per RULES.md)
-echo -e "${YELLOW}Installing PHP-CS-Fixer...${NC}"
-composer global require friendsofphp/php-cs-fixer --quiet
-echo -e "${GREEN}✓ PHP-CS-Fixer installed${NC}"
+# Batch install: PHP-CS-Fixer, PHPStan, PHPUnit, PHP_CodeSniffer
+composer global require --quiet \
+    friendsofphp/php-cs-fixer \
+    phpstan/phpstan \
+    phpunit/phpunit \
+    squizlabs/php_codesniffer
+echo -e "${GREEN}✓ PHP-CS-Fixer, PHPStan, PHPUnit, PHP_CodeSniffer installed${NC}"
 
-# PHPStan (static analysis level 9 per RULES.md)
-echo -e "${YELLOW}Installing PHPStan...${NC}"
-composer global require phpstan/phpstan --quiet
-echo -e "${GREEN}✓ PHPStan installed${NC}"
-
-# PHPUnit (testing per RULES.md)
-echo -e "${YELLOW}Installing PHPUnit...${NC}"
-composer global require phpunit/phpunit --quiet
-echo -e "${GREEN}✓ PHPUnit installed${NC}"
-
-# Pest (BDD-style testing, optional per RULES.md)
+# Pest (BDD-style testing, optional — may fail due to dependency conflicts)
 echo -e "${YELLOW}Installing Pest...${NC}"
 PEST_OUTPUT=$(composer global require pestphp/pest --quiet 2>&1) && PEST_STATUS=$? || PEST_STATUS=$?
 if [ "$PEST_STATUS" -eq 0 ]; then
@@ -102,11 +99,6 @@ else
     # Log error for debugging if verbose
     [ -n "$PEST_OUTPUT" ] && echo -e "${YELLOW}  Details: ${PEST_OUTPUT}${NC}" | head -1
 fi
-
-# PHP CodeSniffer (PSR compliance checking)
-echo -e "${YELLOW}Installing PHP_CodeSniffer...${NC}"
-composer global require squizlabs/php_codesniffer --quiet
-echo -e "${GREEN}✓ PHP_CodeSniffer installed${NC}"
 
 # Add Composer global bin to PATH (both .bashrc and .zshrc for consistency)
 COMPOSER_BIN="$COMPOSER_HOME/vendor/bin"
@@ -120,11 +112,13 @@ done
 
 echo -e "${GREEN}✓ PHP development tools installed${NC}"
 
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}PHP environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+print_success_banner "PHP environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}PHP environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 echo "Installed components:"
 echo "  - ${PHP_INSTALLED}"
 echo "  - ${COMPOSER_VERSION}"
