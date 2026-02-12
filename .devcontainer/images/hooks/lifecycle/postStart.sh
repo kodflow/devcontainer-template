@@ -526,6 +526,8 @@ stop_grepai_daemon() {
             sleep 1
         fi
     fi
+    # Clean stale lock (daemon may have held it when killed)
+    rm -f "/workspace/.grepai/index.gob.lock"
 }
 
 _grepai_init_core() {
@@ -663,6 +665,8 @@ _grepai_init_core() {
     grepai_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
 
     if [ -z "$grepai_pid" ]; then
+        # Clean stale lock from previous crashed daemon (no process = lock is stale)
+        rm -f "${grepai_dir}/index.gob.lock"
         log_info "Starting grepai watch daemon..."
         : > "$grepai_log"
         (cd /workspace && nohup "$GREPAI_BIN" watch > "$grepai_log" 2>&1 &)
@@ -750,6 +754,8 @@ grepai_watchdog() {
                 continue
             fi
 
+            # Clean stale lock from crashed daemon before restart
+            rm -f "${grepai_dir}/index.gob.lock"
             (cd /workspace && nohup "$GREPAI_BIN" watch >> "$grepai_log" 2>&1 &)
             sleep 3
 
