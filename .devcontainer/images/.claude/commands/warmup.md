@@ -99,7 +99,7 @@ Workflow:
 
 ## Mode Normal (Préchargement)
 
-### Phase 1 : Peek (Découverte hiérarchie)
+### Phase 1.0 : Peek (Découverte hiérarchie)
 
 ```yaml
 peek_workflow:
@@ -171,7 +171,7 @@ peek_workflow:
 
 ---
 
-### Phase 2 : Funnel (Lecture en entonnoir)
+### Phase 2.0 : Funnel (Lecture en entonnoir)
 
 ```yaml
 funnel_strategy:
@@ -220,7 +220,7 @@ POUR profondeur DE 0 À max_profondeur:
 
 ---
 
-### Phase 3 : Parallelize (Analyse par domaine)
+### Phase 3.0 : Parallelize (Analyse par domaine)
 
 ```yaml
 parallel_analysis:
@@ -270,7 +270,7 @@ parallel_analysis:
 
 ---
 
-### Phase 4 : Synthesize (Contexte consolidé)
+### Phase 4.0 : Synthesize (Contexte consolidé)
 
 ```yaml
 synthesize_workflow:
@@ -336,7 +336,7 @@ synthesize_workflow:
 
 ## Mode --update (Mise à jour documentation)
 
-### Phase 1 : Scan complet du code
+### Phase 1.0 : Scan complet du code
 
 ```yaml
 scan_workflow:
@@ -382,7 +382,7 @@ scan_workflow:
 
 ---
 
-### Phase 1.5 : Création des CLAUDE.md manquants
+### Phase 2.0 : Création des CLAUDE.md manquants
 
 **Comportement par défaut de --update** (pas une option séparée).
 
@@ -454,7 +454,7 @@ create_missing_workflow:
 
   output: |
     ═══════════════════════════════════════════════════════════
-      /warmup --update - Phase 1.5: Missing CLAUDE.md
+      /warmup --update - Phase 2.0: Missing CLAUDE.md
     ═══════════════════════════════════════════════════════════
 
     .gitignore patterns loaded: <n> patterns
@@ -494,7 +494,7 @@ create_missing_workflow:
 
 ---
 
-### Phase 2 : Détection des obsolescences
+### Phase 3.0 : Détection des obsolescences
 
 ```yaml
 obsolete_detection:
@@ -528,7 +528,7 @@ obsolete_detection:
 
 ---
 
-### Phase 3 : Génération des mises à jour
+### Phase 4.0 : Génération des mises à jour
 
 ```yaml
 update_generation:
@@ -567,7 +567,7 @@ update_generation:
 
 ---
 
-### Phase 4 : Application des changements
+### Phase 5.0 : Application des changements
 
 ```yaml
 apply_workflow:
@@ -631,7 +631,7 @@ apply_workflow:
       - "Verify timestamp injected in first line"
 ```
 
-### Phase 5 : GrepAI Config Update (Project-Specific Exclusions)
+### Phase 6.0 : GrepAI Config Update (Project-Specific Exclusions)
 
 **Met à jour la configuration grepai avec les exclusions spécifiques au projet.**
 
@@ -692,7 +692,7 @@ grepai_config_update:
 
   output: |
     ═══════════════════════════════════════════════════════════
-      /warmup --update - Phase 5: GrepAI Config
+      /warmup --update - Phase 6.0: GrepAI Config
     ═══════════════════════════════════════════════════════════
 
     Config: /workspace/.grepai/config.yaml

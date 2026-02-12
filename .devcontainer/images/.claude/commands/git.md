@@ -162,7 +162,7 @@ Exemples:
 
 ## Action: --commit
 
-### Phase 0.5 : Git Identity Validation (OBLIGATOIRE)
+### Phase 1.0 : Git Identity Validation (OBLIGATOIRE)
 
 **Vérifier et configurer l'identité git AVANT toute action :**
 
@@ -334,7 +334,7 @@ GIT_EMAIL="john.doe@example.com"
 
 ---
 
-### Phase 1 : Peek (RLM Pattern)
+### Phase 2.0 : Peek (RLM Pattern)
 
 **Analyser l'état git AVANT toute action :**
 
@@ -387,7 +387,7 @@ peek_workflow:
 
 ---
 
-### Phase 2 : Decompose (RLM Pattern)
+### Phase 3.0 : Decompose (RLM Pattern)
 
 **Catégoriser les fichiers modifiés :**
 
@@ -437,7 +437,7 @@ decompose_workflow:
 
 ---
 
-### Phase 3 : Parallelize (RLM Pattern) - Multi-Language Pre-commit
+### Phase 4.0 : Parallelize (RLM Pattern) - Multi-Language Pre-commit
 
 **Auto-detect ALL project languages and run checks for each:**
 
@@ -551,7 +551,7 @@ parallel_checks:
 
 ---
 
-### Phase 3.5 : Secret Scan (1Password Integration)
+### Phase 5.0 : Secret Scan (1Password Integration)
 
 **REGLE ABSOLUE : Aucun secret/mot de passe reel ne doit fuiter dans un commit.**
 
@@ -657,7 +657,7 @@ secret_scan:
 
 ---
 
-### Phase 3.8 : Context Update (MANDATORY before commit)
+### Phase 6.0 : Context Update (MANDATORY before commit)
 
 **Met à jour les fichiers CLAUDE.md pour refléter les modifications de la branche.**
 
@@ -756,7 +756,7 @@ context_update_workflow:
 
 ---
 
-### Phase 4 : Execute & Synthesize
+### Phase 7.0 : Execute & Synthesize
 
 ```yaml
 execute_workflow:
@@ -878,7 +878,7 @@ mcp_only_policy:
 
 ---
 
-### Phase 1 : Peek + Commit-Pinned Tracking
+### Phase 1.0 : Peek + Commit-Pinned Tracking
 
 **CRITICAL: Track pipeline for SPECIFIC commit SHA**
 
@@ -938,7 +938,7 @@ peek_workflow:
 
 ---
 
-### Phase 2 : Job-Level Status Parsing (CRITICAL)
+### Phase 2.0 : Job-Level Status Parsing (CRITICAL)
 
 **Parse EACH job individually, not overall status:**
 
@@ -991,7 +991,7 @@ job_by_job_output:
 
 ---
 
-### Phase 2.5 : CI Monitoring avec Backoff Exponentiel et Hard Timeout
+### Phase 3.0 : CI Monitoring avec Backoff Exponentiel et Hard Timeout
 
 **ABSOLUTE LIMIT: 10 minutes / 30 polls**
 
@@ -1127,7 +1127,7 @@ ci_monitoring:
 
 ---
 
-### Phase 3 : Error Log Extraction (on failure)
+### Phase 4.0 : Error Log Extraction (on failure)
 
 **When pipeline fails, extract actionable information:**
 
@@ -1186,7 +1186,7 @@ error_extraction:
 
 ---
 
-### Phase 4 : Auto-fix Loop avec Catégories d'Erreurs
+### Phase 5.0 : Auto-fix Loop avec Catégories d'Erreurs
 
 ```yaml
 autofix_loop:
@@ -1487,7 +1487,7 @@ autofix_loop:
 
 ---
 
-### Phase 5 : Synthesize (Merge & Cleanup)
+### Phase 6.0 : Synthesize (Merge & Cleanup)
 
 ```yaml
 merge_workflow:

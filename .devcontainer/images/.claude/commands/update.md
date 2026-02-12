@@ -129,7 +129,48 @@ API_URL: "https://api.github.com/repos/${REPO}/contents"
 
 ---
 
-## Phase 0 : Environment Detection (NEW)
+## ZSH Compatibility (CRITICAL)
+
+**The default shell is `zsh` (set via `chsh -s /bin/zsh` in Dockerfile).**
+Claude Code's Bash tool executes commands using `$SHELL` (zsh), not bash.
+
+**RULE: All inline scripts MUST be zsh-compatible.**
+
+| Pattern | Status | Reason |
+|---------|--------|--------|
+| `for x in $VAR` | **BROKEN in zsh** | zsh does not split variables on IFS |
+| `while IFS= read -r x; do` | **WORKS everywhere** | Portable bash/zsh |
+| `for x in literal1 literal2` | **WORKS everywhere** | No variable expansion |
+
+**Always use `while read` for iterating over command output:**
+
+```bash
+# CORRECT (works in both bash and zsh):
+curl ... | jq ... | while IFS= read -r item; do
+    [ -z "$item" ] && continue
+    echo "$item"
+done
+
+# INCORRECT (breaks in zsh - variable not split):
+ITEMS=$(curl ... | jq ...)
+for item in $ITEMS; do
+    echo "$item"
+done
+```
+
+**For the reference script:** Write to a temp file and execute with `bash` explicitly:
+```bash
+# Write script to temp file, then run with bash
+cat > /tmp/update-script.sh << 'SCRIPT'
+#!/bin/bash
+# ... script content ...
+SCRIPT
+bash /tmp/update-script.sh && rm -f /tmp/update-script.sh
+```
+
+---
+
+## Phase 1.0 : Environment Detection (NEW)
 
 **MANDATORY: Detect execution context before any operation.**
 
@@ -192,7 +233,7 @@ detect_context() {
 detect_context
 ```
 
-**Output Phase 0:**
+**Output Phase 1.0:**
 
 ```
 ═══════════════════════════════════════════════
@@ -232,7 +273,7 @@ Or in container:
 
 ---
 
-## Phase 1 : Peek (Version Check)
+## Phase 2.0 : Peek (Version Check)
 
 ```yaml
 peek_workflow:
@@ -247,7 +288,7 @@ peek_workflow:
     file: ".devcontainer/.template-version"
 ```
 
-**Output Phase 1 :**
+**Output Phase 2.0 :**
 
 ```
 ═══════════════════════════════════════════════
@@ -265,7 +306,7 @@ peek_workflow:
 
 ---
 
-## Phase 2 : Discover (API-FIRST - Dynamic Discovery)
+## Phase 3.0 : Discover (API-FIRST - Dynamic Discovery)
 
 **RÈGLE CRITIQUE : Toujours utiliser l'API GitHub pour découvrir les fichiers.**
 
@@ -366,7 +407,7 @@ AGENTS=$(list_remote_files \
 
 ---
 
-## Phase 3 : Validate (Download with Verification)
+## Phase 4.0 : Validate (Download with Verification)
 
 **RÈGLE CRITIQUE : Toujours valider les téléchargements avant écriture.**
 
@@ -431,9 +472,9 @@ safe_download() {
 
 ---
 
-## Phase 4 : Synthesize (Apply Updates)
+## Phase 5.0 : Synthesize (Apply Updates)
 
-### 4.1 : Télécharger les composants
+### 5.1 : Télécharger les composants
 
 **IMPORTANT** : Utiliser `safe_download` pour chaque fichier.
 
@@ -443,11 +484,10 @@ safe_download() {
 BASE="https://raw.githubusercontent.com/kodflow/devcontainer-template/main"
 API="https://api.github.com/repos/kodflow/devcontainer-template/contents"
 
-# Découvrir les scripts via API
-SCRIPTS=$(curl -sL "$API/.devcontainer/images/.claude/scripts" | jq -r '.[].name' | grep '\.sh$')
-
-# Télécharger chaque script avec validation
-for script in $SCRIPTS; do
+# Découvrir et télécharger les scripts via API (zsh-compatible)
+curl -sL "$API/.devcontainer/images/.claude/scripts" | jq -r '.[].name' | grep '\.sh$' \
+| while IFS= read -r script; do
+    [ -z "$script" ] && continue
     safe_download \
         "$BASE/.devcontainer/images/.claude/scripts/$script" \
         ".devcontainer/images/.claude/scripts/$script" \
@@ -458,11 +498,10 @@ done
 #### Commands
 
 ```bash
-# Découvrir les commandes via API
-COMMANDS=$(curl -sL "$API/.devcontainer/images/.claude/commands" | jq -r '.[].name' | grep '\.md$')
-
-# Télécharger chaque commande avec validation
-for cmd in $COMMANDS; do
+# Découvrir et télécharger les commandes via API (zsh-compatible)
+curl -sL "$API/.devcontainer/images/.claude/commands" | jq -r '.[].name' | grep '\.md$' \
+| while IFS= read -r cmd; do
+    [ -z "$cmd" ] && continue
     safe_download \
         "$BASE/.devcontainer/images/.claude/commands/$cmd" \
         ".devcontainer/images/.claude/commands/$cmd"
@@ -472,12 +511,11 @@ done
 #### Agents
 
 ```bash
-# Découvrir les agents via API
+# Découvrir et télécharger les agents via API (zsh-compatible)
 mkdir -p ".devcontainer/images/.claude/agents"
-AGENTS=$(curl -sL "$API/.devcontainer/images/.claude/agents" | jq -r '.[].name' | grep '\.md$')
-
-# Télécharger chaque agent avec validation
-for agent in $AGENTS; do
+curl -sL "$API/.devcontainer/images/.claude/agents" | jq -r '.[].name' | grep '\.md$' \
+| while IFS= read -r agent; do
+    [ -z "$agent" ] && continue
     safe_download \
         "$BASE/.devcontainer/images/.claude/agents/$agent" \
         ".devcontainer/images/.claude/agents/$agent"
@@ -487,12 +525,11 @@ done
 #### Lifecycle Hooks
 
 ```bash
-# Découvrir les lifecycle hooks via API
+# Découvrir et télécharger les lifecycle hooks via API (zsh-compatible)
 mkdir -p ".devcontainer/hooks/lifecycle"
-LIFECYCLE=$(curl -sL "$API/.devcontainer/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$')
-
-# Télécharger chaque hook avec validation
-for hook in $LIFECYCLE; do
+curl -sL "$API/.devcontainer/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' \
+| while IFS= read -r hook; do
+    [ -z "$hook" ] && continue
     safe_download \
         "$BASE/.devcontainer/hooks/lifecycle/$hook" \
         ".devcontainer/hooks/lifecycle/$hook" \
@@ -512,9 +549,10 @@ safe_download \
     ".devcontainer/images/hooks/shared/utils.sh" \
 && chmod +x ".devcontainer/images/hooks/shared/utils.sh"
 
-# lifecycle hooks
-IMAGE_HOOKS=$(curl -sL "$API/.devcontainer/images/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' || true)
-for hook in $IMAGE_HOOKS; do
+# lifecycle hooks (zsh-compatible)
+curl -sL "$API/.devcontainer/images/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' \
+| while IFS= read -r hook; do
+    [ -z "$hook" ] && continue
     safe_download \
         "$BASE/.devcontainer/images/hooks/lifecycle/$hook" \
         ".devcontainer/images/hooks/lifecycle/$hook" \
@@ -535,9 +573,9 @@ safe_download \
 
 ```bash
 # Detect old full hooks (hooks without "Delegation stub" marker) and replace with stubs
-STUB_HOOKS="onCreate postCreate postStart postAttach updateContent"
-for hook in $STUB_HOOKS; do
-    local hook_file=".devcontainer/hooks/lifecycle/${hook}.sh"
+# Note: literal list works in zsh, no variable expansion needed
+for hook in onCreate postCreate postStart postAttach updateContent; do
+    hook_file=".devcontainer/hooks/lifecycle/${hook}.sh"
     if [ -f "$hook_file" ] && ! grep -q "Delegation stub" "$hook_file"; then
         echo "  Migrating ${hook}.sh to delegation stub..."
         safe_download \
@@ -644,7 +682,7 @@ safe_download \
     ".devcontainer/images/grepai.config.yaml"
 ```
 
-### 4.2 : Cleanup deprecated files
+### 5.2 : Cleanup deprecated files
 
 ```bash
 # Remove deprecated configuration files
@@ -652,7 +690,7 @@ safe_download \
     && echo "Removed deprecated .coderabbit.yaml"
 ```
 
-### 4.3 : Update version file
+### 5.3 : Update version file
 
 ```bash
 COMMIT=$(curl -sL "https://api.github.com/repos/kodflow/devcontainer-template/commits/main" | jq -r '.sha[:7]')
@@ -660,7 +698,7 @@ DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.template-version
 ```
 
-### 4.4 : Rapport consolidé
+### 5.4 : Rapport consolidé
 
 **Output Final :**
 
@@ -701,7 +739,7 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
 
 ---
 
-## Phase 5 : Hook Synchronization
+## Phase 6.0 : Hook Synchronization
 
 **But :** Synchroniser les hooks de `~/.claude/settings.json` avec le template.
 
@@ -778,7 +816,7 @@ sync_user_hooks() {
 
 ---
 
-## Phase 6 : Script Validation
+## Phase 7.0 : Script Validation
 
 **But :** Valider que tous les scripts référencés dans les hooks existent.
 
@@ -826,10 +864,12 @@ validate_hook_scripts() {
 
     echo "  Validating hook scripts..."
 
-    for script in $scripts; do
-        local script_name=$(basename "$script")
+    # Use while read for zsh compatibility (for x in $VAR breaks in zsh)
+    echo "$scripts" | while IFS= read -r script_path; do
+        [ -z "$script_path" ] && continue
+        local script_name=$(basename "$script_path")
 
-        if [ -f "$script" ]; then
+        if [ -f "$script_path" ]; then
             echo "    ✓ $script_name"
         else
             echo "    ✗ $script_name (MISSING)"
@@ -862,6 +902,8 @@ validate_hook_scripts() {
 | Hook sync sans backup | ❌ **INTERDIT** | Toujours backup first |
 | Supprimer user settings | ❌ **INTERDIT** | Seulement merge hooks |
 | Skip script validation | ❌ **INTERDIT** | Détection erreurs obligatoire |
+| `for x in $VAR` pattern | ❌ **INTERDIT** | Breaks in zsh ($SHELL=zsh) |
+| Inline execution sans bash | ❌ **INTERDIT** | Toujours `bash /tmp/script.sh` |
 
 ---
 
@@ -906,12 +948,22 @@ validate_hook_scripts() {
 
 ## Script complet (référence)
 
+**IMPORTANT: This script uses `#!/bin/bash`. Always write to a temp file and execute with `bash`:**
+```bash
+cat > /tmp/update-devcontainer.sh << 'SCRIPT'
+# ... (script below) ...
+SCRIPT
+bash /tmp/update-devcontainer.sh && rm -f /tmp/update-devcontainer.sh
+```
+
 ```bash
 #!/bin/bash
 # /update implementation - API-FIRST with validation + Environment Detection
+# NOTE: Must be executed with bash (not zsh) due to word splitting in for loops.
+# If running from Claude Code (zsh), write to temp file first: bash /tmp/script.sh
 
-set -euo pipefail
-set +H  # Disable bash history expansion (! in YAML causes errors)
+set -uo pipefail
+set +H 2>/dev/null || true  # Disable bash history expansion (! in YAML causes errors)
 
 BASE="https://raw.githubusercontent.com/kodflow/devcontainer-template/main"
 API="https://api.github.com/repos/kodflow/devcontainer-template/contents"
@@ -1029,15 +1081,16 @@ validate_hook_scripts() {
     fi
 
     echo "  Validating hook scripts..."
-    for script in $scripts; do
-        local script_name=$(basename "$script")
-        if [ -f "$script" ]; then
+    while IFS= read -r script_path; do
+        [ -z "$script_path" ] && continue
+        local script_name=$(basename "$script_path")
+        if [ -f "$script_path" ]; then
             echo "    ✓ $script_name"
         else
             echo "    ✗ $script_name (MISSING)"
             missing_count=$((missing_count + 1))
         fi
-    done
+    done <<< "$scripts"
 
     if [ $missing_count -gt 0 ]; then
         echo "  ⚠ $missing_count missing script(s)!"
@@ -1054,49 +1107,65 @@ echo "  /update - DevContainer Environment Update"
 echo "═══════════════════════════════════════════════"
 echo ""
 
-# Phase 0: Environment Detection
+# Phase 1.0: Environment Detection
 detect_context
 echo ""
 
 # Hooks
 echo "Updating hooks..."
-SCRIPTS=$(curl -sL "$API/.devcontainer/images/.claude/scripts" | jq -r '.[].name' | grep '\.sh$' || true)
-for script in $SCRIPTS; do
-    safe_download "$BASE/.devcontainer/images/.claude/scripts/$script" \
-                  "$UPDATE_TARGET/scripts/$script" \
-    && chmod +x "$UPDATE_TARGET/scripts/$script"
-done
+hook_count=0
+while IFS= read -r script; do
+    [ -z "$script" ] && continue
+    if safe_download "$BASE/.devcontainer/images/.claude/scripts/$script" \
+                     "$UPDATE_TARGET/scripts/$script"; then
+        chmod +x "$UPDATE_TARGET/scripts/$script"
+        hook_count=$((hook_count + 1))
+    fi
+done < <(curl -sL "$API/.devcontainer/images/.claude/scripts" | jq -r '.[].name' | grep '\.sh$')
+echo "  ($hook_count scripts)"
 
 # Commands
 echo ""
 echo "Updating commands..."
-COMMANDS=$(curl -sL "$API/.devcontainer/images/.claude/commands" | jq -r '.[].name' | grep '\.md$' || true)
-for cmd in $COMMANDS; do
-    safe_download "$BASE/.devcontainer/images/.claude/commands/$cmd" \
-                  "$UPDATE_TARGET/commands/$cmd"
-done
+cmd_count=0
+while IFS= read -r cmd; do
+    [ -z "$cmd" ] && continue
+    if safe_download "$BASE/.devcontainer/images/.claude/commands/$cmd" \
+                     "$UPDATE_TARGET/commands/$cmd"; then
+        cmd_count=$((cmd_count + 1))
+    fi
+done < <(curl -sL "$API/.devcontainer/images/.claude/commands" | jq -r '.[].name' | grep '\.md$')
+echo "  ($cmd_count commands)"
 
 # Agents
 echo ""
 echo "Updating agents..."
 mkdir -p "$UPDATE_TARGET/agents"
-AGENTS=$(curl -sL "$API/.devcontainer/images/.claude/agents" | jq -r '.[].name' | grep '\.md$' || true)
-for agent in $AGENTS; do
-    safe_download "$BASE/.devcontainer/images/.claude/agents/$agent" \
-                  "$UPDATE_TARGET/agents/$agent"
-done
+agent_count=0
+while IFS= read -r agent; do
+    [ -z "$agent" ] && continue
+    if safe_download "$BASE/.devcontainer/images/.claude/agents/$agent" \
+                     "$UPDATE_TARGET/agents/$agent"; then
+        agent_count=$((agent_count + 1))
+    fi
+done < <(curl -sL "$API/.devcontainer/images/.claude/agents" | jq -r '.[].name' | grep '\.md$')
+echo "  ($agent_count agents)"
 
 # Lifecycle stubs (only in container mode - skip on host)
 if [ "$CONTEXT" = "container" ]; then
     echo ""
     echo "Updating lifecycle hooks (delegation stubs)..."
     mkdir -p ".devcontainer/hooks/lifecycle"
-    LIFECYCLE=$(curl -sL "$API/.devcontainer/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' || true)
-    for hook in $LIFECYCLE; do
-        safe_download "$BASE/.devcontainer/hooks/lifecycle/$hook" \
-                      ".devcontainer/hooks/lifecycle/$hook" \
-        && chmod +x ".devcontainer/hooks/lifecycle/$hook"
-    done
+    lifecycle_count=0
+    while IFS= read -r hook; do
+        [ -z "$hook" ] && continue
+        if safe_download "$BASE/.devcontainer/hooks/lifecycle/$hook" \
+                         ".devcontainer/hooks/lifecycle/$hook"; then
+            chmod +x ".devcontainer/hooks/lifecycle/$hook"
+            lifecycle_count=$((lifecycle_count + 1))
+        fi
+    done < <(curl -sL "$API/.devcontainer/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$')
+    echo "  ($lifecycle_count stubs)"
 
     # Image-embedded hooks (real logic)
     echo ""
@@ -1105,12 +1174,12 @@ if [ "$CONTEXT" = "container" ]; then
     safe_download "$BASE/.devcontainer/images/hooks/shared/utils.sh" \
                   ".devcontainer/images/hooks/shared/utils.sh" \
     && chmod +x ".devcontainer/images/hooks/shared/utils.sh"
-    IMAGE_HOOKS=$(curl -sL "$API/.devcontainer/images/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' || true)
-    for hook in $IMAGE_HOOKS; do
+    while IFS= read -r hook; do
+        [ -z "$hook" ] && continue
         safe_download "$BASE/.devcontainer/images/hooks/lifecycle/$hook" \
                       ".devcontainer/images/hooks/lifecycle/$hook" \
         && chmod +x ".devcontainer/images/hooks/lifecycle/$hook"
-    done
+    done < <(curl -sL "$API/.devcontainer/images/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$')
 
     # Shared utils (workspace copy for initialize.sh on host)
     echo ""
@@ -1119,8 +1188,7 @@ if [ "$CONTEXT" = "container" ]; then
                   ".devcontainer/hooks/shared/utils.sh"
 
     # Migration: detect old full hooks and replace with stubs
-    STUB_HOOKS="onCreate postCreate postStart postAttach updateContent"
-    for h in $STUB_HOOKS; do
+    for h in onCreate postCreate postStart postAttach updateContent; do
         hook_file=".devcontainer/hooks/lifecycle/${h}.sh"
         if [ -f "$hook_file" ] && ! grep -q "Delegation stub" "$hook_file"; then
             echo "  Migrating ${h}.sh to delegation stub..."
@@ -1220,14 +1288,14 @@ if [ "$CONTEXT" = "container" ]; then
     safe_download "$BASE/.devcontainer/images/grepai.config.yaml" ".devcontainer/images/grepai.config.yaml"
 fi  # End container-only updates
 
-# Phase 5: Synchronize user hooks (both container and host)
+# Phase 6.0: Synchronize user hooks (both container and host)
 echo ""
-echo "Phase 5: Synchronizing user hooks..."
+echo "Phase 6.0: Synchronizing user hooks..."
 sync_user_hooks
 
-# Phase 6: Validate hook scripts
+# Phase 7.0: Validate hook scripts
 echo ""
-echo "Phase 6: Validating hook scripts..."
+echo "Phase 7.0: Validating hook scripts..."
 validate_hook_scripts
 
 # Version

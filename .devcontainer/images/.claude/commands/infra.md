@@ -83,7 +83,7 @@ Safety:
 
 ## Workflow
 
-### Phase 1: Detection
+### Phase 1.0: Detection
 
 Detect infrastructure tool and configuration:
 
@@ -126,7 +126,7 @@ detection:
 
 ---
 
-### Phase 1.5: Secret Discovery (1Password)
+### Phase 2.0: Secret Discovery (1Password)
 
 **Check 1Password for infrastructure secrets before any operation:**
 
@@ -184,7 +184,7 @@ infra_secret_discovery:
 
 ---
 
-### Phase 2: Validation (--validate)
+### Phase 3.0: Validation (--validate)
 
 Run comprehensive validation suite:
 
@@ -246,7 +246,7 @@ validation_suite:
 
 ---
 
-### Phase 3: Plan (--plan)
+### Phase 4.0: Plan (--plan)
 
 Generate and analyze execution plan:
 
@@ -316,7 +316,7 @@ plan_workflow:
 
 ---
 
-### Phase 4: Apply (--apply)
+### Phase 5.0: Apply (--apply)
 
 Apply changes with safety checks:
 
@@ -376,7 +376,7 @@ apply_workflow:
 
 ---
 
-### Phase 5: Documentation (--docs)
+### Phase 6.0: Documentation (--docs)
 
 Generate documentation with terraform-docs:
 

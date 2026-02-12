@@ -128,7 +128,7 @@ Examples:
 
 ---
 
-## Phase 1: Peek (MANDATORY)
+## Phase 1.0: Peek (MANDATORY)
 
 **Verify prerequisites BEFORE any action:**
 
@@ -303,10 +303,9 @@ connect_workflow:
       doc_item=$(op item list --vault "$vault" --categories DOCUMENT --format json \
         | jq -r --arg t "$profile" '.[] | select(.title==$t)')
       doc_uuid=$(echo "$doc_item" | jq -r '.id')
-      tags=$(echo "$doc_item" | jq -r '.tags // [] | .[]')
-      # Detect protocol from tags (default: openvpn)
+      # Detect protocol from tags (default: openvpn) - zsh-compatible
       protocol="openvpn"
-      for tag in $tags; do
+      echo "$doc_item" | jq -r '.tags // [] | .[]' | while IFS= read -r tag; do
         case "$tag" in
           wireguard|ipsec|pptp) protocol="$tag"; break ;;
         esac
