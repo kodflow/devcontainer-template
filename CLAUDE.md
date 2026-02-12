@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-12T08:40:00Z -->
+<!-- updated: 2026-02-12T17:00:00Z -->
 # devcontainer-template
 
 ## Purpose
@@ -11,9 +11,11 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 /workspace
 ├── .devcontainer/   # Container config, features, hooks, images
 ├── .github/         # GitHub Actions workflows
+├── .githooks/       # Git hooks (pre-commit: regenerate assets)
 ├── src/             # All source code (mandatory)
 ├── tests/           # Unit tests (Go: alongside code in src/)
 ├── docs/            # Documentation (vision, architecture, workflows)
+├── AGENTS.md        # Specialist agents specification
 └── CLAUDE.md        # This file
 ```
 
@@ -90,12 +92,15 @@ Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.).
 
 ```
 CLAUDE.md                    # This overview
-├── AGENTS.md                # Specialist agents for tech stack
+├── AGENTS.md                # Specialist agents (57 agents)
 ├── docs/vision.md           # Objectives, success criteria
 ├── docs/architecture.md     # System design, components
 ├── docs/workflows.md        # Detailed workflows
 ├── .devcontainer/CLAUDE.md  # Container config details
-└── .claude/commands/        # Slash commands
+│   ├── features/CLAUDE.md   # Language & tool features
+│   ├── hooks/CLAUDE.md      # Lifecycle hooks delegation
+│   └── images/CLAUDE.md     # Base image (166 lines)
+└── .claude/commands/        # Slash commands (16 skills)
 ```
 
 Principle: More detail deeper in tree. Each file < 100 lines.
