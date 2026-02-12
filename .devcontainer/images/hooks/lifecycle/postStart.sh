@@ -528,7 +528,8 @@ stop_grepai_daemon() {
     fi
 }
 
-init_semantic_search() {
+_grepai_init_core() {
+    local quiet="${1:-false}"
     local grepai_dir="/workspace/.grepai"
     local grepai_config="${grepai_dir}/config.yaml"
     local health_stamp="${grepai_dir}/.health-stamp"
@@ -538,7 +539,7 @@ init_semantic_search() {
     local ollama_source=""
 
     # --- Step 1: Detect Ollama endpoint ---
-    log_info "Checking Ollama on host ($OLLAMA_HOST_ENDPOINT)..."
+    [ "$quiet" = "false" ] && log_info "Checking Ollama on host ($OLLAMA_HOST_ENDPOINT)..."
     detected_result=$(detect_ollama_endpoint)
 
     if [ -n "$detected_result" ]; then
@@ -546,21 +547,21 @@ init_semantic_search() {
         ollama_source=$(echo "$detected_result" | cut -d'|' -f2)
         log_success "Ollama connected: $ollama_endpoint ($ollama_source)"
     else
-        show_ollama_instructions
+        [ "$quiet" = "false" ] && show_ollama_instructions
         # Pre-initialize config for when Ollama becomes available
         if [ -x "$GREPAI_BIN" ] && [ -f "$GREPAI_CONFIG_TPL" ]; then
             mkdir -p "$grepai_dir"
             cp "$GREPAI_CONFIG_TPL" "$grepai_config" 2>/dev/null || true
             sed -i -E "s|(endpoint: http://)[^[:space:]]+|\1${OLLAMA_HOST_ENDPOINT}|" "$grepai_config" 2>/dev/null || true
-            log_info "grepai config initialized (waiting for Ollama)"
+            [ "$quiet" = "false" ] && log_info "grepai config initialized (waiting for Ollama)"
         fi
-        return 0
+        return 1
     fi
 
     # --- Step 2: Verify grepai binary ---
     if [ ! -x "$GREPAI_BIN" ]; then
-        log_warning "grepai binary not found at $GREPAI_BIN"
-        return 0
+        [ "$quiet" = "false" ] && log_warning "grepai binary not found at $GREPAI_BIN"
+        return 2
     fi
 
     # --- Step 3: Sync config from template (always, to prevent drift) ---
@@ -584,7 +585,7 @@ init_semantic_search() {
     current_version=$(get_grepai_version)
     current_config_hash=$(compute_config_hash "$grepai_config")
 
-    log_info "grepai state: model=$current_model version=$current_version config=$current_config_hash"
+    [ "$quiet" = "false" ] && log_info "grepai state: model=$current_model version=$current_version config=$current_config_hash"
 
     # --- Step 5-6: Multi-factor invalidation detection ---
     local need_rebuild=false
@@ -613,7 +614,7 @@ init_semantic_search() {
         fi
     else
         # No health stamp = fresh install or first run after migration
-        log_info "No health stamp found (fresh install or first run)"
+        [ "$quiet" = "false" ] && log_info "No health stamp found (fresh install or first run)"
 
         # Migrate from legacy .model-stamp if present
         local legacy_stamp="${grepai_dir}/.model-stamp"
@@ -651,9 +652,9 @@ init_semantic_search() {
             log_success "Model $current_model available on Ollama"
         else
             log_warning "Model $current_model not found on Ollama"
-            log_info "Pull the model on your host: ollama pull $current_model"
-            log_warning "Skipping daemon start until model is available"
-            return 0
+            [ "$quiet" = "false" ] && log_info "Pull the model on your host: ollama pull $current_model"
+            [ "$quiet" = "false" ] && log_warning "Skipping daemon start until model is available"
+            return 2
         fi
     fi
 
@@ -679,7 +680,7 @@ init_semantic_search() {
             log_success "grepai watch daemon started (PID: $grepai_pid)"
         else
             log_warning "grepai daemon failed to start (check $grepai_log)"
-            return 0
+            return 2
         fi
     else
         log_info "grepai watch daemon already running (PID: $grepai_pid)"
@@ -689,17 +690,23 @@ init_semantic_search() {
     write_health_stamp "$health_stamp" \
         "$current_model" "$current_version" "$current_config_hash" "$grepai_pid"
     log_success "Health stamp saved (model=$current_model ver=$current_version)"
+}
 
-    # --- Step 11: Launch watchdog ---
+init_semantic_search() {
+    _grepai_init_core "false"
+    # Always launch watchdog (handles both daemon monitoring AND deferred init)
     grepai_watchdog &
 }
 
-# Watchdog: monitors grepai daemon and restarts if it crashes.
+# Watchdog: monitors grepai daemon and handles deferred initialization.
+# When health stamp exists: restarts crashed daemon.
+# When no health stamp: retries init when Ollama becomes available.
 # Runs in background for the lifetime of the container.
 grepai_watchdog() {
     local grepai_dir="/workspace/.grepai"
     local health_stamp="${grepai_dir}/.health-stamp"
     local grepai_log="/tmp/grepai.log"
+    local deferred_attempts=0
 
     # Let the container finish starting before first check
     sleep 30
@@ -707,8 +714,26 @@ grepai_watchdog() {
     while true; do
         sleep 60
 
-        # Only monitor if health stamp exists (semantic search was initialized)
-        [ -f "$health_stamp" ] || continue
+        if [ ! -f "$health_stamp" ]; then
+            # Deferred init: Ollama may have become available since startup
+            if detect_ollama_endpoint >/dev/null 2>&1; then
+                deferred_attempts=$((deferred_attempts + 1))
+                if [ "$deferred_attempts" -eq 1 ]; then
+                    log_info "[WATCHDOG] Ollama now available — initializing semantic search"
+                elif [ $((deferred_attempts % 5)) -eq 0 ]; then
+                    log_warning "[WATCHDOG] Deferred init retry #${deferred_attempts}"
+                fi
+
+                if _grepai_init_core "true"; then
+                    log_success "[WATCHDOG] Deferred initialization complete"
+                    deferred_attempts=0
+                fi
+            fi
+            continue
+        fi
+
+        # Reset counter once healthy
+        deferred_attempts=0
 
         local current_pid
         current_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
