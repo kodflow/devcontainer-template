@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-12T12:00:00Z -->
+<!-- updated: 2026-02-12T17:00:00Z -->
 # DevContainer Images
 
 ## Purpose
@@ -23,7 +23,7 @@ Claude Code and MCP servers are included; languages added via features.
     ├── commands/       # Slash commands (16 skills)
     ├── scripts/        # Hook scripts (15 scripts)
     ├── agents/         # Agent definitions (57 agents)
-    ├── docs/           # Design Patterns Knowledge Base (250+ patterns)
+    ├── docs/           # Design Patterns Knowledge Base (170+ patterns)
     ├── templates/      # Project/docs/terraform templates
     └── settings.json   # Claude settings
 ```
@@ -47,19 +47,23 @@ Lifecycle hooks delegate from workspace stubs to `/etc/devcontainer-hooks/` (ima
 
 **Container Location:** `~/.claude/docs/` (restored at startup)
 
-Base de connaissances exhaustive de 250+ design patterns, consultée automatiquement par les skills `/plan` et `/review`.
+170+ pattern files across 19 categories, consulted by `/plan` and `/review`.
 
-| Category | Patterns | Examples |
-|----------|----------|----------|
-| GoF (23) | creational, structural, behavioral | Factory, Observer, Strategy |
-| Performance (12) | performance/ | Object Pool, Cache, Lazy Load |
-| Concurrency (15) | concurrency/ | Thread Pool, Actor, Mutex |
-| Enterprise (40+) | enterprise/ | PoEAA (Martin Fowler) |
-| Messaging (31) | messaging/ | EIP patterns |
-| DDD (14) | ddd/ | Aggregate, Repository, Entity |
-| Functional (15) | functional/ | Monad, Either, Lens |
-| Security (12) | security/ | OAuth, JWT, RBAC |
-| Testing (15) | testing/ | Mock, Stub, Fixture |
+| Category | Files | Examples |
+|----------|-------|----------|
+| GoF (22 files) | creational, structural, behavioral | Factory, Observer, Strategy |
+| Architectural (9) | architectural/ | MVC, Hexagonal, CQRS |
+| Cloud + Resilience (27) | cloud/, resilience/ | Circuit Breaker, Saga, Retry |
+| Concurrency (8) | concurrency/ | Thread Pool, Actor, Mutex |
+| DDD (8) | ddd/ | Aggregate, Repository, Entity |
+| DevOps (14) | devops/ | Feature Toggles, Blue-Green |
+| Enterprise (12) | enterprise/ | PoEAA (Martin Fowler) |
+| Functional (5) | functional/ | Monad, Either, Lens |
+| Integration + Messaging (15) | integration/, messaging/ | API Gateway, EIP |
+| Performance (8) | performance/ | Cache, Lazy Load, Pool |
+| Principles (7) | principles/, conventions/ | SOLID, DRY, KISS |
+| Security (8) | security/ | OAuth, JWT, RBAC |
+| Testing (8) | testing/ | Mock, Stub, Fixture |
 
 **Usage par les agents :** Voir `.claude/docs/CLAUDE.md`
 

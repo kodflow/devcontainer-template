@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-11T21:58:22Z -->
+<!-- updated: 2026-02-12T17:00:00Z -->
 # DevContainer Configuration
 
 ## Purpose
@@ -15,9 +15,14 @@ Development container setup for consistent dev environments across languages.
 ├── install.sh           # Standalone Claude installer
 ├── claude-assets.tar.gz # Pre-built Claude assets
 ├── scripts/             # Build utilities
+│   └── generate-assets-archive.sh
 ├── features/            # Language & tool features
-├── hooks/               # Lifecycle scripts
-└── images/              # Docker base image
+│   ├── languages/       # 25 languages + shared/
+│   ├── architectures/   # 14 architecture patterns
+│   ├── claude/          # Standalone Claude feature
+│   └── kubernetes/      # Local K8s via kind
+├── hooks/               # Lifecycle scripts (delegation stubs)
+└── images/              # Docker base image + Claude config
 ```
 
 ## Key Files
@@ -25,6 +30,7 @@ Development container setup for consistent dev environments across languages.
 - `devcontainer.json`: VS Code devcontainer config
 - `docker-compose.yml`: Services (app, MCP servers)
 - `.env`: Environment variables (git-ignored)
+- `scripts/generate-assets-archive.sh`: Regenerates `claude-assets.tar.gz`
 
 ## Usage
 
