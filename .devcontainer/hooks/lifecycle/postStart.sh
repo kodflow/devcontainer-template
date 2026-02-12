@@ -406,7 +406,6 @@ step_auto_init_check() {
 # ============================================================================
 GREPAI_BIN="/usr/local/bin/grepai"
 GREPAI_CONFIG_TPL="/etc/grepai/config.yaml"
-EMBEDDING_MODEL="bge-m3"
 OLLAMA_HOST_ENDPOINT="host.docker.internal:11434"
 
 detect_ollama_endpoint() {
@@ -462,13 +461,83 @@ show_ollama_instructions() {
     log_warning "==============================================================================="
 }
 
+# --- Health stamp helpers ---
+# The health stamp tracks 3 invalidation factors: model, binary version, config hash.
+# If any factor changes between container starts, the index is purged and rebuilt.
+
+compute_config_hash() {
+    # Hash the config EXCLUDING the endpoint line (which changes per environment)
+    grep -v '^\s*endpoint:' "$1" 2>/dev/null | md5sum | awk '{print $1}'
+}
+
+get_grepai_version() {
+    "$GREPAI_BIN" version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unknown"
+}
+
+read_health_stamp() {
+    # Reads .health-stamp into STAMP_* variables in the caller's scope
+    # Returns 1 if stamp doesn't exist
+    local stamp_file="$1"
+    STAMP_MODEL=""
+    STAMP_GREPAI_VERSION=""
+    STAMP_CONFIG_HASH=""
+    STAMP_DAEMON_PID=""
+    STAMP_LAST_HEALTHY=""
+
+    [ -f "$stamp_file" ] || return 1
+
+    STAMP_MODEL=$(grep '^MODEL=' "$stamp_file" 2>/dev/null | cut -d= -f2-)
+    STAMP_GREPAI_VERSION=$(grep '^GREPAI_VERSION=' "$stamp_file" 2>/dev/null | cut -d= -f2-)
+    STAMP_CONFIG_HASH=$(grep '^CONFIG_HASH=' "$stamp_file" 2>/dev/null | cut -d= -f2-)
+    # shellcheck disable=SC2034  # STAMP_DAEMON_PID used by grepai_watchdog via read_health_stamp
+    STAMP_DAEMON_PID=$(grep '^DAEMON_PID=' "$stamp_file" 2>/dev/null | cut -d= -f2-)
+    # shellcheck disable=SC2034  # STAMP_LAST_HEALTHY used by write_health_stamp
+    STAMP_LAST_HEALTHY=$(grep '^LAST_HEALTHY=' "$stamp_file" 2>/dev/null | cut -d= -f2-)
+    return 0
+}
+
+write_health_stamp() {
+    local stamp_file="$1"
+    local model="$2"
+    local version="$3"
+    local config_hash="$4"
+    local daemon_pid="$5"
+
+    cat > "$stamp_file" <<STAMP_EOF
+MODEL=$model
+GREPAI_VERSION=$version
+CONFIG_HASH=$config_hash
+DAEMON_PID=$daemon_pid
+LAST_HEALTHY=$(date +%s)
+STAMP_EOF
+    chmod 644 "$stamp_file"
+}
+
+stop_grepai_daemon() {
+    local pid
+    pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
+    if [ -n "$pid" ]; then
+        log_info "Stopping grepai daemon (PID: $pid)..."
+        kill "$pid" 2>/dev/null || true
+        sleep 2
+        # Force kill if still alive
+        if kill -0 "$pid" 2>/dev/null; then
+            kill -9 "$pid" 2>/dev/null || true
+            sleep 1
+        fi
+    fi
+}
+
 init_semantic_search() {
     local grepai_dir="/workspace/.grepai"
     local grepai_config="${grepai_dir}/config.yaml"
+    local health_stamp="${grepai_dir}/.health-stamp"
+    local grepai_log="/tmp/grepai.log"
     local detected_result=""
     local ollama_endpoint=""
     local ollama_source=""
 
+    # --- Step 1: Detect Ollama endpoint ---
     log_info "Checking Ollama on host ($OLLAMA_HOST_ENDPOINT)..."
     detected_result=$(detect_ollama_endpoint)
 
@@ -478,6 +547,7 @@ init_semantic_search() {
         log_success "Ollama connected: $ollama_endpoint ($ollama_source)"
     else
         show_ollama_instructions
+        # Pre-initialize config for when Ollama becomes available
         if [ -x "$GREPAI_BIN" ] && [ -f "$GREPAI_CONFIG_TPL" ]; then
             mkdir -p "$grepai_dir"
             cp "$GREPAI_CONFIG_TPL" "$grepai_config" 2>/dev/null || true
@@ -487,116 +557,188 @@ init_semantic_search() {
         return 0
     fi
 
-    if [ -x "$GREPAI_BIN" ]; then
-        log_info "Initializing grepai configuration..."
-        mkdir -p "$grepai_dir"
-
-        if [ -f "$GREPAI_CONFIG_TPL" ]; then
-            if cp "$GREPAI_CONFIG_TPL" "$grepai_config"; then
-                log_success "grepai config initialized from template"
-            else
-                log_warning "Failed to copy grepai config template"
-            fi
-        else
-            log_warning "Config template not found at $GREPAI_CONFIG_TPL, using grepai init..."
-            (cd /workspace && "$GREPAI_BIN" init --provider ollama --backend gob --yes 2>/dev/null) || true
-        fi
-
-        if [ -f "$grepai_config" ]; then
-            sed -i -E "s|(endpoint: http://)[^[:space:]]+|\1${ollama_endpoint}|" "$grepai_config"
-            log_info "grepai endpoint set to: http://$ollama_endpoint"
-        fi
-    else
+    # --- Step 2: Verify grepai binary ---
+    if [ ! -x "$GREPAI_BIN" ]; then
         log_warning "grepai binary not found at $GREPAI_BIN"
         return 0
     fi
 
-    if check_model_available "$ollama_endpoint" "$EMBEDDING_MODEL"; then
-        log_success "Model $EMBEDDING_MODEL available"
+    # --- Step 3: Sync config from template (always, to prevent drift) ---
+    mkdir -p "$grepai_dir"
+
+    if [ -f "$GREPAI_CONFIG_TPL" ]; then
+        cp "$GREPAI_CONFIG_TPL" "$grepai_config"
+        sed -i -E "s|(endpoint: http://)[^[:space:]]+|\1${ollama_endpoint}|" "$grepai_config"
+        log_success "grepai config synced from template (endpoint: http://$ollama_endpoint)"
     else
-        log_warning "Model $EMBEDDING_MODEL not found on host"
-        log_info "Pull the model on your host machine:"
-        log_info "  ollama pull $EMBEDDING_MODEL"
-    fi
-
-    local loaded_models
-    loaded_models=$(curl -sf "http://${ollama_endpoint}/api/tags" 2>/dev/null | grep -o '"name":"[^"]*"' | sed 's/"name":"//g;s/"//g' | tr '\n' ' ' || echo "none")
-    log_info "Available Ollama models: ${loaded_models:-none}"
-
-    # --- Model-change detection (workaround for grepai#139) ---
-    # grepai does not track which model produced the index vectors.
-    # If the model changes, old embeddings become incompatible.
-    # We use a .model-stamp sidecar file to detect this ourselves.
-    local model_stamp="${grepai_dir}/.model-stamp"
-    local configured_model=""
-    configured_model=$(grep -E '^\s+model:' "$grepai_config" 2>/dev/null | awk '{print $2}' | head -1)
-
-    if [ -n "$configured_model" ] && [ -f "${grepai_dir}/index.gob" ]; then
-        local stored_model=""
-        stored_model=$(cat "$model_stamp" 2>/dev/null || echo "")
-
-        if [ -n "$stored_model" ] && [ "$configured_model" != "$stored_model" ]; then
-            log_warning "Embedding model changed: $stored_model → $configured_model"
-            log_warning "Invalidating stale index (vectors are incompatible)..."
-
-            # Stop watch daemon if running (it holds the index files)
-            local old_pid
-            old_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
-            if [ -n "$old_pid" ]; then
-                kill "$old_pid" 2>/dev/null || true
-                sleep 1
-            fi
-
-            rm -f "${grepai_dir}/index.gob" "${grepai_dir}/symbols.gob"
-            log_success "Index cleared — will rebuild with $configured_model"
+        log_warning "Config template not found at $GREPAI_CONFIG_TPL, using grepai init..."
+        (cd /workspace && "$GREPAI_BIN" init --provider ollama --backend gob --yes 2>/dev/null) || true
+        if [ -f "$grepai_config" ]; then
+            sed -i -E "s|(endpoint: http://)[^[:space:]]+|\1${ollama_endpoint}|" "$grepai_config"
         fi
     fi
 
-    # Always update the stamp to current configured model
-    if [ -n "$configured_model" ]; then
-        echo "$configured_model" > "$model_stamp"
+    # --- Step 4: Compute current state ---
+    local current_model current_version current_config_hash
+    current_model=$(grep -E '^\s+model:' "$grepai_config" 2>/dev/null | awk '{print $2}' | head -1)
+    current_version=$(get_grepai_version)
+    current_config_hash=$(compute_config_hash "$grepai_config")
+
+    log_info "grepai state: model=$current_model version=$current_version config=$current_config_hash"
+
+    # --- Step 5-6: Multi-factor invalidation detection ---
+    local need_rebuild=false
+    local rebuild_reasons=""
+
+    if read_health_stamp "$health_stamp"; then
+        # Factor 1: model change (embeddings become incompatible)
+        if [ -n "$current_model" ] && [ "$STAMP_MODEL" != "$current_model" ]; then
+            log_warning "Model changed: ${STAMP_MODEL:-unknown} -> $current_model"
+            need_rebuild=true
+            rebuild_reasons="${rebuild_reasons}model_change "
+        fi
+
+        # Factor 2: grepai binary version change (index format may change)
+        if [ "$STAMP_GREPAI_VERSION" != "$current_version" ]; then
+            log_warning "grepai version changed: ${STAMP_GREPAI_VERSION:-unknown} -> $current_version"
+            need_rebuild=true
+            rebuild_reasons="${rebuild_reasons}version_change "
+        fi
+
+        # Factor 3: config change (chunk size, ignore patterns, etc.)
+        if [ "$STAMP_CONFIG_HASH" != "$current_config_hash" ]; then
+            log_warning "Config changed: ${STAMP_CONFIG_HASH:-unknown} -> $current_config_hash"
+            need_rebuild=true
+            rebuild_reasons="${rebuild_reasons}config_change "
+        fi
+    else
+        # No health stamp = fresh install or first run after migration
+        log_info "No health stamp found (fresh install or first run)"
+
+        # Migrate from legacy .model-stamp if present
+        local legacy_stamp="${grepai_dir}/.model-stamp"
+        if [ -f "$legacy_stamp" ]; then
+            local legacy_model
+            legacy_model=$(cat "$legacy_stamp" 2>/dev/null || echo "")
+            if [ -n "$legacy_model" ] && [ "$legacy_model" != "$current_model" ]; then
+                log_warning "Legacy stamp model mismatch: $legacy_model -> $current_model"
+                need_rebuild=true
+                rebuild_reasons="${rebuild_reasons}legacy_model_change "
+            fi
+            rm -f "$legacy_stamp"
+            log_info "Migrated from legacy .model-stamp"
+        fi
+
+        # If index exists but no stamp, we can't trust it — rebuild
+        if [ -f "${grepai_dir}/index.gob" ] && [ "$need_rebuild" = "false" ]; then
+            log_warning "Index exists but no health stamp — cannot verify integrity"
+            need_rebuild=true
+            rebuild_reasons="${rebuild_reasons}missing_stamp "
+        fi
     fi
 
+    # --- Step 7: Handle invalidation ---
+    if [ "$need_rebuild" = "true" ]; then
+        log_warning "Index rebuild required: ${rebuild_reasons}"
+        stop_grepai_daemon
+        rm -f "${grepai_dir}/index.gob" "${grepai_dir}/symbols.gob" "${grepai_dir}/index.gob.lock"
+        log_success "Index cleared — will rebuild from scratch"
+    fi
+
+    # --- Step 8: Verify model is available before starting daemon ---
+    if [ -n "$current_model" ]; then
+        if check_model_available "$ollama_endpoint" "$current_model"; then
+            log_success "Model $current_model available on Ollama"
+        else
+            log_warning "Model $current_model not found on Ollama"
+            log_info "Pull the model on your host: ollama pull $current_model"
+            log_warning "Skipping daemon start until model is available"
+            return 0
+        fi
+    fi
+
+    # --- Step 9: Start or verify daemon ---
     local grepai_pid
     grepai_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
 
     if [ -z "$grepai_pid" ]; then
-        log_info "Starting grepai watch daemon for real-time indexing..."
-        (cd /workspace && nohup "$GREPAI_BIN" watch >/tmp/grepai.log 2>&1 &)
-        sleep 2
-        grepai_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
+        log_info "Starting grepai watch daemon..."
+        : > "$grepai_log"
+        (cd /workspace && nohup "$GREPAI_BIN" watch > "$grepai_log" 2>&1 &)
+
+        # Retry loop: wait up to 5 seconds for daemon to start
+        local retries=10
+        while [ $retries -gt 0 ]; do
+            grepai_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
+            [ -n "$grepai_pid" ] && break
+            retries=$((retries - 1))
+            sleep 0.5
+        done
+
         if [ -n "$grepai_pid" ]; then
             log_success "grepai watch daemon started (PID: $grepai_pid)"
         else
-            log_warning "grepai watch daemon failed to start"
+            log_warning "grepai daemon failed to start (check $grepai_log)"
+            return 0
         fi
     else
         log_info "grepai watch daemon already running (PID: $grepai_pid)"
     fi
 
-    sleep 3
-    local index_status
-    index_status=$(cd /workspace && "$GREPAI_BIN" status 2>/dev/null || echo "")
-    if [ -n "$index_status" ]; then
-        local indexed_files
-        indexed_files=$(echo "$index_status" | grep -oE 'Indexed: [0-9]+' | grep -oE '[0-9]+' || echo "0")
-        local pending_files
-        pending_files=$(echo "$index_status" | grep -oE 'Pending: [0-9]+' | grep -oE '[0-9]+' || echo "0")
+    # --- Step 10: Save health stamp ---
+    write_health_stamp "$health_stamp" \
+        "$current_model" "$current_version" "$current_config_hash" "$grepai_pid"
+    log_success "Health stamp saved (model=$current_model ver=$current_version)"
 
-        if [ "$indexed_files" != "0" ] || [ "$pending_files" != "0" ]; then
-            log_info "grepai index: $indexed_files files indexed, $pending_files pending"
-        else
-            local file_count
-            file_count=$(echo "$index_status" | grep -oE '[0-9]+ files?' | head -1 || echo "")
-            if [ -n "$file_count" ]; then
-                log_info "grepai index: $file_count"
+    # --- Step 11: Launch watchdog ---
+    grepai_watchdog &
+}
+
+# Watchdog: monitors grepai daemon and restarts if it crashes.
+# Runs in background for the lifetime of the container.
+grepai_watchdog() {
+    local grepai_dir="/workspace/.grepai"
+    local health_stamp="${grepai_dir}/.health-stamp"
+    local grepai_log="/tmp/grepai.log"
+
+    # Let the container finish starting before first check
+    sleep 30
+
+    while true; do
+        sleep 60
+
+        # Only monitor if health stamp exists (semantic search was initialized)
+        [ -f "$health_stamp" ] || continue
+
+        local current_pid
+        current_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
+
+        if [ -z "$current_pid" ]; then
+            log_warning "[WATCHDOG] grepai daemon not running — restarting..."
+
+            # Verify Ollama is still reachable before restarting
+            if ! detect_ollama_endpoint >/dev/null 2>&1; then
+                log_warning "[WATCHDOG] Ollama not reachable, skipping restart"
+                continue
+            fi
+
+            (cd /workspace && nohup "$GREPAI_BIN" watch >> "$grepai_log" 2>&1 &)
+            sleep 3
+
+            current_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
+            if [ -n "$current_pid" ]; then
+                log_success "[WATCHDOG] Daemon restarted (PID: $current_pid)"
+                # Update stamp with new PID
+                if read_health_stamp "$health_stamp"; then
+                    write_health_stamp "$health_stamp" \
+                        "$STAMP_MODEL" "$STAMP_GREPAI_VERSION" \
+                        "$STAMP_CONFIG_HASH" "$current_pid"
+                fi
             else
-                log_info "grepai indexing in progress..."
+                log_warning "[WATCHDOG] Failed to restart daemon (check $grepai_log)"
             fi
         fi
-    else
-        log_info "grepai indexing starting (status check pending)..."
-    fi
+    done
 }
 
 # ============================================================================
