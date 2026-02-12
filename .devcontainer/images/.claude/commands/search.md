@@ -157,7 +157,7 @@ Workflow:
 
 ## Workflow RLM (7 phases)
 
-### Phase -1 : Documentation locale (LOCAL-FIRST)
+### Phase 1.0 : Documentation locale (LOCAL-FIRST)
 
 **TOUJOURS exécuter en premier. La documentation locale est VALIDÉE et prioritaire.**
 
@@ -209,7 +209,7 @@ local_first:
     principles: "principles/"
 ```
 
-**Output Phase -1 :**
+**Output Phase 1.0 :**
 
 ```
 ═══════════════════════════════════════════════
@@ -261,7 +261,7 @@ local_first:
 
 ---
 
-### Phase 0 : Décomposition (RLM Pattern: Peek + Grep)
+### Phase 2.0 : Décomposition (RLM Pattern: Peek + Grep)
 
 **Analyser la query AVANT toute recherche :**
 
@@ -301,7 +301,7 @@ local_first:
 
 ---
 
-### Phase 1 : Recherche parallèle (RLM Pattern: Partition + Map)
+### Phase 3.0 : Recherche parallèle (RLM Pattern: Partition + Map)
 
 **Pour chaque sous-query, lancer un Task agent :**
 
@@ -325,7 +325,7 @@ Task({ prompt: "REST API sur developer.mozilla.org", ... })
 
 ---
 
-### Phase 2 : Peek des résultats
+### Phase 4.0 : Peek des résultats
 
 **Avant analyse complète, peek sur chaque résultat :**
 
@@ -343,7 +343,7 @@ Résultats agents:
 
 ---
 
-### Phase 3 : Fetch approfondi (RLM Pattern: Summarization)
+### Phase 5.0 : Fetch approfondi (RLM Pattern: Summarization)
 
 **Pour les résultats pertinents, WebFetch avec summarization :**
 
@@ -362,7 +362,7 @@ WebFetch({
 
 ---
 
-### Phase 4 : Croisement et validation
+### Phase 6.0 : Croisement et validation
 
 | Situation | Confidence | Action |
 |-----------|------------|--------|
@@ -396,7 +396,7 @@ conflict_detection:
 
 ---
 
-### Phase 4.5 : Résolution des conflits (CONFLICT HANDLING)
+### Phase 7.0 : Résolution des conflits (CONFLICT HANDLING)
 
 **OBLIGATOIRE si conflit détecté entre documentation locale et externe.**
 
@@ -480,7 +480,7 @@ conflict_resolution:
         → Documenter les deux contextes
 ```
 
-**Output Phase 4.5 :**
+**Output Phase 7.0 :**
 
 ```
 ═══════════════════════════════════════════════
@@ -537,7 +537,7 @@ conflict_resolution:
 
 ---
 
-### Phase 5 : Questions (si nécessaire)
+### Phase 8.0 : Questions (si nécessaire)
 
 **UNIQUEMENT si ambiguïté détectée :**
 
@@ -563,7 +563,7 @@ AskUserQuestion({
 
 ---
 
-### Phase 6 : Génération context.md (RLM Pattern: Programmatic)
+### Phase 9.0 : Génération context.md (RLM Pattern: Programmatic)
 
 **Générer le fichier de manière structurée :**
 
@@ -649,11 +649,11 @@ Identique à la version précédente.
 
 | Action | Status |
 |--------|--------|
-| Skip Phase -1 (documentation locale) | ❌ **INTERDIT** |
+| Skip Phase 1.0 (documentation locale) | ❌ **INTERDIT** |
 | Ignorer conflit local/externe | ❌ **INTERDIT** |
 | Préférer externe sur local sans validation | ❌ **INTERDIT** |
 | Source non-officielle | ❌ INTERDIT |
-| Skip Phase 0 (décomposition) | ❌ INTERDIT |
+| Skip Phase 2.0 (décomposition) | ❌ INTERDIT |
 | Agents séquentiels si parallélisable | ❌ INTERDIT |
 | Info sans source | ❌ INTERDIT |
 
