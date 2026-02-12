@@ -1,15 +1,19 @@
 #!/bin/bash
 set -e
 
-echo "========================================="
-echo "Installing VB.NET Development Environment"
-echo "========================================="
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+}
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+print_banner "VB.NET Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing VB.NET Development Environment"
+    echo "========================================="
+}
 
 # Note: VB.NET shares the .NET SDK/runtime with C#.
 # If the C# feature is also installed, this is a no-op for the SDK.
@@ -41,11 +45,13 @@ export PATH="$DOTNET_ROOT:$PATH"
 DOTNET_VERSION=$(dotnet --version)
 echo -e "${GREEN}+ .NET SDK ${DOTNET_VERSION} installed${NC}"
 
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}VB.NET environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+print_success_banner "VB.NET environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}VB.NET environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 echo "Installed components:"
 echo "  - .NET SDK ${DOTNET_VERSION}"
 echo "  - VB.NET compiler (vbc via dotnet build)"

@@ -37,8 +37,11 @@ Language-specific installation scripts. Conventions handled by specialist agents
 ## Per-Language Structure
 
 ```text
-<language>/
-└── install.sh    # Installation script
+languages/
+├── shared/             # Shared utility library
+│   └── feature-utils.sh  # Colors, logging, arch detection, GitHub API
+└── <language>/
+    └── install.sh      # Installation script (sources shared/feature-utils.sh)
 ```
 
 ## Version Discovery
