@@ -32,7 +32,9 @@ les fichiers existants au lieu de listes hardcodées.
 - **Hooks** - Scripts Claude (format, lint, security, etc.)
 - **Commands** - Commandes slash (/git, /search, etc.)
 - **Agents** - Définitions d'agents (specialists, executors)
-- **Lifecycle** - Hooks de cycle de vie (postStart)
+- **Lifecycle** - Hooks de cycle de vie (delegation stubs)
+- **Image-hooks** - Hooks embarqués dans l'image Docker (real logic)
+- **Shared-utils** - Utilitaires partagés (utils.sh)
 - **Config** - p10k, settings.json
 - **Compose** - docker-compose.yml (update devcontainer, preserve custom)
 - **Grepai** - Configuration grepai optimisée
@@ -57,7 +59,9 @@ les fichiers existants au lieu de listes hardcodées.
 | `hooks` | `.devcontainer/images/.claude/scripts/` | Scripts Claude |
 | `commands` | `.devcontainer/images/.claude/commands/` | Commandes slash |
 | `agents` | `.devcontainer/images/.claude/agents/` | Définitions d'agents |
-| `lifecycle` | `.devcontainer/hooks/lifecycle/` | Hooks de cycle de vie |
+| `lifecycle` | `.devcontainer/hooks/lifecycle/` | Hooks de cycle de vie (stubs) |
+| `image-hooks` | `.devcontainer/images/hooks/` | Image-embedded lifecycle hooks |
+| `shared-utils` | `.devcontainer/hooks/shared/utils.sh` | Shared hook utilities |
 | `p10k` | `.devcontainer/images/.p10k.zsh` | Config Powerlevel10k |
 | `settings` | `.../images/.claude/settings.json` | Config Claude |
 | `compose` | `.devcontainer/docker-compose.yml` | Update devcontainer service |
@@ -81,14 +85,16 @@ Options:
   --help              Affiche cette aide
 
 Composants:
-  hooks       Scripts Claude (format, lint...)
-  commands    Commandes slash (/git, /search)
-  agents      Agent definitions (specialists)
-  lifecycle   Lifecycle hooks (postStart)
-  p10k        Powerlevel10k config
-  settings    Claude settings.json
-  compose     docker-compose.yml (devcontainer service)
-  grepai      grepai config (provider, model)
+  hooks        Scripts Claude (format, lint...)
+  commands     Commandes slash (/git, /search)
+  agents       Agent definitions (specialists)
+  lifecycle    Lifecycle hooks (delegation stubs)
+  image-hooks  Image-embedded lifecycle hooks
+  shared-utils Shared hook utilities (utils.sh)
+  p10k         Powerlevel10k config
+  settings     Claude settings.json
+  compose      docker-compose.yml (devcontainer service)
+  grepai       grepai config (provider, model)
 
 Exemples:
   /update                       Tout mettre à jour
@@ -291,6 +297,17 @@ discover_workflow:
       filter: "*.sh"
       local_path: ".devcontainer/hooks/lifecycle/"
 
+    image-hooks:
+      api: "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/images/hooks"
+      recursive: true
+      local_path: ".devcontainer/images/hooks/"
+      note: "Image-embedded lifecycle hooks (real logic)"
+
+    shared-utils:
+      raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/hooks/shared/utils.sh"
+      local_path: ".devcontainer/hooks/shared/utils.sh"
+      note: "Needed by initialize.sh (runs on host)"
+
     p10k:
       raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/images/.p10k.zsh"
       local_path: ".devcontainer/images/.p10k.zsh"
@@ -483,6 +500,54 @@ for hook in $LIFECYCLE; do
 done
 ```
 
+#### Image-Embedded Hooks
+
+```bash
+# Discover image hooks via API (recursive: shared/ + lifecycle/)
+mkdir -p ".devcontainer/images/hooks/shared" ".devcontainer/images/hooks/lifecycle"
+
+# shared/utils.sh
+safe_download \
+    "$BASE/.devcontainer/images/hooks/shared/utils.sh" \
+    ".devcontainer/images/hooks/shared/utils.sh" \
+&& chmod +x ".devcontainer/images/hooks/shared/utils.sh"
+
+# lifecycle hooks
+IMAGE_HOOKS=$(curl -sL "$API/.devcontainer/images/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' || true)
+for hook in $IMAGE_HOOKS; do
+    safe_download \
+        "$BASE/.devcontainer/images/hooks/lifecycle/$hook" \
+        ".devcontainer/images/hooks/lifecycle/$hook" \
+    && chmod +x ".devcontainer/images/hooks/lifecycle/$hook"
+done
+```
+
+#### Shared Utils (workspace copy for initialize.sh)
+
+```bash
+# Update workspace utils.sh (needed by initialize.sh on host)
+safe_download \
+    "$BASE/.devcontainer/hooks/shared/utils.sh" \
+    ".devcontainer/hooks/shared/utils.sh"
+```
+
+#### Migration: Old Full Hooks → Delegation Stubs
+
+```bash
+# Detect old full hooks (hooks without "Delegation stub" marker) and replace with stubs
+STUB_HOOKS="onCreate postCreate postStart postAttach updateContent"
+for hook in $STUB_HOOKS; do
+    local hook_file=".devcontainer/hooks/lifecycle/${hook}.sh"
+    if [ -f "$hook_file" ] && ! grep -q "Delegation stub" "$hook_file"; then
+        echo "  Migrating ${hook}.sh to delegation stub..."
+        safe_download \
+            "$BASE/.devcontainer/hooks/lifecycle/${hook}.sh" \
+            "$hook_file" \
+        && chmod +x "$hook_file"
+    fi
+done
+```
+
 #### Config Files (p10k, settings, compose, grepai)
 
 ```bash
@@ -608,16 +673,18 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
   Version : def5678 (2024-01-20)
 
   Updated components:
-    ✓ hooks       (10 scripts)
-    ✓ commands    (10 commands)
-    ✓ agents      (35 agents)
-    ✓ lifecycle   (6 hooks)
-    ✓ p10k        (1 file)
-    ✓ settings    (1 file)
-    ✓ compose     (devcontainer service updated)
-    ✓ grepai      (1 file - bge-m3 config)
-    ✓ user-hooks  (synchronized with template)
-    ✓ validation  (all scripts exist)
+    ✓ hooks        (10 scripts)
+    ✓ commands     (10 commands)
+    ✓ agents       (35 agents)
+    ✓ lifecycle    (6 delegation stubs)
+    ✓ image-hooks  (6 image-embedded hooks)
+    ✓ shared-utils (1 file)
+    ✓ p10k         (1 file)
+    ✓ settings     (1 file)
+    ✓ compose      (devcontainer service updated)
+    ✓ grepai       (1 file - bge-m3 config)
+    ✓ user-hooks   (synchronized with template)
+    ✓ validation   (all scripts exist)
 
   Grepai config:
     provider: ollama
@@ -803,11 +870,16 @@ validate_hook_scripts() {
 **Mis à jour par /update :**
 ```
 .devcontainer/
-├── docker-compose.yml        # Update devcontainer service
-├── hooks/lifecycle/*.sh
+├── docker-compose.yml            # Update devcontainer service
+├── hooks/
+│   ├── lifecycle/*.sh            # Delegation stubs
+│   └── shared/utils.sh          # Shared utilities (host)
 ├── images/
 │   ├── .p10k.zsh
-│   ├── grepai.config.yaml    # Config grepai (provider, model)
+│   ├── grepai.config.yaml       # Config grepai (provider, model)
+│   ├── hooks/                    # Image-embedded hooks (real logic)
+│   │   ├── shared/utils.sh
+│   │   └── lifecycle/*.sh
 │   └── .claude/
 │       ├── agents/*.md
 │       ├── commands/*.md
@@ -1014,16 +1086,47 @@ for agent in $AGENTS; do
                   "$UPDATE_TARGET/agents/$agent"
 done
 
-# Lifecycle (only in container mode - skip on host)
+# Lifecycle stubs (only in container mode - skip on host)
 if [ "$CONTEXT" = "container" ]; then
     echo ""
-    echo "Updating lifecycle hooks..."
+    echo "Updating lifecycle hooks (delegation stubs)..."
     mkdir -p ".devcontainer/hooks/lifecycle"
     LIFECYCLE=$(curl -sL "$API/.devcontainer/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' || true)
     for hook in $LIFECYCLE; do
         safe_download "$BASE/.devcontainer/hooks/lifecycle/$hook" \
                       ".devcontainer/hooks/lifecycle/$hook" \
         && chmod +x ".devcontainer/hooks/lifecycle/$hook"
+    done
+
+    # Image-embedded hooks (real logic)
+    echo ""
+    echo "Updating image-embedded hooks..."
+    mkdir -p ".devcontainer/images/hooks/shared" ".devcontainer/images/hooks/lifecycle"
+    safe_download "$BASE/.devcontainer/images/hooks/shared/utils.sh" \
+                  ".devcontainer/images/hooks/shared/utils.sh" \
+    && chmod +x ".devcontainer/images/hooks/shared/utils.sh"
+    IMAGE_HOOKS=$(curl -sL "$API/.devcontainer/images/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' || true)
+    for hook in $IMAGE_HOOKS; do
+        safe_download "$BASE/.devcontainer/images/hooks/lifecycle/$hook" \
+                      ".devcontainer/images/hooks/lifecycle/$hook" \
+        && chmod +x ".devcontainer/images/hooks/lifecycle/$hook"
+    done
+
+    # Shared utils (workspace copy for initialize.sh on host)
+    echo ""
+    echo "Updating shared utilities..."
+    safe_download "$BASE/.devcontainer/hooks/shared/utils.sh" \
+                  ".devcontainer/hooks/shared/utils.sh"
+
+    # Migration: detect old full hooks and replace with stubs
+    STUB_HOOKS="onCreate postCreate postStart postAttach updateContent"
+    for h in $STUB_HOOKS; do
+        hook_file=".devcontainer/hooks/lifecycle/${h}.sh"
+        if [ -f "$hook_file" ] && ! grep -q "Delegation stub" "$hook_file"; then
+            echo "  Migrating ${h}.sh to delegation stub..."
+            safe_download "$BASE/.devcontainer/hooks/lifecycle/${h}.sh" "$hook_file" \
+            && chmod +x "$hook_file"
+        fi
     done
 fi
 
