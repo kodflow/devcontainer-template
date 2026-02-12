@@ -23,4 +23,4 @@ fi
 
 # Project-specific extension (optional)
 EXT="/workspace/.devcontainer/hooks/project/${HOOK}.sh"
-[ -x "$EXT" ] && "$EXT" "$@"
+if [ -x "$EXT" ]; then "$EXT" "$@"; fi
