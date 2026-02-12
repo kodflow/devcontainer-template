@@ -1,3 +1,4 @@
+<!-- updated: 2026-02-12T08:40:00Z -->
 # DevContainer Hooks
 
 ## Purpose
@@ -9,10 +10,10 @@ Lifecycle scripts for devcontainer events.
 ```text
 hooks/
 ├── lifecycle/          # DevContainer lifecycle hooks
-│   ├── initialize.sh   # Initial setup
+│   ├── initialize.sh   # Initial setup (Ollama on host)
 │   ├── onCreate.sh     # On container creation
 │   ├── postAttach.sh   # After attaching to container
-│   ├── postCreate.sh   # After container is ready
+│   ├── postCreate.sh   # After container is ready (once)
 │   ├── postStart.sh    # After each container start
 │   └── updateContent.sh # Content updates
 └── shared/             # Shared utilities
@@ -24,9 +25,16 @@ hooks/
 | Event | Script | Description |
 |-------|--------|-------------|
 | onCreate | onCreate.sh | Initial container creation |
-| postCreate | postCreate.sh | After container ready |
+| postCreate | postCreate.sh | After container ready (once, guarded) |
 | postAttach | postAttach.sh | After VS Code attaches |
-| postStart | postStart.sh | After each start |
+| postStart | postStart.sh | After each start (MCP, grepai, VPN) |
+
+## postStart Background Services
+
+| Service | Function | Health Check |
+|---------|----------|-------------|
+| grepai watch | `init_semantic_search` | `.health-stamp` + watchdog (60s) |
+| VPN | `init_vpn` | 1Password profile detection |
 
 ## Conventions
 
