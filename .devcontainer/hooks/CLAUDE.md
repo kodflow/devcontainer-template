@@ -1,24 +1,38 @@
-<!-- updated: 2026-02-12T08:40:00Z -->
+<!-- updated: 2026-02-12T12:00:00Z -->
 # DevContainer Hooks
 
 ## Purpose
 
-Lifecycle scripts for devcontainer events.
+Lifecycle scripts for devcontainer events using a delegation architecture.
 
 ## Structure
 
 ```text
 hooks/
-├── lifecycle/          # DevContainer lifecycle hooks
-│   ├── initialize.sh   # Initial setup (Ollama on host)
-│   ├── onCreate.sh     # On container creation
-│   ├── postAttach.sh   # After attaching to container
-│   ├── postCreate.sh   # After container is ready (once)
-│   ├── postStart.sh    # After each container start
-│   └── updateContent.sh # Content updates
-└── shared/             # Shared utilities
-    └── utils.sh        # Common functions
+├── lifecycle/          # Delegation stubs (thin wrappers)
+│   ├── initialize.sh   # Initial setup (Ollama on host) - NOT delegated
+│   ├── onCreate.sh     # Delegates to image-embedded hook
+│   ├── postAttach.sh   # Delegates to image-embedded hook
+│   ├── postCreate.sh   # Delegates to image-embedded hook
+│   ├── postStart.sh    # Delegates to image-embedded hook
+│   └── updateContent.sh # Delegates to image-embedded hook
+├── shared/             # Shared utilities
+│   └── utils.sh        # Common functions (needed by initialize.sh)
+└── project/            # Project-specific extensions (optional)
+    └── .gitkeep
 ```
+
+## Delegation Architecture
+
+Workspace hooks are thin stubs that delegate to image-embedded implementations:
+
+1. **DEV** path: `/workspace/.devcontainer/images/hooks/` (template dev only)
+2. **IMG** path: `/etc/devcontainer-hooks/` (all downstream containers)
+3. **EXT** path: `/workspace/.devcontainer/hooks/project/` (project extensions)
+
+This ensures hooks auto-update when the Docker image is rebuilt.
+
+**Exception:** `initialize.sh` runs on the host machine, cannot be embedded.
 
 ## Lifecycle Events
 
@@ -38,8 +52,7 @@ hooks/
 
 ## Conventions
 
-- Scripts must be executable (chmod +x)
-- Use `set -u` (not `set -euo pipefail`) — prevents undefined vars without killing script on errors
-- Use `run_step` pattern from `shared/utils.sh` to isolate each operation
-- Each step runs in a subshell; failures are logged but never block container startup
-- Call `print_step_summary` at end for PASS/FAIL report
+- Stubs must be executable (chmod +x)
+- Do NOT add logic to stubs — modify image hooks instead
+- `initialize.sh` is the only hook with inline logic (host-side)
+- Use `run_step` pattern from `shared/utils.sh` in image hooks

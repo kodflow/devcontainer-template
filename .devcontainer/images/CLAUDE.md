@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-12T08:40:00Z -->
+<!-- updated: 2026-02-12T12:00:00Z -->
 # DevContainer Images
 
 ## Purpose
@@ -16,6 +16,9 @@ Claude Code and MCP servers are included; languages added via features.
 ├── grepai.config.yaml  # GrepAI search config (12 languages)
 ├── .p10k.zsh           # Powerlevel10k config
 ├── scripts/vpn/        # VPN helper scripts
+├── hooks/              # Image-embedded lifecycle hooks
+│   ├── shared/utils.sh # Shared utilities
+│   └── lifecycle/      # onCreate, postCreate, postStart, etc.
 └── .claude/            # Claude Code configuration
     ├── commands/       # Slash commands (16 skills)
     ├── scripts/        # Hook scripts (15 scripts)
@@ -35,8 +38,10 @@ Claude Code and MCP servers are included; languages added via features.
 | `.claude/agents/` | `~/.claude/agents/` | `/etc/claude-defaults/agents/` |
 | `.claude/docs/` | `~/.claude/docs/` | `/etc/claude-defaults/docs/` |
 | `mcp.json.tpl` | `/etc/mcp/mcp.json.tpl` | - |
+| `hooks/` | `/etc/devcontainer-hooks/` | - |
 
-**Note:** Files are restored from `/etc/claude-defaults/` at each container start via `postStart.sh`.
+**Note:** Claude files restored from `/etc/claude-defaults/` at each start via `postStart.sh`.
+Lifecycle hooks delegate from workspace stubs to `/etc/devcontainer-hooks/` (image-embedded).
 
 ## Design Patterns Knowledge Base
 

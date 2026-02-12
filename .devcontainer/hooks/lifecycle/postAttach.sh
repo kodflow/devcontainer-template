@@ -1,33 +1,26 @@
 #!/bin/bash
-# shellcheck disable=SC1091
 # ============================================================================
-# postAttach.sh - Runs when IDE connects to the container
+# postAttach.sh - Delegation stub (DO NOT add logic here)
 # ============================================================================
-# This script runs when a tool (like VS Code) connects to the dev container.
-# It's the only command that consistently allows user interaction.
-# Use it for: Welcome messages, status display, interactive prompts.
+# Real logic: /etc/devcontainer-hooks/lifecycle/postAttach.sh (image-embedded)
+# This stub auto-updates behavior when the Docker image is rebuilt.
 # ============================================================================
 
-set -u
+HOOK="postAttach"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../shared/utils.sh"
+# Priority 1: Template dev source (only exists in template repo)
+DEV="/workspace/.devcontainer/images/hooks/lifecycle/${HOOK}.sh"
+# Priority 2: Image-embedded (exists in all downstream containers)
+IMG="/etc/devcontainer-hooks/lifecycle/${HOOK}.sh"
 
-echo ""
-echo -e "${CYAN}=========================================${NC}"
-echo -e "${CYAN}   DevContainer Ready${NC}"
-echo -e "${CYAN}=========================================${NC}"
-echo ""
-
-# Display useful information
-log_success "IDE connected to DevContainer"
-echo ""
-
-# Verify super-claude is available before advertising it
-if [ -f "$HOME/.devcontainer-env.sh" ] && grep -q "super-claude" "$HOME/.devcontainer-env.sh" 2>/dev/null; then
-    echo -e "Tip: Use ${GREEN}super-claude${NC} for Claude CLI with MCP config"
+if [ -x "$DEV" ]; then
+    "$DEV" "$@"
+elif [ -x "$IMG" ]; then
+    "$IMG" "$@"
 else
-    log_warning "super-claude not available - environment setup may have failed"
-    log_info "Try running: source ~/.devcontainer-env.sh"
+    echo "[WARNING] No ${HOOK} hook implementation found"
 fi
-echo ""
+
+# Project-specific extension (optional)
+EXT="/workspace/.devcontainer/hooks/project/${HOOK}.sh"
+[ -x "$EXT" ] && "$EXT" "$@"

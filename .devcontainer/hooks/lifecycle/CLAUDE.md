@@ -1,45 +1,48 @@
-<!-- updated: 2026-02-12T08:40:00Z -->
+<!-- updated: 2026-02-12T12:00:00Z -->
 # Lifecycle Hooks
 
 ## Purpose
 
-DevContainer lifecycle scripts executed at specific container events.
+DevContainer lifecycle scripts. All hooks except `initialize.sh` are delegation stubs
+that forward to image-embedded implementations in `/etc/devcontainer-hooks/`.
 
 ## Scripts
 
-| Script | Event | Description |
-|--------|-------|-------------|
-| `initialize.sh` | onCreateCommand | Initial setup (Ollama install on host) |
-| `onCreate.sh` | onCreate | Container creation |
-| `postCreate.sh` | postCreate | After container ready (runs once) |
-| `postAttach.sh` | postAttach | After VS Code attaches |
-| `postStart.sh` | postStart | After each start (MCP, grepai, VPN) |
-| `updateContent.sh` | updateContent | Content updates |
+| Script | Event | Type | Description |
+|--------|-------|------|-------------|
+| `initialize.sh` | onCreateCommand | Inline | Ollama install on host |
+| `onCreate.sh` | onCreate | Stub | Delegates to image hook |
+| `postCreate.sh` | postCreate | Stub | Delegates to image hook |
+| `postAttach.sh` | postAttach | Stub | Delegates to image hook |
+| `postStart.sh` | postStart | Stub | Delegates to image hook |
+| `updateContent.sh` | updateContent | Stub | Delegates to image hook |
+
+## Delegation Flow
+
+```
+Stub (workspace) → DEV (images/hooks/) or IMG (/etc/devcontainer-hooks/)
+                 → EXT (hooks/project/) [optional]
+```
+
+- **DEV** priority: Template developers see changes immediately
+- **IMG** priority: Downstream users get updates via image rebuild
+- **EXT** hook: Projects can extend without modifying stubs
 
 ## Execution Order
 
-1. initialize.sh (earliest)
-2. onCreate.sh
-3. postCreate.sh
-4. postStart.sh
-5. postAttach.sh (latest)
+1. initialize.sh (host, earliest)
+2. onCreate.sh (stub → image hook)
+3. postCreate.sh (stub → image hook)
+4. postStart.sh (stub → image hook)
+5. postAttach.sh (stub → image hook, latest)
 
-## postStart.sh Key Subsystems
+## initialize.sh (Exception)
 
-**grepai semantic search** (`init_semantic_search`, background):
-- Multi-factor `.health-stamp` detects model/version/config changes
-- Automatically purges and rebuilds index when any factor changes
-- Watchdog daemon restarts `grepai watch` if it crashes (60s interval)
-
-**VPN auto-connect** (`init_vpn`, background):
-- Multi-protocol support (OpenVPN, WireGuard, IPsec, PPTP)
-- Config from 1Password vault
+Runs on the **host machine** before container build. Cannot be image-embedded.
+Extracts `OLLAMA_MODEL` dynamically from `grepai.config.yaml` (single source of truth).
 
 ## Conventions
 
-- All scripts must be executable (`chmod +x`)
-- Use `set -u` (not `set -euo pipefail`) to prevent undefined variable use without killing the script on errors
-- Source `../shared/utils.sh` for common functions
-- Use `run_step "name" function` pattern to isolate each operation in a subshell
-- Each step tracks PASS/FAIL independently; script always exits 0
-- Call `print_step_summary "label"` at the end to display results
+- Do NOT add logic to stubs — modify image hooks in `images/hooks/lifecycle/`
+- Image hooks use `set -u`, `run_step` pattern, `print_step_summary`
+- Stubs must remain thin (~25 lines) for reliable delegation

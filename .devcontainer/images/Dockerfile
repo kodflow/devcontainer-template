@@ -184,8 +184,12 @@ COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
 # GrepAI config template (optimized for 12 languages)
 COPY --chown=vscode:vscode grepai.config.yaml /etc/grepai/config.yaml
 
+# Lifecycle hooks embedded in image (auto-updated on rebuild)
+# Workspace stubs delegate to /etc/devcontainer-hooks/ at runtime
+COPY --chown=root:root hooks/ /etc/devcontainer-hooks/
+
 # Consolidated system setup: permissions, VPN scripts, sudoers, default shell
-RUN chmod -R 755 /etc/claude-defaults/ /home/vscode/.claude/scripts/ && \
+RUN chmod -R 755 /etc/claude-defaults/ /home/vscode/.claude/scripts/ /etc/devcontainer-hooks/ && \
     mkdir -p /etc/openvpn && \
     cp /tmp/vpn/update-dns.sh /etc/openvpn/update-dns && \
     cp /tmp/vpn/vpn-connect.sh /usr/local/bin/vpn-connect && \
