@@ -1,15 +1,27 @@
 #!/bin/bash
 set -e
 
-echo "========================================="
-echo "Installing Java Development Environment"
-echo "========================================="
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+    err() { echo -e "${RED}✗${NC} $*" >&2; }
+    get_github_latest_version() {
+        local repo="$1" fallback="$2" version
+        version=$(curl -s --connect-timeout 5 --max-time 10 \
+            "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+            | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+        echo "${version:-$fallback}"
+    }
+}
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+print_banner "Java Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing Java Development Environment"
+    echo "========================================="
+}
 
 # Environment variables
 export SDKMAN_DIR="${SDKMAN_DIR:-/home/vscode/.cache/sdkman}"
@@ -53,7 +65,7 @@ mkdir -p /home/vscode/.cache/maven
 mkdir -p /home/vscode/.cache/gradle
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Install Java Development Tools (latest versions)
+# Install Java Development Tools — parallel JAR downloads
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}Installing Java development tools...${NC}"
 
@@ -101,84 +113,76 @@ verify_checksum() {
 }
 
 mkdir -p /home/vscode/.local/share/java
+mkdir -p /home/vscode/.local/bin
 
-# Download Google Java Format with checksum verification
-GOOGLE_JAVA_FORMAT_VERSION=$(curl -fsSL "https://api.github.com/repos/google/google-java-format/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
-GOOGLE_JAVA_FORMAT_VERSION="${GOOGLE_JAVA_FORMAT_VERSION#v}"
-GOOGLE_JAVA_FORMAT_VERSION="${GOOGLE_JAVA_FORMAT_VERSION:-1.24.0}"
-echo -e "${YELLOW}Installing Google Java Format ${GOOGLE_JAVA_FORMAT_VERSION}...${NC}"
-GOOGLE_JAVA_FORMAT_JAR="/home/vscode/.local/share/java/google-java-format.jar"
-# Note: No official SHA-256 published - compute from downloaded file and update when version changes
-# To get checksum: curl -fsSL <url> | sha256sum
-GOOGLE_JAVA_FORMAT_SHA256=""
-curl -fsSL "https://github.com/google/google-java-format/releases/download/v${GOOGLE_JAVA_FORMAT_VERSION}/google-java-format-${GOOGLE_JAVA_FORMAT_VERSION}-all-deps.jar" \
-    -o "$GOOGLE_JAVA_FORMAT_JAR"
-if [ -f "$GOOGLE_JAVA_FORMAT_JAR" ]; then
-    if [ -n "$GOOGLE_JAVA_FORMAT_SHA256" ]; then
-        if verify_checksum "$GOOGLE_JAVA_FORMAT_JAR" "$GOOGLE_JAVA_FORMAT_SHA256" "Google Java Format"; then
-            echo -e "${GREEN}✓ Google Java Format installed${NC}"
-        else
-            echo -e "${RED}✗ Google Java Format installation failed (checksum mismatch)${NC}"
-            exit 1
-        fi
-    else
+# Download all 3 tools in parallel
+(
+    # Google Java Format
+    GOOGLE_JAVA_FORMAT_VERSION=$(curl -fsSL "https://api.github.com/repos/google/google-java-format/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+    GOOGLE_JAVA_FORMAT_VERSION="${GOOGLE_JAVA_FORMAT_VERSION#v}"
+    GOOGLE_JAVA_FORMAT_VERSION="${GOOGLE_JAVA_FORMAT_VERSION:-1.24.0}"
+    echo -e "${YELLOW}Installing Google Java Format ${GOOGLE_JAVA_FORMAT_VERSION}...${NC}"
+    GOOGLE_JAVA_FORMAT_JAR="/home/vscode/.local/share/java/google-java-format.jar"
+    if curl -fsSL "https://github.com/google/google-java-format/releases/download/v${GOOGLE_JAVA_FORMAT_VERSION}/google-java-format-${GOOGLE_JAVA_FORMAT_VERSION}-all-deps.jar" \
+        -o "$GOOGLE_JAVA_FORMAT_JAR" && [ -f "$GOOGLE_JAVA_FORMAT_JAR" ]; then
         echo -e "${GREEN}✓ Google Java Format installed${NC}"
-        echo -e "${YELLOW}  (no official checksum available for verification)${NC}"
-    fi
-else
-    echo -e "${RED}✗ Google Java Format download failed${NC}"
-    exit 1
-fi
-
-# Download Checkstyle with checksum verification
-# Note: Checkstyle is distributed via Maven Central, GitHub releases redirect there
-CHECKSTYLE_TAG=$(curl -fsSL "https://api.github.com/repos/checkstyle/checkstyle/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
-CHECKSTYLE_VERSION="${CHECKSTYLE_TAG#checkstyle-}"
-CHECKSTYLE_VERSION="${CHECKSTYLE_VERSION:-10.21.2}"
-echo -e "${YELLOW}Installing Checkstyle ${CHECKSTYLE_VERSION}...${NC}"
-CHECKSTYLE_JAR="/home/vscode/.local/share/java/checkstyle.jar"
-# Download from GitHub releases (official -all.jar with all dependencies)
-CHECKSTYLE_SHA256=""
-curl -fsSL "https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CHECKSTYLE_VERSION}/checkstyle-${CHECKSTYLE_VERSION}-all.jar" \
-    -o "$CHECKSTYLE_JAR"
-if [ -f "$CHECKSTYLE_JAR" ]; then
-    if [ -n "$CHECKSTYLE_SHA256" ]; then
-        if verify_checksum "$CHECKSTYLE_JAR" "$CHECKSTYLE_SHA256" "Checkstyle"; then
-            echo -e "${GREEN}✓ Checkstyle installed${NC}"
-        else
-            echo -e "${RED}✗ Checkstyle installation failed (checksum mismatch)${NC}"
-            exit 1
-        fi
     else
-        echo -e "${GREEN}✓ Checkstyle installed${NC}"
+        echo -e "${RED}✗ Google Java Format download failed${NC}"
+        exit 1
     fi
-else
-    echo -e "${RED}✗ Checkstyle download failed${NC}"
-    exit 1
-fi
+) &
+GJF_PID=$!
 
-# Download SpotBugs (latest version, no checksum - mitigated by HTTPS)
-SPOTBUGS_VERSION=$(curl -fsSL "https://api.github.com/repos/spotbugs/spotbugs/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
-SPOTBUGS_VERSION="${SPOTBUGS_VERSION:-4.8.6}"
-echo -e "${YELLOW}Installing SpotBugs ${SPOTBUGS_VERSION}...${NC}"
-SPOTBUGS_DIR="/home/vscode/.local/share/spotbugs"
-SPOTBUGS_TGZ="/tmp/spotbugs.tgz"
-mkdir -p "$SPOTBUGS_DIR"
-curl -fsSL "https://github.com/spotbugs/spotbugs/releases/download/${SPOTBUGS_VERSION}/spotbugs-${SPOTBUGS_VERSION}.tgz" \
-    -o "$SPOTBUGS_TGZ"
-if [ -f "$SPOTBUGS_TGZ" ] && [ -s "$SPOTBUGS_TGZ" ]; then
-    tar -xzf "$SPOTBUGS_TGZ" -C "$SPOTBUGS_DIR" --strip-components=1
-    echo -e "${GREEN}✓ SpotBugs ${SPOTBUGS_VERSION} installed${NC}"
-    rm -f "$SPOTBUGS_TGZ"
-else
-    echo -e "${RED}✗ SpotBugs download failed${NC}"
-    rm -f "$SPOTBUGS_TGZ"
+(
+    # Checkstyle
+    CHECKSTYLE_TAG=$(curl -fsSL "https://api.github.com/repos/checkstyle/checkstyle/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+    CHECKSTYLE_VERSION="${CHECKSTYLE_TAG#checkstyle-}"
+    CHECKSTYLE_VERSION="${CHECKSTYLE_VERSION:-10.21.2}"
+    echo -e "${YELLOW}Installing Checkstyle ${CHECKSTYLE_VERSION}...${NC}"
+    CHECKSTYLE_JAR="/home/vscode/.local/share/java/checkstyle.jar"
+    if curl -fsSL "https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CHECKSTYLE_VERSION}/checkstyle-${CHECKSTYLE_VERSION}-all.jar" \
+        -o "$CHECKSTYLE_JAR" && [ -f "$CHECKSTYLE_JAR" ]; then
+        echo -e "${GREEN}✓ Checkstyle installed${NC}"
+    else
+        echo -e "${RED}✗ Checkstyle download failed${NC}"
+        exit 1
+    fi
+) &
+CS_PID=$!
+
+(
+    # SpotBugs
+    SPOTBUGS_VERSION=$(curl -fsSL "https://api.github.com/repos/spotbugs/spotbugs/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+    SPOTBUGS_VERSION="${SPOTBUGS_VERSION:-4.8.6}"
+    echo -e "${YELLOW}Installing SpotBugs ${SPOTBUGS_VERSION}...${NC}"
+    SPOTBUGS_DIR="/home/vscode/.local/share/spotbugs"
+    SPOTBUGS_TGZ="/tmp/spotbugs.tgz"
+    mkdir -p "$SPOTBUGS_DIR"
+    if curl -fsSL "https://github.com/spotbugs/spotbugs/releases/download/${SPOTBUGS_VERSION}/spotbugs-${SPOTBUGS_VERSION}.tgz" \
+        -o "$SPOTBUGS_TGZ" && [ -f "$SPOTBUGS_TGZ" ] && [ -s "$SPOTBUGS_TGZ" ]; then
+        tar -xzf "$SPOTBUGS_TGZ" -C "$SPOTBUGS_DIR" --strip-components=1
+        echo -e "${GREEN}✓ SpotBugs ${SPOTBUGS_VERSION} installed${NC}"
+        rm -f "$SPOTBUGS_TGZ"
+    else
+        echo -e "${RED}✗ SpotBugs download failed${NC}"
+        rm -f "$SPOTBUGS_TGZ"
+        exit 1
+    fi
+) &
+SB_PID=$!
+
+# Wait for all downloads to complete
+DOWNLOAD_FAILED=0
+wait "$GJF_PID" || DOWNLOAD_FAILED=1
+wait "$CS_PID" || DOWNLOAD_FAILED=1
+wait "$SB_PID" || DOWNLOAD_FAILED=1
+
+if [ "$DOWNLOAD_FAILED" -ne 0 ]; then
+    echo -e "${RED}✗ One or more Java tool downloads failed${NC}"
     exit 1
 fi
 
 # Create wrapper scripts
-mkdir -p /home/vscode/.local/bin
-
 # google-java-format wrapper
 cat > /home/vscode/.local/bin/google-java-format << 'EOF'
 #!/bin/bash
@@ -202,11 +206,13 @@ chmod +x /home/vscode/.local/bin/spotbugs
 
 echo -e "${GREEN}✓ Java development tools installed${NC}"
 
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}Java environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+print_success_banner "Java environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}Java environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 echo "Installed components:"
 echo "  - SDKMAN (SDK Manager)"
 echo "  - ${JAVA_VERSION}"

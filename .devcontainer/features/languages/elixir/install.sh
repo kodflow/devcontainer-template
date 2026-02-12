@@ -1,15 +1,19 @@
 #!/bin/bash
 set -e
 
-echo "========================================="
-echo "Installing Elixir Development Environment"
-echo "========================================="
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+}
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+print_banner "Elixir Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing Elixir Development Environment"
+    echo "========================================="
+}
 
 # Environment variables (can be overridden)
 export ERLANG_VERSION="${ERLANG_VERSION:-27}"
@@ -234,11 +238,13 @@ echo -e "${YELLOW}Note: For full functionality, add to your mix.exs:${NC}"
 echo '  {:credo, "~> 1.7", only: [:dev, :test], runtime: false}'
 echo '  {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}'
 
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}Elixir environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+print_success_banner "Elixir environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}Elixir environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 echo "Installed components:"
 echo "  - Erlang/OTP ${ERLANG_INSTALLED:-$ERLANG_VERSION}"
 echo "  - ${ELIXIR_INSTALLED:-Elixir $ELIXIR_VERSION}"

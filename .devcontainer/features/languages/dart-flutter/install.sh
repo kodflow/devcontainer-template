@@ -1,15 +1,19 @@
 #!/bin/bash
 set -e
 
-echo "========================================="
-echo "Installing Dart/Flutter Development Environment"
-echo "========================================="
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+}
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+print_banner "Dart/Flutter Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing Dart/Flutter Development Environment"
+    echo "========================================="
+}
 
 # Environment variables
 export FLUTTER_ROOT="${FLUTTER_ROOT:-/home/vscode/.cache/flutter}"
@@ -68,32 +72,40 @@ echo -e "${YELLOW}Installing Dart/Flutter development tools...${NC}"
 # Track failed tools
 FAILED_TOOLS=()
 
-# DCM (Dart Code Metrics - code quality tool)
-echo -e "${YELLOW}Installing DCM...${NC}"
-if dart pub global activate dcm; then
-    echo -e "${GREEN}✓ DCM installed${NC}"
-else
-    echo -e "${YELLOW}⚠ DCM failed (may require license for some features)${NC}"
-    FAILED_TOOLS+=("dcm")
-fi
+# Install DCM, Very Good CLI, and Melos in parallel
+(
+    echo -e "${YELLOW}Installing DCM...${NC}"
+    if dart pub global activate dcm; then
+        echo -e "${GREEN}✓ DCM installed${NC}"
+    else
+        echo -e "${YELLOW}⚠ DCM failed (may require license for some features)${NC}"
+    fi
+) &
+DCM_PID=$!
 
-# very_good_cli (Very Good CLI for project scaffolding)
-echo -e "${YELLOW}Installing Very Good CLI...${NC}"
-if dart pub global activate very_good_cli; then
-    echo -e "${GREEN}✓ Very Good CLI installed${NC}"
-else
-    echo -e "${RED}✗ Very Good CLI failed to install${NC}"
-    FAILED_TOOLS+=("very_good_cli")
-fi
+(
+    echo -e "${YELLOW}Installing Very Good CLI...${NC}"
+    if dart pub global activate very_good_cli; then
+        echo -e "${GREEN}✓ Very Good CLI installed${NC}"
+    else
+        echo -e "${RED}✗ Very Good CLI failed to install${NC}"
+    fi
+) &
+VGC_PID=$!
 
-# melos (monorepo management)
-echo -e "${YELLOW}Installing Melos...${NC}"
-if dart pub global activate melos; then
-    echo -e "${GREEN}✓ Melos installed${NC}"
-else
-    echo -e "${RED}✗ Melos failed to install${NC}"
-    FAILED_TOOLS+=("melos")
-fi
+(
+    echo -e "${YELLOW}Installing Melos...${NC}"
+    if dart pub global activate melos; then
+        echo -e "${GREEN}✓ Melos installed${NC}"
+    else
+        echo -e "${RED}✗ Melos failed to install${NC}"
+    fi
+) &
+MELOS_PID=$!
+
+wait "$DCM_PID" 2>/dev/null || FAILED_TOOLS+=("dcm")
+wait "$VGC_PID" 2>/dev/null || FAILED_TOOLS+=("very_good_cli")
+wait "$MELOS_PID" 2>/dev/null || FAILED_TOOLS+=("melos")
 
 # dart_style (formatter - part of SDK but ensure global)
 echo -e "${YELLOW}Verifying dart format...${NC}"
@@ -117,11 +129,13 @@ else
     echo -e "${GREEN}✓ All Dart/Flutter development tools installed successfully${NC}"
 fi
 
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}Dart/Flutter environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+print_success_banner "Dart/Flutter environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}Dart/Flutter environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 echo "Installed components:"
 echo "  - ${FLUTTER_VERSION}"
 echo "  - ${DART_VERSION}"

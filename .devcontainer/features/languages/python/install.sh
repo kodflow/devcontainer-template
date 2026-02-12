@@ -1,15 +1,19 @@
 #!/bin/bash
 set -e
 
-echo "========================================="
-echo "Installing Python Development Environment"
-echo "========================================="
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+}
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+print_banner "Python Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing Python Development Environment"
+    echo "========================================="
+}
 
 # Environment variables
 export PYTHON_VERSION="${PYTHON_VERSION:-3.12}"
@@ -123,7 +127,7 @@ echo -e "${GREEN}✓ ${PIP_VERSION}${NC}"
 mkdir -p "$PIP_CACHE_DIR"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Install Python Development Tools (latest versions)
+# Install Python Development Tools — batched for speed
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}Installing Python development tools...${NC}"
 
@@ -134,22 +138,12 @@ pip_install() {
     echo -e "${YELLOW}⚠ Failed to install: $*${NC}"
 }
 
-# Quality & Linting
-pip_install ruff pylint
+# Quality, linting, type checking, security, testing — single batch
+pip_install ruff pylint mypy bandit pytest pytest-cov
 
-# Type Checking
-pip_install mypy
-
-# Security
-pip_install bandit
-
-# Testing
-pip_install pytest pytest-cov
-
-# Documentation Tools (MkDocs Material)
+# Documentation Tools (MkDocs Material) — single batch
 echo -e "${YELLOW}Installing documentation tools...${NC}"
-pip_install mkdocs mkdocs-material
-pip_install mkdocs-minify-plugin mkdocs-awesome-pages-plugin
+pip_install mkdocs mkdocs-material mkdocs-minify-plugin mkdocs-awesome-pages-plugin
 
 echo -e "${GREEN}✓ Python development tools installed${NC}"
 
@@ -170,11 +164,13 @@ eval "$(pyenv init -)"'
     done
 fi
 
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}Python environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+print_success_banner "Python environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}Python environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 echo "Installed components:"
 echo "  - ${PYTHON_INSTALLED}"
 echo "  - pip (upgraded)"

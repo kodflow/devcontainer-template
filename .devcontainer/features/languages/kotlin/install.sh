@@ -1,15 +1,19 @@
 #!/bin/bash
 set -e
 
-echo "========================================="
-echo "Installing Kotlin Development Environment"
-echo "========================================="
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+}
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+print_banner "Kotlin Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing Kotlin Development Environment"
+    echo "========================================="
+}
 
 # Detect architecture
 ARCH=$(uname -m)
@@ -72,11 +76,13 @@ fi
 
 export PATH="$SDKMAN_DIR/candidates/kotlin/current/bin:/home/vscode/.local/bin:$PATH"
 
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}Kotlin environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+print_success_banner "Kotlin environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}Kotlin environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 echo "Installed components:"
 echo "  - java    $(java -version 2>&1 | head -n 1)"
 echo "  - kotlin  $(kotlin -version 2>&1)"

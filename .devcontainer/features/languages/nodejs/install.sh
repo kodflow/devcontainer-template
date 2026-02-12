@@ -2,28 +2,16 @@
 # Don't exit on error - we want to use our retry logic
 set +e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-# Logging functions
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $*"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $*"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $*"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $*"
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
+    log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
+    log_success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
+    log_warning() { echo -e "${YELLOW}[WARNING]${NC} $*"; }
+    log_error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
 }
 
 # Retry function
@@ -132,11 +120,6 @@ download_and_pipe() {
     fi
 }
 
-# Check if command exists
-command_exists() {
-    command -v "$1" &> /dev/null
-}
-
 # Safe directory creation
 mkdir_safe() {
     local dir=$1
@@ -149,9 +132,11 @@ mkdir_safe() {
     fi
 }
 
-echo "========================================="
-echo "Installing Node.js Development Environment"
-echo "========================================="
+print_banner "Node.js Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing Node.js Development Environment"
+    echo "========================================="
+}
 
 # Environment variables
 # NVM installed in system location (not volume) - Microsoft best practice
@@ -205,60 +190,40 @@ log_success "npm ${NPM_INSTALLED} installed"
 mkdir_safe "$npm_config_cache"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Install Node.js Development Tools (latest versions)
+# Install Node.js Development Tools — batched for speed
 # ─────────────────────────────────────────────────────────────────────────────
 log_info "Installing Node.js development tools..."
 
-# Package manager (pnpm is preferred per RULES.md)
-log_info "Installing pnpm..."
-npm install -g pnpm@latest
-log_success "pnpm installed"
-
-# TypeScript (mandatory for new code per RULES.md)
-log_info "Installing TypeScript..."
-npm install -g typescript@latest
-log_success "TypeScript installed"
-
-# ESLint (linting)
-log_info "Installing ESLint..."
-npm install -g eslint@latest
-log_success "ESLint installed"
-
-# Prettier (formatting)
-log_info "Installing Prettier..."
-npm install -g prettier@latest
-log_success "Prettier installed"
-
-# tsx (TypeScript execute - faster than ts-node)
-log_info "Installing tsx..."
-npm install -g tsx@latest
-log_success "tsx installed"
-
-log_success "Node.js development tools installed"
+npm install -g pnpm@latest typescript@latest eslint@latest prettier@latest tsx@latest
+log_success "Core tools installed (pnpm, typescript, eslint, prettier, tsx)"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Install Desktop & WASM Tools
+# Install Desktop & WASM Tools — parallel
 # ─────────────────────────────────────────────────────────────────────────────
 log_info "Installing Desktop & WASM tools..."
 
-# Electron (desktop GUI framework)
-log_info "Installing Electron..."
-if npm install -g electron@latest && command -v electron &> /dev/null; then
-    ELECTRON_VERSION=$(electron --version 2>/dev/null || echo "installed")
-    log_success "Electron ${ELECTRON_VERSION} installed"
-else
-    log_warning "Electron installation failed or not in PATH"
-fi
+(
+    if npm install -g electron@latest && command -v electron &> /dev/null; then
+        ELECTRON_VERSION=$(electron --version 2>/dev/null || echo "installed")
+        log_success "Electron ${ELECTRON_VERSION} installed"
+    else
+        log_warning "Electron installation failed or not in PATH"
+    fi
+) &
+ELECTRON_PID=$!
 
-# AssemblyScript (TypeScript-like to WASM compiler)
-log_info "Installing AssemblyScript..."
-if npm install -g assemblyscript@latest && command -v asc &> /dev/null; then
-    ASC_VERSION=$(asc --version 2>/dev/null | head -n 1 || echo "installed")
-    log_success "AssemblyScript ${ASC_VERSION} installed"
-else
-    log_warning "AssemblyScript installation failed or not in PATH"
-fi
+(
+    if npm install -g assemblyscript@latest && command -v asc &> /dev/null; then
+        ASC_VERSION=$(asc --version 2>/dev/null | head -n 1 || echo "installed")
+        log_success "AssemblyScript ${ASC_VERSION} installed"
+    else
+        log_warning "AssemblyScript installation failed or not in PATH"
+    fi
+) &
+ASC_PID=$!
 
+wait "$ELECTRON_PID" 2>/dev/null || true
+wait "$ASC_PID" 2>/dev/null || true
 log_success "Desktop & WASM tools installed"
 
 # Create global symlinks for node, npm, and npx
@@ -294,11 +259,13 @@ fi
 # causes VS Code ptyHost shell environment resolution timeout
 log_info "NVM will be loaded via ~/.devcontainer-env.sh (two-phase loading)"
 
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}Node.js environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+print_success_banner "Node.js environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}Node.js environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 log_success "Installation complete!"
 echo ""
 echo "Installed components:"

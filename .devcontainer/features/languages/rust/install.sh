@@ -8,29 +8,29 @@ set -euo pipefail
 # This script installs: rustup, toolchain, components, cargo tools
 # =============================================================================
 
-# Colors
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[1;33m'
-readonly NC='\033[0m'
-
-log()  { echo -e "$*"; }
-ok()   { log "${GREEN}✓${NC} $*"; }
-warn() { log "${YELLOW}⚠${NC} $*"; }
-err()  { log "${RED}✗${NC} $*" >&2; }
+FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+    ok() { echo -e "${GREEN}✓${NC} $*"; }
+    warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+    err() { echo -e "${RED}✗${NC} $*" >&2; }
+}
 
 # Environment
 export CARGO_HOME="${CARGO_HOME:-$HOME/.cache/cargo}"
 export RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.cache/rustup}"
 
-echo "========================================="
-echo "Installing Rust Development Environment"
-echo "========================================="
+print_banner "Rust Development Environment" 2>/dev/null || {
+    echo "========================================="
+    echo "Installing Rust Development Environment"
+    echo "========================================="
+}
 
 # =============================================================================
 # Minimal System Dependencies (libs are in base image)
 # =============================================================================
-log "${YELLOW}Installing minimal dependencies...${NC}"
+echo -e "${YELLOW}Installing minimal dependencies...${NC}"
 sudo apt-get update && sudo apt-get install -y --no-install-recommends \
     curl build-essential gcc make cmake pkg-config libssl-dev
 ok "Dependencies ready"
@@ -41,7 +41,7 @@ ok "Dependencies ready"
 if command -v rustup &>/dev/null; then
     ok "rustup already installed"
 else
-    log "${YELLOW}Installing rustup...${NC}"
+    echo -e "${YELLOW}Installing rustup...${NC}"
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
     ok "rustup installed"
 fi
@@ -53,7 +53,7 @@ export PATH="$CARGO_HOME/bin:$PATH"
 # =============================================================================
 # Toolchain & Components
 # =============================================================================
-log "${YELLOW}Setting up stable toolchain...${NC}"
+echo -e "${YELLOW}Setting up stable toolchain...${NC}"
 rustup toolchain install stable --profile minimal
 rustup default stable
 rustup component add rust-analyzer clippy rustfmt
@@ -77,7 +77,7 @@ ensure_target() {
     fi
 }
 
-log "${YELLOW}Installing compilation targets...${NC}"
+echo -e "${YELLOW}Installing compilation targets...${NC}"
 
 # Host target (always required)
 HOST_ARCH=$(uname -m)
@@ -94,7 +94,7 @@ ensure_target "wasm32-wasip2" "optional"
 # =============================================================================
 # Cargo-binstall (fast binary installer)
 # =============================================================================
-log "${YELLOW}Installing cargo-binstall...${NC}"
+echo -e "${YELLOW}Installing cargo-binstall...${NC}"
 if command -v cargo-binstall &>/dev/null; then
     ok "cargo-binstall (cached)"
 else
@@ -104,60 +104,126 @@ else
 fi
 
 # =============================================================================
-# Cargo Tools (via binstall for speed)
+# Cargo Tools — Parallel binstall with sequential fallback
 # =============================================================================
+# Removed: cargo-edit (cargo add/rm built-in since Rust 1.62)
+# Removed: cargo-audit (cargo-deny covers advisories + licenses)
 FAILED_TOOLS=()
 
-install_tool() {
-    local tool="$1"
-    if command -v "${tool}" &>/dev/null 2>&1; then
-        ok "${tool} (cached)"
-        return 0
-    fi
-    log "${YELLOW}Installing ${tool}...${NC}"
-    if cargo binstall --no-confirm --locked "$tool" 2>/dev/null; then
-        ok "${tool} (binary)"
-    elif cargo install --locked "$tool" 2>/dev/null; then
-        ok "${tool} (compiled)"
-    else
-        warn "${tool} failed"
-        FAILED_TOOLS+=("$tool")
-    fi
-}
-
-log "${YELLOW}Installing development tools...${NC}"
+echo -e "${YELLOW}Installing development tools...${NC}"
 
 # Core tools (always installed)
 CORE_TOOLS=(
     cargo-watch       # Auto-rebuild on file changes
     cargo-nextest     # Fast test runner
-    cargo-audit       # Security vulnerability scanner
-    cargo-deny        # Dependency security checker
-    cargo-edit        # Dependency management (add/remove)
-    cargo-expand      # Macro expansion viewer
+    cargo-deny        # Dependency security + license checker
     cargo-outdated    # Dependency update checker
     cargo-tarpaulin   # Code coverage tool
-)
-
-# Desktop/WASM tools (Tauri, WebAssembly)
-DESKTOP_TOOLS=(
-    tauri-cli         # Tauri desktop app framework CLI
-    wasm-pack         # WASM packaging and publishing
     wasm-bindgen-cli  # JS bindings generator for WASM
 )
 
-# Install all tools
-for tool in "${CORE_TOOLS[@]}" "${DESKTOP_TOOLS[@]}"; do
-    install_tool "$tool"
+# Phase 1: Parallel binstall (fast binary downloads)
+BINSTALL_PIDS=()
+BINSTALL_TOOLS=()
+for tool in "${CORE_TOOLS[@]}"; do
+    if command -v "${tool}" &>/dev/null 2>&1; then
+        ok "${tool} (cached)"
+        continue
+    fi
+    (
+        cargo binstall --no-confirm --locked "$tool" &>/dev/null
+    ) &
+    BINSTALL_PIDS+=("$!")
+    BINSTALL_TOOLS+=("$tool")
 done
 
-# MCP server (may not have prebuilt binaries)
-install_tool "rust-analyzer-mcp"
+# Collect results
+TOOLS_TO_RETRY=()
+for i in "${!BINSTALL_PIDS[@]}"; do
+    if ! wait "${BINSTALL_PIDS[$i]}" 2>/dev/null; then
+        TOOLS_TO_RETRY+=("${BINSTALL_TOOLS[$i]}")
+    else
+        ok "${BINSTALL_TOOLS[$i]} (binary)"
+    fi
+done
+
+# Phase 2: Sequential fallback for failures (cargo install)
+for tool in "${TOOLS_TO_RETRY[@]}"; do
+    echo -e "${YELLOW}Compiling ${tool} (no binary available)...${NC}"
+    if cargo install --locked "$tool" 2>/dev/null; then
+        ok "${tool} (compiled)"
+    else
+        warn "${tool} failed"
+        FAILED_TOOLS+=("$tool")
+    fi
+done
+
+# cargo-expand: binary-only (skip compilation, it's huge)
+if ! command -v cargo-expand &>/dev/null 2>&1; then
+    echo -e "${YELLOW}Installing cargo-expand...${NC}"
+    if cargo binstall --no-confirm --disable-strategies compile cargo-expand 2>/dev/null; then
+        ok "cargo-expand (binary)"
+    else
+        warn "cargo-expand: no binary available, skipped"
+    fi
+else
+    ok "cargo-expand (cached)"
+fi
+
+# =============================================================================
+# Desktop/WASM tools — optimized install methods
+# =============================================================================
+echo -e "${YELLOW}Installing Desktop & WASM tools...${NC}"
+
+# wasm-pack: use official installer (much faster than cargo)
+if ! command -v wasm-pack &>/dev/null; then
+    echo -e "${YELLOW}Installing wasm-pack...${NC}"
+    if curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh 2>/dev/null; then
+        ok "wasm-pack (installer)"
+    else
+        warn "wasm-pack failed"
+        FAILED_TOOLS+=("wasm-pack")
+    fi
+else
+    ok "wasm-pack (cached)"
+fi
+
+# tauri-cli: prefer npm (seconds vs minutes compiling)
+if ! command -v cargo-tauri &>/dev/null 2>&1; then
+    echo -e "${YELLOW}Installing tauri-cli...${NC}"
+    if command -v npm &>/dev/null; then
+        if npm install -g @tauri-apps/cli 2>/dev/null; then
+            ok "tauri-cli (npm)"
+        else
+            warn "tauri-cli npm install failed, trying cargo"
+            cargo binstall --no-confirm --locked tauri-cli 2>/dev/null && ok "tauri-cli (binary)" || warn "tauri-cli unavailable"
+        fi
+    else
+        cargo binstall --no-confirm --locked tauri-cli 2>/dev/null && ok "tauri-cli (binary)" || warn "tauri-cli unavailable"
+    fi
+else
+    ok "tauri-cli (cached)"
+fi
+
+# =============================================================================
+# MCP server (installed last — may compile from source)
+# =============================================================================
+echo -e "${YELLOW}Installing rust-analyzer-mcp...${NC}"
+if command -v rust-analyzer-mcp &>/dev/null 2>&1; then
+    ok "rust-analyzer-mcp (cached)"
+elif cargo binstall --no-confirm --locked rust-analyzer-mcp 2>/dev/null; then
+    ok "rust-analyzer-mcp (binary)"
+elif cargo install --locked rust-analyzer-mcp 2>/dev/null; then
+    ok "rust-analyzer-mcp (compiled)"
+else
+    warn "rust-analyzer-mcp failed"
+    FAILED_TOOLS+=("rust-analyzer-mcp")
+fi
 
 # =============================================================================
 # Shell Integration
 # =============================================================================
-log "${YELLOW}Configuring shell integration...${NC}"
+echo -e "${YELLOW}Configuring shell integration...${NC}"
 CARGO_ENV='[[ -f "$HOME/.cache/cargo/env" ]] && source "$HOME/.cache/cargo/env"'
 for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
     if [[ -f "$rc" ]] && ! grep -q "cargo/env" "$rc"; then
@@ -169,11 +235,13 @@ ok "Shell integration configured"
 # =============================================================================
 # Summary
 # =============================================================================
-echo ""
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}Rust environment installed successfully!${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo ""
+print_success_banner "Rust environment" 2>/dev/null || {
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}Rust environment installed successfully!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+}
 echo "Installed components:"
 echo "  - rustup (Rust toolchain manager)"
 echo "  - $(rustc --version)"
@@ -184,9 +252,8 @@ echo "  - cargo-binstall (fast binary installer)"
 echo "  - rust-analyzer (LSP)"
 echo "  - clippy (linter)"
 echo "  - rustfmt (formatter)"
-echo "  - cargo-watch, cargo-nextest, cargo-audit"
-echo "  - cargo-deny, cargo-edit, cargo-expand"
-echo "  - cargo-outdated, cargo-tarpaulin"
+echo "  - cargo-watch, cargo-nextest, cargo-deny"
+echo "  - cargo-expand, cargo-outdated, cargo-tarpaulin"
 echo ""
 echo "Desktop & WASM tools:"
 echo "  - tauri-cli (desktop apps)"
