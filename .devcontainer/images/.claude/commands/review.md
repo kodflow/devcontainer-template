@@ -3,7 +3,7 @@ name: review
 description: |
   AI-powered code review (RLM decomposition) for PRs/MRs or local diffs.
   Focus: correctness, security, design, quality, shell safety.
-  12 phases, 5 agents (opus for deep analysis, haiku for patterns).
+  15 phases, 5 agents (opus for deep analysis, haiku for patterns).
   Cyclic workflow: /review --loop for iterative perfection.
   Local-only output with /plan generation for /do execution.
 allowed-tools:
@@ -134,7 +134,7 @@ budget_controller:
 
 ---
 
-## Phase 0 : Context Detection
+## Phase 1.0 : Context Detection
 
 **Identifier le contexte d'exécution (GitHub/GitLab auto-détecté) :**
 
@@ -254,7 +254,7 @@ context_detection:
 
 ---
 
-## Phase 0.5 : Repo Profile (NEW - Cacheable)
+## Phase 2.0 : Repo Profile (Cacheable)
 
 **Build stable repo understanding BEFORE analysis:**
 
@@ -301,7 +301,7 @@ repo_profile:
 
 ---
 
-## Phase 1 : Intent Analysis
+## Phase 3.0 : Intent Analysis
 
 **Comprendre l'intention de la PR/MR AVANT analyse lourde :**
 
@@ -401,7 +401,7 @@ intent_analysis:
 
 ---
 
-## Phase 1.5 : Auto-Describe (PR-Agent inspired)
+## Phase 4.0 : Auto-Describe (PR-Agent inspired)
 
 **Générer description si PR/MR vide ou insuffisante :**
 
@@ -510,7 +510,7 @@ auto_describe:
 
 ---
 
-## Phase 2 : Feedback Collection
+## Phase 5.0 : Feedback Collection
 
 **Collecter les feedbacks avec budget et priorisation :**
 
@@ -568,7 +568,7 @@ feedback_collection:
 
 ---
 
-## Phase 2.3 : CI Diagnostics (NEW - Conditional)
+## Phase 6.0 : CI Diagnostics (Conditional)
 
 **Extract actionable signal from CI failures:**
 
@@ -613,7 +613,7 @@ ci_diagnostics:
 
 ---
 
-## Phase 2.5 : Question Handling
+## Phase 7.0 : Question Handling
 
 **Préparer réponses pour questions humaines :**
 
@@ -651,7 +651,7 @@ question_handling:
 
 ---
 
-## Phase 2.6 : Behavior Extraction (AI Reviews)
+## Phase 8.0 : Behavior Extraction (AI Reviews)
 
 **Extraire axes comportementaux des reviews AI :**
 
@@ -681,7 +681,7 @@ behavior_extraction:
 
 ---
 
-## Phase 3 : Peek & Decompose
+## Phase 9.0 : Peek & Decompose
 
 **Snapshot du diff et catégorisation :**
 
@@ -727,7 +727,7 @@ peek_decompose:
 
 ---
 
-## Phase 4 : Parallel Analysis (5 AGENTS)
+## Phase 10.0 : Parallel Analysis (5 AGENTS)
 
 **Launch 5 sub-agents with strict JSON contract:**
 
@@ -879,7 +879,7 @@ secret_masking:
 
 ---
 
-## Phase 4.7 : Merge & Dedupe (NEW)
+## Phase 11.0 : Merge & Dedupe
 
 **Normalize, deduplicate, require evidence:**
 
@@ -943,7 +943,7 @@ merge_dedupe:
 
 ---
 
-## Phase 5 : Challenge & Synthesize
+## Phase 12.0 : Challenge & Synthesize
 
 **Évaluer pertinence avec NOTRE contexte :**
 
@@ -999,7 +999,7 @@ challenge_feedback:
 
 ---
 
-## Phase 6 : Output Generation (LOCAL ONLY)
+## Phase 13.0 : Output Generation (LOCAL ONLY)
 
 **Generate LOCAL report + /plan file (NO GitHub/GitLab posting):**
 
@@ -1061,7 +1061,7 @@ output_generation:
 
 ---
 
-## Phase 6.5 : Language-Specialist Dispatch (NEW)
+## Phase 14.0 : Language-Specialist Dispatch
 
 **Route fixes to language-specialist agent via /do:**
 
@@ -1127,7 +1127,7 @@ language_specialist_dispatch:
 
 ---
 
-## Phase 7 : Cyclic Validation (NEW)
+## Phase 15.0 : Cyclic Validation
 
 **Loop until perfect OR --loop limit:**
 
@@ -1142,7 +1142,7 @@ cyclic_workflow:
 
   flow:
     iteration_1:
-      1_review: "Full analysis (12 phases, 5 agents)"
+      1_review: "Full analysis (15 phases, 5 agents)"
       2_generate_plan: ".claude/plans/review-fixes-{timestamp}.md"
       3_dispatch_to_do: "/do --plan {plan_file}"
 
@@ -1425,7 +1425,7 @@ error_handling:
 ## Agents Architecture
 
 ```
-/review (12 phases, 5 agents)
+/review (15 phases, 5 agents)
     │
     ├─→ Phase 0-2.5: Context + Feedback (sequential)
     │     ├─→ 0: Context Detection (GitHub/GitLab auto)

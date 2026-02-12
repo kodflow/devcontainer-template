@@ -85,7 +85,7 @@ Exemples:
 
 ---
 
-## Phase 1 : Peek (RLM Pattern)
+## Phase 1.0 : Peek (RLM Pattern)
 
 **Scan rapide AVANT exploration approfondie :**
 
@@ -139,7 +139,7 @@ peek_workflow:
 
 ---
 
-## Phase 2 : Decompose (RLM Pattern)
+## Phase 2.0 : Decompose (RLM Pattern)
 
 **Diviser la tâche en sous-tâches :**
 
@@ -171,7 +171,7 @@ decompose_workflow:
 
 ---
 
-## Phase 3 : Parallelize (RLM Pattern)
+## Phase 3.0 : Parallelize (RLM Pattern)
 
 **Exploration multi-domaine en parallèle :**
 
@@ -213,7 +213,7 @@ parallel_exploration:
 
 ---
 
-## Phase 3.5 : Pattern Consultation (OBLIGATOIRE)
+## Phase 4.0 : Pattern Consultation (OBLIGATOIRE)
 
 **Consulter `~/.claude/docs/` pour les patterns :**
 
@@ -258,7 +258,7 @@ pattern_consultation:
 
 ---
 
-## Phase 4 : Synthesize (RLM Pattern)
+## Phase 5.0 : Synthesize (RLM Pattern)
 
 **Générer le plan structuré :**
 
@@ -325,7 +325,7 @@ Comment annuler si problème
 
 ---
 
-## Phase 5 : Demande de Validation
+## Phase 6.0 : Demande de Validation
 
 **OBLIGATOIRE : Attendre approbation utilisateur**
 

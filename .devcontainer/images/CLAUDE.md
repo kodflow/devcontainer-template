@@ -73,7 +73,7 @@ Base de connaissances exhaustive de 250+ design patterns, consultée automatique
 | Network | ping, dig, nmap, traceroute, mtr, tcpdump, netcat, whois, iperf3, net-tools |
 | VPN | OpenVPN, WireGuard, StrongSwan (IPsec), PPTP |
 | Code Quality | ShellCheck, ktn-linter, grepai |
-| Shell | Zsh + Oh My Zsh + Powerlevel10k |
+| Shell | Zsh (default `$SHELL`) + Oh My Zsh + Powerlevel10k |
 
 ## MCP Servers (Runtime)
 

@@ -72,7 +72,7 @@ Conversational initialization with **progressive context building**:
 
 ---
 
-## Phase 0: Detect (Repository Identity → Template vs Personalized)
+## Phase 1.0: Detect (Repository Identity → Template vs Personalized)
 
 **Step 1: Identify the repository via git remote.**
 
@@ -157,7 +157,7 @@ detect_template:
 
 ---
 
-## Phase 1: Discovery Conversation
+## Phase 2.0: Discovery Conversation
 
 **RULES (ABSOLUTE):**
 
@@ -268,7 +268,7 @@ Move to Phase 2 when **ALL** of these are true:
 
 ---
 
-## Phase 2: Vision Synthesis
+## Phase 3.0: Vision Synthesis
 
 **Review the accumulated context with the user before generating files.**
 
@@ -306,7 +306,7 @@ synthesis_workflow:
 
 ---
 
-## Phase 3: File Generation
+## Phase 4.0: File Generation
 
 **Generate all files DIRECTLY from accumulated context. No templates.**
 
@@ -402,7 +402,7 @@ files:
 
 ---
 
-## Phase 4: Environment Validation
+## Phase 5.0: Environment Validation
 
 **Verify the environment (parallel via Task agents).**
 
@@ -432,7 +432,7 @@ parallel_checks:
 
 ---
 
-## Phase 5: Report
+## Phase 6.0: Report
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -468,7 +468,7 @@ parallel_checks:
 
 ---
 
-## Phase 6 : GrepAI Calibration
+## Phase 7.0 : GrepAI Calibration
 
 **MANDATORY** after project discovery. Calibrate grepai config based on project size and structure.
 

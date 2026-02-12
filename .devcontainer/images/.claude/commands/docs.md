@@ -53,7 +53,7 @@ $ARGUMENTS
 principles:
   deep_analysis:
     rule: "Launch N agents with context: fork, each writing JSON to /tmp/docs-analysis/"
-    iterations: "Phase 1A: 8 haiku agents parallel, Phase 1B: 1 sonnet agent with context"
+    iterations: "Phase 4.1: 8 haiku agents parallel, Phase 4.2: 1 sonnet agent with context"
     output: "File-based JSON results with scoring, 1-line summaries in main context"
 
   no_superficial_content:
@@ -152,7 +152,7 @@ principles:
     --help              Show this help
 
   ANALYSIS AGENTS (file-based, context: fork)
-    Phase 1A (8 haiku agents, parallel → /tmp/docs-analysis/):
+    Phase 4.1 (8 haiku agents, parallel → /tmp/docs-analysis/):
       languages     install.sh → tools, versions, why
       commands      commands/*.md → workflows, args
       agents        agents/*.md → capabilities
@@ -161,7 +161,7 @@ principles:
       patterns      ~/.claude/docs/ → patterns KB
       structure     codebase → directory map
       config        env, settings → configuration
-    Phase 1B (1 sonnet agent, reads Phase 1A results):
+    Phase 4.2 (1 sonnet agent, reads Phase 4.1 results):
       architecture  code → components, flows, protocols
 
   SCORING (what to document)
@@ -194,23 +194,23 @@ All `{VARIABLE}` placeholders used in output templates and generated files:
 
 ```yaml
 variables:
-  # Derived from project analysis (Phase 0-1)
+  # Derived from project analysis (Phase 2.0-4.0)
   PROJECT_NAME: "From CLAUDE.md title, package.json name, go.mod module, or git repo name"
-  PROJECT_TYPE: "template | library | application | empty (detected in Phase 0)"
+  PROJECT_TYPE: "template | library | application | empty (detected in Phase 2.0)"
   GENERATED_DESCRIPTION: "2-3 sentence summary synthesized from agent analysis results"
 
-  # Derived from scoring (Phase 2)
+  # Derived from scoring (Phase 5.0)
   SECTIONS_WITH_SCORES: "Formatted list: section name + score, sorted descending"
 
-  # Derived from agent results (Phase 1)
+  # Derived from agent results (Phase 4.0)
   N: "Number of analysis agents that completed successfully"
   D: "Total count of Mermaid diagrams generated across all pages"
 
-  # Derived from git (Phase 0)
+  # Derived from git (Phase 2.0)
   GIT_REMOTE_URL: "From git remote get-url origin (for repo_url in mkdocs.yml)"
   REPO_NAME: "Auto-detected from remote URL host (GitHub/GitLab/Bitbucket)"
 
-  # Freshness (Phase 0.5)
+  # Freshness (Phase 3.0)
   LAST_COMMIT_SHA: "Git SHA from generation marker in docs/index.md"
   MARKER_DATE: "ISO8601 date from generation marker"
   MARKER_COMMIT: "Short SHA from generation marker"
@@ -225,11 +225,11 @@ variables:
   OUTDATED_LIST: "Formatted list: dep name, docs version vs actual version"
   TOTAL_PAGES: "Total number of pages in docs/"
 
-  # From Phase -1 config (~/.claude/docs/config.json)
+  # From Phase 1.0 config (~/.claude/docs/config.json)
   PUBLIC_REPO: "Boolean — controls GitHub links in header/footer/nav and repo_url in mkdocs.yml"
   INTERNAL_PROJECT: "Boolean — controls feature table style (simple vs comparison)"
 
-  # From architecture-analyzer (Phase 1, stored in config)
+  # From architecture-analyzer (Phase 4.0, stored in config)
   APIS: "Array of {name, path, method, transport, format, description}"
   API_COUNT: "len(APIS) — controls nav: 0=hidden, 1='API' direct, N='APIs' dropdown"
   TRANSPORTS: "Array of {protocol, direction, port, tls, used_by_apis[]}"
@@ -266,7 +266,7 @@ variables:
 
 ## Color Derivation Algorithm
 
-Given `accent_color` from Phase -1 config, derive the full semantic palette:
+Given `accent_color` from Phase 1.0 config, derive the full semantic palette:
 
 ```yaml
 color_derivation:
@@ -326,7 +326,7 @@ color_derivation:
 /docs Execution Flow
 ────────────────────────────────────────────────────────────────
 
-Phase -1: Configuration Gate
+Phase 1.0: Configuration Gate
 ├─ Read ~/.claude/docs/config.json
 ├─ If missing/incomplete: ask 3 mandatory questions (AskUserQuestion)
 │   ├─ Q1: "Is this repository public?"  → public_repo
@@ -336,18 +336,18 @@ Phase -1: Configuration Gate
 ├─ Derive semantic color palette from accent_color (triadic HSL)
 └─ Load config into template variables (PUBLIC_REPO, INTERNAL_PROJECT, ACCENT_COLOR)
 
-Phase 0: Project Detection
+Phase 2.0: Project Detection
 ├─ Detect project type (template/library/app/empty)
 └─ Choose analysis strategy + agent list
 
-Phase 0.5: Freshness Check
+Phase 3.0: Freshness Check
 ├─ Read generation marker from docs/index.md
 ├─ git diff <last_sha>..HEAD → changed files
 ├─ Map changed files → stale doc pages
 ├─ Check broken links + outdated deps
 └─ Decision: INCREMENTAL (stale pages only) or FULL
 
-Phase 1A: Category Analyzers (8 haiku agents, ONE message)
+Phase 4.1: Category Analyzers (8 haiku agents, ONE message)
 ├─ Task(docs-analyzer-languages)   ──┐
 ├─ Task(docs-analyzer-commands)    ──┤
 ├─ Task(docs-analyzer-agents)      ──┤
@@ -357,17 +357,17 @@ Phase 1A: Category Analyzers (8 haiku agents, ONE message)
 ├─ Task(docs-analyzer-structure)   ──┤
 └─ Task(docs-analyzer-config)      ──┘
 
-Phase 1B: Architecture Analyzer (1 sonnet agent, reads Phase 1A)
+Phase 4.2: Architecture Analyzer (1 sonnet agent, reads Phase 4.1)
 └─ Task(docs-analyzer-architecture) → /tmp/docs-analysis/architecture.json
 
-Phase 2: Consolidation + Scoring
+Phase 5.0: Consolidation + Scoring
 ├─ Read all JSON from /tmp/docs-analysis/
 ├─ Build dependency DAG, topological sort
 ├─ Apply scoring formula (with diagram bonus)
 ├─ Identify high-priority sections
 └─ Build documentation tree
 
-Phase 3: Content Generation (dependency order)
+Phase 6.0: Content Generation (dependency order)
 ├─ Generate index.md (product pitch first)
 ├─ For each scored section:
 │   ├─ If score >= 24: Primary — full page + mandatory diagram
@@ -376,22 +376,22 @@ Phase 3: Content Generation (dependency order)
 ├─ Generate architecture pages (C4 progressive zoom)
 └─ Generate nav structure
 
-Phase 4: Verification (DocAgent-inspired)
+Phase 7.0: Verification (DocAgent-inspired)
 ├─ Verify: completeness, accuracy, quality, no placeholders
 ├─ Feedback loop: fix issues and re-verify (max 2 iterations)
 └─ Proceed with warnings if max iterations reached
 
-Phase 5: Serve
+Phase 8.0: Serve
 ├─ Final checks
 └─ Start MkDocs on specified port
 ```
 
 ---
 
-## Phase -1: Configuration Gate
+## Phase 1.0: Configuration Gate
 
 ```yaml
-phase_neg1_config:
+phase_1_0_config:
   description: "Mandatory configuration gate — runs before any analysis"
   mandatory: true
   skip_if: "~/.claude/docs/config.json exists AND contains all keys (public_repo, internal_project, accent_color)"
@@ -401,13 +401,13 @@ phase_neg1_config:
     public_repo: "boolean — controls GitHub links, repo_url, footer icon, nav GitHub tab"
     internal_project: "boolean — controls feature table style (simple description vs competitive comparison)"
     accent_color: "hex string — accent color for MkDocs theme and Mermaid diagrams (e.g. '#df41fb')"
-    apis: "array — auto-filled by architecture-analyzer in Phase 1 (never asked to user)"
+    apis: "array — auto-filled by architecture-analyzer in Phase 4.0 (never asked to user)"
 
   workflow:
     1_check_existing:
       action: "Read ~/.claude/docs/config.json"
       if_exists_and_complete:
-        action: "Load config into template variables, skip to Phase 0"
+        action: "Load config into template variables, skip to Phase 2.0"
         message: "Config loaded: public_repo={public_repo}, internal_project={internal_project}"
       if_missing_or_incomplete:
         action: "Proceed to questions"
@@ -457,7 +457,7 @@ phase_neg1_config:
           "accent_color": "{Q3_ANSWER}",
           "apis": []
         }
-      note: "apis array populated automatically by architecture-analyzer in Phase 1"
+      note: "apis array populated automatically by architecture-analyzer in Phase 4.0"
 
   output_variables:
     PUBLIC_REPO: "boolean from config → controls repo_url, GitHub nav tab, footer link"
@@ -478,16 +478,16 @@ phase_neg1_config:
       - "No comparison table generation"
     internal_project_false:
       - "index.md: comparison table Us ★ | Compet A | Compet B | Compet C"
-      - "Phase 1 agents research competitors for the comparison"
+      - "Phase 4.0 agents research competitors for the comparison"
       - "Comparison uses ✅ (full) | ⚠️ (partial) | ❌ (none)"
 ```
 
 ---
 
-## Phase 0: Project Detection
+## Phase 2.0: Project Detection
 
 ```yaml
-phase_0_detect:
+phase_2_0_detect:
   description: "Identify project type and handle existing docs/"
   mandatory: true
 
@@ -544,10 +544,10 @@ phase_0_detect:
 
 ---
 
-## Phase 0.5: Freshness Check
+## Phase 3.0: Freshness Check
 
 ```yaml
-phase_05_freshness:
+phase_3_0_freshness:
   description: "Detect stale docs and decide incremental vs full regeneration"
   skip_if: "--update flag (force full) OR no docs/ exists (first run)"
 
@@ -641,7 +641,7 @@ phase_05_freshness:
 
 ---
 
-## Phase 1: Parallel Analysis Agents (File-Based Dispatch)
+## Phase 4.0: Parallel Analysis Agents (File-Based Dispatch)
 
 **Architecture:** Each analyzer is a separate agent file in `.claude/agents/docs-analyzer-*.md`
 with `context: fork` (isolated context) and file-based output to `/tmp/docs-analysis/`.
@@ -658,12 +658,12 @@ Create output directory before launching agents:
 mkdir -p /tmp/docs-analysis
 ```
 
-### Phase 1A: Category Analyzers (8 parallel haiku agents)
+### Phase 4.1: Category Analyzers (8 parallel haiku agents)
 
 **CRITICAL:** Launch ALL 8 agents in a SINGLE message with multiple Task calls.
 
 ```yaml
-phase_1a_dispatch:
+phase_4_1_dispatch:
   agents:
     - subagent_type: "docs-analyzer-languages"
       max_turns: 12
@@ -707,21 +707,21 @@ phase_1a_dispatch:
 
   output: "Each agent writes JSON to /tmp/docs-analysis/{name}.json"
   return: "Each agent returns 1-line: 'DONE: {name} - N items, score X/10'"
-  wait: "ALL Phase 1A agents must complete before Phase 1B"
+  wait: "ALL Phase 4.1 agents must complete before Phase 4.2"
 ```
 
-### Phase 1B: Architecture Analyzer (1 sonnet agent)
+### Phase 4.2: Architecture Analyzer (1 sonnet agent)
 
-**Runs AFTER Phase 1A completes.** The architecture analyzer reads Phase 1A JSON results
+**Runs AFTER Phase 4.1 completes.** The architecture analyzer reads Phase 4.1 JSON results
 from `/tmp/docs-analysis/` to gain project context before performing deep analysis.
 
 ```yaml
-phase_1b_dispatch:
+phase_4_2_dispatch:
   agent:
     subagent_type: "docs-analyzer-architecture"
     max_turns: 20
     prompt: |
-      Deep architecture analysis. Phase 1A results are available in
+      Deep architecture analysis. Phase 4.1 results are available in
       /tmp/docs-analysis/*.json — read them first for project context.
       Write your results to /tmp/docs-analysis/architecture.json.
     trigger: "PROJECT_TYPE in [library, application] OR src/ exists"
@@ -759,10 +759,10 @@ All agents write to `/tmp/docs-analysis/{name}.json` with structure:
 
 ---
 
-## Phase 2: Consolidation and Scoring
+## Phase 5.0: Consolidation and Scoring
 
 ```yaml
-phase_2_consolidation:
+phase_5_0_consolidation:
   description: "Merge agent results and apply enhanced scoring"
 
   scoring_formula:
@@ -790,7 +790,7 @@ phase_2_consolidation:
     reason: "A module's docs can reference its dependency's docs via links"
     implementation:
       - "Build dependency DAG from agent results (imports, calls, data flow)"
-      - "Topological sort → processing order for Phase 3"
+      - "Topological sort → processing order for Phase 6.0"
       - "Earlier components provide context for later ones"
 
   consolidation_steps:
@@ -857,10 +857,10 @@ phase_2_consolidation:
 
 ---
 
-## Phase 3: Content Generation
+## Phase 6.0: Content Generation
 
 ```yaml
-phase_3_generate:
+phase_6_0_generate:
   description: "Generate documentation from consolidated results"
 
   rules:
@@ -1254,10 +1254,10 @@ phase_3_generate:
 
 ---
 
-## Phase 4: Verification (DocAgent-inspired)
+## Phase 7.0: Verification (DocAgent-inspired)
 
 ```yaml
-phase_4_verify:
+phase_7_0_verify:
   description: "Iterative quality verification before serving"
   inspiration: "DocAgent multi-agent pattern: Writer → Verifier feedback loop"
   max_iterations: 2
@@ -1296,17 +1296,17 @@ phase_4_verify:
       action: "Fix the specific issue and re-verify (up to max_iterations)"
       strategy: "Targeted fix — only regenerate the failing section, not all docs"
     on_success:
-      action: "Proceed to Phase 5 (Serve)"
+      action: "Proceed to Phase 8.0 (Serve)"
     on_max_iterations:
       action: "Proceed with warnings listed in serve output"
 ```
 
 ---
 
-## Phase 5: Validation + Serve
+## Phase 8.0: Validation + Serve
 
 ```yaml
-phase_5_validate_and_serve:
+phase_8_0_validate_and_serve:
   description: "Final validation then start MkDocs server"
 
   validation:
@@ -1450,10 +1450,10 @@ quick:
 | Phrase generique sans info specifique | **INTERDIT** | Contenu creux |
 | index.md qui commence par du technique | **INTERDIT** | Pitch produit d'abord |
 | Skip architecture-analyzer pour app | **INTERDIT** | Architecture est critique |
-| Skip freshness check (Phase 0.5) | **INTERDIT** | Regeneration inutile |
+| Skip freshness check (Phase 3.0) | **INTERDIT** | Regeneration inutile |
 | Generer sans marker dans index.md | **INTERDIT** | Freshness impossible ensuite |
 | Full regen si incremental suffit | **EVITER** | Gaspillage de tokens/temps |
-| Skip Phase -1 (config questions) | **INTERDIT** | Config pilote tout le contenu conditionnel |
+| Skip Phase 1.0 (config questions) | **INTERDIT** | Config pilote tout le contenu conditionnel |
 | GitHub links si PUBLIC_REPO=false | **INTERDIT** | Fuite URL repo prive |
 | Tableau comparatif si INTERNAL_PROJECT=true | **INTERDIT** | Pas de concurrents pour projet interne |
 | Tableau simple si INTERNAL_PROJECT=false | **INTERDIT** | Doit montrer avantage competitif |
@@ -1535,7 +1535,7 @@ nav:
   # GENERATED by nav_algorithm — never hand-edited
   # ---
   # nav_algorithm:
-  #   1. "Docs" tab: index.md + scored sections from Phase 3
+  #   1. "Docs" tab: index.md + scored sections from Phase 6.0
   #   2. "Transport" tab: transport.md (always present)
   #   3. API tab (conditional on API_COUNT):
   #      - API_COUNT == 0 → no nav item

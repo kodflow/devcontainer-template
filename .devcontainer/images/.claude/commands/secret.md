@@ -175,7 +175,7 @@ item:
 
 ---
 
-## Phase 1 : Peek (OBLIGATOIRE)
+## Phase 1.0 : Peek (OBLIGATOIRE)
 
 **Verifier les prerequis AVANT toute operation :**
 

@@ -68,12 +68,13 @@ Boucle itérative utilisant **Recursive Language Model** decomposition :
     /do --help              Affiche cette aide
 
   RLM PATTERNS
-    -1. Plan    - Détection plan approuvé (skip questions si oui)
-    0. Questions - Configuration interactive (si pas de plan)
-    1. Peek     - Scan du codebase + git conflict check
-    2. Decompose - Division en sous-objectifs mesurables
-    3. Parallelize - Validations simultanées (test/lint/build)
-    4. Synthesize - Rapport consolidé par itération
+    1. Plan    - Détection plan approuvé (skip questions si oui)
+    2. Secret   - Découverte secrets 1Password
+    3. Questions - Configuration interactive (si pas de plan)
+    4. Peek     - Scan du codebase + git conflict check
+    5. Decompose - Division en sous-objectifs mesurables
+    6. Loop     - Validations simultanées (test/lint/build)
+    7. Synthesize - Rapport consolidé par itération
 
   EXEMPLES
     /do "Migrer les tests Jest vers Vitest"
@@ -93,7 +94,7 @@ Boucle itérative utilisant **Recursive Language Model** decomposition :
 
 ---
 
-## Phase -1 : Détection de Plan Approuvé
+## Phase 1.0 : Détection de Plan Approuvé
 
 **TOUJOURS exécuter en premier. Vérifie si /plan a été utilisé.**
 
@@ -124,7 +125,7 @@ plan_detection:
       - "Continuer vers Phase 0 (questions)"
 ```
 
-**Output Phase -1 (plan détecté) :**
+**Output Phase 1.0 (plan détecté) :**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -140,12 +141,12 @@ plan_detection:
 
   Mode: PLAN_EXECUTION (skipping interactive questions)
 
-  Proceeding to Phase 1 (Peek)...
+  Proceeding to Phase 4.0 (Peek)...
 
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output Phase -1 (pas de plan) :**
+**Output Phase 1.0 (pas de plan) :**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -156,14 +157,14 @@ plan_detection:
 
   Mode: ITERATIVE (interactive questions required)
 
-  Proceeding to Phase 0 (Questions)...
+  Proceeding to Phase 3.0 (Questions)...
 
 ═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Phase -0.5 : Secret Discovery (1Password)
+## Phase 2.0 : Secret Discovery (1Password)
 
 **Verifier si des secrets sont disponibles pour ce projet :**
 
@@ -215,7 +216,7 @@ secret_discovery:
 
 ---
 
-## Phase 0 : Questions Interactives (SI PAS DE PLAN)
+## Phase 3.0 : Questions Interactives (SI PAS DE PLAN)
 
 **Poser ces 4 questions UNIQUEMENT si aucun plan approuvé n'est détecté :**
 
@@ -297,7 +298,7 @@ AskUserQuestion:
 
 ---
 
-## Phase 1 : Peek (RLM Pattern)
+## Phase 4.0 : Peek (RLM Pattern)
 
 **Scan rapide AVANT toute modification :**
 
@@ -340,7 +341,7 @@ peek_workflow:
     output: "test_command, lint_command, build_command"
 ```
 
-**Output Phase 1 :**
+**Output Phase 4.0 :**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -369,7 +370,7 @@ peek_workflow:
 
 ---
 
-## Phase 2 : Decompose (RLM Pattern)
+## Phase 5.0 : Decompose (RLM Pattern)
 
 **Diviser la tâche en sous-objectifs mesurables :**
 
@@ -394,7 +395,7 @@ decompose_workflow:
     action: "Initialiser TaskCreate avec les sous-objectifs"
 ```
 
-**Output Phase 2 :**
+**Output Phase 5.0 :**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -417,7 +418,7 @@ decompose_workflow:
 
 ---
 
-## Phase 3 : Boucle Principale
+## Phase 6.0 : Boucle Principale
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -531,7 +532,7 @@ synthesize_iteration:
 
 ---
 
-## Phase 4 : Synthèse Finale
+## Phase 7.0 : Synthèse Finale
 
 ### Rapport de succès
 
@@ -642,9 +643,9 @@ task_pattern:
 
 | Action | Status | Raison |
 |--------|--------|--------|
-| Skip Phase -1 (Plan detect) | ❌ **INTERDIT** | Vérifier si plan existe |
-| Skip Phase 0 sans plan | ❌ **INTERDIT** | Questions requises |
-| Skip Phase 1 (Peek) | ❌ **INTERDIT** | Contexte + git check |
+| Skip Phase 1.0 (Plan detect) | ❌ **INTERDIT** | Vérifier si plan existe |
+| Skip Phase 3.0 sans plan | ❌ **INTERDIT** | Questions requises |
+| Skip Phase 4.0 (Peek) | ❌ **INTERDIT** | Contexte + git check |
 | Ignorer max_iterations | ❌ **INTERDIT** | Boucle infinie |
 | Critères subjectifs ("joli", "clean") | ❌ **INTERDIT** | Non mesurable |
 | Modifier .claude/ ou .devcontainer/ | ❌ **INTERDIT** | Fichiers protégés |
