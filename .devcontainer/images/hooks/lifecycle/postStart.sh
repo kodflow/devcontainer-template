@@ -708,6 +708,9 @@ grepai_watchdog() {
     local grepai_log="/tmp/grepai.log"
     local deferred_attempts=0
 
+    # Write PID file for discoverability (shell functions are invisible to pgrep)
+    echo $$ > /tmp/grepai-watchdog.pid
+
     # Let the container finish starting before first check
     sleep 30
 
@@ -1064,7 +1067,7 @@ run_step "MCP configuration"        step_mcp_configuration
 run_step "Git credential cleanup"   step_git_credential_cleanup
 
 # Background tasks (have internal error handling, not tracked in summary)
-init_semantic_search &
+init_semantic_search >> /tmp/grepai-init.log 2>&1 &
 init_vpn &
 
 # Export dynamic environment variables (appended to ~/.devcontainer-env.sh)
