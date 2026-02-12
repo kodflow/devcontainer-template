@@ -1,3 +1,4 @@
+<!-- updated: 2026-02-12T17:00:00Z -->
 # DevContainer Features
 
 ## Purpose
@@ -8,7 +9,9 @@ Modular features for languages, tools, and architectures.
 
 ```text
 features/
-├── languages/      # Language-specific (26 languages)
+├── languages/      # 25 languages + shared utility library
+│   ├── shared/     # feature-utils.sh (colors, logging, arch, GitHub API)
+│   └── <lang>/     # install.sh + devcontainer-feature.json
 ├── architectures/  # Architecture patterns (14 patterns)
 ├── claude/         # Claude Code standalone integration
 └── kubernetes/     # Local K8s via kind
@@ -17,11 +20,12 @@ features/
 ## Key Components
 
 - Each language has `install.sh` + `devcontainer-feature.json`
+- All install.sh source `shared/feature-utils.sh` (with inline fallback)
+- Downloads parallelized with `&` + `wait` for faster builds
 - Conventions enforced by specialist agents (e.g., `developer-specialist-go`)
-- install.sh runs on devcontainer build
 
 ## Adding a Language
 
 1. Create `languages/<name>/`
 2. Add `devcontainer-feature.json` for metadata
-3. Add `install.sh` for installation
+3. Add `install.sh` sourcing `shared/feature-utils.sh`

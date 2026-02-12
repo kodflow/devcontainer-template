@@ -1,24 +1,33 @@
+<!-- updated: 2026-02-12T17:00:00Z -->
 # Design Patterns Knowledge Base
 
 ## Purpose
 
-250+ patterns for Claude agents. **Consult during /plan and /review.**
+170+ pattern files across 19 categories. **Consult during /plan and /review.**
 
 ## Categories
 
-| Category | Patterns | Use For |
-|----------|----------|---------|
-| `principles/` | SOLID, DRY, KISS | Always applicable |
-| `creational/` | Factory, Builder, Singleton | Object creation |
-| `structural/` | Adapter, Decorator, Proxy | Structure |
-| `behavioral/` | Observer, Strategy, Command | Behavior |
-| `performance/` | Cache, Lazy Load, Pool | Optimization |
-| `concurrency/` | Thread Pool, Actor, Mutex | Parallelism |
-| `enterprise/` | PoEAA (40+ patterns) | Enterprise apps |
-| `ddd/` | Aggregate, Entity, Repository | Domain logic |
-| `cloud/` | Circuit Breaker, Saga | Distributed |
-| `security/` | OAuth, JWT, RBAC | Auth & authz |
-| `testing/` | Mock, Stub, Fixture | Test isolation |
+| Category | Files | Use For |
+|----------|-------|---------|
+| `architectural/` | 9 | MVC, Hexagonal, CQRS, Event-Driven |
+| `behavioral/` | 11 | Observer, Strategy, Command |
+| `cloud/` | 21 | Circuit Breaker, Saga, Service Mesh |
+| `concurrency/` | 8 | Thread Pool, Actor, Mutex |
+| `conventions/` | 1 | DTO tags convention |
+| `creational/` | 4 | Factory, Builder, Singleton |
+| `ddd/` | 8 | Aggregate, Entity, Repository |
+| `devops/` | 14 | Feature Toggles, Blue-Green, GitOps |
+| `enterprise/` | 12 | PoEAA (Martin Fowler) |
+| `functional/` | 5 | Monad, Either, Lens |
+| `integration/` | 5 | API Gateway, BFF, Strangler |
+| `messaging/` | 10 | EIP patterns, Pub/Sub |
+| `performance/` | 8 | Cache, Lazy Load, Pool |
+| `principles/` | 6 | SOLID, DRY, KISS |
+| `refactoring/` | 1 | Refactoring catalog |
+| `resilience/` | 6 | Bulkhead, Retry, Timeout |
+| `security/` | 8 | OAuth, JWT, RBAC |
+| `structural/` | 7 | Adapter, Decorator, Proxy |
+| `testing/` | 8 | Mock, Stub, Fixture |
 
 ## Quick Lookup
 
