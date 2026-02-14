@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-12T17:00:00Z -->
+<!-- updated: 2026-02-14T12:00:00Z -->
 # devcontainer-template
 
 ## Purpose
@@ -99,11 +99,11 @@ CLAUDE.md                    # This overview
 ├── .devcontainer/CLAUDE.md  # Container config details
 │   ├── features/CLAUDE.md   # Language & tool features
 │   ├── hooks/CLAUDE.md      # Lifecycle hooks delegation
-│   └── images/CLAUDE.md     # Base image (166 lines)
+│   └── images/CLAUDE.md     # Base image (170 lines)
 └── .claude/commands/        # Slash commands (16 skills)
 ```
 
-Principle: More detail deeper in tree. Each file < 100 lines.
+Principle: More detail deeper in tree. Target < 200 lines each.
 
 ## Commands
 
