@@ -1,8 +1,8 @@
 # Microservices Architecture
 
-> Décomposer une application en services indépendants, déployables séparément.
+> Decompose an application into independent, separately deployable services.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -22,41 +22,41 @@
     └─────────┘   └─────────┘   └─────────┘   └─────────┘
 ```
 
-## Caractéristiques
+## Characteristics
 
 | Aspect | Microservices |
 |--------|---------------|
-| Déploiement | Indépendant par service |
-| Données | Base de données par service |
+| Deployment | Independent per service |
+| Data | Database per service |
 | Communication | API (REST, gRPC, Events) |
-| Équipes | Autonomes par service |
-| Scalabilité | Horizontale par service |
-| Technologie | Polyglot possible |
+| Teams | Autonomous per service |
+| Scalability | Horizontal per service |
+| Technology | Polyglot possible |
 
-## Quand utiliser
+## When to Use
 
-| ✅ Utiliser | ❌ Éviter |
+| Use | Avoid |
 |-------------|-----------|
-| Grande équipe (>20 devs) | Petite équipe (<5) |
-| Domaines bien définis | Domaine flou |
-| Besoin de scale différent | Charge uniforme |
-| Équipes autonomes | Équipe centralisée |
-| Maturité DevOps | Pas de CI/CD |
+| Large team (>20 devs) | Small team (<5) |
+| Well-defined domains | Unclear domain |
+| Different scale needs | Uniform load |
+| Autonomous teams | Centralized team |
+| DevOps maturity | No CI/CD |
 
-## Patterns associés
+## Associated Patterns
 
 ### Communication
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    Synchrone                              │
+│                    Synchronous                             │
 │  ┌─────────┐        REST/gRPC         ┌─────────┐        │
 │  │Service A│ ─────────────────────►  │Service B│        │
 │  └─────────┘                          └─────────┘        │
 └──────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────┐
-│                    Asynchrone                             │
+│                    Asynchronous                            │
 │  ┌─────────┐     ┌─────────┐          ┌─────────┐        │
 │  │Service A│ ──► │  Queue  │ ──►     │Service B│        │
 │  └─────────┘     └─────────┘          └─────────┘        │
@@ -109,7 +109,7 @@ func CallUserService(ctx context.Context, discovery ServiceDiscovery, userID str
 ```go
 package resilience
 
-// Voir cloud/circuit-breaker.md pour l'implémentation complète
+// See cloud/circuit-breaker.md for the complete implementation
 
 // CircuitBreaker prevents cascading failures.
 type CircuitBreaker struct {
@@ -119,15 +119,15 @@ type CircuitBreaker struct {
 // Example usage
 func UseCircuitBreaker() error {
 	breaker := NewCircuitBreaker(/* config */)
-	
+
 	result, err := breaker.Execute(func() (interface{}, error) {
 		return callUserService()
 	})
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	// Use result
 	return nil
 }
@@ -136,15 +136,15 @@ func UseCircuitBreaker() error {
 ### Saga Pattern
 
 ```go
-// Voir cloud/saga.md pour l'implémentation complète
+// See cloud/saga.md for the complete implementation
 ```
 
-## Structure d'un microservice
+## Microservice Structure
 
 ```
 user-service/
 ├── src/
-│   ├── domain/           # Logique métier
+│   ├── domain/           # Business logic
 │   ├── application/      # Use cases
 │   ├── infrastructure/   # DB, HTTP, Messaging
 │   └── main.go
@@ -161,20 +161,20 @@ user-service/
 ### Distributed Monolith
 
 ```
-❌ Services trop couplés = pire que monolith
+Services too coupled = worse than monolith
 
 ┌─────────┐   sync   ┌─────────┐   sync   ┌─────────┐
 │Service A│ ◄──────► │Service B│ ◄──────► │Service C│
 └─────────┘          └─────────┘          └─────────┘
      │                    │                    │
      └────────────────────┴────────────────────┘
-              Tous dépendent les uns des autres
+              All depend on each other
 ```
 
 ### Shared Database
 
 ```
-❌ Base partagée = couplage caché
+Shared base = hidden coupling
 
 ┌─────────┐   ┌─────────┐   ┌─────────┐
 │Service A│   │Service B│   │Service C│
@@ -187,13 +187,13 @@ user-service/
               └─────────┘
 ```
 
-## Migration depuis Monolith
+## Migration from Monolith
 
 ```
-Phase 1: Identifier les bounded contexts
+Phase 1: Identify bounded contexts
 Phase 2: Strangler Fig pattern
-Phase 3: Extraire service par service
-Phase 4: Découpler les données
+Phase 3: Extract service by service
+Phase 4: Decouple the data
 
 ┌─────────────────────────────────────────────┐
 │               MONOLITH                       │
@@ -216,23 +216,23 @@ Phase 4: Découpler les données
 └──────────┘  └──────────┘  └─────────────────┘
 ```
 
-## Checklist avant adoption
+## Checklist Before Adoption
 
-- [ ] Équipe > 10 personnes ?
-- [ ] Domaines clairement délimités ?
-- [ ] Infrastructure Kubernetes/Docker ?
-- [ ] CI/CD mature ?
-- [ ] Monitoring/Observability en place ?
-- [ ] Expérience systèmes distribués ?
+- [ ] Team > 10 people?
+- [ ] Clearly delimited domains?
+- [ ] Kubernetes/Docker infrastructure?
+- [ ] Mature CI/CD?
+- [ ] Monitoring/Observability in place?
+- [ ] Distributed systems experience?
 
-## Patterns liés
+## Related Patterns
 
-| Pattern | Relation |
+| Pattern | Relationship |
 |---------|----------|
-| Modular Monolith | Alternative plus simple, préparation aux microservices |
-| Event-Driven | Communication asynchrone entre services |
-| CQRS | Séparation read/write par service |
-| Saga | Gestion des transactions distribuées |
+| Modular Monolith | Simpler alternative, microservices preparation |
+| Event-Driven | Asynchronous communication between services |
+| CQRS | Read/write separation per service |
+| Saga | Distributed transaction management |
 
 ## Sources
 

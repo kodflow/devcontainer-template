@@ -1,10 +1,10 @@
 # Cache Strategies
 
-Strategies d'ecriture et lecture pour systemes de cache.
+Write and read strategies for cache systems.
 
 ---
 
-## Vue d'ensemble des strategies
+## Strategy Overview
 
 ```
 +--------------------------------------------------------------+
@@ -34,7 +34,7 @@ Strategies d'ecriture et lecture pour systemes de cache.
 
 ### Cache-Aside (Lazy Loading)
 
-> L'application gere le cache explicitement.
+> The application manages the cache explicitly.
 
 ```go
 package cache
@@ -107,12 +107,12 @@ func (r *CacheAsideRepository[K, V]) Update(ctx context.Context, id K, data V) e
 }
 ```
 
-**Avantages:** Controle total, resilient si cache down
-**Inconvenients:** Code duplique, risque d'inconsistance
+**Advantages:** Full control, resilient if cache is down
+**Disadvantages:** Duplicated code, risk of inconsistency
 
 ### Read-Through
 
-> Le cache charge automatiquement depuis la source.
+> The cache loads automatically from the source.
 
 ```go
 package cache
@@ -179,8 +179,8 @@ func (c *ReadThroughCache[K, V]) Get(ctx context.Context, key K) (V, error) {
 }
 ```
 
-**Avantages:** Logique centralisee, transparent
-**Inconvenients:** Couplage cache-source
+**Advantages:** Centralized logic, transparent
+**Disadvantages:** Cache-source coupling
 
 ---
 
@@ -188,7 +188,7 @@ func (c *ReadThroughCache[K, V]) Get(ctx context.Context, key K) (V, error) {
 
 ### Write-Through
 
-> Ecriture synchrone dans cache ET source.
+> Synchronous write to both cache AND source.
 
 ```go
 package cache
@@ -246,15 +246,15 @@ func (c *WriteThroughCache[K, V]) Read(ctx context.Context, key K) (V, bool) {
 Write-Through:
   App --write--> Cache --write--> DB
                    |
-                   +--- reponse seulement apres DB commit
+                   +--- response only after DB commit
 ```
 
-**Avantages:** Consistance forte
-**Inconvenients:** Latence ecriture doublee
+**Advantages:** Strong consistency
+**Disadvantages:** Doubled write latency
 
 ### Write-Behind (Write-Back)
 
-> Ecriture asynchrone dans la source.
+> Asynchronous write to the source.
 
 ```go
 package cache
@@ -355,15 +355,15 @@ func (c *WriteBehindCache[K, V]) Close() error {
 Write-Behind:
   App --write--> Cache ---(async)---> DB
          |
-         +--- reponse immediate
+         +--- immediate response
 ```
 
-**Avantages:** Latence ecriture minimale, batching
-**Inconvenients:** Risque perte donnees, complexite
+**Advantages:** Minimal write latency, batching
+**Disadvantages:** Risk of data loss, complexity
 
 ### Write-Around
 
-> Ecriture directe en DB, cache uniquement en lecture.
+> Direct write to DB, cache only on read.
 
 ```go
 package cache
@@ -414,8 +414,8 @@ func (c *WriteAroundCache[K, V]) Read(ctx context.Context, key K) (V, error) {
 }
 ```
 
-**Avantages:** Pas de cache pollution pour donnees peu lues
-**Inconvenients:** Miss cache apres ecriture
+**Advantages:** No cache pollution for rarely read data
+**Disadvantages:** Cache miss after write
 
 ---
 
@@ -593,38 +593,38 @@ func (c *LFUCache[K, V]) Set(key K, value V) {
 
 ---
 
-## Tableau de decision
+## Decision Table
 
-| Scenario | Strategy recommandee |
+| Scenario | Recommended Strategy |
 |----------|---------------------|
-| Lectures frequentes, ecritures rares | Cache-Aside + LRU |
-| Consistance critique | Write-Through |
-| Performance ecriture critique | Write-Behind |
-| Donnees rarement relues | Write-Around |
-| Working set predictible | LFU |
-| Acces recents importants | LRU |
-| Donnees avec expiration naturelle | TTL |
+| Frequent reads, rare writes | Cache-Aside + LRU |
+| Critical consistency | Write-Through |
+| Critical write performance | Write-Behind |
+| Rarely re-read data | Write-Around |
+| Predictable working set | LFU |
+| Important recent access | LRU |
+| Data with natural expiration | TTL |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Donnees lues frequemment mais modifiees rarement (profils utilisateurs, configurations)
-- APIs avec forte charge de lecture necessitant reduction latence
-- Sessions utilisateurs et tokens d'authentification temporaires
-- Resultats de requetes couteuses (rapports, agregations, recherches)
-- Contenu statique ou semi-statique (pages, assets, metadata)
+- Data read frequently but rarely modified (user profiles, configurations)
+- APIs with high read load requiring latency reduction
+- User sessions and temporary authentication tokens
+- Results of expensive queries (reports, aggregations, searches)
+- Static or semi-static content (pages, assets, metadata)
 
 ---
 
-## Patterns connexes
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Memoization** | Cache au niveau fonction |
-| **Proxy** | Encapsule l'acces cache |
-| **Circuit Breaker** | Protection source si down |
-| **CQRS** | Separation lecture/ecriture |
+| **Memoization** | Function-level cache |
+| **Proxy** | Encapsulates cache access |
+| **Circuit Breaker** | Source protection when down |
+| **CQRS** | Read/write separation |
 
 ---
 

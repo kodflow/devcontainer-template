@@ -1,14 +1,14 @@
 # Mediator
 
-> Encapsuler les interactions entre objets pour un couplage faible.
+> Encapsulate interactions between objects for loose coupling.
 
 ---
 
-## Principe
+## Principle
 
-Le pattern Mediator reduit le couplage entre composants en les faisant
-communiquer via un intermediaire central.
-Chaque composant ne connait que le mediateur.
+The Mediator pattern reduces coupling between components by making them
+communicate via a central intermediary.
+Each component only knows the mediator.
 
 ```text
 ┌─────────┐     ┌─────────┐
@@ -26,12 +26,12 @@ Chaque composant ne connait que le mediateur.
 
 ---
 
-## Probleme resolu
+## Problem Solved
 
-- Composants fortement couples entre eux
-- Logique de coordination dispersee
-- Difficulte a reutiliser les composants individuellement
-- Changements en cascade lors de modifications
+- Tightly coupled components with each other
+- Dispersed coordination logic
+- Difficulty reusing individual components
+- Cascading changes during modifications
 
 ---
 
@@ -42,17 +42,17 @@ package main
 
 import "fmt"
 
-// Mediator definit l'interface de mediation.
+// Mediator defines the mediation interface.
 type Mediator interface {
     Notify(sender Component, event string)
 }
 
-// Component est un participant a la mediation.
+// Component is a participant in the mediation.
 type Component interface {
     SetMediator(m Mediator)
 }
 
-// BaseComponent fournit l'implementation de base.
+// BaseComponent provides the base implementation.
 type BaseComponent struct {
     mediator Mediator
 }
@@ -61,7 +61,7 @@ func (c *BaseComponent) SetMediator(m Mediator) {
     c.mediator = m
 }
 
-// Button est un composant UI.
+// Button is a UI component.
 type Button struct {
     BaseComponent
     name string
@@ -78,7 +78,7 @@ func (b *Button) Click() {
     }
 }
 
-// Dialog est le mediateur concret.
+// Dialog is the concrete mediator.
 type Dialog struct {
     title      string
     loginBtn   *Button
@@ -86,7 +86,7 @@ type Dialog struct {
 }
 
 func NewDialog(title string) *Dialog {
-    d := &Dialog{title: title}
+    d:= &Dialog{title: title}
     d.loginBtn = NewButton("Login")
     d.cancelBtn = NewButton("Cancel")
     d.loginBtn.SetMediator(d)
@@ -106,7 +106,7 @@ func (d *Dialog) Notify(sender Component, event string) {
 
 ---
 
-## Exemple complet
+## Complete Example
 
 ```go
 package main
@@ -116,20 +116,20 @@ import (
     "time"
 )
 
-// ChatMediator coordonne les messages entre utilisateurs.
+// ChatMediator coordinates messages between users.
 type ChatMediator interface {
     Send(message string, sender *User)
     Register(user *User)
 }
 
-// User represente un participant au chat.
+// User represents a chat participant.
 type User struct {
     name     string
     mediator ChatMediator
 }
 
 func NewUser(name string, mediator ChatMediator) *User {
-    u := &User{name: name, mediator: mediator}
+    u:= &User{name: name, mediator: mediator}
     mediator.Register(u)
     return u
 }
@@ -143,7 +143,7 @@ func (u *User) Receive(message string, from string) {
     fmt.Printf("[%s] received from %s: %s\n", u.name, from, message)
 }
 
-// ChatRoom est le mediateur concret.
+// ChatRoom is the concrete mediator.
 type ChatRoom struct {
     name  string
     users []*User
@@ -159,14 +159,14 @@ func (r *ChatRoom) Register(user *User) {
 }
 
 func (r *ChatRoom) Send(message string, sender *User) {
-    for _, user := range r.users {
+    for _, user:= range r.users {
         if user != sender {
             user.Receive(message, sender.name)
         }
     }
 }
 
-// AirTrafficControl coordonne les avions.
+// AirTrafficControl coordinates aircraft.
 type AirTrafficControl struct {
     flights map[string]*Flight
 }
@@ -187,8 +187,8 @@ func (atc *AirTrafficControl) Register(flight *Flight) {
 }
 
 func (atc *AirTrafficControl) RequestLanding(flight *Flight) bool {
-    // Verifier si piste libre (logique simplifiee)
-    for id, f := range atc.flights {
+    // Check if runway is free (simplified logic)
+    for id, f:= range atc.flights {
         if id != flight.id && f.altitude < 1000 {
             fmt.Printf("ATC: Landing denied for %s - runway busy\n", flight.id)
             return false
@@ -199,7 +199,7 @@ func (atc *AirTrafficControl) RequestLanding(flight *Flight) bool {
 }
 
 func (atc *AirTrafficControl) Broadcast(message string, sender *Flight) {
-    for id, flight := range atc.flights {
+    for id, flight:= range atc.flights {
         if id != sender.id {
             fmt.Printf("ATC -> %s: %s\n", flight.id, message)
         }
@@ -207,7 +207,7 @@ func (atc *AirTrafficControl) Broadcast(message string, sender *Flight) {
 }
 
 func NewFlight(id string, atc *AirTrafficControl) *Flight {
-    f := &Flight{id: id, altitude: 10000, atc: atc}
+    f:= &Flight{id: id, altitude: 10000, atc: atc}
     atc.Register(f)
     return f
 }
@@ -221,23 +221,23 @@ func (f *Flight) RequestLanding() {
 }
 
 func main() {
-    // Exemple 1: Chat Room
+    // Example 1: Chat Room
     fmt.Println("=== Chat Room Example ===")
-    room := NewChatRoom("General")
+    room:= NewChatRoom("General")
 
-    alice := NewUser("Alice", room)
-    bob := NewUser("Bob", room)
-    charlie := NewUser("Charlie", room)
+    alice:= NewUser("Alice", room)
+    bob:= NewUser("Bob", room)
+    charlie:= NewUser("Charlie", room)
 
     alice.Send("Hello everyone!")
     bob.Send("Hi Alice!")
 
-    // Exemple 2: Air Traffic Control
+    // Example 2: Air Traffic Control
     fmt.Println("\n=== ATC Example ===")
-    atc := NewAirTrafficControl()
+    atc:= NewAirTrafficControl()
 
-    flight1 := NewFlight("UA123", atc)
-    flight2 := NewFlight("BA456", atc)
+    flight1:= NewFlight("UA123", atc)
+    flight2:= NewFlight("BA456", atc)
 
     flight1.RequestLanding()
     flight2.RequestLanding() // Denied
@@ -266,70 +266,70 @@ func main() {
 
 ---
 
-## Variantes
+## Variants
 
-| Variante | Description | Cas d'usage |
+| Variant | Description | Use Case |
 |----------|-------------|-------------|
-| Simple Mediator | Un seul mediateur | Applications simples |
-| Mediator + Events | Event-driven | UI, systemes reactifs |
-| Mediator + Commands | Combine Command pattern | Undo/redo |
+| Simple Mediator | Single mediator | Simple applications |
+| Mediator + Events | Event-driven | UI, reactive systems |
+| Mediator + Commands | Combined Command pattern | Undo/redo |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Composants fortement couples
-- Reutilisation des composants difficile
-- Comportement distribue entre classes
-- Communication N-to-N entre objets
+- Tightly coupled components
+- Difficult component reuse
+- Behavior distributed across classes
+- N-to-N communication between objects
 
-## Quand NE PAS utiliser
+## When NOT to Use
 
-- Peu de composants (couplage direct acceptable)
-- Communication simple point a point
-- Le mediateur devient un "God Object"
+- Few components (direct coupling acceptable)
+- Simple point-to-point communication
+- The mediator becomes a "God Object"
 
 ---
 
-## Avantages / Inconvenients
+## Advantages / Disadvantages
 
-| Avantages | Inconvenients |
+| Advantages | Disadvantages |
 |-----------|---------------|
-| Reduit le couplage | Mediateur peut devenir complexe |
-| Single Responsibility | Point de defaillance unique |
-| Open/Closed | Peut devenir un God Object |
-| Reutilisation facilitee | |
+| Reduces coupling | Mediator can become complex |
+| Single Responsibility | Single point of failure |
+| Open/Closed | Can become a God Object |
+| Easier reuse | |
 
 ---
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Observer | Mediator centralise, Observer distribue |
-| Facade | Facade simplifie, Mediator coordonne |
-| Command | Peut utiliser Commands pour les notifications |
-| Chain of Responsibility | Alternative pour certains cas |
+| Observer | Mediator centralizes, Observer distributes |
+| Facade | Facade simplifies, Mediator coordinates |
+| Command | Can use Commands for notifications |
+| Chain of Responsibility | Alternative for certain cases |
 
 ---
 
-## Implementation dans les frameworks
+## Framework Implementations
 
 | Framework/Lib | Implementation |
 |---------------|----------------|
-| Event bus | Mediateur pour events |
-| Message brokers | RabbitMQ, Kafka comme mediateurs |
-| UI frameworks | Controllers comme mediateurs |
+| Event bus | Mediator for events |
+| Message brokers | RabbitMQ, Kafka as mediators |
+| UI frameworks | Controllers as mediators |
 
 ---
 
-## Anti-patterns a eviter
+## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
+| Anti-pattern | Problem | Solution |
 |--------------|----------|----------|
-| God Mediator | Trop de logique centralisee | Decomposer en sous-mediateurs |
-| Cycles de notifications | Boucles infinies | Guards et flags |
-| Couplage au mediateur | Dependance forte | Interface abstraite |
+| God Mediator | Too much centralized logic | Decompose into sub-mediators |
+| Notification cycles | Infinite loops | Guards and flags |
+| Coupling to mediator | Strong dependency | Abstract interface |
 
 ---
 
@@ -337,12 +337,12 @@ func main() {
 
 ```go
 func TestChatRoom_Broadcast(t *testing.T) {
-    room := NewChatRoom("Test")
-    alice := NewUser("Alice", room)
-    bob := NewUser("Bob", room)
+    room:= NewChatRoom("Test")
+    alice:= NewUser("Alice", room)
+    bob:= NewUser("Bob", room)
 
     // Capture output
-    received := make([]string, 0)
+    received:= make([]string, 0)
     // ... mock Receive method
 
     alice.Send("Test message")
@@ -353,9 +353,9 @@ func TestChatRoom_Broadcast(t *testing.T) {
 }
 
 func TestATC_RequestLanding(t *testing.T) {
-    atc := NewAirTrafficControl()
-    flight1 := NewFlight("F1", atc)
-    flight2 := NewFlight("F2", atc)
+    atc:= NewAirTrafficControl()
+    flight1:= NewFlight("F1", atc)
+    flight2:= NewFlight("F2", atc)
 
     // First landing should succeed
     flight1.RequestLanding()

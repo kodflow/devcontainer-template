@@ -1,23 +1,23 @@
 # Materialized View Pattern
 
-> Pre-calculer et stocker des vues optimisees pour les requetes frequentes.
+> Pre-compute and store optimized views for frequent queries.
 
-## Principe
+## Principle
 
 ```
                     ┌─────────────────────────────────────────────┐
                     │            MATERIALIZED VIEW                 │
                     └─────────────────────────────────────────────┘
 
-  SANS (requete complexe a chaque fois):
+  WITHOUT (complex query every time):
   ┌─────────┐   SELECT + JOIN + AGGREGATE   ┌─────────┐
   │  Client │ ──────────────────────────▶   │   DB    │
-  └─────────┘        (lent, CPU)            └─────────┘
+  └─────────┘        (slow, CPU)            └─────────┘
 
-  AVEC (lecture directe):
+  WITH (direct read):
   ┌─────────┐                               ┌─────────────────┐
   │  Client │ ───────── SELECT ──────────▶  │Materialized View│
-  └─────────┘           (rapide)            └────────┬────────┘
+  └─────────┘           (fast)              └────────┬────────┘
                                                      │
                                               Pre-calculated
                                                      │
@@ -26,35 +26,35 @@
   └─────────┘           └─────────┘            └─────────┘
 ```
 
-## Strategies de rafraichissement
+## Refresh Strategies
 
 ```
-1. COMPLETE REFRESH (recreer)
+1. COMPLETE REFRESH (recreate)
    ┌────────┐       ┌──────────────┐
    │  Data  │ ────▶ │ DROP + CREATE│
    └────────┘       └──────────────┘
    + Simple
-   - Lent, indisponibilite
+   - Slow, unavailability
 
 2. INCREMENTAL REFRESH (delta)
    ┌────────┐       ┌──────────────┐
    │Changes │ ────▶ │ UPDATE VIEW  │
    └────────┘       └──────────────┘
-   + Rapide
-   - Complexe, pas toujours possible
+   + Fast
+   - Complex, not always possible
 
 3. ON-DEMAND (lazy)
-   - Refresh quand requete detecte stale
-   + Toujours frais
-   - Latence premiere requete
+   - Refresh when query detects stale
+   + Always fresh
+   - First query latency
 
 4. SCHEDULED (cron)
-   - Refresh toutes les X minutes
-   + Predictible
-   - Donnees potentiellement stale
+   - Refresh every X minutes
+   + Predictable
+   - Potentially stale data
 ```
 
-## Exemple Go
+## Go Example
 
 ```go
 package materializedview
@@ -126,14 +126,14 @@ func (mvs *MaterializedViewService) RefreshUserOrderStats(ctx context.Context) e
 	for _, row := range rows {
 		userID := row["user_id"].(string)
 		key := fmt.Sprintf("user_stats:%s", userID)
-		
+
 		values := map[string]interface{}{
 			"totalOrders":       row["total_orders"],
 			"totalAmount":       row["total_amount"],
 			"averageOrderValue": row["average_order_value"],
 			"lastOrderDate":     row["last_order_date"].(time.Time).Format(time.RFC3339),
 		}
-		
+
 		if err := mvs.cache.HSet(ctx, key, values); err != nil {
 			return fmt.Errorf("caching stats for user %s: %w", userID, err)
 		}
@@ -145,7 +145,7 @@ func (mvs *MaterializedViewService) RefreshUserOrderStats(ctx context.Context) e
 // GetUserStats retrieves user statistics from cache.
 func (mvs *MaterializedViewService) GetUserStats(ctx context.Context, userID string) (*OrderStats, error) {
 	key := fmt.Sprintf("user_stats:%s", userID)
-	
+
 	data, err := mvs.cache.HGetAll(ctx, key)
 	if err != nil {
 		return nil, fmt.Errorf("getting stats from cache: %w", err)
@@ -164,7 +164,7 @@ func (mvs *MaterializedViewService) GetUserStats(ctx context.Context, userID str
 		UserID:        userID,
 		LastOrderDate: lastOrderDate,
 	}
-	
+
 	// Parse numeric fields
 	fmt.Sscanf(data["totalOrders"], "%d", &stats.TotalOrders)
 	fmt.Sscanf(data["totalAmount"], "%f", &stats.TotalAmount)
@@ -214,42 +214,42 @@ func (mvs *MaterializedViewService) OnOrderCompleted(ctx context.Context, userID
 }
 ```
 
-## Implementation DB (Go)
+## DB Implementation (Go)
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Comparaison strategies
+## Strategy Comparison
 
-| Strategie | Latence lecture | Fraicheur | Complexite |
-|-----------|-----------------|-----------|------------|
-| Vue SQL standard | Haute | Temps reel | Basse |
-| Materialized View DB | Basse | Selon refresh | Moyenne |
-| Cache (Redis) | Tres basse | Selon TTL | Moyenne |
-| Search Engine (ES) | Basse | Selon sync | Haute |
+| Strategy | Read Latency | Freshness | Complexity |
+|----------|--------------|-----------|------------|
+| Standard SQL View | High | Real-time | Low |
+| Materialized View DB | Low | Depends on refresh | Medium |
+| Cache (Redis) | Very low | Depends on TTL | Medium |
+| Search Engine (ES) | Low | Depends on sync | High |
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
-|-----------|------------|
-| Requetes analytiques complexes | Oui |
-| Dashboards temps reel | Oui (avec refresh) |
-| Recherche full-text | Oui |
-| Donnees tres volatiles | Avec precaution |
-| Transactions ACID requises | Non |
+| Situation | Recommended |
+|-----------|-------------|
+| Complex analytical queries | Yes |
+| Real-time dashboards | Yes (with refresh) |
+| Full-text search | Yes |
+| Highly volatile data | With caution |
+| ACID transactions required | No |
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| CQRS | Read model = vue materialisee |
+| CQRS | Read model = materialized view |
 | Event Sourcing | Projections |
-| Cache-Aside | Alternative plus simple |
-| ETL | Pipelines de transformation |
+| Cache-Aside | Simpler alternative |
+| ETL | Transformation pipelines |
 
 ## Sources
 

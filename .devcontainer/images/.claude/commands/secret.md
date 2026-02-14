@@ -28,15 +28,15 @@ Fallback to Grep ONLY for exact string matches or regex patterns.
 
 ## Overview
 
-Gestion securisee des secrets via **1Password CLI** (`op`) avec une arborescence de paths inspiree de HashiCorp Vault :
+Secure secret management via **1Password CLI** (`op`) with a path hierarchy inspired by HashiCorp Vault:
 
-- **Peek** - Verifier connectivite 1Password + resoudre le path projet
-- **Execute** - Appeler `op` CLI pour push/get/list
-- **Synthesize** - Afficher resultat formate
+- **Peek** - Verify 1Password connectivity + resolve project path
+- **Execute** - Call `op` CLI for push/get/list
+- **Synthesize** - Display formatted result
 
-**Backend** : 1Password (via `OP_SERVICE_ACCOUNT_TOKEN`)
-**CLI** : `op` (installe dans le devcontainer)
-**Pas de MCP** : 1Password n'a pas de MCP officiel (politique deliberee)
+**Backend:** 1Password (via `OP_SERVICE_ACCOUNT_TOKEN`)
+**CLI:** `op` (installed in the devcontainer)
+**No MCP:** 1Password has no official MCP (deliberate policy)
 
 ---
 
@@ -44,31 +44,31 @@ Gestion securisee des secrets via **1Password CLI** (`op`) avec une arborescence
 
 | Pattern | Action |
 |---------|--------|
-| `--push <key>=<value>` | Ecrire un secret dans 1Password |
-| `--get <key>` | Lire un secret depuis 1Password |
-| `--list` | Lister les secrets du projet |
-| `--path <path>` | Override le path projet (optionnel) |
-| `--help` | Affiche l'aide |
+| `--push <key>=<value>` | Write a secret to 1Password |
+| `--get <key>` | Read a secret from 1Password |
+| `--list` | List project secrets |
+| `--path <path>` | Override the project path (optional) |
+| `--help` | Show help |
 
-### Exemples
+### Examples
 
 ```bash
-# Push un secret (path auto = kodflow/devcontainer-template)
+# Push a secret (auto path = kodflow/devcontainer-template)
 /secret --push DB_PASSWORD=mypass
 
-# Push sur un path different (cross-projet)
+# Push to a different path (cross-project)
 /secret --push SHARED_TOKEN=abc123 --path kodflow/shared-infra
 
-# Get un secret
+# Get a secret
 /secret --get DB_PASSWORD
 
-# Get depuis un autre path
+# Get from another path
 /secret --get API_KEY --path kodflow/other-project
 
-# Lister les secrets du projet courant
+# List secrets for the current project
 /secret --list
 
-# Lister les secrets d'un autre path
+# List secrets from another path
 /secret --list --path kodflow/shared-infra
 ```
 
@@ -119,24 +119,24 @@ Examples:
 
 ## Path Convention (Vault-like)
 
-**Arborescence dans 1Password :**
+**Tree structure in 1Password:**
 
 ```
 <vault>/                              # 1Password vault (default: CI)
 ├── kodflow/
-│   ├── devcontainer-template/        # Projet courant
+│   ├── devcontainer-template/        # Current project
 │   │   ├── DB_PASSWORD               # Item: kodflow/devcontainer-template/DB_PASSWORD
 │   │   ├── API_KEY                   # Item: kodflow/devcontainer-template/API_KEY
 │   │   └── JWT_SECRET                # Item: kodflow/devcontainer-template/JWT_SECRET
-│   ├── shared-infra/                 # Secrets partages
+│   ├── shared-infra/                 # Shared secrets
 │   │   ├── AWS_CREDENTIALS            # Item: kodflow/shared-infra/AWS_CREDENTIALS
 │   │   └── TF_VAR_db_password       # Item: kodflow/shared-infra/TF_VAR_db_password
 │   └── other-project/
 │       └── STRIPE_KEY                # Item: kodflow/other-project/STRIPE_KEY
-└── mcp-github                        # Items existants (pattern legacy)
+└── mcp-github                        # Existing items (legacy pattern)
 ```
 
-**Resolution du path :**
+**Path resolution:**
 
 ```bash
 # Git remote → path
@@ -153,58 +153,58 @@ git remote get-url origin
   → path: kodflow/devcontainer-template
 ```
 
-**Regle stricte** : Sans `--path`, TOUTES les operations sont scopees au path du projet courant. Impossible d'acceder a un path different sans le specifier explicitement.
+**Strict rule:** Without `--path`, ALL operations are scoped to the current project path. It is impossible to access a different path without specifying it explicitly.
 
 ---
 
 ## 1Password Item Format
 
-Chaque secret est stocke comme un item 1Password :
+Each secret is stored as a 1Password item:
 
 ```yaml
 item:
   title: "<org>/<repo>/<key>"           # Ex: kodflow/devcontainer-template/DB_PASSWORD
-  category: "API_CREDENTIAL"            # Meme categorie que mcp-github, mcp-codacy
-  vault: "${OP_VAULT_ID}"               # Vault configure (default: CI)
+  category: "API_CREDENTIAL"            # Same category as mcp-github, mcp-codacy
+  vault: "${OP_VAULT_ID}"               # Configured vault (default: CI)
   fields:
-    - name: "credential"                # Champ principal (meme pattern que les tokens MCP)
+    - name: "credential"                # Main field (same pattern as MCP tokens)
       value: "<secret_value>"
-    - name: "notesPlain"                # Metadata optionnel
+    - name: "notesPlain"                # Optional metadata
       value: "Managed by /secret skill"
 ```
 
 ---
 
-## Phase 1.0 : Peek (OBLIGATOIRE)
+## Phase 1.0: Peek (MANDATORY)
 
-**Verifier les prerequis AVANT toute operation :**
+**Verify prerequisites BEFORE any operation:**
 
 ```yaml
 peek_workflow:
   1_check_op:
-    action: "Verifier que op CLI est disponible"
+    action: "Verify that op CLI is available"
     command: "command -v op"
     on_failure: |
-      ABORT avec message:
+      ABORT with message:
       "op CLI not found. Install 1Password CLI or run inside DevContainer."
 
   2_check_token:
-    action: "Verifier OP_SERVICE_ACCOUNT_TOKEN"
+    action: "Verify OP_SERVICE_ACCOUNT_TOKEN"
     command: "test -n \"$OP_SERVICE_ACCOUNT_TOKEN\""
     on_failure: |
-      ABORT avec message:
+      ABORT with message:
       "OP_SERVICE_ACCOUNT_TOKEN not set. Configure in .devcontainer/.env"
 
   3_check_vault:
-    action: "Verifier acces au vault"
+    action: "Verify vault access"
     command: "op vault list --format=json 2>/dev/null | jq -r '.[0].id'"
     store: "VAULT_ID"
     on_failure: |
-      ABORT avec message:
+      ABORT with message:
       "Cannot access 1Password vault. Check OP_SERVICE_ACCOUNT_TOKEN."
 
   4_resolve_path:
-    action: "Resoudre le path projet depuis git remote"
+    action: "Resolve project path from git remote"
     command: |
       REMOTE_URL=$(git config --get remote.origin.url 2>/dev/null || echo "")
       # Remove .git suffix
@@ -219,7 +219,7 @@ peek_workflow:
     override: "--path argument if provided"
 ```
 
-**Output Phase 1 :**
+**Phase 1 Output:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -238,52 +238,52 @@ peek_workflow:
 
 ## Action: --push
 
-**Ecrire un secret dans 1Password :**
+**Write a secret to 1Password:**
 
 ```yaml
 push_workflow:
   1_parse_args:
-    action: "Parser key=value"
+    action: "Parse key=value"
     validation:
-      - "key ne contient pas de caracteres speciaux (a-zA-Z0-9_)"
-      - "value n'est pas vide"
-      - "format exact: KEY=VALUE (un seul =)"
+      - "key contains no special characters (a-zA-Z0-9_)"
+      - "value is not empty"
+      - "exact format: KEY=VALUE (single =)"
 
   2_build_title:
-    action: "Construire le titre de l'item"
+    action: "Build the item title"
     format: "<PROJECT_PATH>/<key>"
     example: "kodflow/devcontainer-template/DB_PASSWORD"
 
   3_check_exists:
-    action: "Verifier si l'item existe deja"
+    action: "Check if the item already exists"
     command: "op item get '<title>' --vault '$VAULT_ID' 2>/dev/null"
     decision:
       exists: "Update (op item edit)"
       not_exists: "Create (op item create)"
 
   4a_create:
-    condition: "Item n'existe pas"
+    condition: "Item does not exist"
     command: |
       op item create \
         --category=API_CREDENTIAL \
         --title='<org>/<repo>/<key>' \
         --vault='$VAULT_ID' \
         'credential=<value>'
-    note: "Le champ 'credential' matche le pattern des tokens MCP existants"
+    note: "The 'credential' field matches the existing MCP token pattern"
 
   4b_update:
-    condition: "Item existe deja"
+    condition: "Item already exists"
     command: |
       op item edit '<org>/<repo>/<key>' \
         --vault='$VAULT_ID' \
         'credential=<value>'
 
   5_confirm:
-    action: "Verifier que l'item est bien stocke"
+    action: "Verify that the item is properly stored"
     command: "op item get '<title>' --vault '$VAULT_ID' --format=json | jq -r '.title'"
 ```
 
-**Output --push (nouveau) :**
+**Output --push (new):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -302,7 +302,7 @@ push_workflow:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output --push (update) :**
+**Output --push (update):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -325,30 +325,30 @@ push_workflow:
 
 ## Action: --get
 
-**Lire un secret depuis 1Password :**
+**Read a secret from 1Password:**
 
 ```yaml
 get_workflow:
   1_build_title:
-    action: "Construire le titre"
+    action: "Build the title"
     format: "<PROJECT_PATH>/<key>"
 
   2_retrieve:
-    action: "Recuperer la valeur"
+    action: "Retrieve the value"
     command: |
       op item get '<org>/<repo>/<key>' \
         --vault='$VAULT_ID' \
         --fields='credential' \
         --reveal
     fallback_fields: ["credential", "password", "identifiant", "mot de passe"]
-    note: "Meme logique de fallback que get_1password_field dans postStart.sh"
+    note: "Same fallback logic as get_1password_field in postStart.sh"
 
   3_display:
-    action: "Afficher le resultat"
-    security: "La valeur est revelee UNE SEULE FOIS dans l'output"
+    action: "Display the result"
+    security: "The value is revealed ONLY ONCE in the output"
 ```
 
-**Output --get (success) :**
+**Output --get (success):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -362,7 +362,7 @@ get_workflow:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output --get (not found) :**
+**Output --get (not found):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -383,25 +383,25 @@ get_workflow:
 
 ## Action: --list
 
-**Lister les secrets d'un path :**
+**List secrets for a path:**
 
 ```yaml
 list_workflow:
   1_list_items:
-    action: "Lister tous les items du vault"
+    action: "List all items in the vault"
     command: |
       op item list \
         --vault='$VAULT_ID' \
         --format=json
-    filter: "Filtrer par prefix PROJECT_PATH/"
+    filter: "Filter by PROJECT_PATH/ prefix"
 
   2_display:
-    action: "Afficher la liste filtree"
-    format: "Tableau avec titre, categorie, date de modification"
-    extract_key: "Supprimer le prefix path/ pour n'afficher que la cle"
+    action: "Display the filtered list"
+    format: "Table with title, category, modification date"
+    extract_key: "Remove the path/ prefix to display only the key"
 ```
 
-**Output --list (avec secrets) :**
+**Output --list (with secrets):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -421,7 +421,7 @@ list_workflow:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output --list (vide) :**
+**Output --list (empty):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -438,7 +438,7 @@ list_workflow:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output --list --path / (tous les paths) :**
+**Output --list --path / (all paths):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -470,93 +470,93 @@ list_workflow:
 
 ## Cross-Project Secret Sharing
 
-**Utiliser `--path` pour partager des secrets entre projets :**
+**Use `--path` to share secrets between projects:**
 
 ```yaml
 sharing_patterns:
-  # Partager un secret infra commun
+  # Share a common infra secret
   push_shared:
     command: '/secret --push AWS_CREDENTIALS=xxx... --path kodflow/shared-infra'
-    note: "Accessible par tous les projets kodflow"
+    note: "Accessible by all kodflow projects"
 
-  # Recuperer depuis un autre projet
+  # Retrieve from another project
   get_cross_project:
     command: '/secret --get STRIPE_KEY --path kodflow/payment-service'
-    note: "Debloquer une situation en recuperant un secret d'un autre projet"
+    note: "Unblock a situation by retrieving a secret from another project"
 
-  # Debloquer une situation
+  # Unblock a situation
   unblock_workflow:
     1: '/secret --list --path /'
-    2: 'Identifier le secret necessaire et son path'
+    2: 'Identify the needed secret and its path'
     3: '/secret --get <key> --path <org>/<repo>'
 ```
 
 ---
 
-## Integration avec les autres skills
+## Integration with other skills
 
-### Depuis /init
+### From /init
 
 ```yaml
 init_integration:
   phase: "Phase 3 (Parallelize)"
   agent: "vault-checker"
   check:
-    - "op CLI disponible"
+    - "op CLI available"
     - "OP_SERVICE_ACCOUNT_TOKEN set"
     - "Vault accessible"
-    - "Nombre de secrets pour le projet courant"
+    - "Number of secrets for the current project"
   report_section: "1Password Secrets"
 ```
 
-### Depuis /git (pre-commit)
+### From /git (pre-commit)
 
 ```yaml
 git_integration:
   phase: "Phase 3 (Parallelize)"
   agent: "secret-scan"
   check:
-    - "Scanner git diff --cached pour des patterns de secrets"
+    - "Scan git diff --cached for secret patterns"
     - "Patterns: ghp_, glpat-, sk-, pk_, postgres://, mysql://, mongodb://"
-    - "Si trouve: AVERTIR (pas bloquer)"
-    - "Proposer: /secret --push <key>=<detected_value>"
-  behavior: "WARNING only, ne bloque PAS le commit"
+    - "If found: WARN (do not block)"
+    - "Suggest: /secret --push <key>=<detected_value>"
+  behavior: "WARNING only, does NOT block the commit"
 ```
 
-### Depuis /do
+### From /do
 
 ```yaml
 do_integration:
-  phase: "Phase 0 (avant Questions)"
+  phase: "Phase 0 (before Questions)"
   check:
-    - "Si la tache mentionne: secret, token, credential, password, API key"
-    - "Lister les secrets disponibles pour le projet"
-    - "Proposer de les utiliser ou d'en creer de nouveaux"
-  behavior: "Informatif, aide a debloquer"
+    - "If the task mentions: secret, token, credential, password, API key"
+    - "List available secrets for the project"
+    - "Suggest using them or creating new ones"
+  behavior: "Informational, helps unblock"
 ```
 
-### Depuis /infra
+### From /infra
 
 ```yaml
 infra_integration:
-  phase: "Avant --plan et --apply"
+  phase: "Before --plan and --apply"
   check:
-    - "Lister secrets du projet avec prefix TF_VAR_"
-    - "Verifier si des variables Terraform referencent des secrets"
-    - "Proposer de recuperer depuis 1Password"
-  cross_path: "Permettre --path kodflow/shared-infra pour secrets partages"
+    - "List project secrets with TF_VAR_ prefix"
+    - "Check if Terraform variables reference secrets"
+    - "Suggest retrieving from 1Password"
+  cross_path: "Allow --path kodflow/shared-infra for shared secrets"
 ```
 
 ---
 
-## GARDE-FOUS (ABSOLUS)
+## Guardrails (ABSOLUTE)
 
-| Action | Status | Raison |
+| Action | Status | Reason |
 |--------|--------|--------|
-| Reveler un secret sans --get explicite | ❌ **INTERDIT** | Securite |
-| Ecrire un secret dans les logs | ❌ **INTERDIT** | Securite |
-| Push sans confirmation si item existe | ❌ **INTERDIT** | Eviter ecrasement |
-| Acceder a un path different sans --path | ❌ **INTERDIT** | Scope strict |
-| Fonctionner sans OP_SERVICE_ACCOUNT_TOKEN | ❌ **INTERDIT** | Auth requise |
-| Supprimer un secret (pas de --delete) | ❌ **INTERDIT** | Utiliser 1Password UI |
-| Skip Phase 1 (Peek) | ❌ **INTERDIT** | Verification connexion |
+| Reveal a secret without explicit --get | **FORBIDDEN** | Security |
+| Write a secret to logs | **FORBIDDEN** | Security |
+| Push without confirmation if item exists | **FORBIDDEN** | Prevent overwrite |
+| Access a different path without --path | **FORBIDDEN** | Strict scope |
+| Operate without OP_SERVICE_ACCOUNT_TOKEN | **FORBIDDEN** | Auth required |
+| Delete a secret (no --delete) | **FORBIDDEN** | Use 1Password UI |
+| Skip Phase 1 (Peek) | **FORBIDDEN** | Connection verification |

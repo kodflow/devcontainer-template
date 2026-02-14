@@ -21,7 +21,7 @@ echo "════════════════════════�
 echo ""
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 1. Install Claude CLI (si pas déjà installé)
+# 1. Install Claude CLI (if not already installed)
 # ─────────────────────────────────────────────────────────────────────────────
 if ! command -v claude &>/dev/null; then
     echo "→ Installing Claude CLI..."
@@ -30,14 +30,14 @@ if ! command -v claude &>/dev/null; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. Créer les dossiers
+# 2. Create directories
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Setting up $TARGET/.claude/..."
 mkdir -p "$TARGET/.claude/commands"
 mkdir -p "$TARGET/.claude/scripts"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. Télécharger les commandes
+# 3. Download commands
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Downloading commands..."
 for cmd in git search prompt; do
@@ -45,7 +45,7 @@ for cmd in git search prompt; do
 done
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4. Télécharger les scripts (hooks)
+# 4. Download scripts (hooks)
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Downloading scripts..."
 download_failed=0
@@ -62,14 +62,14 @@ done
 [ "$download_failed" -eq 0 ] && echo "  ✓ hooks (format, lint, security...)" || echo "  ⚠ Some hooks failed to download"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 5. Télécharger settings.json
+# 5. Download settings.json
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Downloading settings..."
 curl -sL "$BASE/.claude/settings.json" -o "$TARGET/.claude/settings.json" 2>/dev/null
 echo "  ✓ settings.json"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 6. Télécharger CLAUDE.md (si pas existant)
+# 6. Download CLAUDE.md (if not existing)
 # ─────────────────────────────────────────────────────────────────────────────
 if [ ! -f "$TARGET/CLAUDE.md" ]; then
     curl -sL "https://raw.githubusercontent.com/${REPO}/${BRANCH}/CLAUDE.md" -o "$TARGET/CLAUDE.md" 2>/dev/null
@@ -82,7 +82,7 @@ fi
 echo "→ Installing grepai..."
 mkdir -p "$HOME/.local/bin"
 
-# Détecter OS
+# Detect OS
 case "$(uname -s)" in
     Linux*)  GREPAI_OS="linux" ;;
     Darwin*) GREPAI_OS="darwin" ;;
@@ -90,14 +90,14 @@ case "$(uname -s)" in
     *)       GREPAI_OS="linux" ;;
 esac
 
-# Détecter architecture
+# Detect architecture
 case "$(uname -m)" in
     x86_64|amd64) GREPAI_ARCH="amd64" ;;
     aarch64|arm64) GREPAI_ARCH="arm64" ;;
     *)            GREPAI_ARCH="amd64" ;;
 esac
 
-# Extension pour Windows
+# Extension for Windows
 GREPAI_EXT=""
 [ "$GREPAI_OS" = "windows" ] && GREPAI_EXT=".exe"
 
@@ -139,7 +139,7 @@ rm -rf "$grepai_extract"
 echo "→ Installing status-line..."
 mkdir -p "$HOME/.local/bin"
 
-# Détecter OS
+# Detect OS
 case "$(uname -s)" in
     Linux*)  STATUS_OS="linux" ;;
     Darwin*) STATUS_OS="darwin" ;;
@@ -147,18 +147,18 @@ case "$(uname -s)" in
     *)       STATUS_OS="linux" ;;
 esac
 
-# Détecter architecture
+# Detect architecture
 case "$(uname -m)" in
     x86_64|amd64) STATUS_ARCH="amd64" ;;
     aarch64|arm64) STATUS_ARCH="arm64" ;;
     *)            STATUS_ARCH="amd64" ;;
 esac
 
-# Extension pour Windows
+# Extension for Windows
 STATUS_EXT=""
 [ "$STATUS_OS" = "windows" ] && STATUS_EXT=".exe"
 
-# Télécharger depuis les releases officielles (avec sécurité download)
+# Download from official releases (with secure download)
 STATUS_URL="https://github.com/kodflow/status-line/releases/latest/download/status-line-${STATUS_OS}-${STATUS_ARCH}${STATUS_EXT}"
 status_tmp="$(mktemp)"
 if curl -fsL --retry 3 --retry-delay 1 --proto '=https' --tlsv1.2 "$STATUS_URL" -o "$status_tmp" 2>/dev/null; then
@@ -169,11 +169,11 @@ else
 fi
 rm -f "$status_tmp"
 
-# Ajouter au PATH si nécessaire
+# Add to PATH if needed
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-    # shellcheck disable=SC2016 # $HOME doit être résolu à l'exécution du shell, pas maintenant
+    # shellcheck disable=SC2016 # $HOME must be resolved at shell runtime, not now
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc" 2>/dev/null || true
-    # shellcheck disable=SC2016 # $HOME doit être résolu à l'exécution du shell, pas maintenant
+    # shellcheck disable=SC2016 # $HOME must be resolved at shell runtime, not now
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc" 2>/dev/null || true
 fi
 
@@ -184,15 +184,15 @@ echo ""
 echo "═══════════════════════════════════════════"
 echo "  ✓ Installation complete!"
 echo ""
-echo "  Commandes disponibles:"
-echo "    /git     - Workflow git (commit, branch, PR)"
-echo "    /search  - Recherche documentation"
+echo "  Available commands:"
+echo "    /git     - Git workflow (commit, branch, PR)"
+echo "    /search  - Documentation search"
 echo "    /prompt  - Write better /plan descriptions"
 echo ""
 echo "  Native Claude 2.x features:"
-echo "    EnterPlanMode - Planification intégrée"
-echo "    TaskCreate    - Suivi des tâches avec progression"
-echo "    Task agents   - Parallélisation"
+echo "    EnterPlanMode - Built-in planning"
+echo "    TaskCreate    - Task tracking with progress"
+echo "    Task agents   - Parallelization"
 echo ""
-echo "  → Relance 'claude' pour charger les commandes"
+echo "  → Restart 'claude' to load commands"
 echo "═══════════════════════════════════════════"

@@ -1,26 +1,26 @@
 # Structural Patterns (GoF)
 
-Patterns de composition d'objets.
+Object composition patterns.
 
-## Fichiers detailles
+## Detailed Files
 
-| Pattern | Fichier | Description |
+| Pattern | File | Description |
 |---------|---------|-------------|
-| Adapter | [adapter.md](adapter.md) | Convertir interfaces incompatibles |
-| Bridge | [bridge.md](bridge.md) | Separer abstraction et implementation |
-| Composite | [composite.md](composite.md) | Traiter objets simples et composes uniformement |
-| Decorator | [decorator.md](decorator.md) | Ajouter comportements dynamiquement |
-| Facade | [facade.md](facade.md) | Simplifier systemes complexes |
-| Flyweight | [flyweight.md](flyweight.md) | Partager des etats communs entre objets |
+| Adapter | [adapter.md](adapter.md) | Convert incompatible interfaces |
+| Bridge | [bridge.md](bridge.md) | Separate abstraction and implementation |
+| Composite | [composite.md](composite.md) | Treat simple and composite objects uniformly |
+| Decorator | [decorator.md](decorator.md) | Add behaviors dynamically |
+| Facade | [facade.md](facade.md) | Simplify complex systems |
+| Flyweight | [flyweight.md](flyweight.md) | Share common state between objects |
 | Proxy | [proxy.md](proxy.md) | Virtual, Remote, Protection, Cache |
 
-## Les 7 Patterns
+## The 7 Patterns
 
 ### 1. Adapter
 
-> Convertir une interface en une autre.
+> Convert one interface into another.
 
-Voir fichier detaille: [adapter.md](adapter.md)
+See detailed file: [adapter.md](adapter.md)
 
 ```go
 package adapter
@@ -54,13 +54,13 @@ func (a *StripeAdapter) Pay(ctx context.Context, amount float64) error {
 }
 ```
 
-**Quand :** Integrer du code legacy ou librairies tierces.
+**When:** Integrating legacy code or third-party libraries.
 
 ---
 
 ### 2. Bridge
 
-> Separer abstraction et implementation.
+> Separate abstraction and implementation.
 
 ```go
 package bridge
@@ -96,13 +96,13 @@ func (r *OpenGLRenderer) Render(shape string) {
 }
 ```
 
-**Quand :** Plusieurs dimensions de variation independantes.
+**When:** Multiple independent dimensions of variation.
 
 ---
 
 ### 3. Composite
 
-> Traiter objets simples et composes uniformement.
+> Treat simple and composite objects uniformly.
 
 ```go
 package composite
@@ -148,15 +148,15 @@ func (b *Box) GetPrice() float64 {
 }
 ```
 
-**Quand :** Structures arborescentes (menus, fichiers, UI).
+**When:** Tree structures (menus, files, UI).
 
 ---
 
 ### 4. Decorator
 
-> Ajouter des comportements dynamiquement.
+> Add behaviors dynamically.
 
-Voir fichier detaille: [decorator.md](decorator.md)
+See detailed file: [decorator.md](decorator.md)
 
 ```go
 package decorator
@@ -187,15 +187,15 @@ func (d *LoggingDecorator) Do(ctx context.Context, req *Request) (*Response, err
 // Usage: client = NewLoggingDecorator(NewAuthDecorator(baseClient))
 ```
 
-**Quand :** Ajouter des responsabilites sans modifier la classe.
+**When:** Adding responsibilities without modifying the class.
 
 ---
 
 ### 5. Facade
 
-> Interface simplifiee pour un sous-systeme complexe.
+> Simplified interface for a complex subsystem.
 
-Voir fichier detaille: [facade.md](facade.md)
+See detailed file: [facade.md](facade.md)
 
 ```go
 package facade
@@ -225,13 +225,13 @@ func (vp *VideoPublisher) Publish(video, audio string) error {
 }
 ```
 
-**Quand :** Simplifier l'acces a un systeme complexe.
+**When:** Simplifying access to a complex system.
 
 ---
 
 ### 6. Flyweight
 
-> Partager des etats communs entre objets.
+> Share common state between objects.
 
 ```go
 package flyweight
@@ -279,15 +279,15 @@ func (f *FlyweightFactory) Get(font string, size int) *CharacterFlyweight {
 }
 ```
 
-**Quand :** Beaucoup d'objets similaires (jeux, editeurs texte).
+**When:** Many similar objects (games, text editors).
 
 ---
 
 ### 7. Proxy
 
-> Controler l'acces a un objet.
+> Control access to an object.
 
-Voir fichier detaille: [proxy.md](proxy.md)
+See detailed file: [proxy.md](proxy.md)
 
 ```go
 package proxy
@@ -332,21 +332,21 @@ func (ip *ImageProxy) Display() {
 }
 ```
 
-**Types :** Virtual (lazy), Remote (RPC), Protection (auth), Cache.
+**Types:** Virtual (lazy), Remote (RPC), Protection (auth), Cache.
 
 ---
 
-## Tableau de decision
+## Decision Table
 
-| Besoin | Pattern |
+| Need | Pattern |
 |--------|---------|
-| Convertir interface | Adapter |
-| Deux axes de variation | Bridge |
-| Structure arborescente | Composite |
-| Ajouter comportements | Decorator |
-| Simplifier systeme complexe | Facade |
-| Partager etat commun | Flyweight |
-| Controler acces | Proxy |
+| Convert interface | Adapter |
+| Two axes of variation | Bridge |
+| Tree structure | Composite |
+| Add behaviors | Decorator |
+| Simplify complex system | Facade |
+| Share common state | Flyweight |
+| Control access | Proxy |
 
 ## Sources
 

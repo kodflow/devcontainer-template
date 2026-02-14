@@ -1,18 +1,18 @@
 # Strangler Fig Pattern
 
-> Migrer progressivement un systeme legacy en le remplacant incrementalement.
+> Progressively migrate a legacy system by replacing it incrementally.
 
-## Principe
+## Principle
 
 ```
                     ┌─────────────────────────────────────────────┐
                     │              STRANGLER FIG                   │
                     └─────────────────────────────────────────────┘
 
-  Inspiration naturelle: Figuier etrangleur
-  - Pousse autour d'un arbre existant
-  - Le remplace progressivement
-  - L'arbre original disparait
+  Natural inspiration: Strangler fig tree
+  - Grows around an existing tree
+  - Replaces it progressively
+  - The original tree disappears
 
   Phase 1: COEXISTENCE
   ┌─────────────────────────────────────────────────────────┐
@@ -28,7 +28,7 @@
   │   ████████████  │               │   ░░░░          │
   └─────────────────┘               └─────────────────┘
 
-  Phase 2: MIGRATION PROGRESSIVE
+  Phase 2: PROGRESSIVE MIGRATION
   ┌─────────────────────────────────────────────────────────┐
   │                        FACADE                           │
   └──────────────────────────┬──────────────────────────────┘
@@ -54,7 +54,7 @@
                   └─────────────────┘
 ```
 
-## Implementation TypeScript
+## Go Implementation
 
 ```go
 package stranglerfig
@@ -101,7 +101,7 @@ func NewStranglerFacade(
 		legacyService: legacyService,
 		newServices:   newServices,
 	}
-	
+
 	sf.initializeRouting()
 	return sf
 }
@@ -198,89 +198,89 @@ func (sf *StranglerFacade) DisableNewService(feature string) {
 ## Anti-Corruption Layer
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Sync bidirectionnelle pendant migration
+## Bidirectional sync during migration
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Feature flags pour migration
+## Feature flags for migration
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Phases de migration
+## Migration Phases
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    STRANGLER MIGRATION PHASES                   │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  Phase 1: SETUP (2-4 semaines)                                 │
-│  ├─ Facade/API Gateway en place                                │
-│  ├─ Logging/monitoring unifie                                  │
-│  └─ Premier service extrait (le plus simple)                   │
+│  Phase 1: SETUP (2-4 weeks)                                    │
+│  ├─ Facade/API Gateway in place                                │
+│  ├─ Unified logging/monitoring                                 │
+│  └─ First service extracted (the simplest)                     │
 │                                                                 │
-│  Phase 2: EXTRACT (iteratif, mois)                             │
-│  ├─ Identifier bounded contexts                                │
-│  ├─ Extraire service par service                               │
-│  ├─ Dual-write pendant transition                              │
-│  └─ Basculer trafic progressivement                            │
+│  Phase 2: EXTRACT (iterative, months)                          │
+│  ├─ Identify bounded contexts                                  │
+│  ├─ Extract service by service                                 │
+│  ├─ Dual-write during transition                               │
+│  └─ Switch traffic progressively                               │
 │                                                                 │
-│  Phase 3: VALIDATE (par service)                               │
-│  ├─ 100% trafic vers nouveau service                           │
-│  ├─ Periode de soak test (1-4 semaines)                        │
-│  └─ Monitoring comparatif                                      │
+│  Phase 3: VALIDATE (per service)                               │
+│  ├─ 100% traffic to new service                                │
+│  ├─ Soak test period (1-4 weeks)                               │
+│  └─ Comparative monitoring                                     │
 │                                                                 │
 │  Phase 4: CLEANUP                                              │
-│  ├─ Supprimer code legacy                                      │
-│  ├─ Supprimer dual-write                                       │
-│  └─ Documenter                                                 │
+│  ├─ Remove legacy code                                         │
+│  ├─ Remove dual-write                                          │
+│  └─ Document                                                   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Metriques de migration
+## Migration Metrics
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
-|-----------|------------|
-| Monolithe vers microservices | Oui |
-| Modernisation progressive | Oui |
-| Migration cloud | Oui |
-| Systeme critique (zero downtime) | Oui |
-| Petit projet simple | Non (overkill) |
-| Deadline tres courte | Non (big bang plus rapide) |
+| Situation | Recommended |
+|-----------|-------------|
+| Monolith to microservices | Yes |
+| Progressive modernization | Yes |
+| Cloud migration | Yes |
+| Critical system (zero downtime) | Yes |
+| Small simple project | No (overkill) |
+| Very short deadline | No (big bang is faster) |
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Anti-Corruption Layer | Traduction entre domaines |
-| Branch by Abstraction | Alternative similaire |
-| Feature Flags | Controle de la migration |
-| Facade | Point d'entree unique |
+| Anti-Corruption Layer | Translation between domains |
+| Branch by Abstraction | Similar alternative |
+| Feature Flags | Migration control |
+| Facade | Single entry point |
 
 ## Sources
 

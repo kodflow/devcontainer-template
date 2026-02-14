@@ -1,6 +1,6 @@
 # Bounded Context Pattern
 
-> Limite sémantique au sein de laquelle un modèle de domaine est défini et applicable, représentant une frontière linguistique avec une terminologie non ambiguë.
+> Semantic boundary within which a domain model is defined and applicable, representing a linguistic boundary with unambiguous terminology.
 
 ## Definition
 
@@ -191,13 +191,13 @@ func (acl *PaymentGatewayACL) ProcessPayment(
 ) (*PaymentResult, error) {
 	// Translate to external format
 	request := acl.toExternalRequest(amount, method)
-	
+
 	// Call external service
 	response, err := acl.gateway.Charge(ctx, request)
 	if err != nil {
 		return nil, fmt.Errorf("gateway communication failed: %w", err)
 	}
-	
+
 	// Translate back to our domain model
 	return acl.toDomainResult(response)
 }
@@ -222,12 +222,12 @@ func (acl *PaymentGatewayACL) toDomainResult(
 			Error:  errors.New(response.ErrorMsg),
 		}, nil
 	}
-	
+
 	transactionID, err := NewTransactionID(response.TransactionID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	amount, err := NewMoney(
 		float64(response.AmountCents)/100,
 		CurrencyFromCode(response.CurrencyISO),
@@ -235,7 +235,7 @@ func (acl *PaymentGatewayACL) toDomainResult(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &PaymentResult{
 		TransactionID: transactionID,
 		Status:        PaymentStatusCompleted,
@@ -305,14 +305,14 @@ func (p *OrdersEventPublisher) PublishOrderConfirmed(
 		},
 		Items: make([]OrderItemDTO, len(event.Items)),
 	}
-	
+
 	for i, item := range event.Items {
 		integrationEvent.Items[i] = OrderItemDTO{
 			ProductID: item.ProductID,
 			Quantity:  item.Quantity,
 		}
 	}
-	
+
 	return p.messageBus.Publish(ctx, "orders.order-confirmed", integrationEvent)
 }
 
@@ -346,12 +346,12 @@ func (h *BillingEventHandler) HandleOrderConfirmed(
 	if err != nil {
 		return err
 	}
-	
+
 	customer, err := h.customerRepository.FindByID(ctx, customerID)
 	if err != nil {
 		return err
 	}
-	
+
 	amount, err := NewMoney(
 		event.TotalAmount.Amount,
 		CurrencyFromCode(event.TotalAmount.Currency),
@@ -359,13 +359,13 @@ func (h *BillingEventHandler) HandleOrderConfirmed(
 	if err != nil {
 		return err
 	}
-	
+
 	orderRef := OrderReference{
 		OrderID:     event.OrderID,
 		TotalAmount: amount,
 		OrderDate:   event.OccurredAt,
 	}
-	
+
 	// Use billing domain logic
 	return h.invoiceService.CreateInvoice(ctx, customer, orderRef)
 }
@@ -515,7 +515,7 @@ src/
    ```go
    // BAD - Billing using Orders' internal model
    import "myapp/orders/domain"
-   
+
    func (s *BillingService) Process(order *domain.Order) {}
    ```
 
@@ -535,15 +535,15 @@ src/
    }
    ```
 
-## Quand utiliser
+## When to Use
 
-- Grands domaines avec des sous-domaines distincts
-- Plusieurs équipes travaillant sur le même système
-- Différentes parties du système évoluent à des rythmes différents
-- Besoin d'intégration avec des systèmes externes
-- Les termes ont des significations différentes dans différentes parties du métier
+- Large domains with distinct subdomains
+- Multiple teams working on the same system
+- Different parts of the system evolve at different rates
+- Need for integration with external systems
+- Terms have different meanings in different parts of the business
 
-## Patterns liés
+## Related Patterns
 
 - [Aggregate](./aggregate.md) - Lives within bounded context
 - [Domain Event](./domain-event.md) - Cross-context communication

@@ -1,8 +1,8 @@
 # Role-Based Access Control (RBAC)
 
-> Permissions basees sur les roles assignes aux utilisateurs.
+> Permissions based on roles assigned to users.
 
-## Principe
+## Principle
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -20,7 +20,7 @@
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package rbac
@@ -120,7 +120,7 @@ func (r *RBAC) GetAllPermissions(role Role) map[Resource][]Permission {
 }
 ```
 
-## Hierarchie de roles
+## Role Hierarchy
 
 ```go
 package rbac
@@ -183,7 +183,7 @@ func (h *HierarchicalRBAC) HasPermission(role Role, resource Resource, permissio
 }
 ```
 
-## Middleware HTTP
+## HTTP Middleware
 
 ```go
 package middleware
@@ -228,13 +228,13 @@ func Authorize(resource rbac.Resource, permission rbac.Permission) func(http.Han
 
 // Usage example
 func SetupRoutes(mux *http.ServeMux) {
-	mux.Handle("/articles", 
+	mux.Handle("/articles",
 		Authorize(rbac.ResourceArticles, rbac.PermRead)(http.HandlerFunc(listArticles)))
-	mux.Handle("/articles/create", 
+	mux.Handle("/articles/create",
 		Authorize(rbac.ResourceArticles, rbac.PermCreate)(http.HandlerFunc(createArticle)))
-	mux.Handle("/articles/update", 
+	mux.Handle("/articles/update",
 		Authorize(rbac.ResourceArticles, rbac.PermUpdate)(http.HandlerFunc(updateArticle)))
-	mux.Handle("/articles/delete", 
+	mux.Handle("/articles/delete",
 		Authorize(rbac.ResourceArticles, rbac.PermDelete)(http.HandlerFunc(deleteArticle)))
 }
 ```
@@ -338,38 +338,38 @@ func (d *DatabaseRBAC) GetUserPermissions(ctx context.Context, userID string) ([
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
-| `github.com/casbin/casbin/v2` | RBAC/ABAC flexible |
+| `github.com/casbin/casbin/v2` | Flexible RBAC/ABAC |
 | `github.com/ory/ladon` | Access control policies |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Role explosion | Maintenance difficile | Hierarchie + permissions granulaires |
-| Hardcoded roles | Inflexible | Store en DB |
-| Check role au lieu de permission | Couplage fort | Toujours checker permissions |
-| Pas de separation resource/action | Granularite insuffisante | resource:action pattern |
-| Roles par feature | Explosion combinatoire | Roles par responsabilite |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Role explosion | Difficult maintenance | Hierarchy + granular permissions |
+| Hardcoded roles | Inflexible | Store in DB |
+| Check role instead of permission | Tight coupling | Always check permissions |
+| No resource/action separation | Insufficient granularity | resource:action pattern |
+| Roles per feature | Combinatorial explosion | Roles per responsibility |
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Recommande |
+| Scenario | Recommended |
 |----------|------------|
-| Applications avec roles clairs | Oui |
-| Backoffice/Admin panels | Oui |
-| Multi-tenant simple | Oui |
-| Permissions tres granulaires | Non (preferer ABAC) |
-| Permissions contextuelles | Non (preferer ABAC) |
+| Applications with clear roles | Yes |
+| Backoffice/Admin panels | Yes |
+| Simple multi-tenant | Yes |
+| Highly granular permissions | No (prefer ABAC) |
+| Contextual permissions | No (prefer ABAC) |
 
-## Patterns lies
+## Related Patterns
 
-- **ABAC** : Extension avec attributs et contexte
-- **JWT** : Role souvent dans claims
-- **Policy-Based** : Declaratif, plus flexible
+- **ABAC**: Extension with attributes and context
+- **JWT**: Role often in claims
+- **Policy-Based**: Declarative, more flexible
 
 ## Sources
 

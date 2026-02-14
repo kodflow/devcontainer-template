@@ -468,7 +468,7 @@ parallel_checks:
 
 ---
 
-## Phase 7.0 : GrepAI Calibration
+## Phase 7.0: GrepAI Calibration
 
 **MANDATORY** after project discovery. Calibrate grepai config based on project size and structure.
 
@@ -535,7 +535,7 @@ grepai_calibration:
       grepai status
 ```
 
-**Output Phase 6 :**
+**Output Phase 6:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -578,12 +578,12 @@ When a problem is detected, auto-fix if possible:
 
 ---
 
-## GARDE-FOUS
+## Guardrails
 
 | Action | Status |
 |--------|--------|
-| Skip detection | INTERDIT |
-| Closed questions / AskUserQuestion | INTERDIT |
-| Placeholders in generated files | INTERDIT |
-| Skip vision synthesis review | INTERDIT |
-| Destructive fix without asking | INTERDIT |
+| Skip detection | FORBIDDEN |
+| Closed questions / AskUserQuestion | FORBIDDEN |
+| Placeholders in generated files | FORBIDDEN |
+| Skip vision synthesis review | FORBIDDEN |
+| Destructive fix without asking | FORBIDDEN |

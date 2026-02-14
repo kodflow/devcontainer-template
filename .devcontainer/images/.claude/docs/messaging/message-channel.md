@@ -1,8 +1,8 @@
 # Message Channel Patterns
 
-Patterns de canaux de communication pour le messaging.
+Communication channel patterns for messaging.
 
-## Vue d'ensemble
+## Overview
 
 ```
 +-------------------+     +-------------------+
@@ -28,7 +28,7 @@ Patterns de canaux de communication pour le messaging.
 
 ## Point-to-Point Channel
 
-> Un message est consomme par exactement un consumer.
+> A message is consumed by exactly one consumer.
 
 ### Schema
 
@@ -38,7 +38,7 @@ Producer ---> [  Queue  ] ---> Consumer A
                    X (not delivered to Consumer B)
 ```
 
-### Implementation RabbitMQ/Kafka
+### RabbitMQ/Kafka Implementation
 
 ```go
 package messaging
@@ -71,7 +71,7 @@ func NewPointToPointChannel(channel *amqp.Channel, config *PointToPointConfig) *
 }
 
 func (p *PointToPointChannel) Send(ctx context.Context, message interface{}) error {
-	_, err := p.channel.QueueDeclare(
+	_, err:= p.channel.QueueDeclare(
 		p.config.Queue,
 		p.config.Durable,
 		p.config.AutoDelete,
@@ -83,7 +83,7 @@ func (p *PointToPointChannel) Send(ctx context.Context, message interface{}) err
 		return fmt.Errorf("declaring queue: %w", err)
 	}
 
-	body, err := json.Marshal(message)
+	body, err:= json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("marshaling message: %w", err)
 	}
@@ -105,7 +105,7 @@ func (p *PointToPointChannel) Send(ctx context.Context, message interface{}) err
 type MessageHandler func(ctx context.Context, msg interface{}) error
 
 func (p *PointToPointChannel) Consume(ctx context.Context, handler MessageHandler) error {
-	msgs, err := p.channel.Consume(
+	msgs, err:= p.channel.Consume(
 		p.config.Queue,
 		"",    // consumer
 		false, // auto-ack
@@ -119,18 +119,18 @@ func (p *PointToPointChannel) Consume(ctx context.Context, handler MessageHandle
 	}
 
 	go func() {
-		for d := range msgs {
+		for d:= range msgs {
 			select {
 			case <-ctx.Done():
 				return
 			default:
 				var content interface{}
-				if err := json.Unmarshal(d.Body, &content); err != nil {
+				if err:= json.Unmarshal(d.Body, &content); err != nil {
 					d.Nack(false, true)
 					continue
 				}
 
-				if err := handler(ctx, content); err != nil {
+				if err:= handler(ctx, content); err != nil {
 					// Requeue on failure
 					d.Nack(false, true)
 					continue
@@ -160,20 +160,20 @@ func NewKafkaPointToPoint(brokers []string, topic, groupID string) *KafkaPointTo
 }
 
 func (k *KafkaPointToPoint) Consume(ctx context.Context, handler MessageHandler) error {
-	// Chaque message va a un seul consumer du groupe
+	// Each message goes to a single consumer in the group
 	for {
-		msg, err := k.reader.FetchMessage(ctx)
+		msg, err:= k.reader.FetchMessage(ctx)
 		if err != nil {
 			return fmt.Errorf("fetching message: %w", err)
 		}
 
 		var payload interface{}
-		if err := json.Unmarshal(msg.Value, &payload); err != nil {
+		if err:= json.Unmarshal(msg.Value, &payload); err != nil {
 			k.reader.CommitMessages(ctx, msg)
 			continue
 		}
 
-		if err := handler(ctx, payload); err != nil {
+		if err:= handler(ctx, payload); err != nil {
 			// Handle error
 			continue
 		}
@@ -183,7 +183,7 @@ func (k *KafkaPointToPoint) Consume(ctx context.Context, handler MessageHandler)
 }
 ```
 
-### Cas d'erreur
+### Error Cases
 
 ```go
 package messaging
@@ -220,19 +220,19 @@ func NewResilientP2PChannel(channel *PointToPointChannel, deadLetterQueue string
 func (r *ResilientP2PChannel) ProcessWithRetry(ctx context.Context, message interface{}, handler MessageHandler) error {
 	var lastErr error
 	
-	for attempts := 0; attempts < r.retryCount; attempts++ {
-		if err := handler(ctx, message); err == nil {
+	for attempts:= 0; attempts < r.retryCount; attempts++ {
+		if err:= handler(ctx, message); err == nil {
 			return nil
 		} else {
 			lastErr = err
 			// Exponential backoff
-			backoff := time.Duration(math.Pow(2, float64(attempts))) * time.Second
+			backoff:= time.Duration(math.Pow(2, float64(attempts))) * time.Second
 			time.Sleep(backoff)
 		}
 	}
 
 	// Max retries exceeded, send to dead letter queue
-	if err := r.sendToDeadLetter(ctx, message, lastErr); err != nil {
+	if err:= r.sendToDeadLetter(ctx, message, lastErr); err != nil {
 		return fmt.Errorf("sending to dead letter: %w", err)
 	}
 
@@ -245,14 +245,14 @@ func (r *ResilientP2PChannel) sendToDeadLetter(ctx context.Context, message inte
 }
 ```
 
-**Quand :** Work queues, job processing, commands.
-**Lie a :** Competing Consumers, Dead Letter Channel.
+**When:** Work queues, job processing, commands.
+**Related to:** Competing Consumers, Dead Letter Channel.
 
 ---
 
 ## Publish-Subscribe Channel
 
-> Un message est envoye a tous les subscribers actifs.
+> A message is sent to all active subscribers.
 
 ### Pub-Sub Schema
 
@@ -292,7 +292,7 @@ func NewPubSubChannel(channel *amqp.Channel, exchange string) *PubSubChannel {
 }
 
 func (p *PubSubChannel) Publish(ctx context.Context, event interface{}) error {
-	if err := p.channel.ExchangeDeclare(
+	if err:= p.channel.ExchangeDeclare(
 		p.exchange,
 		"fanout", // type
 		true,     // durable
@@ -304,7 +304,7 @@ func (p *PubSubChannel) Publish(ctx context.Context, event interface{}) error {
 		return fmt.Errorf("declaring exchange: %w", err)
 	}
 
-	body, err := json.Marshal(event)
+	body, err:= json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("marshaling event: %w", err)
 	}
@@ -323,8 +323,8 @@ func (p *PubSubChannel) Publish(ctx context.Context, event interface{}) error {
 }
 
 func (p *PubSubChannel) Subscribe(ctx context.Context, handler MessageHandler) error {
-	// Chaque subscriber a sa propre queue
-	q, err := p.channel.QueueDeclare(
+	// Each subscriber has its own queue
+	q, err:= p.channel.QueueDeclare(
 		"",    // name (empty = auto-generated)
 		false, // durable
 		false, // delete when unused
@@ -336,7 +336,7 @@ func (p *PubSubChannel) Subscribe(ctx context.Context, handler MessageHandler) e
 		return fmt.Errorf("declaring queue: %w", err)
 	}
 
-	if err := p.channel.QueueBind(
+	if err:= p.channel.QueueBind(
 		q.Name,
 		"",          // routing key
 		p.exchange,
@@ -346,7 +346,7 @@ func (p *PubSubChannel) Subscribe(ctx context.Context, handler MessageHandler) e
 		return fmt.Errorf("binding queue: %w", err)
 	}
 
-	msgs, err := p.channel.Consume(
+	msgs, err:= p.channel.Consume(
 		q.Name,
 		"",    // consumer
 		false, // auto-ack
@@ -360,18 +360,18 @@ func (p *PubSubChannel) Subscribe(ctx context.Context, handler MessageHandler) e
 	}
 
 	go func() {
-		for d := range msgs {
+		for d:= range msgs {
 			select {
 			case <-ctx.Done():
 				return
 			default:
 				var event interface{}
-				if err := json.Unmarshal(d.Body, &event); err != nil {
+				if err:= json.Unmarshal(d.Body, &event); err != nil {
 					d.Nack(false, false)
 					continue
 				}
 
-				if err := handler(ctx, event); err != nil {
+				if err:= handler(ctx, event); err != nil {
 					d.Nack(false, false)
 					continue
 				}
@@ -400,7 +400,7 @@ func NewKafkaPubSub(brokers []string, topic string) *KafkaPubSub {
 }
 
 func (k *KafkaPubSub) Publish(ctx context.Context, event interface{}) error {
-	body, err := json.Marshal(event)
+	body, err:= json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("marshaling event: %w", err)
 	}
@@ -410,9 +410,9 @@ func (k *KafkaPubSub) Publish(ctx context.Context, event interface{}) error {
 	})
 }
 
-// Chaque service utilise un groupID different
+// Each service uses a different groupID
 func (k *KafkaPubSub) Subscribe(ctx context.Context, brokers []string, topic, groupID string, handler MessageHandler) error {
-	reader := kafka.NewReader(kafka.ReaderConfig{
+	reader:= kafka.NewReader(kafka.ReaderConfig{
 		Brokers:      brokers,
 		Topic:        topic,
 		GroupID:      groupID,
@@ -421,18 +421,18 @@ func (k *KafkaPubSub) Subscribe(ctx context.Context, brokers []string, topic, gr
 	defer reader.Close()
 
 	for {
-		msg, err := reader.FetchMessage(ctx)
+		msg, err:= reader.FetchMessage(ctx)
 		if err != nil {
 			return fmt.Errorf("fetching message: %w", err)
 		}
 
 		var event interface{}
-		if err := json.Unmarshal(msg.Value, &event); err != nil {
+		if err:= json.Unmarshal(msg.Value, &event); err != nil {
 			reader.CommitMessages(ctx, msg)
 			continue
 		}
 
-		if err := handler(ctx, event); err != nil {
+		if err:= handler(ctx, event); err != nil {
 			// Handle error
 			continue
 		}
@@ -462,7 +462,7 @@ func NewTopicPubSub(channel *amqp.Channel) *TopicPubSub {
 }
 
 func (t *TopicPubSub) Publish(ctx context.Context, routingKey string, event interface{}) error {
-	if err := t.channel.ExchangeDeclare(
+	if err:= t.channel.ExchangeDeclare(
 		"events",
 		"topic", // type
 		true,    // durable
@@ -474,7 +474,7 @@ func (t *TopicPubSub) Publish(ctx context.Context, routingKey string, event inte
 		return err
 	}
 
-	body, _ := json.Marshal(event)
+	body, _:= json.Marshal(event)
 	return t.channel.PublishWithContext(
 		ctx,
 		"events",
@@ -489,23 +489,23 @@ func (t *TopicPubSub) Publish(ctx context.Context, routingKey string, event inte
 }
 
 func (t *TopicPubSub) Subscribe(ctx context.Context, pattern string, handler MessageHandler) error {
-	q, err := t.channel.QueueDeclare("", false, false, true, false, nil)
+	q, err:= t.channel.QueueDeclare("", false, false, true, false, nil)
 	if err != nil {
 		return err
 	}
 
-	// Pattern: orders.* ou orders.# ou orders.created
-	if err := t.channel.QueueBind(q.Name, pattern, "events", false, nil); err != nil {
+	// Pattern: orders.* or orders.# or orders.created
+	if err:= t.channel.QueueBind(q.Name, pattern, "events", false, nil); err != nil {
 		return err
 	}
 
-	msgs, err := t.channel.Consume(q.Name, "", false, false, false, false, nil)
+	msgs, err:= t.channel.Consume(q.Name, "", false, false, false, false, nil)
 	if err != nil {
 		return err
 	}
 
 	go func() {
-		for d := range msgs {
+		for d:= range msgs {
 			var event interface{}
 			json.Unmarshal(d.Body, &event)
 			handler(ctx, event)
@@ -566,8 +566,8 @@ func (r *ReliablePubSub) SubscribeWithRecovery(
 	subscriberID string,
 	handler MessageHandler,
 ) error {
-	// Sauvegarder la position de lecture
-	lastOffset, err := r.subscriptionStore.GetLastOffset(ctx, subscriberID)
+	// Save the reading position
+	lastOffset, err:= r.subscriptionStore.GetLastOffset(ctx, subscriberID)
 	if err != nil {
 		return fmt.Errorf("getting last offset: %w", err)
 	}
@@ -575,11 +575,11 @@ func (r *ReliablePubSub) SubscribeWithRecovery(
 	fmt.Printf("Starting from offset: %d\n", lastOffset)
 
 	return r.channel.Subscribe(ctx, func(ctx context.Context, event interface{}) error {
-		// Extraire offset du message (implementation depends on broker)
+		// Extract offset from message (implementation depends on broker)
 		var offset int64 = 0
 
-		if err := handler(ctx, event); err != nil {
-			// Log mais continue pour ne pas bloquer les autres
+		if err:= handler(ctx, event); err != nil {
+			// Log but continue to avoid blocking others
 			fmt.Printf("Failed to process event at %d: %v\n", offset, err)
 			return r.errorHandler.Handle(ctx, event, err)
 		}
@@ -589,41 +589,41 @@ func (r *ReliablePubSub) SubscribeWithRecovery(
 }
 ```
 
-**Quand :** Events, notifications, broadcasting, decoupling.
-**Lie a :** Observer, Event-Driven Architecture.
+**When:** Events, notifications, broadcasting, decoupling.
+**Related to:** Observer, Event-Driven Architecture.
 
 ---
 
-## Tableau de decision
+## Decision Table
 
-| Caracteristique | Point-to-Point | Publish-Subscribe |
+| Characteristic | Point-to-Point | Publish-Subscribe |
 |-----------------|----------------|-------------------|
-| Destinataires | Un seul | Tous les abonnes |
-| Cas d'usage | Commands, Jobs | Events, Notifications |
-| Garantie | Exactement un traitement | Chaque abonne recoit |
+| Recipients | Only one | All subscribers |
+| Use Case | Commands, Jobs | Events, Notifications |
+| Guarantee | Exactly one processing | Each subscriber receives |
 | Scaling | Competing consumers | Multiple groups |
-| Couplage | Plus fort | Plus faible |
+| Coupling | Stronger | Weaker |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Decouplage entre producteurs et consommateurs de messages
-- Distribution asynchrone de messages entre services
-- Besoin de garanties de livraison (at-least-once, at-most-once, exactly-once)
-- Broadcasting d'evenements a plusieurs abonnes
-- Load balancing de messages entre plusieurs consumers
+- Decoupling between message producers and consumers
+- Asynchronous message distribution between services
+- Need for delivery guarantees (at-least-once, at-most-once, exactly-once)
+- Broadcasting events to multiple subscribers
+- Load balancing messages between multiple consumers
 
-## Patterns lies
+## Related Patterns
 
-- [Dead Letter Channel](./dead-letter.md) - Gestion des messages en echec
-- [Message Router](./message-router.md) - Routage dynamique des messages
-- [Idempotent Receiver](./idempotent-receiver.md) - Traitement idempotent des messages
-- [Transactional Outbox](./transactional-outbox.md) - Fiabilite des publications
+- [Dead Letter Channel](./dead-letter.md) - Failed message handling
+- [Message Router](./message-router.md) - Dynamic message routing
+- [Idempotent Receiver](./idempotent-receiver.md) - Idempotent message processing
+- [Transactional Outbox](./transactional-outbox.md) - Publication reliability
 
-## Patterns complementaires
+## Complementary Patterns
 
-- **Competing Consumers** - Scale P2P horizontalement
-- **Durable Subscriber** - Pub/Sub avec persistance
-- **Message Filter** - Filtrer les messages reçus
-- **Dead Letter Channel** - Gerer les echecs
+- **Competing Consumers** - Scale P2P horizontally
+- **Durable Subscriber** - Pub/Sub with persistence
+- **Message Filter** - Filter received messages
+- **Dead Letter Channel** - Handle failures

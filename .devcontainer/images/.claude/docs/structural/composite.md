@@ -1,13 +1,13 @@
 # Composite
 
-> Composer des objets en arbres pour representer des hierarchies partie-tout.
+> Compose objects into trees to represent part-whole hierarchies.
 
 ---
 
-## Principe
+## Principle
 
-Le pattern Composite permet de traiter objets et compositions uniformement.
-Ideal pour les structures arborescentes (fichiers, menus, organisations).
+The Composite pattern allows treating objects and compositions uniformly.
+Ideal for tree structures (files, menus, organizations).
 
 ```text
         ┌────────────┐
@@ -25,12 +25,12 @@ Ideal pour les structures arborescentes (fichiers, menus, organisations).
 
 ---
 
-## Probleme resolu
+## Problem Solved
 
-- Traiter uniformement objets simples et composites
-- Representer des hierarchies partie-tout
-- Permettre des operations recursives sur l'arbre
-- Simplifier le code client (pas de distinction feuille/branche)
+- Treat simple and composite objects uniformly
+- Represent part-whole hierarchies
+- Allow recursive operations on the tree
+- Simplify client code (no leaf/branch distinction)
 
 ---
 
@@ -41,14 +41,14 @@ package main
 
 import "fmt"
 
-// Component definit l'interface commune.
+// Component defines the common interface.
 type Component interface {
     GetSize() int64
     GetName() string
     Print(indent string)
 }
 
-// File est une feuille.
+// File is a leaf.
 type File struct {
     name string
     size int64
@@ -64,7 +64,7 @@ func (f *File) Print(indent string) {
     fmt.Printf("%s- %s (%d bytes)\n", indent, f.name, f.size)
 }
 
-// Directory est un composite.
+// Directory is a composite.
 type Directory struct {
     name     string
     children []Component
@@ -104,7 +104,7 @@ func (d *Directory) Print(indent string) {
 
 ---
 
-## Exemple complet
+## Complete Example
 
 ```go
 package main
@@ -114,7 +114,7 @@ import (
     "strings"
 )
 
-// Employee represente un employe dans une organisation.
+// Employee represents an employee in an organization.
 type Employee interface {
     GetName() string
     GetSalary() float64
@@ -124,7 +124,7 @@ type Employee interface {
     Print(indent int)
 }
 
-// Developer est une feuille (pas de subordonnes).
+// Developer is a leaf (no subordinates).
 type Developer struct {
     name   string
     salary float64
@@ -143,7 +143,7 @@ func (d *Developer) Print(indent int) {
     fmt.Printf("%s- %s (Dev, $%.0f)\n", strings.Repeat("  ", indent), d.name, d.salary)
 }
 
-// Manager est un composite (a des subordonnes).
+// Manager is a composite (has subordinates).
 type Manager struct {
     name         string
     salary       float64
@@ -181,7 +181,7 @@ func (m *Manager) Print(indent int) {
     }
 }
 
-// GetTotalSalary calcule le salaire total recursif.
+// GetTotalSalary calculates the total salary recursively.
 func GetTotalSalary(e Employee) float64 {
     total := e.GetSalary()
     for _, sub := range e.GetSubordinates() {
@@ -191,7 +191,7 @@ func GetTotalSalary(e Employee) float64 {
 }
 
 func main() {
-    // Construire la hierarchie
+    // Build the hierarchy
     ceo := NewManager("Alice (CEO)", 200000)
 
     techVP := NewManager("Bob (VP Tech)", 150000)
@@ -209,11 +209,11 @@ func main() {
     ceo.Add(techVP)
     ceo.Add(salesVP)
 
-    // Afficher l'organisation
+    // Display the organization
     fmt.Println("Organization Chart:")
     ceo.Print(0)
 
-    // Calculer le salaire total
+    // Calculate total salary
     fmt.Printf("\nTotal Salary: $%.0f\n", GetTotalSalary(ceo))
 
     // Output:
@@ -234,70 +234,70 @@ func main() {
 
 ---
 
-## Variantes
+## Variants
 
-| Variante | Description | Cas d'usage |
-|----------|-------------|-------------|
-| Transparent | Methodes add/remove dans Component | Uniformite maximale |
-| Safe | Methodes add/remove dans Composite | Type safety |
-| Cached | Cache des calculs recursifs | Performance |
-
----
-
-## Quand utiliser
-
-- Representer des hierarchies d'objets
-- Traiter uniformement feuilles et composites
-- Operations recursives sur structures arborescentes
-- Systemes de fichiers, menus, UI, organisations
-
-## Quand NE PAS utiliser
-
-- Structures plates sans hierarchie
-- Peu de similarite entre feuilles et composites
-- Performance critique (overhead de recursion)
+| Variant | Description | Use Case |
+|----------|-------------|----------|
+| Transparent | add/remove methods in Component | Maximum uniformity |
+| Safe | add/remove methods in Composite | Type safety |
+| Cached | Cache for recursive calculations | Performance |
 
 ---
 
-## Avantages / Inconvenients
+## When to Use
 
-| Avantages | Inconvenients |
+- Represent object hierarchies
+- Treat leaves and composites uniformly
+- Recursive operations on tree structures
+- File systems, menus, UI, organizations
+
+## When NOT to Use
+
+- Flat structures without hierarchy
+- Little similarity between leaves and composites
+- Critical performance (recursion overhead)
+
+---
+
+## Advantages / Disadvantages
+
+| Advantages | Disadvantages |
 |-----------|---------------|
-| Code client simplifie | Difficile de restreindre les types |
-| Ajout facile de composants | Generalisation complique le design |
-| Structure flexible | Overhead pour petites collections |
+| Simplified client code | Difficult to restrict types |
+| Easy addition of components | Generalization complicates design |
+| Flexible structure | Overhead for small collections |
 | Open/Closed Principle | |
 
 ---
 
-## Patterns lies
+## Related Patterns
 
-| Pattern | Relation |
+| Pattern | Relationship |
 |---------|----------|
-| Decorator | Ajoute comportement, Composite structure |
-| Iterator | Parcourir les composites |
-| Visitor | Operations sur la hierarchie |
-| Flyweight | Partager les feuilles |
+| Decorator | Adds behavior, Composite structures |
+| Iterator | Traverse composites |
+| Visitor | Operations on the hierarchy |
+| Flyweight | Share leaves |
 
 ---
 
-## Implementation dans les frameworks
+## Framework Implementations
 
 | Framework/Lib | Implementation |
 |---------------|----------------|
-| html/template | Arbre de noeuds |
+| html/template | Node tree |
 | go/ast | AST (Abstract Syntax Tree) |
-| encoding/xml | Structure DOM |
+| encoding/xml | DOM structure |
 
 ---
 
-## Anti-patterns a eviter
+## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
+| Anti-pattern | Problem | Solution |
 |--------------|----------|----------|
-| Leaky abstraction | Exposer diff feuille/branche | Interface uniforme |
-| Deep nesting | Performance et complexite | Limiter la profondeur |
-| Circular references | Boucles infinies | Validation a l'ajout |
+| Leaky abstraction | Expose leaf/branch difference | Uniform interface |
+| Deep nesting | Performance and complexity | Limit depth |
+| Circular references | Infinite loops | Validation on add |
 
 ---
 
@@ -331,11 +331,11 @@ func TestManager_TotalSalary(t *testing.T) {
 }
 
 func TestComposite_Uniform(t *testing.T) {
-    // Les deux implementent Component
+    // Both implement Component
     var c1 Component = NewFile("file", 100)
     var c2 Component = NewDirectory("dir")
 
-    // Meme interface
+    // Same interface
     _ = c1.GetSize()
     _ = c2.GetSize()
 }

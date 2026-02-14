@@ -1,8 +1,8 @@
 # Attribute-Based Access Control (ABAC)
 
-> Permissions dynamiques basees sur attributs du sujet, ressource et contexte.
+> Dynamic permissions based on subject, resource, and context attributes.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -26,7 +26,7 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package abac
@@ -123,7 +123,7 @@ func NewEngine(policies []Policy) *Engine {
 	// Sort by priority (lower = higher priority)
 	sortedPolicies := make([]Policy, len(policies))
 	copy(sortedPolicies, policies)
-	
+
 	for i := 0; i < len(sortedPolicies); i++ {
 		for j := i + 1; j < len(sortedPolicies); j++ {
 			if sortedPolicies[j].Priority < sortedPolicies[i].Priority {
@@ -325,7 +325,7 @@ func (e *Engine) getEnvironmentAttribute(path []string, env Environment) interfa
 }
 ```
 
-## Policies exemples
+## Example Policies
 
 ```go
 package abac
@@ -393,7 +393,7 @@ func ExamplePolicies() []Policy {
 }
 ```
 
-## Dynamic attribute resolution
+## Dynamic Attribute Resolution
 
 ```go
 package abac
@@ -456,7 +456,7 @@ func ExampleDynamicEngine() {
 }
 ```
 
-## Middleware HTTP
+## HTTP Middleware
 
 ```go
 package middleware
@@ -518,39 +518,39 @@ func getDeviceType(r *http.Request) string {
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
-| `github.com/casbin/casbin/v2` | Policy engine flexible |
+| `github.com/casbin/casbin/v2` | Flexible policy engine |
 | `github.com/open-policy-agent/opa/rego` | OPA (Rego language) |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Policies trop complexes | Maintenance difficile | Decomposer, documenter |
-| Pas de default deny | Security hole | Toujours default deny |
-| Evaluation lente | Performance | Cache, indexation |
-| Policies contradictoires | Comportement imprevisible | Priorites claires |
-| Pas d'audit | Compliance issues | Logger toutes decisions |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Overly complex policies | Difficult maintenance | Decompose, document |
+| No default deny | Security hole | Always default deny |
+| Slow evaluation | Performance | Cache, indexing |
+| Contradicting policies | Unpredictable behavior | Clear priorities |
+| No audit | Compliance issues | Log all decisions |
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Recommande |
+| Scenario | Recommended |
 |----------|------------|
-| Permissions contextuelles | Oui |
-| Multi-tenant complexe | Oui |
-| Compliance (GDPR, HIPAA) | Oui |
-| Regles dynamiques | Oui |
-| Permissions simples | Non (RBAC suffit) |
-| Haute performance requise | Avec prudence (cache) |
+| Contextual permissions | Yes |
+| Complex multi-tenant | Yes |
+| Compliance (GDPR, HIPAA) | Yes |
+| Dynamic rules | Yes |
+| Simple permissions | No (RBAC is sufficient) |
+| High performance required | With caution (cache) |
 
-## Patterns lies
+## Related Patterns
 
-- **RBAC** : ABAC peut inclure le role comme attribut
-- **Policy-Based** : Syntaxe declarative pour policies
-- **JWT** : Transporter attributs dans claims
+- **RBAC**: ABAC can include role as an attribute
+- **Policy-Based**: Declarative syntax for policies
+- **JWT**: Transport attributes in claims
 
 ## Sources
 

@@ -4,17 +4,17 @@
 
 ## Concept
 
-La Service Layer est une couche de coordination qui definit la frontiere de l'application. Elle orchestre les operations metier sans contenir de logique metier elle-meme (celle-ci reste dans le Domain Model).
+The Service Layer is a coordination layer that defines the application's boundary. It orchestrates business operations without containing business logic itself (that remains in the Domain Model).
 
-## Responsabilites
+## Responsibilities
 
-1. **Coordination** : Orchestrer les appels entre domaine et infrastructure
-2. **Transaction** : Gerer les limites transactionnelles
-3. **Securite** : Appliquer les regles d'autorisation
-4. **DTO Conversion** : Transformer entre domaine et presentation
-5. **Facade** : Exposer une API simplifiee
+1. **Coordination**: Orchestrate calls between domain and infrastructure
+2. **Transaction**: Manage transactional boundaries
+3. **Security**: Apply authorization rules
+4. **DTO Conversion**: Transform between domain and presentation
+5. **Facade**: Expose a simplified API
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package service
@@ -349,37 +349,37 @@ func (s *PricingDomainService) CalculateDiscount(order *Order, customer *Custome
 }
 ```
 
-## Comparaison avec alternatives
+## Comparison with Alternatives
 
 | Aspect | Service Layer | Transaction Script | Facade |
 |--------|--------------|-------------------|--------|
-| Logique metier | Dans Domain Model | Dans le script | Dans le Facade |
-| Coordination | Oui | Oui | Non |
-| Transactions | Oui | Oui | Non |
-| Granularite | Use cases | Operations | Simplification |
+| Business logic | In Domain Model | In the script | In the Facade |
+| Coordination | Yes | Yes | No |
+| Transactions | Yes | Yes | No |
+| Granularity | Use cases | Operations | Simplification |
 
-## Quand utiliser
+## When to Use
 
-**Utiliser Service Layer quand :**
+**Use Service Layer when:**
 
-- Application avec Domain Model
-- Besoin de coordination transactionnelle
+- Application with Domain Model
+- Need for transactional coordination
 - Multiple clients (web, API, CLI)
-- Securite au niveau use case
-- Tests d'integration importants
+- Security at use case level
+- Important integration tests
 
-**Eviter Service Layer quand :**
+**Avoid Service Layer when:**
 
-- CRUD simple (utiliser Transaction Script)
-- Une seule interface utilisateur
-- Pas de Domain Model
+- Simple CRUD (use Transaction Script)
+- Single user interface
+- No Domain Model
 
-## Patterns liés
+## Related Patterns
 
-- [Domain Model](./domain-model.md) - Contient la logique metier orchestree par Service Layer
-- [Repository](./repository.md) - Acces aux agregats depuis Service Layer
-- [Unit of Work](./unit-of-work.md) - Gestion transactionnelle dans Service Layer
-- [DTO](./dto.md) - Objets de transfert pour les entrees/sorties
+- [Domain Model](./domain-model.md) - Contains the business logic orchestrated by Service Layer
+- [Repository](./repository.md) - Access to aggregates from Service Layer
+- [Unit of Work](./unit-of-work.md) - Transactional management in Service Layer
+- [DTO](./dto.md) - Transfer objects for inputs/outputs
 
 ## Sources
 

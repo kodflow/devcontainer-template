@@ -1,12 +1,12 @@
 # Functional Programming Patterns
 
-Patterns de programmation fonctionnelle.
+Functional programming patterns.
 
 ## Core Concepts
 
 ### 1. Pure Function
 
-> Fonction sans effets de bord, même entrée = même sortie.
+> Function without side effects, same input = same output.
 
 ```go
 // Pure - no side effects, deterministic
@@ -44,14 +44,14 @@ func CalculateWithLogging(price float64, logger Logger) float64 {
 }
 ```
 
-**Avantages :** Testable, prévisible, parallelisable.
-**Quand :** Toujours privilégier les fonctions pures.
+**Advantages:** Testable, predictable, parallelizable.
+**When:** Always prefer pure functions.
 
 ---
 
 ### 2. Immutability
 
-> Ne jamais modifier, toujours créer une nouvelle version.
+> Never modify, always create a new version.
 
 ```go
 // Mutable - BAD
@@ -104,14 +104,14 @@ func (u User) WithAge(age int) User {
 }
 ```
 
-**Avantages :** Pas de surprises, time-travel, concurrency safe.
-**Quand :** État partagé, données critiques, concurrence.
+**Advantages:** No surprises, time-travel, concurrency safe.
+**When:** Shared state, critical data, concurrency.
 
 ---
 
 ### 3. Higher-Order Functions
 
-> Fonctions qui prennent/retournent des fonctions.
+> Functions that take/return functions.
 
 ```go
 // Function that returns a function
@@ -177,14 +177,14 @@ func ProcessUsers(users []User) string {
 }
 ```
 
-**Quand :** Abstraction de comportement, callbacks, composition.
-**Lié à :** Currying, Composition.
+**When:** Behavior abstraction, callbacks, composition.
+**Related:** Currying, Composition.
 
 ---
 
 ### 4. Currying
 
-> Transformer f(a, b, c) en f(a)(b)(c).
+> Transform f(a, b, c) into f(a)(b)(c).
 
 ```go
 // Regular function
@@ -245,14 +245,14 @@ func WithLogger(l *slog.Logger) ServerOption {
 }
 ```
 
-**Quand :** Configuration partielle, composition, functional options.
-**Lié à :** Partial Application.
+**When:** Partial configuration, composition, functional options.
+**Related:** Partial Application.
 
 ---
 
 ### 5. Function Composition
 
-> Combiner des fonctions simples en complexes.
+> Combine simple functions into complex ones.
 
 ```go
 // Basic composition
@@ -332,8 +332,8 @@ validatePermissions := func(ctx context.Context, u User) (User, error) { /* ... 
 loadUserData := func(ctx context.Context, u User) (User, error) { /* ... */ }
 ```
 
-**Quand :** Pipelines de données, transformations, middleware.
-**Lié à :** Higher-Order Functions, Currying.
+**When:** Data pipelines, transformations, middleware.
+**Related:** Higher-Order Functions, Currying.
 
 ---
 
@@ -341,7 +341,7 @@ loadUserData := func(ctx context.Context, u User) (User, error) { /* ... */ }
 
 ### 6. Option/Maybe
 
-> Représenter l'absence de valeur de manière safe.
+> Represent the absence of value in a safe way.
 
 ```go
 // Option represents an optional value
@@ -425,14 +425,14 @@ email := FindUser("123").
     Email
 ```
 
-**Quand :** Valeurs potentiellement absentes, éviter null checks.
-**Lié à :** Either, Result.
+**When:** Potentially absent values, avoid null checks.
+**Related:** Either, Result.
 
 ---
 
 ### 7. Either
 
-> Représenter succès ou échec avec contexte.
+> Represent success or failure with context.
 
 ```go
 // Either represents a value that can be Left (error) or Right (success)
@@ -534,14 +534,14 @@ result := ValidateEmail("john@example.com").
     )
 ```
 
-**Quand :** Gestion d'erreurs, validation, résultats avec contexte.
-**Lié à :** Option, Result.
+**When:** Error handling, validation, results with context.
+**Related:** Option, Result.
 
 ---
 
 ### 8. Result/Try
 
-> Encapsuler les opérations qui peuvent échouer.
+> Encapsulate operations that may fail.
 
 ```go
 // Result represents the result of an operation that may fail
@@ -649,13 +649,13 @@ func TryAsync[T any](ctx context.Context, fn func() (T, error)) Result[T] {
         value T
         err   error
     }
-    
+
     ch := make(chan resultPair, 1)
     go func() {
         value, err := fn()
         ch <- resultPair{value: value, err: err}
     }()
-    
+
     select {
     case <-ctx.Done():
         return Err[T](ctx.Err())
@@ -708,8 +708,8 @@ if result.IsErr() {
 }
 ```
 
-**Quand :** Exceptions, parsing, I/O, operations risquées.
-**Lié à :** Either.
+**When:** Exceptions, parsing, I/O, risky operations.
+**Related:** Either.
 
 ---
 
@@ -717,7 +717,7 @@ if result.IsErr() {
 
 ### 9. Monad Pattern
 
-> Container avec flatMap pour chaînage.
+> Container with flatMap for chaining.
 
 ```go
 // Monad interface (not idiomatic Go, but shown for educational purposes)
@@ -834,20 +834,20 @@ func (e Effect) Run(ctx context.Context) error {
 }
 ```
 
-**Lois monadiques :**
+**Monadic laws:**
 
 1. Left identity: `of(a).flatMap(f) === f(a)`
 2. Right identity: `m.flatMap(of) === m`
 3. Associativity: `m.flatMap(f).flatMap(g) === m.flatMap(x => f(x).flatMap(g))`
 
-**Quand :** Chaînage de contextes, composition d'effets.
-**Lié à :** Option, Either, IO.
+**When:** Context chaining, effect composition.
+**Related:** Option, Either, IO.
 
 ---
 
 ### 10. Reader Monad
 
-> Injection de dépendances fonctionnelle.
+> Functional dependency injection.
 
 ```go
 // Reader represents a computation that depends on an environment
@@ -925,7 +925,7 @@ func GetUsers() Reader[Env, []User] {
     return Ask[Env]().Map(func(env Env) []User {
         rows, _ := env.DB.Query("SELECT * FROM users")
         defer rows.Close()
-        
+
         var users []User
         for rows.Next() {
             var u User
@@ -987,14 +987,14 @@ func ProcessRequest(ctx context.Context) error {
 }
 ```
 
-**Quand :** Configuration, dependency injection, environnement.
-**Lié à :** Monad, Dependency Injection.
+**When:** Configuration, dependency injection, environment.
+**Related:** Monad, Dependency Injection.
 
 ---
 
 ### 11. State Monad
 
-> Gérer l'état de manière pure.
+> Manage state in a pure way.
 
 ```go
 // State represents a stateful computation
@@ -1135,16 +1135,16 @@ func Chain[S, A, B any](f StateTransform[S, A], g func(A) StateTransform[S, B]) 
 }
 ```
 
-**Quand :** État dans contexte pur, simulations, parsers.
-**Lié à :** Monad.
+**When:** State in pure context, simulations, parsers.
+**Related:** Monad.
 
 ---
 
-## Patterns Avancés
+## Advanced Patterns
 
 ### 12. Lens
 
-> Accès et modification immutable de structures imbriquées.
+> Immutable access and modification of nested structures.
 
 ```go
 // Lens provides functional access to nested immutable data
@@ -1242,14 +1242,14 @@ func (p Person) UpdateCity(fn func(string) string) Person {
 }
 ```
 
-**Quand :** Immutabilité profonde, état complexe, updates fonctionnels.
-**Lié à :** Immutability.
+**When:** Deep immutability, complex state, functional updates.
+**Related:** Immutability.
 
 ---
 
 ### 13. Functor
 
-> Container qui supporte map.
+> Container that supports map.
 
 ```go
 // Functor interface
@@ -1341,19 +1341,19 @@ func MapIter[T any](seq iter.Seq[T], fn func(T) T) iter.Seq[T] {
 }
 ```
 
-**Lois :**
+**Laws:**
 
 1. Identity: `f.map(x => x) === f`
 2. Composition: `f.map(g).map(h) === f.map(x => h(g(x)))`
 
-**Quand :** Transformation de valeurs dans contexte.
-**Lié à :** Monad, Applicative.
+**When:** Value transformation within context.
+**Related:** Monad, Applicative.
 
 ---
 
 ### 14. Applicative
 
-> Functor avec application dans contexte.
+> Functor with application in context.
 
 ```go
 // Applicative extends Functor with the ability to apply wrapped functions
@@ -1383,7 +1383,7 @@ func (a ApplicativeOption[T]) Apply(fn ApplicativeOption[func(T) T]) Applicative
     if fn.value.IsNone() || a.value.IsNone() {
         return ApplicativeOption[T]{value: None[T]()}
     }
-    
+
     f := fn.value.Unwrap()
     return ApplicativeOption[T]{value: NewSome(f(a.value.Unwrap()))}
 }
@@ -1399,17 +1399,17 @@ func LiftA2[A, B, C any](
     mapped := fa.Map(func(a A) func(B) C {
         return fn(a)
     })
-    
+
     // Convert to applicative function
     if mapped.value.IsNone() {
         return ApplicativeOption[C]{value: None[C]()}
     }
-    
+
     fnWrapped := mapped.value.Unwrap()
     if fb.value.IsNone() {
         return ApplicativeOption[C]{value: None[C]()}
     }
-    
+
     return ApplicativeOption[C]{value: NewSome(fnWrapped(fb.value.Unwrap()))}
 }
 
@@ -1435,19 +1435,19 @@ type ValidationResult[T any] struct {
 func ValidateForm(name, email string) ValidationResult[ValidUser] {
     var errors []string
     var user ValidUser
-    
+
     if len(name) < 3 {
         errors = append(errors, "name too short")
     } else {
         user.Name = name
     }
-    
+
     if !strings.Contains(email, "@") {
         errors = append(errors, "invalid email")
     } else {
         user.Email = email
     }
-    
+
     return ValidationResult[ValidUser]{
         value:  user,
         errors: errors,
@@ -1458,39 +1458,39 @@ func ValidateForm(name, email string) ValidationResult[ValidUser] {
 func ValidateFormConcurrent(ctx context.Context, name, email string) (*ValidUser, error) {
     var g errgroup.Group
     var nameErr, emailErr error
-    
+
     g.Go(func() error {
         if len(name) < 3 {
             nameErr = errors.New("name too short")
         }
         return nil
     })
-    
+
     g.Go(func() error {
         if !strings.Contains(email, "@") {
             emailErr = errors.New("invalid email")
         }
         return nil
     })
-    
+
     g.Wait()
-    
+
     if nameErr != nil || emailErr != nil {
         return nil, errors.Join(nameErr, emailErr)
     }
-    
+
     return &ValidUser{Name: name, Email: email}, nil
 }
 ```
 
-**Quand :** Combiner plusieurs contextes, validation parallèle.
-**Lié à :** Functor, Monad.
+**When:** Combining multiple contexts, parallel validation.
+**Related:** Functor, Monad.
 
 ---
 
 ### 15. Transducer
 
-> Composition de transformations réutilisables.
+> Composition of reusable transformations.
 
 ```go
 // Reducer combines an accumulator with a value
@@ -1552,7 +1552,7 @@ func Transduce[A, B any](
         slice := acc.([]B)
         return append(slice, value)
     })
-    
+
     var acc any = initial
     for _, item := range collection {
         acc = xf(acc, item)
@@ -1663,26 +1663,26 @@ func FilterSeq[T any](seq iter.Seq[T], predicate func(T) bool) iter.Seq[T] {
 }
 ```
 
-**Quand :** Pipelines efficaces, streams, collections infinies.
-**Lié à :** Composition, Iterator.
+**When:** Efficient pipelines, streams, infinite collections.
+**Related:** Composition, Iterator.
 
 ---
 
-## Tableau de décision
+## Decision Table
 
-| Besoin | Pattern |
+| Need | Pattern |
 |--------|---------|
-| Éviter null | Option/Maybe |
-| Succès ou erreur | Either/Result |
-| Chaîner contextes | Monad |
+| Avoid null | Option/Maybe |
+| Success or error | Either/Result |
+| Chain contexts | Monad |
 | Dependency injection | Reader, Context |
-| État pur | State |
-| Modification imbriquée | Lens |
-| Transformer dans contexte | Functor |
-| Combiner contextes | Applicative |
-| Pipelines efficaces | Transducer, Channels |
-| Configuration partielle | Currying, Functional Options |
-| Combiner fonctions | Composition |
+| Pure state | State |
+| Nested modification | Lens |
+| Transform in context | Functor |
+| Combine contexts | Applicative |
+| Efficient pipelines | Transducer, Channels |
+| Partial configuration | Currying, Functional Options |
+| Combine functions | Composition |
 
 ## Sources
 

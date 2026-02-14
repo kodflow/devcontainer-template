@@ -1,10 +1,10 @@
 # CQRS - Command Query Responsibility Segregation
 
-> Séparer les modèles de lecture et d'écriture.
+> Separate read and write models.
 
-**Auteur :** Greg Young (basé sur CQS de Bertrand Meyer)
+**Author:** Greg Young (based on CQS by Bertrand Meyer)
 
-## Principe
+## Principle
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -26,9 +26,9 @@
             └───────────────────┘  └───────────────────┘
 ```
 
-## Niveaux de CQRS
+## CQRS Levels
 
-### Niveau 1 : Séparation logique
+### Level 1: Logical Separation
 
 ```go
 package service
@@ -120,7 +120,7 @@ func (s *UserQueryService) Search(ctx context.Context, criteria SearchCriteria) 
 }
 ```
 
-### Niveau 2 : Bases séparées
+### Level 2: Separate Databases
 
 ```go
 package handler
@@ -174,13 +174,13 @@ func (p *UserProjection) OnUserCreated(ctx context.Context, event UserCreatedEve
 }
 ```
 
-### Niveau 3 : Avec Event Sourcing
+### Level 3: With Event Sourcing
 
 ```text
 Commands → Event Store → Projections → Read Models
 ```
 
-## Exemple complet
+## Complete Example
 
 ### Command
 
@@ -349,35 +349,35 @@ func calculateTotal(items []OrderItem) float64 {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-| ✅ Utiliser | ❌ Éviter |
-|-------------|-----------|
-| Lecture >> Écriture | CRUD simple |
-| Vues complexes | Données temps réel strict |
-| Scalabilité lecture | Équipe petite |
-| Domaine complexe | Prototype/MVP |
+| ✅ Use | ❌ Avoid |
+|--------|----------|
+| Reads >> Writes | Simple CRUD |
+| Complex views | Strict real-time data |
+| Read scalability | Small team |
+| Complex domain | Prototype/MVP |
 
-## Avantages
+## Advantages
 
-- **Performance** : Read model optimisé
-- **Scalabilité** : Scale lecture indépendamment
-- **Simplicité** : Modèles spécialisés
-- **Flexibilité** : Vues multiples
+- **Performance**: Optimized read model
+- **Scalability**: Scale reads independently
+- **Simplicity**: Specialized models
+- **Flexibility**: Multiple views
 
-## Inconvénients
+## Disadvantages
 
-- **Complexité** : Plus de code
-- **Eventual Consistency** : Sync asynchrone
-- **Debugging** : Plus difficile à suivre
+- **Complexity**: More code
+- **Eventual Consistency**: Asynchronous sync
+- **Debugging**: Harder to follow
 
-## Patterns liés
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Event Sourcing | Souvent utilisé ensemble |
-| Saga | Transactions distribuées |
-| Mediator | Pour router commands/queries |
+| Event Sourcing | Often used together |
+| Saga | Distributed transactions |
+| Mediator | For routing commands/queries |
 
 ## Sources
 

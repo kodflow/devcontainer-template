@@ -1,18 +1,18 @@
 # Branch by Abstraction
 
-Pattern pour remplacer progressivement une implémentation par une autre sans branches Git longues.
+Pattern for progressively replacing one implementation with another without long-lived Git branches.
 
 ---
 
-## Qu'est-ce que Branch by Abstraction ?
+## What is Branch by Abstraction?
 
-> Technique de refactoring permettant de faire des changements majeurs sur trunk/main de manière incrémentale et sûre.
+> Refactoring technique that allows making major changes on trunk/main incrementally and safely.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Branch by Abstraction                     │
 │                                                              │
-│  1. Créer abstraction    2. Migrer clients    3. Supprimer  │
+│  1. Create abstraction    2. Migrate clients    3. Remove   │
 │                                                              │
 │  ┌─────┐                 ┌─────┐              ┌─────┐       │
 │  │Old  │ ──abstract──►   │Old  │    ──►       │     │       │
@@ -26,50 +26,50 @@ Pattern pour remplacer progressivement une implémentation par une autre sans br
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Éviter les branches Git longues (merge hell)
-- Déployer continuellement sur main
-- Rollback facile à tout moment
-- Travail en parallèle possible
+- Avoid long-lived Git branches (merge hell)
+- Deploy continuously on main
+- Easy rollback at any time
+- Parallel work possible
 
 ---
 
-## Le Problème : Feature Branches Longues
+## The Problem: Long-lived Feature Branches
 
 ```
-❌ MAUVAIS - Feature branch pendant des mois
+❌ BAD - Feature branch for months
 
 main:     A──B──C──D──E──F──G──H──I──J──K──L──M──N──O
                \                                  /
 feature:        X──Y──Z──W──V──U──T──S──R──Q──P──┘
 
-Problèmes:
-- Merge conflicts énormes
-- Intégration retardée
-- Tests d'intégration tardifs
-- Code review massive
+Problems:
+- Huge merge conflicts
+- Delayed integration
+- Late integration tests
+- Massive code review
 ```
 
 ```
-✅ BON - Branch by Abstraction
+✅ GOOD - Branch by Abstraction
 
 main:     A──B──C──D──E──F──G──H──I──J──K──L──M
               │  │  │  │  │  │  │  │  │  │  │
               │  └──┴──┴──┴──┴──┴──┴──┴──┴──┘
-              │     Petits commits progressifs
+              │     Small progressive commits
               │
-              └── Abstraction créée
+              └── Abstraction created
 ```
 
 ---
 
-## Étapes du Pattern
+## Pattern Steps
 
-### Étape 1 : Créer l'abstraction
+### Step 1: Create the abstraction
 
 ```go
-// AVANT - Couplage direct
+// BEFORE - Direct coupling
 type OrderService struct {
 	paymentProcessor *StripeProcessor
 }
@@ -78,13 +78,13 @@ func (s *OrderService) ProcessPayment(ctx context.Context, order *Order) (*Payme
 	return s.paymentProcessor.Charge(ctx, order.Total)
 }
 
-// APRÈS Étape 1 - Interface créée
+// AFTER Step 1 - Interface created
 type PaymentProcessor interface {
 	Charge(ctx context.Context, amount Money) (*PaymentResult, error)
 	Refund(ctx context.Context, transactionID string) error
 }
 
-// L'ancienne implémentation implémente l'interface
+// The old implementation implements the interface
 type StripeProcessor struct {
 	client *stripe.Client
 }
@@ -99,7 +99,7 @@ func (p *StripeProcessor) Refund(ctx context.Context, transactionID string) erro
 	return nil
 }
 
-// Service avec injection de dépendance
+// Service with dependency injection
 type OrderService struct {
 	processor PaymentProcessor
 }
@@ -115,14 +115,14 @@ func (s *OrderService) ProcessPayment(ctx context.Context, order *Order) (*Payme
 }
 ```
 
-**Commit 1 :** "Add PaymentProcessor interface" (pas de changement fonctionnel)
+**Commit 1:** "Add PaymentProcessor interface" (no functional change)
 
 ---
 
-### Étape 2 : Créer la nouvelle implémentation
+### Step 2: Create the new implementation
 
 ```go
-// Nouvelle implémentation (peut être incomplète)
+// New implementation (may be incomplete)
 type AdyenProcessor struct {
 	client *adyen.Client
 }
@@ -134,7 +134,7 @@ func NewAdyenProcessor(client *adyen.Client) *AdyenProcessor {
 }
 
 func (p *AdyenProcessor) Charge(ctx context.Context, amount Money) (*PaymentResult, error) {
-	// Nouvelle implémentation
+	// New implementation
 	result, err := p.client.AuthorizePayment(ctx, &adyen.PaymentRequest{
 		Amount:   amount.Cents,
 		Currency: amount.Currency,
@@ -154,14 +154,14 @@ func (p *AdyenProcessor) Refund(ctx context.Context, transactionID string) error
 }
 ```
 
-**Commit 2 :** "Add AdyenProcessor implementation (WIP)"
+**Commit 2:** "Add AdyenProcessor implementation (WIP)"
 
 ---
 
-### Étape 3 : Router vers la nouvelle implémentation
+### Step 3: Route to the new implementation
 
 ```go
-// Feature toggle pour router
+// Feature toggle for routing
 type PaymentProcessorFactory struct {
 	features FeatureFlags
 }
@@ -173,14 +173,14 @@ func NewPaymentProcessorFactory(features FeatureFlags) *PaymentProcessorFactory 
 }
 
 func (f *PaymentProcessorFactory) Create(ctx context.Context, context PaymentContext) PaymentProcessor {
-	// Toggle progressif
+	// Progressive toggle
 	if f.features.IsEnabled(ctx, "adyen-payments", context) {
 		return NewAdyenProcessor(adyen.NewClient())
 	}
 	return NewStripeProcessor(stripe.NewClient())
 }
 
-// Ou migration par méthode
+// Or per-method migration
 type HybridProcessor struct {
 	legacy   *StripeProcessor
 	modern   *AdyenProcessor
@@ -196,7 +196,7 @@ func NewHybridProcessor(legacy *StripeProcessor, modern *AdyenProcessor, feature
 }
 
 func (p *HybridProcessor) Charge(ctx context.Context, amount Money) (*PaymentResult, error) {
-	// Nouvelle implémentation pour charge
+	// New implementation for charge
 	if p.features.IsEnabled(ctx, "adyen-charge", nil) {
 		return p.modern.Charge(ctx, amount)
 	}
@@ -204,46 +204,46 @@ func (p *HybridProcessor) Charge(ctx context.Context, amount Money) (*PaymentRes
 }
 
 func (p *HybridProcessor) Refund(ctx context.Context, transactionID string) error {
-	// Encore l'ancienne pour refund
+	// Still the old one for refund
 	return p.legacy.Refund(ctx, transactionID)
 }
 ```
 
-**Commit 3 :** "Add feature toggle for AdyenProcessor"
-**Commit 4 :** "Enable Adyen for 1% of traffic"
-**Commit 5 :** "Enable Adyen for 10% of traffic"
+**Commit 3:** "Add feature toggle for AdyenProcessor"
+**Commit 4:** "Enable Adyen for 1% of traffic"
+**Commit 5:** "Enable Adyen for 10% of traffic"
 ...
-**Commit N :** "Enable Adyen for 100% of traffic"
+**Commit N:** "Enable Adyen for 100% of traffic"
 
 ---
 
-### Étape 4 : Supprimer l'ancienne implémentation
+### Step 4: Remove the old implementation
 
 ```go
-// Une fois la migration complète et stable
+// Once the migration is complete and stable
 
-// Supprimer:
+// Remove:
 // - StripeProcessor struct
 // - Feature toggles
-// - Code de routing
+// - Routing code
 
-// Garder:
-// - Interface PaymentProcessor (pour futures migrations)
-// - AdyenProcessor (maintenant la seule implémentation)
+// Keep:
+// - PaymentProcessor interface (for future migrations)
+// - AdyenProcessor (now the only implementation)
 ```
 
-**Commit final :** "Remove StripeProcessor (migration complete)"
+**Final commit:** "Remove StripeProcessor (migration complete)"
 
 ---
 
-## Variantes
+## Variants
 
 ### Strangler Fig Pattern
 
-> Étrangler progressivement l'ancien système.
+> Progressively strangle the old system.
 
 ```go
-// Pour migrer un monolithe vers microservices
+// To migrate a monolith to microservices
 
 type OrderFacade struct {
 	legacyService *LegacyOrderService
@@ -264,7 +264,7 @@ func NewOrderFacade(
 }
 
 func (f *OrderFacade) CreateOrder(ctx context.Context, data *OrderData) (*Order, error) {
-	// Route vers le nouveau service progressivement
+	// Route to the new service progressively
 	if f.shouldUseNewService(ctx, data) {
 		return f.newService.Create(ctx, data)
 	}
@@ -272,16 +272,16 @@ func (f *OrderFacade) CreateOrder(ctx context.Context, data *OrderData) (*Order,
 }
 
 func (f *OrderFacade) shouldUseNewService(ctx context.Context, data *OrderData) bool {
-	// Critères de migration
-	return data.Region == "EU" && // Europe d'abord
-		data.Total.Amount < 10000 && // Petites commandes
+	// Migration criteria
+	return data.Region == "EU" && // Europe first
+		data.Total.Amount < 10000 && // Small orders
 		f.features.IsEnabled(ctx, "new-order-service", data)
 }
 ```
 
 ### Parallel Run
 
-> Exécuter les deux implémentations et comparer.
+> Run both implementations and compare.
 
 ```go
 type ParallelPaymentProcessor struct {
@@ -311,11 +311,11 @@ func (p *ParallelPaymentProcessor) Charge(ctx context.Context, amount Money) (*P
 		err error
 	}
 
-	// Canaux pour recevoir les résultats
+	// Channels to receive results
 	primaryCh := make(chan result, 1)
 	shadowCh := make(chan result, 1)
 
-	// Exécuter en parallèle
+	// Run in parallel
 	go func() {
 		val, err := p.primary.Charge(ctx, amount)
 		primaryCh <- result{val: val, err: err}
@@ -326,18 +326,18 @@ func (p *ParallelPaymentProcessor) Charge(ctx context.Context, amount Money) (*P
 		shadowCh <- result{val: val, err: err}
 	}()
 
-	// Attendre les résultats
+	// Wait for results
 	primaryResult := <-primaryCh
 	shadowResult := <-shadowCh
 
-	// Comparer (async, non-bloquant)
+	// Compare (async, non-blocking)
 	go func() {
 		if err := p.comparator.Compare(ctx, primaryResult, shadowResult); err != nil {
 			p.logger.WarnContext(ctx, "Shadow comparison failed", "error", err)
 		}
 	}()
 
-	// Retourner seulement le résultat primary
+	// Return only the primary result
 	if primaryResult.err != nil {
 		return nil, primaryResult.err
 	}
@@ -351,7 +351,7 @@ func (p *ParallelPaymentProcessor) Refund(ctx context.Context, transactionID str
 
 ### Dark Launch
 
-> Nouvelle implémentation activée mais résultat ignoré.
+> New implementation activated but result ignored.
 
 ```go
 type DarkLaunchProcessor struct {
@@ -376,10 +376,10 @@ func NewDarkLaunchProcessor(
 }
 
 func (p *DarkLaunchProcessor) Charge(ctx context.Context, amount Money) (*PaymentResult, error) {
-	// Toujours utiliser legacy pour le résultat réel
+	// Always use legacy for the actual result
 	result, err := p.legacy.Charge(ctx, amount)
 
-	// Tester le nouveau en arrière-plan
+	// Test the new one in the background
 	go func() {
 		modernResult, modernErr := p.modern.Charge(ctx, amount)
 		if modernErr != nil {
@@ -416,19 +416,19 @@ func (p *DarkLaunchProcessor) resultsMatch(a, b *PaymentResult) bool {
 
 ---
 
-## Exemple complet : Migration de base de données
+## Complete Example: Database Migration
 
 ```go
-// Migration de MySQL vers PostgreSQL
+// Migration from MySQL to PostgreSQL
 
-// Étape 1: Abstraction
+// Step 1: Abstraction
 type UserRepository interface {
 	FindByID(ctx context.Context, id string) (*User, error)
 	Save(ctx context.Context, user *User) error
 	FindByEmail(ctx context.Context, email string) (*User, error)
 }
 
-// Étape 2: Implémentations
+// Step 2: Implementations
 type MySQLUserRepository struct {
 	db *sql.DB
 }
@@ -438,7 +438,7 @@ func NewMySQLUserRepository(db *sql.DB) *MySQLUserRepository {
 }
 
 func (r *MySQLUserRepository) FindByID(ctx context.Context, id string) (*User, error) {
-	// Implémentation existante MySQL
+	// Existing MySQL implementation
 	var user User
 	err := r.db.QueryRowContext(ctx, "SELECT * FROM users WHERE id = ?", id).Scan(&user)
 	if err != nil {
@@ -472,7 +472,7 @@ func NewPostgresUserRepository(db *sql.DB) *PostgresUserRepository {
 }
 
 func (r *PostgresUserRepository) FindByID(ctx context.Context, id string) (*User, error) {
-	// Nouvelle implémentation Postgres
+	// New Postgres implementation
 	var user User
 	err := r.db.QueryRowContext(ctx, "SELECT * FROM users WHERE id = $1", id).Scan(&user)
 	if err != nil {
@@ -497,7 +497,7 @@ func (r *PostgresUserRepository) FindByEmail(ctx context.Context, email string) 
 	return nil, nil
 }
 
-// Étape 3: Double-write pour migration
+// Step 3: Double-write for migration
 type MigratingUserRepository struct {
 	mysql          *MySQLUserRepository
 	postgres       *PostgresUserRepository
@@ -520,7 +520,7 @@ func NewMigratingUserRepository(
 }
 
 func (r *MigratingUserRepository) Save(ctx context.Context, user *User) error {
-	// Écrire dans les deux
+	// Write to both
 	var wg sync.WaitGroup
 	errCh := make(chan error, 2)
 
@@ -539,7 +539,7 @@ func (r *MigratingUserRepository) Save(ctx context.Context, user *User) error {
 	wg.Wait()
 	close(errCh)
 
-	// Retourner la première erreur si présente
+	// Return the first error if present
 	for err := range errCh {
 		if err != nil {
 			return err
@@ -549,12 +549,12 @@ func (r *MigratingUserRepository) Save(ctx context.Context, user *User) error {
 }
 
 func (r *MigratingUserRepository) FindByID(ctx context.Context, id string) (*User, error) {
-	// Lire du primary selon l'état de migration
+	// Read from primary based on migration state
 	if r.migrationState.IsComplete() {
 		return r.postgres.FindByID(ctx, id)
 	}
 
-	// Pendant migration: lire de MySQL, vérifier Postgres
+	// During migration: read from MySQL, verify Postgres
 	mysqlUser, err := r.mysql.FindByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("mysql find: %w", err)
@@ -567,7 +567,7 @@ func (r *MigratingUserRepository) FindByID(ctx context.Context, id string) (*Use
 
 	if !r.usersMatch(mysqlUser, postgresUser) {
 		r.logger.WarnContext(ctx, "Data mismatch during migration", "id", id)
-		// Self-heal: copier de MySQL vers Postgres
+		// Self-heal: copy from MySQL to Postgres
 		if mysqlUser != nil {
 			if err := r.postgres.Save(ctx, mysqlUser); err != nil {
 				r.logger.ErrorContext(ctx, "Failed to heal data", "error", err)
@@ -575,7 +575,7 @@ func (r *MigratingUserRepository) FindByID(ctx context.Context, id string) (*Use
 		}
 	}
 
-	return mysqlUser, nil // MySQL reste primary pendant migration
+	return mysqlUser, nil // MySQL remains primary during migration
 }
 
 func (r *MigratingUserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
@@ -593,7 +593,7 @@ func (r *MigratingUserRepository) usersMatch(a, b *User) bool {
 	return a.ID == b.ID && a.Email == b.Email
 }
 
-// Étape 4: Cutover progressif
+// Step 4: Progressive cutover
 type MigrationState struct {
 	mu               sync.RWMutex
 	readFromPostgres int // 0-100%
@@ -615,7 +615,7 @@ func (m *MigrationState) ShouldReadFromPostgres(userID string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	// Canary basé sur hash du userID
+	// Canary based on userID hash
 	hash := m.hashCode(userID)
 	return (hash % 100) < m.readFromPostgres
 }
@@ -640,54 +640,54 @@ func (m *MigrationState) hashCode(s string) int {
 }
 
 func (m *MigrationState) persist() error {
-	// Persister l'état dans une config
+	// Persist state in config
 	return nil
 }
 ```
 
 ---
 
-## Tableau de décision
+## Decision Table
 
-| Situation | Approche |
+| Situation | Approach |
 |-----------|----------|
-| Refactoring interne simple | Git branch + PR |
-| Migration API/Service | Branch by Abstraction |
-| Migration base de données | Double-write + Parallel Run |
-| Remplacement dépendance | Strangler Fig |
-| Test nouvelle implémentation | Dark Launch |
-| Rollout progressif | Feature Toggle + Canary |
+| Simple internal refactoring | Git branch + PR |
+| API/Service migration | Branch by Abstraction |
+| Database migration | Double-write + Parallel Run |
+| Dependency replacement | Strangler Fig |
+| Testing new implementation | Dark Launch |
+| Progressive rollout | Feature Toggle + Canary |
 
 ---
 
-## Patterns connexes
+## Related Patterns
 
-| Pattern | Relation |
-|---------|----------|
-| **Feature Toggles** | Mécanisme de routing |
-| **Adapter** | Interface commune |
-| **Strategy** | Interchangeabilité |
-| **Strangler Fig** | Variante pour legacy |
-| **Parallel Run** | Validation de migration |
+| Pattern | Relationship |
+|---------|--------------|
+| **Feature Toggles** | Routing mechanism |
+| **Adapter** | Common interface |
+| **Strategy** | Interchangeability |
+| **Strangler Fig** | Variant for legacy |
+| **Parallel Run** | Migration validation |
 
 ---
 
-## Avantages vs Inconvénients
+## Advantages vs Disadvantages
 
-### Avantages
+### Advantages
 
-- Intégration continue (pas de merge hell)
-- Rollback instantané (toggle off)
-- Code review incrémentales
-- Tests d'intégration continus
-- Déploiement à tout moment
+- Continuous integration (no merge hell)
+- Instant rollback (toggle off)
+- Incremental code reviews
+- Continuous integration tests
+- Deployment at any time
 
-### Inconvénients
+### Disadvantages
 
-- Code temporairement plus complexe
-- Toggle debt si pas nettoyé
-- Besoin de discipline d'équipe
-- Monitoring plus complexe
+- Temporarily more complex code
+- Toggle debt if not cleaned up
+- Requires team discipline
+- More complex monitoring
 
 ---
 

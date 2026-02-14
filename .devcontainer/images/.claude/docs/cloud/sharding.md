@@ -1,22 +1,22 @@
 # Sharding Pattern
 
-> Partitionner horizontalement les donnees pour scalabilite et performance.
+> Horizontally partition data for scalability and performance.
 
-## Principe
+## Principle
 
 ```
                     ┌─────────────────────────────────────────────┐
                     │                  SHARDING                    │
                     └─────────────────────────────────────────────┘
 
-  AVANT (Single Node):
+  BEFORE (Single Node):
   ┌─────────────────────────────────────────────────────────────┐
   │                        DATABASE                              │
   │  Users: 10M rows | Orders: 50M rows | Products: 1M rows     │
-  │  [Performance degradee, SPOF, limite verticale]             │
+  │  [Degraded performance, SPOF, vertical limit]               │
   └─────────────────────────────────────────────────────────────┘
 
-  APRES (Sharded):
+  AFTER (Sharded):
                          ┌─────────────┐
                          │   Router    │
                          │ (Shard Key) │
@@ -32,34 +32,34 @@
   └─────────────┘       └─────────────┘       └─────────────┘
 ```
 
-## Strategies de partitionnement
+## Partitioning Strategies
 
 ```
-1. RANGE SHARDING (par plage)
+1. RANGE SHARDING (by range)
    ┌─────────┐ ┌─────────┐ ┌─────────┐
    │ 0-999   │ │1000-1999│ │2000-2999│
    └─────────┘ └─────────┘ └─────────┘
-   + Simple a implementer
-   - Hotspots possibles (dernieres IDs)
+   + Simple to implement
+   - Possible hotspots (latest IDs)
 
-2. HASH SHARDING (par hash)
+2. HASH SHARDING (by hash)
    shard = hash(user_id) % num_shards
    ┌─────────┐ ┌─────────┐ ┌─────────┐
    │ hash%3=0│ │ hash%3=1│ │ hash%3=2│
    └─────────┘ └─────────┘ └─────────┘
-   + Distribution uniforme
-   - Resharding complexe
+   + Uniform distribution
+   - Complex resharding
 
 3. DIRECTORY SHARDING (lookup table)
    ┌──────────┐
    │ Lookup   │ user_123 -> shard_2
    │ Service  │ user_456 -> shard_1
    └──────────┘
-   + Flexibilite totale
-   - SPOF potentiel, latence
+   + Total flexibility
+   - Potential SPOF, latency
 ```
 
-## Exemple Go
+## Go Example
 
 ```go
 package sharding
@@ -200,40 +200,40 @@ func (sur *ShardedUserRepository) getConnection(shard ShardConfig) (Database, er
 ## Consistent Hashing
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Choix de Shard Key
+## Shard Key Selection
 
-| Critere | Bonne shard key | Mauvaise shard key |
-|---------|-----------------|-------------------|
-| Cardinalite | user_id (unique) | country (peu de valeurs) |
+| Criteria | Good shard key | Bad shard key |
+|----------|----------------|---------------|
+| Cardinality | user_id (unique) | country (few values) |
 | Distribution | UUID, hash | timestamp (hotspot) |
-| Requetes | Incluent shard key | Cross-shard joins |
-| Croissance | Uniforme | Un shard grandit plus |
+| Queries | Include shard key | Cross-shard joins |
+| Growth | Uniform | One shard grows more |
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
-|-----------|------------|
-| > 1TB de donnees | Oui |
-| Limites verticales atteintes | Oui |
-| Read/write throughput eleve | Oui |
-| Donnees partitionnables naturellement | Oui |
-| Beaucoup de cross-shard queries | Non |
-| Transactions ACID requises | Non (ou avec precaution) |
+| Situation | Recommended |
+|-----------|-------------|
+| > 1TB of data | Yes |
+| Vertical limits reached | Yes |
+| High read/write throughput | Yes |
+| Naturally partitionable data | Yes |
+| Many cross-shard queries | No |
+| ACID transactions required | No (or with caution) |
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| CQRS | Read replicas par shard |
-| Event Sourcing | Partitionnement par aggregate |
-| Materialized View | Vues cross-shard |
-| Leader Election | Coordination inter-shards |
+| CQRS | Read replicas per shard |
+| Event Sourcing | Partitioning by aggregate |
+| Materialized View | Cross-shard views |
+| Leader Election | Inter-shard coordination |
 
 ## Sources
 

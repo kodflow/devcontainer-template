@@ -1,8 +1,8 @@
 # Contract Testing
 
-> Verification des contrats API entre services via tests consumer-driven.
+> Verification of API contracts between services via consumer-driven tests.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -223,7 +223,7 @@ func TestProviderContract(t *testing.T) {
 	err := verifier.VerifyProvider(t, provider.VerifyRequest{
 		Provider:                   "UserService",
 		ProviderBaseURL:            "http://localhost:3000",
-		
+
 		// From Pact Broker
 		BrokerURL:                  getEnv("PACT_BROKER_URL", ""),
 		BrokerToken:                getEnv("PACT_BROKER_TOKEN", ""),
@@ -431,7 +431,7 @@ func TestAPIResponseMatchesSchema(t *testing.T) {
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
@@ -439,31 +439,31 @@ func TestAPIResponseMatchesSchema(t *testing.T) {
 | `github.com/xeipuuv/gojsonschema` | JSON Schema validation |
 | `github.com/getkin/kin-openapi` | OpenAPI validation |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Matchers trop stricts | Tests fragiles | Like(), Regex() matchers |
-| Pas de state handlers | Provider verification echoue | Implementer tous les states |
-| Oublier can-i-deploy | Deploy breaking changes | CI gate obligatoire |
-| Pacts non publies | Provider ne les voit pas | Publish en CI |
-| State non isole | Tests flaky | Reset DB entre states |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Too strict matchers | Fragile tests | Like(), Regex() matchers |
+| No state handlers | Provider verification fails | Implement all states |
+| Forgetting can-i-deploy | Deploy breaking changes | Mandatory CI gate |
+| Pacts not published | Provider cannot see them | Publish in CI |
+| Non-isolated state | Flaky tests | Reset DB between states |
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Recommande |
+| Scenario | Recommended |
 |----------|------------|
-| Microservices | Oui |
-| API publique | Oui |
-| Frontend/Backend separes | Oui |
-| Monolithe | Non necessaire |
-| Prototypage rapide | Trop overhead |
+| Microservices | Yes |
+| Public API | Yes |
+| Separate Frontend/Backend | Yes |
+| Monolith | Not necessary |
+| Rapid prototyping | Too much overhead |
 
-## Patterns lies
+## Related Patterns
 
-- **Test Doubles** : Mocks complementaires
-- **Integration Tests** : Verification end-to-end
-- **API Versioning** : Gestion changements contrats
+- **Test Doubles**: Complementary mocks
+- **Integration Tests**: End-to-end verification
+- **API Versioning**: Contract change management
 
 ## Sources
 

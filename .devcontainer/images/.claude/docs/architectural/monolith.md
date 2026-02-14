@@ -1,8 +1,8 @@
 # Monolithic Architecture
 
-> Une application unique contenant toute la logique métier.
+> A single application containing all the business logic.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -23,24 +23,24 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Types de Monolith
+## Monolith Types
 
-### 1. Monolith classique (à éviter)
+### 1. Classic Monolith (to avoid)
 
 ```
-❌ Big Ball of Mud
+Big Ball of Mud
 ┌─────────────────────────────────────┐
-│  Code spaghetti, pas de structure   │
-│  Tout dépend de tout               │
+│  Spaghetti code, no structure       │
+│  Everything depends on everything   │
 └─────────────────────────────────────┘
 ```
 
-### 2. Monolith modulaire (recommandé)
+### 2. Modular Monolith (recommended)
 
 ```
-✅ Bien structuré
+Well structured
 ┌─────────────────────────────────────────────────────────────┐
-│                     MONOLITH MODULAIRE                       │
+│                     MODULAR MONOLITH                         │
 │                                                              │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
 │  │    Users    │  │   Orders    │  │  Products   │          │
@@ -53,11 +53,11 @@
 │  │  └───────┘  │  │  └───────┘  │  │  └───────┘  │          │
 │  └─────────────┘  └─────────────┘  └─────────────┘          │
 │        │                │                │                   │
-│        └────── API publiques entre modules ──────┘          │
+│        └────── Public APIs between modules ──────┘          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Structure recommandée
+## Recommended Structure
 
 ```
 src/
@@ -70,7 +70,7 @@ src/
 │   │   │   └── UserController.go
 │   │   ├── infra/
 │   │   │   └── UserRepository.go
-│   │   └── module.go          # API publique du module
+│   │   └── module.go          # Module public API
 │   │
 │   ├── orders/
 │   │   ├── domain/
@@ -81,22 +81,22 @@ src/
 │   └── products/
 │       └── ...
 │
-├── shared/                    # Code vraiment partagé
+├── shared/                    # Truly shared code
 │   ├── database/
 │   └── utils/
 │
 └── main.go
 ```
 
-## Règles du Monolith Modulaire
+## Modular Monolith Rules
 
-### 1. Encapsulation des modules
+### 1. Module Encapsulation
 
 ```go
-// ❌ Direct access to internals
+// Direct access to internals
 // import "app/modules/users/infra"
 
-// ✅ Use public API
+// Use public API
 import "app/modules/users"
 
 func main() {
@@ -107,7 +107,7 @@ func main() {
 }
 ```
 
-### 2. Communication par interfaces
+### 2. Communication Through Interfaces
 
 ```go
 package users
@@ -140,49 +140,49 @@ func (m *userModule) CreateUser(ctx context.Context, data CreateUserDTO) (*User,
 }
 ```
 
-### 3. Base de données par schéma
+### 3. Database Per Schema
 
 ```sql
--- Schémas séparés par module
+-- Separate schemas per module
 CREATE SCHEMA users;
 CREATE SCHEMA orders;
 CREATE SCHEMA products;
 
--- Chaque module accède uniquement à son schéma
+-- Each module only accesses its own schema
 ```
 
-## Quand utiliser
+## When to Use
 
-| ✅ Utiliser | ❌ Éviter |
+| Use | Avoid |
 |-------------|-----------|
-| Startup / MVP | Équipe > 20 devs |
-| Équipe < 10 personnes | Besoins de scale différents |
-| Domaine pas encore clair | Bounded contexts évidents |
-| Besoin de vitesse | Équipes autonomes requises |
-| Budget infra limité | Haute disponibilité critique |
+| Startup / MVP | Team > 20 devs |
+| Team < 10 people | Different scale needs |
+| Domain not yet clear | Obvious bounded contexts |
+| Need for speed | Autonomous teams required |
+| Limited infra budget | Critical high availability |
 
-## Avantages
+## Advantages
 
-- **Simplicité** : Un seul déploiement
-- **Performance** : Appels in-process
-- **Transactions** : ACID native
-- **Debugging** : Stack trace complète
-- **Coût** : Moins d'infra
+- **Simplicity**: Single deployment
+- **Performance**: In-process calls
+- **Transactions**: Native ACID
+- **Debugging**: Complete stack trace
+- **Cost**: Less infrastructure
 
-## Inconvénients
+## Disadvantages
 
-- **Scalabilité** : Tout scale ensemble
-- **Déploiement** : Tout redéployer
-- **Technologie** : Stack unique
-- **Équipes** : Coordination nécessaire
+- **Scalability**: Everything scales together
+- **Deployment**: Redeploy everything
+- **Technology**: Single stack
+- **Teams**: Coordination necessary
 
-## Migration vers Microservices
+## Migration to Microservices
 
 ```
-Étape 1: Monolith → Monolith Modulaire
-Étape 2: Définir les bounded contexts
-Étape 3: Strangler Fig (un module à la fois)
-Étape 4: Microservices complets
+Step 1: Monolith -> Modular Monolith
+Step 2: Define bounded contexts
+Step 3: Strangler Fig (one module at a time)
+Step 4: Full Microservices
 ```
 
 ## Anti-patterns
@@ -190,13 +190,13 @@ CREATE SCHEMA products;
 ### Module Coupling
 
 ```go
-// ❌ Modules too coupled
+// Modules too coupled
 type OrderService struct {
 	userRepo    *UserRepository    // Direct access
 	productRepo *ProductRepository // Direct access
 }
 
-// ✅ Communication through events/API
+// Communication through events/API
 type OrderService struct {
 	userModule    users.UserModule
 	productModule products.ProductModule
@@ -218,14 +218,14 @@ func (s *OrderService) CreateOrder(ctx context.Context, userID, productID string
 }
 ```
 
-## Patterns liés
+## Related Patterns
 
-| Pattern | Relation |
+| Pattern | Relationship |
 |---------|----------|
-| Hexagonal | Structure interne des modules |
-| CQRS | Applicable par module |
-| Event Sourcing | Pour la communication entre modules |
-| Strangler Fig | Migration vers microservices |
+| Hexagonal | Internal structure of modules |
+| CQRS | Applicable per module |
+| Event Sourcing | For communication between modules |
+| Strangler Fig | Migration to microservices |
 
 ## Sources
 

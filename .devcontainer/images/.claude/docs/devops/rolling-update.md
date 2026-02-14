@@ -1,14 +1,14 @@
 # Rolling Update
 
-> Mise à jour progressive des instances sans interruption de service.
+> Progressive update of instances without service interruption.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    ROLLING UPDATE SEQUENCE                       │
 │                                                                  │
-│  État initial      Step 1          Step 2          Final        │
+│  Initial state     Step 1          Step 2          Final        │
 │  ┌─┬─┬─┬─┐        ┌─┬─┬─┬─┐      ┌─┬─┬─┬─┐      ┌─┬─┬─┬─┐     │
 │  │1│1│1│1│        │N│1│1│1│      │N│N│1│1│      │N│N│N│N│     │
 │  └─┴─┴─┴─┘        └─┴─┴─┴─┘      └─┴─┴─┴─┘      └─┴─┴─┴─┘     │
@@ -18,10 +18,10 @@
 │                          Temps                                   │
 └─────────────────────────────────────────────────────────────────┘
 
-Légende: │1│ = v1 (ancienne)  │N│ = v2 (nouvelle)
+Legend: │1│ = v1 (old)  │N│ = v2 (new)
 ```
 
-## Workflow détaillé
+## Detailed Workflow
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -63,8 +63,8 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1        # Max pods au-dessus de replicas
-      maxUnavailable: 1  # Max pods indisponibles
+      maxSurge: 1        # Max pods above replicas
+      maxUnavailable: 1  # Max unavailable pods
   selector:
     matchLabels:
       app: myapp
@@ -104,15 +104,15 @@ spec:
       terminationGracePeriodSeconds: 30
 ```
 
-## Stratégies maxSurge / maxUnavailable
+## maxSurge / maxUnavailable Strategies
 
-### Conservative (défaut sécurisé)
+### Conservative (safe default)
 
 ```yaml
 strategy:
   rollingUpdate:
     maxSurge: 1
-    maxUnavailable: 0  # Toujours capacity complète
+    maxUnavailable: 0  # Always full capacity
 ```
 
 ```
@@ -120,7 +120,7 @@ Sequence: 4 → 5 → 4 → 5 → 4 → 5 → 4 → 5 → 4
 Pods:     [1111] [1111N] [111N] [111NN] [11NN] ...
 ```
 
-### Aggressive (plus rapide)
+### Aggressive (faster)
 
 ```yaml
 strategy:
@@ -132,10 +132,10 @@ strategy:
 ```
 Sequence: 4 → 4 → 4 → 4
 Pods:     [1111] [11NN] [NNNN]
-          (2 terminés, 2 créés simultanément)
+          (2 terminated, 2 created simultaneously)
 ```
 
-### Proportional (grands déploiements)
+### Proportional (large deployments)
 
 ```yaml
 strategy:
@@ -144,38 +144,38 @@ strategy:
     maxUnavailable: 25%
 ```
 
-## Gestion des erreurs
+## Error Handling
 
 ```yaml
-# PodDisruptionBudget pour protection
+# PodDisruptionBudget for protection
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: myapp-pdb
 spec:
-  minAvailable: 2  # Toujours 2 pods minimum
+  minAvailable: 2  # Always minimum 2 pods
   selector:
     matchLabels:
       app: myapp
 ```
 
-### Rollback automatique
+### Automatic Rollback
 
 ```bash
-# Vérifier historique
+# Check history
 kubectl rollout history deployment/myapp
 
-# Rollback à version précédente
+# Rollback to previous version
 kubectl rollout undo deployment/myapp
 
-# Rollback à version spécifique
+# Rollback to specific version
 kubectl rollout undo deployment/myapp --to-revision=2
 
 # Status du rollout
 kubectl rollout status deployment/myapp
 ```
 
-## Health Checks essentiels
+## Essential Health Checks
 
 ```go
 package health
@@ -231,7 +231,7 @@ func NewHandler(database, cache, dependencies Checker) *Handler {
 // LivenessHandler handles liveness probe requests.
 func (h *Handler) LivenessHandler(w http.ResponseWriter, r *http.Request) {
 	// Process is alive?
-	response := Response{
+	response:= Response{
 		Status: StatusAlive,
 	}
 
@@ -242,31 +242,31 @@ func (h *Handler) LivenessHandler(w http.ResponseWriter, r *http.Request) {
 
 // ReadinessHandler handles readiness probe requests.
 func (h *Handler) ReadinessHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx:= r.Context()
 
 	// Ready to receive traffic?
-	checks := []Check{
+	checks:= []Check{
 		{Name: "database", Healthy: h.database.Check(ctx)},
 		{Name: "cache", Healthy: h.cache.Check(ctx)},
 		{Name: "dependencies", Healthy: h.dependencies.Check(ctx)},
 	}
 
-	allHealthy := true
-	for _, check := range checks {
+	allHealthy:= true
+	for _, check:= range checks {
 		if !check.Healthy {
 			allHealthy = false
 			break
 		}
 	}
 
-	status := StatusReady
-	httpStatus := http.StatusOK
+	status:= StatusReady
+	httpStatus:= http.StatusOK
 	if !allHealthy {
 		status = StatusNotReady
 		httpStatus = http.StatusServiceUnavailable
 	}
 
-	response := Response{
+	response:= Response{
 		Status: status,
 		Checks: checks,
 	}
@@ -312,62 +312,62 @@ func (c *DependenciesChecker) Check(ctx context.Context) bool {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-| Utiliser | Eviter |
-|----------|--------|
-| Déploiements standards | Changements breaking DB |
-| Kubernetes/ECS natif | Rollback instantané requis |
-| Ressources limitées | Tests pre-production nécessaires |
-| Équipes petites/moyennes | Validation métriques requise |
-| Updates fréquents | Changements très risqués |
+| Use | Avoid |
+|-----|-------|
+| Standard deployments | Breaking DB changes |
+| Native Kubernetes/ECS | Instant rollback required |
+| Limited resources | Pre-production tests needed |
+| Small/medium teams | Metrics validation required |
+| Frequent updates | Very risky changes |
 
-## Avantages
+## Advantages
 
-- **Simplicité** : Natif Kubernetes/ECS
-- **Zero-downtime** : Mise à jour progressive
-- **Ressources** : Pas de double infrastructure
-- **Automatique** : Health checks intégrés
-- **Rollback** : Historique conservé
+- **Simplicity**: Native Kubernetes/ECS
+- **Zero-downtime**: Progressive update
+- **Resources**: No double infrastructure
+- **Automatic**: Built-in health checks
+- **Rollback**: History preserved
 
-## Inconvénients
+## Disadvantages
 
-- **Rollback lent** : Pas instantané
-- **États mixtes** : v1 et v2 simultanément
-- **Pas de validation** : Pas d'analyse métriques
-- **Sessions** : Peuvent être perdues
-- **DB migrations** : Doivent être compatibles
+- **Slow rollback**: Not instant
+- **Mixed states**: v1 and v2 simultaneously
+- **No validation**: No metrics analysis
+- **Sessions**: Can be lost
+- **DB migrations**: Must be compatible
 
-## Comparaison avec autres stratégies
+## Comparison with Other Strategies
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     TEMPS DE ROLLOUT                         │
+│                     ROLLOUT TIME                             │
 │                                                              │
 │  Rolling    ████████████████████████████░░░░░░░░░░░         │
-│  Update     (progressif, pods un par un)                     │
+│  Update     (progressive, pods one by one)                   │
 │                                                              │
 │  Blue-Green ████████████████████████████▌                   │
-│             (instantané, switch)                             │
+│             (instant switch)                                 │
 │                                                              │
 │  Canary     ██████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░      │
-│             (progressif avec pauses analyse)                 │
+│             (progressive with analysis pauses)               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Exemples réels
+## Real-World Examples
 
-| Entreprise | Usage |
-|------------|-------|
-| **Kubernetes** | Stratégie par défaut |
-| **AWS ECS** | Rolling update natif |
+| Company | Usage |
+|---------|-------|
+| **Kubernetes** | Default strategy |
+| **AWS ECS** | Native rolling update |
 | **Docker Swarm** | Update policy |
 | **GCP Cloud Run** | Traffic migration |
 
 ## Best Practices
 
 ```yaml
-# 1. Toujours définir resource limits
+# 1. Always define resource limits
 resources:
   requests:
     memory: "128Mi"
@@ -376,7 +376,7 @@ resources:
     memory: "256Mi"
     cpu: "500m"
 
-# 2. Configurer des probes appropriées
+# 2. Configure appropriate probes
 readinessProbe:
   httpGet:
     path: /ready
@@ -396,30 +396,30 @@ minAvailable: 50%
 
 ## Migration path
 
-### Vers Blue-Green
+### To Blue-Green
 
 ```
-1. Dupliquer environnement
-2. Configurer switch de trafic
-3. Automatiser bascule
+1. Duplicate environment
+2. Configure traffic switch
+3. Automate switchover
 ```
 
-### Vers Canary
+### To Canary
 
 ```
-1. Ajouter service mesh (Istio/Linkerd)
-2. Configurer traffic splitting
-3. Ajouter analyse métriques
+1. Add service mesh (Istio/Linkerd)
+2. Configure traffic splitting
+3. Add metrics analysis
 ```
 
-## Patterns liés
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Blue-Green | Alternative avec rollback instantané |
-| Canary | Évolution avec métriques |
-| Health Check | Essentiel pour rolling |
-| Graceful Shutdown | Éviter perte de requêtes |
+| Blue-Green | Alternative with instant rollback |
+| Canary | Evolution with metrics |
+| Health Check | Essential for rolling |
+| Graceful Shutdown | Avoid request loss |
 
 ## Sources
 

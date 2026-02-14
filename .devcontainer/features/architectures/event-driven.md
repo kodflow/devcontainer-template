@@ -1,32 +1,32 @@
 # Event-Driven Architecture
 
-> Communication par événements asynchrones
+> Communication through asynchronous events
 
 ## Concept
 
-Composants découplés communiquant via événements (pub/sub).
+Decoupled components communicating via events (pub/sub).
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Adaptation |
+| Language | Suitability |
 |---------|-----------|
 | **Java** | Excellent (Kafka, RabbitMQ) |
 | **Go** | Excellent (NATS, Kafka) |
-| **Node.js** | Très bon |
+| **Node.js** | Very good |
 | **Scala** | Excellent (Akka) |
-| **Elixir** | Excellent (natif) |
-| **Python** | Bon |
+| **Elixir** | Excellent (native) |
+| **Python** | Good |
 
 ## Structure
 
 ```
 /src
-├── events/              # Définitions événements
+├── events/              # Event definitions
 │   ├── user_created.go
 │   └── order_placed.go
-├── producers/           # Émetteurs
+├── producers/           # Emitters
 │   └── user_service/
-├── consumers/           # Récepteurs
+├── consumers/           # Receivers
 │   └── notification_service/
 ├── handlers/            # Event handlers
 │   └── on_user_created.go
@@ -34,48 +34,48 @@ Composants découplés communiquant via événements (pub/sub).
     └── messaging/       # Kafka, RabbitMQ, NATS
 ```
 
-## Avantages
+## Advantages
 
-- Découplage fort
-- Scalabilité (async)
-- Résilience
-- Extensibilité (add consumers)
-- Audit trail naturel
+- Strong decoupling
+- Scalability (async)
+- Resilience
+- Extensibility (add consumers)
+- Natural audit trail
 
-## Inconvénients
+## Disadvantages
 
-- Complexité debugging
+- Debugging complexity
 - Eventual consistency
 - Ordering challenges
-- Idempotency requise
-- Infrastructure complexe
+- Idempotency required
+- Complex infrastructure
 
-## Contraintes
+## Constraints
 
-- Events = immutables
-- Consumers = idempotents
-- At-least-once delivery assumé
-- Schema evolution gérée
+- Events = immutable
+- Consumers = idempotent
+- At-least-once delivery assumed
+- Schema evolution managed
 
-## Règles
+## Rules
 
-1. Event = fait passé (past tense)
-2. Un event = une responsabilité
-3. Consumer indépendant du producer
+1. Event = past fact (past tense)
+2. One event = one responsibility
+3. Consumer independent from producer
 4. Retry + dead letter queue
-5. Event versioning obligatoire
+5. Event versioning mandatory
 
-## Quand utiliser
+## When to Use
 
-- Workflows async
-- Intégration systèmes
+- Async workflows
+- System integration
 - Audit/compliance
-- Scale horizontal
-- Réactivité (notifications)
+- Horizontal scaling
+- Reactivity (notifications)
 
-## Quand éviter
+## When to Avoid
 
-- Besoin de réponse synchrone
-- Transactions ACID strictes
-- Équipe junior
+- Need for synchronous response
+- Strict ACID transactions
+- Junior team
 - Simple CRUD

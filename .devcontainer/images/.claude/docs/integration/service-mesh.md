@@ -1,22 +1,22 @@
 # Service Mesh Pattern
 
-> Infrastructure dediee a la communication inter-services avec observabilite, securite et resilience.
+> Dedicated infrastructure for inter-service communication with observability, security, and resilience.
 
 ---
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                      SERVICE MESH                                │
 │                                                                  │
-│  Sans Service Mesh:           Avec Service Mesh:                │
+│  Without Service Mesh:        With Service Mesh:                │
 │                                                                  │
 │  ┌─────┐    ┌─────┐           ┌─────┐    ┌─────┐               │
 │  │Svc A│───►│Svc B│           │Svc A│    │Svc B│               │
 │  └─────┘    └─────┘           └──┬──┘    └──┬──┘               │
 │                                  │          │                    │
-│  Chaque service gere:           ┌▼──────────▼┐                  │
+│  Each service manages:          ┌▼──────────▼┐                  │
 │  - Retry                        │  Sidecar   │                  │
 │  - Timeout                      │  Proxies   │                  │
 │  - TLS                          └──────┬─────┘                  │
@@ -25,28 +25,28 @@
 │                                 │Control Plane│                  │
 │                                 └────────────┘                  │
 │                                                                  │
-│                                 Infrastructure gere tout         │
+│                                 Infrastructure manages everything│
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Composants
+## Components
 
-| Composant | Role |
+| Component | Role |
 |-----------|------|
-| **Data Plane** | Sidecars qui interceptent le trafic |
-| **Control Plane** | Configuration et politiques centralisees |
+| **Data Plane** | Sidecars that intercept traffic |
+| **Control Plane** | Centralized configuration and policies |
 | **Sidecar Proxy** | Envoy, Linkerd-proxy |
-| **Service Discovery** | Localisation des services |
-| **Load Balancer** | Distribution du trafic |
+| **Service Discovery** | Service location |
+| **Load Balancer** | Traffic distribution |
 
 ---
 
-## Fonctionnalites
+## Features
 
-| Categorie | Fonctionnalites |
-|-----------|-----------------|
+| Category | Features |
+|----------|----------|
 | **Traffic** | Load balancing, routing, retries, timeouts |
 | **Security** | mTLS, authorization, encryption |
 | **Observability** | Metrics, tracing, logging |
@@ -54,7 +54,7 @@
 
 ---
 
-## Implementation avec Istio (Kubernetes)
+## Implementation with Istio (Kubernetes)
 
 ### Installation
 
@@ -80,10 +80,10 @@ spec:
 
 ---
 
-### Configuration du namespace
+### Namespace Configuration
 
 ```yaml
-# Activer l'injection automatique de sidecar
+# Enable automatic sidecar injection
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -182,7 +182,7 @@ spec:
     matchLabels:
       app: product-service
   rules:
-    # Autoriser uniquement les appels depuis order-service
+    # Allow only calls from order-service
     - from:
         - source:
             principals:
@@ -194,7 +194,7 @@ spec:
               - POST
             paths:
               - /api/products/*
-    # Autoriser les health checks
+    # Allow health checks
     - to:
         - operation:
             methods:
@@ -220,7 +220,7 @@ spec:
 
 ---
 
-## Implementation Go (Dapr)
+## Go Implementation (Dapr)
 
 ```go
 package main
@@ -275,8 +275,8 @@ func NewOrderService(logger *slog.Logger) (*OrderService, error) {
 
 // CreateOrder creates a new order with Dapr service invocation.
 func (s *OrderService) CreateOrder(ctx context.Context, order *Order) (*Order, error) {
-	// Appel a product-service via Dapr sidecar
-	// Beneficie automatiquement de:
+	// Call product-service via Dapr sidecar
+	// Automatically benefits from:
 	// - Service discovery
 	// - mTLS
 	// - Retries
@@ -402,7 +402,7 @@ func main() {
 	logger.Info("order created successfully", "order", createdOrder)
 }
 
-// Configuration Dapr (components)
+// Dapr configuration (components)
 /*
 apiVersion: dapr.io/v1alpha1
 kind: Component
@@ -430,7 +430,7 @@ spec:
 
 ---
 
-## Observabilite avec Service Mesh
+## Observability with Service Mesh
 
 ```go
 package observability
@@ -448,7 +448,7 @@ var tracer = otel.Tracer("order-service")
 
 // ProcessOrder processes an order with custom tracing.
 func ProcessOrder(ctx context.Context, order *Order) error {
-	// Creer un span custom (le mesh ajoute deja les spans HTTP)
+	// Create a custom span (the mesh already adds HTTP spans)
 	ctx, span := tracer.Start(ctx, "process-order",
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(
@@ -483,7 +483,7 @@ func ProcessOrder(ctx context.Context, order *Order) error {
 func validateOrder(ctx context.Context, order *Order) error {
 	ctx, span := tracer.Start(ctx, "validate-order")
 	defer span.End()
-	
+
 	// Validation logic
 	return nil
 }
@@ -491,7 +491,7 @@ func validateOrder(ctx context.Context, order *Order) error {
 func chargePayment(ctx context.Context, order *Order) error {
 	ctx, span := tracer.Start(ctx, "charge-payment")
 	defer span.End()
-	
+
 	// Payment logic
 	return nil
 }
@@ -499,7 +499,7 @@ func chargePayment(ctx context.Context, order *Order) error {
 func updateInventory(ctx context.Context, order *Order) error {
 	ctx, span := tracer.Start(ctx, "update-inventory")
 	defer span.End()
-	
+
 	// Inventory logic
 	return nil
 }
@@ -507,46 +507,46 @@ func updateInventory(ctx context.Context, order *Order) error {
 
 ---
 
-## Comparaison des solutions
+## Solution Comparison
 
 | Feature | Istio | Linkerd | Consul Connect | Dapr |
 |---------|-------|---------|----------------|------|
-| Complexity | Haute | Moyenne | Moyenne | Basse |
-| Performance | Bonne | Excellente | Bonne | Bonne |
-| mTLS | Oui | Oui | Oui | Oui |
-| Traffic Management | Avance | Basique | Moyen | Basique |
-| Multi-cluster | Oui | Oui | Oui | Limite |
-| Non-Kubernetes | Limite | Non | Oui | Oui |
+| Complexity | High | Medium | Medium | Low |
+| Performance | Good | Excellent | Good | Good |
+| mTLS | Yes | Yes | Yes | Yes |
+| Traffic Management | Advanced | Basic | Medium | Basic |
+| Multi-cluster | Yes | Yes | Yes | Limited |
+| Non-Kubernetes | Limited | No | Yes | Yes |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Microservices avec communication complexe
-- Besoin de mTLS zero-trust
-- Observabilite distribuee (tracing)
+- Microservices with complex communication
+- Need for zero-trust mTLS
+- Distributed observability (tracing)
 - Canary deployments, A/B testing
-- Equipe DevOps mature
+- Mature DevOps team
 
 ---
 
-## Quand NE PAS utiliser
+## When NOT to Use
 
-- Quelques services seulement
-- Equipe petite sans expertise K8s
-- Latence critique (overhead du proxy)
-- Environnement non-Kubernetes (limite)
+- Only a few services
+- Small team without K8s expertise
+- Critical latency (proxy overhead)
+- Non-Kubernetes environment (limited)
 
 ---
 
-## Lie a
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| [Sidecar](sidecar.md) | Implementation du data plane |
-| [Circuit Breaker](../resilience/circuit-breaker.md) | Gere par le mesh |
-| [Rate Limiting](../resilience/rate-limiting.md) | Gere par le mesh |
-| [API Gateway](api-gateway.md) | Ingress du mesh |
+| [Sidecar](sidecar.md) | Data plane implementation |
+| [Circuit Breaker](../resilience/circuit-breaker.md) | Managed by the mesh |
+| [Rate Limiting](../resilience/rate-limiting.md) | Managed by the mesh |
+| [API Gateway](api-gateway.md) | Mesh ingress |
 
 ---
 

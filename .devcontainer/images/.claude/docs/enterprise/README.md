@@ -1,17 +1,17 @@
 # Enterprise Patterns (PoEAA)
 
-Patterns de Martin Fowler - Patterns of Enterprise Application Architecture.
+Patterns from Martin Fowler - Patterns of Enterprise Application Architecture.
 
 ## Domain Logic Patterns
 
 ### 1. Transaction Script
 
-> Procédure qui gère une transaction métier complète.
+> Procedure that handles a complete business transaction.
 
 ```go
 class OrderService {
   async placeOrder(customerId: string, items: OrderItem[]) {
-    // Tout le logic dans une procédure
+    // All logic in a single procedure
     const customer = await this.customerRepo.find(customerId);
     if (!customer) throw new Error('Customer not found');
 
@@ -33,14 +33,14 @@ class OrderService {
 }
 ```
 
-**Quand :** Logique simple, CRUD, applications petites.
-**Lié à :** Service Layer.
+**When:** Simple logic, CRUD, small applications.
+**Related to:** Service Layer.
 
 ---
 
 ### 2. Domain Model
 
-> Objets métier avec comportements et règles.
+> Business objects with behaviors and rules.
 
 ```go
 class Order {
@@ -75,14 +75,14 @@ class Order {
 }
 ```
 
-**Quand :** Logique métier complexe, règles, validations.
-**Lié à :** DDD, Rich Domain Model.
+**When:** Complex business logic, rules, validations.
+**Related to:** DDD, Rich Domain Model.
 
 ---
 
 ### 3. Table Module
 
-> Une classe par table avec méthodes.
+> One class per table with methods.
 
 ```go
 class ProductTable {
@@ -107,14 +107,14 @@ class ProductTable {
 }
 ```
 
-**Quand :** .NET DataTable style, logique modérée.
-**Lié à :** Table Data Gateway.
+**When:** .NET DataTable style, moderate logic.
+**Related to:** Table Data Gateway.
 
 ---
 
 ### 4. Service Layer
 
-> Couche de coordination des opérations métier.
+> Coordination layer for business operations.
 
 ```go
 class OrderApplicationService {
@@ -127,7 +127,7 @@ class OrderApplicationService {
 
   @Transactional()
   async placeOrder(dto: PlaceOrderDTO): Promise<OrderDTO> {
-    // Coordonne mais ne contient pas de logique métier
+    // Coordinates but does not contain business logic
     const order = Order.create(dto.customerId, dto.items);
 
     await this.inventoryService.reserve(order.items);
@@ -147,8 +147,8 @@ class OrderApplicationService {
 }
 ```
 
-**Quand :** Coordination, transactions, façade métier.
-**Lié à :** Facade, Domain Model.
+**When:** Coordination, transactions, business facade.
+**Related to:** Facade, Domain Model.
 
 ---
 
@@ -156,7 +156,7 @@ class OrderApplicationService {
 
 ### 5. Table Data Gateway
 
-> Une classe par table pour CRUD.
+> One class per table for CRUD.
 
 ```go
 class ProductGateway {
@@ -191,14 +191,14 @@ class ProductGateway {
 }
 ```
 
-**Quand :** Accès simple aux données, pas d'ORM.
-**Lié à :** Row Data Gateway, Data Mapper.
+**When:** Simple data access, no ORM.
+**Related to:** Row Data Gateway, Data Mapper.
 
 ---
 
 ### 6. Row Data Gateway
 
-> Un objet par ligne avec persistence.
+> One object per row with persistence.
 
 ```go
 class ProductRow {
@@ -228,14 +228,14 @@ class ProductRow {
 }
 ```
 
-**Quand :** Active Record simple, sans ORM complet.
-**Lié à :** Active Record.
+**When:** Simple Active Record, without a full ORM.
+**Related to:** Active Record.
 
 ---
 
 ### 7. Active Record
 
-> Objet qui encapsule ligne + logique métier + persistence.
+> Object that encapsulates a row + business logic + persistence.
 
 ```go
 class User extends ActiveRecord {
@@ -267,17 +267,17 @@ await user.setPassword('secret');
 await user.save();
 ```
 
-**Quand :** CRUD simple avec peu de logique, Rails/Django style.
-**Lié à :** Row Data Gateway, Domain Model.
+**When:** Simple CRUD with little logic, Rails/Django style.
+**Related to:** Row Data Gateway, Domain Model.
 
 ---
 
 ### 8. Data Mapper
 
-> Sépare complètement objet et persistence.
+> Completely separates object and persistence.
 
 ```go
-// Domain object - aucune dépendance sur la DB
+// Domain object - no dependency on DB
 class Product {
   constructor(
     public readonly id: string,
@@ -294,7 +294,7 @@ class Product {
   get stock() { return this._stock; }
 }
 
-// Mapper - traduit entre domain et DB
+// Mapper - translates between domain and DB
 class ProductMapper {
   constructor(private db: Database) {}
 
@@ -317,8 +317,8 @@ class ProductMapper {
 }
 ```
 
-**Quand :** Domain model riche, séparation concerns, testabilité.
-**Lié à :** Repository, Domain Model.
+**When:** Rich domain model, separation of concerns, testability.
+**Related to:** Repository, Domain Model.
 
 ---
 
@@ -326,7 +326,7 @@ class ProductMapper {
 
 ### 9. Unit of Work
 
-> Maintient la liste des objets modifiés pour une transaction.
+> Maintains the list of modified objects for a transaction.
 
 ```go
 class UnitOfWork {
@@ -377,14 +377,14 @@ class UnitOfWork {
 }
 ```
 
-**Quand :** ORM, transactions complexes, batch updates.
-**Lié à :** Repository, Identity Map.
+**When:** ORM, complex transactions, batch updates.
+**Related to:** Repository, Identity Map.
 
 ---
 
 ### 10. Identity Map
 
-> Cache des objets chargés par identité.
+> Cache of loaded objects by identity.
 
 ```go
 class IdentityMap<T extends { id: string }> {
@@ -425,14 +425,14 @@ class ProductRepository {
 }
 ```
 
-**Quand :** Éviter doublons en mémoire, cohérence.
-**Lié à :** Unit of Work, Cache.
+**When:** Avoid in-memory duplicates, consistency.
+**Related to:** Unit of Work, Cache.
 
 ---
 
 ### 11. Lazy Load
 
-> Charger les données à la demande.
+> Load data on demand.
 
 ```go
 // Virtual Proxy
@@ -479,9 +479,9 @@ class Product {
 }
 ```
 
-**Variantes :** Virtual Proxy, Value Holder, Ghost.
-**Quand :** Relations coûteuses, chargement partiel.
-**Lié à :** Proxy, Virtual Proxy.
+**Variants:** Virtual Proxy, Value Holder, Ghost.
+**When:** Expensive relations, partial loading.
+**Related to:** Proxy, Virtual Proxy.
 
 ---
 
@@ -489,7 +489,7 @@ class Product {
 
 ### 12. Foreign Key Mapping
 
-> Mapper les relations via foreign keys.
+> Map relations via foreign keys.
 
 ```go
 class OrderMapper {
@@ -521,14 +521,14 @@ class OrderMapper {
 }
 ```
 
-**Quand :** Relations 1-N, N-1.
-**Lié à :** Association Table Mapping.
+**When:** 1-N, N-1 relations.
+**Related to:** Association Table Mapping.
 
 ---
 
 ### 13. Association Table Mapping
 
-> Table de jonction pour relations N-N.
+> Junction table for N-N relations.
 
 ```go
 class ProductCategoryMapper {
@@ -557,14 +557,14 @@ class ProductCategoryMapper {
 }
 ```
 
-**Quand :** Relations many-to-many.
-**Lié à :** Foreign Key Mapping.
+**When:** Many-to-many relations.
+**Related to:** Foreign Key Mapping.
 
 ---
 
 ### 14. Embedded Value
 
-> Mapper un value object dans les colonnes de la table parente.
+> Map a value object into the columns of the parent table.
 
 ```go
 // Value Object
@@ -614,14 +614,14 @@ class CustomerMapper {
 }
 ```
 
-**Quand :** Value objects sans table dédiée.
-**Lié à :** Value Object, Serialized LOB.
+**When:** Value objects without a dedicated table.
+**Related to:** Value Object, Serialized LOB.
 
 ---
 
 ### 15. Serialized LOB
 
-> Sérialiser un graphe d'objets dans un champ.
+> Serialize an object graph into a field.
 
 ```go
 class ProductMapper {
@@ -650,18 +650,18 @@ class ProductMapper {
 }
 ```
 
-**Quand :** Données semi-structurées, schéma flexible.
-**Lié à :** Embedded Value.
+**When:** Semi-structured data, flexible schema.
+**Related to:** Embedded Value.
 
 ---
 
 ### 16. Inheritance Mapping
 
-> Trois stratégies pour mapper l'héritage.
+> Three strategies for mapping inheritance.
 
 ```go
 // Single Table Inheritance
-// Une seule table avec discriminator
+// A single table with discriminator
 // employees(id, name, type, salary, hourly_rate)
 class EmployeeMapper {
   async find(id: string): Promise<Employee> {
@@ -695,14 +695,14 @@ class EmployeeMapper {
 // salaried_employees(id, name, salary) + hourly_employees(id, name, hourly_rate)
 ```
 
-**Stratégies :**
+**Strategies:**
 
-- **Single Table** : Une table, discriminator column
-- **Class Table** : Table par classe dans la hiérarchie
-- **Concrete Table** : Table par classe concrète
+- **Single Table**: One table, discriminator column
+- **Class Table**: One table per class in the hierarchy
+- **Concrete Table**: One table per concrete class
 
-**Quand :** Hiérarchies d'objets persistées.
-**Lié à :** Polymorphism.
+**When:** Persisted object hierarchies.
+**Related to:** Polymorphism.
 
 ---
 
@@ -710,7 +710,7 @@ class EmployeeMapper {
 
 ### 17. MVC (Model-View-Controller)
 
-> Séparer données, présentation, et contrôle.
+> Separate data, presentation, and control.
 
 ```go
 // Model
@@ -747,14 +747,14 @@ class UserController {
 }
 ```
 
-**Quand :** Applications web, séparation concerns.
-**Lié à :** MVP, MVVM.
+**When:** Web applications, separation of concerns.
+**Related to:** MVP, MVVM.
 
 ---
 
 ### 18. Page Controller
 
-> Un controller par page/action.
+> One controller per page/action.
 
 ```go
 // /users/show.ts
@@ -780,14 +780,14 @@ class EditUserController {
 }
 ```
 
-**Quand :** Applications simples, pages distinctes.
-**Lié à :** Front Controller.
+**When:** Simple applications, distinct pages.
+**Related to:** Front Controller.
 
 ---
 
 ### 19. Front Controller
 
-> Point d'entrée unique pour toutes les requêtes.
+> Single entry point for all requests.
 
 ```go
 class FrontController {
@@ -821,14 +821,14 @@ class FrontController {
 }
 ```
 
-**Quand :** Frameworks web, middleware, intercepteurs.
-**Lié à :** Page Controller, Intercepting Filter.
+**When:** Web frameworks, middleware, interceptors.
+**Related to:** Page Controller, Intercepting Filter.
 
 ---
 
 ### 20. Template View
 
-> HTML avec placeholders.
+> HTML with placeholders.
 
 ```go
 // template.html
@@ -854,14 +854,14 @@ const html = view.render('product/list', {
 });
 ```
 
-**Quand :** HTML dynamique, server-side rendering.
-**Lié à :** Transform View.
+**When:** Dynamic HTML, server-side rendering.
+**Related to:** Transform View.
 
 ---
 
 ### 21. Transform View
 
-> Transformer les données en sortie (XSLT, JSON, etc.).
+> Transform data into output (XSLT, JSON, etc.).
 
 ```go
 class JsonTransformView {
@@ -894,8 +894,8 @@ class XmlTransformView {
 }
 ```
 
-**Quand :** APIs, formats multiples, XSLT.
-**Lié à :** Template View, Content Negotiation.
+**When:** APIs, multiple formats, XSLT.
+**Related to:** Template View, Content Negotiation.
 
 ---
 
@@ -903,7 +903,7 @@ class XmlTransformView {
 
 ### 22. Remote Facade
 
-> Interface simplifiée pour appels distants.
+> Simplified interface for remote calls.
 
 ```go
 // Fine-grained domain objects
@@ -929,14 +929,14 @@ class OrderFacade {
 }
 ```
 
-**Quand :** APIs, microservices, réduire round-trips.
-**Lié à :** Facade, DTO.
+**When:** APIs, microservices, reduce round-trips.
+**Related to:** Facade, DTO.
 
 ---
 
 ### 23. Data Transfer Object (DTO)
 
-> Objet pour transférer des données entre couches.
+> Object for transferring data between layers.
 
 ```go
 // DTOs - no behavior, just data
@@ -971,8 +971,8 @@ class OrderItemDTO {
 }
 ```
 
-**Quand :** APIs, sérialisation, isolation couches.
-**Lié à :** Remote Facade, Assembler.
+**When:** APIs, serialization, layer isolation.
+**Related to:** Remote Facade, Assembler.
 
 ---
 
@@ -980,7 +980,7 @@ class OrderItemDTO {
 
 ### 24. Optimistic Offline Lock
 
-> Détecter les conflits au moment de la sauvegarde.
+> Detect conflicts at save time.
 
 ```go
 class ProductMapper {
@@ -1011,14 +1011,14 @@ try {
 }
 ```
 
-**Quand :** Conflits rares, pas de verrouillage long.
-**Lié à :** Pessimistic Lock.
+**When:** Rare conflicts, no long locks.
+**Related to:** Pessimistic Lock.
 
 ---
 
 ### 25. Pessimistic Offline Lock
 
-> Verrouiller la ressource avant modification.
+> Lock the resource before modification.
 
 ```go
 class LockManager {
@@ -1053,14 +1053,14 @@ class LockManager {
 }
 ```
 
-**Quand :** Conflits fréquents, édition longue.
-**Lié à :** Optimistic Lock.
+**When:** Frequent conflicts, long editing sessions.
+**Related to:** Optimistic Lock.
 
 ---
 
 ### 26. Coarse-Grained Lock
 
-> Verrouiller un agrégat entier.
+> Lock an entire aggregate.
 
 ```go
 class OrderLock {
@@ -1085,8 +1085,8 @@ class OrderLock {
 }
 ```
 
-**Quand :** Agrégats DDD, cohérence forte.
-**Lié à :** Aggregate, Pessimistic Lock.
+**When:** DDD aggregates, strong consistency.
+**Related to:** Aggregate, Pessimistic Lock.
 
 ---
 
@@ -1094,7 +1094,7 @@ class OrderLock {
 
 ### 27. Client Session State
 
-> État stocké côté client.
+> State stored on the client side.
 
 ```go
 // JWT Token
@@ -1129,14 +1129,14 @@ class CookieSession {
 }
 ```
 
-**Quand :** Stateless servers, scalabilité.
-**Lié à :** Server Session State.
+**When:** Stateless servers, scalability.
+**Related to:** Server Session State.
 
 ---
 
 ### 28. Server Session State
 
-> État stocké côté serveur.
+> State stored on the server side.
 
 ```go
 class ServerSessionState {
@@ -1177,14 +1177,14 @@ class RedisSessionState {
 }
 ```
 
-**Quand :** Données sensibles, contrôle serveur.
-**Lié à :** Client Session State.
+**When:** Sensitive data, server control.
+**Related to:** Client Session State.
 
 ---
 
 ### 29. Database Session State
 
-> État stocké en base de données.
+> State stored in the database.
 
 ```go
 class DatabaseSessionState {
@@ -1211,31 +1211,31 @@ class DatabaseSessionState {
 }
 ```
 
-**Quand :** Persistance, survie redémarrage.
-**Lié à :** Server Session State.
+**When:** Persistence, survives restarts.
+**Related to:** Server Session State.
 
 ---
 
-## Tableau de décision
+## Decision Table
 
-| Besoin | Pattern |
-|--------|---------|
-| Logic simple/CRUD | Transaction Script |
-| Logic métier riche | Domain Model |
-| Coordination services | Service Layer |
-| CRUD simple par table | Table/Row Data Gateway |
-| Objets auto-persistants | Active Record |
-| Séparation domain/persistence | Data Mapper |
-| Tracking modifications | Unit of Work |
-| Éviter doublons mémoire | Identity Map |
-| Chargement différé | Lazy Load |
-| Relations N-N | Association Table Mapping |
+| Need | Pattern |
+|------|---------|
+| Simple logic/CRUD | Transaction Script |
+| Rich business logic | Domain Model |
+| Service coordination | Service Layer |
+| Simple per-table CRUD | Table/Row Data Gateway |
+| Self-persisting objects | Active Record |
+| Domain/persistence separation | Data Mapper |
+| Change tracking | Unit of Work |
+| Avoid in-memory duplicates | Identity Map |
+| Deferred loading | Lazy Load |
+| N-N relations | Association Table Mapping |
 | Value objects | Embedded Value |
-| Données flexibles | Serialized LOB |
-| Héritage en DB | Inheritance Mapping |
-| Réduire round-trips | Remote Facade + DTO |
-| Conflits rares | Optimistic Lock |
-| Conflits fréquents | Pessimistic Lock |
+| Flexible data | Serialized LOB |
+| Inheritance in DB | Inheritance Mapping |
+| Reduce round-trips | Remote Facade + DTO |
+| Rare conflicts | Optimistic Lock |
+| Frequent conflicts | Pessimistic Lock |
 
 ## Sources
 

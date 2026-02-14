@@ -1,10 +1,10 @@
 # Anti-Corruption Layer (ACL) Pattern
 
-> Isoler le domaine metier des systemes legacy ou externes pour eviter la pollution du modele.
+> Isolate the business domain from legacy or external systems to prevent model pollution.
 
 ---
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -22,31 +22,31 @@
 │  └───────────────┘      └──────────────┘      └──────────────┘  │
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────────┐│
-│  │ L'ACL traduit entre les deux mondes:                        ││
-│  │ - Noms de champs (customerId ↔ CUST_ID)                     ││
-│  │ - Formats de donnees (ISO date ↔ YYYYMMDD)                  ││
-│  │ - Logique metier (status enum ↔ codes numeriques)           ││
-│  │ - Protocoles (REST ↔ SOAP/XML)                              ││
+│  │ The ACL translates between the two worlds:                  ││
+│  │ - Field names (customerId ↔ CUST_ID)                        ││
+│  │ - Data formats (ISO date ↔ YYYYMMDD)                        ││
+│  │ - Business logic (status enum ↔ numeric codes)              ││
+│  │ - Protocols (REST ↔ SOAP/XML)                               ││
 │  └─────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Composants de l'ACL
+## ACL Components
 
-| Composant | Role |
+| Component | Role |
 |-----------|------|
-| **Facade** | Interface simplifiee vers le legacy |
-| **Adapter** | Convertit les interfaces incompatibles |
-| **Translator** | Transforme les donnees entre modeles |
-| **Repository** | Abstrait l'acces aux donnees legacy |
+| **Facade** | Simplified interface to the legacy system |
+| **Adapter** | Converts incompatible interfaces |
+| **Translator** | Transforms data between models |
+| **Repository** | Abstracts access to legacy data |
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### Modeles de domaine (propres)
+### Domain Models (clean)
 
 ```go
 package domain
@@ -116,7 +116,7 @@ const (
 
 ---
 
-### Modele Legacy (ce qu'on recoit)
+### Legacy Model (what we receive)
 
 ```go
 package legacy
@@ -156,7 +156,7 @@ type LegacyOrderItem struct {
 
 ---
 
-### Translator (coeur de l'ACL)
+### Translator (ACL core)
 
 ```go
 package acl
@@ -362,7 +362,7 @@ func (t *OrderTranslator) translateItem(item *legacy.LegacyOrderItem) domain.Ord
 
 ---
 
-### Adapter pour le systeme legacy
+### Adapter for the legacy system
 
 ```go
 package acl
@@ -481,7 +481,7 @@ func (a *LegacyCustomerAdapter) MarkAsDeleted(ctx context.Context, id string) er
 
 ---
 
-### Facade (interface simplifiee)
+### Facade (simplified interface)
 
 ```go
 package repository
@@ -576,7 +576,7 @@ func (s *CustomerService) GetCustomer(ctx context.Context, id string) (*domain.C
 
 ---
 
-### ACL pour API externe
+### ACL for External API
 
 ```go
 package acl
@@ -675,25 +675,25 @@ func (acl *StripePaymentACL) mapStatus(stripeStatus stripe.PaymentIntentStatus) 
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Integration avec systeme legacy
-- APIs tierces avec modeles differents
-- Migration progressive (Strangler Fig)
-- Bounded contexts differents (DDD)
-- Protection contre changements externes
+- Integration with legacy systems
+- Third-party APIs with different models
+- Progressive migration (Strangler Fig)
+- Different bounded contexts (DDD)
+- Protection against external changes
 
 ---
 
-## Lie a
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Adapter | Composant de l'ACL |
-| Facade | Interface simplifiee |
-| Translator | Conversion de donnees |
-| Repository | Abstraction de persistence |
-| Strangler Fig | Migration avec ACL |
+| Adapter | ACL component |
+| Facade | Simplified interface |
+| Translator | Data conversion |
+| Repository | Persistence abstraction |
+| Strangler Fig | Migration with ACL |
 
 ---
 

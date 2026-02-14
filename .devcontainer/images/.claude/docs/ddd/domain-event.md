@@ -1,6 +1,6 @@
 # Domain Event Pattern
 
-> Capture quelque chose de significatif qui s'est produit dans le domaine - un enregistrement immuable d'une occurrence passée qui intéresse les experts du domaine.
+> Captures something significant that happened in the domain - an immutable record of a past occurrence that domain experts care about.
 
 ## Definition
 
@@ -192,20 +192,20 @@ func CreateOrder(
 		AggregateRoot: NewAggregateRoot(NewOrderID()),
 		// ... initialize fields
 	}
-	
+
 	// Raise creation event
 	itemSnapshots := make([]OrderItemSnapshot, len(items))
 	for i, item := range items {
 		itemSnapshots[i] = item.ToSnapshot()
 	}
-	
+
 	order.addDomainEvent(NewOrderCreatedEvent(
 		order.ID(),
 		customerID,
 		itemSnapshots,
 		order.totalAmount(),
 	))
-	
+
 	return order, nil
 }
 
@@ -214,17 +214,17 @@ func (o *Order) Confirm() error {
 	if o.status != OrderStatusPending {
 		return errors.New("order cannot be confirmed")
 	}
-	
+
 	o.status = OrderStatusConfirmed
 	o.confirmedAt = time.Now()
-	
+
 	// Raise confirmation event
 	o.addDomainEvent(NewOrderConfirmedEvent(
 		o.ID(),
 		o.confirmedAt,
 		o.calculateExpectedDelivery(),
 	))
-	
+
 	return nil
 }
 
@@ -275,12 +275,12 @@ func (h *OrderConfirmedHandler) Handle(
 	if err := h.inventoryService.ReserveForOrder(ctx, event.OrderID); err != nil {
 		return fmt.Errorf("reserving inventory: %w", err)
 	}
-	
+
 	// Send confirmation email
 	if err := h.notificationService.SendOrderConfirmation(ctx, event.OrderID); err != nil {
 		return fmt.Errorf("sending confirmation: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -310,15 +310,15 @@ func (h *PaymentReceivedHandler) Handle(
 	if err != nil {
 		return fmt.Errorf("finding order: %w", err)
 	}
-	
+
 	if err := order.MarkAsPaid(event.PaymentID); err != nil {
 		return err
 	}
-	
+
 	if err := h.orderRepo.Save(ctx, order); err != nil {
 		return err
 	}
-	
+
 	// Generate invoice
 	return h.invoiceService.Generate(ctx, event.OrderID, event.PaymentID)
 }
@@ -347,7 +347,7 @@ func NewInMemoryEventBus() *InMemoryEventBus {
 func (b *InMemoryEventBus) Subscribe(eventType string, handler interface{}) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	b.handlers[eventType] = append(b.handlers[eventType], handler)
 }
 
@@ -356,14 +356,14 @@ func (b *InMemoryEventBus) Publish(ctx context.Context, event DomainEvent) error
 	b.mu.RLock()
 	handlers := b.handlers[event.EventType()]
 	b.mu.RUnlock()
-	
+
 	for _, h := range handlers {
 		// Type-safe handler invocation would require reflection or type switching
 		if err := b.invokeHandler(ctx, h, event); err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -430,12 +430,12 @@ func LoadFromHistory[T EventSourcedAggregate[TID], TID comparable](
 	events []DomainEvent,
 ) T {
 	var aggregate T
-	
+
 	for _, event := range events {
 		aggregate.when(event)
 		aggregate.version++
 	}
-	
+
 	return aggregate
 }
 
@@ -467,7 +467,7 @@ func (a *EventSourcedAggregate[TID]) MarkEventsAsCommitted() {
    ```go
    // BAD - Technical concern
    type DatabaseUpdatedEvent struct{}
-   
+
    // GOOD - Business meaning
    type OrderPlacedEvent struct{}
    ```
@@ -477,7 +477,7 @@ func (a *EventSourcedAggregate[TID]) MarkEventsAsCommitted() {
    ```go
    // BAD
    event.OrderID = newOrderID // Mutation!
-   
+
    // GOOD
    // All fields are read-only after construction
    ```
@@ -489,7 +489,7 @@ func (a *EventSourcedAggregate[TID]) MarkEventsAsCommitted() {
    type OrderCreatedEvent struct {
        OrderID OrderID
    }
-   
+
    // GOOD - Contains all needed context
    type OrderCreatedEvent struct {
        OrderID     OrderID
@@ -509,15 +509,15 @@ func (a *EventSourcedAggregate[TID]) MarkEventsAsCommitted() {
    }
    ```
 
-## Quand utiliser
+## When to Use
 
-- Communication entre agrégats
-- Déclencher des effets de bord après des changements d'état
-- Construire des pistes d'audit
-- Implémenter la cohérence éventuelle
-- Activer l'event sourcing
+- Communication between aggregates
+- Triggering side effects after state changes
+- Building audit trails
+- Implementing eventual consistency
+- Enabling event sourcing
 
-## Patterns liés
+## Related Patterns
 
 - [Aggregate](./aggregate.md) - Raises domain events
 - [Repository](./repository.md) - Publishes events after save

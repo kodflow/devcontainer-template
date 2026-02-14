@@ -1,8 +1,8 @@
 # Transactional Outbox Pattern
 
-> Garantir la fiabilité des messages en les stockant dans une table outbox dans la même transaction que les données métier.
+> Guarantee message reliability by storing them in an outbox table within the same transaction as business data.
 
-## Vue d'ensemble
+## Overview
 
 ```
 +------------------+
@@ -35,7 +35,7 @@
 
 ---
 
-## Probleme resolu
+## Problem Solved
 
 ```
 SANS OUTBOX (probleme du dual write):
@@ -57,9 +57,9 @@ Relay separee publie le message --> Fiable!
 
 ---
 
-## Implementation de base
+## Base Implementation
 
-### Schema de table Outbox
+### Outbox Table Schema
 
 ```sql
 CREATE TABLE outbox (
@@ -118,15 +118,15 @@ func NewOutboxRepository(db *sql.DB) *OutboxRepository {
 }
 
 func (r *OutboxRepository) SaveMessage(ctx context.Context, message *OutboxMessage, tx *sql.Tx) error {
-	payload, err := json.Marshal(message.Payload)
+	payload, err:= json.Marshal(message.Payload)
 	if err != nil {
 		return fmt.Errorf("marshaling payload: %w", err)
 	}
 
-	query := `INSERT INTO outbox (aggregate_type, aggregate_id, event_type, payload)
+	query:= `INSERT INTO outbox (aggregate_type, aggregate_id, event_type, payload)
               VALUES ($1, $2, $3, $4)`
 
-	executor := r.getExecutor(tx)
+	executor:= r.getExecutor(tx)
 	_, err = executor.ExecContext(ctx, query,
 		message.AggregateType,
 		message.AggregateID,
@@ -141,14 +141,14 @@ func (r *OutboxRepository) SaveMessage(ctx context.Context, message *OutboxMessa
 }
 
 func (r *OutboxRepository) GetUnpublished(ctx context.Context, limit int) ([]*OutboxRow, error) {
-	query := `SELECT id, aggregate_type, aggregate_id, event_type, payload, created_at, retry_count
+	query:= `SELECT id, aggregate_type, aggregate_id, event_type, payload, created_at, retry_count
               FROM outbox
               WHERE published_at IS NULL
               ORDER BY created_at ASC
               LIMIT $1
               FOR UPDATE SKIP LOCKED`
 
-	rows, err := r.db.QueryContext(ctx, query, limit)
+	rows, err:= r.db.QueryContext(ctx, query, limit)
 	if err != nil {
 		return nil, fmt.Errorf("querying unpublished messages: %w", err)
 	}
@@ -157,7 +157,7 @@ func (r *OutboxRepository) GetUnpublished(ctx context.Context, limit int) ([]*Ou
 	var messages []*OutboxRow
 	for rows.Next() {
 		var msg OutboxRow
-		if err := rows.Scan(
+		if err:= rows.Scan(
 			&msg.ID,
 			&msg.AggregateType,
 			&msg.AggregateID,
@@ -175,8 +175,8 @@ func (r *OutboxRepository) GetUnpublished(ctx context.Context, limit int) ([]*Ou
 }
 
 func (r *OutboxRepository) MarkAsPublished(ctx context.Context, id string) error {
-	query := `UPDATE outbox SET published_at = NOW() WHERE id = $1`
-	_, err := r.db.ExecContext(ctx, query, id)
+	query:= `UPDATE outbox SET published_at = NOW() WHERE id = $1`
+	_, err:= r.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("marking as published: %w", err)
 	}
@@ -184,10 +184,10 @@ func (r *OutboxRepository) MarkAsPublished(ctx context.Context, id string) error
 }
 
 func (r *OutboxRepository) MarkAsFailed(ctx context.Context, id string, errMsg string) error {
-	query := `UPDATE outbox
+	query:= `UPDATE outbox
               SET retry_count = retry_count + 1, last_error = $2
               WHERE id = $1`
-	_, err := r.db.ExecContext(ctx, query, id, errMsg)
+	_, err:= r.db.ExecContext(ctx, query, id, errMsg)
 	if err != nil {
 		return fmt.Errorf("marking as failed: %w", err)
 	}
@@ -243,20 +243,20 @@ func NewOrderService(db *sql.DB, orderRepo OrderRepository, outboxRepo *OutboxRe
 }
 
 func (s *OrderService) PlaceOrder(ctx context.Context, orderData *OrderData) (*Order, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err:= s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("beginning transaction: %w", err)
 	}
 	defer tx.Rollback()
 
 	// 1. Creer la commande
-	order, err := s.orderRepo.Create(ctx, orderData, tx)
+	order, err:= s.orderRepo.Create(ctx, orderData, tx)
 	if err != nil {
 		return nil, fmt.Errorf("creating order: %w", err)
 	}
 
 	// 2. Ajouter l'evenement dans l'outbox (meme transaction)
-	if err := s.outboxRepo.SaveMessage(ctx, &OutboxMessage{
+	if err:= s.outboxRepo.SaveMessage(ctx, &OutboxMessage{
 		AggregateType: "Order",
 		AggregateID:   order.ID,
 		EventType:     "OrderCreated",
@@ -270,7 +270,7 @@ func (s *OrderService) PlaceOrder(ctx context.Context, orderData *OrderData) (*O
 		return nil, fmt.Errorf("saving outbox message: %w", err)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err:= tx.Commit(); err != nil {
 		return nil, fmt.Errorf("committing transaction: %w", err)
 	}
 
@@ -324,7 +324,7 @@ func (r *OutboxRelay) Stop() {
 }
 
 func (r *OutboxRelay) poll(ctx context.Context) error {
-	ticker := time.NewTicker(r.pollInterval)
+	ticker:= time.NewTicker(r.pollInterval)
 	defer ticker.Stop()
 
 	for r.running {
@@ -334,7 +334,7 @@ func (r *OutboxRelay) poll(ctx context.Context) error {
 		case <-r.stopChan:
 			return nil
 		case <-ticker.C:
-			if err := r.processMessages(ctx); err != nil {
+			if err:= r.processMessages(ctx); err != nil {
 				log.Printf("Outbox relay error: %v", err)
 			}
 		}
@@ -344,13 +344,13 @@ func (r *OutboxRelay) poll(ctx context.Context) error {
 }
 
 func (r *OutboxRelay) processMessages(ctx context.Context) error {
-	messages, err := r.outboxRepo.GetUnpublished(ctx, 100)
+	messages, err:= r.outboxRepo.GetUnpublished(ctx, 100)
 	if err != nil {
 		return fmt.Errorf("getting unpublished messages: %w", err)
 	}
 
-	for _, message := range messages {
-		if err := r.processMessage(ctx, message); err != nil {
+	for _, message:= range messages {
+		if err:= r.processMessage(ctx, message); err != nil {
 			log.Printf("Error processing message %s: %v", message.ID, err)
 		}
 	}
@@ -359,14 +359,14 @@ func (r *OutboxRelay) processMessages(ctx context.Context) error {
 }
 
 func (r *OutboxRelay) processMessage(ctx context.Context, message *OutboxRow) error {
-	topic := r.getTopicForEvent(message.EventType)
+	topic:= r.getTopicForEvent(message.EventType)
 
 	var payload interface{}
-	if err := json.Unmarshal(message.Payload, &payload); err != nil {
+	if err:= json.Unmarshal(message.Payload, &payload); err != nil {
 		return r.outboxRepo.MarkAsFailed(ctx, message.ID, err.Error())
 	}
 
-	event := map[string]interface{}{
+	event:= map[string]interface{}{
 		"id":          message.ID,
 		"type":        message.EventType,
 		"aggregateId": message.AggregateID,
@@ -374,7 +374,7 @@ func (r *OutboxRelay) processMessage(ctx context.Context, message *OutboxRow) er
 		"timestamp":   message.CreatedAt,
 	}
 
-	if err := r.broker.Publish(ctx, topic, event); err != nil {
+	if err:= r.broker.Publish(ctx, topic, event); err != nil {
 		return r.outboxRepo.MarkAsFailed(ctx, message.ID, err.Error())
 	}
 
@@ -382,12 +382,12 @@ func (r *OutboxRelay) processMessage(ctx context.Context, message *OutboxRow) er
 }
 
 func (r *OutboxRelay) getTopicForEvent(eventType string) string {
-	topicMap := map[string]string{
+	topicMap:= map[string]string{
 		"OrderCreated":     "orders.created",
 		"OrderShipped":     "orders.shipped",
 		"PaymentReceived":  "payments.received",
 	}
-	if topic, ok := topicMap[eventType]; ok {
+	if topic, ok:= topicMap[eventType]; ok {
 		return topic
 	}
 	return "events.default"
@@ -478,12 +478,12 @@ func (c *DebeziumOutboxConsumer) Consume(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			msg, err := c.reader.FetchMessage(ctx)
+			msg, err:= c.reader.FetchMessage(ctx)
 			if err != nil {
 				return fmt.Errorf("fetching message: %w", err)
 			}
 
-			if err := c.processMessage(ctx, msg); err != nil {
+			if err:= c.processMessage(ctx, msg); err != nil {
 				log.Printf("Error processing message: %v", err)
 			}
 
@@ -494,16 +494,16 @@ func (c *DebeziumOutboxConsumer) Consume(ctx context.Context) error {
 
 func (c *DebeziumOutboxConsumer) processMessage(ctx context.Context, msg kafka.Message) error {
 	var debeziumEvent DebeziumEvent
-	if err := json.Unmarshal(msg.Value, &debeziumEvent); err != nil {
+	if err:= json.Unmarshal(msg.Value, &debeziumEvent); err != nil {
 		return fmt.Errorf("unmarshaling debezium event: %w", err)
 	}
 
 	var payload interface{}
-	if err := json.Unmarshal(debeziumEvent.After.Payload, &payload); err != nil {
+	if err:= json.Unmarshal(debeziumEvent.After.Payload, &payload); err != nil {
 		return fmt.Errorf("unmarshaling payload: %w", err)
 	}
 
-	event := &Event{
+	event:= &Event{
 		Type:        debeziumEvent.After.EventType,
 		AggregateID: debeziumEvent.After.AggregateID,
 		Payload:     payload,
@@ -519,7 +519,7 @@ func (c *DebeziumOutboxConsumer) Close() error {
 
 ---
 
-## Outbox avec Cleanup
+## Outbox with Cleanup
 
 ```go
 package outbox
@@ -545,18 +545,18 @@ func NewOutboxCleaner(db *sql.DB, retentionDays int) *OutboxCleaner {
 	}
 }
 
-// Executer periodiquement (cron)
+// Execute periodically (cron)
 func (c *OutboxCleaner) Cleanup(ctx context.Context) (int64, error) {
-	query := fmt.Sprintf(`DELETE FROM outbox
+	query:= fmt.Sprintf(`DELETE FROM outbox
                           WHERE published_at IS NOT NULL
                           AND published_at < NOW() - INTERVAL '%d days'`, c.retentionDays)
 
-	result, err := c.db.ExecContext(ctx, query)
+	result, err:= c.db.ExecContext(ctx, query)
 	if err != nil {
 		return 0, fmt.Errorf("deleting old messages: %w", err)
 	}
 
-	rowsDeleted, err := result.RowsAffected()
+	rowsDeleted, err:= result.RowsAffected()
 	if err != nil {
 		return 0, fmt.Errorf("getting rows affected: %w", err)
 	}
@@ -564,9 +564,9 @@ func (c *OutboxCleaner) Cleanup(ctx context.Context) (int64, error) {
 	return rowsDeleted, nil
 }
 
-// Archiver avant suppression (optionnel)
+// Archive before deletion (optional)
 func (c *OutboxCleaner) ArchiveAndCleanup(ctx context.Context) error {
-	query := fmt.Sprintf(`
+	query:= fmt.Sprintf(`
       WITH archived AS (
         INSERT INTO outbox_archive
         SELECT * FROM outbox
@@ -577,7 +577,7 @@ func (c *OutboxCleaner) ArchiveAndCleanup(ctx context.Context) error {
       DELETE FROM outbox WHERE id IN (SELECT id FROM archived)
     `, c.retentionDays)
 
-	_, err := c.db.ExecContext(ctx, query)
+	_, err:= c.db.ExecContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("archiving and cleaning: %w", err)
 	}
@@ -587,7 +587,7 @@ func (c *OutboxCleaner) ArchiveAndCleanup(ctx context.Context) error {
 
 // Scheduler pour cleanup automatique
 func (c *OutboxCleaner) StartScheduler(ctx context.Context, interval time.Duration) {
-	ticker := time.NewTicker(interval)
+	ticker:= time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
@@ -595,7 +595,7 @@ func (c *OutboxCleaner) StartScheduler(ctx context.Context, interval time.Durati
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			deleted, err := c.Cleanup(ctx)
+			deleted, err:= c.Cleanup(ctx)
 			if err != nil {
 				log.Printf("Cleanup error: %v", err)
 			} else {
@@ -608,7 +608,7 @@ func (c *OutboxCleaner) StartScheduler(ctx context.Context, interval time.Durati
 
 ---
 
-## Gestion des echecs
+## Failure Handling
 
 ```go
 package outbox
@@ -640,32 +640,32 @@ func NewRobustOutboxRelay(outboxRepo *OutboxRepository, broker MessageBroker, al
 
 func (r *RobustOutboxRelay) processMessage(ctx context.Context, message *OutboxRow) error {
 	if message.RetryCount >= r.maxRetries {
-		if err := r.moveToDeadLetter(ctx, message); err != nil {
+		if err:= r.moveToDeadLetter(ctx, message); err != nil {
 			return fmt.Errorf("moving to dead letter: %w", err)
 		}
 		return r.outboxRepo.MarkAsPublished(ctx, message.ID)
 	}
 
-	// Backoff exponentiel
+	// Exponential backoff
 	if message.RetryCount > 0 {
-		backoff := time.Duration(math.Pow(2, float64(message.RetryCount))) * time.Second
-		timeSinceCreation := time.Since(message.CreatedAt)
+		backoff:= time.Duration(math.Pow(2, float64(message.RetryCount))) * time.Second
+		timeSinceCreation:= time.Since(message.CreatedAt)
 		if timeSinceCreation < backoff {
 			return nil // Pas encore temps de retry
 		}
 	}
 
-	topic := r.getTopicForEvent(message.EventType)
+	topic:= r.getTopicForEvent(message.EventType)
 
 	var payload interface{}
-	if err := json.Unmarshal(message.Payload, &payload); err != nil {
+	if err:= json.Unmarshal(message.Payload, &payload); err != nil {
 		return r.outboxRepo.MarkAsFailed(ctx, message.ID, err.Error())
 	}
 
-	event := r.formatMessage(message, payload)
+	event:= r.formatMessage(message, payload)
 
-	if err := r.broker.Publish(ctx, topic, event); err != nil {
-		if err := r.outboxRepo.MarkAsFailed(ctx, message.ID, err.Error()); err != nil {
+	if err:= r.broker.Publish(ctx, topic, event); err != nil {
+		if err:= r.outboxRepo.MarkAsFailed(ctx, message.ID, err.Error()); err != nil {
 			return err
 		}
 
@@ -683,9 +683,9 @@ func (r *RobustOutboxRelay) processMessage(ctx context.Context, message *OutboxR
 }
 
 func (r *RobustOutboxRelay) moveToDeadLetter(ctx context.Context, message *OutboxRow) error {
-	query := `INSERT INTO outbox_dead_letter
+	query:= `INSERT INTO outbox_dead_letter
               SELECT *, NOW() as moved_at FROM outbox WHERE id = $1`
-	_, err := r.outboxRepo.db.ExecContext(ctx, query, message.ID)
+	_, err:= r.outboxRepo.db.ExecContext(ctx, query, message.ID)
 	if err != nil {
 		return fmt.Errorf("inserting to dead letter: %w", err)
 	}
@@ -705,7 +705,7 @@ func (r *RobustOutboxRelay) formatMessage(message *OutboxRow, payload interface{
 
 ---
 
-## Ordering et Partitioning
+## Ordering and Partitioning
 
 ```go
 package outbox
@@ -727,37 +727,37 @@ func NewOrderedOutboxRelay(outboxRepo *OutboxRepository, broker MessageBroker) *
 }
 
 func (r *OrderedOutboxRelay) ProcessMessages(ctx context.Context) error {
-	// Grouper par aggregate pour maintenir l'ordre
-	query := `SELECT DISTINCT ON (aggregate_id) *
+	// Group by aggregate to maintain order
+	query:= `SELECT DISTINCT ON (aggregate_id) *
               FROM outbox
               WHERE published_at IS NULL
               ORDER BY aggregate_id, created_at ASC`
 
-	rows, err := r.outboxRepo.db.QueryContext(ctx, query)
+	rows, err:= r.outboxRepo.db.QueryContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("querying messages: %w", err)
 	}
 	defer rows.Close()
 
-	// Grouper par aggregate_id
-	byAggregate := make(map[string][]*OutboxRow)
+	// Group by aggregate_id
+	byAggregate:= make(map[string][]*OutboxRow)
 	for rows.Next() {
 		var msg OutboxRow
-		if err := rows.Scan(&msg); err != nil {
+		if err:= rows.Scan(&msg); err != nil {
 			return fmt.Errorf("scanning row: %w", err)
 		}
 		byAggregate[msg.AggregateID] = append(byAggregate[msg.AggregateID], &msg)
 	}
 
-	// Traiter en parallele par aggregate, sequentiel dans l'aggregate
+	// Process in parallel by aggregate, sequential within aggregate
 	var wg sync.WaitGroup
-	errChan := make(chan error, len(byAggregate))
+	errChan:= make(chan error, len(byAggregate))
 
-	for aggregateID, messages := range byAggregate {
-		aggIDCaptured := aggregateID
-		msgsCaptured := messages
+	for aggregateID, messages:= range byAggregate {
+		aggIDCaptured:= aggregateID
+		msgsCaptured:= messages
 		wg.Go(func() {
-			if err := r.processAggregateMessages(ctx, aggIDCaptured, msgsCaptured); err != nil {
+			if err:= r.processAggregateMessages(ctx, aggIDCaptured, msgsCaptured); err != nil {
 				errChan <- err
 			}
 		})
@@ -766,9 +766,9 @@ func (r *OrderedOutboxRelay) ProcessMessages(ctx context.Context) error {
 	wg.Wait()
 	close(errChan)
 
-	// Collecter les erreurs
+	// Collect errors
 	var errs []error
-	for err := range errChan {
+	for err:= range errChan {
 		errs = append(errs, err)
 	}
 
@@ -780,9 +780,9 @@ func (r *OrderedOutboxRelay) ProcessMessages(ctx context.Context) error {
 }
 
 func (r *OrderedOutboxRelay) processAggregateMessages(ctx context.Context, aggregateID string, messages []*OutboxRow) error {
-	// Sequentiel pour maintenir l'ordre
-	for _, message := range messages {
-		if err := r.processMessage(ctx, message); err != nil {
+	// Sequential to maintain order
+	for _, message:= range messages {
+		if err:= r.processMessage(ctx, message); err != nil {
 			return fmt.Errorf("processing message %s for aggregate %s: %w", message.ID, aggregateID, err)
 		}
 	}
@@ -792,17 +792,17 @@ func (r *OrderedOutboxRelay) processAggregateMessages(ctx context.Context, aggre
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Éviter le dual-write problem (DB + message broker)
-- Garantir cohérence entre données et événements
-- Systèmes event-driven avec transactions ACID
-- Microservices avec communication asynchrone
-- Besoin d'audit trail des événements publiés
+- Avoid the dual-write problem (DB + message broker)
+- Guarantee consistency between data and events
+- Event-driven systems with ACID transactions
+- Microservices with asynchronous communication
+- Need for audit trail of published events
 
-## Patterns liés
+## Related Patterns
 
-- [Idempotent Receiver](./idempotent-receiver.md) - Côté consumer
-- [Event Sourcing](../architectural/event-sourcing.md) - Alternative complète
-- [Saga](../cloud/saga.md) - Transactions distribuées
-- [Dead Letter Channel](./dead-letter.md) - Messages échoués
+- [Idempotent Receiver](./idempotent-receiver.md) - Consumer side
+- [Event Sourcing](../architectural/event-sourcing.md) - Complete alternative
+- [Saga](../cloud/saga.md) - Distributed transactions
+- [Dead Letter Channel](./dead-letter.md) - Failed messages

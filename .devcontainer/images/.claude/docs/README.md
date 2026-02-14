@@ -1,13 +1,13 @@
 # Design Patterns - Complete Reference
 
-Base de données exhaustive des design patterns pour les agents Claude.
+Exhaustive database of design patterns for Claude agents.
 
 ---
 
-## Catégories
+## Categories
 
-| # | Catégorie | Fichiers | Description |
-|---|-----------|----------|-------------|
+| # | Category | Files | Description |
+|---|----------|-------|-------------|
 | 1 | [principles/](principles/) | 7 | SOLID, DRY, KISS, YAGNI, GRASP, Defensive |
 | 2 | [creational/](creational/) | 4 | Factory, Builder, Singleton, Prototype |
 | 3 | [structural/](structural/) | 7 | Adapter, Bridge, Composite, Decorator, Facade, Flyweight, Proxy |
@@ -27,435 +27,435 @@ Base de données exhaustive des design patterns pour les agents Claude.
 | 17 | [refactoring/](refactoring/) | 2 | Branch by Abstraction, Strangler Fig |
 | 18 | [integration/](integration/) | 6 | API Gateway, BFF, Service Mesh, Sidecar |
 
-Total : 167 fichiers markdown - 300+ patterns documentés
+Total: 167 markdown files - 300+ documented patterns
 
 ---
 
-## Index Alphabétique Complet
+## Complete Alphabetical Index
 
 ### A
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Abstract Factory | creational | Familles d'objets liés |
-| Active Record | enterprise | Objet = row DB |
-| Actor Model | concurrency | Concurrence par messages |
-| Adapter | structural | Convertir interfaces |
-| Aggregator | messaging | Combiner messages |
-| Aggregate | ddd | Cluster d'entités |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Abstract Factory | creational | Related object families |
+| Active Record | enterprise | Object = DB row |
+| Actor Model | concurrency | Message-based concurrency |
+| Adapter | structural | Convert interfaces |
+| Aggregator | messaging | Combine messages |
+| Aggregate | ddd | Entity cluster |
 | Ambassador | cloud | Proxy helper services |
-| Anti-Corruption Layer | integration | Isoler legacy |
-| API Gateway | integration | Point d'entrée unique |
-| Application Controller | enterprise | Workflow UI |
-| Applicative Functor | functional | Séquençage d'effets |
-| Async/Await | concurrency | Asynchrone simplifié |
+| Anti-Corruption Layer | integration | Isolate legacy |
+| API Gateway | integration | Single entry point |
+| Application Controller | enterprise | UI workflow |
+| Applicative Functor | functional | Effect sequencing |
+| Async/Await | concurrency | Simplified async |
 
 ### B
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Backend for Frontend (BFF) | integration | Backend par client |
-| Barrier | concurrency | Synchronisation threads |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Backend for Frontend (BFF) | integration | Per-client backend |
+| Barrier | concurrency | Thread synchronization |
 | Blue-Green Deployment | devops | Zero-downtime deploy |
-| Branch by Abstraction | refactoring | Migration progressive |
-| Bridge | structural | Abstraction/implémentation |
-| Buffer | performance | Stockage temporaire |
-| Builder | creational | Construction complexe |
-| Bulkhead | resilience | Isolation ressources |
+| Branch by Abstraction | refactoring | Progressive migration |
+| Bridge | structural | Abstraction/implementation |
+| Buffer | performance | Temporary storage |
+| Builder | creational | Complex construction |
+| Bulkhead | resilience | Resource isolation |
 
 ### C
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Cache-Aside | cloud | Cache on-demand |
-| Canary Deployment | devops | Déploiement progressif |
-| Chain of Responsibility | behavioral | Pipeline handlers |
-| Copy-on-Write | concurrency | Copie différée écriture |
-| Choreography | architectural | Orchestration décentralisée |
-| Circuit Breaker | resilience | Prévenir pannes cascade |
-| Claim Check | messaging | Message + référence payload |
-| Class Table Inheritance | enterprise | Héritage = tables |
-| Client Session State | enterprise | État côté client |
-| Coarse-Grained Lock | concurrency | Lock sur groupe |
-| Command | behavioral | Encapsuler requêtes |
-| Command Message | messaging | Message = commande |
-| Competing Consumers | messaging | Consommateurs parallèles |
-| Composite | structural | Structures arborescentes |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Cache-Aside | cloud | On-demand cache |
+| Canary Deployment | devops | Progressive deployment |
+| Chain of Responsibility | behavioral | Handler pipeline |
+| Copy-on-Write | concurrency | Deferred write copy |
+| Choreography | architectural | Decentralized orchestration |
+| Circuit Breaker | resilience | Prevent cascade failures |
+| Claim Check | messaging | Message + payload reference |
+| Class Table Inheritance | enterprise | Inheritance = tables |
+| Client Session State | enterprise | Client-side state |
+| Coarse-Grained Lock | concurrency | Group lock |
+| Command | behavioral | Encapsulate requests |
+| Command Message | messaging | Message = command |
+| Competing Consumers | messaging | Parallel consumers |
+| Composite | structural | Tree structures |
 | Composition | functional | f(g(x)) |
-| Concrete Table Inheritance | enterprise | Classe = table |
-| Content Enricher | messaging | Enrichir message |
-| Content Filter | messaging | Filtrer contenu |
-| Content-Based Router | messaging | Router par contenu |
-| Correlation Identifier | messaging | Lier requête/réponse |
-| CQRS | architectural | Séparer lecture/écriture |
+| Concrete Table Inheritance | enterprise | Class = table |
+| Content Enricher | messaging | Enrich message |
+| Content Filter | messaging | Filter content |
+| Content-Based Router | messaging | Route by content |
+| Correlation Identifier | messaging | Link request/response |
+| CQRS | architectural | Separate read/write |
 | Currying | functional | f(a,b) → f(a)(b) |
 
 ### D
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Data Mapper | enterprise | Mapping objet-DB |
-| Defensive Programming | principles | Validation défensive |
-| Design by Contract | principles | Pré/post conditions |
-| Data Transfer Object (DTO) | enterprise | Transférer données |
-| Dead Letter Channel | messaging | Messages en erreur |
-| Debounce | performance | Délai avant exécution |
-| Decorator | structural | Ajouter comportements |
-| Dependency Injection | structural | Inverser dépendances |
-| Domain Event | ddd | Événement métier |
-| Domain Model | enterprise | Logique métier riche |
-| Domain Service | ddd | Logique sans entité |
-| Double-Checked Locking | concurrency | Lazy singleton thread-safe |
-| Durable Subscriber | messaging | Subscription persistante |
-| Dynamic Router | messaging | Routage dynamique |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Data Mapper | enterprise | Object-DB mapping |
+| Defensive Programming | principles | Defensive validation |
+| Design by Contract | principles | Pre/post conditions |
+| Data Transfer Object (DTO) | enterprise | Transfer data |
+| Dead Letter Channel | messaging | Error messages |
+| Debounce | performance | Delay before execution |
+| Decorator | structural | Add behaviors |
+| Dependency Injection | structural | Invert dependencies |
+| Domain Event | ddd | Business event |
+| Domain Model | enterprise | Rich business logic |
+| Domain Service | ddd | Logic without entity |
+| Double-Checked Locking | concurrency | Thread-safe lazy singleton |
+| Durable Subscriber | messaging | Persistent subscription |
+| Dynamic Router | messaging | Dynamic routing |
 
 ### E
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Embedded Value | enterprise | Value Object en colonne |
-| Entity | ddd | Objet avec identité |
-| Envelope Wrapper | messaging | Encapsuler message |
-| Event Message | messaging | Notification événement |
-| Event Sourcing | architectural | Historique d'événements |
-| Event-Driven Architecture | architectural | Architecture événementielle |
-| Event-Driven Consumer | messaging | Consommateur événementiel |
-| External Configuration Store | cloud | Config externalisée |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Embedded Value | enterprise | Value Object as column |
+| Entity | ddd | Object with identity |
+| Envelope Wrapper | messaging | Wrap message |
+| Event Message | messaging | Event notification |
+| Event Sourcing | architectural | Event history |
+| Event-Driven Architecture | architectural | Event-driven architecture |
+| Event-Driven Consumer | messaging | Event-driven consumer |
+| External Configuration Store | cloud | Externalized config |
 
 ### F
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Facade | structural | Interface simplifiée |
-| Factory | ddd | Créer aggregates |
-| Factory Method | creational | Déléguer création |
-| Fail-Fast | principles | Échouer immédiatement |
-| Feature Toggle | devops | Activation conditionnelle |
-| Federated Identity | security | Auth déléguée |
-| Fixture | testing | Données de test |
-| Flyweight | structural | Partager état commun |
-| Foreign Key Mapping | enterprise | FK en référence |
-| Front Controller | enterprise | Point d'entrée unique |
-| Functor | functional | map() sur container |
-| Future/Promise | concurrency | Valeur asynchrone |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Facade | structural | Simplified interface |
+| Factory | ddd | Create aggregates |
+| Factory Method | creational | Delegate creation |
+| Fail-Fast | principles | Fail immediately |
+| Feature Toggle | devops | Conditional activation |
+| Federated Identity | security | Delegated auth |
+| Fixture | testing | Test data |
+| Flyweight | structural | Share common state |
+| Foreign Key Mapping | enterprise | FK as reference |
+| Front Controller | enterprise | Single entry point |
+| Functor | functional | map() on container |
+| Future/Promise | concurrency | Async value |
 
 ### G
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Gateway | enterprise | Accès système externe |
-| GRASP (9 patterns) | principles | Attribution responsabilités |
-| Guard Clause | principles | Validation early return |
-| Gateway Aggregation | cloud | Agréger requêtes |
-| Gateway Offloading | cloud | Décharger gateway |
-| Gateway Routing | cloud | Router requêtes |
-| Geode | cloud | Multi-région |
-| GitOps | devops | Git = source de vérité |
-| Guaranteed Delivery | messaging | Livraison garantie |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Gateway | enterprise | External system access |
+| GRASP (9 patterns) | principles | Responsibility assignment |
+| Guard Clause | principles | Early return validation |
+| Gateway Aggregation | cloud | Aggregate requests |
+| Gateway Offloading | cloud | Offload gateway |
+| Gateway Routing | cloud | Route requests |
+| Geode | cloud | Multi-region |
+| GitOps | devops | Git = source of truth |
+| Guaranteed Delivery | messaging | Guaranteed delivery |
 
 ### H
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Half-Sync/Half-Async | concurrency | Sync + Async combinés |
-| Health Check | resilience | Vérifier état service |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Half-Sync/Half-Async | concurrency | Sync + Async combined |
+| Health Check | resilience | Check service status |
 | Hexagonal Architecture | architectural | Ports & Adapters |
 
 ### I
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Idempotent Receiver | messaging | Traitement unique |
-| Identity Field | enterprise | ID en attribut |
-| Identity Map | enterprise | Cache objets chargés |
-| Immutable Infrastructure | devops | Infra remplacée, pas modifiée |
-| Implicit Lock | concurrency | Lock automatique |
-| Infrastructure as Code | devops | Infra en code |
-| Inheritance Mappers | enterprise | Stratégies héritage DB |
-| Integration Patterns | enterprise | Patterns d'intégration |
-| Interpreter | behavioral | Interpréter grammaire |
-| Invalid Message Channel | messaging | Messages invalides |
-| Iterator | behavioral | Parcours collection |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Idempotent Receiver | messaging | Single processing |
+| Identity Field | enterprise | ID as attribute |
+| Identity Map | enterprise | Loaded objects cache |
+| Immutable Infrastructure | devops | Replaced, not modified infra |
+| Implicit Lock | concurrency | Automatic lock |
+| Infrastructure as Code | devops | Infra as code |
+| Inheritance Mappers | enterprise | DB inheritance strategies |
+| Integration Patterns | enterprise | Integration patterns |
+| Interpreter | behavioral | Interpret grammar |
+| Invalid Message Channel | messaging | Invalid messages |
+| Iterator | behavioral | Collection traversal |
 
 ### J-K
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| JWT | security | Token auto-contenu |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| JWT | security | Self-contained token |
 
 ### L
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Layer Supertype | enterprise | Classe de base couche |
-| Layered Architecture | architectural | Architecture en couches |
-| Lazy Load | performance | Chargement différé |
-| Leader Election | cloud | Élire coordinateur |
-| Lock | concurrency | Exclusion mutuelle |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Layer Supertype | enterprise | Layer base class |
+| Layered Architecture | architectural | Layered architecture |
+| Lazy Load | performance | Deferred loading |
+| Leader Election | cloud | Elect coordinator |
+| Lock | concurrency | Mutual exclusion |
 
 ### M
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Mapper | enterprise | Conversion objets |
-| Materialized View | cloud | Vue pré-calculée |
-| Mediator | behavioral | Réduire couplage |
-| Memento | behavioral | Sauvegarder état |
-| Memoization | performance | Cache résultats fonction |
-| Message | messaging | Unité de communication |
-| Message Broker | messaging | Intermédiaire messages |
-| Message Bus | messaging | Bus de messages |
-| Message Channel | messaging | Canal de transport |
-| Message Dispatcher | messaging | Distribuer messages |
-| Message Endpoint | messaging | Point de connexion |
-| Message Expiration | messaging | Durée de vie message |
-| Message Filter | messaging | Filtrer messages |
-| Message History | messaging | Historique routage |
-| Message Router | messaging | Router messages |
-| Message Sequence | messaging | Ordre des messages |
-| Message Store | messaging | Stocker messages |
-| Message Translator | messaging | Traduire format |
-| Messaging Bridge | messaging | Connecter systèmes |
-| Messaging Gateway | messaging | Abstraction messaging |
-| Messaging Mapper | messaging | Mapper messages |
-| Metadata Mapping | enterprise | Mapping par métadonnées |
-| Microservices | architectural | Services indépendants |
-| Mock | testing | Simuler comportement |
-| Model View Controller (MVC) | enterprise | Séparation UI |
-| Module | ddd | Regrouper concepts |
-| Monad | functional | Chaînage + contexte |
-| Money | enterprise | Valeur monétaire |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Mapper | enterprise | Object conversion |
+| Materialized View | cloud | Pre-computed view |
+| Mediator | behavioral | Reduce coupling |
+| Memento | behavioral | Save state |
+| Memoization | performance | Function result cache |
+| Message | messaging | Communication unit |
+| Message Broker | messaging | Message intermediary |
+| Message Bus | messaging | Message bus |
+| Message Channel | messaging | Transport channel |
+| Message Dispatcher | messaging | Distribute messages |
+| Message Endpoint | messaging | Connection point |
+| Message Expiration | messaging | Message lifetime |
+| Message Filter | messaging | Filter messages |
+| Message History | messaging | Routing history |
+| Message Router | messaging | Route messages |
+| Message Sequence | messaging | Message ordering |
+| Message Store | messaging | Store messages |
+| Message Translator | messaging | Translate format |
+| Messaging Bridge | messaging | Connect systems |
+| Messaging Gateway | messaging | Messaging abstraction |
+| Messaging Mapper | messaging | Map messages |
+| Metadata Mapping | enterprise | Metadata-based mapping |
+| Microservices | architectural | Independent services |
+| Mock | testing | Simulate behavior |
+| Model View Controller (MVC) | enterprise | UI separation |
+| Module | ddd | Group concepts |
+| Monad | functional | Chaining + context |
+| Money | enterprise | Monetary value |
 | Monitor | concurrency | Lock + condition |
-| Monolith | architectural | Application unique |
-| Multiton | creational | Pool de singletons |
-| Mutex | concurrency | Verrou exclusif |
+| Monolith | architectural | Single application |
+| Multiton | creational | Singleton pool |
+| Mutex | concurrency | Exclusive lock |
 
 ### N
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Normalizer | messaging | Standardiser format |
-| Null Object | behavioral | Éviter null checks |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Normalizer | messaging | Standardize format |
+| Null Object | behavioral | Avoid null checks |
 
 ### O
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| OAuth | security | Délégation d'accès |
-| Object Mother | testing | Factory d'objets test |
-| Object Pool | performance | Réutiliser objets |
-| Observer | behavioral | Notification changements |
-| Optimistic Lock | concurrency | Détecter conflits |
-| Optimistic Offline Lock | enterprise | Lock optimiste |
-| Outbox | messaging | Fiabilité événements |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| OAuth | security | Access delegation |
+| Object Mother | testing | Test object factory |
+| Object Pool | performance | Reuse objects |
+| Observer | behavioral | Change notification |
+| Optimistic Lock | concurrency | Detect conflicts |
+| Optimistic Offline Lock | enterprise | Optimistic lock |
+| Outbox | messaging | Event reliability |
 
 ### P
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Page Controller | enterprise | Controller par page |
-| Pessimistic Lock | concurrency | Prévenir conflits |
-| Pessimistic Offline Lock | enterprise | Lock pessimiste |
-| Pipes and Filters | messaging | Pipeline traitement |
-| Plugin | enterprise | Extension dynamique |
-| Point-to-Point Channel | messaging | Un émetteur, un récepteur |
-| Polling Consumer | messaging | Polling messages |
-| Priority Queue | cloud | File prioritaire |
-| Process Manager | messaging | Orchestrer workflow |
-| Producer-Consumer | concurrency | File entre threads |
-| Prototype | creational | Cloner objets |
-| Proxy | structural | Contrôler accès |
-| Publish-Subscribe | messaging | Multi-abonnés |
-| Publisher Confirms | messaging | Confirmation publication |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Page Controller | enterprise | Per-page controller |
+| Pessimistic Lock | concurrency | Prevent conflicts |
+| Pessimistic Offline Lock | enterprise | Pessimistic lock |
+| Pipes and Filters | messaging | Processing pipeline |
+| Plugin | enterprise | Dynamic extension |
+| Point-to-Point Channel | messaging | One sender, one receiver |
+| Polling Consumer | messaging | Message polling |
+| Priority Queue | cloud | Priority queue |
+| Process Manager | messaging | Orchestrate workflow |
+| Producer-Consumer | concurrency | Inter-thread queue |
+| Prototype | creational | Clone objects |
+| Proxy | structural | Control access |
+| Publish-Subscribe | messaging | Multiple subscribers |
+| Publisher Confirms | messaging | Publication confirmation |
 
 ### Q
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Quarantine | cloud | Isoler assets suspects |
-| Query Object | enterprise | Construire requêtes |
-| Queue-Based Load Leveling | cloud | Lisser la charge |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Quarantine | cloud | Isolate suspect assets |
+| Query Object | enterprise | Build queries |
+| Queue-Based Load Leveling | cloud | Smooth the load |
 
 ### R
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Rate Limiting | resilience | Limiter débit |
-| RBAC | security | Contrôle par rôles |
-| Read-Through Cache | performance | Cache transparent lecture |
-| Read-Write Lock | concurrency | Lock lecture/écriture |
-| Recipient List | messaging | Liste destinataires |
-| Record Set | enterprise | Collection rows |
-| Registry | enterprise | Accès global objets |
-| Remote Facade | enterprise | API simplifiée distante |
-| Repository | ddd | Accès aggregates |
-| Request-Reply | messaging | Requête/réponse |
-| Resequencer | messaging | Réordonner messages |
-| Retry | resilience | Réessayer en erreur |
-| Return Address | messaging | Adresse de retour |
-| Ring Buffer | performance | Buffer circulaire |
-| Routing Slip | messaging | Itinéraire message |
-| Row Data Gateway | enterprise | Gateway par row |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Rate Limiting | resilience | Limit throughput |
+| RBAC | security | Role-based control |
+| Read-Through Cache | performance | Transparent read cache |
+| Read-Write Lock | concurrency | Read/write lock |
+| Recipient List | messaging | Recipient list |
+| Record Set | enterprise | Row collection |
+| Registry | enterprise | Global object access |
+| Remote Facade | enterprise | Simplified remote API |
+| Repository | ddd | Aggregate access |
+| Request-Reply | messaging | Request/response |
+| Resequencer | messaging | Reorder messages |
+| Retry | resilience | Retry on error |
+| Return Address | messaging | Return address |
+| Ring Buffer | performance | Circular buffer |
+| Routing Slip | messaging | Message itinerary |
+| Row Data Gateway | enterprise | Per-row gateway |
 
 ### S
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Saga | cloud | Transactions distribuées |
-| Scatter-Gather | messaging | Distribuer et collecter |
-| Scheduler Agent Supervisor | cloud | Coordonner tâches |
-| Selective Consumer | messaging | Filtrer à réception |
-| Semaphore | concurrency | Limiter accès concurrent |
-| Separated Interface | enterprise | Interface séparée |
-| Serialized LOB | enterprise | Sérialiser objets |
-| Server Session State | enterprise | État côté serveur |
-| Service Activator | messaging | Activer service |
-| Service Layer | enterprise | Couche de services |
-| Service Locator | enterprise | Localiser services |
-| Service Stub | enterprise | Stub de service |
-| Service Mesh | integration | Communication inter-services |
-| Sharding | cloud | Partitionner données |
-| Sidecar | integration | Container auxiliaire |
-| Single Table Inheritance | enterprise | Héritage = 1 table |
-| Singleton | creational | Instance unique |
-| Smart Proxy | messaging | Proxy intelligent |
-| Specification | ddd | Règle métier |
-| Splitter | messaging | Diviser message |
-| State | behavioral | Comportement par état |
-| Static Content Hosting | cloud | Contenu statique cloud |
-| Strangler Fig | cloud | Migration progressive |
-| Strategy | behavioral | Algorithmes variables |
-| Stub | testing | Réponse prédéfinie |
-| Supervisor | concurrency | Gérer erreurs actors |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Saga | cloud | Distributed transactions |
+| Scatter-Gather | messaging | Distribute and collect |
+| Scheduler Agent Supervisor | cloud | Coordinate tasks |
+| Selective Consumer | messaging | Filter on receipt |
+| Semaphore | concurrency | Limit concurrent access |
+| Separated Interface | enterprise | Separated interface |
+| Serialized LOB | enterprise | Serialize objects |
+| Server Session State | enterprise | Server-side state |
+| Service Activator | messaging | Activate service |
+| Service Layer | enterprise | Service layer |
+| Service Locator | enterprise | Locate services |
+| Service Stub | enterprise | Service stub |
+| Service Mesh | integration | Inter-service communication |
+| Sharding | cloud | Partition data |
+| Sidecar | integration | Auxiliary container |
+| Single Table Inheritance | enterprise | Inheritance = 1 table |
+| Singleton | creational | Single instance |
+| Smart Proxy | messaging | Intelligent proxy |
+| Specification | ddd | Business rule |
+| Splitter | messaging | Split message |
+| State | behavioral | Behavior by state |
+| Static Content Hosting | cloud | Cloud static content |
+| Strangler Fig | cloud | Progressive migration |
+| Strategy | behavioral | Variable algorithms |
+| Stub | testing | Predefined response |
+| Supervisor | concurrency | Handle actor errors |
 
 ### T
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Table Data Gateway | enterprise | Gateway par table |
-| Table Module | enterprise | Module par table |
-| Template Method | behavioral | Squelette algorithme |
-| Template View | enterprise | Vue avec template |
-| Test Double | testing | Remplaçant pour tests |
-| Thread Pool | concurrency | Pool de threads |
-| Throttling | resilience | Limiter consommation |
-| Timeout | resilience | Limiter durée |
-| Transaction Script | enterprise | Script par transaction |
-| Transactional Client | messaging | Client transactionnel |
-| Transactional Outbox | messaging | Outbox transactionnel |
-| Transform View | enterprise | Transformation vue |
-| Two Step View | enterprise | Vue en 2 étapes |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Table Data Gateway | enterprise | Per-table gateway |
+| Table Module | enterprise | Per-table module |
+| Template Method | behavioral | Algorithm skeleton |
+| Template View | enterprise | Template-based view |
+| Test Double | testing | Test replacement |
+| Thread Pool | concurrency | Thread pool |
+| Throttling | resilience | Limit consumption |
+| Timeout | resilience | Limit duration |
+| Transaction Script | enterprise | Per-transaction script |
+| Transactional Client | messaging | Transactional client |
+| Transactional Outbox | messaging | Transactional outbox |
+| Transform View | enterprise | View transformation |
+| Two Step View | enterprise | Two-step view |
 
 ### U
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Ubiquitous Language | ddd | Langage commun |
-| Unit of Work | enterprise | Regrouper modifications |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Ubiquitous Language | ddd | Common language |
+| Unit of Work | enterprise | Group modifications |
 
 ### V
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Valet Key | cloud | Accès temporaire |
-| Value Object | ddd | Objet sans identité |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Valet Key | cloud | Temporary access |
+| Value Object | ddd | Object without identity |
 | Virtual Proxy | structural | Lazy load via proxy |
-| Visitor | behavioral | Opérations sur structure |
+| Visitor | behavioral | Operations on structure |
 
 ### W
 
-| Pattern | Catégorie | Usage |
-|---------|-----------|-------|
-| Wire Tap | messaging | Intercepter messages |
-| Write-Behind Cache | performance | Écriture asynchrone |
-| Write-Through Cache | performance | Écriture synchrone |
+| Pattern | Category | Usage |
+|---------|----------|-------|
+| Wire Tap | messaging | Intercept messages |
+| Write-Behind Cache | performance | Async write |
+| Write-Through Cache | performance | Sync write |
 
 ---
 
-## Patterns par Problème
+## Patterns by Problem
 
-### Validation / Robustesse
+### Validation / Robustness
 
-| Problème | Patterns |
-|----------|----------|
-| Variables nulles/invalides | Guard Clause, Null Object |
-| Conditions imbriquées | Guard Clause, Early Return |
-| Invariants métier | Design by Contract, Assertions |
-| Données externes | Input Validation, Type Guards |
-| Dépendances manquantes | Fail-Fast, Dependency Validation |
-| Modifications accidentelles | Immutability, Copy-on-Write |
+| Problem | Patterns |
+|---------|----------|
+| Null/invalid variables | Guard Clause, Null Object |
+| Nested conditions | Guard Clause, Early Return |
+| Business invariants | Design by Contract, Assertions |
+| External data | Input Validation, Type Guards |
+| Missing dependencies | Fail-Fast, Dependency Validation |
+| Accidental modifications | Immutability, Copy-on-Write |
 
-### Création d'objets
+### Object Creation
 
-| Problème | Patterns |
-|----------|----------|
-| Construction complexe | Builder |
-| Familles d'objets | Abstract Factory |
-| Déléguer création | Factory Method |
-| Objets coûteux réutilisables | Object Pool |
-| Copie efficace | Prototype |
-| Instance unique | Singleton, Multiton |
+| Problem | Patterns |
+|---------|----------|
+| Complex construction | Builder |
+| Object families | Abstract Factory |
+| Delegate creation | Factory Method |
+| Expensive reusable objects | Object Pool |
+| Efficient copy | Prototype |
+| Single instance | Singleton, Multiton |
 
 ### Performance
 
-| Problème | Patterns |
-|----------|----------|
-| Objets coûteux | Object Pool, Flyweight |
-| Données fréquentes | Cache-Aside, Memoization |
-| I/O lent | Buffer, Lazy Load |
-| Appels répétés | Debounce, Throttle |
+| Problem | Patterns |
+|---------|----------|
+| Expensive objects | Object Pool, Flyweight |
+| Frequently accessed data | Cache-Aside, Memoization |
+| Slow I/O | Buffer, Lazy Load |
+| Repeated calls | Debounce, Throttle |
 
-### Concurrence
+### Concurrency
 
-| Problème | Patterns |
-|----------|----------|
-| Threads coûteux | Thread Pool |
-| Partage de données | Lock, Mutex, Semaphore |
-| Communication inter-thread | Producer-Consumer, Actor |
-| Async simplifié | Future/Promise, Async/Await |
+| Problem | Patterns |
+|---------|----------|
+| Expensive threads | Thread Pool |
+| Data sharing | Lock, Mutex, Semaphore |
+| Inter-thread communication | Producer-Consumer, Actor |
+| Simplified async | Future/Promise, Async/Await |
 
-### Résilience
+### Resilience
 
-| Problème | Patterns |
-|----------|----------|
-| Pannes en cascade | Circuit Breaker |
-| Erreurs temporaires | Retry, Timeout |
+| Problem | Patterns |
+|---------|----------|
+| Cascade failures | Circuit Breaker |
+| Temporary errors | Retry, Timeout |
 | Isolation | Bulkhead |
 | Monitoring | Health Check |
 
 ### Distribution
 
-| Problème | Patterns |
-|----------|----------|
-| Transactions distribuées | Saga, Outbox |
+| Problem | Patterns |
+|---------|----------|
+| Distributed transactions | Saga, Outbox |
 | Communication | Message Queue, Pub/Sub |
-| Scalabilité | Sharding, CQRS |
-| Multi-région | Geode |
+| Scalability | Sharding, CQRS |
+| Multi-region | Geode |
 
-### Sécurité
+### Security
 
-| Problème | Patterns |
-|----------|----------|
-| Authentification | OAuth, JWT, OIDC |
-| Autorisation | RBAC, ABAC |
+| Problem | Patterns |
+|---------|----------|
+| Authentication | OAuth, JWT, OIDC |
+| Authorization | RBAC, ABAC |
 | Secrets | Vault, Sealed Secrets |
 
 ### Refactoring / Migration
 
-| Problème | Patterns |
-|----------|----------|
-| Migration sans branches longues | Branch by Abstraction |
-| Remplacement système legacy | Strangler Fig |
-| Déploiement progressif | Feature Toggle, Canary |
-| Test nouvelle implémentation | Parallel Run, Dark Launch |
-| Rollback instantané | Feature Toggle |
+| Problem | Patterns |
+|---------|----------|
+| Migration without long branches | Branch by Abstraction |
+| Legacy system replacement | Strangler Fig |
+| Progressive deployment | Feature Toggle, Canary |
+| Test new implementation | Parallel Run, Dark Launch |
+| Instant rollback | Feature Toggle |
 
 ---
 
-## Relations entre Patterns
+## Relationships Between Patterns
 
 ```
-                    PRINCIPES
+                    PRINCIPLES
                         │
         ┌───────────────┼───────────────┐
         ▼               ▼               ▼

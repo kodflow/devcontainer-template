@@ -1,12 +1,12 @@
 # Decorator Pattern
 
-> Ajouter des comportements a un objet dynamiquement sans modifier sa classe.
+> Add behaviors to an object dynamically without modifying its class.
 
-## Intention
+## Intent
 
-Attacher des responsabilites supplementaires a un objet de maniere dynamique.
-Les decorateurs offrent une alternative flexible a l'heritage pour etendre
-les fonctionnalites.
+Attach additional responsibilities to an object dynamically.
+Decorators offer a flexible alternative to inheritance for extending
+functionality.
 
 ## Structure
 
@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-// 1. Interface composant
+// 1. Component interface
 type HTTPClient interface {
 	Request(ctx context.Context, config RequestConfig) (*http.Response, error)
 }
@@ -35,7 +35,7 @@ type RequestConfig struct {
 	Body    io.Reader
 }
 
-// 2. Composant concret
+// 2. Concrete component
 type BasicHTTPClient struct {
 	client *http.Client
 }
@@ -59,7 +59,7 @@ func (b *BasicHTTPClient) Request(ctx context.Context, config RequestConfig) (*h
 	return b.client.Do(req)
 }
 
-// 3. Decorateurs concrets (pas de classe de base en Go - composition directe)
+// 3. Concrete decorators (no base class in Go - direct composition)
 
 type LoggingDecorator struct {
 	client HTTPClient
@@ -208,17 +208,17 @@ import (
 )
 
 func main() {
-	// Composition de decorateurs
+	// Decorator composition
 	var client HTTPClient = NewBasicHTTPClient()
 	client = NewLoggingDecorator(client)
 	client = NewAuthDecorator(client, func() string { return "my-token" })
 	client = NewRetryDecorator(client, 3, 1*time.Second)
 	client = NewCacheDecorator(client, 30*time.Second)
 
-	// L'ordre est important!
+	// Order matters!
 	// Cache -> Retry -> Auth -> Logging -> Basic
 
-	// Utilisation transparente
+	// Transparent usage
 	response, err := client.Request(context.Background(), RequestConfig{
 		URL:    "https://api.example.com/users",
 		Method: "GET",
@@ -231,7 +231,7 @@ func main() {
 }
 ```
 
-## Variantes
+## Variants
 
 ### Functional Decorator
 
@@ -297,9 +297,9 @@ func main() {
 }
 ```
 
-## Cas d'usage concrets
+## Concrete Use Cases
 
-### Streams decorators
+### Stream Decorators
 
 ```go
 package main
@@ -413,7 +413,7 @@ func ExampleStreamDecorators() {
 ## Anti-patterns
 
 ```go
-// MAUVAIS: Decorateur qui modifie l'interface
+// BAD: Decorator that modifies the interface
 type BadDecorator struct {
 	client HTTPClient
 	stats  map[string]int
@@ -423,20 +423,20 @@ func (b *BadDecorator) Request(ctx context.Context, config RequestConfig) (*http
 	return b.client.Request(ctx, config)
 }
 
-// Methode supplementaire = violation du pattern
+// Additional method = pattern violation
 func (b *BadDecorator) GetStats() map[string]int {
 	return b.stats
 }
 
-// MAUVAIS: Ordre des decorateurs non documente
+// BAD: Undocumented decorator order
 func BadOrder() {
 	var client HTTPClient = NewBasicHTTPClient()
-	// Cache avant Auth = tokens caches!
+	// Cache before Auth = cached tokens!
 	client = NewCacheDecorator(client, 60*time.Second)
 	client = NewAuthDecorator(client, func() string { return "token" })
 }
 
-// MAUVAIS: Decorateur avec etat partage
+// BAD: Decorator with shared state
 var globalCount int
 
 type StatefulDecorator struct {
@@ -444,12 +444,12 @@ type StatefulDecorator struct {
 }
 
 func (s *StatefulDecorator) Request(ctx context.Context, config RequestConfig) (*http.Response, error) {
-	globalCount++ // Etat partage = problemes
+	globalCount++ // Shared state = problems
 	return s.client.Request(ctx, config)
 }
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```go
 package main
@@ -564,19 +564,19 @@ func (o *orderTrackingDecorator) Request(ctx context.Context, config RequestConf
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-- Ajouter des responsabilites sans modifier la classe
-- Comportements combinables dynamiquement
-- Extension impossible par heritage (classe sealed)
+- Adding responsibilities without modifying the class
+- Dynamically combinable behaviors
+- Extension impossible by inheritance (sealed class)
 - Cross-cutting concerns (logging, caching, auth)
 
-## Patterns lies
+## Related Patterns
 
-- **Adapter** : Change l'interface vs ajoute des comportements
-- **Composite** : Structure arborescente vs chaine lineaire
-- **Proxy** : Controle d'acces vs extension
-- **Chain of Responsibility** : Pattern similaire pour handlers
+- **Adapter**: Changes the interface vs adds behaviors
+- **Composite**: Tree structure vs linear chain
+- **Proxy**: Access control vs extension
+- **Chain of Responsibility**: Similar pattern for handlers
 
 ## Sources
 

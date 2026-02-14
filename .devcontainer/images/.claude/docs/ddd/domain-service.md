@@ -1,6 +1,6 @@
 # Domain Service Pattern
 
-> Encapsule la logique du domaine qui ne s'intègre pas naturellement dans une Entity ou un Value Object, représentant des opérations ou règles métier impliquant plusieurs objets.
+> Encapsulates domain logic that doesn't naturally fit within an Entity or Value Object, representing operations or business rules involving multiple objects.
 
 ## Definition
 
@@ -426,14 +426,14 @@ func (s *OrderApplicationService) Checkout(
    func (s *OrderDomainService) SendNotification() {}
    ```
 
-## Quand utiliser
+## When to Use
 
-- La logique implique plusieurs agrégats
-- L'opération n'appartient à aucune entité unique
-- Calculs ou transformations complexes
-- Règles métier qui couvrent plusieurs objets du domaine
+- Logic involves multiple aggregates
+- The operation doesn't belong to any single entity
+- Complex calculations or transformations
+- Business rules that span multiple domain objects
 
-## Patterns liés
+## Related Patterns
 
 - [Entity](./entity.md) - Primary domain logic holder
 - [Aggregate](./aggregate.md) - Coordinates entities

@@ -1,12 +1,12 @@
 # Memoization
 
-Pattern de cache des resultats de fonctions pour eviter les recalculs.
+Pattern for caching function results to avoid recomputation.
 
 ---
 
-## Qu'est-ce que la Memoization ?
+## What is Memoization?
 
-> Stocker le resultat d'un appel de fonction et le retourner directement lors d'appels identiques.
+> Store the result of a function call and return it directly on identical calls.
 
 ```
 +--------------------------------------------------------------+
@@ -34,13 +34,13 @@ Pattern de cache des resultats de fonctions pour eviter les recalculs.
 +--------------------------------------------------------------+
 ```
 
-**Prerequis :** La fonction doit etre **pure** (meme entrees = meme sortie).
+**Prerequisite:** The function must be **pure** (same inputs = same output).
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### Memoize simple
+### Simple Memoize
 
 ```go
 package memoize
@@ -91,12 +91,12 @@ func Factorial(n int) int {
 var FactorialMemo = Memoize1(Factorial)
 
 // Example
-// FactorialMemo(100) // Calcule
+// FactorialMemo(100) // Computes
 // FactorialMemo(100) // Cache hit
-// FactorialMemo(99)  // Cache hit (calcule lors de FactorialMemo(100))
+// FactorialMemo(99)  // Cache hit (computed during FactorialMemo(100))
 ```
 
-### Memoize avec options
+### Memoize with Options
 
 ```go
 package memoize
@@ -174,7 +174,7 @@ func MemoizeWithOptions[T comparable, R any](
 // )
 ```
 
-### Memoize async
+### Async Memoize
 
 ```go
 package memoize
@@ -238,14 +238,14 @@ func MemoizeAsync[T comparable, R any](
 //     return api.GetUser(ctx, userID)
 // })
 //
-// Deux appels simultanes = une seule requete
+// Two simultaneous calls = a single request
 // profile1, _ := getUserProfile(ctx, "123")
 // profile2, _ := getUserProfile(ctx, "123")
 ```
 
 ---
 
-## Cas d'usage classiques
+## Classic Use Cases
 
 ### Fibonacci
 
@@ -263,14 +263,14 @@ func fibonacci(n int) int {
 
 var fibonacciMemo = memoize.Memoize1(fibonacci)
 
-// Sans memoization: O(2^n)
-// Avec memoization: O(n)
+// Without memoization: O(2^n)
+// With memoization: O(n)
 func main() {
-	fmt.Println(fibonacciMemo(50)) // Instantane
+	fmt.Println(fibonacciMemo(50)) // Instantaneous
 }
 ```
 
-### Parsing couteux
+### Expensive Parsing
 
 ```go
 package parser
@@ -278,14 +278,14 @@ package parser
 import "html"
 
 func parseMarkdown(content string) string {
-	// Parsing couteux
+	// Expensive parsing
 	return html.EscapeString(content)
 }
 
 var ParseMarkdownMemo = memoize.Memoize1(parseMarkdown)
 ```
 
-### Calculs derives
+### Derived Computations
 
 ```go
 package stats
@@ -352,47 +352,47 @@ func (dp *DataProcessor) GetStats(data []float64) Stats {
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
-| Aspect | Sans memo | Avec memo |
+| Aspect | Without memo | With memo |
 |--------|-----------|-----------|
-| Temps (n appels identiques) | O(n * compute) | O(compute + n) |
-| Memoire | O(1) | O(unique_calls) |
+| Time (n identical calls) | O(n * compute) | O(compute + n) |
+| Memory | O(1) | O(unique_calls) |
 
-### Avantages
+### Advantages
 
-- Acceleration dramatique pour calculs repetes
-- Transparent pour l'appelant
-- Simple a implementer
+- Dramatic speedup for repeated computations
+- Transparent to the caller
+- Simple to implement
 
-### Inconvenients
+### Disadvantages
 
-- Consommation memoire croissante
-- Fonctions pures uniquement
-- Cle de cache peut etre couteuse (JSON.stringify)
+- Growing memory consumption
+- Pure functions only
+- Cache key can be expensive (JSON.stringify)
 
 ---
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
+| Situation | Recommended |
 |-----------|------------|
-| Fonction pure couteuse | Oui |
-| Appels repetes avec memes args | Oui |
-| Calculs recursifs | Oui |
-| Fonctions avec effets de bord | Non |
-| Resultats changeants dans le temps | Non (ou avec TTL) |
+| Expensive pure function | Yes |
+| Repeated calls with same args | Yes |
+| Recursive computations | Yes |
+| Functions with side effects | No |
+| Results changing over time | No (or with TTL) |
 
 ---
 
-## Patterns connexes
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Cache** | Plus general, pas lie a une fonction |
-| **Lazy Loading** | Initialisation differee similaire |
-| **Flyweight** | Partage d'objets vs resultats |
-| **Decorator** | Enveloppe la fonction originale |
+| **Cache** | More general, not tied to a function |
+| **Lazy Loading** | Similar deferred initialization |
+| **Flyweight** | Object sharing vs result sharing |
+| **Decorator** | Wraps the original function |
 
 ---
 

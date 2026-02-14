@@ -1,13 +1,13 @@
 # Defensive Programming Patterns
 
-Patterns pour protéger le code contre les erreurs et données invalides.
+Patterns to protect code against errors and invalid data.
 
 ## 1. Guard Clauses (Early Return)
 
-> Valider les préconditions en début de fonction et sortir immédiatement si invalide.
+> Validate preconditions at the beginning of a function and return immediately if invalid.
 
 ```go
-// ❌ MAUVAIS - Nested conditions
+// ❌ BAD - Nested conditions
 func processOrder(order *Order, user *User) (float64, error) {
 	if order != nil {
 		if user != nil {
@@ -25,7 +25,7 @@ func processOrder(order *Order, user *User) (float64, error) {
 	return 0, errors.New("no order")
 }
 
-// ✅ BON - Guard clauses
+// ✅ GOOD - Guard clauses
 func processOrder(order *Order, user *User) (float64, error) {
 	// Guards - validate all preconditions first
 	if order == nil {
@@ -46,13 +46,13 @@ func processOrder(order *Order, user *User) (float64, error) {
 }
 ```
 
-**Règle :** Toutes les validations en haut, logique métier en bas.
+**Rule:** All validations at the top, business logic at the bottom.
 
 ---
 
 ## 2. Assertion / Precondition
 
-> Vérifier les invariants avec des assertions explicites.
+> Verify invariants with explicit assertions.
 
 ```go
 // AssertionError is a custom error for assertion failures.
@@ -94,11 +94,11 @@ func divide(a, b float64) float64 {
 func withdraw(account *Account, amount float64) error {
 	AssertDefined(account, "account")
 	AssertPositive(amount, "amount")
-	
+
 	if account.Balance < amount {
 		return errors.New("insufficient funds")
 	}
-	
+
 	account.Balance -= amount
 	return nil
 }
@@ -108,7 +108,7 @@ func withdraw(account *Account, amount float64) error {
 
 ## 3. Null Object Pattern
 
-> Remplacer null par un objet neutre avec comportement par défaut.
+> Replace null with a neutral object with default behavior.
 
 ```go
 // Logger interface.
@@ -159,7 +159,7 @@ func (s *OrderService) Process(order *Order) error {
 // service := NewOrderService(nil) // Uses NullLogger
 ```
 
-**Autres exemples :**
+**Other examples:**
 
 ```go
 // Null User
@@ -181,7 +181,7 @@ func (m *ZeroMoney) Multiply(_ float64) Money          { return m }
 
 ## 4. Optional Chaining & Nullish Coalescing
 
-> Accès sécurisé aux propriétés potentiellement nulles.
+> Safe access to potentially null properties.
 
 ```go
 // Go doesn't have optional chaining, but we use safe accessor patterns
@@ -238,7 +238,7 @@ func DefaultString(value *string, defaultVal string) string {
 
 ## 5. Default Values Pattern
 
-> Fournir des valeurs par défaut sûres.
+> Provide safe default values.
 
 ```go
 // Option pattern for configuration
@@ -316,7 +316,7 @@ func MergeConfig(userConfig *Config) Config {
 
 ## 6. Fail-Fast Pattern
 
-> Échouer immédiatement avec message clair plutôt que propager l'erreur.
+> Fail immediately with a clear message rather than propagating the error.
 
 ```go
 // ConfigError indicates a configuration error.
@@ -383,7 +383,7 @@ func CreateUser(data map[string]interface{}) (*User, error) {
 
 ## 7. Input Validation Pattern
 
-> Valider toutes les entrées aux frontières du système.
+> Validate all inputs at system boundaries.
 
 ```go
 // Validator interface for input validation.
@@ -479,7 +479,7 @@ func (o *OrderInput) Validate() error {
 
 ## 8. Type Narrowing / Type Guards
 
-> Réduire progressivement les types possibles.
+> Progressively reduce possible types.
 
 ```go
 // Type assertion and checking patterns in Go
@@ -565,7 +565,7 @@ func HandleResult[T any](result Result[T]) {
 
 ## 9. Immutable by Default
 
-> Rendre les données immutables pour éviter les modifications accidentelles.
+> Make data immutable to avoid accidental modifications.
 
 ```go
 // User with immutable fields (use unexported fields + getters).
@@ -643,7 +643,7 @@ func AppendItem[T any](slice []T, item T) []T {
 
 ## 10. Dependency Validation
 
-> Valider que toutes les dépendances sont présentes et valides au démarrage.
+> Validate that all dependencies are present and valid at startup.
 
 ```go
 // DependencyError indicates a missing dependency.
@@ -788,7 +788,7 @@ func (f *ServiceFactory) validateEnvironment() error {
 
 ## 11. Contract / Design by Contract
 
-> Définir préconditions, postconditions et invariants.
+> Define preconditions, postconditions and invariants.
 
 ```go
 // PreconditionError indicates a precondition violation.
@@ -888,38 +888,38 @@ func (a *BankAccount) checkInvariant() error {
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Lors du traitement de donnees externes (API, fichiers, saisie utilisateur)
-- Quand les preconditions d'une fonction doivent etre explicitement verifiees
-- Pour proteger les invariants d'un objet ou d'un systeme
-- Lors de l'integration avec des systemes tiers non fiables
-- Quand les erreurs silencieuses pourraient causer des problemes graves en aval
+- When processing external data (API, files, user input)
+- When a function's preconditions must be explicitly verified
+- To protect invariants of an object or system
+- When integrating with unreliable third-party systems
+- When silent errors could cause serious downstream problems
 
 ---
 
-## Tableau de décision
+## Decision Table
 
-| Problème | Pattern |
-|----------|---------|
-| Conditions imbriquées | Guard Clauses |
-| Vérifier invariants | Assertions |
-| Éviter null checks | Null Object |
-| Accès propriétés nullables | Safe Accessors |
-| Valeurs manquantes | Default Values |
-| Erreurs silencieuses | Fail-Fast |
-| Données externes | Input Validation |
-| Types inconnus | Type Assertions |
-| Modifications accidentelles | Immutability |
-| Dépendances manquantes | Dependency Validation |
-| Garanties formelles | Design by Contract |
+| Problem | Pattern |
+|---------|---------|
+| Nested conditions | Guard Clauses |
+| Verify invariants | Assertions |
+| Avoid null checks | Null Object |
+| Access nullable properties | Safe Accessors |
+| Missing values | Default Values |
+| Silent errors | Fail-Fast |
+| External data | Input Validation |
+| Unknown types | Type Assertions |
+| Accidental modifications | Immutability |
+| Missing dependencies | Dependency Validation |
+| Formal guarantees | Design by Contract |
 
-## Patterns liés
+## Related Patterns
 
-- [SOLID](./SOLID.md) - DIP facilite l'injection de validateurs
-- [GRASP](./GRASP.md) - Information Expert pour placer les validations
-- [KISS](./KISS.md) - Guard clauses simplifient les conditions imbriquees
-- [Null Object Pattern](../behavioral/README.md) - Alternative aux null checks
+- [SOLID](./SOLID.md) - DIP facilitates validator injection
+- [GRASP](./GRASP.md) - Information Expert for placing validations
+- [KISS](./KISS.md) - Guard clauses simplify nested conditions
+- [Null Object Pattern](../behavioral/README.md) - Alternative to null checks
 
 ## Sources
 

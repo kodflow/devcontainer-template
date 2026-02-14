@@ -1,8 +1,8 @@
 # API Keys Authentication
 
-> Authentification simple par cle secrete pour les APIs.
+> Simple secret key authentication for APIs.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────┐                    ┌─────────────┐
@@ -14,7 +14,7 @@
 └─────────────┘                    └─────────────┘
 ```
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package apikey
@@ -168,7 +168,7 @@ func (s *Service) hash(key string) string {
 }
 ```
 
-## Middleware HTTP avec Rate Limiting
+## HTTP Middleware with Rate Limiting
 
 ```go
 package middleware
@@ -364,42 +364,42 @@ func RequireScopes(requiredScopes ...string) func(http.Handler) http.Handler {
 
 // Usage
 func SetupRoutes(mux *http.ServeMux, service *apikey.Service) {
-	mux.Handle("/users", 
+	mux.Handle("/users",
 		APIKeyMiddleware(service)(
 			RequireScopes("users:read")(http.HandlerFunc(getUsers))))
-	mux.Handle("/users/create", 
+	mux.Handle("/users/create",
 		APIKeyMiddleware(service)(
 			RequireScopes("users:write")(http.HandlerFunc(createUser))))
-	mux.Handle("/users/delete", 
+	mux.Handle("/users/delete",
 		APIKeyMiddleware(service)(
 			RequireScopes("users:delete")(http.HandlerFunc(deleteUser))))
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
-| `github.com/google/uuid` | Generation IDs uniques |
+| `github.com/google/uuid` | Unique ID generation |
 | `golang.org/x/time/rate` | Rate limiting |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Stocker key en clair | Breach = acces total | Hasher avec SHA-256 |
-| Key dans URL params | Leakage logs/referer | Header `X-API-Key` |
-| Pas de rate limiting | DoS, abuse | Limiter par key |
-| Key sans expiration | Key compromise permanent | Expiration + rotation |
-| Pas de scopes | Over-permission | Scopes granulaires |
-| Key shared entre services | Blast radius large | Key par service/usage |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Store key in plaintext | Breach = total access | Hash with SHA-256 |
+| Key in URL params | Leakage via logs/referer | Header `X-API-Key` |
+| No rate limiting | DoS, abuse | Limit per key |
+| Key without expiration | Permanent compromise | Expiration + rotation |
+| No scopes | Over-permission | Granular scopes |
+| Key shared between services | Large blast radius | Key per service/usage |
 
-## Bonnes pratiques
+## Best Practices
 
 ```go
 package apikey
 
-// Prefixes identifiables
+// Identifiable prefixes
 const (
 	PrefixLive = "sk_live_" // Production
 	PrefixTest = "sk_test_" // Development
@@ -420,7 +420,7 @@ func (kr *KeyRotation) Rotate(ctx context.Context, oldKeyID string) (*GenerateRe
 	}
 
 	// Create new key with same config
-	newKey, err := kr.service.Generate(ctx, oldKey.OwnerID, 
+	newKey, err := kr.service.Generate(ctx, oldKey.OwnerID,
 		oldKey.Name+" (rotated)", oldKey.Scopes, nil)
 	if err != nil {
 		return nil, fmt.Errorf("generating new key: %w", err)
@@ -450,21 +450,21 @@ type UsageLog struct {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Recommande |
+| Scenario | Recommended |
 |----------|------------|
-| APIs publiques (third-party) | Oui |
-| Integrations simples | Oui |
-| Machine-to-machine | Oui (ou Client Credentials) |
-| User authentication | Non (preferer OAuth/sessions) |
-| Browser/frontend | Non (key exposee) |
+| Public APIs (third-party) | Yes |
+| Simple integrations | Yes |
+| Machine-to-machine | Yes (or Client Credentials) |
+| User authentication | No (prefer OAuth/sessions) |
+| Browser/frontend | No (key exposed) |
 
-## Patterns lies
+## Related Patterns
 
-- **OAuth 2.0 Client Credentials** : Alternative plus securisee pour M2M
-- **JWT** : Peut completer API keys pour authorization
-- **Rate Limiting** : Indispensable avec API keys
+- **OAuth 2.0 Client Credentials**: More secure alternative for M2M
+- **JWT**: Can complement API keys for authorization
+- **Rate Limiting**: Essential with API keys
 
 ## Sources
 

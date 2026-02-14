@@ -4,7 +4,7 @@
 
 ## Concept
 
-Le Domain Model est un modele objet qui represente les concepts metier avec leurs comportements et regles. Contrairement a l'Anemic Domain Model (anti-pattern), un Rich Domain Model encapsule la logique metier directement dans les entites.
+The Domain Model is an object model that represents business concepts with their behaviors and rules. Unlike the Anemic Domain Model (anti-pattern), a Rich Domain Model encapsulates business logic directly in the entities.
 
 ## Rich vs Anemic Domain Model
 
@@ -59,7 +59,7 @@ func (o *Order) ensureDraft() error {
 }
 ```
 
-## Implementation Go Complete
+## Complete Go Implementation
 
 ```go
 package domain
@@ -374,40 +374,40 @@ type Product struct {
 }
 ```
 
-## Comparaison avec alternatives
+## Comparison with Alternatives
 
 | Aspect | Domain Model | Transaction Script | Active Record |
 |--------|--------------|-------------------|---------------|
-| Encapsulation | Forte | Aucune | Partielle |
-| Testabilite | Excellente | Moyenne | Moyenne |
-| Complexite initiale | Elevee | Faible | Faible |
-| Evolution | Facile | Difficile | Moyenne |
-| Persistance | Separee | Dans le script | Dans l'objet |
+| Encapsulation | Strong | None | Partial |
+| Testability | Excellent | Medium | Medium |
+| Initial complexity | High | Low | Low |
+| Evolution | Easy | Difficult | Medium |
+| Persistence | Separated | In the script | In the object |
 
-## Quand utiliser
+## When to Use
 
-**Utiliser Domain Model quand :**
+**Use Domain Model when:**
 
-- Logique metier complexe avec regles multiples
-- Invariants a proteger strictement
-- Domaine riche en comportements
-- Evolution frequente des regles
-- Equipe experimentee en OOP/DDD
-- Tests unitaires importants
+- Complex business logic with multiple rules
+- Invariants to strictly protect
+- Domain rich in behaviors
+- Frequent rule changes
+- Team experienced in OOP/DDD
+- Important unit tests
 
-**Eviter Domain Model quand :**
+**Avoid Domain Model when:**
 
-- CRUD simple sans logique
-- Prototype rapide
-- Equipe junior sans formation DDD
-- Domaine stable et simple
+- Simple CRUD without logic
+- Rapid prototype
+- Junior team without DDD training
+- Stable and simple domain
 
-## Patterns liés
+## Related Patterns
 
-- [Service Layer](./service-layer.md) - Orchestration des operations sur Domain Model
-- [Repository](./repository.md) - Persistance des agregats du Domain Model
-- [Data Mapper](./data-mapper.md) - Mapping entre Domain Model et base de donnees
-- [Unit of Work](./unit-of-work.md) - Gestion transactionnelle du Domain Model
+- [Service Layer](./service-layer.md) - Orchestration of operations on Domain Model
+- [Repository](./repository.md) - Persistence of Domain Model aggregates
+- [Data Mapper](./data-mapper.md) - Mapping between Domain Model and database
+- [Unit of Work](./unit-of-work.md) - Transactional management of Domain Model
 
 ## Sources
 

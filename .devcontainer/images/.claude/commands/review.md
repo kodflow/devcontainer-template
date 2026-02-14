@@ -53,7 +53,7 @@ Intelligent code review using **Recursive Language Model** decomposition:
 | 6.5 | **Dispatch** | Route fixes to language-specialist via /do |
 | 7 | **Cyclic** | Loop until perfect OR --loop limit |
 
-**Principe RLM** : Peek → Decompose → Parallelize → Synthesize
+**RLM Principle:** Peek → Decompose → Parallelize → Synthesize
 
 **5 Agents (opus for reasoning, haiku for patterns):**
 - `developer-executor-correctness` (opus) - Algorithmic errors, invariants
@@ -98,7 +98,7 @@ Intelligent code review using **Recursive Language Model** decomposition:
 
 ---
 
-## Budget Controller (OBLIGATOIRE)
+## Budget Controller (MANDATORY)
 
 ```yaml
 budget_controller:
@@ -109,7 +109,7 @@ budget_controller:
       max_comments_ingested: 80
     triage_mode:
       trigger: "files > 30 OR lines > 1500"
-      action: "Focus sur: unresolved threads, lignes modifiées, security only"
+      action: "Focus on: unresolved threads, modified lines, security only"
 
   output_limits:
     critical: unlimited
@@ -124,7 +124,7 @@ budget_controller:
     4: "AI bot suggestions"
 ```
 
-**Décision automatique :**
+**Automatic decision:**
 
 | Situation | Mode |
 |-----------|------|
@@ -134,9 +134,9 @@ budget_controller:
 
 ---
 
-## Phase 1.0 : Context Detection
+## Phase 1.0: Context Detection
 
-**Identifier le contexte d'exécution (GitHub/GitLab auto-détecté) :**
+**Identify the execution context (GitHub/GitLab auto-detected):**
 
 ```yaml
 context_detection:
@@ -153,13 +153,13 @@ context_detection:
   1.5_platform_detection:
     rule: |
       remote_url = git remote get-url origin
-      SI remote_url contains "github.com":
+      IF remote_url contains "github.com":
         platform = "github"
         mcp_prefix = "mcp__github__"
-      SINON SI remote_url contains "gitlab.com" OR "gitlab.":
+      ELSE IF remote_url contains "gitlab.com" OR "gitlab.":
         platform = "gitlab"
         mcp_prefix = "mcp__gitlab__"
-      SINON:
+      ELSE:
         platform = "local"
         mcp_prefix = null
     output:
@@ -178,11 +178,11 @@ context_detection:
 
   3_diff_source:
     rule: |
-      SI on_pr_mr == true:
+      IF on_pr_mr == true:
         source = "PR/MR diff via MCP"
         base = target_branch
         head = current_branch
-      SINON:
+      ELSE:
         source = "local diff"
         base = "git merge-base origin/main HEAD"
         head = "HEAD"
@@ -199,14 +199,14 @@ context_detection:
     strategy:
       max_polls: 2
       poll_interval: 30s
-      on_pending: "Continue avec warning 'CI pending'"
-      on_failure: "Signaler dans report, ne pas bloquer"
+      on_pending: "Continue with warning 'CI pending'"
+      on_failure: "Report in review, do not block"
     output:
       ci_status: "passing|pending|failing|unknown"
       ci_jobs: [{name, status, conclusion}]
 ```
 
-**Output Phase 0 (GitHub) :**
+**Output Phase 0 (GitHub):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -229,7 +229,7 @@ context_detection:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output Phase 0 (GitLab) :**
+**Output Phase 0 (GitLab):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -254,7 +254,7 @@ context_detection:
 
 ---
 
-## Phase 2.0 : Repo Profile (Cacheable)
+## Phase 2.0: Repo Profile (Cacheable)
 
 **Build stable repo understanding BEFORE analysis:**
 
@@ -301,9 +301,9 @@ repo_profile:
 
 ---
 
-## Phase 3.0 : Intent Analysis
+## Phase 3.0: Intent Analysis
 
-**Comprendre l'intention de la PR/MR AVANT analyse lourde :**
+**Understand the PR/MR intent BEFORE heavy analysis:**
 
 ```yaml
 intent_analysis:
@@ -335,13 +335,13 @@ intent_analysis:
 
   calibration:
     rule: |
-      SI files_changed <= 5 AND only docs/config:
+      IF files_changed <= 5 AND only docs/config:
         analysis_depth = "light"
         skip_patterns = true
-      SINON SI security_files > 0 OR shell_files > 0:
+      ELSE IF security_files > 0 OR shell_files > 0:
         analysis_depth = "deep"
         force_security_scan = true
-      SINON:
+      ELSE:
         analysis_depth = "normal"
 
   risk_model:
@@ -361,13 +361,13 @@ intent_analysis:
 
     calibration:
       rule: |
-        SI any(risk_tags):
+        IF any(risk_tags):
           analysis_depth = "deep"
           prioritize_files = "risk-touched first"
           enable_agents = ["correctness", "security", "design"]
-        SI risk_tags contains ["authn_authz", "crypto", "secrets"]:
+        IF risk_tags contains ["authn_authz", "crypto", "secrets"]:
           force_security_deep = true
-        SI risk_tags contains ["concurrency", "state_machine"]:
+        IF risk_tags contains ["concurrency", "state_machine"]:
           force_correctness_deep = true
 
     output:
@@ -376,7 +376,7 @@ intent_analysis:
       review_priorities: ["correctness", "security", "design", "quality"]
 ```
 
-**Output Phase 1 :**
+**Output Phase 1:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -401,9 +401,9 @@ intent_analysis:
 
 ---
 
-## Phase 4.0 : Auto-Describe (PR-Agent inspired)
+## Phase 4.0: Auto-Describe (PR-Agent inspired)
 
-**Générer description si PR/MR vide ou insuffisante :**
+**Generate description if PR/MR is empty or insufficient:**
 
 ```yaml
 auto_describe:
@@ -459,21 +459,21 @@ auto_describe:
     3_user_validation:
       tool: AskUserQuestion
       prompt: |
-        📝 Description générée pour {PR|MR} #{pr_mr_number}:
+        Description generated for {PR|MR} #{pr_mr_number}:
 
         {generated_description}
 
         Action?
       options:
-        - label: "Poster"
-          description: "Mettre à jour la description"
-        - label: "Éditer"
-          description: "Modifier avant de poster"
-        - label: "Ignorer"
-          description: "Ne pas modifier"
+        - label: "Post"
+          description: "Update the description"
+        - label: "Edit"
+          description: "Modify before posting"
+        - label: "Ignore"
+          description: "Do not modify"
 
     4_update_pr_mr:
-      condition: "user_choice in ['Poster', 'Éditer']"
+      condition: "user_choice in ['Post', 'Edit']"
       tools:
         github: "gh pr edit {pr_number} --body '{final_description}'"
         gitlab: "glab mr update {mr_number} --description '{final_description}'"
@@ -482,7 +482,7 @@ auto_describe:
         gitlab: "mcp__gitlab__update_merge_request (description: final_description)"
 ```
 
-**Output Phase 1.5 :**
+**Output Phase 1.5:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -503,16 +503,16 @@ auto_describe:
 
     ## Type: Feature
 
-  Status: ⏳ Waiting user validation...
+  Status: Waiting for user validation...
 
 ═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Phase 5.0 : Feedback Collection
+## Phase 5.0: Feedback Collection
 
-**Collecter les feedbacks avec budget et priorisation :**
+**Collect feedback with budget and prioritization:**
 
 ```yaml
 feedback_collection:
@@ -529,24 +529,24 @@ feedback_collection:
 
   2_budget_filter:
     rule: |
-      SI count(all_feedback) > 80:
+      IF count(all_feedback) > 80:
         filter = "unresolved + modified_lines_only"
-      SINON:
+      ELSE:
         filter = "all"
 
   3_classify:
     method: |
-      POUR chaque feedback:
-        SI author.type == "Bot" OR author.login ends with "[bot]":
+      FOR each feedback:
+        IF author.type == "Bot" OR author.login ends with "[bot]":
           category = "ai_review"
-        SINON:
+        ELSE:
           category = "human_review"
 
-        SI body contains "?" AND NOT suggestion_code:
+        IF body contains "?" AND NOT suggestion_code:
           type = "question"
-        SINON SI suggestion_code != null:
+        ELSE IF suggestion_code != null:
           type = "suggestion"
-        SINON:
+        ELSE:
           type = "comment"
 
   4_prioritize:
@@ -558,7 +558,7 @@ feedback_collection:
       5: "resolved/outdated"
 ```
 
-**Classification output :**
+**Classification output:**
 
 | Category | Type | Count | Priority |
 |----------|------|-------|----------|
@@ -568,7 +568,7 @@ feedback_collection:
 
 ---
 
-## Phase 6.0 : CI Diagnostics (Conditional)
+## Phase 6.0: CI Diagnostics (Conditional)
 
 **Extract actionable signal from CI failures:**
 
@@ -604,32 +604,32 @@ ci_diagnostics:
         Focus analysis on affected_files first
 
     rule: |
-      SI ci_status == "failing":
+      IF ci_status == "failing":
         priority = ["fix CI errors", "then review rest"]
         inject_ci_context = true
-      SI ci_status == "pending":
+      IF ci_status == "pending":
         warning = "CI still running, results may change"
 ```
 
 ---
 
-## Phase 7.0 : Question Handling
+## Phase 7.0: Question Handling
 
-**Préparer réponses pour questions humaines :**
+**Prepare answers for human questions:**
 
 ```yaml
 question_handling:
-  rule_absolute: "JAMAIS mentionner AI/Claude/IA dans les réponses"
+  rule_absolute: "NEVER mention AI/Claude/LLM in answers"
 
   forbidden_phrases:
-    - "Claude", "AI", "IA", "assistant", "LLM"
-    - "j'ai été généré", "automatiquement généré"
-    - "l'intelligence artificielle suggère"
+    - "Claude", "AI", "assistant", "LLM"
+    - "I was generated", "automatically generated"
+    - "artificial intelligence suggests"
 
   workflow:
-    1_collect: "Extraire questions des reviews humains"
+    1_collect: "Extract questions from human reviews"
     2_prepare: |
-      POUR chaque question:
+      FOR each question:
         answer = generate_answer(question, context)
         validate: no_forbidden_phrases(answer)
 
@@ -643,17 +643,17 @@ question_handling:
 
         [Post / Edit / Skip]
 
-    4_user_validates: "AskUserQuestion avant de poster"
+    4_user_validates: "AskUserQuestion before posting"
     5_post:
-      github: "mcp__github__add_issue_comment (si validé)"
-      gitlab: "mcp__gitlab__create_merge_request_note (si validé)"
+      github: "mcp__github__add_issue_comment (if validated)"
+      gitlab: "mcp__gitlab__create_merge_request_note (if validated)"
 ```
 
 ---
 
-## Phase 8.0 : Behavior Extraction (AI Reviews)
+## Phase 8.0: Behavior Extraction (AI Reviews)
 
-**Extraire axes comportementaux des reviews AI :**
+**Extract behavioral patterns from AI reviews:**
 
 ```yaml
 behavior_extraction:
@@ -665,35 +665,35 @@ behavior_extraction:
   extract:
     from: "{bot_suggestion_text}"
     to:
-      behavior: "description courte du pattern"
+      behavior: "short pattern description"
       category: "shell_safety|security|quality|pattern"
-      check: "question à ajouter au workflow"
+      check: "question to add to workflow"
 
   action:
     auto: false
     prompt_user: |
-      Nouveau pattern détecté:
+      New pattern detected:
         Behavior: {behavior}
         Category: {category}
 
-      Ajouter au workflow /review? [Oui/Non]
+      Add to /review workflow? [Yes/No]
 ```
 
 ---
 
-## Phase 9.0 : Peek & Decompose
+## Phase 9.0: Peek & Decompose
 
-**Snapshot du diff et catégorisation :**
+**Snapshot the diff and categorize:**
 
 ```yaml
 peek_decompose:
   1_diff_snapshot:
     tool: |
-      SI diff_source == "pr" (GitHub):
+      IF diff_source == "pr" (GitHub):
         mcp__codacy__codacy_get_pull_request_git_diff
-      SINON SI diff_source == "mr" (GitLab):
+      ELSE IF diff_source == "mr" (GitLab):
         mcp__gitlab__get_merge_request_changes
-      SINON:
+      ELSE:
         git diff --merge-base {base}...HEAD
 
     extract:
@@ -719,15 +719,15 @@ peek_decompose:
 
   3_mode_decision:
     rule: |
-      SI total_lines > 1500 OR files.count > 30:
+      IF total_lines > 1500 OR files.count > 30:
         mode = "TRIAGE"
-      SINON:
+      ELSE:
         mode = "NORMAL"
 ```
 
 ---
 
-## Phase 10.0 : Parallel Analysis (5 AGENTS)
+## Phase 10.0: Parallel Analysis (5 AGENTS)
 
 **Launch 5 sub-agents with strict JSON contract:**
 
@@ -839,18 +839,18 @@ parallel_analysis:
 
   severity_rubric:
     CRITICAL:
-      - "Vuln exploitable (RCE, injection, auth bypass)"
-      - "Secret/token exposé"
-      - "Supply chain non vérifiée"
-      - "Data loss certain (invariant violation)"
+      - "Exploitable vulnerability (RCE, injection, auth bypass)"
+      - "Exposed secret/token"
+      - "Unverified supply chain"
+      - "Certain data loss (invariant violation)"
       - "Infinite loop (pagination bug)"
     HIGH:
-      - "Bug probable (null deref, race condition)"
+      - "Probable bug (null deref, race condition)"
       - "Silent failure (error swallowed)"
       - "Layering violation (domain → infra)"
       - "State machine corruption"
     MEDIUM:
-      - "Dette technique"
+      - "Technical debt"
       - "Design antipattern"
       - "SOLID violation"
       - "Missing validation"
@@ -860,11 +860,11 @@ parallel_analysis:
       - "Naming conventions"
 ```
 
-**Secret Masking Policy (OBLIGATOIRE) :**
+**Secret Masking Policy (MANDATORY):**
 
 ```yaml
 secret_masking:
-  rule: "JAMAIS reposter tokens/secrets/URLs signées"
+  rule: "NEVER repost tokens/secrets/signed URLs"
 
   patterns_to_mask:
     - "AKIA[0-9A-Z]{16}"           # AWS Access Key
@@ -874,12 +874,12 @@ secret_masking:
     - "-----BEGIN.*PRIVATE KEY-----"
     - "Bearer [a-zA-Z0-9._-]+"
 
-  action: "Remplacer par [REDACTED] dans evidence/recommendation"
+  action: "Replace with [REDACTED] in evidence/recommendation"
 ```
 
 ---
 
-## Phase 11.0 : Merge & Dedupe
+## Phase 11.0: Merge & Dedupe
 
 **Normalize, deduplicate, require evidence:**
 
@@ -928,7 +928,7 @@ merge_dedupe:
 
   promote:
     rule: |
-      SI file has >= 3 MEDIUM findings in same impact:
+      IF file has >= 3 MEDIUM findings in same impact:
         Create 1 HIGH umbrella finding
         Reference the 3 MEDIUM as sub-findings
 
@@ -943,35 +943,35 @@ merge_dedupe:
 
 ---
 
-## Phase 12.0 : Challenge & Synthesize
+## Phase 12.0: Challenge & Synthesize
 
-**Évaluer pertinence avec NOTRE contexte :**
+**Evaluate relevance with OUR context:**
 
 ```yaml
 challenge_feedback:
-  timing: "APRÈS phases 3-4 (on a le contexte complet)"
+  timing: "AFTER phases 3-4 (we have full context)"
 
   for_each_suggestion:
     evaluate:
-      - "Dans le scope de la PR?"
-      - "Applicable à notre stack/langage?"
-      - "Pattern déjà implémenté ailleurs?"
-      - "Trade-off conscient?"
-      - "Suggestion générique vs cas spécifique?"
+      - "Within the PR scope?"
+      - "Applicable to our stack/language?"
+      - "Pattern already implemented elsewhere?"
+      - "Conscious trade-off?"
+      - "Generic suggestion vs specific case?"
 
   classify:
     KEEP:
-      action: "Intégrer dans findings"
+      action: "Integrate into findings"
       confidence: "HIGH"
     PARTIAL:
-      action: "Signaler avec nuance"
+      action: "Report with nuance"
       confidence: "MEDIUM"
     REJECT:
-      action: "Ignorer avec raison"
+      action: "Ignore with reason"
       confidence: "LOW"
     DEFER:
-      action: "Créer issue séparée"
-      reason: "Hors scope PR"
+      action: "Create separate issue"
+      reason: "Out of PR scope"
 
   output_format:
     table:
@@ -982,24 +982,24 @@ challenge_feedback:
       - action: "apply|issue|ignore"
 
   ask_user_if:
-    - "Ambiguïté sur pertinence"
-    - "Trade-off non documenté"
-    - "Suggestion impacte architecture"
+    - "Ambiguity on relevance"
+    - "Undocumented trade-off"
+    - "Suggestion impacts architecture"
 ```
 
-**Table de challenge :**
+**Challenge table:**
 
 | Situation | Verdict | Action |
 |-----------|---------|--------|
-| Suggestion valide, applicable | KEEP | Apply now |
-| Suggestion valide, hors scope | DEFER | Create issue |
-| Suggestion générique, pas applicable | REJECT | Ignore + rationale |
-| Trade-off conscient | REJECT | Document trade-off |
-| Ambiguïté | ASK | User decision |
+| Valid suggestion, applicable | KEEP | Apply now |
+| Valid suggestion, out of scope | DEFER | Create issue |
+| Generic suggestion, not applicable | REJECT | Ignore + rationale |
+| Conscious trade-off | REJECT | Document trade-off |
+| Ambiguity | ASK | User decision |
 
 ---
 
-## Phase 13.0 : Output Generation (LOCAL ONLY)
+## Phase 13.0: Output Generation (LOCAL ONLY)
 
 **Generate LOCAL report + /plan file (NO GitHub/GitLab posting):**
 
@@ -1061,7 +1061,7 @@ output_generation:
 
 ---
 
-## Phase 14.0 : Language-Specialist Dispatch
+## Phase 14.0: Language-Specialist Dispatch
 
 **Route fixes to language-specialist agent via /do:**
 
@@ -1127,7 +1127,7 @@ language_specialist_dispatch:
 
 ---
 
-## Phase 15.0 : Cyclic Validation
+## Phase 15.0: Cyclic Validation
 
 **Loop until perfect OR --loop limit:**
 
@@ -1201,7 +1201,7 @@ CI: {status}
 ## Low
 > Style/polish (max 3)
 
-## Shell Safety (si *.sh présents)
+## Shell Safety (if *.sh present)
 
 ### Download Safety
 | Check | Status | File:Line |
@@ -1212,7 +1212,7 @@ CI: {status}
 |--------|-------|-----|
 
 ## Pattern Analysis (CONDITIONAL)
-> Triggered only if: complexity ↑, duplication, or core/ touched
+> Triggered only if: complexity increase, duplication, or core/ touched
 
 ### Patterns Identified
 | Pattern | Location | Status |
@@ -1244,11 +1244,11 @@ CI: {status}
 
 ---
 
-## Pattern Consultation (CONDITIONNELLE)
+## Pattern Consultation (CONDITIONAL)
 
-**Source :** `~/.claude/docs/` (Design Patterns Knowledge Base)
+**Source:** `~/.claude/docs/` (Design Patterns Knowledge Base)
 
-**Déclencher UNIQUEMENT si :**
+**Trigger ONLY if:**
 
 ```yaml
 pattern_triggers:
@@ -1268,10 +1268,10 @@ pattern_triggers:
     - "mode == TRIAGE"
 
   workflow:
-    1_identify: "Lire ~/.claude/docs/README.md pour identifier catégorie"
+    1_identify: "Read ~/.claude/docs/README.md to identify category"
     2_consult: "Read(~/.claude/docs/<category>/README.md)"
-    3_analyze: "Vérifier patterns utilisés vs recommandés"
-    4_report: "Inclure dans section 'Pattern Analysis'"
+    3_analyze: "Verify used patterns vs recommended patterns"
+    4_report: "Include in 'Pattern Analysis' section"
 
   language_aware:
     go: "No 'class' keyword, check interfaces/structs"
@@ -1282,48 +1282,48 @@ pattern_triggers:
 
 ---
 
-## Shell Safety Checks (si *.sh présents)
+## Shell Safety Checks (if *.sh present)
 
 ```yaml
 shell_safety_axes:
   1_download_safety:
     checks:
-      - "mktemp pour fichiers temporaires?"
+      - "mktemp for temporary files?"
       - "curl --retry --proto '=https'?"
-      - "install -m au lieu de chmod?"
+      - "install -m instead of chmod?"
       - "rm -f cleanup?"
 
   2_download_robustness:
     checks:
-      - "Track échecs de download?"
-      - "Exit si critique?"
-      - "Évite silent failures?"
+      - "Track download failures?"
+      - "Exit if critical?"
+      - "Avoid silent failures?"
 
   3_path_determinism:
     checks:
-      - "Chemins absolus dans configs?"
-      - "Pas de dépendance PATH implicite?"
+      - "Absolute paths in configs?"
+      - "No implicit PATH dependency?"
 
   4_fallback_completeness:
     checks:
-      - "Fallback copie binaire au bon endroit?"
+      - "Fallback copies binary to correct location?"
 
   5_input_resilience:
     checks:
-      - "Gère entrée vide?"
-      - "set -e avec handling graceful?"
+      - "Handles empty input?"
+      - "set -e with graceful handling?"
 
   6_url_validation:
     checks:
-      - "URL release existe?"
-      - "Script officiel si dispo?"
+      - "Release URL exists?"
+      - "Official script if available?"
 ```
 
 ---
 
 ## DTO Convention Check (Go files)
 
-**Vérifier les DTOs Go utilisent `dto:"direction,context,security"`:**
+**Verify Go DTOs use `dto:"direction,context,security"`:**
 
 ```yaml
 dto_validation:
@@ -1356,8 +1356,8 @@ dto_validation:
     security: [pub, priv, pii, secret]
 
   purpose: |
-    Le tag dto:"..." exempte les structs de KTN-STRUCT-ONEFILE
-    (groupement de plusieurs DTOs dans un même fichier autorisé)
+    The dto:"..." tag exempts structs from KTN-STRUCT-ONEFILE
+    (grouping multiple DTOs in a single file is allowed)
 
   report_format: |
     ### DTO Convention
@@ -1371,7 +1371,7 @@ dto_validation:
 
 ---
 
-## Guard-rails
+## Guardrails
 
 | Action | Status |
 |--------|--------|
@@ -1393,11 +1393,11 @@ dto_validation:
 ```yaml
 no_regression:
   check_in_pr:
-    - "Tests ajoutés/ajustés pour changes?"
-    - "Migration/rollback nécessaire?"
-    - "Backward compatibility maintenue?"
-    - "Config changes documentées?"
-    - "Observability (logs/metrics) ajoutée?"
+    - "Tests added/adjusted for changes?"
+    - "Migration/rollback needed?"
+    - "Backward compatibility maintained?"
+    - "Config changes documented?"
+    - "Observability (logs/metrics) added?"
 ```
 
 ---
@@ -1407,17 +1407,17 @@ no_regression:
 ```yaml
 error_handling:
   mcp_rate_limit:
-    action: "Backoff exponentiel (1s, 2s, 4s)"
+    action: "Exponential backoff (1s, 2s, 4s)"
     fallback: "git diff local"
     max_retries: 3
 
   agent_timeout:
     max_wait: 60s
-    action: "Continue sans cet agent, signaler"
+    action: "Continue without this agent, report"
 
   large_diff:
     threshold: 5000 lines
-    action: "Forcer TRIAGE mode, warning user"
+    action: "Force TRIAGE mode, warn user"
 ```
 
 ---
@@ -1480,14 +1480,14 @@ error_handling:
 ```yaml
 iteration_loop:
   description: |
-    Amélioration continue basée sur retours bots.
+    Continuous improvement based on bot feedback.
 
   process:
-    1: "Collecter suggestions bots (Phase 2.6)"
-    2: "Extraire COMPORTEMENT (pas le fix)"
-    3: "Catégoriser (shell/security/quality)"
-    4: "Ajouter au workflow (user approuve)"
-    5: "Commit l'amélioration"
+    1: "Collect bot suggestions (Phase 2.6)"
+    2: "Extract BEHAVIOR (not the fix)"
+    3: "Categorize (shell/security/quality)"
+    4: "Add to workflow (user approves)"
+    5: "Commit the improvement"
 
   example:
     input: "Use mktemp to prevent partial writes"

@@ -1,55 +1,55 @@
 # Resilience Patterns
 
-Patterns pour construire des systemes robustes et tolerants aux pannes.
+Patterns for building robust and fault-tolerant systems.
 
 ---
 
-## Patterns documentes
+## Documented Patterns
 
-| Pattern | Fichier | Usage |
-|---------|---------|-------|
-| Circuit Breaker | [circuit-breaker.md](circuit-breaker.md) | Prevenir les pannes en cascade |
-| Retry | [retry.md](retry.md) | Reessayer les operations echouees |
-| Timeout | [timeout.md](timeout.md) | Limiter le temps d'attente |
-| Bulkhead | [bulkhead.md](bulkhead.md) | Isoler les ressources |
-| Rate Limiting | [rate-limiting.md](rate-limiting.md) | Controler le debit |
-| Health Check | [health-check.md](health-check.md) | Verifier l'etat des services |
-
----
-
-## Tableau de decision
-
-| Probleme | Pattern | Quand l'utiliser |
-|----------|---------|------------------|
-| Service externe instable | Circuit Breaker | Appels HTTP, DB, APIs tierces |
-| Erreurs transitoires | Retry | Timeouts reseau, 503, locks |
-| Attente infinie | Timeout | Tout appel externe |
-| Surcharge d'un composant | Bulkhead | Isolation thread pools |
-| Trop de requetes | Rate Limiting | APIs publiques, protection DoS |
-| Etat du service inconnu | Health Check | Kubernetes, load balancers |
+| Pattern | File | Usage |
+|---------|------|-------|
+| Circuit Breaker | [circuit-breaker.md](circuit-breaker.md) | Prevent cascading failures |
+| Retry | [retry.md](retry.md) | Retry failed operations |
+| Timeout | [timeout.md](timeout.md) | Limit wait time |
+| Bulkhead | [bulkhead.md](bulkhead.md) | Isolate resources |
+| Rate Limiting | [rate-limiting.md](rate-limiting.md) | Control throughput |
+| Health Check | [health-check.md](health-check.md) | Verify service health |
 
 ---
 
-## Combinaison recommandee
+## Decision Table
+
+| Problem | Pattern | When to Use |
+|---------|---------|-------------|
+| Unstable external service | Circuit Breaker | HTTP calls, DB, third-party APIs |
+| Transient errors | Retry | Network timeouts, 503, locks |
+| Infinite wait | Timeout | Any external call |
+| Component overload | Bulkhead | Thread pool isolation |
+| Too many requests | Rate Limiting | Public APIs, DoS protection |
+| Unknown service state | Health Check | Kubernetes, load balancers |
+
+---
+
+## Recommended Combination
 
 ```
 Request → Rate Limiter → Timeout → Circuit Breaker → Retry → Service
            (1)            (2)          (3)            (4)
 ```
 
-### Ordre d'application
+### Application Order
 
-1. **Rate Limiter** : Rejeter le surplus avant tout traitement
-2. **Timeout** : Limiter le temps total de l'operation
-3. **Circuit Breaker** : Fail-fast si service defaillant
-4. **Retry** : Reessayer les erreurs transitoires
+1. **Rate Limiter**: Reject excess before any processing
+2. **Timeout**: Limit the total operation time
+3. **Circuit Breaker**: Fail-fast if service is failing
+4. **Retry**: Retry transient errors
 
 ---
 
-## Stack technologique
+## Technology Stack
 
-| Langage | Librairie recommandee |
-|---------|----------------------|
+| Language | Recommended Library |
+|----------|---------------------|
 | Node.js | `cockatiel`, `opossum` |
 | Java | Resilience4j |
 | Go | `sony/gobreaker`, `avast/retry-go` |
@@ -58,10 +58,10 @@ Request → Rate Limiter → Timeout → Circuit Breaker → Retry → Service
 
 ---
 
-## Metriques cles
+## Key Metrics
 
-| Pattern | Metriques a surveiller |
-|---------|------------------------|
+| Pattern | Metrics to Monitor |
+|---------|--------------------|
 | Circuit Breaker | open_count, state_changes, rejection_rate |
 | Retry | retry_count, final_success_rate, avg_attempts |
 | Timeout | timeout_count, p99_latency |
@@ -73,13 +73,13 @@ Request → Rate Limiter → Timeout → Circuit Breaker → Retry → Service
 
 ## Anti-patterns
 
-| Anti-pattern | Probleme | Solution |
-|--------------|----------|----------|
-| Retry sans backoff | Surcharge le service | Exponential backoff + jitter |
-| Timeout trop long | Epuisement des ressources | Adapter au SLA |
-| Circuit jamais ouvert | Threshold trop haut | Calibrer sur metriques reelles |
-| Pas de fallback | Erreur propagee | Graceful degradation |
-| Health check superficiel | Faux positifs | Deep health check |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| Retry without backoff | Overloads the service | Exponential backoff + jitter |
+| Timeout too long | Resource exhaustion | Adapt to SLA |
+| Circuit never opens | Threshold too high | Calibrate on real metrics |
+| No fallback | Error propagated | Graceful degradation |
+| Superficial health check | False positives | Deep health check |
 
 ---
 

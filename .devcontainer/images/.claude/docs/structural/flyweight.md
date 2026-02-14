@@ -1,13 +1,13 @@
 # Flyweight
 
-> Minimiser la memoire en partageant les donnees entre objets similaires.
+> Minimize memory by sharing data between similar objects.
 
 ---
 
-## Principe
+## Principle
 
-Le pattern Flyweight stocke une seule instance des donnees repetitives
-(etat intrinseque) et passe l'etat variable en parametre des operations.
+The Flyweight pattern stores a single instance of repetitive data
+(intrinsic state) and passes variable state as operation parameters.
 
 ```text
 ┌─────────────────┐
@@ -24,12 +24,12 @@ Le pattern Flyweight stocke une seule instance des donnees repetitives
 
 ---
 
-## Probleme resolu
+## Problem Solved
 
-- Grande quantite d'objets similaires en memoire
-- Donnees repetees entre objets (ex: polices, textures)
-- Cout memoire prohibitif
-- Immutabilite des donnees partagees
+- Large quantity of similar objects in memory
+- Repeated data between objects (e.g. fonts, textures)
+- Prohibitive memory cost
+- Immutability of shared data
 
 ---
 
@@ -43,7 +43,7 @@ import (
     "sync"
 )
 
-// TreeType est le flyweight (etat intrinseque partage).
+// TreeType is the flyweight (shared intrinsic state).
 type TreeType struct {
     Name    string
     Color   string
@@ -54,7 +54,7 @@ func (t *TreeType) Draw(x, y int) {
     fmt.Printf("Drawing %s tree at (%d, %d)\n", t.Name, x, y)
 }
 
-// TreeFactory gere le cache de flyweights.
+// TreeFactory manages the flyweight cache.
 type TreeFactory struct {
     mu    sync.RWMutex
     cache map[string]*TreeType
@@ -89,10 +89,10 @@ func (f *TreeFactory) GetTreeType(name, color, texture string) *TreeType {
     return tt
 }
 
-// Tree contient l'etat extrinseque (unique par instance).
+// Tree contains the extrinsic state (unique per instance).
 type Tree struct {
     X, Y     int
-    TreeType *TreeType // flyweight partage
+    TreeType *TreeType // shared flyweight
 }
 
 func NewTree(x, y int, treeType *TreeType) *Tree {
@@ -107,12 +107,12 @@ func (t *Tree) Draw() {
 // factory := NewTreeFactory()
 // oak := factory.GetTreeType("Oak", "green", "bark.png")
 // tree1 := NewTree(10, 20, oak)
-// tree2 := NewTree(30, 40, oak) // meme TreeType
+// tree2 := NewTree(30, 40, oak) // same TreeType
 ```
 
 ---
 
-## Exemple complet
+## Complete Example
 
 ```go
 package main
@@ -122,7 +122,7 @@ import (
     "sync"
 )
 
-// CharacterStyle est le flyweight pour le formatage de texte.
+// CharacterStyle is the flyweight for text formatting.
 type CharacterStyle struct {
     FontFamily string
     FontSize   int
@@ -136,7 +136,7 @@ func (s *CharacterStyle) String() string {
         s.FontFamily, s.FontSize, s.Bold, s.Italic, s.Color)
 }
 
-// StyleFactory gere le cache de styles.
+// StyleFactory manages the style cache.
 type StyleFactory struct {
     mu     sync.RWMutex
     styles map[string]*CharacterStyle
@@ -184,14 +184,14 @@ func (f *StyleFactory) Count() int {
     return len(f.styles)
 }
 
-// Character represente un caractere avec son style (etat extrinseque: rune, position).
+// Character represents a character with its style (extrinsic state: rune, position).
 type Character struct {
     Char     rune
     Position int
     Style    *CharacterStyle // flyweight
 }
 
-// Document utilise les flyweights.
+// Document uses flyweights.
 type Document struct {
     characters []*Character
     factory    *StyleFactory
@@ -231,19 +231,19 @@ func main() {
     factory := NewStyleFactory()
     doc := NewDocument(factory)
 
-    // Ajouter du texte avec differents styles
+    // Add text with different styles
     text := "Hello, World!"
     for i, char := range text {
         if i < 6 {
-            // "Hello," en bold
+            // "Hello," in bold
             doc.AddCharacter(char, "Arial", 12, true, false, "black")
         } else {
-            // " World!" en normal
+            // " World!" in normal
             doc.AddCharacter(char, "Arial", 12, false, false, "black")
         }
     }
 
-    // Ajouter plus de texte
+    // Add more text
     for _, char := range " This is a test." {
         doc.AddCharacter(char, "Arial", 12, false, false, "black")
     }
@@ -254,77 +254,77 @@ func main() {
     // Output:
     // Hello, World! This is a test.
     // Characters: 29, Unique styles: 2
-    // (Seulement 2 styles partages pour 29 caracteres!)
+    // (Only 2 shared styles for 29 characters!)
 }
 ```
 
 ---
 
-## Variantes
+## Variants
 
-| Variante | Description | Cas d'usage |
-|----------|-------------|-------------|
-| Simple Flyweight | Un seul type de flyweight | Cas basique |
-| Unshared Flyweight | Certains objets non partages | Cas speciaux |
-| Composite Flyweight | Flyweights dans structures composites | Hierarchies |
-
----
-
-## Quand utiliser
-
-- Enorme quantite d'objets similaires
-- Cout memoire significatif
-- Etat extrinseque peut etre calcule/passe
-- Identite des objets non importante
-
-## Quand NE PAS utiliser
-
-- Peu d'objets a creer
-- Objets tres differents les uns des autres
-- Etat extrinseque difficile a externaliser
-- Besoin d'identite unique par objet
+| Variant | Description | Use Case |
+|----------|-------------|----------|
+| Simple Flyweight | Single flyweight type | Basic case |
+| Unshared Flyweight | Some objects not shared | Special cases |
+| Composite Flyweight | Flyweights in composite structures | Hierarchies |
 
 ---
 
-## Avantages / Inconvenients
+## When to Use
 
-| Avantages | Inconvenients |
+- Huge quantity of similar objects
+- Significant memory cost
+- Extrinsic state can be calculated/passed
+- Object identity not important
+
+## When NOT to Use
+
+- Few objects to create
+- Very different objects from each other
+- Extrinsic state difficult to externalize
+- Unique identity needed per object
+
+---
+
+## Advantages / Disadvantages
+
+| Advantages | Disadvantages |
 |-----------|---------------|
-| Economies de memoire significatives | Complexite accrue |
-| Performance amelioree | Cout CPU pour calcul etat extrinseque |
-| Moins de GC pressure | Code moins intuitif |
-| | Thread safety necessaire pour factory |
+| Significant memory savings | Increased complexity |
+| Improved performance | CPU cost for extrinsic state calculation |
+| Less GC pressure | Less intuitive code |
+| | Thread safety required for factory |
 
 ---
 
-## Patterns lies
+## Related Patterns
 
-| Pattern | Relation |
+| Pattern | Relationship |
 |---------|----------|
-| Singleton | Factory est souvent singleton |
-| Composite | Feuilles comme flyweights |
-| State/Strategy | Les objets State peuvent etre flyweights |
-| Factory | Utilise pour gerer le cache |
+| Singleton | Factory is often singleton |
+| Composite | Leaves as flyweights |
+| State/Strategy | State objects can be flyweights |
+| Factory | Used to manage the cache |
 
 ---
 
-## Implementation dans les frameworks
+## Framework Implementations
 
 | Framework/Lib | Implementation |
 |---------------|----------------|
-| sync.Pool | Pool d'objets reutilisables |
-| string interning | Partage de strings identiques |
-| image/color | Couleurs predefinies partagees |
+| sync.Pool | Reusable object pool |
+| string interning | Sharing identical strings |
+| image/color | Shared predefined colors |
 
 ---
 
-## Anti-patterns a eviter
+## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
+| Anti-pattern | Problem | Solution |
 |--------------|----------|----------|
-| Flyweight mutable | Corruption etat partage | Immutabilite stricte |
-| Sur-optimisation | Complexite pour peu de gain | Mesurer avant d'optimiser |
-| Oublier thread safety | Race conditions | sync.RWMutex ou sync.Map |
+| Mutable flyweight | Shared state corruption | Strict immutability |
+| Over-optimization | Complexity for little gain | Measure before optimizing |
+| Forgetting thread safety | Race conditions | sync.RWMutex or sync.Map |
 
 ---
 

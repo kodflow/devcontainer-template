@@ -2,16 +2,16 @@
 
 General Responsibility Assignment Software Patterns - Craig Larman.
 
-9 patterns fondamentaux pour l'attribution des responsabilités en OOP.
+9 fundamental patterns for responsibility assignment in OOP.
 
 ---
 
 ## 1. Information Expert
 
-> Assigner la responsabilité à la classe qui a l'information nécessaire.
+> Assign the responsibility to the class that has the necessary information.
 
 ```go
-// ❌ MAUVAIS - Logic ailleurs que les données
+// ❌ BAD - Logic away from the data
 type OrderService struct{}
 
 func (s *OrderService) CalculateTotal(order *Order) float64 {
@@ -22,7 +22,7 @@ func (s *OrderService) CalculateTotal(order *Order) float64 {
 	return total
 }
 
-// ✅ BON - Order a les données, Order calcule
+// ✅ GOOD - Order has the data, Order calculates
 type Order struct {
 	Items []*OrderItem
 }
@@ -47,21 +47,21 @@ func (i *OrderItem) Subtotal() float64 {
 }
 ```
 
-**Règle :** Qui a les données, fait le calcul.
+**Rule:** Whoever has the data does the calculation.
 
 ---
 
 ## 2. Creator
 
-> Assigner la responsabilité de créer un objet à la classe qui :
+> Assign the responsibility of creating an object to the class that:
 >
-> - Contient ou agrège l'objet
-> - Enregistre l'objet
-> - Utilise étroitement l'objet
-> - A les données d'initialisation
+> - Contains or aggregates the object
+> - Records the object
+> - Closely uses the object
+> - Has the initialization data
 
 ```go
-// ❌ MAUVAIS - Factory externe sans raison
+// ❌ BAD - External factory without reason
 type OrderItemFactory struct{}
 
 func (f *OrderItemFactory) Create(product *Product, qty int) *OrderItem {
@@ -72,14 +72,14 @@ func (f *OrderItemFactory) Create(product *Product, qty int) *OrderItem {
 	}
 }
 
-// ✅ BON - Order crée ses OrderItems (il les contient)
+// ✅ GOOD - Order creates its OrderItems (it contains them)
 type Order struct {
 	Items []*OrderItem
 }
 
 // AddItem creates and adds an OrderItem to the order.
 func (o *Order) AddItem(product *Product, quantity int) {
-	// Order crée OrderItem car il les agrège
+	// Order creates OrderItem because it aggregates them
 	item := &OrderItem{
 		ProductID: product.ID,
 		Price:     product.Price,
@@ -88,18 +88,18 @@ func (o *Order) AddItem(product *Product, quantity int) {
 	o.Items = append(o.Items, item)
 }
 
-// ✅ AUSSI BON - Factory method quand création complexe
+// ✅ ALSO GOOD - Factory method when creation is complex
 func NewOrder(customer *Customer, cartItems []*CartItem) (*Order, error) {
-	// Order se crée lui-même avec logique complexe
+	// Order creates itself with complex logic
 	order := &Order{
 		CustomerID: customer.ID,
 		Items:      make([]*OrderItem, 0, len(cartItems)),
 	}
-	
+
 	for _, cartItem := range cartItems {
 		order.AddItem(cartItem.Product, cartItem.Quantity)
 	}
-	
+
 	return order, nil
 }
 ```
@@ -108,10 +108,10 @@ func NewOrder(customer *Customer, cartItems []*CartItem) (*Order, error) {
 
 ## 3. Controller
 
-> Premier objet après l'UI qui reçoit et coordonne les opérations système.
+> First object after the UI that receives and coordinates system operations.
 
 ```go
-// Façade Controller - Un controller par use case
+// Facade Controller - One controller per use case
 type PlaceOrderController struct {
 	orderService        *OrderService
 	paymentService      *PaymentService
@@ -132,25 +132,25 @@ func NewPlaceOrderController(
 
 // Execute coordinates the place order use case.
 func (c *PlaceOrderController) Execute(ctx context.Context, req *PlaceOrderRequest) (*PlaceOrderResponse, error) {
-	// Coordonne mais ne contient pas de logique métier
+	// Coordinates but does not contain business logic
 	order, err := c.orderService.Create(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("creating order: %w", err)
 	}
-	
+
 	if err := c.paymentService.Charge(ctx, order); err != nil {
 		return nil, fmt.Errorf("charging payment: %w", err)
 	}
-	
+
 	if err := c.notificationService.SendConfirmation(ctx, order); err != nil {
 		// Log but don't fail
 		fmt.Printf("failed to send confirmation: %v\n", err)
 	}
-	
+
 	return &PlaceOrderResponse{OrderID: order.ID}, nil
 }
 
-// Use Case Controller - Un controller par agrégat
+// Use Case Controller - One controller per aggregate
 type OrderController struct {
 	service *OrderService
 }
@@ -171,23 +171,23 @@ func (c *OrderController) Update(ctx context.Context, req *http.Request) (*http.
 }
 ```
 
-**Règle :** Le controller coordonne, il ne fait pas le travail.
+**Rule:** The controller coordinates, it does not do the work.
 
 ---
 
 ## 4. Low Coupling
 
-> Minimiser les dépendances entre classes.
+> Minimize dependencies between classes.
 
 ```go
-// ❌ MAUVAIS - Couplage fort
+// ❌ BAD - Tight coupling
 type OrderService struct {
-	db     *PostgresDatabase  // Couplé à Postgres
-	mailer *SendGridMailer    // Couplé à SendGrid
-	logger *WinstonLogger     // Couplé à Winston
+	db     *PostgresDatabase  // Coupled to Postgres
+	mailer *SendGridMailer    // Coupled to SendGrid
+	logger *WinstonLogger     // Coupled to Winston
 }
 
-// ✅ BON - Couplage faible via interfaces
+// ✅ GOOD - Loose coupling via interfaces
 type Database interface {
 	Query(ctx context.Context, sql string, args ...interface{}) (*sql.Rows, error)
 }
@@ -202,7 +202,7 @@ type Logger interface {
 }
 
 type OrderService struct {
-	db     Database  // Couplé à l'interface, pas l'implémentation
+	db     Database  // Coupled to the interface, not the implementation
 	mailer Mailer
 	logger Logger
 }
@@ -216,31 +216,31 @@ func NewOrderService(db Database, mailer Mailer, logger Logger) *OrderService {
 }
 ```
 
-**Métriques :**
+**Metrics:**
 
-- Nombre d'imports
-- Profondeur des dépendances
-- Fan-out (classes utilisées)
+- Number of imports
+- Dependency depth
+- Fan-out (classes used)
 
 ---
 
 ## 5. High Cohesion
 
-> Une classe fait une chose bien, tous ses membres sont liés.
+> A class does one thing well, all its members are related.
 
 ```go
-// ❌ MAUVAIS - Faible cohésion (fait trop de choses)
+// ❌ BAD - Low cohesion (does too many things)
 type UserManager struct {
 	db *sql.DB
 }
 
 func (m *UserManager) CreateUser(user *User) error        { /* ... */ }
 func (m *UserManager) DeleteUser(id string) error         { /* ... */ }
-func (m *UserManager) SendEmail(to, subject string) error { /* ... */ }      // Pas lié aux users
-func (m *UserManager) GenerateReport() ([]byte, error)    { /* ... */ }  // Pas lié aux users
-func (m *UserManager) BackupDatabase() error              { /* ... */ }  // Vraiment pas lié
+func (m *UserManager) SendEmail(to, subject string) error { /* ... */ }      // Not related to users
+func (m *UserManager) GenerateReport() ([]byte, error)    { /* ... */ }  // Not related to users
+func (m *UserManager) BackupDatabase() error              { /* ... */ }  // Really not related
 
-// ✅ BON - Haute cohésion (une responsabilité)
+// ✅ GOOD - High cohesion (one responsibility)
 type UserRepository struct {
 	db *sql.DB
 }
@@ -286,16 +286,16 @@ func (g *ReportGenerator) Generate(reportType string, data interface{}) ([]byte,
 }
 ```
 
-**Test :** Peux-tu décrire la classe en une phrase sans "et" ?
+**Test:** Can you describe the class in one sentence without "and"?
 
 ---
 
 ## 6. Polymorphism
 
-> Utiliser le polymorphisme plutôt que les conditions sur le type.
+> Use polymorphism rather than type-based conditionals.
 
 ```go
-// ❌ MAUVAIS - Switch sur le type
+// ❌ BAD - Switch on type
 type PaymentProcessor struct{}
 
 func (p *PaymentProcessor) Process(payment *Payment) error {
@@ -311,7 +311,7 @@ func (p *PaymentProcessor) Process(payment *Payment) error {
 	}
 }
 
-// ✅ BON - Polymorphisme
+// ✅ GOOD - Polymorphism
 type PaymentMethod interface {
 	Process(ctx context.Context, amount float64) (*PaymentResult, error)
 }
@@ -322,7 +322,7 @@ type CreditCardPayment struct {
 }
 
 func (c *CreditCardPayment) Process(ctx context.Context, amount float64) (*PaymentResult, error) {
-	// Logique carte de crédit
+	// Credit card logic
 	return &PaymentResult{Success: true}, nil
 }
 
@@ -331,7 +331,7 @@ type PaypalPayment struct {
 }
 
 func (p *PaypalPayment) Process(ctx context.Context, amount float64) (*PaymentResult, error) {
-	// Logique PayPal
+	// PayPal logic
 	return &PaymentResult{Success: true}, nil
 }
 
@@ -340,11 +340,11 @@ type CryptoPayment struct {
 }
 
 func (c *CryptoPayment) Process(ctx context.Context, amount float64) (*PaymentResult, error) {
-	// Logique crypto
+	// Crypto logic
 	return &PaymentResult{Success: true}, nil
 }
 
-// Usage - pas de switch
+// Usage - no switch
 type PaymentProcessor struct{}
 
 func (p *PaymentProcessor) ProcessPayment(ctx context.Context, method PaymentMethod, amount float64) (*PaymentResult, error) {
@@ -356,14 +356,14 @@ func (p *PaymentProcessor) ProcessPayment(ctx context.Context, method PaymentMet
 
 ## 7. Pure Fabrication
 
-> Créer une classe artificielle pour maintenir cohésion et couplage.
+> Create an artificial class to maintain cohesion and coupling.
 
 ```go
-// Problème: où mettre la persistence des Orders?
-// - Order? Non, violerait cohésion (logique métier + DB)
-// - Database? Non, trop générique
+// Problem: where to put Order persistence?
+// - Order? No, would violate cohesion (business logic + DB)
+// - Database? No, too generic
 
-// ✅ Pure Fabrication - Struct artificielle
+// ✅ Pure Fabrication - Artificial struct
 type OrderRepository struct {
 	db Database
 }
@@ -387,11 +387,11 @@ func (r *OrderRepository) FindByID(ctx context.Context, id string) (*Order, erro
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	if !rows.Next() {
 		return nil, nil
 	}
-	
+
 	return r.toDomain(rows)
 }
 
@@ -409,23 +409,23 @@ func (r *OrderRepository) toDomain(rows *sql.Rows) (*Order, error) {
 	return &order, err
 }
 
-// Autres Pure Fabrications communes:
+// Other common Pure Fabrications:
 // - Services (OrderService, PaymentService)
 // - Factories (OrderFactory)
 // - Strategies (PricingStrategy)
 // - Adapters (EmailAdapter)
 ```
 
-**Règle :** Si aucune struct existante ne convient, en créer une.
+**Rule:** If no existing struct fits, create one.
 
 ---
 
 ## 8. Indirection
 
-> Ajouter un intermédiaire pour découpler.
+> Add an intermediary to decouple.
 
 ```go
-// ❌ Couplage direct
+// ❌ Direct coupling
 type TaxJarAPI struct{}
 
 func (api *TaxJarAPI) Calculate(amount float64, state string) (float64, error) {
@@ -434,7 +434,7 @@ func (api *TaxJarAPI) Calculate(amount float64, state string) (float64, error) {
 }
 
 type OrderService struct {
-	taxApi *TaxJarAPI // Couplé à TaxJar
+	taxApi *TaxJarAPI // Coupled to TaxJar
 }
 
 func (s *OrderService) CalculateTax(order *Order) (float64, error) {
@@ -455,7 +455,7 @@ func (a *TaxJarAdapter) Calculate(ctx context.Context, amount float64, state str
 }
 
 type OrderService struct {
-	taxCalculator TaxCalculator // Découplé
+	taxCalculator TaxCalculator // Decoupled
 }
 
 func NewOrderService(taxCalculator TaxCalculator) *OrderService {
@@ -467,7 +467,7 @@ func (s *OrderService) CalculateTax(ctx context.Context, order *Order) (float64,
 }
 ```
 
-**Formes d'indirection :**
+**Forms of indirection:**
 
 - Adapter
 - Facade
@@ -478,19 +478,19 @@ func (s *OrderService) CalculateTax(ctx context.Context, order *Order) (float64,
 
 ## 9. Protected Variations
 
-> Protéger les éléments des variations d'autres éléments.
+> Protect elements from variations in other elements.
 
 ```go
-// Le problème: le code qui utilise PaymentGateway
-// ne devrait pas être affecté si on ajoute un nouveau type de paiement
+// The problem: code using PaymentGateway
+// should not be affected if a new payment type is added
 
-// ✅ Protected Variations via interface stable
+// ✅ Protected Variations via stable interface
 type PaymentGateway interface {
 	Charge(ctx context.Context, amount float64, method PaymentMethod) (*Transaction, error)
 	Refund(ctx context.Context, transactionID string) error
 }
 
-// Les variations sont encapsulées dans les implémentations
+// Variations are encapsulated in implementations
 type StripeGateway struct {
 	apiKey string
 }
@@ -519,7 +519,7 @@ func (g *PayPalGateway) Refund(ctx context.Context, transactionID string) error 
 	return nil
 }
 
-// Le code client est protégé des variations
+// Client code is protected from variations
 type CheckoutService struct {
 	gateway PaymentGateway
 }
@@ -529,7 +529,7 @@ func NewCheckoutService(gateway PaymentGateway) *CheckoutService {
 }
 
 func (s *CheckoutService) Checkout(ctx context.Context, cart *Cart) (*Transaction, error) {
-	// Ne sait pas et ne se soucie pas de l'implémentation
+	// Does not know and does not care about the implementation
 	transaction, err := s.gateway.Charge(ctx, cart.Total, cart.PaymentMethod)
 	if err != nil {
 		return nil, fmt.Errorf("charging payment: %w", err)
@@ -538,7 +538,7 @@ func (s *CheckoutService) Checkout(ctx context.Context, cart *Cart) (*Transactio
 }
 ```
 
-**Points de variation protégés :**
+**Protected variation points:**
 
 ```go
 // 1. Data source variations
@@ -546,73 +546,73 @@ type Repository[T any] interface {
 	Find(ctx context.Context, id string) (*T, error)
 	Save(ctx context.Context, entity *T) error
 }
-// Implémentations: PostgresRepository, MongoRepository, InMemoryRepository
+// Implementations: PostgresRepository, MongoRepository, InMemoryRepository
 
 // 2. External service variations
 type NotificationService interface {
 	Send(ctx context.Context, notification *Notification) error
 }
-// Implémentations: EmailNotification, SMSNotification, PushNotification
+// Implementations: EmailNotification, SMSNotification, PushNotification
 
 // 3. Algorithm variations
 type PricingStrategy interface {
 	Calculate(basePrice float64, context *PricingContext) float64
 }
-// Implémentations: RegularPricing, DiscountPricing, MemberPricing
+// Implementations: RegularPricing, DiscountPricing, MemberPricing
 
 // 4. Platform variations
 type FileStorage interface {
 	Upload(ctx context.Context, file []byte, path string) (string, error)
 	Download(ctx context.Context, path string) ([]byte, error)
 }
-// Implémentations: LocalStorage, S3Storage, GCSStorage
+// Implementations: LocalStorage, S3Storage, GCSStorage
 ```
 
-**Techniques :**
+**Techniques:**
 
 - Interfaces
 - Dependency Injection
-- Configuration externe
+- External configuration
 - Plugins / Extensions
 
 ---
 
-## Tableau récapitulatif
+## Summary Table
 
-| Pattern | Question | Réponse |
-|---------|----------|---------|
-| Information Expert | Qui doit faire X ? | Celui qui a les données |
-| Creator | Qui doit créer X ? | Celui qui contient/utilise X |
-| Controller | Qui reçoit les requêtes ? | Un coordinateur dédié |
-| Low Coupling | Comment réduire les dépendances ? | Interfaces, DI |
-| High Cohesion | Comment garder focus ? | Une responsabilité par struct |
-| Polymorphism | Comment éviter les switch sur type ? | Interfaces + implémentations |
-| Pure Fabrication | Où mettre la logique orpheline ? | Créer une struct dédiée |
-| Indirection | Comment découpler A de B ? | Ajouter un intermédiaire |
-| Protected Variations | Comment isoler des changements ? | Interfaces stables |
+| Pattern | Question | Answer |
+|---------|----------|--------|
+| Information Expert | Who should do X? | The one who has the data |
+| Creator | Who should create X? | The one who contains/uses X |
+| Controller | Who receives requests? | A dedicated coordinator |
+| Low Coupling | How to reduce dependencies? | Interfaces, DI |
+| High Cohesion | How to keep focus? | One responsibility per struct |
+| Polymorphism | How to avoid switch on type? | Interfaces + implementations |
+| Pure Fabrication | Where to put orphan logic? | Create a dedicated struct |
+| Indirection | How to decouple A from B? | Add an intermediary |
+| Protected Variations | How to isolate changes? | Stable interfaces |
 
-## Relations avec autres patterns
+## Relationships with Other Patterns
 
-| GRASP | GoF équivalent |
+| GRASP | GoF Equivalent |
 |-------|----------------|
 | Polymorphism | Strategy, State |
 | Pure Fabrication | Service, Repository |
 | Indirection | Adapter, Facade, Proxy |
 | Protected Variations | Abstract Factory, Bridge |
 
-## Quand utiliser
+## When to Use
 
-- Lors de la conception de classes et de l'attribution des responsabilites
-- Quand on hesite sur "ou placer cette methode ou ce comportement"
-- Pour evaluer la qualite d'une architecture orientee objet
-- Lors de refactoring pour ameliorer la cohesion et reduire le couplage
-- Avant de creer une nouvelle classe ou interface
+- When designing classes and assigning responsibilities
+- When unsure about "where to place this method or behavior"
+- To evaluate the quality of an object-oriented architecture
+- When refactoring to improve cohesion and reduce coupling
+- Before creating a new class or interface
 
-## Patterns liés
+## Related Patterns
 
-- [SOLID](./SOLID.md) - Complementaire pour les principes OOP
-- [DRY](./DRY.md) - Pure Fabrication aide a centraliser la logique
-- [Defensive Programming](./defensive.md) - Controller coordonne les validations
+- [SOLID](./SOLID.md) - Complementary for OOP principles
+- [DRY](./DRY.md) - Pure Fabrication helps centralize logic
+- [Defensive Programming](./defensive.md) - Controller coordinates validations
 
 ## Sources
 

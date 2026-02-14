@@ -1,24 +1,24 @@
 # Onion Architecture
 
-> Jeffrey Palermo - Domain au centre, couches concentriques
+> Jeffrey Palermo - Domain at the center, concentric layers
 
 ## Concept
 
-Similaire à Clean/Hexagonal mais avec couches nommées différemment.
+Similar to Clean/Hexagonal but with differently named layers.
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Adaptation |
+| Language | Suitability |
 |---------|-----------|
 | **C#** | Excellent (.NET) |
-| **Java** | Très bon |
-| **TypeScript** | Bon |
+| **Java** | Very good |
+| **TypeScript** | Good |
 
 ## Structure
 
 ```
 /src
-├── core/                # Centre - Domain Model
+├── core/                # Center - Domain Model
 │   └── entities/
 ├── domain/              # Domain Services
 │   └── services/
@@ -30,24 +30,24 @@ Similaire à Clean/Hexagonal mais avec couches nommées différemment.
     └── external/
 ```
 
-## Avantages
+## Advantages
 
-- Domain isolé
-- Testabilité
-- Dépendances vers le centre
+- Isolated domain
+- Testability
+- Dependencies point toward the center
 
-## Inconvénients
+## Disadvantages
 
-- Confusion avec Clean/Hexagonal
-- Verbeux
-- Moins documenté
+- Confusion with Clean/Hexagonal
+- Verbose
+- Less documented
 
-## Quand utiliser
+## When to Use
 
-- Équipes .NET
-- Standards entreprise
+- .NET teams
+- Enterprise standards
 
-## Quand éviter
+## When to Avoid
 
-- Autres langages → préférer Clean ou Hexagonal
-- Petits projets
+- Other languages -> prefer Clean or Hexagonal
+- Small projects

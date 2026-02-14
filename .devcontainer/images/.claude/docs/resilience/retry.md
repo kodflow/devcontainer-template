@@ -1,10 +1,10 @@
 # Retry Pattern
 
-> Reessayer automatiquement les operations echouees avec backoff exponentiel et jitter.
+> Automatically retry failed operations with exponential backoff and jitter.
 
 ---
 
-## Principe
+## Principle
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -25,18 +25,18 @@
 
 ---
 
-## Strategies de backoff
+## Backoff Strategies
 
-| Strategie | Formule | Usage |
-|-----------|---------|-------|
+| Strategy | Formula | Usage |
+|----------|---------|-------|
 | **Constant** | `delay` | Tests, rate limiting |
-| **Linear** | `delay * attempt` | Progression douce |
-| **Exponential** | `delay * 2^attempt` | Standard recommande |
-| **Exponential + Jitter** | `delay * 2^attempt * random(0.5-1.5)` | Production (evite thundering herd) |
+| **Linear** | `delay * attempt` | Gentle progression |
+| **Exponential** | `delay * 2^attempt` | Recommended standard |
+| **Exponential + Jitter** | `delay * 2^attempt * random(0.5-1.5)` | Production (avoids thundering herd) |
 
 ---
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package retry
@@ -133,7 +133,7 @@ func calculateDelay(attempt int, opts RetryOptions) time.Duration {
 		delay = float64(opts.MaxDelay)
 	}
 
-	// Add jitter (±50%)
+	// Add jitter (+-50%)
 	if opts.Jitter {
 		jitterFactor := 0.5 + rand.Float64()
 		delay = delay * jitterFactor
@@ -160,7 +160,7 @@ func example(ctx context.Context) error {
 
 ---
 
-## Erreurs retryables
+## Retryable Errors
 
 ```go
 package retry
@@ -221,8 +221,8 @@ func IsRetryable(err error) bool {
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && 
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || 
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
 		 containsSubstring(s, substr)))
 }
 
@@ -253,7 +253,7 @@ func fetchUserWithRetry(ctx context.Context, userID string) (*User, error) {
 
 ---
 
-## Retry avec cancellation
+## Retry with Cancellation
 
 ```go
 package retry
@@ -328,7 +328,7 @@ func example() error {
 
 ---
 
-## Retry avec generics
+## Retry with Generics
 
 ```go
 package retry
@@ -391,46 +391,46 @@ func fetchUserWithTypedRetry(ctx context.Context, userID string) (*User, error) 
 
 ---
 
-## Configuration recommandee
+## Recommended Configuration
 
 | Scenario | maxAttempts | baseDelay | maxDelay |
 |----------|-------------|-----------|----------|
-| API interne | 3 | 100ms | 1s |
-| API externe | 5 | 200ms | 10s |
+| Internal API | 3 | 100ms | 1s |
+| External API | 5 | 200ms | 10s |
 | Database | 3 | 50ms | 500ms |
 | File system | 3 | 100ms | 1s |
 | Message queue | 5 | 500ms | 30s |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Erreurs transitoires (reseau, timeouts)
+- Transient errors (network, timeouts)
 - Rate limiting (429 Too Many Requests)
-- Services temporairement indisponibles (503)
-- Conflits de lock optimiste
-- Connexions base de donnees interrompues
+- Temporarily unavailable services (503)
+- Optimistic lock conflicts
+- Interrupted database connections
 
 ---
 
-## Quand NE PAS utiliser
+## When NOT to Use
 
-- Erreurs de validation (400)
-- Authentification echouee (401, 403)
-- Ressource non trouvee (404)
-- Erreurs de logique metier
-- Operations non-idempotentes sans precaution
+- Validation errors (400)
+- Authentication failure (401, 403)
+- Resource not found (404)
+- Business logic errors
+- Non-idempotent operations without precaution
 
 ---
 
-## Lie a
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| [Circuit Breaker](circuit-breaker.md) | Utiliser ensemble (retry avant circuit) |
-| [Timeout](timeout.md) | Limiter chaque tentative |
-| [Rate Limiting](rate-limiting.md) | Respecter les limites du service |
-| Idempotency | Prerequis pour retry securise |
+| [Circuit Breaker](circuit-breaker.md) | Use together (retry before circuit) |
+| [Timeout](timeout.md) | Limit each attempt |
+| [Rate Limiting](rate-limiting.md) | Respect service limits |
+| Idempotency | Prerequisite for safe retry |
 
 ---
 

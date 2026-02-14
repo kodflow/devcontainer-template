@@ -1,36 +1,36 @@
-# Debounce et Throttle
+# Debounce and Throttle
 
-Patterns pour limiter la frequence d'execution de fonctions.
+Patterns for limiting function execution frequency.
 
 ---
 
-## Vue d'ensemble
+## Overview
 
 ```
 +--------------------------------------------------------------+
-|  Evenements:  X X X X X    X X X X X         X X              |
+|  Events:  X X X X X    X X X X X         X X              |
 |               |-wait-|    |-wait-|                            |
 |                                                               |
 |  Debounce:              X              X              X       |
 |                         ^              ^              ^       |
-|                 (apres silence)  (apres silence)              |
+|                 (after silence)  (after silence)              |
 |                                                               |
 |  Throttle:    X         X         X         X         X       |
 |               ^---------^---------^---------^---------^       |
-|               (intervalle regulier, max 1 par periode)        |
+|               (regular interval, max 1 per period)            |
 +--------------------------------------------------------------+
 ```
 
-| Pattern | Comportement | Cas d'usage |
-|---------|--------------|-------------|
-| **Debounce** | Execute apres un delai d'inactivite | Recherche, resize |
-| **Throttle** | Execute max 1 fois par intervalle | Scroll, animations |
+| Pattern | Behavior | Use Case |
+|---------|----------|----------|
+| **Debounce** | Executes after an inactivity delay | Search, resize |
+| **Throttle** | Executes max 1 time per interval | Scroll, animations |
 
 ---
 
 ## Debounce
 
-> Attendre que l'utilisateur arrete d'agir avant d'executer.
+> Wait until the user stops acting before executing.
 
 ```go
 package debounce
@@ -79,7 +79,7 @@ func (d *Debouncer) Cancel() {
 
 // Usage
 // debouncer := debounce.New(300 * time.Millisecond)
-// 
+//
 // for event := range events {
 //     debouncer.Debounce(func() {
 //         search(event.Query)
@@ -87,7 +87,7 @@ func (d *Debouncer) Cancel() {
 // }
 ```
 
-### Debounce avec options
+### Debounce with Options
 
 ```go
 package debounce
@@ -176,7 +176,7 @@ func (d *Advanced) Debounce(fn func()) {
 
 ## Throttle
 
-> Limiter a une execution par intervalle de temps.
+> Limit to one execution per time interval.
 
 ```go
 package throttle
@@ -246,7 +246,7 @@ func (t *Throttler) Throttle(fn func()) {
 // })
 ```
 
-### Throttle avec options
+### Throttle with Options
 
 ```go
 package throttle
@@ -319,25 +319,25 @@ func (t *Advanced) Throttle(fn func()) {
 
 ---
 
-## Comparaison visuelle
+## Visual Comparison
 
 ```
-Evenements: | | | | |     | | | |       | |
+Events: | | | | |     | | | |       | |
 
 Debounce (300ms):
                     X           X         X
-                    ^-- 300ms apres dernier evenement
+                    ^-- 300ms after last event
 
 Throttle (300ms):
             X       X     X     X       X
-            ^-------^-----^-----^-------^-- max 1 par 300ms
+            ^-------^-----^-----^-------^-- max 1 per 300ms
 ```
 
 ---
 
-## Cas d'usage
+## Use Cases
 
-### Cas d'usage Debounce
+### Debounce Use Cases
 
 ```go
 package examples
@@ -346,7 +346,7 @@ import (
 	"time"
 )
 
-// Validation de formulaire
+// Form validation
 func validateEmailDebounced(email string) {
 	debouncer := debounce.New(500 * time.Millisecond)
 	debouncer.Debounce(func() {
@@ -366,14 +366,14 @@ func checkEmailAvailable(email string) {}
 func saveDraft(content string)         {}
 ```
 
-### Cas d'usage Throttle
+### Throttle Use Cases
 
 ```go
 package examples
 
 import "time"
 
-// Scroll infini
+// Infinite scroll
 func loadMoreThrottled() {
 	throttler := throttle.New(200 * time.Millisecond)
 	throttler.Throttle(func() {
@@ -398,43 +398,43 @@ func trackEvent(s string, i int) {}
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
 | Aspect | Debounce | Throttle |
 |--------|----------|----------|
-| Latence | Delai garanti | Execution immediate possible |
-| Frequence | Variable | Bornee |
-| Memoire | O(1) | O(1) |
+| Latency | Guaranteed delay | Immediate execution possible |
+| Frequency | Variable | Bounded |
+| Memory | O(1) | O(1) |
 
-### Quand utiliser quoi
+### When to Use Which
 
 | Situation | Pattern |
 |-----------|---------|
-| Attendre fin de saisie | Debounce |
-| Limiter requetes API | Debounce |
-| Animation fluide | Throttle |
-| Events haute frequence | Throttle |
+| Wait for end of input | Debounce |
+| Limit API requests | Debounce |
+| Smooth animation | Throttle |
+| High-frequency events | Throttle |
 | Auto-save | Debounce + maxWait |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Recherche instantanee (autocomplete) avec debounce pour eviter requetes excessives
-- Sauvegarde automatique de formulaires avec debounce pour attendre fin de saisie
-- Gestion du scroll infini avec throttle pour limiter les appels de chargement
-- Tracking analytics avec throttle pour eviter surcharge du serveur
-- Redimensionnement de fenetre avec debounce pour recalculs couteux
+- Instant search (autocomplete) with debounce to avoid excessive requests
+- Automatic form saving with debounce to wait for end of input
+- Infinite scroll management with throttle to limit loading calls
+- Analytics tracking with throttle to avoid server overload
+- Window resizing with debounce for expensive recalculations
 
 ---
 
-## Patterns connexes
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Rate Limiter** | Throttle cote serveur |
-| **Circuit Breaker** | Protection contre surcharge |
-| **Batch Processing** | Grouper au lieu de limiter |
+| **Rate Limiter** | Server-side throttle |
+| **Circuit Breaker** | Overload protection |
+| **Batch Processing** | Group instead of limit |
 
 ---
 

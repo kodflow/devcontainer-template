@@ -1,12 +1,12 @@
 # Strategy Pattern
 
-> Definir une famille d'algorithmes interchangeables.
+> Define a family of interchangeable algorithms.
 
-## Intention
+## Intent
 
-Definir une famille d'algorithmes, encapsuler chacun d'eux et les rendre
-interchangeables. Strategy permet de modifier l'algorithme independamment
-des clients qui l'utilisent.
+Define a family of algorithms, encapsulate each one and make them
+interchangeable. Strategy allows changing the algorithm independently
+from the clients that use it.
 
 ## Structure
 
@@ -58,11 +58,11 @@ func (c *CreditCardStrategy) Validate() bool {
 func (c *CreditCardStrategy) isValidExpiry() bool {
 	// Parse MM/YY format
 	var month, year int
-	if _, err := fmt.Sscanf(c.expiryDate, "%d/%d", &month, &year); err != nil {
+	if _, err:= fmt.Sscanf(c.expiryDate, "%d/%d", &month, &year); err != nil {
 		return false
 	}
 
-	expiry := time.Date(2000+year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	expiry:= time.Date(2000+year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 	return expiry.After(time.Now())
 }
 
@@ -75,7 +75,7 @@ func (c *CreditCardStrategy) Pay(amount float64) (*PaymentResult, error) {
 		}, nil
 	}
 
-	// Integration avec gateway de paiement
+	// Integration with payment gateway
 	fmt.Printf("Processing credit card payment of $%.2f\n", amount)
 	return &PaymentResult{
 		Success:       true,
@@ -95,7 +95,7 @@ func NewPayPalStrategy(email string) *PayPalStrategy {
 
 // Validate checks if email is valid.
 func (p *PayPalStrategy) Validate() bool {
-	emailRegex := regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
+	emailRegex:= regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
 	return emailRegex.MatchString(p.email)
 }
 
@@ -136,7 +136,7 @@ func (c *CryptoStrategy) Validate() bool {
 
 // Pay processes a cryptocurrency payment.
 func (c *CryptoStrategy) Pay(amount float64) (*PaymentResult, error) {
-	cryptoAmount, err := c.convertToCrypto(amount)
+	cryptoAmount, err:= c.convertToCrypto(amount)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (c *CryptoStrategy) Pay(amount float64) (*PaymentResult, error) {
 }
 
 func (c *CryptoStrategy) convertToCrypto(usd float64) (float64, error) {
-	// Appel API pour conversion
+	// API call for conversion
 	return usd / 50000, nil // Exemple simplifie
 }
 
@@ -184,16 +184,16 @@ func (p *PaymentProcessor) Checkout(amount float64) (*PaymentResult, error) {
 
 ```go
 func main() {
-	// Selection de strategie a l'execution
-	processor := NewPaymentProcessor(
+	// Strategy selection at runtime
+	processor:= NewPaymentProcessor(
 		NewCreditCardStrategy("4111111111111111", "123", "12/25"),
 	)
 
-	// Changer de strategie dynamiquement
+	// Change strategy dynamically
 	processor.SetStrategy(NewPayPalStrategy("user@example.com"))
 
-	// Traiter le paiement
-	result, err := processor.Checkout(100.00)
+	// Process payment
+	result, err:= processor.Checkout(100.00)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -201,7 +201,7 @@ func main() {
 	fmt.Printf("Payment result: %+v\n", result)
 }
 
-// Factory function pour créer des strategies
+// Factory function to create strategies
 func CreatePaymentStrategy(method string, data map[string]string) (PaymentStrategy, error) {
 	switch method {
 	case "credit_card":
@@ -220,9 +220,9 @@ func CreatePaymentStrategy(method string, data map[string]string) (PaymentStrate
 }
 ```
 
-## Variantes
+## Variants
 
-### Strategy avec fonctions
+### Strategy with Functions
 
 ```go
 // SortStrategy is a function type for sorting.
@@ -258,7 +258,7 @@ func NewSorter[T any](strategy SortStrategy[T]) *Sorter[T] {
 
 // Sort sorts items using the current strategy.
 func (s *Sorter[T]) Sort(items []T) []T {
-	result := make([]T, len(items))
+	result:= make([]T, len(items))
 	copy(result, items)
 	return s.strategy(result)
 }
@@ -270,8 +270,8 @@ func (s *Sorter[T]) SetStrategy(strategy SortStrategy[T]) {
 
 // Usage
 func sortExample() {
-	sorter := NewSorter(QuickSort[int])
-	result := sorter.Sort([]int{3, 1, 4, 1, 5})
+	sorter:= NewSorter(QuickSort[int])
+	result:= sorter.Sort([]int{3, 1, 4, 1, 5})
 	fmt.Println(result)
 
 	sorter.SetStrategy(MergeSort[int])
@@ -280,7 +280,7 @@ func sortExample() {
 }
 ```
 
-### Strategy avec Map
+### Strategy with Map
 
 ```go
 // CompressionStrategy defines compression operations.
@@ -308,7 +308,7 @@ func (c *CompressionContext) Register(name string, strategy CompressionStrategy)
 
 // Compress compresses data using the specified algorithm.
 func (c *CompressionContext) Compress(data []byte, algorithm string) ([]byte, error) {
-	strategy, ok := c.strategies[algorithm]
+	strategy, ok:= c.strategies[algorithm]
 	if !ok {
 		return nil, fmt.Errorf("unknown algorithm: %s", algorithm)
 	}
@@ -317,7 +317,7 @@ func (c *CompressionContext) Compress(data []byte, algorithm string) ([]byte, er
 
 // Decompress decompresses data using the specified algorithm.
 func (c *CompressionContext) Decompress(data []byte, algorithm string) ([]byte, error) {
-	strategy, ok := c.strategies[algorithm]
+	strategy, ok:= c.strategies[algorithm]
 	if !ok {
 		return nil, fmt.Errorf("unknown algorithm: %s", algorithm)
 	}
@@ -352,17 +352,17 @@ func (b *BrotliStrategy) Decompress(data []byte) ([]byte, error) {
 
 // Usage
 func compressionExample() {
-	ctx := NewCompressionContext()
+	ctx:= NewCompressionContext()
 	ctx.Register("gzip", &GzipStrategy{})
 	ctx.Register("brotli", &BrotliStrategy{})
 
-	data := []byte("hello world")
-	compressed, _ := ctx.Compress(data, "gzip")
+	data:= []byte("hello world")
+	compressed, _:= ctx.Compress(data, "gzip")
 	_ = compressed
 }
 ```
 
-### Strategy avec validation
+### Strategy with Validation
 
 ```go
 // ValidationResult represents validation result.
@@ -388,10 +388,10 @@ func NewCompositeValidator(strategies ...ValidationStrategy) *CompositeValidator
 
 // Validate runs all validation strategies.
 func (c *CompositeValidator) Validate(value interface{}) *ValidationResult {
-	errors := []string{}
+	errors:= []string{}
 
-	for _, strategy := range c.strategies {
-		result := strategy.Validate(value)
+	for _, strategy:= range c.strategies {
+		result:= strategy.Validate(value)
 		if !result.Valid {
 			errors = append(errors, result.Errors...)
 		}
@@ -415,12 +415,12 @@ func NewRequiredValidator(field string) *RequiredValidator {
 
 // Validate checks if field is present.
 func (r *RequiredValidator) Validate(value interface{}) *ValidationResult {
-	data, ok := value.(map[string]interface{})
+	data, ok:= value.(map[string]interface{})
 	if !ok {
 		return &ValidationResult{Valid: false, Errors: []string{"invalid data type"}}
 	}
 
-	if _, exists := data[r.field]; !exists {
+	if _, exists:= data[r.field]; !exists {
 		return &ValidationResult{
 			Valid:  false,
 			Errors: []string{fmt.Sprintf("%s is required", r.field)},
@@ -442,12 +442,12 @@ func NewEmailValidator(field string) *EmailValidator {
 
 // Validate checks if email is valid.
 func (e *EmailValidator) Validate(value interface{}) *ValidationResult {
-	data, ok := value.(map[string]interface{})
+	data, ok:= value.(map[string]interface{})
 	if !ok {
 		return &ValidationResult{Valid: false, Errors: []string{"invalid data type"}}
 	}
 
-	email, ok := data[e.field].(string)
+	email, ok:= data[e.field].(string)
 	if !ok {
 		return &ValidationResult{
 			Valid:  false,
@@ -455,7 +455,7 @@ func (e *EmailValidator) Validate(value interface{}) *ValidationResult {
 		}
 	}
 
-	emailRegex := regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
+	emailRegex:= regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
 	if !emailRegex.MatchString(email) {
 		return &ValidationResult{
 			Valid:  false,
@@ -468,13 +468,13 @@ func (e *EmailValidator) Validate(value interface{}) *ValidationResult {
 
 // Usage
 func validationExample() {
-	userValidator := NewCompositeValidator(
+	userValidator:= NewCompositeValidator(
 		NewRequiredValidator("email"),
 		NewEmailValidator("email"),
 		NewRequiredValidator("password"),
 	)
 
-	result := userValidator.Validate(map[string]interface{}{
+	result:= userValidator.Validate(map[string]interface{}{
 		"email":    "invalid",
 		"password": "",
 	})
@@ -486,7 +486,7 @@ func validationExample() {
 ## Anti-patterns
 
 ```go
-// MAUVAIS: Strategy avec etat partage
+// BAD: Strategy with shared state
 type StatefulStrategy struct {
 	lastTransaction string // Etat = problemes de concurrence
 }
@@ -499,30 +499,30 @@ func (s *StatefulStrategy) Pay(amount float64) (*PaymentResult, error) {
 	}, nil
 }
 
-// MAUVAIS: Context qui connait les implementations
+// BAD: Context that knows the implementations
 type BadContext struct{}
 
 func (b *BadContext) Checkout(method string, amount float64) error {
 	if method == "credit_card" {
-		// Logique specifique credit card
+		// Credit card specific logic
 	} else if method == "paypal" {
-		// Logique specifique PayPal
+		// PayPal specific logic
 	}
-	// Devrait utiliser une strategy!
+	// Should use a strategy!
 	return nil
 }
 
-// MAUVAIS: Strategy trop granulaire
+// BAD: Strategy too granular
 type TooGranularStrategy interface {
 	Step1() error
 	Step2() error
 	Step3() error
-	// Si tous les steps sont toujours executes ensemble,
-	// une seule methode suffit
+	// If all steps are always executed together,
+	// a single method is sufficient
 }
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```go
 package main
@@ -533,22 +533,22 @@ import (
 
 func TestCreditCardStrategy(t *testing.T) {
 	t.Run("should validate correct card details", func(t *testing.T) {
-		strategy := NewCreditCardStrategy("4111111111111111", "123", "12/25")
+		strategy:= NewCreditCardStrategy("4111111111111111", "123", "12/25")
 		if !strategy.Validate() {
 			t.Error("valid card should pass validation")
 		}
 	})
 
 	t.Run("should reject invalid card number", func(t *testing.T) {
-		strategy := NewCreditCardStrategy("123", "123", "12/25")
+		strategy:= NewCreditCardStrategy("123", "123", "12/25")
 		if strategy.Validate() {
 			t.Error("invalid card should fail validation")
 		}
 	})
 
 	t.Run("should process payment successfully", func(t *testing.T) {
-		strategy := NewCreditCardStrategy("4111111111111111", "123", "12/25")
-		result, err := strategy.Pay(100)
+		strategy:= NewCreditCardStrategy("4111111111111111", "123", "12/25")
+		result, err:= strategy.Pay(100)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -565,14 +565,14 @@ func TestCreditCardStrategy(t *testing.T) {
 
 func TestPayPalStrategy(t *testing.T) {
 	t.Run("should validate correct email", func(t *testing.T) {
-		strategy := NewPayPalStrategy("user@example.com")
+		strategy:= NewPayPalStrategy("user@example.com")
 		if !strategy.Validate() {
 			t.Error("valid email should pass validation")
 		}
 	})
 
 	t.Run("should reject invalid email", func(t *testing.T) {
-		strategy := NewPayPalStrategy("invalid-email")
+		strategy:= NewPayPalStrategy("invalid-email")
 		if strategy.Validate() {
 			t.Error("invalid email should fail validation")
 		}
@@ -581,10 +581,10 @@ func TestPayPalStrategy(t *testing.T) {
 
 func TestPaymentProcessor(t *testing.T) {
 	t.Run("should use the provided strategy", func(t *testing.T) {
-		strategy := NewCreditCardStrategy("4111111111111111", "123", "12/25")
-		processor := NewPaymentProcessor(strategy)
+		strategy:= NewCreditCardStrategy("4111111111111111", "123", "12/25")
+		processor:= NewPaymentProcessor(strategy)
 
-		result, err := processor.Checkout(100)
+		result, err:= processor.Checkout(100)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -595,28 +595,28 @@ func TestPaymentProcessor(t *testing.T) {
 	})
 
 	t.Run("should allow strategy change at runtime", func(t *testing.T) {
-		strategy1 := NewCreditCardStrategy("4111111111111111", "123", "12/25")
-		processor := NewPaymentProcessor(strategy1)
+		strategy1:= NewCreditCardStrategy("4111111111111111", "123", "12/25")
+		processor:= NewPaymentProcessor(strategy1)
 
-		result1, _ := processor.Checkout(100)
+		result1, _:= processor.Checkout(100)
 		if result1.TransactionID[:3] != "CC_" {
 			t.Error("first payment should use credit card")
 		}
 
-		strategy2 := NewPayPalStrategy("user@example.com")
+		strategy2:= NewPayPalStrategy("user@example.com")
 		processor.SetStrategy(strategy2)
 
-		result2, _ := processor.Checkout(200)
+		result2, _:= processor.Checkout(200)
 		if result2.TransactionID[:3] != "PP_" {
 			t.Error("second payment should use PayPal")
 		}
 	})
 
 	t.Run("should fail if validation fails", func(t *testing.T) {
-		strategy := NewPayPalStrategy("invalid-email")
-		processor := NewPaymentProcessor(strategy)
+		strategy:= NewPayPalStrategy("invalid-email")
+		processor:= NewPaymentProcessor(strategy)
 
-		result, _ := processor.Checkout(100)
+		result, _:= processor.Checkout(100)
 
 		if result.Success {
 			t.Error("payment should fail with invalid email")
@@ -625,18 +625,18 @@ func TestPaymentProcessor(t *testing.T) {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-- Plusieurs variantes d'un algorithme
-- Eviter les conditionnels multiples (switch/if-else)
-- Familles d'algorithmes relates
-- Algorithme doit varier independamment du client
+- Multiple variants of an algorithm
+- Avoid multiple conditionals (switch/if-else)
+- Families of related algorithms
+- Algorithm must vary independently of the client
 
-## Patterns lies
+## Related Patterns
 
-- **State** : Change de comportement selon l'etat (implicite)
-- **Template Method** : Algorithme fixe avec etapes variables
-- **Command** : Encapsule une action, pas un algorithme
+- **State**: Changes behavior based on state (implicit)
+- **Template Method**: Fixed algorithm with variable steps
+- **Command**: Encapsulates an action, not an algorithm
 
 ## Sources
 

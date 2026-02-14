@@ -127,7 +127,7 @@ resource "vault_policy" "vault_operator" {
   name = "kubernetes-access-vault-secrets-${var.namespace}"
 
   policy = join("\n", [
-    for secret in var.secrets : <<-EOP
+    for secret in var.secrets: <<-EOP
     path "${secret.mount}/data/${secret.path}" {
       capabilities = ["read"]
     }
@@ -200,7 +200,7 @@ resource "kubernetes_manifest" "vault_auth" {
 # VAULT SECRETS OPERATOR - STATIC SECRET RETRIEVAL
 # -----------------------------------------------------------------------------
 resource "kubernetes_manifest" "vault_static_secret" {
-  for_each = { for s in var.secrets : s.name => s }
+  for_each = { for s in var.secrets: s.name => s }
 
   manifest = {
     apiVersion = "secrets.hashicorp.com/v1beta1"

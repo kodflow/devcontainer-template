@@ -1,12 +1,12 @@
 # Performance Patterns
 
-Patterns d'optimisation des performances et de la mémoire.
+Performance and memory optimization patterns.
 
-## Les 12 Patterns
+## The 12 Patterns
 
 ### 1. Object Pool
 
-> Réutiliser des objets coûteux au lieu de les recréer.
+> Reuse expensive objects instead of recreating them.
 
 ```go
 package performance
@@ -42,7 +42,7 @@ func (p *Pool[T]) Release(obj *T) {
 	p.pool.Put(obj)
 }
 
-// Usage - Pool de connexions DB
+// Usage - DB connection pool
 type DatabaseConnection struct {
 	conn interface{}
 }
@@ -73,14 +73,14 @@ func ExampleDatabasePool() {
 }
 ```
 
-**Quand :** Connexions DB, threads, objets graphiques coûteux.
-**Lié à :** Flyweight, Singleton.
+**When:** DB connections, threads, expensive graphical objects.
+**Related to:** Flyweight, Singleton.
 
 ---
 
 ### 2. Buffer / Ring Buffer
 
-> Tampon circulaire pour flux de données continus.
+> Circular buffer for continuous data streams.
 
 ```go
 package performance
@@ -166,7 +166,7 @@ func (rb *RingBuffer[T]) IsFull() bool {
 	return rb.count == rb.capacity
 }
 
-// Usage - Buffer audio/video
+// Usage - Audio/video buffer
 type AudioFrame struct {
 	Data []byte
 }
@@ -179,14 +179,14 @@ func ExampleAudioBuffer() {
 }
 ```
 
-**Quand :** Streaming, audio/video, logging haute performance.
-**Lié à :** Producer-Consumer, Queue.
+**When:** Streaming, audio/video, high-performance logging.
+**Related to:** Producer-Consumer, Queue.
 
 ---
 
-### 3. Cache (avec stratégies)
+### 3. Cache (with Strategies)
 
-> Stocker les résultats pour éviter les recalculs.
+> Store results to avoid recomputation.
 
 ```go
 package performance
@@ -308,22 +308,22 @@ func (c *TTLCache[K, V]) Get(key K) (V, bool) {
 }
 ```
 
-**Stratégies :**
+**Strategies:**
 
-- **LRU** : Évicte le moins récemment utilisé
-- **LFU** : Évicte le moins fréquemment utilisé
-- **TTL** : Expiration temporelle
-- **Write-through** : Écriture cache + source
-- **Write-behind** : Écriture asynchrone
+- **LRU**: Evicts the least recently used
+- **LFU**: Evicts the least frequently used
+- **TTL**: Time-based expiration
+- **Write-through**: Write to cache + source
+- **Write-behind**: Asynchronous write
 
-**Quand :** API responses, calculs coûteux, données fréquentes.
-**Lié à :** Proxy, Memoization.
+**When:** API responses, expensive computations, frequently accessed data.
+**Related to:** Proxy, Memoization.
 
 ---
 
 ### 4. Lazy Loading
 
-> Différer l'initialisation jusqu'à l'utilisation.
+> Defer initialization until use.
 
 ```go
 package performance
@@ -384,20 +384,20 @@ func (hs *HeavyService) GetDatabase() *DatabaseConnection {
 }
 ```
 
-**Variantes :**
+**Variants:**
 
-- **Virtual Proxy** : Proxy qui charge à la demande
-- **Ghost** : Objet partiel chargé progressivement
-- **Value Holder** : Conteneur qui charge au premier accès
+- **Virtual Proxy**: Proxy that loads on demand
+- **Ghost**: Partial object loaded progressively
+- **Value Holder**: Container that loads on first access
 
-**Quand :** Ressources lourdes, images, modules, dépendances optionnelles.
-**Lié à :** Proxy, Virtual Proxy.
+**When:** Heavy resources, images, modules, optional dependencies.
+**Related to:** Proxy, Virtual Proxy.
 
 ---
 
 ### 5. Memoization
 
-> Mettre en cache les résultats de fonctions pures.
+> Cache the results of pure functions.
 
 ```go
 package performance
@@ -522,14 +522,14 @@ func MemoizeAsync[K comparable, V any](fn func(context.Context, K) (V, error)) f
 }
 ```
 
-**Quand :** Fonctions pures, calculs récursifs, API calls identiques.
-**Lié à :** Cache, Decorator.
+**When:** Pure functions, recursive computations, identical API calls.
+**Related to:** Cache, Decorator.
 
 ---
 
 ### 6. Debounce
 
-> Exécuter après un délai d'inactivité.
+> Execute after an inactivity delay.
 
 ```go
 package performance
@@ -579,7 +579,7 @@ func DebounceFunc(fn func(), delay time.Duration) func() {
 	}
 }
 
-// Usage - Recherche en temps réel
+// Usage - Real-time search
 type SearchAPI struct{}
 
 func (s *SearchAPI) Search(query string) {
@@ -598,14 +598,14 @@ func ExampleDebounce() {
 }
 ```
 
-**Quand :** Input utilisateur, resize, scroll, recherche.
-**Lié à :** Throttle.
+**When:** User input, resize, scroll, search.
+**Related to:** Throttle.
 
 ---
 
 ### 7. Throttle
 
-> Limiter la fréquence d'exécution.
+> Limit execution frequency.
 
 ```go
 package performance
@@ -687,7 +687,7 @@ func ThrottleFunc(fn func(), limit time.Duration) func() {
 	}
 }
 
-// Usage - Animation scroll
+// Usage - Scroll animation
 func updateParallax() {
 	// Update animation
 }
@@ -703,14 +703,14 @@ func ExampleThrottle() {
 }
 ```
 
-**Quand :** Events haute fréquence, animations, rate limiting.
-**Lié à :** Debounce, Rate Limiter.
+**When:** High-frequency events, animations, rate limiting.
+**Related to:** Debounce, Rate Limiter.
 
 ---
 
 ### 8. Batch Processing
 
-> Grouper les opérations pour réduire l'overhead.
+> Group operations to reduce overhead.
 
 ```go
 package performance
@@ -791,7 +791,7 @@ func (bp *BatchProcessor[T]) Close() {
 	bp.Flush()
 }
 
-// Usage - Batch insert en DB
+// Usage - Batch DB insert
 type LogEntry struct {
 	Level   string
 	Message string
@@ -811,7 +811,7 @@ func ExampleBatchProcessor() {
 			return db.InsertLogs(ctx, entries)
 		},
 		100,              // Max 100 entries
-		1*time.Second,    // Ou après 1 seconde
+		1*time.Second,    // Or after 1 second
 	)
 	defer batcher.Close()
 
@@ -819,14 +819,14 @@ func ExampleBatchProcessor() {
 }
 ```
 
-**Quand :** Insertions DB, API calls, événements.
-**Lié à :** Buffer, Queue.
+**When:** DB insertions, API calls, events.
+**Related to:** Buffer, Queue.
 
 ---
 
 ### 9. Pagination / Cursor
 
-> Charger les données par morceaux.
+> Load data in chunks.
 
 ```go
 package performance
@@ -915,14 +915,14 @@ func GetPageCursor[T Cursorable](
 }
 ```
 
-**Quand :** Listes longues, infinite scroll, API REST.
-**Lié à :** Lazy Loading, Iterator.
+**When:** Long lists, infinite scroll, REST APIs.
+**Related to:** Lazy Loading, Iterator.
 
 ---
 
 ### 10. Connection Pooling
 
-> Pool de connexions réutilisables.
+> Pool of reusable connections.
 
 ```go
 package performance
@@ -1057,14 +1057,14 @@ func (cp *ConnectionPool) Close() error {
 }
 ```
 
-**Quand :** Connexions DB, HTTP clients, WebSockets.
-**Lié à :** Object Pool, Resource Management.
+**When:** DB connections, HTTP clients, WebSockets.
+**Related to:** Object Pool, Resource Management.
 
 ---
 
 ### 11. Double Buffering
 
-> Deux buffers alternés pour éviter les conflits.
+> Two alternating buffers to avoid conflicts.
 
 ```go
 package performance
@@ -1141,16 +1141,16 @@ func (r *Renderer) execute(cmd DrawCommand) {
 }
 ```
 
-**Quand :** Graphics, audio, game loops, animations.
-**Lié à :** Buffer, Producer-Consumer.
+**When:** Graphics, audio, game loops, animations.
+**Related to:** Buffer, Producer-Consumer.
 
 ---
 
-### 12. Flyweight (optimisation mémoire)
+### 12. Flyweight (memory optimization)
 
-> Voir structural/README.md pour détails.
+> See structural/README.md for details.
 
-Partager l'état intrinsèque (immutable) entre objets similaires.
+Share intrinsic (immutable) state between similar objects.
 
 ```go
 package performance
@@ -1200,7 +1200,7 @@ func GetParticleType(name string) *ParticleType {
 // Particle represents a single particle with extrinsic state.
 type Particle struct {
 	X, Y float64
-	Type *ParticleType // Flyweight partagé
+	Type *ParticleType // Shared flyweight
 }
 
 // NewParticle creates a new particle.
@@ -1213,29 +1213,29 @@ func NewParticle(x, y float64, typeName string) *Particle {
 }
 ```
 
-**Quand :** Jeux, éditeurs texte, millions d'objets similaires.
-**Lié à :** Object Pool, Prototype.
+**When:** Games, text editors, millions of similar objects.
+**Related to:** Object Pool, Prototype.
 
 ---
 
-## Tableau de décision
+## Decision Table
 
-| Besoin | Pattern |
-|--------|---------|
-| Réutiliser objets coûteux | Object Pool |
-| Flux continu de données | Ring Buffer |
-| Éviter recalculs | Cache / Memoization |
-| Différer initialisation | Lazy Loading |
-| Limiter rate input | Debounce / Throttle |
-| Grouper opérations | Batch Processing |
-| Grands datasets | Pagination / Cursor |
-| Connexions réutilisables | Connection Pool |
-| Éviter conflits lecture/écriture | Double Buffering |
-| Réduire mémoire objets similaires | Flyweight |
+| Need | Pattern |
+|------|---------|
+| Reuse expensive objects | Object Pool |
+| Continuous data stream | Ring Buffer |
+| Avoid recomputation | Cache / Memoization |
+| Defer initialization | Lazy Loading |
+| Limit input rate | Debounce / Throttle |
+| Group operations | Batch Processing |
+| Large datasets | Pagination / Cursor |
+| Reusable connections | Connection Pool |
+| Avoid read/write conflicts | Double Buffering |
+| Reduce memory for similar objects | Flyweight |
 
 ## Pool + Buffer Pattern
 
-Le pattern **PoolBuffer** combine Object Pool et Ring Buffer :
+The **PoolBuffer** pattern combines Object Pool and Ring Buffer:
 
 ```go
 package performance
@@ -1290,7 +1290,7 @@ func (pb *PoolBuffer[T]) Release(obj *T) {
 }
 ```
 
-**Usage :** Streaming haute performance, game objects, message queues.
+**Usage:** High-performance streaming, game objects, message queues.
 
 ## Sources
 

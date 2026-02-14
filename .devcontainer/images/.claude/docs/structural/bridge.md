@@ -1,13 +1,13 @@
 # Bridge
 
-> Decoupler une abstraction de son implementation pour qu'elles puissent varier independamment.
+> Decouple an abstraction from its implementation so that they can vary independently.
 
 ---
 
-## Principe
+## Principle
 
-Le pattern Bridge separe une grosse classe en deux hierarchies separees -
-abstraction et implementation - qui evoluent independamment.
+The Bridge pattern separates a large class into two separate hierarchies -
+abstraction and implementation - that evolve independently.
 
 ```text
 ┌─────────────────┐           ┌─────────────────┐
@@ -22,12 +22,12 @@ abstraction et implementation - qui evoluent independamment.
 
 ---
 
-## Probleme resolu
+## Problem Solved
 
-- Explosion combinatoire de sous-classes (ex: Shape x Color x Platform)
-- Couplage fort entre abstraction et implementation
-- Besoin d'etendre dans deux dimensions independantes
-- Changement d'implementation a l'execution
+- Combinatorial explosion of subclasses (e.g. Shape x Color x Platform)
+- Strong coupling between abstraction and implementation
+- Need to extend in two independent dimensions
+- Runtime implementation switching
 
 ---
 
@@ -38,18 +38,18 @@ package main
 
 import "fmt"
 
-// Implementor definit l'interface d'implementation.
+// Implementor defines the implementation interface.
 type Renderer interface {
     RenderCircle(radius float64)
     RenderSquare(side float64)
 }
 
-// Abstraction definit l'interface de haut niveau.
+// Abstraction defines the high-level interface.
 type Shape interface {
     Draw()
 }
 
-// Circle est une abstraction raffinee.
+// Circle is a refined abstraction.
 type Circle struct {
     renderer Renderer
     radius   float64
@@ -63,7 +63,7 @@ func (c *Circle) Draw() {
     c.renderer.RenderCircle(c.radius)
 }
 
-// Implementations concretes
+// Concrete implementations
 type VectorRenderer struct{}
 
 func (v *VectorRenderer) RenderCircle(radius float64) {
@@ -92,7 +92,7 @@ func (r *RasterRenderer) RenderSquare(side float64) {
 
 ---
 
-## Exemple complet
+## Complete Example
 
 ```go
 package main
@@ -103,12 +103,12 @@ import (
     "os"
 )
 
-// MessageSender est l'Implementor.
+// MessageSender is the Implementor.
 type MessageSender interface {
     Send(message string) error
 }
 
-// Message est l'Abstraction.
+// Message is the Abstraction.
 type Message struct {
     sender  MessageSender
     content string
@@ -122,7 +122,7 @@ func (m *Message) Send() error {
     return m.sender.Send(m.content)
 }
 
-// UrgentMessage est une abstraction raffinee.
+// UrgentMessage is a refined abstraction.
 type UrgentMessage struct {
     *Message
     priority int
@@ -142,7 +142,7 @@ func (u *UrgentMessage) Send() error {
     return u.sender.Send(urgentContent)
 }
 
-// EmailSender est une implementation concrete.
+// EmailSender is a concrete implementation.
 type EmailSender struct {
     to   string
     from string
@@ -157,7 +157,7 @@ func (e *EmailSender) Send(message string) error {
     return nil
 }
 
-// SMSSender est une implementation concrete.
+// SMSSender is a concrete implementation.
 type SMSSender struct {
     phone string
 }
@@ -171,7 +171,7 @@ func (s *SMSSender) Send(message string) error {
     return nil
 }
 
-// SlackSender est une implementation concrete.
+// SlackSender is a concrete implementation.
 type SlackSender struct {
     channel string
     webhook string
@@ -187,20 +187,20 @@ func (s *SlackSender) Send(message string) error {
 }
 
 func main() {
-    // Combiner differentes abstractions avec implementations
+    // Combine different abstractions with implementations
     emailSender := NewEmailSender("system@example.com", "user@example.com")
     smsSender := NewSMSSender("+1234567890")
     slackSender := NewSlackSender("alerts", "https://hooks.slack.com/...")
 
-    // Message normal via email
+    // Normal message via email
     msg1 := NewMessage(emailSender, "Your report is ready")
     msg1.Send()
 
-    // Message urgent via SMS
+    // Urgent message via SMS
     msg2 := NewUrgentMessage(smsSender, "Server is down!", 1)
     msg2.Send()
 
-    // Message normal via Slack
+    // Normal message via Slack
     msg3 := NewMessage(slackSender, "Deployment completed")
     msg3.Send()
 
@@ -213,70 +213,70 @@ func main() {
 
 ---
 
-## Variantes
+## Variants
 
-| Variante | Description | Cas d'usage |
-|----------|-------------|-------------|
-| Simple Bridge | Une seule abstraction | Separation implementation |
-| Multi-level Bridge | Hierarchies multiples | Frameworks extensibles |
-| Dynamic Bridge | Implementation changeable | Runtime switching |
-
----
-
-## Quand utiliser
-
-- Eviter liaison permanente abstraction/implementation
-- Abstractions ET implementations extensibles
-- Changements d'implementation transparents pour le client
-- Partage d'implementation entre objets
-
-## Quand NE PAS utiliser
-
-- Une seule implementation prevue
-- Peu de variations a prevoir
-- Complexite non justifiee par les besoins
+| Variant | Description | Use Case |
+|----------|-------------|----------|
+| Simple Bridge | Single abstraction | Implementation separation |
+| Multi-level Bridge | Multiple hierarchies | Extensible frameworks |
+| Dynamic Bridge | Changeable implementation | Runtime switching |
 
 ---
 
-## Avantages / Inconvenients
+## When to Use
 
-| Avantages | Inconvenients |
+- Avoid permanent binding between abstraction/implementation
+- Both abstractions AND implementations are extensible
+- Implementation changes transparent to the client
+- Sharing implementation between objects
+
+## When NOT to Use
+
+- Only one implementation planned
+- Few variations expected
+- Complexity not justified by the needs
+
+---
+
+## Advantages / Disadvantages
+
+| Advantages | Disadvantages |
 |-----------|---------------|
-| Decoupage orthogonal des variations | Complexite accrue |
-| Single Responsibility Principle | Indirection supplementaire |
-| Open/Closed Principle | Sur-ingenierie possible |
-| Changement d'implementation runtime | |
+| Orthogonal variation separation | Increased complexity |
+| Single Responsibility Principle | Additional indirection |
+| Open/Closed Principle | Possible over-engineering |
+| Runtime implementation switching | |
 
 ---
 
-## Patterns lies
+## Related Patterns
 
-| Pattern | Relation |
+| Pattern | Relationship |
 |---------|----------|
-| Adapter | Adapte apres conception, Bridge concu en amont |
-| Strategy | Strategy change algorithme, Bridge change implementation |
-| Abstract Factory | Peut creer les implementations du Bridge |
-| Decorator | Enrichit sans changer structure, Bridge separe hierarchies |
+| Adapter | Adapts after design, Bridge designed upfront |
+| Strategy | Strategy changes algorithm, Bridge changes implementation |
+| Abstract Factory | Can create Bridge implementations |
+| Decorator | Enriches without changing structure, Bridge separates hierarchies |
 
 ---
 
-## Implementation dans les frameworks
+## Framework Implementations
 
 | Framework/Lib | Implementation |
 |---------------|----------------|
 | database/sql | Driver interface (implementation) + DB (abstraction) |
-| io.Writer | Interface comme pont vers implementations |
+| io.Writer | Interface as bridge to implementations |
 | net/http | Handler interface |
 
 ---
 
-## Anti-patterns a eviter
+## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
+| Anti-pattern | Problem | Solution |
 |--------------|----------|----------|
-| Bridge premature | Complexite inutile | Attendre le besoin reel |
-| Abstraction trop fine | Fragmentation | Regrouper les responsabilites |
-| Implementation leaky | Couplage | Interface bien definie |
+| Premature Bridge | Unnecessary complexity | Wait for the real need |
+| Too fine abstraction | Fragmentation | Group responsibilities |
+| Leaky implementation | Coupling | Well-defined interface |
 
 ---
 
@@ -307,7 +307,7 @@ func TestBridge_SwitchImplementation(t *testing.T) {
     email := NewEmailSender("a@b.com", "c@d.com")
     sms := NewSMSSender("+1234567890")
 
-    // Meme abstraction, implementations differentes
+    // Same abstraction, different implementations
     msg1 := NewMessage(email, "Test")
     msg2 := NewMessage(sms, "Test")
 

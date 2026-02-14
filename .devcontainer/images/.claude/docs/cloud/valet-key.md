@@ -1,22 +1,22 @@
 # Valet Key Pattern
 
-> Fournir un token temporaire pour acces direct aux ressources sans passer par l'application.
+> Provide a temporary token for direct access to resources without going through the application.
 
-## Principe
+## Principle
 
 ```
                     ┌─────────────────────────────────────────────┐
                     │                VALET KEY                     │
                     └─────────────────────────────────────────────┘
 
-  SANS VALET KEY (proxy tout):
+  WITHOUT VALET KEY (proxy everything):
   ┌────────┐   Upload   ┌─────────┐   Store   ┌─────────┐
   │ Client │ ─────────▶ │   App   │ ────────▶ │ Storage │
   └────────┘   (5 GB)   │ (proxy) │   (5 GB)  └─────────┘
                         │ BOTTLENECK
                         └─────────┘
 
-  AVEC VALET KEY (acces direct):
+  WITH VALET KEY (direct access):
   ┌────────┐  1. Request token  ┌─────────┐
   │ Client │ ─────────────────▶ │   App   │
   └────────┘                    └────┬────┘
@@ -28,11 +28,11 @@
        │
        ▼
   ┌─────────┐
-  │ Storage │  (pas de proxy!)
+  │ Storage │  (no proxy!)
   └─────────┘
 ```
 
-## Flux detaille
+## Detailed Flow
 
 ```
   ┌────────┐                  ┌─────────┐                  ┌─────────┐
@@ -57,7 +57,7 @@
       │                            │                            │
 ```
 
-## Exemple Go - AWS S3
+## Complete Example - AWS S3 (Go)
 
 ```go
 package valetkey
@@ -204,60 +204,60 @@ func (uc *UploadController) isAllowedType(contentType string) bool {
 }
 ```
 
-## Exemple Azure Blob Storage (Go)
+## Azure Blob Storage Example (Go)
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
 ## Client-side usage (Go)
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Securite
+## Security
 
-| Aspect | Recommandation |
+| Aspect | Recommendation |
 |--------|----------------|
-| Expiration | 5-15 min pour upload, 1h pour download |
-| Permissions | Minimum requis (write-only, read-only) |
-| Path | Prefixer avec user ID |
-| Content-Type | Valider cote serveur |
-| Size | Configurer limite max |
-| CORS | Restreindre origines |
+| Expiration | 5-15 min for upload, 1h for download |
+| Permissions | Minimum required (write-only, read-only) |
+| Path | Prefix with user ID |
+| Content-Type | Validate server-side |
+| Size | Configure max limit |
+| CORS | Restrict origins |
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
-|-----------|------------|
-| Upload fichiers volumineux | Oui |
-| CDN/streaming media | Oui |
-| Reduire charge serveur | Oui |
-| Audit detaille requis | Avec logs storage |
-| Transformation server-side requise | Non (faire apres) |
+| Situation | Recommended |
+|-----------|-------------|
+| Large file uploads | Yes |
+| CDN/streaming media | Yes |
+| Reduce server load | Yes |
+| Detailed audit required | With storage logs |
+| Server-side transformation required | No (do it after) |
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Static Content Hosting | Distribution assets |
-| Gatekeeper | Validation avant token |
-| Federated Identity | Auth avant generation |
-| Queue Load Leveling | Traitement post-upload |
+| Static Content Hosting | Asset distribution |
+| Gatekeeper | Validation before token |
+| Federated Identity | Auth before generation |
+| Queue Load Leveling | Post-upload processing |
 
 ## Sources
 
