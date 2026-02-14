@@ -1,26 +1,26 @@
 # DDD - Domain-Driven Design
 
-> Eric Evans - Modélisation du domaine métier au centre
+> Eric Evans - Business domain modeling at the center
 
-## Variantes
+## Variants
 
-| Variante | Focus |
+| Variant | Focus |
 |----------|-------|
 | **Tactical** | Patterns (Entity, VO, Aggregate) |
 | **Strategic** | Bounded Contexts, Ubiquitous Language |
-| **+ CQRS** | Sépare lecture/écriture |
-| **+ Event Sourcing** | État via événements |
+| **+ CQRS** | Separates read/write |
+| **+ Event Sourcing** | State via events |
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Adaptation |
+| Language | Suitability |
 |---------|-----------|
 | **Java** | Excellent |
 | **C#** | Excellent |
 | **Scala** | Excellent |
-| **TypeScript** | Très bon |
-| **Go** | Bon |
-| **Python** | Bon |
+| **TypeScript** | Very good |
+| **Go** | Good |
+| **Python** | Good |
 
 ## Structure (Strategic + Tactical)
 
@@ -29,8 +29,8 @@
 ├── contexts/                    # Bounded Contexts
 │   └── <context>/
 │       ├── domain/
-│       │   ├── aggregates/      # Racines d'agrégat
-│       │   ├── entities/        # Entités
+│       │   ├── aggregates/      # Aggregate roots
+│       │   ├── entities/        # Entities
 │       │   ├── valueobjects/    # Value Objects
 │       │   ├── events/          # Domain Events
 │       │   ├── repositories/    # Interfaces
@@ -45,47 +45,47 @@
     └── kernel/                  # Shared Kernel
 ```
 
-## Avantages
+## Advantages
 
-- Alignement métier/code
-- Langage ubiquitaire
-- Boundaries claires
-- Évolutif
-- Complexité maîtrisée
+- Business/code alignment
+- Ubiquitous language
+- Clear boundaries
+- Evolvable
+- Managed complexity
 
-## Inconvénients
+## Disadvantages
 
-- Complexe à apprendre
-- Over-engineering si mal utilisé
-- Experts domaine requis
-- Verbeux
+- Complex to learn
+- Over-engineering if misused
+- Domain experts required
+- Verbose
 
-## Contraintes
+## Constraints
 
-- Aggregate = unité de cohérence
-- Entity = identité propre
-- Value Object = immuable, sans identité
-- Repository = persistence d'Aggregates uniquement
-- Domain Service = logique sans entité
+- Aggregate = unit of consistency
+- Entity = own identity
+- Value Object = immutable, no identity
+- Repository = Aggregate persistence only
+- Domain Service = logic without entity
 
-## Règles
+## Rules
 
-1. Un Aggregate = une transaction
-2. Référencer Aggregates par ID uniquement
-3. Invariants dans Aggregate Root
-4. Events pour communication inter-contextes
-5. Anti-corruption layer entre contextes
+1. One Aggregate = one transaction
+2. Reference Aggregates by ID only
+3. Invariants in Aggregate Root
+4. Events for inter-context communication
+5. Anti-corruption layer between contexts
 
-## Quand utiliser
+## When to Use
 
-- Domaine métier complexe
-- Logique métier riche
-- Équipe avec experts domaine
-- Long terme (>3 ans)
+- Complex business domain
+- Rich business logic
+- Team with domain experts
+- Long-term (>3 years)
 
-## Quand éviter
+## When to Avoid
 
-- CRUD simple → MVC
-- Pas d'expert domaine
-- POC/MVP → Flat ou MVC
-- Équipe junior
+- Simple CRUD -> MVC
+- No domain expert available
+- POC/MVP -> Flat or MVC
+- Junior team

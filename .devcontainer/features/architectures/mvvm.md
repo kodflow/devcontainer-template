@@ -1,76 +1,76 @@
 # MVVM - Model View ViewModel
 
-> **DEFAULT** pour projets mobile (Flutter, SwiftUI, Compose)
+> **DEFAULT** for mobile projects (Flutter, SwiftUI, Compose)
 
 ## Concept
 
-Séparation avec ViewModel comme intermédiaire réactif entre View et Model.
+Separation with ViewModel as a reactive intermediary between View and Model.
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Framework | Adaptation |
+| Language | Framework | Suitability |
 |---------|-----------|-----------|
 | **Dart** | Flutter | Excellent |
 | **Swift** | SwiftUI | Excellent |
 | **Kotlin** | Compose | Excellent |
-| **TypeScript** | Vue.js, Angular | Très bon |
+| **TypeScript** | Vue.js, Angular | Very good |
 | **C#** | WPF, MAUI | Excellent |
 
 ## Structure
 
 ```
 /src
-├── models/              # Données, entités
+├── models/              # Data, entities
 │   └── user.dart
 ├── views/               # UI widgets/components
 │   └── user_view.dart
-├── viewmodels/          # État + logique présentation
+├── viewmodels/          # State + presentation logic
 │   └── user_viewmodel.dart
 ├── services/            # API, persistence
 │   └── user_service.dart
-└── di/                  # Injection de dépendances
+└── di/                  # Dependency injection
 ```
 
-## Avantages
+## Advantages
 
-- Binding bidirectionnel
-- Testabilité (ViewModel isolé)
-- Séparation UI/Logique claire
-- Réactivité native
-- Code UI simplifié
+- Bidirectional binding
+- Testability (isolated ViewModel)
+- Clear UI/Logic separation
+- Native reactivity
+- Simplified UI code
 
-## Inconvénients
+## Disadvantages
 
-- Verbeux (beaucoup de fichiers)
-- Learning curve binding
-- Over-engineering possible
-- State management complexe
+- Verbose (many files)
+- Binding learning curve
+- Possible over-engineering
+- Complex state management
 
-## Contraintes
+## Constraints
 
-- ViewModel ne connaît PAS View
-- View observe ViewModel
-- Model est passif (données)
-- Pas de logique dans View
+- ViewModel does NOT know View
+- View observes ViewModel
+- Model is passive (data)
+- No logic in View
 
-## Règles
+## Rules
 
-1. Un ViewModel par View (ou feature)
-2. ViewModel expose des observables
-3. View ne fait QUE afficher et capturer events
+1. One ViewModel per View (or feature)
+2. ViewModel exposes observables
+3. View ONLY displays and captures events
 4. Model = pure data
-5. Services pour side effects (API, DB)
+5. Services for side effects (API, DB)
 
-## Quand utiliser
+## When to Use
 
-- Apps mobiles natives/cross-platform
+- Native/cross-platform mobile apps
 - Desktop apps (WPF, MAUI)
-- Frontend SPA réactif
-- UI complexe avec état
+- Reactive SPA frontend
+- Complex UI with state
 
-## Quand éviter
+## When to Avoid
 
-- Backend/API → pas de View
-- Sites statiques
+- Backend/API -> no View
+- Static sites
 - CLI apps
 - Scripts

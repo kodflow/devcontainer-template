@@ -1,48 +1,48 @@
 # MVP - Model View Presenter
 
-> Variante de MVC avec Presenter au lieu de Controller
+> MVC variant with Presenter instead of Controller
 
 ## Concept
 
-Le Presenter contient toute la logique de présentation, la View est passive.
+The Presenter contains all the presentation logic, the View is passive.
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Framework | Adaptation |
+| Language | Framework | Suitability |
 |---------|-----------|-----------|
-| **Kotlin** | Android (legacy) | Bon |
-| **Java** | Android (legacy) | Bon |
-| **C#** | WinForms | Bon |
+| **Kotlin** | Android (legacy) | Good |
+| **Java** | Android (legacy) | Good |
+| **C#** | WinForms | Good |
 
 ## Structure
 
 ```
 /src
-├── models/              # Données
-├── views/               # UI passive
+├── models/              # Data
+├── views/               # Passive UI
 │   └── interfaces/      # View contracts
-└── presenters/          # Logique présentation
+└── presenters/          # Presentation logic
 ```
 
-## Avantages
+## Advantages
 
-- View testable (mock presenter)
-- Séparation claire
-- View passive = simple
+- Testable View (mock presenter)
+- Clear separation
+- Passive View = simple
 
-## Inconvénients
+## Disadvantages
 
-- Presenter peut grossir
+- Presenter can grow large
 - Boilerplate interfaces
-- Moins populaire aujourd'hui
+- Less popular today
 
-## Quand utiliser
+## When to Use
 
 - Android legacy
-- Migration depuis MVC
+- Migration from MVC
 
-## Quand éviter
+## When to Avoid
 
-- Nouveau projet mobile → MVVM
-- Web → MVC
-- Backend → Clean/Hexagonal
+- New mobile project -> MVVM
+- Web -> MVC
+- Backend -> Clean/Hexagonal

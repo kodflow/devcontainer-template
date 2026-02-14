@@ -1,81 +1,81 @@
 # Hexagonal / Ports & Adapters
 
-> Alistair Cockburn - Domain au centre, isolé du monde extérieur
+> Alistair Cockburn - Domain at the center, isolated from the outside world
 
 ## Concept
 
-Le domain est au centre, communique via des ports (interfaces) implémentés par des adapters.
+The domain is at the center, communicating via ports (interfaces) implemented by adapters.
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Adaptation |
+| Language | Suitability |
 |---------|-----------|
 | **Go** | Excellent |
 | **Java** | Excellent |
-| **TypeScript** | Très bon |
-| **Rust** | Très bon |
-| **Python** | Bon |
-| **Scala** | Très bon |
+| **TypeScript** | Very good |
+| **Rust** | Very good |
+| **Python** | Good |
+| **Scala** | Very good |
 
 ## Structure
 
 ```
 /src
-├── domain/              # Cœur métier (aucune dépendance)
+├── domain/              # Business core (no dependencies)
 │   ├── model/           # Entities, Value Objects
 │   ├── services/        # Domain services
 │   └── events/          # Domain events
-├── ports/               # Interfaces (contrats)
+├── ports/               # Interfaces (contracts)
 │   ├── inbound/         # Driven by (API, CLI)
 │   │   └── user_service.go
 │   └── outbound/        # Driving (DB, external)
 │       └── user_repository.go
-└── adapters/            # Implémentations
+└── adapters/            # Implementations
     ├── inbound/         # HTTP, gRPC, CLI
     │   └── http/
     └── outbound/        # Postgres, Redis, APIs
         └── postgres/
 ```
 
-## Avantages
+## Advantages
 
-- Domain complètement isolé
-- Testable sans infrastructure
-- Adaptable (change de DB = change d'adapter)
-- Ports explicites
-- Symétrie in/out
+- Domain completely isolated
+- Testable without infrastructure
+- Adaptable (change DB = change adapter)
+- Explicit ports
+- In/out symmetry
 
-## Inconvénients
+## Disadvantages
 
-- Beaucoup d'indirection
-- Verbeux
-- Complexe pour petits projets
-- Discipline requise
+- Much indirection
+- Verbose
+- Complex for small projects
+- Discipline required
 
-## Contraintes
+## Constraints
 
-- Domain = ZERO dépendance externe
-- Ports = interfaces dans domain
-- Adapters = implémentent les ports
-- Injection de dépendances obligatoire
+- Domain = ZERO external dependencies
+- Ports = interfaces in domain
+- Adapters = implement ports
+- Dependency injection mandatory
 
-## Règles
+## Rules
 
-1. Domain ne connaît que lui-même
-2. Ports inbound = ce que l'app offre
-3. Ports outbound = ce dont l'app a besoin
-4. Un adapter par technologie
-5. Tests domain sans mocks d'infra
+1. Domain knows only itself
+2. Inbound ports = what the app offers
+3. Outbound ports = what the app needs
+4. One adapter per technology
+5. Domain tests without infrastructure mocks
 
-## Quand utiliser
+## When to Use
 
-- Apps avec logique métier riche
-- Besoin de flexibilité technique
-- Tests critiques
-- Équipe moyenne à grande
+- Apps with rich business logic
+- Need for technical flexibility
+- Critical tests
+- Medium to large team
 
-## Quand éviter
+## When to Avoid
 
-- CRUD simple → MVC
-- Scripts → Flat
-- Prototypage rapide
+- Simple CRUD -> MVC
+- Scripts -> Flat
+- Rapid prototyping

@@ -1,20 +1,20 @@
 # Microservices
 
-> Services indépendants, déployables séparément
+> Independent services, separately deployable
 
 ## Concept
 
-Chaque service = un repo, une équipe, un déploiement.
+Each service = one repo, one team, one deployment.
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Adaptation |
+| Language | Suitability |
 |---------|-----------|
 | **Go** | Excellent |
 | **Java** | Excellent |
-| **Node.js** | Très bon |
-| **Python** | Bon |
-| **Rust** | Bon |
+| **Node.js** | Very good |
+| **Python** | Good |
+| **Rust** | Good |
 
 ## Structure (multi-repo)
 
@@ -35,54 +35,54 @@ Chaque service = un repo, une équipe, un déploiement.
 ├── Dockerfile
 └── k8s/
 
-# Repo: shared-libs (optionnel)
+# Repo: shared-libs (optional)
 /packages
 ├── auth-client/
 └── common-types/
 ```
 
-## Avantages
+## Advantages
 
-- Scale indépendant
-- Déploiement indépendant
-- Équipes autonomes
-- Technologie par service
-- Isolation des pannes
+- Independent scaling
+- Independent deployment
+- Autonomous teams
+- Technology per service
+- Fault isolation
 
-## Inconvénients
+## Disadvantages
 
-- Complexité opérationnelle
-- Latence réseau
-- Debugging distribué
-- Transactions distribuées
-- Duplication possible
+- Operational complexity
+- Network latency
+- Distributed debugging
+- Distributed transactions
+- Possible duplication
 
-## Contraintes
+## Constraints
 
-- Un service = une responsabilité
-- Communication async privilégiée
-- Pas de DB partagée
-- API contracts stricts
-- Observabilité obligatoire
+- One service = one responsibility
+- Async communication preferred
+- No shared DB
+- Strict API contracts
+- Observability mandatory
 
-## Règles
+## Rules
 
-1. Un service ≤ 1 équipe (2 pizza rule)
+1. One service <= 1 team (2 pizza rule)
 2. API first (OpenAPI, gRPC)
-3. Backward compatible toujours
-4. Circuit breakers obligatoires
-5. Tracing distribué requis
+3. Always backward compatible
+4. Circuit breakers mandatory
+5. Distributed tracing required
 
-## Quand utiliser
+## When to Use
 
-- Grande organisation (>30 devs)
-- Scale énorme requis
-- Équipes indépendantes
-- Polyglotte assumé
+- Large organization (>30 devs)
+- Massive scaling required
+- Independent teams
+- Polyglot assumed
 
-## Quand éviter
+## When to Avoid
 
-- Petite équipe (<10) → Sliceable Monolith
-- MVP/POC → Monolith
-- Budget ops limité
-- Pas de DevOps mature
+- Small team (<10) -> Sliceable Monolith
+- MVP/POC -> Monolith
+- Limited ops budget
+- No mature DevOps
