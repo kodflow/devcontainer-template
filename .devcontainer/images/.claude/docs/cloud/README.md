@@ -1,8 +1,8 @@
 # Cloud Design Patterns
 
-> Patterns pour systemes distribues, resilience et scalabilite cloud.
+> Patterns for distributed systems, resilience, and cloud scalability.
 
-## Vue d'ensemble
+## Overview
 
 ```
                         CLOUD PATTERNS
@@ -23,137 +23,137 @@
           Election
 ```
 
-## Tableau de decision
+## Decision Table
 
-| Probleme | Pattern | Fichier |
-|----------|---------|---------|
-| Pannes en cascade | Circuit Breaker | [circuit-breaker.md](circuit-breaker.md) |
-| Transactions distribuees | Saga | [saga.md](saga.md) |
-| Latence lecture DB | Cache-Aside | [cache-aside.md](cache-aside.md) |
-| Donnees volumineuses | Sharding | [sharding.md](sharding.md) |
-| Coordination distribuee | Leader Election | [leader-election.md](leader-election.md) |
-| Queries complexes lentes | Materialized View | [materialized-view.md](materialized-view.md) |
-| Traitement par importance | Priority Queue | [priority-queue.md](priority-queue.md) |
-| Pics de charge | Queue Load Leveling | [queue-load-leveling.md](queue-load-leveling.md) |
-| Acces temporaire securise | Valet Key | [valet-key.md](valet-key.md) |
-| Assets statiques | Static Content Hosting | [static-content-hosting.md](static-content-hosting.md) |
-| Migration progressive | Strangler Fig | [strangler-fig.md](strangler-fig.md) |
+| Problem | Pattern | File |
+|---------|---------|------|
+| Cascading failures | Circuit Breaker | [circuit-breaker.md](circuit-breaker.md) |
+| Distributed transactions | Saga | [saga.md](saga.md) |
+| DB read latency | Cache-Aside | [cache-aside.md](cache-aside.md) |
+| Large data volumes | Sharding | [sharding.md](sharding.md) |
+| Distributed coordination | Leader Election | [leader-election.md](leader-election.md) |
+| Slow complex queries | Materialized View | [materialized-view.md](materialized-view.md) |
+| Processing by importance | Priority Queue | [priority-queue.md](priority-queue.md) |
+| Traffic spikes | Queue Load Leveling | [queue-load-leveling.md](queue-load-leveling.md) |
+| Secure temporary access | Valet Key | [valet-key.md](valet-key.md) |
+| Static assets | Static Content Hosting | [static-content-hosting.md](static-content-hosting.md) |
+| Progressive migration | Strangler Fig | [strangler-fig.md](strangler-fig.md) |
 | Cross-cutting concerns | Ambassador | [ambassador.md](ambassador.md) |
-| Payloads volumineux | Claim Check | [claim-check.md](claim-check.md) |
-| Annulation transactions | Compensating Transaction | [compensating-transaction.md](compensating-transaction.md) |
-| Optimisation ressources | Compute Resource Consolidation | [compute-resource-consolidation.md](compute-resource-consolidation.md) |
-| Configuration externe | External Configuration | [external-configuration.md](external-configuration.md) |
-| Multiples appels backend | Gateway Aggregation | [gateway-aggregation.md](gateway-aggregation.md) |
-| Decharge gateway | Gateway Offloading | [gateway-offloading.md](gateway-offloading.md) |
-| Routage intelligent | Gateway Routing | [gateway-routing.md](gateway-routing.md) |
-| Deploiement geographique | Geode | [geode.md](geode.md) |
-| Actions distribuees | Scheduler Agent Supervisor | [scheduler-agent-supervisor.md](scheduler-agent-supervisor.md) |
+| Large payloads | Claim Check | [claim-check.md](claim-check.md) |
+| Transaction cancellation | Compensating Transaction | [compensating-transaction.md](compensating-transaction.md) |
+| Resource optimization | Compute Resource Consolidation | [compute-resource-consolidation.md](compute-resource-consolidation.md) |
+| External configuration | External Configuration | [external-configuration.md](external-configuration.md) |
+| Multiple backend calls | Gateway Aggregation | [gateway-aggregation.md](gateway-aggregation.md) |
+| Gateway offloading | Gateway Offloading | [gateway-offloading.md](gateway-offloading.md) |
+| Intelligent routing | Gateway Routing | [gateway-routing.md](gateway-routing.md) |
+| Geographic deployment | Geode | [geode.md](geode.md) |
+| Distributed actions | Scheduler Agent Supervisor | [scheduler-agent-supervisor.md](scheduler-agent-supervisor.md) |
 
 ## Categories
 
-### Resilience et stabilite
+### Resilience and Stability
 
-| Pattern | Description | Cas d'usage |
-|---------|-------------|-------------|
-| **Circuit Breaker** | Coupe les appels vers services defaillants | API externe instable |
-| **Saga** | Transactions distribuees avec compensation | E-commerce multi-services |
-| **Retry** | Reessaie les operations transitoires | Erreurs reseau temporaires |
-| **Bulkhead** | Isole les ressources par domaine | Eviter contamination |
-| **Compensating Transaction** | Annule operations distribuees | Rollback multi-services |
-| **Scheduler Agent Supervisor** | Coordonne actions distribuees | Workflows complexes |
+| Pattern | Description | Use Case |
+|---------|-------------|----------|
+| **Circuit Breaker** | Cuts calls to failing services | Unstable external API |
+| **Saga** | Distributed transactions with compensation | Multi-service e-commerce |
+| **Retry** | Retries transient operations | Temporary network errors |
+| **Bulkhead** | Isolates resources by domain | Prevent contamination |
+| **Compensating Transaction** | Cancels distributed operations | Multi-service rollback |
+| **Scheduler Agent Supervisor** | Coordinates distributed actions | Complex workflows |
 
-### Gestion des donnees
+### Data Management
 
-| Pattern | Description | Cas d'usage |
-|---------|-------------|-------------|
-| **Cache-Aside** | Cache a la demande avec TTL | Lecture intensive DB |
-| **Sharding** | Partitionnement horizontal | Grandes volumetries |
-| **Materialized View** | Vues pre-calculees | Queries analytiques |
-| **CQRS** | Separation read/write | Domaines complexes |
-| **Event Sourcing** | Historique evenementiel | Audit, replay |
-| **Claim Check** | Separe message du payload | Messages volumineux |
-| **External Configuration** | Configuration externalisee | Multi-environnements |
+| Pattern | Description | Use Case |
+|---------|-------------|----------|
+| **Cache-Aside** | On-demand cache with TTL | Read-intensive DB |
+| **Sharding** | Horizontal partitioning | Large data volumes |
+| **Materialized View** | Pre-computed views | Analytical queries |
+| **CQRS** | Read/write separation | Complex domains |
+| **Event Sourcing** | Event history | Audit, replay |
+| **Claim Check** | Separates message from payload | Large messages |
+| **External Configuration** | Externalized configuration | Multi-environments |
 
-### Messaging et queues
+### Messaging and Queues
 
-| Pattern | Description | Cas d'usage |
-|---------|-------------|-------------|
-| **Priority Queue** | Traitement par priorite | SLA differencies |
-| **Queue Load Leveling** | Lissage de charge | Pics previsibles |
-| **Competing Consumers** | Parallelisation traitement | Scalabilite horizontale |
+| Pattern | Description | Use Case |
+|---------|-------------|----------|
+| **Priority Queue** | Processing by priority | Differentiated SLAs |
+| **Queue Load Leveling** | Load smoothing | Predictable spikes |
+| **Competing Consumers** | Processing parallelization | Horizontal scalability |
 
-### Gateway patterns
+### Gateway Patterns
 
-| Pattern | Description | Cas d'usage |
-|---------|-------------|-------------|
-| **Ambassador** | Proxy sidecar cross-cutting | Logging, retry, circuit breaking |
-| **Gateway Aggregation** | Agrege requetes backend | Reduire latence client |
-| **Gateway Offloading** | Decharge fonctions partagees | SSL, auth, compression |
-| **Gateway Routing** | Route vers backends | Microservices facade |
+| Pattern | Description | Use Case |
+|---------|-------------|----------|
+| **Ambassador** | Cross-cutting sidecar proxy | Logging, retry, circuit breaking |
+| **Gateway Aggregation** | Aggregates backend requests | Reduce client latency |
+| **Gateway Offloading** | Offloads shared functions | SSL, auth, compression |
+| **Gateway Routing** | Routes to backends | Microservices facade |
 
-### Infrastructure et scalabilite
+### Infrastructure and Scalability
 
-| Pattern | Description | Cas d'usage |
-|---------|-------------|-------------|
-| **Compute Resource Consolidation** | Optimise utilisation ressources | Reduction couts cloud |
-| **Geode** | Deploiement geographique | Latence globale |
-| **Leader Election** | Coordination cluster | Instance maitre unique |
+| Pattern | Description | Use Case |
+|---------|-------------|----------|
+| **Compute Resource Consolidation** | Optimizes resource utilization | Cloud cost reduction |
+| **Geode** | Geographic deployment | Global latency |
+| **Leader Election** | Cluster coordination | Single master instance |
 
-### Securite et acces
+### Security and Access
 
-| Pattern | Description | Cas d'usage |
-|---------|-------------|-------------|
-| **Valet Key** | Tokens temporaires | Upload direct S3/Blob |
-| **Gatekeeper** | Validation en peripherie | API Gateway |
-| **Federated Identity** | SSO externe | OAuth/OIDC |
+| Pattern | Description | Use Case |
+|---------|-------------|----------|
+| **Valet Key** | Temporary tokens | Direct upload to S3/Blob |
+| **Gatekeeper** | Perimeter validation | API Gateway |
+| **Federated Identity** | External SSO | OAuth/OIDC |
 
-### Deploiement et migration
+### Deployment and Migration
 
-| Pattern | Description | Cas d'usage |
-|---------|-------------|-------------|
-| **Strangler Fig** | Migration incrementale | Monolithe vers microservices |
-| **Static Content Hosting** | CDN pour assets | Performance frontend |
-| **Sidecar** | Composant auxiliaire | Logging, proxy |
+| Pattern | Description | Use Case |
+|---------|-------------|----------|
+| **Strangler Fig** | Incremental migration | Monolith to microservices |
+| **Static Content Hosting** | CDN for assets | Frontend performance |
+| **Sidecar** | Auxiliary component | Logging, proxy |
 
-## Combinaisons frequentes
+## Common Combinations
 
 ```
-API Resiliente:
+Resilient API:
   Circuit Breaker + Retry + Cache-Aside + Bulkhead
 
 E-commerce:
   Saga + Event Sourcing + CQRS + Priority Queue
 
-Migration legacy:
+Legacy migration:
   Strangler Fig + Anti-Corruption Layer + CQRS
 
-Haute disponibilite:
+High availability:
   Leader Election + Sharding + Materialized View
 ```
 
-## Arbre de decision
+## Decision Tree
 
 ```
-Quel est ton probleme principal?
+What is your main problem?
 |
-+-- Performance lecture? --> Cache-Aside ou Materialized View
++-- Read performance? --> Cache-Aside or Materialized View
 |
-+-- Volume de donnees? --> Sharding
++-- Data volume? --> Sharding
 |
-+-- Service instable? --> Circuit Breaker + Retry
++-- Unstable service? --> Circuit Breaker + Retry
 |
-+-- Transactions multi-services? --> Saga
++-- Multi-service transactions? --> Saga
 |
-+-- Pics de charge? --> Queue Load Leveling
++-- Traffic spikes? --> Queue Load Leveling
 |
-+-- Migration legacy? --> Strangler Fig
++-- Legacy migration? --> Strangler Fig
 |
-+-- Acces fichiers direct? --> Valet Key + Static Content Hosting
++-- Direct file access? --> Valet Key + Static Content Hosting
 |
-+-- Coordination cluster? --> Leader Election
++-- Cluster coordination? --> Leader Election
 ```
 
-## Sources de reference
+## Reference Sources
 
 - [Azure Architecture Patterns](https://learn.microsoft.com/en-us/azure/architecture/patterns/)
 - [AWS Architecture Patterns](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/)

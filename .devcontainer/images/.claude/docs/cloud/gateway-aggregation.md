@@ -1,19 +1,19 @@
 # Gateway Aggregation Pattern
 
-> Agreger plusieurs requetes backend en une seule requete client.
+> Aggregate multiple backend requests into a single client request.
 
-## Principe
+## Principle
 
 ```
                                     ┌─────────────────────────┐
                                     │    API GATEWAY          │
                                     │    (Aggregation)        │
-┌─────────┐    1 requete            │                         │
+┌─────────┐    1 request            │                         │
 │  Client │ ───────────────────────▶│  ┌───────────────────┐  │
 └─────────┘                         │  │   Orchestrator    │  │
      ▲                              │  └─────────┬─────────┘  │
      │                              │            │            │
-     │    1 reponse agregee         │    ┌───────┼───────┐    │
+     │    1 aggregated response     │    ┌───────┼───────┐    │
      └──────────────────────────────│    │       │       │    │
                                     │    ▼       ▼       ▼    │
                                     │  ┌───┐   ┌───┐   ┌───┐  │
@@ -27,10 +27,10 @@
                                     └─────────────────────────┘
 ```
 
-## Probleme resolu
+## Problem Solved
 
 ```
-AVANT (N requetes client):
+BEFORE (N client requests):
 ┌────────┐                 ┌─────────┐
 │ Client │ ──────────────▶ │ User    │
 │        │ ──────────────▶ │ Orders  │
@@ -38,13 +38,13 @@ AVANT (N requetes client):
 │        │ ──────────────▶ │ Reviews │
 └────────┘                 └─────────┘
 
-APRES (1 requete agregee):
+AFTER (1 aggregated request):
 ┌────────┐        ┌─────────┐        ┌─────────┐
 │ Client │ ──────▶│ Gateway │ ──────▶│ Backend │
 └────────┘        └─────────┘        └─────────┘
 ```
 
-## Exemple Go
+## Go Example
 
 ```go
 package gateway
@@ -106,7 +106,7 @@ type endpointResult struct {
 
 func (ga *GatewayAggregator) aggregateParallel(ctx context.Context, reqCtx RequestContext) (map[string]interface{}, error) {
 	results := make(chan endpointResult, len(ga.config.Endpoints))
-	
+
 	for _, endpoint := range ga.config.Endpoints {
 		go func(ep EndpointConfig) {
 			data, err := ga.fetchWithTimeout(ctx, ep.URL, ep.Timeout, reqCtx)
@@ -117,12 +117,12 @@ func (ga *GatewayAggregator) aggregateParallel(ctx context.Context, reqCtx Reque
 			}
 		}(endpoint)
 	}
-	
+
 	// Collect results
 	aggregated := make(map[string]interface{})
 	for i := 0; i < len(ga.config.Endpoints); i++ {
 		result := <-results
-		
+
 		if result.Error != nil {
 			// Check if endpoint is required
 			for _, ep := range ga.config.Endpoints {
@@ -135,13 +135,13 @@ func (ga *GatewayAggregator) aggregateParallel(ctx context.Context, reqCtx Reque
 			aggregated[result.Name] = result.Data
 		}
 	}
-	
+
 	return aggregated, nil
 }
 
 func (ga *GatewayAggregator) aggregateSequential(ctx context.Context, reqCtx RequestContext) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
-	
+
 	for _, endpoint := range ga.config.Endpoints {
 		data, err := ga.fetchWithTimeout(ctx, endpoint.URL, endpoint.Timeout, reqCtx)
 		if err != nil {
@@ -153,7 +153,7 @@ func (ga *GatewayAggregator) aggregateSequential(ctx context.Context, reqCtx Req
 			result[endpoint.Name] = data
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -161,27 +161,27 @@ func (ga *GatewayAggregator) fetchWithTimeout(ctx context.Context, url string, t
 	if timeout == 0 {
 		timeout = 5 * time.Second
 	}
-	
+
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	
+
 	req, err := http.NewRequestWithContext(timeoutCtx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
-	
+
 	req.Header.Set("Authorization", reqCtx.AuthToken)
-	
+
 	resp, err := ga.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("executing request: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
-	
+
 	// Parse response (simplified - should decode JSON)
 	return resp.Body, nil
 }
@@ -190,46 +190,46 @@ func (ga *GatewayAggregator) fetchWithTimeout(ctx context.Context, url string, t
 ## Usage
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
-## Strategies de gestion d'erreur
+## Error Handling Strategies
 
-| Strategie | Description | Cas d'usage |
-|-----------|-------------|-------------|
-| **Fail Fast** | Echouer si un service requis echoue | Donnees critiques |
-| **Partial Response** | Retourner les donnees disponibles | Dashboard |
-| **Fallback** | Utiliser cache/defaut si echec | UX optimale |
-| **Timeout Racing** | Retourner ce qui arrive avant timeout | Performance |
+| Strategy | Description | Use Case |
+|----------|-------------|----------|
+| **Fail Fast** | Fail if a required service fails | Critical data |
+| **Partial Response** | Return available data | Dashboard |
+| **Fallback** | Use cache/default on failure | Optimal UX |
+| **Timeout Racing** | Return what arrives before timeout | Performance |
 
 ## Anti-patterns
 
-| Anti-pattern | Probleme | Solution |
-|--------------|----------|----------|
-| Aggregation synchrone | Latence = sum(latences) | Execution parallele |
-| Sans timeout | Requete bloquee indefiniment | Timeout par endpoint |
-| Trop de services | Fragilite, lenteur | Limiter a 5-7 max |
-| Couplage fort | Gateway dependant du format | Transformation flexible |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| Synchronous aggregation | Latency = sum(latencies) | Parallel execution |
+| No timeout | Request blocked indefinitely | Timeout per endpoint |
+| Too many services | Fragility, slowness | Limit to 5-7 max |
+| Tight coupling | Gateway depends on format | Flexible transformation |
 
-## Quand utiliser
+## When to Use
 
-- Clients mobiles necessitant une reduction du nombre de requetes reseau
-- Pages ou ecrans aggregeant des donnees de plusieurs microservices
-- APIs publiques necessitant une facade simplifiee
-- Reduction de la latence perçue par aggregation parallele
+- Mobile clients requiring reduced number of network requests
+- Pages or screens aggregating data from multiple microservices
+- Public APIs requiring a simplified facade
+- Reducing perceived latency through parallel aggregation
 - Backend for Frontend (BFF) patterns
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Gateway Routing | Complementaire |
-| Backend for Frontend (BFF) | Specialisation |
-| Facade | Pattern GoF similaire |
-| Circuit Breaker | Protection des appels |
+| Gateway Routing | Complementary |
+| Backend for Frontend (BFF) | Specialization |
+| Facade | Similar GoF pattern |
+| Circuit Breaker | Call protection |
 
 ## Sources
 

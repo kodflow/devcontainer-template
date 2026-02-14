@@ -1,8 +1,8 @@
 # Ambassador Pattern
 
-> Creer des services proxy pour gerer les communications entre clients et services.
+> Create proxy services to manage communications between clients and services.
 
-## Principe
+## Principle
 
 ```
                           ┌──────────────────────────────┐
@@ -19,20 +19,20 @@
                           └──────────────────────────────┘
 ```
 
-L'Ambassador agit comme un sidecar qui decharge les fonctionnalites cross-cutting du service principal.
+The Ambassador acts as a sidecar that offloads cross-cutting functionality from the main service.
 
-## Responsabilites
+## Responsibilities
 
-| Fonction | Description |
+| Function | Description |
 |----------|-------------|
-| **Logging** | Journalisation des requetes/reponses |
-| **Retry** | Relances automatiques |
-| **Circuit Breaking** | Protection pannes cascade |
-| **Authentication** | Verification tokens |
-| **Rate Limiting** | Controle du debit |
-| **Monitoring** | Metriques et traces |
+| **Logging** | Request/response logging |
+| **Retry** | Automatic retries |
+| **Circuit Breaking** | Cascade failure protection |
+| **Authentication** | Token verification |
+| **Rate Limiting** | Throughput control |
+| **Monitoring** | Metrics and traces |
 
-## Exemple Go
+## Go Example
 
 ```go
 package ambassador
@@ -133,10 +133,10 @@ func (a *Ambassador) executeWithTimeout(ctx context.Context, req *http.Request) 
 }
 ```
 
-## Usage avec Kubernetes Sidecar
+## Usage with Kubernetes Sidecar
 
 ```yaml
-# Deployment avec Ambassador sidecar
+# Deployment with Ambassador sidecar
 apiVersion: apps/v1
 kind: Deployment
 spec:
@@ -153,39 +153,39 @@ spec:
             - containerPort: 9000
 ```
 
-## Cas d'usage
+## Use Cases
 
-| Scenario | Benefice |
-|----------|----------|
-| Microservices legacy | Ajouter resilience sans modifier le code |
-| Multi-cloud | Abstraction des specifites cloud |
-| Compliance | Logging centralise pour audit |
-| Migration | Transition progressive vers nouveaux protocoles |
+| Scenario | Benefit |
+|----------|---------|
+| Legacy microservices | Add resilience without modifying code |
+| Multi-cloud | Cloud-specific abstraction |
+| Compliance | Centralized logging for audit |
+| Migration | Progressive transition to new protocols |
 
 ## Anti-patterns
 
-| Anti-pattern | Probleme | Solution |
-|--------------|----------|----------|
-| Ambassador trop lourd | Latence excessive | Garder leger, deleguer au mesh |
-| Logique metier | Couplage fort | Ambassador = cross-cutting seulement |
-| Sans monitoring | Debugging difficile | Toujours exposer des metriques |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| Heavyweight ambassador | Excessive latency | Keep lightweight, delegate to mesh |
+| Business logic | Tight coupling | Ambassador = cross-cutting only |
+| No monitoring | Difficult debugging | Always expose metrics |
 
-## Quand utiliser
+## When to Use
 
-- Services legacy necessitant des fonctionnalites cross-cutting sans modification de code
-- Besoin d'ajouter retry, circuit breaker ou logging de maniere transparente
-- Environnements multi-cloud necessitant une abstraction des specificites
-- Migration progressive vers de nouveaux protocoles ou patterns de communication
-- Conformite et audit necessitant un logging centralise des communications
+- Legacy services requiring cross-cutting functionality without code modification
+- Need to add retry, circuit breaker or logging transparently
+- Multi-cloud environments requiring cloud-specific abstraction
+- Progressive migration to new protocols or communication patterns
+- Compliance and audit requiring centralized communication logging
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Sidecar | Implementation concrete |
-| Circuit Breaker | Fonctionnalite embarquee |
-| Gateway | Alternative centralisee |
-| Service Mesh | Evolution a grande echelle |
+| Sidecar | Concrete implementation |
+| Circuit Breaker | Embedded functionality |
+| Gateway | Centralized alternative |
+| Service Mesh | Large-scale evolution |
 
 ## Sources
 

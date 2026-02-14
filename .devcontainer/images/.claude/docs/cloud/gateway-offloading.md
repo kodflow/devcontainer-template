@@ -1,8 +1,8 @@
 # Gateway Offloading Pattern
 
-> Decharger les fonctionnalites partagees des services vers le gateway.
+> Offload shared functionality from services to the gateway.
 
-## Principe
+## Principle
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
@@ -25,24 +25,24 @@
 ┌─────────┐             ┌─────────┐             ┌─────────┐
 │ Service │             │ Service │             │ Service │
 │    A    │             │    B    │             │    C    │
-│ (leger) │             │ (leger) │             │ (leger) │
+│ (light) │             │ (light) │             │ (light) │
 └─────────┘             └─────────┘             └─────────┘
 ```
 
-## Fonctionnalites dechargeables
+## Offloadable Functionality
 
-| Fonctionnalite | Avantage au Gateway | Complexite |
-|----------------|---------------------|------------|
-| **SSL Termination** | Certificats centralises | Faible |
-| **Authentication** | Politique uniforme | Moyenne |
-| **Rate Limiting** | Protection globale | Faible |
-| **Caching** | Reduction charge backend | Moyenne |
-| **Compression** | Bande passante optimisee | Faible |
-| **CORS** | Configuration unique | Faible |
-| **Request Validation** | Rejet precoce | Moyenne |
-| **Response Transformation** | Format uniforme | Haute |
+| Functionality | Gateway Advantage | Complexity |
+|---------------|-------------------|------------|
+| **SSL Termination** | Centralized certificates | Low |
+| **Authentication** | Uniform policy | Medium |
+| **Rate Limiting** | Global protection | Low |
+| **Caching** | Reduced backend load | Medium |
+| **Compression** | Optimized bandwidth | Low |
+| **CORS** | Single configuration | Low |
+| **Request Validation** | Early rejection | Medium |
+| **Response Transformation** | Uniform format | High |
 
-## Exemple Go
+## Go Example
 
 ```go
 package gateway
@@ -127,66 +127,66 @@ var AuthMiddleware = OffloadingMiddleware{
 	Name: "authentication",
 	Execute: func(ctx context.Context, gc *GatewayContext, next func() error) error {
 		token := gc.Request.Header.Get("Authorization")
-		
+
 		if token == "" {
 			http.Error(gc.Response, "Unauthorized", http.StatusUnauthorized)
 			return nil
 		}
-		
+
 		// Validate token (simplified)
 		user := &User{ID: "user123", Name: "John"}
 		gc.User = user
 		gc.Request.Header.Set("X-User-Id", user.ID)
-		
+
 		return next()
 	},
 }
 ```
 
-## Configuration Gateway
+## Gateway Configuration
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
-## Benefices
+## Benefits
 
-| Aspect | Sans Offloading | Avec Offloading |
-|--------|-----------------|-----------------|
-| **Code service** | Complexe | Simple |
-| **Certificats SSL** | N services | 1 gateway |
-| **Policies auth** | Dupliquees | Centralisees |
-| **Mise a jour** | N deploiements | 1 deploiement |
-| **Monitoring** | Fragmente | Unifie |
+| Aspect | Without Offloading | With Offloading |
+|--------|-------------------|-----------------|
+| **Service code** | Complex | Simple |
+| **SSL certificates** | N services | 1 gateway |
+| **Auth policies** | Duplicated | Centralized |
+| **Updates** | N deployments | 1 deployment |
+| **Monitoring** | Fragmented | Unified |
 
 ## Anti-patterns
 
-| Anti-pattern | Probleme | Solution |
-|--------------|----------|----------|
-| Gateway trop charge | SPOF, latence | Distribuer, scaler |
-| Logique metier | Couplage | Garder cross-cutting seulement |
-| Sans fallback | Gateway down = tout down | Resilience, multi-instance |
-| Over-caching | Donnees stales | TTL adapte, invalidation |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| Overloaded gateway | SPOF, latency | Distribute, scale |
+| Business logic | Coupling | Keep cross-cutting only |
+| No fallback | Gateway down = all down | Resilience, multi-instance |
+| Over-caching | Stale data | Adapted TTL, invalidation |
 
-## Quand utiliser
+## When to Use
 
-- Centralisation de la terminaison SSL pour simplifier la gestion des certificats
-- Authentification et autorisation uniformes sur tous les services
-- Rate limiting et protection contre les abus a l'echelle de l'API
-- Logging et tracing centralises pour l'observabilite
-- Services backend devant rester legers et focuses sur la logique metier
+- Centralizing SSL termination to simplify certificate management
+- Uniform authentication and authorization across all services
+- Rate limiting and abuse protection at the API level
+- Centralized logging and tracing for observability
+- Backend services that should remain lightweight and focused on business logic
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Gateway Routing | Complementaire |
-| Gateway Aggregation | Complementaire |
-| Ambassador | Alternative distribuee |
-| Service Mesh | Evolution a grande echelle |
+| Gateway Routing | Complementary |
+| Gateway Aggregation | Complementary |
+| Ambassador | Distributed alternative |
+| Service Mesh | Large-scale evolution |
 
 ## Sources
 

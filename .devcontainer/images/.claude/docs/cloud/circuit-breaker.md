@@ -1,8 +1,8 @@
 # Circuit Breaker Pattern
 
-> Prévenir les pannes en cascade dans les systèmes distribués.
+> Prevent cascade failures in distributed systems.
 
-## Principe
+## Principle
 
 ```
         ┌──────────────────────────────────────────────────────┐
@@ -23,15 +23,15 @@
 └─────────┘         └──────────────┘         └─────────┘
 ```
 
-## États
+## States
 
-| État | Comportement |
-|------|--------------|
-| **CLOSED** | Requêtes passent normalement. Compte les échecs. |
-| **OPEN** | Requêtes échouent immédiatement (fail fast). |
-| **HALF-OPEN** | Permet quelques requêtes test. |
+| State | Behavior |
+|-------|----------|
+| **CLOSED** | Requests pass normally. Counts failures. |
+| **OPEN** | Requests fail immediately (fail fast). |
+| **HALF-OPEN** | Allows a few test requests. |
 
-## Exemple Go
+## Go Example
 
 ```go
 package circuitbreaker
@@ -131,45 +131,45 @@ func (cb *CircuitBreaker) State() State {
 ## Usage
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
-## Configuration recommandée
+## Recommended Configuration
 
-| Paramètre | Valeur typique | Description |
-|-----------|----------------|-------------|
-| `threshold` | 5-10 | Échecs avant ouverture |
-| `timeout` | 30-60s | Temps avant HALF_OPEN |
-| `halfOpenRequests` | 1-3 | Requêtes test en HALF_OPEN |
+| Parameter | Typical Value | Description |
+|-----------|---------------|-------------|
+| `threshold` | 5-10 | Failures before opening |
+| `timeout` | 30-60s | Time before HALF_OPEN |
+| `halfOpenRequests` | 1-3 | Test requests in HALF_OPEN |
 
-## Librairies
+## Libraries
 
-| Langage | Librairie |
-|---------|-----------|
+| Language | Library |
+|----------|---------|
 | Node.js | `opossum`, `cockatiel` |
 | Java | Resilience4j, Hystrix (deprecated) |
 | Go | `sony/gobreaker` |
 | Python | `pybreaker` |
 
-## Quand utiliser
+## When to Use
 
-- Appels a des services externes pouvant echouer ou etre lents
-- Prevention des pannes en cascade dans les systemes distribues
-- Protection des ressources limitees contre la surcharge
-- Services avec SLA critiques necessitant une degradation gracieuse
-- Systemes necessitant une recuperation automatique apres incident
+- Calls to external services that may fail or be slow
+- Prevention of cascade failures in distributed systems
+- Protection of limited resources against overload
+- Services with critical SLAs requiring graceful degradation
+- Systems requiring automatic recovery after incidents
 
-## Patterns liés
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Retry | Avant circuit breaker |
-| Bulkhead | Isolation des ressources |
-| Fallback | Alternative quand circuit ouvert |
-| Health Check | Monitoring du circuit |
+| Retry | Before circuit breaker |
+| Bulkhead | Resource isolation |
+| Fallback | Alternative when circuit open |
+| Health Check | Circuit monitoring |
 
 ## Sources
 

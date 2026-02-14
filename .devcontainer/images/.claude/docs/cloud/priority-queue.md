@@ -1,26 +1,26 @@
 # Priority Queue Pattern
 
-> Traiter les messages selon leur priorite plutot que leur ordre d'arrivee.
+> Process messages according to their priority rather than their arrival order.
 
-## Principe
+## Principle
 
 ```
                     ┌─────────────────────────────────────────────┐
                     │              PRIORITY QUEUE                  │
                     └─────────────────────────────────────────────┘
 
-  FIFO Standard:
+  Standard FIFO:
   ┌───┬───┬───┬───┬───┐
-  │ 1 │ 2 │ 3 │ 4 │ 5 │ ──▶ Traitement: 1, 2, 3, 4, 5
+  │ 1 │ 2 │ 3 │ 4 │ 5 │ ──▶ Processing: 1, 2, 3, 4, 5
   └───┴───┴───┴───┴───┘
 
   Priority Queue:
   ┌─────────────────────────────────────┐
-  │  HIGH   │ ██ ██ ██                  │ ──▶ Traite d'abord
+  │  HIGH   │ ██ ██ ██                  │ ──▶ Processed first
   ├─────────┼───────────────────────────┤
-  │  MEDIUM │ ░░ ░░ ░░ ░░ ░░           │ ──▶ Traite ensuite
+  │  MEDIUM │ ░░ ░░ ░░ ░░ ░░           │ ──▶ Processed next
   ├─────────┼───────────────────────────┤
-  │  LOW    │ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒    │ ──▶ Traite en dernier
+  │  LOW    │ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒    │ ──▶ Processed last
   └─────────┴───────────────────────────┘
 
   Implementation:
@@ -35,7 +35,7 @@
                     └─────────────┘      └──────────┘
 ```
 
-## Exemple Go
+## Go Example
 
 ```go
 package priorityqueue
@@ -182,60 +182,60 @@ func generateID() string {
 }
 ```
 
-## Implementation Redis (Go)
+## Redis Implementation (Go)
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Consumer avec priorite
+## Consumer with priority
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Cas d'usage reels
+## Real-world Use Cases
 
-| Domaine | High Priority | Medium | Low |
-|---------|---------------|--------|-----|
-| E-commerce | Paiement echoue | Confirmation commande | Newsletter |
-| Support | Incident critique | Ticket client | Analytics |
-| CI/CD | Hotfix production | Feature branch | Nightly builds |
-| Notifications | Alerte securite | Transaction | Marketing |
+| Domain | High Priority | Medium | Low |
+|--------|---------------|--------|-----|
+| E-commerce | Failed payment | Order confirmation | Newsletter |
+| Support | Critical incident | Customer ticket | Analytics |
+| CI/CD | Production hotfix | Feature branch | Nightly builds |
+| Notifications | Security alert | Transaction | Marketing |
 
-## Eviter la starvation
+## Avoiding Starvation
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
-|-----------|------------|
-| SLA differencies par client | Oui |
-| Taches batch vs temps reel | Oui |
-| Ressources limitees | Oui |
-| Traitement equitable requis | Non (ou avec anti-starvation) |
-| Ordre strict FIFO | Non |
+| Situation | Recommended |
+|-----------|-------------|
+| Differentiated SLAs per client | Yes |
+| Batch vs real-time tasks | Yes |
+| Limited resources | Yes |
+| Fair processing required | No (or with anti-starvation) |
+| Strict FIFO order | No |
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Queue Load Leveling | Lissage de charge |
-| Competing Consumers | Parallelisation traitement |
-| Throttling | Limiter le debit |
-| Circuit Breaker | Gestion erreurs |
+| Queue Load Leveling | Load smoothing |
+| Competing Consumers | Processing parallelization |
+| Throttling | Rate limiting |
+| Circuit Breaker | Error handling |
 
 ## Sources
 
