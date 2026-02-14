@@ -36,14 +36,14 @@ Fallback to Grep ONLY for exact string matches or regex patterns.
 
 ## Overview
 
-Boucle itérative utilisant **Recursive Language Model** decomposition :
+Iterative loop using **Recursive Language Model** decomposition:
 
-- **Peek** - Scan rapide avant exécution
-- **Decompose** - Diviser la tâche en sous-objectifs
-- **Parallelize** - Validations parallèles (test, lint, build)
-- **Synthesize** - Rapport consolidé
+- **Peek** - Quick scan before execution
+- **Decompose** - Split the task into sub-objectives
+- **Parallelize** - Parallel validations (test, lint, build)
+- **Synthesize** - Consolidated report
 
-**Principe** : Itérer jusqu'au succès plutôt que viser la perfection.
+**Principle**: Iterate until success rather than aiming for perfection.
 
 ---
 
@@ -55,77 +55,77 @@ Boucle itérative utilisant **Recursive Language Model** decomposition :
 ═══════════════════════════════════════════════════════════════
 
   DESCRIPTION
-    Transforme une tâche en boucle persistante d'itérations.
-    L'agent continue jusqu'à ce que les critères de succès soient
-    atteints ou que la limite d'itérations soit atteinte.
+    Transforms a task into a persistent loop of iterations.
+    The agent continues until the success criteria are met
+    or the iteration limit is reached.
 
-    Si un plan approuvé existe (via /plan), l'exécute automatiquement
-    sans poser les questions interactives.
+    If an approved plan exists (via /plan), it executes it
+    automatically without asking interactive questions.
 
   USAGE
-    /do <task>              Lance le workflow interactif
-    /do                     Exécute le plan approuvé (si existant)
-    /do --help              Affiche cette aide
+    /do <task>              Launch the interactive workflow
+    /do                     Execute the approved plan (if exists)
+    /do --help              Display this help
 
   RLM PATTERNS
-    1. Plan    - Détection plan approuvé (skip questions si oui)
-    2. Secret   - Découverte secrets 1Password
-    3. Questions - Configuration interactive (si pas de plan)
-    4. Peek     - Scan du codebase + git conflict check
-    5. Decompose - Division en sous-objectifs mesurables
-    6. Loop     - Validations simultanées (test/lint/build)
-    7. Synthesize - Rapport consolidé par itération
+    1. Plan    - Approved plan detection (skip questions if yes)
+    2. Secret   - 1Password secret discovery
+    3. Questions - Interactive configuration (if no plan)
+    4. Peek     - Codebase scan + git conflict check
+    5. Decompose - Split into measurable sub-objectives
+    6. Loop     - Simultaneous validations (test/lint/build)
+    7. Synthesize - Consolidated report per iteration
 
-  EXEMPLES
-    /do "Migrer les tests Jest vers Vitest"
-    /do "Ajouter des tests pour couvrir src/utils à 80%"
-    /do                     # Exécute le plan de /plan
+  EXAMPLES
+    /do "Migrate Jest tests to Vitest"
+    /do "Add tests to cover src/utils at 80%"
+    /do                     # Execute the plan from /plan
 
-  GARDE-FOUS
-    - Max 50 itérations (défaut: 10)
-    - Critères de succès MESURABLES uniquement
-    - Revue du diff obligatoire avant merge
-    - Git conflict check avant modifications
+  GUARDRAILS
+    - Max 50 iterations (default: 10)
+    - MEASURABLE success criteria only
+    - Mandatory diff review before merge
+    - Git conflict check before modifications
 
 ═══════════════════════════════════════════════════════════════
 ```
 
-**SI `$ARGUMENTS` contient `--help`** : Afficher l'aide ci-dessus et STOP.
+**IF `$ARGUMENTS` contains `--help`**: Display the help above and STOP.
 
 ---
 
-## Phase 1.0 : Détection de Plan Approuvé
+## Phase 1.0: Approved Plan Detection
 
-**TOUJOURS exécuter en premier. Vérifie si /plan a été utilisé.**
+**ALWAYS execute first. Checks if /plan was used.**
 
 ```yaml
 plan_detection:
-  check: "Existe-t-il un plan approuvé dans le contexte ?"
+  check: "Does an approved plan exist in the context?"
 
   sources:
-    - "Conversation récente (plan validé par utilisateur)"
-    - "Mémoire de session Claude"
+    - "Recent conversation (plan validated by user)"
+    - "Claude session memory"
 
   detection_signals:
-    - "User a dit 'oui', 'ok', 'go', 'approuvé' après un /plan"
-    - "Plan structuré avec steps numérotées visible"
-    - "ExitPlanMode a été appelé avec succès"
+    - "User said 'yes', 'ok', 'go', 'approved' after a /plan"
+    - "Structured plan with numbered steps visible"
+    - "ExitPlanMode was called successfully"
 
   if_plan_found:
     mode: "PLAN_EXECUTION"
     actions:
-      - "Extraire: title, steps[], scope, files[]"
-      - "Skip Phase 0 (questions interactives)"
-      - "Utiliser steps du plan comme sous-objectifs"
-      - "Critères = plan terminé + tests/lint/build passent"
+      - "Extract: title, steps[], scope, files[]"
+      - "Skip Phase 0 (interactive questions)"
+      - "Use plan steps as sub-objectives"
+      - "Criteria = plan completed + tests/lint/build pass"
 
   if_no_plan:
     mode: "ITERATIVE"
     actions:
-      - "Continuer vers Phase 0 (questions)"
+      - "Continue to Phase 0 (questions)"
 ```
 
-**Output Phase 1.0 (plan détecté) :**
+**Output Phase 1.0 (plan detected):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -146,7 +146,7 @@ plan_detection:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output Phase 1.0 (pas de plan) :**
+**Output Phase 1.0 (no plan):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -164,35 +164,35 @@ plan_detection:
 
 ---
 
-## Phase 2.0 : Secret Discovery (1Password)
+## Phase 2.0: Secret Discovery (1Password)
 
-**Verifier si des secrets sont disponibles pour ce projet :**
+**Check if secrets are available for this project:**
 
 ```yaml
 secret_discovery:
-  trigger: "ALWAYS (avant Phase 0)"
-  blocking: false  # Informatif seulement
+  trigger: "ALWAYS (before Phase 0)"
+  blocking: false  # Informational only
 
   1_check_available:
     condition: "command -v op && test -n $OP_SERVICE_ACCOUNT_TOKEN"
     on_failure: "Skip silently (1Password not configured)"
 
   2_resolve_path:
-    action: "Extraire org/repo depuis git remote origin"
+    action: "Extract org/repo from git remote origin"
     command: |
       REMOTE=$(git config --get remote.origin.url)
       # Extract org/repo from HTTPS, SSH, or token-embedded URLs
       PROJECT_PATH=$(echo "${REMOTE%.git}" | grep -oP '[:/]\K[^/]+/[^/]+$')
 
   3_list_project_secrets:
-    action: "Lister les secrets du projet"
+    action: "List project secrets"
     command: |
       op item list --vault='$VAULT_ID' --format=json \
         | jq -r '.[] | select(.title | startswith("'$PROJECT_PATH'/")) | .title'
-    extract: "Supprimer le prefix pour garder les noms de cles"
+    extract: "Remove prefix to keep key names only"
 
   4_check_task_needs:
-    action: "Si la tache mentionne secret/token/credential/password/API key"
+    action: "If the task mentions secret/token/credential/password/API key"
     match_keywords: ["secret", "token", "credential", "password", "api key", "api_key", "auth"]
     if_match_and_secrets_exist:
       output: |
@@ -216,107 +216,107 @@ secret_discovery:
 
 ---
 
-## Phase 3.0 : Questions Interactives (SI PAS DE PLAN)
+## Phase 3.0: Interactive Questions (IF NO PLAN)
 
-**Poser ces 4 questions UNIQUEMENT si aucun plan approuvé n'est détecté :**
+**Ask these 4 questions ONLY if no approved plan is detected:**
 
-### Question 1 : Type de tâche
+### Question 1: Task Type
 
 ```yaml
 AskUserQuestion:
   questions:
-    - question: "Quel type de tâche veux-tu accomplir ?"
+    - question: "What type of task do you want to accomplish?"
       header: "Type"
       multiSelect: false
       options:
         - label: "Refactor/Migration (Recommended)"
-          description: "Migrer un framework, refactorer du code existant"
+          description: "Migrate a framework, refactor existing code"
         - label: "Test Coverage"
-          description: "Ajouter des tests pour atteindre un seuil de couverture"
-        - label: "Standardisation"
-          description: "Appliquer des patterns cohérents (erreurs, style)"
+          description: "Add tests to reach a coverage threshold"
+        - label: "Standardization"
+          description: "Apply consistent patterns (errors, style)"
         - label: "Greenfield"
-          description: "Créer un nouveau projet/module de zéro"
+          description: "Create a new project/module from scratch"
 ```
 
-### Question 2 : Itérations max
+### Question 2: Max Iterations
 
 ```yaml
 AskUserQuestion:
   questions:
-    - question: "Combien d'itérations maximum autoriser ?"
+    - question: "How many maximum iterations to allow?"
       header: "Iterations"
       multiSelect: false
       options:
         - label: "10 (Recommended)"
-          description: "Suffisant pour la plupart des tâches"
+          description: "Sufficient for most tasks"
         - label: "20"
-          description: "Pour les tâches moyennement complexes"
+          description: "For moderately complex tasks"
         - label: "30"
-          description: "Pour les migrations/refactorings majeurs"
+          description: "For major migrations/refactorings"
         - label: "50"
-          description: "Pour les projets greenfield complets"
+          description: "For complete greenfield projects"
 ```
 
-### Question 3 : Critères de succès
+### Question 3: Success Criteria
 
 ```yaml
 AskUserQuestion:
   questions:
-    - question: "Quels critères de succès utiliser ?"
-      header: "Critères"
+    - question: "Which success criteria to use?"
+      header: "Criteria"
       multiSelect: true
       options:
-        - label: "Tests passent (Recommended)"
-          description: "Tous les tests unitaires doivent être verts"
-        - label: "Lint propre"
-          description: "Aucune erreur de linter"
-        - label: "Build réussit"
-          description: "La compilation doit fonctionner"
-        - label: "Couverture >= X%"
-          description: "Seuil de couverture à atteindre"
+        - label: "Tests pass (Recommended)"
+          description: "All unit tests must be green"
+        - label: "Clean lint"
+          description: "No linter errors"
+        - label: "Build succeeds"
+          description: "Compilation must work"
+        - label: "Coverage >= X%"
+          description: "Coverage threshold to reach"
 ```
 
-### Question 4 : Scope
+### Question 4: Scope
 
 ```yaml
 AskUserQuestion:
   questions:
-    - question: "Quel scope pour cette tâche ?"
+    - question: "What scope for this task?"
       header: "Scope"
       multiSelect: false
       options:
-        - label: "Dossier src/ (Recommended)"
-          description: "Tout le code source"
-        - label: "Fichiers spécifiques"
-          description: "Je vais préciser les fichiers"
-        - label: "Tout le projet"
-          description: "Inclut tests, docs, config"
-        - label: "Personnalisé"
-          description: "Je vais spécifier un chemin"
+        - label: "src/ folder (Recommended)"
+          description: "All source code"
+        - label: "Specific files"
+          description: "I will specify the files"
+        - label: "Entire project"
+          description: "Includes tests, docs, config"
+        - label: "Custom"
+          description: "I will specify a path"
 ```
 
 ---
 
-## Phase 4.0 : Peek (RLM Pattern)
+## Phase 4.0: Peek (RLM Pattern)
 
-**Scan rapide AVANT toute modification :**
+**Quick scan BEFORE any modification:**
 
 ```yaml
 peek_workflow:
   0_git_check:
-    action: "Vérifier l'état git (conflict detection)"
+    action: "Check git status (conflict detection)"
     tools: [Bash]
     command: "git status --porcelain"
     checks:
-      - "Pas de merge/rebase en cours"
-      - "Fichiers cibles pas déjà modifiés (warning si oui)"
+      - "No merge/rebase in progress"
+      - "Target files not already modified (warning if so)"
     on_conflict:
-      action: "Warning + continuer (pas bloquant)"
+      action: "Warning + continue (not blocking)"
       message: "⚠ Uncommitted changes detected on target files"
 
   1_structure:
-    action: "Scanner la structure du scope"
+    action: "Scan the scope structure"
     tools: [Glob]
     patterns:
       - "src/**/*.{ts,js,go,py,rs}"
@@ -324,15 +324,15 @@ peek_workflow:
       - "package.json | go.mod | Cargo.toml | pyproject.toml"
 
   2_patterns:
-    action: "Identifier les patterns existants"
+    action: "Identify existing patterns"
     tools: [Grep]
     searches:
       - "class.*Factory" → Factory pattern
       - "getInstance" → Singleton
-      - "describe|test|it" → Tests existants
+      - "describe|test|it" → Existing tests
 
   3_stack_detect:
-    action: "Détecter le stack technique"
+    action: "Detect the tech stack"
     checks:
       - "package.json → Node.js/npm"
       - "go.mod → Go"
@@ -341,7 +341,7 @@ peek_workflow:
     output: "test_command, lint_command, build_command"
 ```
 
-**Output Phase 4.0 :**
+**Output Phase 4.0:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -370,46 +370,46 @@ peek_workflow:
 
 ---
 
-## Phase 5.0 : Decompose (RLM Pattern)
+## Phase 5.0: Decompose (RLM Pattern)
 
-**Diviser la tâche en sous-objectifs mesurables :**
+**Split the task into measurable sub-objectives:**
 
 ```yaml
 decompose_workflow:
   1_analyze_task:
-    action: "Extraire les objectifs de la tâche"
+    action: "Extract the objectives from the task"
     example:
-      task: "Migrer Jest vers Vitest"
+      task: "Migrate Jest to Vitest"
       objectives:
-        - "Remplacer dépendances Jest par Vitest"
-        - "Mettre à jour la config de test"
-        - "Adapter les imports dans les fichiers de test"
-        - "Corriger les APIs incompatibles"
-        - "Vérifier que tous les tests passent"
+        - "Replace Jest dependencies with Vitest"
+        - "Update the test config"
+        - "Adapt imports in test files"
+        - "Fix incompatible APIs"
+        - "Verify that all tests pass"
 
   2_prioritize:
-    action: "Ordonner par dépendance"
+    action: "Order by dependency"
     principle: "Smallest change first"
 
   3_create_todos:
-    action: "Initialiser TaskCreate avec les sous-objectifs"
+    action: "Initialize TaskCreate with sub-objectives"
 ```
 
-**Output Phase 5.0 :**
+**Output Phase 5.0:**
 
 ```
 ═══════════════════════════════════════════════════════════════
   /do - Task Decomposition
 ═══════════════════════════════════════════════════════════════
 
-  Task: "Migrer les tests Jest vers Vitest"
+  Task: "Migrate Jest tests to Vitest"
 
   Sub-objectives (ordered):
-    1. [DEPS] Remplacer jest → vitest dans package.json
-    2. [CONFIG] Créer vitest.config.ts
-    3. [IMPORTS] Adapter imports jest → vitest (23 fichiers)
-    4. [COMPAT] Corriger APIs incompatibles
-    5. [VERIFY] Tous les tests passent
+    1. [DEPS] Replace jest → vitest in package.json
+    2. [CONFIG] Create vitest.config.ts
+    3. [IMPORTS] Adapt imports jest → vitest (23 files)
+    4. [COMPAT] Fix incompatible APIs
+    5. [VERIFY] All tests pass
 
   Strategy: Sequential with parallel validation
 
@@ -418,48 +418,48 @@ decompose_workflow:
 
 ---
 
-## Phase 6.0 : Boucle Principale
+## Phase 6.0: Main Loop
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  LOOP: while (iteration < max && !success)                   │
 │                                                              │
-│    1. Peek  → Lire l'état actuel                             │
-│    2. Apply → Modifications minimales                        │
-│    3. Parallelize → Validations simultanées                  │
-│    4. Synthesize → Analyser résultats                        │
-│    5. Décision → SUCCESS | CONTINUE | ABORT                  │
+│    1. Peek  → Read current state                             │
+│    2. Apply → Minimal modifications                          │
+│    3. Parallelize → Simultaneous validations                 │
+│    4. Synthesize → Analyze results                           │
+│    5. Decision → SUCCESS | CONTINUE | ABORT                  │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### Step 3.1 : Peek itératif
+### Step 3.1: Iterative Peek
 
 ```yaml
 peek_iteration:
-  action: "Lire l'état actuel avant modification"
+  action: "Read current state before modification"
   inputs:
-    - "Fichiers modifiés précédemment"
-    - "Erreurs de la dernière validation"
-    - "Progression vers les sous-objectifs"
+    - "Previously modified files"
+    - "Errors from last validation"
+    - "Progress toward sub-objectives"
 ```
 
-### Step 3.2 : Apply (modifications minimales)
+### Step 3.2: Apply (minimal modifications)
 
 ```yaml
 apply_iteration:
   principle: "Smallest change that moves toward success"
   actions:
-    - "Modifier uniquement les fichiers nécessaires"
-    - "Suivre les patterns existants du projet"
-    - "Ne pas sur-ingénierer"
+    - "Modify only the necessary files"
+    - "Follow the project's existing patterns"
+    - "Do not over-engineer"
   tracking:
-    - "Ajouter chaque fichier modifié à la liste"
+    - "Add each modified file to the list"
 ```
 
-### Step 3.3 : Parallelize (validations simultanées)
+### Step 3.3: Parallelize (simultaneous validations)
 
-**Lancer les validations en PARALLÈLE via Task agents :**
+**Launch validations in PARALLEL via Task agents:**
 
 ```yaml
 parallel_validation:
@@ -479,9 +479,9 @@ parallel_validation:
   mode: "PARALLEL (single message, multiple Task calls)"
 ```
 
-**IMPORTANT** : Lancer les 3 validations dans UN SEUL message.
+**IMPORTANT**: Launch all 3 validations in a SINGLE message.
 
-### Step 3.4 : Synthesize (analyse des résultats)
+### Step 3.4: Synthesize (result analysis)
 
 ```yaml
 synthesize_iteration:
@@ -507,7 +507,7 @@ synthesize_iteration:
   output: "Iteration summary"
 ```
 
-**Output par itération :**
+**Output per iteration:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -522,8 +522,8 @@ synthesize_iteration:
     └─ Build : SUCCESS
 
   Analysis:
-    - 5 tests use jest.mock() incompatible avec vitest
-    - 2 erreurs lint sur imports non utilisés
+    - 5 tests use jest.mock() incompatible with vitest
+    - 2 lint errors on unused imports
 
   Decision: CONTINUE → Focus on jest.mock migration
 
@@ -532,9 +532,9 @@ synthesize_iteration:
 
 ---
 
-## Phase 7.0 : Synthèse Finale
+## Phase 7.0: Final Synthesis
 
-### Rapport de succès
+### Success Report
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -567,7 +567,7 @@ synthesize_iteration:
 ═══════════════════════════════════════════════════════════════
 ```
 
-### Rapport d'échec
+### Failure Report
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -590,7 +590,7 @@ synthesize_iteration:
     ✓ [DEPS] Replaced dependencies
     ✓ [CONFIG] Created vitest config
     ✓ [IMPORTS] Adapted 23 test files
-    ✗ [COMPAT] 3 mocks incompatibles
+    ✗ [COMPAT] 3 incompatible mocks
     ✗ [VERIFY] Tests failing
 
   Suggested Next Steps:
@@ -603,14 +603,14 @@ synthesize_iteration:
 
 ---
 
-## Anti-patterns (Détection automatique)
+## Anti-patterns (Automatic Detection)
 
-| Pattern | Symptôme | Action |
-|---------|----------|--------|
-| **Circular fix** | Même fichier modifié 3+ fois | ABORT + alerte |
-| **No progress** | 0 amélioration sur 3 itérations | ABORT + diagnostic |
-| **Scope creep** | Fichiers hors scope modifiés | Rollback + warning |
-| **Overbaking** | Changements incohérents après 15+ iter | ABORT + rapport |
+| Pattern | Symptom | Action |
+|---------|---------|--------|
+| **Circular fix** | Same file modified 3+ times | ABORT + alert |
+| **No progress** | 0 improvement over 3 iterations | ABORT + diagnostic |
+| **Scope creep** | Files outside scope modified | Rollback + warning |
+| **Overbaking** | Inconsistent changes after 15+ iter | ABORT + report |
 
 ---
 
@@ -639,58 +639,58 @@ task_pattern:
 
 ---
 
-## GARDE-FOUS (ABSOLUS)
+## Guardrails (ABSOLUTE)
 
-| Action | Status | Raison |
+| Action | Status | Reason |
 |--------|--------|--------|
-| Skip Phase 1.0 (Plan detect) | ❌ **INTERDIT** | Vérifier si plan existe |
-| Skip Phase 3.0 sans plan | ❌ **INTERDIT** | Questions requises |
-| Skip Phase 4.0 (Peek) | ❌ **INTERDIT** | Contexte + git check |
-| Ignorer max_iterations | ❌ **INTERDIT** | Boucle infinie |
-| Critères subjectifs ("joli", "clean") | ❌ **INTERDIT** | Non mesurable |
-| Modifier .claude/ ou .devcontainer/ | ❌ **INTERDIT** | Fichiers protégés |
-| Plus de 50 itérations | ❌ **INTERDIT** | Limite de sécurité |
+| Skip Phase 1.0 (Plan detect) | **FORBIDDEN** | Must check if plan exists |
+| Skip Phase 3.0 without plan | **FORBIDDEN** | Questions required |
+| Skip Phase 4.0 (Peek) | **FORBIDDEN** | Context + git check |
+| Ignore max_iterations | **FORBIDDEN** | Infinite loop |
+| Subjective criteria ("pretty", "clean") | **FORBIDDEN** | Not measurable |
+| Modify .claude/ or .devcontainer/ | **FORBIDDEN** | Protected files |
+| More than 50 iterations | **FORBIDDEN** | Safety limit |
 
-### Parallélisation légitime
+### Legitimate Parallelization
 
-| Élément | Parallèle? | Raison |
-|---------|------------|--------|
-| Boucle itérative (N → N+1) | ❌ Séquentiel | Itération dépend du résultat précédent |
-| Checks par itération (lint+test+build) | ✅ Parallèle | Indépendants entre eux |
-| Actions correctives | ❌ Séquentiel | Ordre logique requis |
-
----
-
-## Exemples de prompts efficaces
-
-### ✓ BON : Critères mesurables
-
-```
-/do "Migrer tous les tests Jest vers Vitest"
-→ Critère: tous les tests passent avec Vitest
-
-/do "Ajouter des tests pour src/utils avec couverture 80%"
-→ Critère: coverage >= 80%
-
-/do "Remplacer console.log par un logger structuré"
-→ Critère: 0 console.log dans src/, lint propre
-```
-
-### ✗ MAUVAIS : Critères subjectifs
-
-```
-/do "Rendre le code plus propre"
-→ "Propre" n'est pas mesurable
-
-/do "Améliorer les performances"
-→ Pas de métrique de benchmark définie
-```
+| Element | Parallel? | Reason |
+|---------|-----------|--------|
+| Iterative loop (N → N+1) | Sequential | Iteration depends on previous result |
+| Checks per iteration (lint+test+build) | Parallel | Independent of each other |
+| Corrective actions | Sequential | Logical order required |
 
 ---
 
-## Intégration avec /review (Cyclic Workflow)
+## Effective Prompt Examples
 
-**`/review --loop` génère des plans que `/do` exécute automatiquement.**
+### Good: Measurable Criteria
+
+```
+/do "Migrate all Jest tests to Vitest"
+→ Criterion: all tests pass with Vitest
+
+/do "Add tests for src/utils with 80% coverage"
+→ Criterion: coverage >= 80%
+
+/do "Replace console.log with a structured logger"
+→ Criterion: 0 console.log in src/, clean lint
+```
+
+### Bad: Subjective Criteria
+
+```
+/do "Make the code cleaner"
+→ "Cleaner" is not measurable
+
+/do "Improve performance"
+→ No benchmark metric defined
+```
+
+---
+
+## Integration with /review (Cyclic Workflow)
+
+**`/review --loop` generates plans that `/do` executes automatically.**
 
 ```yaml
 review_integration:
@@ -785,52 +785,52 @@ review_integration:
 
 ---
 
-## Intégration avec autres skills
+## Integration with Other Skills
 
-| Avant /do | Après /do |
+| Before /do | After /do |
 |-----------|-----------|
-| `/plan` (optionnel mais recommandé) | `/git --commit` |
-| `/review` (génère plan) | `/review` (re-validate si --loop) |
-| `/search` (si research needed) | N/A |
+| `/plan` (optional but recommended) | `/git --commit` |
+| `/review` (generates plan) | `/review` (re-validate if --loop) |
+| `/search` (if research needed) | N/A |
 
-**Workflow recommandé (plan standard) :**
-
-```
-/search "vitest migration from jest"  # Si besoin de recherche
-    ↓
-/plan "Migrer tests Jest"              # Planifier l'approche
-    ↓
-(user approves plan)                   # Validation humaine
-    ↓
-/do                                    # Détecte le plan → exécute
-    ↓
-(review diff)                          # Vérifier les changements
-    ↓
-/git --commit                          # Commiter + PR
-```
-
-**Workflow cyclique (avec /review --loop) :**
+**Recommended workflow (standard plan):**
 
 ```
-/review --loop 5                       # Analyse + génère plan fixes
+/search "vitest migration from jest"  # If research needed
     ↓
-/do (auto-triggered)                   # Exécute via language-specialists
+/plan "Migrate Jest tests"            # Plan the approach
     ↓
-/review (auto-triggered)               # Re-valide les corrections
+(user approves plan)                   # Human validation
+    ↓
+/do                                    # Detects the plan → executes
+    ↓
+(review diff)                          # Verify changes
+    ↓
+/git --commit                          # Commit + PR
+```
+
+**Cyclic workflow (with /review --loop):**
+
+```
+/review --loop 5                       # Analyze + generate fix plan
+    ↓
+/do (auto-triggered)                   # Execute via language-specialists
+    ↓
+/review (auto-triggered)               # Re-validate corrections
     ↓
 (loop until no CRITICAL/HIGH OR limit)
     ↓
-/git --commit                          # Commiter les corrections
+/git --commit                          # Commit corrections
 ```
 
-**Workflow rapide (sans plan) :**
+**Quick workflow (without plan):**
 
 ```
-/do "Fix tous les bugs de lint"        # Tâche simple + mesurable
+/do "Fix all lint bugs"               # Simple + measurable task
     ↓
-(iterations jusqu'à succès)
+(iterations until success)
     ↓
 /git --commit
 ```
 
-**Note** : `/do` remplace `/apply`. Le skill `/apply` est déprécié.
+**Note**: `/do` replaces `/apply`. The `/apply` skill is deprecated.

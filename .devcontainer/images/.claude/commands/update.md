@@ -22,24 +22,24 @@ $ARGUMENTS
 
 ## Description
 
-Met à jour l'environnement DevContainer depuis le template officiel.
+Updates the DevContainer environment from the official template.
 
-**Approche API-FIRST** : Utilise l'API GitHub pour découvrir dynamiquement
-les fichiers existants au lieu de listes hardcodées.
+**API-FIRST approach**: Uses the GitHub API to dynamically discover
+existing files instead of hardcoded lists.
 
-**Composants mis à jour :**
+**Updated components:**
 
-- **Hooks** - Scripts Claude (format, lint, security, etc.)
-- **Commands** - Commandes slash (/git, /search, etc.)
-- **Agents** - Définitions d'agents (specialists, executors)
-- **Lifecycle** - Hooks de cycle de vie (delegation stubs)
-- **Image-hooks** - Hooks embarqués dans l'image Docker (real logic)
-- **Shared-utils** - Utilitaires partagés (utils.sh)
+- **Hooks** - Claude scripts (format, lint, security, etc.)
+- **Commands** - Slash commands (/git, /search, etc.)
+- **Agents** - Agent definitions (specialists, executors)
+- **Lifecycle** - Lifecycle hooks (delegation stubs)
+- **Image-hooks** - Hooks embedded in the Docker image (real logic)
+- **Shared-utils** - Shared utilities (utils.sh)
 - **Config** - p10k, settings.json
 - **Compose** - docker-compose.yml (update devcontainer, preserve custom)
-- **Grepai** - Configuration grepai optimisée
+- **Grepai** - Optimized grepai configuration
 
-**Source** : `github.com/kodflow/devcontainer-template`
+**Source**: `github.com/kodflow/devcontainer-template`
 
 ---
 
@@ -47,25 +47,25 @@ les fichiers existants au lieu de listes hardcodées.
 
 | Pattern | Action |
 |---------|--------|
-| (none) | Mise à jour complète |
-| `--check` | Vérifie les mises à jour disponibles |
-| `--component <name>` | Met à jour un composant spécifique |
-| `--help` | Affiche l'aide |
+| (none) | Full update |
+| `--check` | Check for available updates |
+| `--component <name>` | Update a specific component |
+| `--help` | Show help |
 
-### Composants disponibles
+### Available components
 
-| Composant | Chemin | Description |
-|-----------|--------|-------------|
-| `hooks` | `.devcontainer/images/.claude/scripts/` | Scripts Claude |
-| `commands` | `.devcontainer/images/.claude/commands/` | Commandes slash |
-| `agents` | `.devcontainer/images/.claude/agents/` | Définitions d'agents |
-| `lifecycle` | `.devcontainer/hooks/lifecycle/` | Hooks de cycle de vie (stubs) |
+| Component | Path | Description |
+|-----------|------|-------------|
+| `hooks` | `.devcontainer/images/.claude/scripts/` | Claude scripts |
+| `commands` | `.devcontainer/images/.claude/commands/` | Slash commands |
+| `agents` | `.devcontainer/images/.claude/agents/` | Agent definitions |
+| `lifecycle` | `.devcontainer/hooks/lifecycle/` | Lifecycle hooks (stubs) |
 | `image-hooks` | `.devcontainer/images/hooks/` | Image-embedded lifecycle hooks |
 | `shared-utils` | `.devcontainer/hooks/shared/utils.sh` | Shared hook utilities |
-| `p10k` | `.devcontainer/images/.p10k.zsh` | Config Powerlevel10k |
-| `settings` | `.../images/.claude/settings.json` | Config Claude |
+| `p10k` | `.devcontainer/images/.p10k.zsh` | Powerlevel10k config |
+| `settings` | `.../images/.claude/settings.json` | Claude config |
 | `compose` | `.devcontainer/docker-compose.yml` | Update devcontainer service |
-| `grepai` | `.devcontainer/images/grepai.config.yaml` | Config grepai |
+| `grepai` | `.devcontainer/images/grepai.config.yaml` | grepai config |
 
 ---
 
@@ -79,14 +79,14 @@ les fichiers existants au lieu de listes hardcodées.
 Usage: /update [options]
 
 Options:
-  (none)              Mise à jour complète
-  --check             Vérifie les mises à jour
-  --component <name>  Met à jour un composant
-  --help              Affiche cette aide
+  (none)              Full update
+  --check             Check for updates
+  --component <name>  Update a component
+  --help              Show this help
 
-Composants:
-  hooks        Scripts Claude (format, lint...)
-  commands     Commandes slash (/git, /search)
+Components:
+  hooks        Claude scripts (format, lint...)
+  commands     Slash commands (/git, /search)
   agents       Agent definitions (specialists)
   lifecycle    Lifecycle hooks (delegation stubs)
   image-hooks  Image-embedded lifecycle hooks
@@ -96,10 +96,10 @@ Composants:
   compose      docker-compose.yml (devcontainer service)
   grepai       grepai config (provider, model)
 
-Exemples:
-  /update                       Tout mettre à jour
-  /update --check               Voir les mises à jour
-  /update --component hooks     Hooks seulement
+Examples:
+  /update                       Update everything
+  /update --check               Check for updates
+  /update --component hooks     Hooks only
 
 Source: kodflow/devcontainer-template (main)
 ═══════════════════════════════════════════════
@@ -109,12 +109,12 @@ Source: kodflow/devcontainer-template (main)
 
 ## Overview
 
-Mise à jour de l'environnement DevContainer avec patterns **RLM** :
+DevContainer environment update using **RLM** patterns:
 
-- **Peek** - Vérifier connectivité et versions
-- **Discover** - Découvrir dynamiquement les fichiers via API GitHub
-- **Validate** - Valider chaque téléchargement (pas de 404)
-- **Synthesize** - Appliquer les mises à jour et rapport consolidé
+- **Peek** - Verify connectivity and versions
+- **Discover** - Dynamically discover files via GitHub API
+- **Validate** - Validate each download (no 404)
+- **Synthesize** - Apply updates and consolidated report
 
 ---
 
@@ -170,7 +170,7 @@ bash /tmp/update-script.sh && rm -f /tmp/update-script.sh
 
 ---
 
-## Phase 1.0 : Environment Detection (NEW)
+## Phase 1.0: Environment Detection (NEW)
 
 **MANDATORY: Detect execution context before any operation.**
 
@@ -273,22 +273,22 @@ Or in container:
 
 ---
 
-## Phase 2.0 : Peek (Version Check)
+## Phase 2.0: Peek (Version Check)
 
 ```yaml
 peek_workflow:
   1_connectivity:
-    action: "Vérifier la connectivité GitHub"
+    action: "Verify GitHub connectivity"
     tool: WebFetch
     url: "https://api.github.com/repos/kodflow/devcontainer-template/commits/main"
 
   2_local_version:
-    action: "Lire la version locale"
+    action: "Read local version"
     tool: Read
     file: ".devcontainer/.template-version"
 ```
 
-**Output Phase 2.0 :**
+**Output Phase 2.0:**
 
 ```
 ═══════════════════════════════════════════════
@@ -306,12 +306,12 @@ peek_workflow:
 
 ---
 
-## Phase 3.0 : Discover (API-FIRST - Dynamic Discovery)
+## Phase 3.0: Discover (API-FIRST - Dynamic Discovery)
 
-**RÈGLE CRITIQUE : Toujours utiliser l'API GitHub pour découvrir les fichiers.**
+**CRITICAL RULE: Always use the GitHub API to discover files.**
 
-Ne JAMAIS utiliser de listes hardcodées. Les fichiers peuvent être ajoutés,
-renommés ou supprimés dans le template source.
+NEVER use hardcoded lists. Files can be added,
+renamed, or deleted in the source template.
 
 ```yaml
 discover_workflow:
@@ -362,14 +362,14 @@ discover_workflow:
       raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/docker-compose.yml"
       local_path: ".devcontainer/docker-compose.yml"
       note: |
-        - Si fichier absent → télécharger complet
-        - Si fichier existe:
-          1. Extraire services custom (pas devcontainer)
-          2. Remplacer entièrement par le template (préserve ordre/commentaires)
-          3. Merger les services custom extraits
-        - Ordre: devcontainer → custom
-        - Backup créé avant modification, restauré si échec
-        - Utilise mikefarah/yq (Go version) pour le merge
+        - If file absent -> download complete
+        - If file exists:
+          1. Extract custom services (not devcontainer)
+          2. Replace entirely from template (preserves order/comments)
+          3. Merge extracted custom services back
+        - Order: devcontainer -> custom
+        - Backup created before modification, restored on failure
+        - Uses mikefarah/yq (Go version) for merge
         - Note: Ollama runs on HOST (installed via initialize.sh)
 
     grepai:
@@ -378,10 +378,10 @@ discover_workflow:
       note: "Optimized config with bge-m3 model (best accuracy)"
 ```
 
-**Implémentation Discover :**
+**Discover implementation:**
 
 ```bash
-# Fonction pour lister les fichiers d'un répertoire via API GitHub
+# Function to list files from a directory via GitHub API
 list_remote_files() {
     local api_url="$1"
     local filter="$2"
@@ -389,17 +389,17 @@ list_remote_files() {
     curl -sL "$api_url" | jq -r '.[].name' | grep -E "$filter" || true
 }
 
-# Exemple: découvrir les scripts
+# Example: discover scripts
 SCRIPTS=$(list_remote_files \
     "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/images/.claude/scripts" \
     '\.sh$')
 
-# Exemple: découvrir les commandes
+# Example: discover commands
 COMMANDS=$(list_remote_files \
     "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/images/.claude/commands" \
     '\.md$')
 
-# Exemple: découvrir les agents
+# Example: discover agents
 AGENTS=$(list_remote_files \
     "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/images/.claude/agents" \
     '\.md$')
@@ -407,12 +407,12 @@ AGENTS=$(list_remote_files \
 
 ---
 
-## Phase 4.0 : Validate (Download with Verification)
+## Phase 4.0: Validate (Download with Verification)
 
-**RÈGLE CRITIQUE : Toujours valider les téléchargements avant écriture.**
+**CRITICAL RULE: Always validate downloads before writing.**
 
-Ne JAMAIS écrire un fichier sans vérifier que le téléchargement a réussi.
-Détecter les erreurs 404 et autres échecs.
+NEVER write a file without verifying that the download succeeded.
+Detect 404 errors and other failures.
 
 ```yaml
 validate_workflow:
@@ -430,40 +430,40 @@ validate_workflow:
     - "Continue with next file"
 ```
 
-**Implémentation Validate :**
+**Validate implementation:**
 
 ```bash
-# Fonction de téléchargement sécurisé avec validation
+# Secure download function with validation
 safe_download() {
     local url="$1"
     local output="$2"
     local temp_file=$(mktemp)
 
-    # Télécharger avec code HTTP
+    # Download with HTTP code
     http_code=$(curl -sL -w "%{http_code}" -o "$temp_file" "$url")
 
-    # Valider le téléchargement
+    # Validate the download
     if [ "$http_code" != "200" ]; then
         echo "✗ $output (HTTP $http_code)"
         rm -f "$temp_file"
         return 1
     fi
 
-    # Vérifier que ce n'est pas une page 404 déguisée
+    # Check it is not a disguised 404 page
     if head -1 "$temp_file" | grep -qE "^404|^<!DOCTYPE|^<html"; then
         echo "✗ $output (invalid content)"
         rm -f "$temp_file"
         return 1
     fi
 
-    # Vérifier que le fichier n'est pas vide
+    # Check the file is not empty
     if [ ! -s "$temp_file" ]; then
         echo "✗ $output (empty)"
         rm -f "$temp_file"
         return 1
     fi
 
-    # Tout est OK, déplacer le fichier
+    # All OK, move the file
     mv "$temp_file" "$output"
     echo "✓ $output"
     return 0
@@ -472,11 +472,11 @@ safe_download() {
 
 ---
 
-## Phase 5.0 : Synthesize (Apply Updates)
+## Phase 5.0: Synthesize (Apply Updates)
 
-### 5.1 : Télécharger les composants
+### 5.1: Download components
 
-**IMPORTANT** : Utiliser `safe_download` pour chaque fichier.
+**IMPORTANT**: Use `safe_download` for each file.
 
 #### Hooks (scripts)
 
@@ -484,7 +484,7 @@ safe_download() {
 BASE="https://raw.githubusercontent.com/kodflow/devcontainer-template/main"
 API="https://api.github.com/repos/kodflow/devcontainer-template/contents"
 
-# Découvrir et télécharger les scripts via API (zsh-compatible)
+# Discover and download scripts via API (zsh-compatible)
 curl -sL "$API/.devcontainer/images/.claude/scripts" | jq -r '.[].name' | grep '\.sh$' \
 | while IFS= read -r script; do
     [ -z "$script" ] && continue
@@ -498,7 +498,7 @@ done
 #### Commands
 
 ```bash
-# Découvrir et télécharger les commandes via API (zsh-compatible)
+# Discover and download commands via API (zsh-compatible)
 curl -sL "$API/.devcontainer/images/.claude/commands" | jq -r '.[].name' | grep '\.md$' \
 | while IFS= read -r cmd; do
     [ -z "$cmd" ] && continue
@@ -511,7 +511,7 @@ done
 #### Agents
 
 ```bash
-# Découvrir et télécharger les agents via API (zsh-compatible)
+# Discover and download agents via API (zsh-compatible)
 mkdir -p ".devcontainer/images/.claude/agents"
 curl -sL "$API/.devcontainer/images/.claude/agents" | jq -r '.[].name' | grep '\.md$' \
 | while IFS= read -r agent; do
@@ -525,7 +525,7 @@ done
 #### Lifecycle Hooks
 
 ```bash
-# Découvrir et télécharger les lifecycle hooks via API (zsh-compatible)
+# Discover and download lifecycle hooks via API (zsh-compatible)
 mkdir -p ".devcontainer/hooks/lifecycle"
 curl -sL "$API/.devcontainer/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' \
 | while IFS= read -r hook; do
@@ -682,7 +682,7 @@ safe_download \
     ".devcontainer/images/grepai.config.yaml"
 ```
 
-### 5.2 : Cleanup deprecated files
+### 5.2: Cleanup deprecated files
 
 ```bash
 # Remove deprecated configuration files
@@ -690,7 +690,7 @@ safe_download \
     && echo "Removed deprecated .coderabbit.yaml"
 ```
 
-### 5.3 : Update version file
+### 5.3: Update version file
 
 ```bash
 COMMIT=$(curl -sL "https://api.github.com/repos/kodflow/devcontainer-template/commits/main" | jq -r '.sha[:7]')
@@ -698,9 +698,9 @@ DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.template-version
 ```
 
-### 5.4 : Rapport consolidé
+### 5.4: Consolidated report
 
-**Output Final :**
+**Final output:**
 
 ```
 ═══════════════════════════════════════════════
@@ -739,13 +739,13 @@ echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.templa
 
 ---
 
-## Phase 6.0 : Hook Synchronization
+## Phase 6.0: Hook Synchronization
 
-**But :** Synchroniser les hooks de `~/.claude/settings.json` avec le template.
+**Goal:** Synchronize hooks from `~/.claude/settings.json` with the template.
 
-**Problème résolu :** Les utilisateurs avec un ancien `settings.json` peuvent avoir
-des références à des scripts obsolètes (bash-validate.sh, phase-validate.sh, etc.)
-car `postStart.sh` ne copie `settings.json` que s'il n'existe pas.
+**Problem solved:** Users with an older `settings.json` may have
+references to obsolete scripts (bash-validate.sh, phase-validate.sh, etc.)
+because `postStart.sh` only copies `settings.json` if it does not exist.
 
 ```yaml
 hook_sync_workflow:
@@ -754,8 +754,8 @@ hook_sync_workflow:
     command: "cp ~/.claude/settings.json ~/.claude/settings.json.backup"
 
   2_merge_hooks:
-    action: "Remplacer la section hooks avec le template"
-    strategy: "REPLACE (pas merge) - le template est la source de vérité"
+    action: "Replace the hooks section with the template"
+    strategy: "REPLACE (not merge) - the template is the source of truth"
     tool: jq
     preserves:
       - permissions
@@ -765,10 +765,10 @@ hook_sync_workflow:
       - disabledMcpjsonServers
 
   3_restore_on_failure:
-    action: "Restaurer le backup si le merge échoue"
+    action: "Restore backup if merge fails"
 ```
 
-**Implémentation :**
+**Implementation:**
 
 ```bash
 sync_user_hooks() {
@@ -816,28 +816,28 @@ sync_user_hooks() {
 
 ---
 
-## Phase 7.0 : Script Validation
+## Phase 7.0: Script Validation
 
-**But :** Valider que tous les scripts référencés dans les hooks existent.
+**Goal:** Validate that all scripts referenced in hooks exist.
 
 ```yaml
 validate_workflow:
   1_extract:
-    action: "Extraire tous les chemins de scripts depuis les hooks"
+    action: "Extract all script paths from hooks"
     tool: jq
     pattern: ".hooks | .. | .command? // empty"
 
   2_verify:
-    action: "Vérifier que chaque script existe"
+    action: "Verify that each script exists"
     for_each: script_path
     check: "[ -f $script_path ]"
 
   3_report:
-    on_missing: "Lister les scripts manquants avec suggestion de fix"
-    on_success: "Tous les scripts validés"
+    on_missing: "List missing scripts with fix suggestion"
+    on_success: "All scripts validated"
 ```
 
-**Implémentation :**
+**Implementation:**
 
 ```bash
 validate_hook_scripts() {
@@ -891,25 +891,25 @@ validate_hook_scripts() {
 
 ---
 
-## GARDE-FOUS (ABSOLUS)
+## Guardrails (ABSOLUTE)
 
-| Action | Status | Raison |
+| Action | Status | Reason |
 |--------|--------|--------|
-| Utiliser listes hardcodées | ❌ **INTERDIT** | API-FIRST obligatoire |
-| Écrire sans validation | ❌ **INTERDIT** | Risque de corruption |
-| Skip vérification HTTP | ❌ **INTERDIT** | Fichiers 404 possibles |
-| Source non-officielle | ❌ **INTERDIT** | Sécurité |
-| Hook sync sans backup | ❌ **INTERDIT** | Toujours backup first |
-| Supprimer user settings | ❌ **INTERDIT** | Seulement merge hooks |
-| Skip script validation | ❌ **INTERDIT** | Détection erreurs obligatoire |
-| `for x in $VAR` pattern | ❌ **INTERDIT** | Breaks in zsh ($SHELL=zsh) |
-| Inline execution sans bash | ❌ **INTERDIT** | Toujours `bash /tmp/script.sh` |
+| Use hardcoded lists | **FORBIDDEN** | API-FIRST MANDATORY |
+| Write without validation | **FORBIDDEN** | Corruption risk |
+| Skip HTTP verification | **FORBIDDEN** | 404 files possible |
+| Non-official source | **FORBIDDEN** | Security |
+| Hook sync without backup | **FORBIDDEN** | Always backup first |
+| Delete user settings | **FORBIDDEN** | Only merge hooks |
+| Skip script validation | **FORBIDDEN** | Error detection MANDATORY |
+| `for x in $VAR` pattern | **FORBIDDEN** | Breaks in zsh ($SHELL=zsh) |
+| Inline execution without bash | **FORBIDDEN** | Always `bash /tmp/script.sh` |
 
 ---
 
-## Fichiers concernés
+## Affected files
 
-**Mis à jour par /update :**
+**Updated by /update:**
 ```
 .devcontainer/
 ├── docker-compose.yml            # Update devcontainer service
@@ -918,7 +918,7 @@ validate_hook_scripts() {
 │   └── shared/utils.sh          # Shared utilities (host)
 ├── images/
 │   ├── .p10k.zsh
-│   ├── grepai.config.yaml       # Config grepai (provider, model)
+│   ├── grepai.config.yaml       # grepai config (provider, model)
 │   ├── hooks/                    # Image-embedded hooks (real logic)
 │   │   ├── shared/utils.sh
 │   │   └── lifecycle/*.sh
@@ -930,23 +930,23 @@ validate_hook_scripts() {
 └── .template-version
 ```
 
-**Dans l'image Docker (restauré au démarrage) :**
+**In the Docker image (restored at startup):**
 ```
 /etc/grepai/config.yaml            # GrepAI config template
 /etc/mcp/mcp.json.tpl              # MCP template
 /etc/claude-defaults/*             # Claude defaults
 ```
 
-**JAMAIS modifiés :**
+**NEVER modified:**
 ```
 .devcontainer/
-├── devcontainer.json      # Config projet (customisations)
-└── Dockerfile             # Customisations image
+├── devcontainer.json      # Project config (customizations)
+└── Dockerfile             # Image customizations
 ```
 
 ---
 
-## Script complet (référence)
+## Complete script (reference)
 
 **IMPORTANT: This script uses `#!/bin/bash`. Always write to a temp file and execute with `bash`:**
 ```bash
