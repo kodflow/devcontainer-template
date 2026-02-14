@@ -1,12 +1,12 @@
 # Testing Patterns
 
-Patterns pour les tests automatisés.
+Patterns for automated testing.
 
 ## Test Doubles
 
 ### 1. Mock
 
-> Objet qui vérifie les interactions.
+> Object that verifies interactions.
 
 ```go
 // Manual mock
@@ -54,14 +54,14 @@ test('should send welcome email', async () => {
 });
 ```
 
-**Quand :** Vérifier comportement, interactions, appels.
-**Lié à :** Spy.
+**When:** Verify behavior, interactions, calls.
+**Related:** Spy.
 
 ---
 
 ### 2. Stub
 
-> Objet qui retourne des valeurs prédéfinies.
+> Object that returns predefined values.
 
 ```go
 // Stub with fixed response
@@ -106,14 +106,14 @@ jest.spyOn(userRepo, 'findById').mockResolvedValue({
 });
 ```
 
-**Quand :** Contrôler les données retournées, scénarios spécifiques.
-**Lié à :** Mock, Fake.
+**When:** Control returned data, specific scenarios.
+**Related:** Mock, Fake.
 
 ---
 
 ### 3. Fake
 
-> Implémentation simplifiée fonctionnelle.
+> Simplified functional implementation.
 
 ```go
 // In-memory database fake
@@ -167,14 +167,14 @@ class FakeHttpClient implements HttpClient {
 }
 ```
 
-**Quand :** Tests d'intégration, comportement réaliste.
-**Lié à :** Stub.
+**When:** Integration tests, realistic behavior.
+**Related:** Stub.
 
 ---
 
 ### 4. Spy
 
-> Wrapper qui enregistre les appels.
+> Wrapper that records calls.
 
 ```go
 // Manual spy
@@ -219,14 +219,14 @@ await service.doSomething();
 expect(spy).toHaveBeenCalled();
 ```
 
-**Quand :** Observer sans remplacer, partial mock.
-**Lié à :** Mock.
+**When:** Observe without replacing, partial mock.
+**Related:** Mock.
 
 ---
 
 ### 5. Dummy
 
-> Objet qui remplit un paramètre sans être utilisé.
+> Object that fills a parameter without being used.
 
 ```go
 // Dummy object - never actually used
@@ -258,7 +258,7 @@ test('should process order without logging', () => {
 });
 ```
 
-**Quand :** Paramètres requis non pertinents pour le test.
+**When:** Required parameters not relevant for the test.
 
 ---
 
@@ -266,7 +266,7 @@ test('should process order without logging', () => {
 
 ### 6. Arrange-Act-Assert (AAA)
 
-> Structure claire des tests.
+> Clear test structure.
 
 ```go
 test('should apply discount to order total', () => {
@@ -303,13 +303,13 @@ test('should fetch user profile', async () => {
 });
 ```
 
-**Quand :** TOUJOURS pour structurer les tests.
+**When:** ALWAYS for structuring tests.
 
 ---
 
 ### 7. Given-When-Then (BDD)
 
-> Style behavior-driven.
+> Behavior-driven style.
 
 ```go
 describe('Shopping Cart', () => {
@@ -361,13 +361,13 @@ describe('Shopping Cart', () => {
 });
 ```
 
-**Quand :** Tests lisibles, documentation vivante.
+**When:** Readable tests, living documentation.
 
 ---
 
 ### 8. Test Data Builder
 
-> Construction fluide de données de test.
+> Fluent construction of test data.
 
 ```go
 class UserBuilder {
@@ -436,14 +436,14 @@ const createUser = (overrides: Partial<User> = {}): User => ({
 });
 ```
 
-**Quand :** Objets complexes, réduire duplication.
-**Lié à :** Object Mother.
+**When:** Complex objects, reduce duplication.
+**Related:** Object Mother.
 
 ---
 
 ### 9. Object Mother
 
-> Factory pour objets de test pré-configurés.
+> Factory for pre-configured test objects.
 
 ```go
 class UserMother {
@@ -508,14 +508,14 @@ test('should not allow inactive users to place orders', () => {
 });
 ```
 
-**Quand :** Scénarios récurrents, cohérence des tests.
-**Lié à :** Test Data Builder.
+**When:** Recurring scenarios, test consistency.
+**Related:** Test Data Builder.
 
 ---
 
 ### 10. Fixture
 
-> Données de test partagées.
+> Shared test data.
 
 ```go
 // Fixture class
@@ -573,7 +573,7 @@ async function loadFixture<T>(name: string): Promise<T> {
 }
 ```
 
-**Quand :** Données réutilisables, setup complexe.
+**When:** Reusable data, complex setup.
 
 ---
 
@@ -581,7 +581,7 @@ async function loadFixture<T>(name: string): Promise<T> {
 
 ### 11. Parameterized Tests
 
-> Même test avec différentes données.
+> Same test with different data.
 
 ```go
 // Jest each
@@ -622,13 +622,13 @@ testCases.forEach(({ input, expected }) => {
 });
 ```
 
-**Quand :** Multiples cas similaires, edge cases.
+**When:** Multiple similar cases, edge cases.
 
 ---
 
 ### 12. Property-Based Testing
 
-> Générer des cas de test automatiquement.
+> Automatically generate test cases.
 
 ```go
 import fc from 'fast-check';
@@ -681,13 +681,13 @@ test('user serialization roundtrip', () => {
 });
 ```
 
-**Quand :** Trouver edge cases, invariants, algorithmes.
+**When:** Find edge cases, invariants, algorithms.
 
 ---
 
 ### 13. Snapshot Testing
 
-> Comparer avec une sortie sauvegardée.
+> Compare with a saved output.
 
 ```go
 // Jest snapshots
@@ -716,13 +716,13 @@ expect.addSnapshotSerializer({
 });
 ```
 
-**Quand :** UI, output complexe, détection de régression.
+**When:** UI, complex output, regression detection.
 
 ---
 
 ### 14. Contract Testing
 
-> Vérifier les contrats entre services.
+> Verify contracts between services.
 
 ```go
 // Consumer side - Pact
@@ -775,13 +775,13 @@ describe('User Service Provider', () => {
 });
 ```
 
-**Quand :** Microservices, APIs, intégration.
+**When:** Microservices, APIs, integration.
 
 ---
 
 ### 15. Test Containers
 
-> Infrastructure réelle dans des containers.
+> Real infrastructure in containers.
 
 ```go
 import { GenericContainer, StartedTestContainer } from 'testcontainers';
@@ -827,27 +827,27 @@ describe('Database Integration', () => {
 });
 ```
 
-**Quand :** Tests d'intégration, base de données, services externes.
+**When:** Integration tests, databases, external services.
 
 ---
 
-## Tableau de décision
+## Decision Table
 
-| Besoin | Pattern |
-|--------|---------|
-| Vérifier appels | Mock / Spy |
-| Contrôler retours | Stub |
-| Implémentation simplifiée | Fake |
-| Paramètre inutilisé | Dummy |
-| Structure test | AAA / Given-When-Then |
-| Objets complexes | Test Data Builder |
-| Scénarios types | Object Mother |
-| Données partagées | Fixture |
-| Multiples cas | Parameterized Tests |
-| Edge cases auto | Property-Based |
-| Régression UI | Snapshot |
-| APIs microservices | Contract Testing |
-| Infrastructure réelle | Test Containers |
+| Need | Pattern |
+|------|---------|
+| Verify calls | Mock / Spy |
+| Control returns | Stub |
+| Simplified implementation | Fake |
+| Unused parameter | Dummy |
+| Test structure | AAA / Given-When-Then |
+| Complex objects | Test Data Builder |
+| Typical scenarios | Object Mother |
+| Shared data | Fixture |
+| Multiple cases | Parameterized Tests |
+| Auto edge cases | Property-Based |
+| UI regression | Snapshot |
+| Microservice APIs | Contract Testing |
+| Real infrastructure | Test Containers |
 
 ## Sources
 
