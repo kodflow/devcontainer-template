@@ -151,7 +151,7 @@ const result = await client.request('calculator', { operation: 'add', a: 1, b: 2
 ```go
 interface CorrelatedMessage {
   correlationId: string;
-  causationId?: string; // ID du message qui a causé celui-ci
+  causationId?: string; // ID of the message that caused this one
 }
 
 class MessageTracker {
@@ -446,7 +446,7 @@ const orderAggregator = new Aggregator<OrderItemResult, OrderResult>(
 ```
 
 **When:** After Splitter, waiting for multiple responses.
-**Lié à:** Splitter, Scatter-Gather.
+**Related to:** Splitter, Scatter-Gather.
 
 ---
 

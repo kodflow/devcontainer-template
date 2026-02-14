@@ -513,7 +513,7 @@ type OrderDependentHandler struct {
 func (h *OrderDependentHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
 	// Assumes AuthHandler has already been executed
 	// Without documentation, this is fragile
-	user:= request.User // Peut être nil!
+	user:= request.User // Can be nil!
 	_ = user
 	return h.AbstractHandler.Handle(request)
 }

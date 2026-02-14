@@ -32,7 +32,7 @@ Deployment strategies and modern infrastructure practices.
 
 ---
 
-## Tableau de décision - Stratégies de déploiement
+## Decision Table - Deployment Strategies
 
 | Strategy | Downtime | Risk | Rollback | Infra Cost | Complexity |
 |-----------|----------|--------|----------|------------|------------|
@@ -48,7 +48,7 @@ Deployment strategies and modern infrastructure practices.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    STRATÉGIES DE DÉPLOIEMENT                     │
+│                    DEPLOYMENT STRATEGIES                          │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  Recreate     Rolling      Blue-Green    Canary      A/B Test  │
@@ -58,8 +58,8 @@ Deployment strategies and modern infrastructure practices.
 │  │new│        │n│n│n│      │   │   │    └───┴─┘    └───┴───┘  │
 │  └───┘        └─┴─┴─┘      └───┴───┘                           │
 │                                                                  │
-│  Simple       Progressif   Instantané   Progressif  Expérience │
-│  Downtime     Pas de down  Rollback     Métriques   Métriques  │
+│  Simple       Progressive  Instant      Progressive Experience │
+│  Downtime     No downtime  Rollback     Metrics     Metrics    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -110,25 +110,25 @@ GitOps + IaC + Canary + Feature Toggles
 ## Decision Flow
 
 ```
-                    Besoin de déployer
+                    Need to deploy
                            │
                            ▼
-              ┌─── Tolérance downtime? ───┐
+              ┌─── Downtime tolerance? ───┐
               │                            │
-            Oui                          Non
+            Yes                           No
               │                            │
               ▼                            ▼
-          Recreate              ┌── Rollback rapide? ──┐
-                                │                       │
-                              Oui                     Non
-                                │                       │
-                                ▼                       ▼
-                ┌── Validation métriques? ──┐    Rolling Update
-                │                            │
-              Oui                          Non
-                │                            │
-                ▼                            ▼
-            Canary                      Blue-Green
+          Recreate              ┌── Fast rollback? ──┐
+                                │                     │
+                              Yes                    No
+                                │                     │
+                                ▼                     ▼
+                ┌── Metrics validation? ──┐    Rolling Update
+                │                          │
+              Yes                         No
+                │                          │
+                ▼                          ▼
+            Canary                    Blue-Green
 ```
 
 ---

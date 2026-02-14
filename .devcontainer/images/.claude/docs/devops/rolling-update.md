@@ -63,8 +63,8 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1        # Max pods au-dessus de replicas
-      maxUnavailable: 1  # Max pods indisponibles
+      maxSurge: 1        # Max pods above replicas
+      maxUnavailable: 1  # Max unavailable pods
   selector:
     matchLabels:
       app: myapp
@@ -342,16 +342,16 @@ func (c *DependenciesChecker) Check(ctx context.Context) bool {
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     TEMPS DE ROLLOUT                         │
+│                     ROLLOUT TIME                             │
 │                                                              │
 │  Rolling    ████████████████████████████░░░░░░░░░░░         │
-│  Update     (progressif, pods un par un)                     │
+│  Update     (progressive, pods one by one)                   │
 │                                                              │
 │  Blue-Green ████████████████████████████▌                   │
-│             (instantané, switch)                             │
+│             (instant switch)                                 │
 │                                                              │
 │  Canary     ██████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░      │
-│             (progressif avec pauses analyse)                 │
+│             (progressive with analysis pauses)               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -360,7 +360,7 @@ func (c *DependenciesChecker) Check(ctx context.Context) bool {
 | Company | Usage |
 |---------|-------|
 | **Kubernetes** | Default strategy |
-| **AWS ECS** | Rolling update natif |
+| **AWS ECS** | Native rolling update |
 | **Docker Swarm** | Update policy |
 | **GCP Cloud Run** | Traffic migration |
 
