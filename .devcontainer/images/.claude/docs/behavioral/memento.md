@@ -21,10 +21,10 @@ without violating its encapsulation. Used to implement undo/redo.
 
 ## Problem Solved
 
-- Sauvegarder l'etat d'un objet a un moment donne
-- Implementer undo/redo sans exposer les details internes
-- Creer des snapshots/checkpoints
-- Respecter l'encapsulation
+- Save an object's state at a given point in time
+- Implement undo/redo without exposing internal details
+- Create snapshots/checkpoints
+- Respect encapsulation
 
 ---
 
@@ -314,7 +314,7 @@ func main() {
 
 ## Advantages / Disadvantages
 
-| Avantages | Inconvenients |
+| Advantages | Disadvantages |
 |-----------|---------------|
 | Preserves encapsulation | Memory cost (many mementos) |
 | Simplifies the Originator | Serialization can be costly |
@@ -345,7 +345,7 @@ func main() {
 
 ## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
+| Anti-pattern | Problem | Solution |
 |--------------|----------|----------|
 | Too many mementos | Memory leak | Limit history |
 | Mutable memento | Corruption | Deep copy |

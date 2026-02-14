@@ -14,7 +14,7 @@ changing the overall structure.
 ┌─────────────────────┐
 │  AbstractClass      │
 │  ──────────────     │
-│  templateMethod()   │ ─► appelle step1(), step2(), step3()
+│  templateMethod()   │ ─► calls step1(), step2(), step3()
 │  step1()            │
 │  step2() (abstract) │
 │  step3()            │
@@ -32,10 +32,10 @@ changing the overall structure.
 
 ## Problem Solved
 
-- Code duplique dans plusieurs classes avec variations mineures
-- Algorithme avec etapes fixes et etapes variables
-- Inverser le controle (Hollywood Principle)
-- Eviter la duplication tout en permettant la personnalisation
+- Duplicated code in multiple classes with minor variations
+- Algorithm with fixed steps and variable steps
+- Inversion of control (Hollywood Principle)
+- Avoid duplication while allowing customization
 
 ---
 
@@ -330,7 +330,7 @@ func main() {
 - Algorithm with fixed structure and variable steps
 - Avoid code duplication
 - Controlled extension points for subclasses
-- Inversion de controle ("Don't call us, we'll call you")
+- Inversion of control ("Don't call us, we'll call you")
 
 ## When NOT to Use
 
@@ -342,7 +342,7 @@ func main() {
 
 ## Advantages / Disadvantages
 
-| Avantages | Inconvenients |
+| Advantages | Disadvantages |
 |-----------|---------------|
 | Eliminates duplication | Inheritance required (less flexible) |
 | Clear extension points | Can violate Liskov if poorly designed |
@@ -373,7 +373,7 @@ func main() {
 
 ## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
+| Anti-pattern | Problem | Solution |
 |--------------|----------|----------|
 | Too many steps | Complexity | Limit to 5-7 steps |
 | Forced override | Rigidity | Use hooks |

@@ -1,35 +1,35 @@
 # Feature Toggles / Feature Flags
 
-Techniques pour activer/désactiver des fonctionnalités sans déploiement.
+Techniques for enabling/disabling features without deployment.
 
 ---
 
-## Qu'est-ce qu'un Feature Toggle ?
+## What is a Feature Toggle?
 
-> Un mécanisme pour modifier le comportement d'un système sans changer son code.
+> A mechanism to modify system behavior without changing its code.
 
 ```go
-// Principe de base
+// Basic principle
 if featureFlags.IsEnabled("new-checkout") {
 	return newCheckoutFlow(cart)
 }
 return legacyCheckoutFlow(cart)
 ```
 
-**Pourquoi:**
+**Why:**
 
-- Déployer du code inactif (deploy ≠ release)
-- Tester en production avec subset d'utilisateurs
-- Rollback instantané sans redéploiement
+- Deploy inactive code (deploy ≠ release)
+- Test in production with user subset
+- Instant rollback without redeployment
 - A/B testing
 
 ---
 
 ## Types de Feature Toggles
 
-### 1. Release Toggles (Court terme)
+### 1. Release Toggles (Short term)
 
-> Cacher des features incomplètes en production.
+> Hide incomplete features in production.
 
 ```go
 package payment
@@ -81,14 +81,14 @@ func (s *Service) Process(ctx context.Context, order *Order) error {
 }
 ```
 
-**Durée:** Jours à semaines
-**À supprimer:** Dès que feature stable
+**Duration:** Days to weeks
+**Remove:** As soon as feature is stable
 
 ---
 
 ### 2. Experiment Toggles (A/B Testing)
 
-> Tester différentes variantes sur des segments d'utilisateurs.
+> Test different variants on user segments.
 
 ```go
 package experiment
@@ -184,14 +184,14 @@ func ExampleCheckoutVariant(userID string, experiments *Service) string {
 }
 ```
 
-**Durée:** Semaines à mois
+**Duration:** Weeks to months
 **Metrics:** Conversion, engagement, revenue
 
 ---
 
 ### 3. Ops Toggles (Kill Switches)
 
-> Désactiver des features en cas de problème.
+> Disable features in case of problems.
 
 ```go
 package ops
@@ -299,14 +299,14 @@ func (s *RecommendationService) getFallbackRecommendations(userID string) []Reco
 }
 ```
 
-**Durée:** Permanent
-**Activation:** Via dashboard ou API
+**Duration:** Permanent
+**Activation:** Via dashboard or API
 
 ---
 
 ### 4. Permission Toggles
 
-> Features disponibles selon le plan/rôle utilisateur.
+> Features available based on user plan/role.
 
 ```go
 package feature
@@ -377,7 +377,7 @@ func ExampleDashboardAccess(gate *Gate) string {
 
 ---
 
-## Implémentation
+## Implementation
 
 ### Architecture
 
@@ -541,37 +541,37 @@ func (f *RemoteFeatureFlags) startPolling() {
 }
 ```
 
-### Configuration déclarative
+### Declarative Configuration
 
 ```yaml
 # feature-flags.yaml
 flags:
   new-checkout:
     enabled: true
-    percentage: 50  # 50% des utilisateurs
+    percentage: 50  # 50% of users
     rules:
       - if:
           plan: enterprise
-        then: true   # 100% pour enterprise
+        then: true   # 100% for enterprise
       - if:
           country: FR
-        then: false  # Pas encore en France
+        then: false  # Not yet in France
 
   dark-mode:
     enabled: true
-    # Pas de règles = tout le monde
+    # No rules = everyone
 
   beta-features:
     enabled: false
     rules:
       - if:
           email_ends_with: "@company.com"
-        then: true  # Employés seulement
+        then: true  # Employees only
 ```
 
 ---
 
-## Stratégies de Rollout
+## Rollout Strategies
 
 ### 1. Canary Release
 
@@ -723,14 +723,14 @@ func IsEnabled(flag string, user User, configs map[string]FlagConfig) bool {
 
 ## Toggle Cleanup
 
-### Le problème du toggle debt
+### The problem of toggle debt
 
 ```go
 // Bad example - nested toggles create complexity
 // Do not implement this pattern
 ```
 
-### Solution: Toggle avec expiration
+### Solution: Toggle with expiration
 
 ```go
 package managed
@@ -804,38 +804,38 @@ func (m *ManagedFeatureFlags) alert(ctx context.Context, message string) {
 
 ---
 
-## Patterns connexes
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Strategy** | Toggle sélectionne la stratégie |
-| **Circuit Breaker** | Ops toggle automatique |
-| **Branch by Abstraction** | Migration progressive |
+| **Strategy** | Toggle selects the strategy |
+| **Circuit Breaker** | Automatic ops toggle |
+| **Branch by Abstraction** | Progressive migration |
 | **Canary Release** | Progressive rollout |
 
 ---
 
-## Outils populaires
+## Popular Tools
 
-| Outil | Type | Features |
-|-------|------|----------|
+| Tool | Type | Features |
+|------|------|----------|
 | LaunchDarkly | SaaS | Full-featured, SDKs |
 | Split.io | SaaS | A/B testing focus |
 | Unleash | Open-source | Self-hosted |
-| ConfigCat | SaaS | Simple, abordable |
+| ConfigCat | SaaS | Simple, affordable |
 | Flagsmith | Open-source | Self-hosted/Cloud |
 
 ---
 
 ## Anti-patterns
 
-| Anti-pattern | Problème | Solution |
-|--------------|----------|----------|
-| Toggle permanent | Code mort | Expiration dates |
-| Nested toggles | Complexité | Refactor, un toggle par feature |
-| Toggle dans toggle | Illisible | Combiner en un seul |
-| Pas de default | Crash si absent | Toujours un fallback |
-| Pas de monitoring | Aveugle | Dashboard de toggles |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| Permanent toggle | Dead code | Expiration dates |
+| Nested toggles | Complexity | Refactor, one toggle per feature |
+| Toggle within toggle | Unreadable | Combine into one |
+| No default | Crash if missing | Always a fallback |
+| No monitoring | Blind | Toggle dashboard |
 
 ---
 

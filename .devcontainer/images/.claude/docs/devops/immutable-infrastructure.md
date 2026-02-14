@@ -1,8 +1,8 @@
 # Immutable Infrastructure
 
-> Remplacer les serveurs au lieu de les modifier.
+> Replace servers instead of modifying them.
 
-**Principe:** Traiter les serveurs comme du bétail, pas comme des animaux de compagnie.
+**Principle:** Treat servers as cattle, not as pets.
 
 ## Principle
 
@@ -28,7 +28,7 @@
 │  │  └───────────────┘  │                                        │
 │  └─────────────────────┘                                        │
 │                                                                  │
-│  Problème: Configuration drift      Solution: État connu        │
+│  Problem: Configuration drift        Solution: Known state       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -61,9 +61,9 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Implémentation avec Packer + Terraform
+## Implementation with Packer + Terraform
 
-### Packer - Création d'image
+### Packer - Image Creation
 
 ```hcl
 # packer/app.pkr.hcl
@@ -139,7 +139,7 @@ build {
 }
 ```
 
-### Terraform - Déploiement
+### Terraform - Deployment
 
 ```hcl
 # terraform/main.tf
@@ -196,7 +196,7 @@ resource "aws_autoscaling_group" "app" {
 }
 ```
 
-## Docker: Immutable par défaut
+## Docker: Immutable by Default
 
 ```dockerfile
 # Dockerfile - Image immutable
@@ -210,15 +210,15 @@ RUN npm run build
 FROM node:20-alpine AS runtime
 WORKDIR /app
 
-# User non-root
+# Non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
-# Copier uniquement le nécessaire
+# Copy only what is needed
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 
-# Configuration via env vars, pas fichiers
+# Configuration via env vars, not files
 ENV NODE_ENV=production
 ENV PORT=8080
 
@@ -226,7 +226,7 @@ EXPOSE 8080
 CMD ["node", "dist/main.js"]
 ```
 
-## Configuration externalisée
+## Externalized Configuration
 
 ```yaml
 # kubernetes/configmap.yaml
@@ -261,35 +261,35 @@ spec:
 
 ## When to Use
 
-| Utiliser | Eviter |
-|----------|--------|
-| Production critique | Prototypes/MVPs |
-| Compliance requise | Dev environment |
-| Scale horizontal | Applications legacy |
-| Cloud native | On-premise contraignant |
-| CI/CD mature | Équipe sans automatisation |
+| Use | Avoid |
+|-----|-------|
+| Critical production | Prototypes/MVPs |
+| Compliance required | Dev environment |
+| Horizontal scale | Legacy applications |
+| Cloud native | Constraining on-premise |
+| Mature CI/CD | Team without automation |
 
-## Avantages
+## Advantages
 
-- **Reproductibilité** : Même image = même comportement
-- **Pas de drift** : Pas de configuration manuelle
-- **Rollback facile** : Redéployer ancienne image
-- **Scalabilité** : Instances identiques
-- **Audit** : Traçabilité des changements
-- **Sécurité** : Surface d'attaque réduite
+- **Reproducibility**: Same image = same behavior
+- **No drift**: No manual configuration
+- **Easy rollback**: Redeploy old image
+- **Scalability**: Identical instances
+- **Audit**: Change traceability
+- **Security**: Reduced attack surface
 
-## Inconvénients
+## Disadvantages
 
-- **Temps de build** : Images à reconstruire
-- **Stockage** : Images multiples
-- **Cold start** : Nouvelles instances
-- **Logs/État** : À externaliser
-- **Complexité initiale** : Pipeline à construire
+- **Build time**: Images to rebuild
+- **Storage**: Multiple images
+- **Cold start**: New instances
+- **Logs/State**: Must be externalized
+- **Initial complexity**: Pipeline to build
 
-## Exemples réels
+## Real-World Examples
 
-| Entreprise | Implémentation |
-|------------|----------------|
+| Company | Implementation |
+|---------|----------------|
 | **Netflix** | AMI baking, Spinnaker |
 | **Google** | Borg, Kubernetes |
 | **Spotify** | Docker partout |
@@ -298,43 +298,43 @@ spec:
 
 ## Anti-patterns
 
-| Anti-pattern | Problème | Solution |
-|--------------|----------|----------|
-| SSH en production | Modifications manuelles | Rebuild image |
-| Config locale | Drift configuration | ConfigMap/Secrets |
-| Hotfix direct | No reproductible | Pipeline CI/CD |
-| Logs locaux | Perdus au destroy | ELK/CloudWatch |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| SSH in production | Manual modifications | Rebuild image |
+| Local config | Configuration drift | ConfigMap/Secrets |
+| Direct hotfix | Not reproducible | CI/CD pipeline |
+| Local logs | Lost on destroy | ELK/CloudWatch |
 
 ## Migration path
 
-### Depuis Mutable Infrastructure
+### From Mutable Infrastructure
 
 ```
-Phase 1: Containeriser applications
-Phase 2: Externaliser configuration
-Phase 3: Implémenter pipeline CI/CD
+Phase 1: Containerize applications
+Phase 2: Externalize configuration
+Phase 3: Implement CI/CD pipeline
 Phase 4: Infrastructure as Code
-Phase 5: Éliminer accès SSH production
+Phase 5: Eliminate SSH access to production
 ```
 
-### Checklist migration
+### Migration Checklist
 
-- [ ] Applications containerisées
-- [ ] Configuration externalisée (env vars)
-- [ ] Logs vers service centralisé
-- [ ] État vers stockage externe (S3, DB)
-- [ ] Pipeline build automatisé
-- [ ] Tests sur images
-- [ ] Rollback automatisé
+- [ ] Applications containerized
+- [ ] Configuration externalized (env vars)
+- [ ] Logs to centralized service
+- [ ] State to external storage (S3, DB)
+- [ ] Automated build pipeline
+- [ ] Tests on images
+- [ ] Automated rollback
 
 ## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Blue-Green | Déploiement d'images immutables |
-| GitOps | Gestion déclarative |
-| Infrastructure as Code | Provisionning automatisé |
-| Containerisation | Immutabilité au niveau app |
+| Blue-Green | Immutable image deployment |
+| GitOps | Declarative management |
+| Infrastructure as Code | Automated provisioning |
+| Containerization | App-level immutability |
 
 ## Sources
 

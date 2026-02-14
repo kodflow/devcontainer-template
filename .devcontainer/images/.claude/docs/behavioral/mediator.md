@@ -28,10 +28,10 @@ Each component only knows the mediator.
 
 ## Problem Solved
 
-- Tightly coupled components entre eux
-- Logique de coordination dispersee
-- Difficulte a reutiliser les composants individuellement
-- Changements en cascade lors de modifications
+- Tightly coupled components with each other
+- Dispersed coordination logic
+- Difficulty reusing individual components
+- Cascading changes during modifications
 
 ---
 
@@ -293,7 +293,7 @@ func main() {
 
 ## Advantages / Disadvantages
 
-| Avantages | Inconvenients |
+| Advantages | Disadvantages |
 |-----------|---------------|
 | Reduces coupling | Mediator can become complex |
 | Single Responsibility | Single point of failure |
@@ -325,7 +325,7 @@ func main() {
 
 ## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
+| Anti-pattern | Problem | Solution |
 |--------------|----------|----------|
 | God Mediator | Too much centralized logic | Decompose into sub-mediators |
 | Notification cycles | Infinite loops | Guards and flags |

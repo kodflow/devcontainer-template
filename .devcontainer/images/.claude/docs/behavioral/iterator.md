@@ -26,10 +26,10 @@ Go natively uses this pattern with `range` and channels.
 
 ## Problem Solved
 
-- Parcourir une collection sans connaitre son implementation
+- Traverse a collection without knowing its implementation
 - Support multiple simultaneous traversals
-- Fournir une interface uniforme pour differentes structures
-- Separer la logique de parcours de la collection
+- Provide a uniform interface for different structures
+- Separate traversal logic from the collection
 
 ---
 
@@ -230,13 +230,13 @@ func main() {
 
 - Simple collections (use range directly)
 - Only one type of traversal needed
-- Performance critical (overhead d'abstraction)
+- Performance critical (abstraction overhead)
 
 ---
 
 ## Advantages / Disadvantages
 
-| Avantages | Inconvenients |
+| Advantages | Disadvantages |
 |-----------|---------------|
 | Single Responsibility | Overhead for simple collections |
 | Open/Closed Principle | Added complexity |
@@ -268,7 +268,7 @@ func main() {
 
 ## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
+| Anti-pattern | Problem | Solution |
 |--------------|----------|----------|
 | Mutable iterator | Shared state | Create new iterator |
 | Forgetting close | Resource leak (channels) | defer close() |

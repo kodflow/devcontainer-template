@@ -29,10 +29,10 @@ Each grammar rule becomes a class.
 
 ## Problem Solved
 
-- Evaluer des expressions dans un langage specifique
-- Parser et executer des requetes, regles, ou DSL
-- Definir une grammaire interpretable
-- Expressions combinables recursivement
+- Evaluate expressions in a specific language
+- Parse and execute queries, rules, or DSL
+- Define an interpretable grammar
+- Recursively combinable expressions
 
 ---
 
@@ -377,7 +377,7 @@ func main() {
 
 ## Advantages / Disadvantages
 
-| Avantages | Inconvenients |
+| Advantages | Disadvantages |
 |-----------|---------------|
 | Easy to extend | Complex grammars are difficult |
 | Explicit grammar | Limited performance |
@@ -409,7 +409,7 @@ func main() {
 
 ## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
+| Anti-pattern | Problem | Solution |
 |--------------|----------|----------|
 | Grammar too complex | Difficult maintenance | Parser generator |
 | Infinite recursion | Stack overflow | Grammar validation |

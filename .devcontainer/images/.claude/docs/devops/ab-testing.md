@@ -1,8 +1,8 @@
 # A/B Testing
 
-> Experimentation contrôlée pour valider des hypothèses avec des métriques.
+> Controlled experimentation to validate hypotheses with metrics.
 
-**Lié à:** [Feature Toggles](feature-toggles.md) (implémentation technique)
+**Related to:** [Feature Toggles](feature-toggles.md) (technical implementation)
 
 ## Principle
 
@@ -73,9 +73,9 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Implémentation
+## Implementation
 
-### Service d'expérimentation
+### Experimentation Service
 
 ```go
 package experiment
@@ -257,7 +257,7 @@ func (s *Service) trackExposure(ctx context.Context, userID, experimentID, varia
 }
 ```
 
-### Tracking des métriques
+### Metrics Tracking
 
 ```go
 package analytics
@@ -476,7 +476,7 @@ func (s *Service) isSignificant(byVariant map[string]VariantData) bool {
 }
 ```
 
-### Usage côté client
+### Client-Side Usage
 
 ```go
 package client
@@ -538,7 +538,7 @@ func CheckoutButtonHandler(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-## Calcul de taille d'échantillon
+## Sample Size Calculation
 
 ```go
 package stats
@@ -586,66 +586,66 @@ func CalculateSampleSize(
 
 ## When to Use
 
-| Utiliser | Eviter |
-|----------|--------|
-| Trafic suffisant (>1000/variante) | Faible trafic |
-| Hypothèse claire | Exploration vague |
-| Metrics définies | Pas de tracking |
-| Durée suffisante (1-4 semaines) | Besoin résultat immédiat |
-| Changements UI/UX | Changements techniques |
+| Use | Avoid |
+|-----|-------|
+| Sufficient traffic (>1000/variant) | Low traffic |
+| Clear hypothesis | Vague exploration |
+| Defined metrics | No tracking |
+| Sufficient duration (1-4 weeks) | Need immediate results |
+| UI/UX changes | Technical changes |
 
-## Avantages
+## Advantages
 
-- **Données réelles** : Décisions basées sur faits
-- **Réduction risque** : Valider avant déploiement complet
-- **Apprentissage continu** : Culture data-driven
-- **ROI mesurable** : Impact quantifiable
-- **Évite opinions** : Données vs intuition
+- **Real data**: Decisions based on facts
+- **Risk reduction**: Validate before full deployment
+- **Continuous learning**: Data-driven culture
+- **Measurable ROI**: Quantifiable impact
+- **Avoids opinions**: Data vs intuition
 
-## Inconvénients
+## Disadvantages
 
-- **Temps** : Semaines pour résultats significatifs
-- **Volume** : Besoin de trafic important
-- **Complexité** : Infrastructure dédiée
-- **Faux positifs** : Risque statistique
-- **Pollution** : Interactions entre tests
+- **Time**: Weeks for significant results
+- **Volume**: Need substantial traffic
+- **Complexity**: Dedicated infrastructure
+- **False positives**: Statistical risk
+- **Pollution**: Interactions between tests
 
-## Exemples réels
+## Real-World Examples
 
-| Entreprise | Exemple célèbre |
-|------------|-----------------|
-| **Google** | 41 nuances de bleu (liens) |
-| **Netflix** | Thumbnails personnalisées |
+| Company | Famous Example |
+|---------|----------------|
+| **Google** | 41 shades of blue (links) |
+| **Netflix** | Personalized thumbnails |
 | **Amazon** | One-click checkout |
 | **Booking** | FOMO messages |
-| **Airbnb** | Design du search |
+| **Airbnb** | Search design |
 
-## Outils
+## Tools
 
-| Outil | Type | Caractéristiques |
-|-------|------|------------------|
+| Tool | Type | Features |
+|------|------|----------|
 | **Optimizely** | SaaS | Full-stack, enterprise |
 | **LaunchDarkly** | SaaS | Feature flags + A/B |
 | **Split.io** | SaaS | Focus experimentation |
 | **Google Optimize** | Free | GA integration |
 | **Growthbook** | Open-source | Self-hosted |
-| **Statsig** | SaaS | Stats avancées |
+| **Statsig** | SaaS | Advanced stats |
 
 ## Best Practices
 
-1. **Une hypothèse par test** : Pas de changements multiples
-2. **Taille échantillon** : Calculer avant de lancer
-3. **Durée fixe** : Ne pas arrêter prématurément
-4. **Segmentation** : Analyser par segment
-5. **Documentation** : Hypothèse, résultats, learnings
+1. **One hypothesis per test**: No multiple changes
+2. **Sample size**: Calculate before launching
+3. **Fixed duration**: Do not stop prematurely
+4. **Segmentation**: Analyze by segment
+5. **Documentation**: Hypothesis, results, learnings
 
 ## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Feature Toggles | Implémentation technique |
-| Canary | A/B sur infrastructure |
-| Multivariate Testing | Extension avec combinaisons |
+| Feature Toggles | Technical implementation |
+| Canary | A/B on infrastructure |
+| Multivariate Testing | Extension with combinations |
 | Personalization | A/B + ML |
 
 ## Sources

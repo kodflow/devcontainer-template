@@ -1,6 +1,6 @@
 # Blue-Green Deployment
 
-> Deux environnements identiques permettant un basculement instantané.
+> Two identical environments enabling instant switchover.
 
 ## Principle
 
@@ -28,10 +28,10 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Workflow de déploiement
+## Deployment Workflow
 
 ```
-Phase 1: État initial                Phase 2: Déployer sur Green
+Phase 1: Initial state               Phase 2: Deploy to Green
 ┌──────┐        ┌──────┐            ┌──────┐        ┌──────┐
 │ Blue │ ◀─100%─│Router│            │ Blue │ ◀─100%─│Router│
 │ v1.0 │        └──────┘            │ v1.0 │        └──────┘
@@ -50,7 +50,7 @@ Phase 3: Tests Green                 Phase 4: Switch traffic
 └──────┘                            └──────┘
 ```
 
-## Implémentation Kubernetes
+## Kubernetes Implementation
 
 ```yaml
 # blue-deployment.yaml
@@ -113,13 +113,13 @@ metadata:
 spec:
   selector:
     app: myapp
-    version: blue  # ← Changer en "green" pour switch
+    version: blue  # ← Change to "green" to switch
   ports:
   - port: 80
     targetPort: 8080
 ```
 
-## Script de bascule
+## Switch Script
 
 ```bash
 #!/bin/bash
@@ -144,7 +144,7 @@ echo "Traffic now routing to $NEW"
 kubectl get svc myapp -o wide
 ```
 
-## Implémentation Go
+## Go Implementation
 
 ```go
 package bluegreen
@@ -157,7 +157,7 @@ import (
 	"time"
 )
 
-// Environment représente un environnement Blue ou Green.
+// Environment represents a Blue or Green environment.
 type Environment string
 
 const (
@@ -165,7 +165,7 @@ const (
 	Green Environment = "green"
 )
 
-// Deployment représente un déploiement dans un environnement.
+// Deployment represents a deployment in an environment.
 type Deployment struct {
 	Env       Environment
 	Version   string
@@ -173,7 +173,7 @@ type Deployment struct {
 	Instances int
 }
 
-// BlueGreenController gère le basculement entre environnements.
+// BlueGreenController manages switchover between environments.
 type BlueGreenController struct {
 	blue    atomic.Pointer[Deployment]
 	green   atomic.Pointer[Deployment]
@@ -182,18 +182,18 @@ type BlueGreenController struct {
 	checker HealthChecker
 }
 
-// Router définit l'interface de routage du trafic.
+// Router defines the traffic routing interface.
 type Router interface {
 	SwitchTo(ctx context.Context, env Environment) error
 	GetActiveEnvironment(ctx context.Context) (Environment, error)
 }
 
-// HealthChecker vérifie la santé d'un déploiement.
+// HealthChecker verifies the health of a deployment.
 type HealthChecker interface {
 	Check(ctx context.Context, env Environment) (bool, error)
 }
 
-// NewController crée un nouveau contrôleur Blue-Green.
+// NewController creates a new Blue-Green controller.
 func NewController(router Router, checker HealthChecker) *BlueGreenController {
 	c:= &BlueGreenController{
 		router:  router,
@@ -203,7 +203,7 @@ func NewController(router Router, checker HealthChecker) *BlueGreenController {
 	return c
 }
 
-// Deploy déploie une nouvelle version sur l'environnement inactif.
+// Deploy deploys a new version to the inactive environment.
 func (c *BlueGreenController) Deploy(ctx context.Context, version string) error {
 	inactive:= c.getInactiveEnv()
 
@@ -213,14 +213,14 @@ func (c *BlueGreenController) Deploy(ctx context.Context, version string) error 
 		Instances: 3,
 	}
 
-	// Stocker le déploiement
+	// Store the deployment
 	if inactive == Blue {
 		c.blue.Store(deployment)
 	} else {
 		c.green.Store(deployment)
 	}
 
-	// Attendre que l'environnement soit healthy
+	// Wait for the environment to be healthy
 	if err:= c.waitHealthy(ctx, inactive); err != nil {
 		return fmt.Errorf("deployment unhealthy: %w", err)
 	}
@@ -228,11 +228,11 @@ func (c *BlueGreenController) Deploy(ctx context.Context, version string) error 
 	return nil
 }
 
-// Switch bascule le trafic vers l'environnement inactif.
+// Switch routes traffic to the inactive environment.
 func (c *BlueGreenController) Switch(ctx context.Context) error {
 	inactive:= c.getInactiveEnv()
 
-	// Vérifier la santé avant switch
+	// Verify health before switch
 	healthy, err:= c.checker.Check(ctx, inactive)
 	if err != nil {
 		return fmt.Errorf("health check failed: %w", err)
@@ -241,7 +241,7 @@ func (c *BlueGreenController) Switch(ctx context.Context) error {
 		return errors.New("cannot switch: target environment unhealthy")
 	}
 
-	// Basculer le trafic
+	// Switch the traffic
 	if err:= c.router.SwitchTo(ctx, inactive); err != nil {
 		return fmt.Errorf("router switch failed: %w", err)
 	}
@@ -250,7 +250,7 @@ func (c *BlueGreenController) Switch(ctx context.Context) error {
 	return nil
 }
 
-// Rollback revient à l'environnement précédent.
+// Rollback reverts to the previous environment.
 func (c *BlueGreenController) Rollback(ctx context.Context) error {
 	return c.Switch(ctx) // Switch inverse automatiquement
 }
@@ -283,19 +283,19 @@ func (c *BlueGreenController) waitHealthy(ctx context.Context, env Environment) 
 }
 ```
 
-## Gestion de la base de données
+## Database Management
 
-### Option 1: Base partagée (simple)
+### Option 1: Shared database (simple)
 
 ```
 ┌──────┐     ┌──────┐
 │ Blue │────▶│  DB  │◀────│Green │
 └──────┘     └──────┘     └──────┘
 
-Contrainte: Migrations backward-compatible
+Constraint: Backward-compatible migrations
 ```
 
-### Option 2: Bases séparées avec sync
+### Option 2: Separate databases with sync
 
 ```
 ┌──────┐     ┌────────┐     ┌──────┐
@@ -311,76 +311,76 @@ Contrainte: Migrations backward-compatible
 
 ## When to Use
 
-| Utiliser | Eviter |
-|----------|--------|
-| Zero-downtime critique | Budget limité (double infra) |
-| Rollback instantané requis | Données temps réel (sync DB) |
-| Équipes matures | Schémas DB incompatibles |
-| Applications stateless | Systèmes hautement stateful |
-| Compliance/Audit | Petits projets/MVPs |
+| Use | Avoid |
+|-----|-------|
+| Critical zero-downtime | Limited budget (double infra) |
+| Instant rollback required | Real-time data (DB sync) |
+| Mature teams | Incompatible DB schemas |
+| Stateless applications | Highly stateful systems |
+| Compliance/Audit | Small projects/MVPs |
 
-## Avantages
+## Advantages
 
-- **Rollback instantané** : Switch retour en secondes
-- **Zero-downtime** : Aucune interruption de service
-- **Tests en production** : Valider sur Green avant switch
-- **Confiance** : Environnement identique testé
-- **Simplicité conceptuelle** : Facile à comprendre
+- **Instant rollback**: Switch back in seconds
+- **Zero-downtime**: No service interruption
+- **Production testing**: Validate on Green before switch
+- **Confidence**: Identical tested environment
+- **Conceptual simplicity**: Easy to understand
 
-## Inconvénients
+## Disadvantages
 
-- **Coût** : Double infrastructure permanente
-- **Synchronisation DB** : Complexe avec données
-- **Sessions utilisateur** : Perdues au switch
-- **Cold start** : Green peut être "froid"
-- **Schémas DB** : Migrations délicates
+- **Cost**: Permanent double infrastructure
+- **DB synchronization**: Complex with data
+- **User sessions**: Lost on switch
+- **Cold start**: Green may be "cold"
+- **DB schemas**: Delicate migrations
 
-## Exemples réels
+## Real-World Examples
 
-| Entreprise | Usage |
-|------------|-------|
-| **Netflix** | Déploiements régionaux |
-| **Amazon** | Services critiques |
-| **Etsy** | Deploy continu |
-| **Facebook** | Infrastructure massive |
+| Company | Usage |
+|---------|-------|
+| **Netflix** | Regional deployments |
+| **Amazon** | Critical services |
+| **Etsy** | Continuous deploy |
+| **Facebook** | Massive infrastructure |
 
 ## Migration path
 
-### Depuis Rolling Update
+### From Rolling Update
 
 ```
-1. Créer second environnement
-2. Configurer load balancer avec routing
-3. Automatiser switch dans CI/CD
-4. Implémenter health checks pré-switch
+1. Create second environment
+2. Configure load balancer with routing
+3. Automate switch in CI/CD
+4. Implement pre-switch health checks
 ```
 
-### Vers Canary
+### To Canary
 
 ```
-1. Ajouter routage progressif (1%, 10%, 50%, 100%)
-2. Intégrer métriques pour décision automatique
-3. Conserver Blue-Green comme fallback
+1. Add progressive routing (1%, 10%, 50%, 100%)
+2. Integrate metrics for automatic decisions
+3. Keep Blue-Green as fallback
 ```
 
 ## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Canary | Évolution avec routage progressif |
-| Immutable Infrastructure | Blue/Green sont immuables |
-| Feature Toggles | Alternative pour petits changements |
-| GitOps | Gestion déclarative des environnements |
+| Canary | Evolution with progressive routing |
+| Immutable Infrastructure | Blue/Green are immutable |
+| Feature Toggles | Alternative for small changes |
+| GitOps | Declarative environment management |
 
-## Checklist pré-déploiement
+## Pre-deployment Checklist
 
-- [ ] Green deployment créé et healthy
-- [ ] Tests automatisés passés sur Green
-- [ ] Base de données migrée (si applicable)
-- [ ] Health checks configurés
-- [ ] Rollback plan documenté
-- [ ] Monitoring en place
-- [ ] Équipe alerte pendant switch
+- [ ] Green deployment created and healthy
+- [ ] Automated tests passed on Green
+- [ ] Database migrated (if applicable)
+- [ ] Health checks configured
+- [ ] Rollback plan documented
+- [ ] Monitoring in place
+- [ ] Team alert during switch
 
 ## Sources
 

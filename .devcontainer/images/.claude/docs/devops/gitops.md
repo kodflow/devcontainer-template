@@ -1,6 +1,6 @@
 # GitOps
 
-> Git as source of truth pour l'infrastructure et les applications.
+> Git as source of truth for infrastructure and applications.
 
 ## Principle
 
@@ -28,16 +28,16 @@
                                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    KUBERNETES CLUSTER                            │
-│              (État réel = État désiré dans Git)                  │
+│              (Actual state = Desired state in Git)               │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Principes fondamentaux
+## Core Principles
 
-1. **Déclaratif** : Décrire l'état désiré, pas les actions
-2. **Versionné** : Tout dans Git (historique, rollback)
-3. **Automatisé** : Réconciliation continue
-4. **Pull-based** : L'opérateur tire les changements
+1. **Declarative**: Describe the desired state, not the actions
+2. **Versioned**: Everything in Git (history, rollback)
+3. **Automated**: Continuous reconciliation
+4. **Pull-based**: The operator pulls changes
 
 ## Workflow
 
@@ -58,7 +58,7 @@ Developer                    Git                     Cluster
     │                         │                         │
 ```
 
-## Structure de repo
+## Repo Structure
 
 ### Mono-repo
 
@@ -93,16 +93,16 @@ gitops-config/       # Manifests Kubernetes
 infrastructure/      # Terraform
 ```
 
-## Outils
+## Tools
 
-| Outil | Type | Description |
+| Tool | Type | Description |
 |-------|------|-------------|
-| **Argo CD** | Kubernetes GitOps | UI riche, sync status |
-| **Flux** | Kubernetes GitOps | Modulaire, léger |
+| **Argo CD** | Kubernetes GitOps | Rich UI, sync status |
+| **Flux** | Kubernetes GitOps | Modular, lightweight |
 | **Jenkins X** | CI/CD GitOps | Full pipeline |
 | **Terraform** | IaC | Infrastructure cloud |
 
-## Exemple Argo CD
+## Argo CD Example
 
 ```yaml
 # Application Argo CD
@@ -126,7 +126,7 @@ spec:
       selfHeal: true
 ```
 
-## Exemple Flux
+## Flux Example
 
 ```yaml
 # GitRepository
@@ -156,21 +156,21 @@ spec:
   prune: true
 ```
 
-## Avantages
+## Advantages
 
-- **Audit** : Historique Git complet
-- **Rollback** : `git revert`
-- **Review** : Pull Request pour les changements
-- **Sécurité** : Pas d'accès kubectl direct
-- **DR** : Reconstruire cluster depuis Git
+- **Audit**: Complete Git history
+- **Rollback**: `git revert`
+- **Review**: Pull Request for changes
+- **Security**: No direct kubectl access
+- **DR**: Rebuild cluster from Git
 
 ## Challenges
 
 | Challenge | Solution |
 |-----------|----------|
 | Secrets | Sealed Secrets, SOPS, Vault |
-| Ordre de déploiement | Sync waves, dependencies |
-| Environnements | Kustomize overlays |
+| Deployment order | Sync waves, dependencies |
+| Environments | Kustomize overlays |
 | Drift detection | Reconciliation loop |
 
 ## Related Patterns

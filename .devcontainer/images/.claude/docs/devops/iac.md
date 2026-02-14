@@ -1,6 +1,6 @@
 # Infrastructure as Code (IaC)
 
-> Gérer l'infrastructure via du code versionné.
+> Manage infrastructure through versioned code.
 
 ## Principle
 
@@ -29,22 +29,22 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Outils
+## Tools
 
-| Outil | Type | Provider |
-|-------|------|----------|
-| **Terraform** | Déclaratif | Multi-cloud |
-| **OpenTofu** | Déclaratif | Multi-cloud (fork OSS) |
-| **Pulumi** | Impératif | Multi-cloud |
-| **CloudFormation** | Déclaratif | AWS only |
-| **ARM/Bicep** | Déclaratif | Azure only |
+| Tool | Type | Provider |
+|------|------|----------|
+| **Terraform** | Declarative | Multi-cloud |
+| **OpenTofu** | Declarative | Multi-cloud (OSS fork) |
+| **Pulumi** | Imperative | Multi-cloud |
+| **CloudFormation** | Declarative | AWS only |
+| **ARM/Bicep** | Declarative | Azure only |
 | **Ansible** | Configuration | Multi-platform |
 
 ## Structure Terraform
 
 ```
 infrastructure/
-├── modules/                    # Modules réutilisables
+├── modules/                    # Reusable modules
 │   ├── vpc/
 │   │   ├── main.tf
 │   │   ├── variables.tf
@@ -52,7 +52,7 @@ infrastructure/
 │   ├── eks/
 │   └── rds/
 │
-├── environments/               # Par environnement
+├── environments/               # Per environment
 │   ├── dev/
 │   │   ├── main.tf
 │   │   ├── terraform.tfvars
@@ -60,12 +60,12 @@ infrastructure/
 │   ├── staging/
 │   └── prod/
 │
-└── global/                     # Ressources partagées
+└── global/                     # Shared resources
     ├── iam/
     └── dns/
 ```
 
-## Exemple Terraform
+## Terraform Example
 
 ```hcl
 # modules/vpc/main.tf
@@ -103,10 +103,10 @@ module "vpc" {
 ## Workflow
 
 ```
-1. terraform init      # Initialiser
-2. terraform plan      # Prévisualiser
-3. terraform apply     # Appliquer
-4. terraform destroy   # Détruire (attention!)
+1. terraform init      # Initialize
+2. terraform plan      # Preview
+3. terraform apply     # Apply
+4. terraform destroy   # Destroy (caution!)
 ```
 
 ## Best Practices
@@ -114,7 +114,7 @@ module "vpc" {
 ### 1. State Management
 
 ```hcl
-# backend.tf - State distant
+# backend.tf - Remote state
 terraform {
   backend "s3" {
     bucket         = "my-terraform-state"
@@ -129,22 +129,22 @@ terraform {
 ### 2. Variables & Secrets
 
 ```hcl
-# Ne JAMAIS commiter les secrets
-# Utiliser variables d'environnement ou Vault
+# NEVER commit secrets
+# Use environment variables or Vault
 
 variable "db_password" {
   type      = string
   sensitive = true
 }
 
-# Via environment
+# Via environment variable
 # export TF_VAR_db_password="secret"
 ```
 
 ### 3. Modules
 
 ```hcl
-# Réutiliser via modules
+# Reuse via modules
 module "web_server" {
   source = "./modules/ec2"
 
@@ -166,20 +166,20 @@ module "web_server" {
 
 ## Immutable vs Mutable
 
-| Approche | Description | Outil |
-|----------|-------------|-------|
-| **Immutable** | Remplacer, pas modifier | Terraform, Packer |
-| **Mutable** | Modifier en place | Ansible, Chef |
+| Approach | Description | Tool |
+|----------|-------------|------|
+| **Immutable** | Replace, do not modify | Terraform, Packer |
+| **Mutable** | Modify in place | Ansible, Chef |
 
 ```
-Immutable (recommandé):
+Immutable (recommended):
 ┌─────────┐     ┌─────────┐
-│Server v1│ ──▶ │Server v2│  (nouveau serveur)
+│Server v1│ ──▶ │Server v2│  (new server)
 └─────────┘     └─────────┘
 
 Mutable:
 ┌─────────┐     ┌─────────┐
-│Server v1│ ──▶ │Server v1│  (même serveur modifié)
+│Server v1│ ──▶ │Server v1│  (same server modified)
 └─────────┘     │  + pkg  │
                 └─────────┘
 ```
@@ -188,9 +188,9 @@ Mutable:
 
 | Pattern | Relation |
 |---------|----------|
-| GitOps | IaC dans Git |
-| Immutable Infrastructure | Serveurs remplacés |
-| Blue-Green | Deux environnements IaC |
+| GitOps | IaC in Git |
+| Immutable Infrastructure | Servers replaced |
+| Blue-Green | Two IaC environments |
 
 ## Sources
 

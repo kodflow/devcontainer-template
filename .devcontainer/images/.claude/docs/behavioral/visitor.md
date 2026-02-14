@@ -26,10 +26,10 @@ ElementA  ElementB  VisitorX  VisitorY
 
 ## Problem Solved
 
-- Ajouter des operations a une hierarchie de classes sans les modifier
-- Separer les algorithmes de la structure de donnees
-- Regrouper les operations liees dans une classe
-- Eviter de polluer les classes avec des operations non essentielles
+- Add operations to a class hierarchy without modifying them
+- Separate algorithms from the data structure
+- Group related operations in a single class
+- Avoid polluting classes with non-essential operations
 
 ---
 
@@ -378,7 +378,7 @@ func main() {
 
 ## Advantages / Disadvantages
 
-| Avantages | Inconvenients |
+| Advantages | Disadvantages |
 |-----------|---------------|
 | Open/Closed for operations | Difficult to add new elements |
 | Single Responsibility | Can violate encapsulation |
@@ -410,7 +410,7 @@ func main() {
 
 ## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
+| Anti-pattern | Problem | Solution |
 |--------------|----------|----------|
 | Monolithic visitor | Too many responsibilities | Specialized visitors |
 | Forgetting Accept | Unvisited elements | Check all types |
