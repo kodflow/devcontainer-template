@@ -1,8 +1,8 @@
 # Process Manager Pattern
 
-Orchestration de workflows complexes et Saga pattern.
+Complex workflow orchestration and Saga pattern.
 
-## Vue d'ensemble
+## Overview
 
 ```
 +------------------+     +------------------+
@@ -25,9 +25,9 @@ Orchestration de workflows complexes et Saga pattern.
 
 ## Process Manager
 
-> Coordonne l'execution d'un workflow multi-etapes.
+> Coordinates the execution of a multi-step workflow.
 
-### Schema de workflow
+### Workflow Schema
 
 ```
 +--------+     +----------+     +---------+     +---------+
@@ -129,7 +129,7 @@ func (pm *ProcessManager) RegisterCompensation(name string, step Step) {
 
 // Start initiates a new process.
 func (pm *ProcessManager) Start(ctx context.Context, processID string, initialData map[string]interface{}) error {
-	state := &ProcessState{
+	state:= &ProcessState{
 		ProcessID:   processID,
 		ProcessType: "ProcessManager",
 		CurrentStep: "start",
@@ -140,7 +140,7 @@ func (pm *ProcessManager) Start(ctx context.Context, processID string, initialDa
 		UpdatedAt:   time.Now(),
 	}
 
-	if err := pm.stateStore.Save(ctx, state); err != nil {
+	if err:= pm.stateStore.Save(ctx, state); err != nil {
 		return fmt.Errorf("saving initial state: %w", err)
 	}
 
@@ -149,7 +149,7 @@ func (pm *ProcessManager) Start(ctx context.Context, processID string, initialDa
 
 // HandleEvent processes an event from a step.
 func (pm *ProcessManager) HandleEvent(ctx context.Context, event ProcessEvent) error {
-	state, err := pm.stateStore.Load(ctx, event.ProcessID)
+	state, err:= pm.stateStore.Load(ctx, event.ProcessID)
 	if err != nil {
 		return fmt.Errorf("loading process state: %w", err)
 	}
@@ -158,7 +158,7 @@ func (pm *ProcessManager) HandleEvent(ctx context.Context, event ProcessEvent) e
 	}
 
 	// Update history
-	for i := range state.History {
+	for i:= range state.History {
 		if state.History[i].Step == state.CurrentStep && state.History[i].Status == "pending" {
 			if event.Success {
 				state.History[i].Status = "completed"
@@ -166,7 +166,7 @@ func (pm *ProcessManager) HandleEvent(ctx context.Context, event ProcessEvent) e
 				state.History[i].Status = "failed"
 				state.History[i].Error = event.Error
 			}
-			now := time.Now()
+			now:= time.Now()
 			state.History[i].CompletedAt = &now
 			state.History[i].Result = event.Payload
 			break
@@ -175,7 +175,7 @@ func (pm *ProcessManager) HandleEvent(ctx context.Context, event ProcessEvent) e
 
 	// Determine next action
 	if event.Success {
-		for k, v := range event.Payload {
+		for k, v:= range event.Payload {
 			state.Data[k] = v
 		}
 		return pm.executeNextStep(ctx, state)
@@ -195,8 +195,8 @@ func (pm *ProcessManager) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case event := <-pm.eventsCh:
-			if err := pm.HandleEvent(ctx, event); err != nil {
+		case event:= <-pm.eventsCh:
+			if err:= pm.HandleEvent(ctx, event); err != nil {
 				// Log error but continue processing
 				continue
 			}
@@ -205,7 +205,7 @@ func (pm *ProcessManager) Run(ctx context.Context) error {
 }
 
 func (pm *ProcessManager) executeNextStep(ctx context.Context, state *ProcessState) error {
-	nextStep := pm.determineNextStep(state)
+	nextStep:= pm.determineNextStep(state)
 
 	if nextStep == "" {
 		state.Status = "completed"
@@ -221,11 +221,11 @@ func (pm *ProcessManager) executeNextStep(ctx context.Context, state *ProcessSta
 	})
 	state.UpdatedAt = time.Now()
 
-	if err := pm.stateStore.Save(ctx, state); err != nil {
+	if err:= pm.stateStore.Save(ctx, state); err != nil {
 		return fmt.Errorf("saving state: %w", err)
 	}
 
-	step, exists := pm.steps[nextStep]
+	step, exists:= pm.steps[nextStep]
 	if !exists {
 		return fmt.Errorf("step not found: %s", nextStep)
 	}
@@ -241,7 +241,7 @@ func (pm *ProcessManager) determineNextStep(state *ProcessState) string {
 func (pm *ProcessManager) handleFailure(ctx context.Context, state *ProcessState, event ProcessEvent) error {
 	// Start compensation
 	state.Status = "compensating"
-	if err := pm.stateStore.Save(ctx, state); err != nil {
+	if err:= pm.stateStore.Save(ctx, state); err != nil {
 		return fmt.Errorf("saving compensating state: %w", err)
 	}
 
@@ -249,22 +249,22 @@ func (pm *ProcessManager) handleFailure(ctx context.Context, state *ProcessState
 }
 
 func (pm *ProcessManager) startCompensation(ctx context.Context, state *ProcessState) error {
-	completedSteps := []string{}
-	for _, h := range state.History {
+	completedSteps:= []string{}
+	for _, h:= range state.History {
 		if h.Status == "completed" {
 			completedSteps = append(completedSteps, h.Step)
 		}
 	}
 
 	// Compensate in reverse order
-	for i := len(completedSteps) - 1; i >= 0; i-- {
-		stepName := completedSteps[i]
-		compensation, exists := pm.compensations[stepName]
+	for i:= len(completedSteps) - 1; i >= 0; i-- {
+		stepName:= completedSteps[i]
+		compensation, exists:= pm.compensations[stepName]
 		if !exists {
 			continue
 		}
 
-		if err := compensation.Execute(ctx, state.ProcessID, state.Data); err != nil {
+		if err:= compensation.Execute(ctx, state.ProcessID, state.Data); err != nil {
 			// Log error but continue compensations
 			continue
 		}
@@ -279,7 +279,7 @@ func (pm *ProcessManager) startCompensation(ctx context.Context, state *ProcessS
 
 ## Saga Pattern
 
-> Pattern de transactions distribuees avec compensation.
+> Distributed transactions pattern with compensation.
 
 ### Schema
 
@@ -295,7 +295,7 @@ func (pm *ProcessManager) startCompensation(ctx context.Context, state *ProcessS
 +--------+     +----------+
 ```
 
-### Implementation Saga Orchestree
+### Orchestrated Saga Implementation
 
 ```go
 package saga
@@ -328,28 +328,28 @@ func NewSagaOrchestrator(steps []SagaStep, store ProcessStateStore) *SagaOrchest
 
 // Execute runs the saga.
 func (so *SagaOrchestrator) Execute(ctx context.Context, sagaID string, initialData map[string]interface{}) error {
-	executedSteps := []string{}
-	currentData := initialData
+	executedSteps:= []string{}
+	currentData:= initialData
 
-	for _, step := range so.steps {
-		if err := so.saveState(ctx, sagaID, step.Name, "executing", currentData); err != nil {
+	for _, step:= range so.steps {
+		if err:= so.saveState(ctx, sagaID, step.Name, "executing", currentData); err != nil {
 			return fmt.Errorf("saving state: %w", err)
 		}
 
-		result, err := step.Execute(ctx, currentData)
+		result, err:= step.Execute(ctx, currentData)
 		if err != nil {
-			if compErr := so.compensate(ctx, sagaID, executedSteps, currentData); compErr != nil {
+			if compErr:= so.compensate(ctx, sagaID, executedSteps, currentData); compErr != nil {
 				return fmt.Errorf("compensation failed: %w", compErr)
 			}
 			return fmt.Errorf("step %s failed: %w", step.Name, err)
 		}
 
 		executedSteps = append(executedSteps, step.Name)
-		for k, v := range result {
+		for k, v:= range result {
 			currentData[k] = v
 		}
 
-		if err := so.saveState(ctx, sagaID, step.Name, "completed", currentData); err != nil {
+		if err:= so.saveState(ctx, sagaID, step.Name, "completed", currentData); err != nil {
 			return fmt.Errorf("saving state: %w", err)
 		}
 	}
@@ -359,10 +359,10 @@ func (so *SagaOrchestrator) Execute(ctx context.Context, sagaID string, initialD
 
 func (so *SagaOrchestrator) compensate(ctx context.Context, sagaID string, executedSteps []string, data map[string]interface{}) error {
 	// Compensate in reverse order
-	for i := len(executedSteps) - 1; i >= 0; i-- {
-		stepName := executedSteps[i]
+	for i:= len(executedSteps) - 1; i >= 0; i-- {
+		stepName:= executedSteps[i]
 		var step *SagaStep
-		for j := range so.steps {
+		for j:= range so.steps {
 			if so.steps[j].Name == stepName {
 				step = &so.steps[j]
 				break
@@ -373,16 +373,16 @@ func (so *SagaOrchestrator) compensate(ctx context.Context, sagaID string, execu
 			continue
 		}
 
-		if err := so.saveState(ctx, sagaID, stepName, "compensating", data); err != nil {
+		if err:= so.saveState(ctx, sagaID, stepName, "compensating", data); err != nil {
 			return fmt.Errorf("saving compensation state: %w", err)
 		}
 
-		if err := step.Compensate(ctx, data); err != nil {
+		if err:= step.Compensate(ctx, data); err != nil {
 			_ = so.saveState(ctx, sagaID, stepName, "compensation_failed", data)
 			continue // Log but continue compensations
 		}
 
-		if err := so.saveState(ctx, sagaID, stepName, "compensated", data); err != nil {
+		if err:= so.saveState(ctx, sagaID, stepName, "compensated", data); err != nil {
 			return fmt.Errorf("saving compensated state: %w", err)
 		}
 	}
@@ -391,7 +391,7 @@ func (so *SagaOrchestrator) compensate(ctx context.Context, sagaID string, execu
 }
 
 func (so *SagaOrchestrator) saveState(ctx context.Context, sagaID, step, status string, data map[string]interface{}) error {
-	state := &ProcessState{
+	state:= &ProcessState{
 		ProcessID:   sagaID,
 		ProcessType: "Saga",
 		CurrentStep: step,
@@ -423,8 +423,8 @@ func BuildOrderSaga(
 		{
 			Name: "reserve_inventory",
 			Execute: func(ctx context.Context, data map[string]interface{}) (map[string]interface{}, error) {
-				orderData := data["order"].(OrderData)
-				result, err := inventoryService.Reserve(ctx, orderData.Items)
+				orderData:= data["order"].(OrderData)
+				result, err:= inventoryService.Reserve(ctx, orderData.Items)
 				if err != nil {
 					return nil, err
 				}
@@ -433,15 +433,15 @@ func BuildOrderSaga(
 				}, nil
 			},
 			Compensate: func(ctx context.Context, data map[string]interface{}) error {
-				reservationID := data["reservationId"].(string)
+				reservationID:= data["reservationId"].(string)
 				return inventoryService.Release(ctx, reservationID)
 			},
 		},
 		{
 			Name: "process_payment",
 			Execute: func(ctx context.Context, data map[string]interface{}) (map[string]interface{}, error) {
-				orderData := data["order"].(OrderData)
-				result, err := paymentService.Charge(ctx, orderData.CustomerID, orderData.Total)
+				orderData:= data["order"].(OrderData)
+				result, err:= paymentService.Charge(ctx, orderData.CustomerID, orderData.Total)
 				if err != nil {
 					return nil, err
 				}
@@ -450,15 +450,15 @@ func BuildOrderSaga(
 				}, nil
 			},
 			Compensate: func(ctx context.Context, data map[string]interface{}) error {
-				paymentID := data["paymentId"].(string)
+				paymentID:= data["paymentId"].(string)
 				return paymentService.Refund(ctx, paymentID)
 			},
 		},
 		{
 			Name: "create_shipment",
 			Execute: func(ctx context.Context, data map[string]interface{}) (map[string]interface{}, error) {
-				orderData := data["order"].(OrderData)
-				result, err := shippingService.CreateShipment(ctx, orderData)
+				orderData:= data["order"].(OrderData)
+				result, err:= shippingService.CreateShipment(ctx, orderData)
 				if err != nil {
 					return nil, err
 				}
@@ -467,7 +467,7 @@ func BuildOrderSaga(
 				}, nil
 			},
 			Compensate: func(ctx context.Context, data map[string]interface{}) error {
-				shipmentID := data["shipmentId"].(string)
+				shipmentID:= data["shipmentId"].(string)
 				return shippingService.CancelShipment(ctx, shipmentID)
 			},
 		},
@@ -505,7 +505,7 @@ type ShipmentResult struct {
 
 ---
 
-## Saga Choregraphiee
+## Choreographed Saga
 
 ```go
 package choreography
@@ -541,7 +541,7 @@ func NewOrderService(bus EventBus) *OrderService {
 
 // Start starts the order service event loop.
 func (os *OrderService) Start(ctx context.Context) error {
-	orderCh, err := os.eventBus.Subscribe(ctx, "orders")
+	orderCh, err:= os.eventBus.Subscribe(ctx, "orders")
 	if err != nil {
 		return err
 	}
@@ -551,8 +551,8 @@ func (os *OrderService) Start(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case event := <-os.orderCh:
-			if err := os.handleEvent(ctx, event); err != nil {
+		case event:= <-os.orderCh:
+			if err:= os.handleEvent(ctx, event); err != nil {
 				// Log error but continue
 				continue
 			}
@@ -594,7 +594,7 @@ func (os *OrderService) handleInventoryReserved(ctx context.Context, event Event
 
 func (os *OrderService) handlePaymentFailed(ctx context.Context, event Event) error {
 	// Trigger compensation
-	if err := os.eventBus.Publish(ctx, "inventory", Event{
+	if err:= os.eventBus.Publish(ctx, "inventory", Event{
 		Type: "ReleaseInventory",
 		Payload: map[string]interface{}{
 			"orderId":       event.Payload["orderId"],
@@ -616,7 +616,7 @@ func (os *OrderService) updateOrderStatus(ctx context.Context, orderID, status s
 
 ---
 
-## Gestion d'etat persistant
+## Persistent State Management
 
 ```go
 package persistence
@@ -643,17 +643,17 @@ func NewPostgresProcessStateStore(db *sql.DB) *PostgresProcessStateStore {
 
 // Save saves process state.
 func (ps *PostgresProcessStateStore) Save(ctx context.Context, state *ProcessState) error {
-	dataJSON, err := json.Marshal(state.Data)
+	dataJSON, err:= json.Marshal(state.Data)
 	if err != nil {
 		return fmt.Errorf("marshaling data: %w", err)
 	}
 
-	historyJSON, err := json.Marshal(state.History)
+	historyJSON, err:= json.Marshal(state.History)
 	if err != nil {
 		return fmt.Errorf("marshaling history: %w", err)
 	}
 
-	query := `
+	query:= `
 		INSERT INTO process_states (
 			process_id, process_type, current_step, status, 
 			data, history, started_at, updated_at
@@ -688,7 +688,7 @@ func (ps *PostgresProcessStateStore) Save(ctx context.Context, state *ProcessSta
 
 // Load loads process state.
 func (ps *PostgresProcessStateStore) Load(ctx context.Context, processID string) (*ProcessState, error) {
-	query := `
+	query:= `
 		SELECT process_id, process_type, current_step, status,
 		       data, history, started_at, updated_at
 		FROM process_states
@@ -698,7 +698,7 @@ func (ps *PostgresProcessStateStore) Load(ctx context.Context, processID string)
 	var state ProcessState
 	var dataJSON, historyJSON []byte
 
-	err := ps.db.QueryRowContext(ctx, query, processID).Scan(
+	err:= ps.db.QueryRowContext(ctx, query, processID).Scan(
 		&state.ProcessID,
 		&state.ProcessType,
 		&state.CurrentStep,
@@ -716,11 +716,11 @@ func (ps *PostgresProcessStateStore) Load(ctx context.Context, processID string)
 		return nil, fmt.Errorf("querying process state: %w", err)
 	}
 
-	if err := json.Unmarshal(dataJSON, &state.Data); err != nil {
+	if err:= json.Unmarshal(dataJSON, &state.Data); err != nil {
 		return nil, fmt.Errorf("unmarshaling data: %w", err)
 	}
 
-	if err := json.Unmarshal(historyJSON, &state.History); err != nil {
+	if err:= json.Unmarshal(historyJSON, &state.History); err != nil {
 		return nil, fmt.Errorf("unmarshaling history: %w", err)
 	}
 
@@ -729,25 +729,25 @@ func (ps *PostgresProcessStateStore) Load(ctx context.Context, processID string)
 
 // FindByStatus finds processes by status.
 func (ps *PostgresProcessStateStore) FindByStatus(ctx context.Context, status string) ([]*ProcessState, error) {
-	query := `
+	query:= `
 		SELECT process_id, process_type, current_step, status,
 		       data, history, started_at, updated_at
 		FROM process_states
 		WHERE status = $1
 	`
 
-	rows, err := ps.db.QueryContext(ctx, query, status)
+	rows, err:= ps.db.QueryContext(ctx, query, status)
 	if err != nil {
 		return nil, fmt.Errorf("querying process states: %w", err)
 	}
 	defer rows.Close()
 
-	states := []*ProcessState{}
+	states:= []*ProcessState{}
 	for rows.Next() {
 		var state ProcessState
 		var dataJSON, historyJSON []byte
 
-		if err := rows.Scan(
+		if err:= rows.Scan(
 			&state.ProcessID,
 			&state.ProcessType,
 			&state.CurrentStep,
@@ -760,11 +760,11 @@ func (ps *PostgresProcessStateStore) FindByStatus(ctx context.Context, status st
 			return nil, fmt.Errorf("scanning row: %w", err)
 		}
 
-		if err := json.Unmarshal(dataJSON, &state.Data); err != nil {
+		if err:= json.Unmarshal(dataJSON, &state.Data); err != nil {
 			return nil, fmt.Errorf("unmarshaling data: %w", err)
 		}
 
-		if err := json.Unmarshal(historyJSON, &state.History); err != nil {
+		if err:= json.Unmarshal(historyJSON, &state.History); err != nil {
 			return nil, fmt.Errorf("unmarshaling history: %w", err)
 		}
 
@@ -776,7 +776,7 @@ func (ps *PostgresProcessStateStore) FindByStatus(ctx context.Context, status st
 
 // RecoverStuckProcesses recovers stuck processes.
 func (ps *PostgresProcessStateStore) RecoverStuckProcesses(ctx context.Context, timeout time.Duration) ([]*ProcessState, error) {
-	query := `
+	query:= `
 		SELECT process_id, process_type, current_step, status,
 		       data, history, started_at, updated_at
 		FROM process_states
@@ -784,19 +784,19 @@ func (ps *PostgresProcessStateStore) RecoverStuckProcesses(ctx context.Context, 
 		  AND updated_at < $1
 	`
 
-	cutoff := time.Now().Add(-timeout)
-	rows, err := ps.db.QueryContext(ctx, query, cutoff)
+	cutoff:= time.Now().Add(-timeout)
+	rows, err:= ps.db.QueryContext(ctx, query, cutoff)
 	if err != nil {
 		return nil, fmt.Errorf("querying stuck processes: %w", err)
 	}
 	defer rows.Close()
 
-	states := []*ProcessState{}
+	states:= []*ProcessState{}
 	for rows.Next() {
 		var state ProcessState
 		var dataJSON, historyJSON []byte
 
-		if err := rows.Scan(
+		if err:= rows.Scan(
 			&state.ProcessID,
 			&state.ProcessType,
 			&state.CurrentStep,
@@ -809,11 +809,11 @@ func (ps *PostgresProcessStateStore) RecoverStuckProcesses(ctx context.Context, 
 			return nil, fmt.Errorf("scanning row: %w", err)
 		}
 
-		if err := json.Unmarshal(dataJSON, &state.Data); err != nil {
+		if err:= json.Unmarshal(dataJSON, &state.Data); err != nil {
 			return nil, fmt.Errorf("unmarshaling data: %w", err)
 		}
 
-		if err := json.Unmarshal(historyJSON, &state.History); err != nil {
+		if err:= json.Unmarshal(historyJSON, &state.History); err != nil {
 			return nil, fmt.Errorf("unmarshaling history: %w", err)
 		}
 
@@ -826,24 +826,24 @@ func (ps *PostgresProcessStateStore) RecoverStuckProcesses(ctx context.Context, 
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Orchestration de workflows multi-etapes avec gestion d'etat
-- Transactions distribuees necessitant des compensations (Saga pattern)
-- Processus metier complexes avec branchements conditionnels
-- Coordination de services distribues avec suivi de progression
-- Gestion de processus long-running avec reprise apres echec
+- Multi-step workflow orchestration with state management
+- Distributed transactions requiring compensations (Saga pattern)
+- Complex business processes with conditional branching
+- Distributed service coordination with progress tracking
+- Long-running process management with failure recovery
 
-## Patterns lies
+## Related Patterns
 
-- [Transactional Outbox](./transactional-outbox.md) - Fiabilite des messages
-- [Idempotent Receiver](./idempotent-receiver.md) - Eviter les duplications
-- [Dead Letter Channel](./dead-letter.md) - Gestion des echecs de process
-- [Message Router](./message-router.md) - Routage des etapes du workflow
+- [Transactional Outbox](./transactional-outbox.md) - Message reliability
+- [Idempotent Receiver](./idempotent-receiver.md) - Avoid duplications
+- [Dead Letter Channel](./dead-letter.md) - Process failure handling
+- [Message Router](./message-router.md) - Workflow step routing
 
-## Patterns complementaires
+## Complementary Patterns
 
-- **Routing Slip** - Workflow dynamique
-- **Dead Letter Channel** - Echecs de process
-- **Idempotent Receiver** - Eviter duplications
-- **Transactional Outbox** - Fiabilite des messages
+- **Routing Slip** - Dynamic workflow
+- **Dead Letter Channel** - Process failures
+- **Idempotent Receiver** - Avoid duplications
+- **Transactional Outbox** - Message reliability

@@ -4,16 +4,16 @@
 
 ## Concept
 
-Active Record combine les donnees et le comportement de persistance dans un seul objet. Chaque instance represente une ligne de la base de donnees et sait comment se sauvegarder, se charger et se supprimer.
+Active Record combines data and persistence behavior in a single object. Each instance represents a row in the database and knows how to save, load, and delete itself.
 
-## Caracteristiques
+## Characteristics
 
-1. **Mapping 1:1** : Une classe = une table
-2. **CRUD integre** : Methodes save(), find(), delete()
-3. **Logique metier** : Peut contenir des validations et comportements
-4. **Simplicite** : Pas de couche de mapping separee
+1. **1:1 Mapping**: One class = one table
+2. **Built-in CRUD**: save(), find(), delete() methods
+3. **Business logic**: Can contain validations and behaviors
+4. **Simplicity**: No separate mapping layer
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package activerecord
@@ -319,56 +319,56 @@ func contains(s, substr string) bool {
 }
 ```
 
-## Comparaison avec alternatives
+## Comparison with Alternatives
 
 | Aspect | Active Record | Data Mapper | Table Gateway |
 |--------|---------------|-------------|---------------|
-| Couplage | Fort (DB in entity) | Faible | Moyen |
-| Simplicite | Elevee | Faible | Moyenne |
-| Testabilite | Moyenne | Elevee | Moyenne |
-| Rich Domain | Difficile | Facile | Non applicable |
+| Coupling | Strong (DB in entity) | Low | Medium |
+| Simplicity | High | Low | Medium |
+| Testability | Medium | High | Medium |
+| Rich Domain | Difficult | Easy | Not applicable |
 | Frameworks | Rails, Laravel, Django | Hibernate, Doctrine | - |
 
-## Quand utiliser
+## When to Use
 
-**Utiliser Active Record quand :**
+**Use Active Record when:**
 
-- Schema DB = modele objet (1:1)
-- Logique metier simple a moderee
-- Prototypage rapide
-- Applications CRUD
-- Equipe familiere avec Rails/Laravel
+- DB schema = object model (1:1)
+- Simple to moderate business logic
+- Rapid prototyping
+- CRUD applications
+- Team familiar with Rails/Laravel
 
-**Eviter Active Record quand :**
+**Avoid Active Record when:**
 
-- Domain Model complexe avec invariants
-- Schema DB different du modele objet
-- Tests unitaires purs necessaires
-- Logique metier riche
+- Complex Domain Model with invariants
+- DB schema different from object model
+- Pure unit tests needed
+- Rich business logic
 
-## Relation avec DDD
+## Relationship with DDD
 
-Active Record est **deconseille en DDD** car :
+Active Record is **discouraged in DDD** because:
 
-1. **Couplage fort** : L'entite connait sa persistance
-2. **Testabilite reduite** : Besoin de DB pour tester
-3. **Anemic tendance** : Logique migre vers services
+1. **Strong coupling**: The entity knows its persistence
+2. **Reduced testability**: DB needed for testing
+3. **Anemic tendency**: Logic migrates to services
 
-## Frameworks populaires
+## Popular Frameworks
 
-| Framework | Langage | Active Record |
+| Framework | Language | Active Record |
 |-----------|---------|---------------|
 | Ruby on Rails | Ruby | ActiveRecord |
 | Laravel | PHP | Eloquent |
 | Django | Python | ORM Models |
 | GORM | Go | Active Record mode |
 
-## Patterns liés
+## Related Patterns
 
-- [Data Mapper](./data-mapper.md) - Alternative avec separation domaine/persistance
-- [Domain Model](./domain-model.md) - Alternative pour logique metier riche
-- [Transaction Script](./transaction-script.md) - Alternative procedurale simple
-- [Repository](./repository.md) - Abstraction de persistance pour Domain Model
+- [Data Mapper](./data-mapper.md) - Alternative with domain/persistence separation
+- [Domain Model](./domain-model.md) - Alternative for rich business logic
+- [Transaction Script](./transaction-script.md) - Simple procedural alternative
+- [Repository](./repository.md) - Persistence abstraction for Domain Model
 
 ## Sources
 

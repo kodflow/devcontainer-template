@@ -6,7 +6,7 @@ Enterprise Integration Patterns - Gregor Hohpe & Bobby Woolf.
 
 ### 1. Command Message
 
-> Message qui demande une action.
+> Message that requests an action.
 
 ```go
 interface CommandMessage<T = unknown> {
@@ -29,14 +29,14 @@ const command: CommandMessage<CreateOrderPayload> = {
 await messageBus.send('orders', command);
 ```
 
-**Quand :** Déclencher des actions, CQRS commands.
-**Lié à :** Document Message, Event Message.
+**When:** Trigger actions, CQRS commands.
+**Related to:** Document Message, Event Message.
 
 ---
 
 ### 2. Event Message
 
-> Notification d'un fait passé.
+> Notification of a past fact.
 
 ```go
 interface EventMessage<T = unknown> {
@@ -60,14 +60,14 @@ const event: EventMessage<OrderCreatedPayload> = {
 await eventBus.publish('order-events', event);
 ```
 
-**Quand :** Event sourcing, notifications, découplage.
-**Lié à :** Command Message, Observer.
+**When:** Event sourcing, notifications, decoupling.
+**Related to:** Command Message, Observer.
 
 ---
 
 ### 3. Document Message
 
-> Message contenant des données.
+> Message containing data.
 
 ```go
 interface DocumentMessage<T = unknown> {
@@ -97,14 +97,14 @@ const doc: DocumentMessage<CustomerData> = {
 };
 ```
 
-**Quand :** Transfert de données, synchronisation.
-**Lié à :** Command Message.
+**When:** Data transfer, synchronization.
+**Related to:** Command Message.
 
 ---
 
 ### 4. Request-Reply
 
-> Message avec attente de réponse.
+> Message with expected response.
 
 ```go
 class RequestReplyClient {
@@ -139,14 +139,14 @@ class RequestReplyClient {
 const result = await client.request('calculator', { operation: 'add', a: 1, b: 2 });
 ```
 
-**Quand :** RPC over messaging, queries.
-**Lié à :** Correlation Identifier.
+**When:** RPC over messaging, queries.
+**Related to:** Correlation Identifier.
 
 ---
 
 ### 5. Correlation Identifier
 
-> Lier requête et réponse.
+> Link request and response.
 
 ```go
 interface CorrelatedMessage {
@@ -170,14 +170,14 @@ class MessageTracker {
 }
 ```
 
-**Quand :** Suivi de transactions, debugging distribué.
-**Lié à :** Request-Reply.
+**When:** Transaction tracking, distributed debugging.
+**Related to:** Request-Reply.
 
 ---
 
 ### 6. Message Sequence
 
-> Ensemble de messages ordonnés.
+> Set of ordered messages.
 
 ```go
 interface SequencedMessage {
@@ -212,14 +212,14 @@ class SequenceAssembler {
 }
 ```
 
-**Quand :** Gros messages, streaming.
-**Lié à :** Splitter, Aggregator.
+**When:** Large messages, streaming.
+**Related to:** Splitter, Aggregator.
 
 ---
 
 ### 7. Message Expiration
 
-> TTL sur les messages.
+> TTL on messages.
 
 ```go
 interface ExpirableMessage {
@@ -254,8 +254,8 @@ class MessageProcessor {
 }
 ```
 
-**Quand :** Timeouts, données périssables.
-**Lié à :** Dead Letter Channel.
+**When:** Timeouts, perishable data.
+**Related to:** Dead Letter Channel.
 
 ---
 
@@ -263,7 +263,7 @@ class MessageProcessor {
 
 ### 8. Content-Based Router
 
-> Router selon le contenu du message.
+> Route according to message content.
 
 ```go
 class ContentBasedRouter {
@@ -292,14 +292,14 @@ const destination = router.route(message);
 await messageBus.send(destination, message);
 ```
 
-**Quand :** Routing dynamique, règles métier.
-**Lié à :** Message Filter, Recipient List.
+**When:** Dynamic routing, business rules.
+**Related to:** Message Filter, Recipient List.
 
 ---
 
 ### 9. Message Filter
 
-> Supprimer les messages non désirés.
+> Remove unwanted messages.
 
 ```go
 type Predicate<T> = (message: T) => boolean;
@@ -326,14 +326,14 @@ const validOrderFilter = new MessageFilter<Order>(
 );
 ```
 
-**Quand :** Validation, nettoyage, sécurité.
-**Lié à :** Content-Based Router.
+**When:** Validation, cleanup, security.
+**Related to:** Content-Based Router.
 
 ---
 
 ### 10. Recipient List
 
-> Envoyer à plusieurs destinataires.
+> Send to multiple recipients.
 
 ```go
 class RecipientList {
@@ -364,14 +364,14 @@ class RecipientList {
 }
 ```
 
-**Quand :** Multicast, notifications multiples.
-**Lié à :** Publish-Subscribe.
+**When:** Multicast, multiple notifications.
+**Related to:** Publish-Subscribe.
 
 ---
 
 ### 11. Splitter
 
-> Diviser un message en plusieurs.
+> Split a message into multiple.
 
 ```go
 class OrderSplitter {
@@ -396,14 +396,14 @@ class Splitter<T, U> {
 }
 ```
 
-**Quand :** Traitement parallèle, distribution.
-**Lié à :** Aggregator.
+**When:** Parallel processing, distribution.
+**Related to:** Aggregator.
 
 ---
 
 ### 12. Aggregator
 
-> Combiner plusieurs messages en un.
+> Combine multiple messages into one.
 
 ```go
 class Aggregator<T, R> {
@@ -445,14 +445,14 @@ const orderAggregator = new Aggregator<OrderItemResult, OrderResult>(
 );
 ```
 
-**Quand :** Après Splitter, attente réponses multiples.
-**Lié à :** Splitter, Scatter-Gather.
+**When:** After Splitter, waiting for multiple responses.
+**Lié à:** Splitter, Scatter-Gather.
 
 ---
 
 ### 13. Scatter-Gather
 
-> Envoyer et collecter les réponses.
+> Send and collect responses.
 
 ```go
 class ScatterGather<T, R> {
@@ -494,17 +494,17 @@ const priceChecker = new ScatterGather<Product, PriceQuote>(
   5000,
 );
 const quotes = await priceChecker.scatter(product);
-const bestPrice = quotes.reduce((min, q) => q.price < min.price ? q : min);
+const bestPrice = quotes.reduce((min, q) => q.price < min.price ? q: min);
 ```
 
-**Quand :** Comparaison, best-of, quorum.
-**Lié à :** Recipient List, Aggregator.
+**When:** Comparison, best-of, quorum.
+**Related to:** Recipient List, Aggregator.
 
 ---
 
 ### 14. Routing Slip
 
-> Itinéraire dynamique pour le message.
+> Dynamic itinerary for the message.
 
 ```go
 interface RoutingSlip {
@@ -547,14 +547,14 @@ class RoutingSlipProcessor {
 }
 ```
 
-**Quand :** Workflows dynamiques, pipelines.
-**Lié à :** Process Manager.
+**When:** Dynamic workflows, pipelines.
+**Related to:** Process Manager.
 
 ---
 
 ### 15. Process Manager
 
-> Orchestrer un workflow complexe.
+> Orchestrate a complex workflow.
 
 ```go
 interface ProcessState {
@@ -599,8 +599,8 @@ class OrderProcessManager {
 }
 ```
 
-**Quand :** Sagas, orchestration, long-running processes.
-**Lié à :** Saga, Routing Slip.
+**When:** Sagas, orchestration, long-running processes.
+**Related to:** Saga, Routing Slip.
 
 ---
 
@@ -608,7 +608,7 @@ class OrderProcessManager {
 
 ### 16. Message Translator
 
-> Convertir entre formats.
+> Convert between formats.
 
 ```go
 interface MessageTranslator<S, T> {
@@ -641,14 +641,14 @@ class LegacyOrderTranslator implements MessageTranslator<LegacyOrder, ModernOrde
 }
 ```
 
-**Quand :** Intégration legacy, formats multiples.
-**Lié à :** Adapter, Canonical Data Model.
+**When:** Legacy integration, multiple formats.
+**Related to:** Adapter, Canonical Data Model.
 
 ---
 
 ### 17. Envelope Wrapper
 
-> Ajouter des métadonnées au message.
+> Add metadata to the message.
 
 ```go
 interface Envelope<T> {
@@ -682,14 +682,14 @@ class EnvelopeWrapper {
 }
 ```
 
-**Quand :** Métadonnées, transport agnostique.
-**Lié à :** Message, Header.
+**When:** Metadata, transport agnostic.
+**Related to:** Message, Header.
 
 ---
 
 ### 18. Content Enricher
 
-> Ajouter des données manquantes.
+> Add missing data.
 
 ```go
 class OrderEnricher {
@@ -722,14 +722,14 @@ class OrderEnricher {
 }
 ```
 
-**Quand :** Données partielles, agrégation.
-**Lié à :** Content Filter.
+**When:** Partial data, aggregation.
+**Related to:** Content Filter.
 
 ---
 
 ### 19. Content Filter
 
-> Supprimer des données non nécessaires.
+> Remove unnecessary data.
 
 ```go
 class SensitiveDataFilter {
@@ -756,14 +756,14 @@ class ContentFilter<T, R> {
 }
 ```
 
-**Quand :** Sécurité, privacy, réduire taille.
-**Lié à :** Content Enricher.
+**When:** Security, privacy, reduce size.
+**Related to:** Content Enricher.
 
 ---
 
 ### 20. Normalizer
 
-> Transformer formats variés en format canonique.
+> Transform various formats into a canonical format.
 
 ```go
 interface CanonicalOrder {
@@ -802,8 +802,8 @@ class OrderNormalizer {
 }
 ```
 
-**Quand :** Sources multiples, intégration.
-**Lié à :** Canonical Data Model, Translator.
+**When:** Multiple sources, integration.
+**Related to:** Canonical Data Model, Translator.
 
 ---
 
@@ -811,7 +811,7 @@ class OrderNormalizer {
 
 ### 21. Polling Consumer
 
-> Consumer qui interroge périodiquement.
+> Consumer that polls periodically.
 
 ```go
 class PollingConsumer {
@@ -853,14 +853,14 @@ class PollingConsumer {
 }
 ```
 
-**Quand :** Queues sans push, batch processing.
-**Lié à :** Event-Driven Consumer.
+**When:** Queues without push, batch processing.
+**Related to:** Event-Driven Consumer.
 
 ---
 
 ### 22. Event-Driven Consumer
 
-> Consumer réactif aux événements.
+> Consumer reactive to events.
 
 ```go
 class EventDrivenConsumer {
@@ -912,14 +912,14 @@ class BackpressureConsumer {
 }
 ```
 
-**Quand :** Real-time, réactif, scalable.
-**Lié à :** Polling Consumer.
+**When:** Real-time, reactive, scalable.
+**Related to:** Polling Consumer.
 
 ---
 
 ### 23. Competing Consumers
 
-> Plusieurs consumers sur la même queue.
+> Multiple consumers on the same queue.
 
 ```go
 class CompetingConsumers {
@@ -948,14 +948,14 @@ class CompetingConsumers {
 // Queue handles distribution and load balancing
 ```
 
-**Quand :** Scalabilité horizontale, load balancing.
-**Lié à :** Message Dispatcher.
+**When:** Horizontal scalability, load balancing.
+**Related to:** Message Dispatcher.
 
 ---
 
 ### 24. Message Dispatcher
 
-> Router les messages vers les handlers appropriés.
+> Route messages to appropriate handlers.
 
 ```go
 type MessageHandler = (message: any) => Promise<void>;
@@ -983,14 +983,14 @@ dispatcher.register('OrderCreated', sendConfirmationEmail);
 dispatcher.register('PaymentReceived', handlePayment);
 ```
 
-**Quand :** Command handlers, event handlers.
-**Lié à :** Observer, Mediator.
+**When:** Command handlers, event handlers.
+**Related to:** Observer, Mediator.
 
 ---
 
 ### 25. Selective Consumer
 
-> Consumer qui filtre les messages.
+> Consumer that filters messages.
 
 ```go
 class SelectiveConsumer {
@@ -1025,14 +1025,14 @@ const highPriorityConsumer = new SelectiveConsumer(
 );
 ```
 
-**Quand :** Filtrage messages, spécialisation.
-**Lié à :** Message Filter.
+**When:** Message filtering, specialization.
+**Related to:** Message Filter.
 
 ---
 
 ### 26. Durable Subscriber
 
-> Subscription qui survit aux déconnexions.
+> Subscription that survives disconnections.
 
 ```go
 class DurableSubscriber {
@@ -1063,14 +1063,14 @@ const subscriber = new DurableSubscriber('order-service-1', 'order-events');
 await subscriber.subscribe('orders.*', handleOrderEvent);
 ```
 
-**Quand :** Fiabilité, offline, reprise.
-**Lié à :** Guaranteed Delivery.
+**When:** Reliability, offline, recovery.
+**Related to:** Guaranteed Delivery.
 
 ---
 
 ### 27. Idempotent Receiver
 
-> Handler qui gère les duplicates.
+> Handler that manages duplicates.
 
 ```go
 class IdempotentReceiver {
@@ -1116,8 +1116,8 @@ class IdempotentReceiverWithTTL {
 }
 ```
 
-**Quand :** At-least-once delivery, retries.
-**Lié à :** Guaranteed Delivery.
+**When:** At-least-once delivery, retries.
+**Related to:** Guaranteed Delivery.
 
 ---
 
@@ -1125,7 +1125,7 @@ class IdempotentReceiverWithTTL {
 
 ### 28. Point-to-Point Channel
 
-> Un message va à un seul consumer.
+> A message goes to a single consumer.
 
 ```go
 class PointToPointChannel {
@@ -1153,14 +1153,14 @@ class PointToPointChannel {
 }
 ```
 
-**Quand :** Commands, job queues, work distribution.
-**Lié à :** Publish-Subscribe.
+**When:** Commands, job queues, work distribution.
+**Related to:** Publish-Subscribe.
 
 ---
 
 ### 29. Publish-Subscribe Channel
 
-> Un message va à tous les subscribers.
+> A message goes to all subscribers.
 
 ```go
 class PublishSubscribeChannel {
@@ -1200,14 +1200,14 @@ class PublishSubscribeChannel {
 }
 ```
 
-**Quand :** Events, notifications, broadcasting.
-**Lié à :** Observer.
+**When:** Events, notifications, broadcasting.
+**Related to:** Observer.
 
 ---
 
 ### 30. Dead Letter Channel
 
-> Queue pour messages non traitables.
+> Queue for unprocessable messages.
 
 ```go
 class DeadLetterChannel {
@@ -1256,14 +1256,14 @@ class MessageProcessor {
 }
 ```
 
-**Quand :** Error handling, debugging, retry exhaust.
-**Lié à :** Guaranteed Delivery.
+**When:** Error handling, debugging, retry exhaust.
+**Related to:** Guaranteed Delivery.
 
 ---
 
 ### 31. Guaranteed Delivery
 
-> Assurer la livraison du message.
+> Ensure message delivery.
 
 ```go
 class GuaranteedDelivery {
@@ -1307,41 +1307,41 @@ class GuaranteedDelivery {
 }
 ```
 
-**Quand :** Fiabilité critique, transactions.
-**Lié à :** Outbox Pattern, Transactional Messaging.
+**When:** Critical reliability, transactions.
+**Related to:** Outbox Pattern, Transactional Messaging.
 
 ---
 
-## Tableau de décision
+## Decision Table
 
-| Besoin | Pattern |
+| Need | Pattern |
 |--------|---------|
-| Action à exécuter | Command Message |
-| Notification fait | Event Message |
-| Requête/réponse | Request-Reply |
-| Lier messages | Correlation Identifier |
-| Router dynamiquement | Content-Based Router |
-| Filtrer messages | Message Filter |
-| Envoyer à plusieurs | Recipient List |
-| Diviser message | Splitter |
-| Combiner messages | Aggregator |
-| Comparer sources | Scatter-Gather |
-| Workflow dynamique | Routing Slip |
+| Action to execute | Command Message |
+| Notification of fact | Event Message |
+| Request/response | Request-Reply |
+| Link messages | Correlation Identifier |
+| Route dynamically | Content-Based Router |
+| Filter messages | Message Filter |
+| Send to multiple | Recipient List |
+| Split message | Splitter |
+| Combine messages | Aggregator |
+| Compare sources | Scatter-Gather |
+| Dynamic workflow | Routing Slip |
 | Orchestration | Process Manager |
-| Convertir format | Message Translator |
-| Ajouter métadonnées | Envelope Wrapper |
-| Enrichir données | Content Enricher |
-| Traitement par lot | Polling Consumer |
-| Réactif | Event-Driven Consumer |
-| Scaling horizontal | Competing Consumers |
-| Router handlers | Message Dispatcher |
-| Filtrer à la réception | Selective Consumer |
-| Survie déconnexion | Durable Subscriber |
-| Gérer duplicates | Idempotent Receiver |
-| Un seul destinataire | Point-to-Point |
+| Convert format | Message Translator |
+| Add metadata | Envelope Wrapper |
+| Enrich data | Content Enricher |
+| Batch processing | Polling Consumer |
+| Reactive | Event-Driven Consumer |
+| Horizontal scaling | Competing Consumers |
+| Route handlers | Message Dispatcher |
+| Filter on reception | Selective Consumer |
+| Survive disconnection | Durable Subscriber |
+| Handle duplicates | Idempotent Receiver |
+| Single recipient | Point-to-Point |
 | Broadcast | Publish-Subscribe |
-| Erreurs | Dead Letter Channel |
-| Fiabilité | Guaranteed Delivery |
+| Errors | Dead Letter Channel |
+| Reliability | Guaranteed Delivery |
 
 ## Sources
 

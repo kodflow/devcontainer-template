@@ -4,16 +4,16 @@
 
 ## Concept
 
-Unit of Work est un pattern qui garde trace de toutes les modifications effectuees lors d'une transaction metier et coordonne l'ecriture de ces modifications en une seule operation atomique.
+Unit of Work is a pattern that keeps track of all modifications made during a business transaction and coordinates writing those changes in a single atomic operation.
 
-## Responsabilites
+## Responsibilities
 
-1. **Tracking** : Suivre les objets nouveaux, modifies, supprimes
-2. **Commit** : Persister tous les changements en une transaction
-3. **Rollback** : Annuler les changements en cas d'erreur
-4. **Concurrency** : Gerer les conflits de concurrence
+1. **Tracking**: Track new, modified, and deleted objects
+2. **Commit**: Persist all changes in a single transaction
+3. **Rollback**: Undo changes in case of error
+4. **Concurrency**: Handle concurrency conflicts
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package uow
@@ -61,17 +61,17 @@ func Register[T Entity](r *MapperRegistry, typeName string, mapper DataMapper[T]
 func GetMapper[T Entity](r *MapperRegistry, typeName string) (DataMapper[T], error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	mapper, ok := r.mappers[typeName]
 	if !ok {
 		return nil, fmt.Errorf("no mapper registered for %s", typeName)
 	}
-	
+
 	dm, ok := mapper.(DataMapper[T])
 	if !ok {
 		return nil, fmt.Errorf("mapper type mismatch for %s", typeName)
 	}
-	
+
 	return dm, nil
 }
 
@@ -103,24 +103,24 @@ func NewUnitOfWork(db *sql.DB, mappers *MapperRegistry) *UnitOfWork {
 func (u *UnitOfWork) RegisterNew(entity Entity) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	
+
 	id := entity.GetID()
 	if id == "" {
 		return fmt.Errorf("entity must have an ID")
 	}
-	
+
 	if _, exists := u.deletedEntities[id]; exists {
 		return fmt.Errorf("cannot register deleted entity as new")
 	}
-	
+
 	if _, exists := u.dirtyEntities[id]; exists {
 		return fmt.Errorf("entity already registered as dirty")
 	}
-	
+
 	if _, exists := u.cleanEntities[id]; exists {
 		return fmt.Errorf("entity already registered as clean")
 	}
-	
+
 	u.newEntities[id] = entity
 	return nil
 }
@@ -129,23 +129,23 @@ func (u *UnitOfWork) RegisterNew(entity Entity) error {
 func (u *UnitOfWork) RegisterDirty(entity Entity) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	
+
 	id := entity.GetID()
 	if id == "" {
 		return fmt.Errorf("entity must have an ID")
 	}
-	
+
 	if _, exists := u.deletedEntities[id]; exists {
 		return fmt.Errorf("cannot register deleted entity as dirty")
 	}
-	
+
 	// Don't track if already new
 	if _, exists := u.newEntities[id]; !exists {
 		if _, exists := u.dirtyEntities[id]; !exists {
 			u.dirtyEntities[id] = entity
 		}
 	}
-	
+
 	return nil
 }
 
@@ -153,7 +153,7 @@ func (u *UnitOfWork) RegisterDirty(entity Entity) error {
 func (u *UnitOfWork) RegisterClean(entity Entity) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	
+
 	id := entity.GetID()
 	u.cleanEntities[id] = entity
 }
@@ -162,15 +162,15 @@ func (u *UnitOfWork) RegisterClean(entity Entity) {
 func (u *UnitOfWork) RegisterDeleted(entity Entity) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	
+
 	id := entity.GetID()
-	
+
 	// If new, just remove from tracking
 	if _, exists := u.newEntities[id]; exists {
 		delete(u.newEntities, id)
 		return
 	}
-	
+
 	delete(u.dirtyEntities, id)
 	delete(u.cleanEntities, id)
 	u.deletedEntities[id] = entity
@@ -180,40 +180,40 @@ func (u *UnitOfWork) RegisterDeleted(entity Entity) {
 func (u *UnitOfWork) Commit(ctx context.Context) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	
+
 	tx, err := u.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback()
-	
+
 	u.tx = tx
-	
+
 	// 1. Insert new entities
 	for _, entity := range u.newEntities {
 		if err := u.insertEntity(ctx, entity); err != nil {
 			return fmt.Errorf("insert entity: %w", err)
 		}
 	}
-	
+
 	// 2. Update dirty entities
 	for _, entity := range u.dirtyEntities {
 		if err := u.updateEntity(ctx, entity); err != nil {
 			return fmt.Errorf("update entity: %w", err)
 		}
 	}
-	
+
 	// 3. Delete removed entities
 	for _, entity := range u.deletedEntities {
 		if err := u.deleteEntity(ctx, entity); err != nil {
 			return fmt.Errorf("delete entity: %w", err)
 		}
 	}
-	
+
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
-	
+
 	u.clear()
 	return nil
 }
@@ -248,7 +248,7 @@ func (u *UnitOfWork) deleteEntity(ctx context.Context, entity Entity) error {
 }
 ```
 
-## Unit of Work avec Repositories
+## Unit of Work with Repositories
 
 ```go
 package repository
@@ -305,11 +305,11 @@ func (r *OrderRepository) FindByID(ctx context.Context, id string) (*Order, erro
 	if err != nil {
 		return nil, fmt.Errorf("find order: %w", err)
 	}
-	
+
 	if order != nil {
 		r.uow.RegisterClean(order)
 	}
-	
+
 	return order, nil
 }
 
@@ -350,7 +350,7 @@ func (s *OrderService) PlaceOrder(ctx context.Context, customerID string, items 
 		CustomerID: customerID,
 		Status:     "draft",
 	}
-	
+
 	for _, item := range items {
 		product, err := s.productRepo.FindByID(ctx, item.ProductID)
 		if err != nil {
@@ -359,28 +359,28 @@ func (s *OrderService) PlaceOrder(ctx context.Context, customerID string, items 
 		if product == nil {
 			return nil, fmt.Errorf("product not found: %s", item.ProductID)
 		}
-		
+
 		if err := product.ReduceStock(item.Quantity); err != nil {
 			return nil, fmt.Errorf("reduce stock: %w", err)
 		}
 		// Product becomes dirty automatically
-		
+
 		order.Items = append(order.Items, OrderItem{
 			ProductID: product.ID,
 			Quantity:  item.Quantity,
 		})
 	}
-	
+
 	order.Status = "submitted"
 	if err := s.orderRepo.Add(order); err != nil {
 		return nil, fmt.Errorf("add order: %w", err)
 	}
-	
+
 	// Single commit for all changes
 	if err := s.uow.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
 	}
-	
+
 	return order, nil
 }
 
@@ -395,35 +395,35 @@ func generateID() string {
 }
 ```
 
-## Comparaison avec alternatives
+## Comparison with Alternatives
 
 | Aspect | Unit of Work | Transaction Script | Active Record |
 |--------|--------------|-------------------|---------------|
-| Tracking | Automatique | Manuel | Dans l'objet |
-| Atomicite | Garantie | Manuelle | Par objet |
+| Tracking | Automatic | Manual | In the object |
+| Atomicity | Guaranteed | Manual | Per object |
 | Performance | Batch operations | Individual | Individual |
-| Complexite | Elevee | Faible | Faible |
+| Complexity | High | Low | Low |
 
-## Quand utiliser
+## When to Use
 
-**Utiliser Unit of Work quand :**
+**Use Unit of Work when:**
 
-- Transactions impliquant plusieurs entites
-- Besoin de batch inserts/updates
-- ORM avec change tracking
-- Optimistic locking complex
+- Transactions involving multiple entities
+- Need for batch inserts/updates
+- ORM with change tracking
+- Complex optimistic locking
 
-**Eviter Unit of Work quand :**
+**Avoid Unit of Work when:**
 
-- CRUD simple
-- Une seule entite par transaction
-- Pas de Domain Model
+- Simple CRUD
+- Single entity per transaction
+- No Domain Model
 
-## Relation avec DDD
+## Relationship with DDD
 
-Unit of Work s'aligne avec les **Aggregate boundaries**.
+Unit of Work aligns with **Aggregate boundaries**.
 
-## Frameworks et ORMs
+## Frameworks and ORMs
 
 | Framework | Unit of Work |
 |-----------|--------------|
@@ -431,12 +431,12 @@ Unit of Work s'aligne avec les **Aggregate boundaries**.
 | sqlx | Manual with sql.Tx |
 | ent | Transaction API |
 
-## Patterns associes
+## Related Patterns
 
-- **Identity Map** : Cache des objets charges
-- **Data Mapper** : Persistance des entites
-- **Repository** : Interface collection-like
-- **Domain Events** : Publies au commit
+- **Identity Map**: Cache of loaded objects
+- **Data Mapper**: Entity persistence
+- **Repository**: Collection-like interface
+- **Domain Events**: Published at commit
 
 ## Sources
 

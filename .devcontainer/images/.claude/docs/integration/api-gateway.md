@@ -1,10 +1,10 @@
 # API Gateway Pattern
 
-> Point d'entree unique pour tous les clients, centralisant authentification, routage et policies.
+> Single entry point for all clients, centralizing authentication, routing, and policies.
 
 ---
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -30,25 +30,25 @@
 
 ---
 
-## Responsabilites
+## Responsibilities
 
-| Fonction | Description |
+| Function | Description |
 |----------|-------------|
-| **Routing** | Diriger les requetes vers les bons services |
-| **Authentication** | Valider les tokens, API keys |
-| **Authorization** | Verifier les permissions |
-| **Rate Limiting** | Limiter le debit par client |
-| **Caching** | Cache des reponses |
-| **Request/Response Transformation** | Adapter les formats |
-| **Load Balancing** | Distribuer la charge |
-| **SSL Termination** | Gerer les certificats |
-| **Logging/Metrics** | Observabilite centralisee |
+| **Routing** | Direct requests to the correct services |
+| **Authentication** | Validate tokens, API keys |
+| **Authorization** | Verify permissions |
+| **Rate Limiting** | Limit throughput per client |
+| **Caching** | Cache responses |
+| **Request/Response Transformation** | Adapt formats |
+| **Load Balancing** | Distribute load |
+| **SSL Termination** | Manage certificates |
+| **Logging/Metrics** | Centralized observability |
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### Gateway basique
+### Basic Gateway
 
 ```go
 package gateway
@@ -100,7 +100,7 @@ func NewAPIGateway(port int, logger *slog.Logger) *APIGateway {
 	}
 
 	mux := http.NewServeMux()
-	
+
 	return &APIGateway{
 		mux: mux,
 		server: &http.Server{
@@ -125,7 +125,7 @@ func (g *APIGateway) RegisterRoute(config RouteConfig) error {
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
-	
+
 	// Build middleware chain
 	handler := g.proxyHandler(proxy, config.Path)
 
@@ -290,7 +290,7 @@ func (g *APIGateway) rateLimitMiddleware(config *RateLimitConfig) func(http.Hand
 
 			limiter.mu.Lock()
 			timestamps := limiter.buckets[key]
-			
+
 			// Remove expired timestamps
 			valid := make([]int64, 0, len(timestamps))
 			for _, ts := range timestamps {
@@ -398,7 +398,7 @@ func (g *APIGateway) writeError(w http.ResponseWriter, code int, message string)
 
 ---
 
-### Configuration et usage
+### Configuration and Usage
 
 ```go
 package main
@@ -418,7 +418,7 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	gw := gateway.NewAPIGateway(3000, logger)
 
-	// Routes publiques
+	// Public routes
 	if err := gw.RegisterRoute(gateway.RouteConfig{
 		Path:   "/api/products/",
 		Target: "http://product-service:8080",
@@ -431,7 +431,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Routes authentifiees
+	// Authenticated routes
 	if err := gw.RegisterRoute(gateway.RouteConfig{
 		Path:   "/api/users/",
 		Target: "http://user-service:8080",
@@ -458,7 +458,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Routes admin (rate limit strict)
+	// Admin routes (strict rate limit)
 	if err := gw.RegisterRoute(gateway.RouteConfig{
 		Path:   "/api/admin/",
 		Target: "http://admin-service:8080",
@@ -586,7 +586,7 @@ func (trw *transformingResponseWriter) Flush() {
 	trw.ResponseWriter.Write(trw.buf.Bytes())
 }
 
-// Usage example: Adapter un legacy API
+// Usage example: Adapt a legacy API
 func setupLegacyRoute(gw *TransformingGateway) error {
 	return gw.RegisterTransformRoute(
 		RouteConfig{
@@ -787,8 +787,8 @@ func fetchJSONArray(ctx context.Context, url string) ([]map[string]interface{}, 
 
 ## Technologies
 
-| Technologie | Type | Usage |
-|-------------|------|-------|
+| Technology | Type | Usage |
+|------------|------|-------|
 | Kong | Open Source | Feature-rich, plugins |
 | AWS API Gateway | Managed | Serverless, AWS integration |
 | Apigee | Enterprise | Google Cloud, analytics |
@@ -798,33 +798,33 @@ func fetchJSONArray(ctx context.Context, url string) ([]map[string]interface{}, 
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Microservices avec plusieurs clients
-- Besoin de centraliser l'authentification
-- Rate limiting et quotas par client
-- Aggregation de donnees de plusieurs services
-- Versionning d'API
-
----
-
-## Quand NE PAS utiliser
-
-- Application monolithique simple
-- Communication service-to-service uniquement
-- Latence critique (chaque hop ajoute du delai)
-- Equipe trop petite pour maintenir
+- Microservices with multiple clients
+- Need to centralize authentication
+- Rate limiting and quotas per client
+- Data aggregation from multiple services
+- API versioning
 
 ---
 
-## Lie a
+## When NOT to Use
+
+- Simple monolithic application
+- Service-to-service communication only
+- Critical latency (each hop adds delay)
+- Team too small to maintain
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| [BFF](bff.md) | BFF derriere le gateway |
-| [Sidecar](sidecar.md) | Alternative pour certaines fonctions |
-| [Rate Limiting](../resilience/rate-limiting.md) | Implemente dans le gateway |
-| [Circuit Breaker](../resilience/circuit-breaker.md) | Protection des backends |
+| [BFF](bff.md) | BFF behind the gateway |
+| [Sidecar](sidecar.md) | Alternative for certain functions |
+| [Rate Limiting](../resilience/rate-limiting.md) | Implemented in the gateway |
+| [Circuit Breaker](../resilience/circuit-breaker.md) | Backend protection |
 
 ---
 

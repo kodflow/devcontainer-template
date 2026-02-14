@@ -1,8 +1,8 @@
 # Message Translator Patterns
 
-Patterns de transformation et enrichissement des messages.
+Message transformation and enrichment patterns.
 
-## Vue d'ensemble
+## Overview
 
 ```
 +------------+     +------------------+     +------------+
@@ -19,7 +19,7 @@ Patterns de transformation et enrichissement des messages.
 
 ## Message Translator
 
-> Convertit un message d'un format vers un autre.
+> Converts a message from one format to another.
 
 ### Schema
 
@@ -128,14 +128,14 @@ func NewLegacyToModernTranslator() *LegacyToModernTranslator {
 
 // CanTranslate checks if source is legacy order.
 func (t *LegacyToModernTranslator) CanTranslate(source interface{}) bool {
-	_, ok := source.(LegacyOrder)
+	_, ok:= source.(LegacyOrder)
 	return ok
 }
 
 // Translate converts legacy to modern order.
 func (t *LegacyToModernTranslator) Translate(ctx context.Context, legacy LegacyOrder) (ModernOrder, error) {
-	items := make([]ModernItem, len(legacy.Items))
-	for i, item := range legacy.Items {
+	items:= make([]ModernItem, len(legacy.Items))
+	for i, item:= range legacy.Items {
 		items[i] = ModernItem{
 			ProductID: item.ProdID,
 			Quantity:  item.Qty,
@@ -155,14 +155,14 @@ func (t *LegacyToModernTranslator) Translate(ctx context.Context, legacy LegacyO
 }
 ```
 
-**Quand :** Integration legacy, migration, formats multiples.
-**Lie a :** Adapter pattern, Normalizer.
+**When:** Legacy integration, migration, multiple formats.
+**Related to:** Adapter pattern, Normalizer.
 
 ---
 
 ## Envelope Wrapper
 
-> Ajoute des metadonnees de transport au message.
+> Adds transport metadata to the message.
 
 ### Envelope Schema
 
@@ -249,7 +249,7 @@ func WithPriority(priority string) Option {
 
 // Wrap wraps a message in an envelope.
 func (ew *EnvelopeWrapper) Wrap[T any](ctx context.Context, message T, opts ...Option) Envelope[T] {
-	header := EnvelopeHeader{
+	header:= EnvelopeHeader{
 		MessageID:   uuid.New().String(),
 		Timestamp:   time.Now(),
 		Source:      ew.source,
@@ -257,7 +257,7 @@ func (ew *EnvelopeWrapper) Wrap[T any](ctx context.Context, message T, opts ...O
 		ContentType: "application/json",
 	}
 
-	for _, opt := range opts {
+	for _, opt:= range opts {
 		opt(&header)
 	}
 
@@ -306,12 +306,12 @@ func (tp *TranslationPipeline[S, T]) Start(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case msg, ok := <-tp.inputCh:
+		case msg, ok:= <-tp.inputCh:
 			if !ok {
 				return nil
 			}
 
-			translated, err := tp.translator.Translate(ctx, msg)
+			translated, err:= tp.translator.Translate(ctx, msg)
 			if err != nil {
 				select {
 				case tp.errorCh <- err:
@@ -331,14 +331,14 @@ func (tp *TranslationPipeline[S, T]) Start(ctx context.Context) error {
 }
 ```
 
-**Quand :** Transport agnostique, tracing, audit.
-**Lie a :** Correlation Identifier, Message Header.
+**When:** Transport agnostic, tracing, audit.
+**Related to:** Correlation Identifier, Message Header.
 
 ---
 
 ## Content Enricher
 
-> Ajoute des donnees manquantes depuis des sources externes.
+> Adds missing data from external sources.
 
 ### Enricher Schema
 
@@ -413,17 +413,17 @@ func (ce *ContentEnricher[T]) AddEnrichment[K comparable, V any](
 
 // Enrich enriches a message.
 func (ce *ContentEnricher[T]) Enrich(ctx context.Context, message T) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
+	result:= make(map[string]interface{})
 
 	var mu sync.Mutex
-	errCh := make(chan error, len(ce.enrichments))
+	errCh:= make(chan error, len(ce.enrichments))
 	var wg sync.WaitGroup
 
-	for _, enr := range ce.enrichments {
-		enrCaptured := enr
+	for _, enr:= range ce.enrichments {
+		enrCaptured:= enr
 		wg.Go(func() {
-			key := enrCaptured.keyExtractor(message)
-			source, ok := enrCaptured.source.(interface {
+			key:= enrCaptured.keyExtractor(message)
+			source, ok:= enrCaptured.source.(interface {
 				Fetch(context.Context, interface{}) (interface{}, error)
 			})
 			if !ok {
@@ -431,15 +431,15 @@ func (ce *ContentEnricher[T]) Enrich(ctx context.Context, message T) (map[string
 				return
 			}
 
-			data, err := source.Fetch(ctx, key)
+			data, err:= source.Fetch(ctx, key)
 			if err != nil {
 				errCh <- fmt.Errorf("fetching enrichment: %w", err)
 				return
 			}
 
-			partial := enrCaptured.merger(message, data)
+			partial:= enrCaptured.merger(message, data)
 			mu.Lock()
-			for k, v := range partial {
+			for k, v:= range partial {
 				result[k] = v
 			}
 			mu.Unlock()
@@ -449,7 +449,7 @@ func (ce *ContentEnricher[T]) Enrich(ctx context.Context, message T) (map[string
 	wg.Wait()
 	close(errCh)
 
-	if err := <-errCh; err != nil {
+	if err:= <-errCh; err != nil {
 		return nil, err
 	}
 
@@ -483,18 +483,18 @@ func NewEnrichmentPipeline[T any](
 func (ep *EnrichmentPipeline[T]) Start(ctx context.Context, concurrency int) error {
 	var wg sync.WaitGroup
 
-	for i := 0; i < concurrency; i++ {
+	for i:= 0; i < concurrency; i++ {
 		wg.Go(func() {
 			for {
 				select {
 				case <-ctx.Done():
 					return
-				case msg, ok := <-ep.inputCh:
+				case msg, ok:= <-ep.inputCh:
 					if !ok {
 						return
 					}
 
-					enriched, err := ep.enricher.Enrich(ctx, msg)
+					enriched, err:= ep.enricher.Enrich(ctx, msg)
 					if err != nil {
 						select {
 						case ep.errorCh <- err:
@@ -519,14 +519,14 @@ func (ep *EnrichmentPipeline[T]) Start(ctx context.Context, concurrency int) err
 }
 ```
 
-**Quand :** Donnees partielles, agregation, denormalisation.
-**Lie a :** Content Filter, Aggregator.
+**When:** Partial data, aggregation, denormalization.
+**Related to:** Content Filter, Aggregator.
 
 ---
 
 ## Content Filter
 
-> Supprime les donnees non necessaires ou sensibles.
+> Removes unnecessary or sensitive data.
 
 ### Filter Schema
 
@@ -578,7 +578,7 @@ func Chain[A, B, C any](
 	second *ContentFilter[B, C],
 ) *ContentFilter[A, C] {
 	return NewContentFilter(func(ctx context.Context, input A) (C, error) {
-		intermediate, err := first.Filter(ctx, input)
+		intermediate, err:= first.Filter(ctx, input)
 		if err != nil {
 			var zero C
 			return zero, err
@@ -648,12 +648,12 @@ func (fp *FilterPipeline[TInput, TOutput]) Start(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case msg, ok := <-fp.inputCh:
+		case msg, ok:= <-fp.inputCh:
 			if !ok {
 				return nil
 			}
 
-			filtered, err := fp.filter.Filter(ctx, msg)
+			filtered, err:= fp.filter.Filter(ctx, msg)
 			if err != nil {
 				select {
 				case fp.errorCh <- err:
@@ -673,40 +673,40 @@ func (fp *FilterPipeline[TInput, TOutput]) Start(ctx context.Context) error {
 }
 ```
 
-**Quand :** Securite, privacy, reduction de payload.
-**Lie a :** Content Enricher, Message Filter.
+**When:** Security, privacy, payload reduction.
+**Related to:** Content Enricher, Message Filter.
 
 ---
 
-## Tableau de decision
+## Decision Table
 
-| Pattern | Cas d'usage | Direction |
+| Pattern | Use Case | Direction |
 |---------|-------------|-----------|
-| Translator | Conversion format | A -> B |
-| Envelope | Metadonnees transport | + metadata |
-| Enricher | Ajouter donnees | + data |
-| Filter | Retirer donnees | - data |
+| Translator | Format conversion | A -> B |
+| Envelope | Transport metadata | + metadata |
+| Enricher | Add data | + data |
+| Filter | Remove data | - data |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Integration de systemes legacy avec des formats de donnees differents
-- Migration progressive entre formats anciens et nouveaux
-- Enrichissement de messages avec donnees externes (clients, produits)
-- Filtrage de donnees sensibles (PII) avant transmission
-- Normalisation de messages provenant de sources heterogenes
+- Integration of legacy systems with different data formats
+- Progressive migration between old and new formats
+- Message enrichment with external data (customers, products)
+- Filtering sensitive data (PII) before transmission
+- Normalization of messages from heterogeneous sources
 
-## Patterns lies
+## Related Patterns
 
-- [Pipes and Filters](./pipes-filters.md) - Chainer les transformations
-- [Message Channel](./message-channel.md) - Transport des messages transformes
-- [Splitter-Aggregator](./splitter-aggregator.md) - Division et recomposition
-- [Process Manager](./process-manager.md) - Orchestration des transformations
+- [Pipes and Filters](./pipes-filters.md) - Chain transformations
+- [Message Channel](./message-channel.md) - Transport of transformed messages
+- [Splitter-Aggregator](./splitter-aggregator.md) - Split and recombine
+- [Process Manager](./process-manager.md) - Transformation orchestration
 
-## Patterns complementaires
+## Complementary Patterns
 
-- **Normalizer** - Multiples formats vers canonique
-- **Canonical Data Model** - Format standard
-- **Claim Check** - Stocker payload large
-- **Pipes and Filters** - Chainer transformations
+- **Normalizer** - Multiple formats to canonical
+- **Canonical Data Model** - Standard format
+- **Claim Check** - Store large payload
+- **Pipes and Filters** - Chain transformations

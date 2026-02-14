@@ -2,9 +2,9 @@
 
 > Déploiement progressif vers un sous-ensemble d'utilisateurs pour validation.
 
-**Origine :** Canaris dans les mines de charbon (alerte précoce)
+**Origine:** Canaris dans les mines de charbon (alerte précoce)
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -126,7 +126,7 @@ spec:
           sum(rate(http_requests_total{app="myapp",role="canary"}[5m]))
 ```
 
-## Métriques de décision
+## Metrics de décision
 
 ```go
 package canary
@@ -170,9 +170,9 @@ func EvaluateCanary(canaryMetrics, baselineMetrics CanaryMetrics) Decision {
 	}
 
 	// Pause if latency degraded significantly
-	threshold := baselineMetrics.LatencyP99 * 1.2
+	threshold:= baselineMetrics.LatencyP99 * 1.2
 	if canaryMetrics.LatencyP99 > threshold {
-		degradation := ((canaryMetrics.LatencyP99 - baselineMetrics.LatencyP99) / baselineMetrics.LatencyP99) * 100
+		degradation:= ((canaryMetrics.LatencyP99 - baselineMetrics.LatencyP99) / baselineMetrics.LatencyP99) * 100
 		return Decision{
 			Action: ActionPause,
 			Reason: fmt.Sprintf("Latency degraded %.1f%% (threshold: 20%%)", degradation),
@@ -252,7 +252,7 @@ http:
       subset: canary
 ```
 
-## Quand utiliser
+## When to Use
 
 | Utiliser | Eviter |
 |----------|--------|
@@ -265,7 +265,7 @@ http:
 ## Avantages
 
 - **Risque minimisé** : Impact limité si problème
-- **Validation réelle** : Métriques en production
+- **Validation réelle** : Metrics en production
 - **Rollback automatique** : Basé sur métriques
 - **Confiance graduelle** : Augmentation progressive
 - **A/B testing implicite** : Comparaison versions
@@ -273,7 +273,7 @@ http:
 ## Inconvénients
 
 - **Complexité** : Infrastructure de routage
-- **Observabilité requise** : Métriques essentielles
+- **Observabilité requise** : Metrics essentielles
 - **Temps de déploiement** : Plus long que Blue-Green
 - **Volume minimum** : Besoin de trafic significatif
 - **État partagé** : Complexe avec données
@@ -282,7 +282,7 @@ http:
 
 | Entreprise | Implémentation |
 |------------|----------------|
-| **Google** | Rollout progressif GKE |
+| **Google** | Progressive rollout GKE |
 | **Netflix** | Spinnaker + Kayenta |
 | **LinkedIn** | LiX (A/B + Canary) |
 | **Facebook** | Gatekeeper system |
@@ -308,7 +308,7 @@ http:
 4. GitOps pour configuration
 ```
 
-## Patterns liés
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
@@ -319,7 +319,7 @@ http:
 
 ## Checklist
 
-- [ ] Métriques définies (SLI/SLO)
+- [ ] Metrics définies (SLI/SLO)
 - [ ] Seuils de rollback configurés
 - [ ] Alerting en place
 - [ ] Runbook rollback documenté

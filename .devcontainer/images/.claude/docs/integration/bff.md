@@ -1,16 +1,16 @@
 # Backend for Frontend (BFF) Pattern
 
-> Une API backend dediee pour chaque type de client (web, mobile, IoT).
+> A dedicated backend API for each client type (web, mobile, IoT).
 
 ---
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                  BACKEND FOR FRONTEND                            │
 │                                                                  │
-│  Sans BFF:                       Avec BFF:                       │
+│  Without BFF:                    With BFF:                       │
 │                                                                  │
 │  ┌────┐ ┌────┐ ┌────┐           ┌────┐ ┌────┐ ┌────┐            │
 │  │Web │ │iOS │ │IoT │           │Web │ │iOS │ │IoT │            │
@@ -29,29 +29,29 @@
 │     │   API    │                   │          │                 │
 │     └──────────┘                   └──────────┘                 │
 │                                                                  │
-│  Problemes:                     Avantages:                      │
-│  - Over-fetching               - Donnees optimisees             │
-│  - Under-fetching              - Format adapte                   │
-│  - Compromis pour tous         - Moins de round-trips           │
+│  Problems:                       Advantages:                     │
+│  - Over-fetching               - Optimized data                  │
+│  - Under-fetching              - Adapted format                  │
+│  - Compromises for all         - Fewer round-trips               │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Cas d'usage par plateforme
+## Use Cases by Platform
 
-| Client | Besoins specifiques |
-|--------|---------------------|
+| Client | Specific Needs |
+|--------|----------------|
 | **Web** | Pagination, SEO metadata, large payloads OK |
-| **Mobile** | Payloads compacts, offline support, battery |
+| **Mobile** | Compact payloads, offline support, battery |
 | **IoT** | Minimal data, binary protocols, low bandwidth |
-| **Watch** | Tres compact, notifications, health data |
+| **Watch** | Very compact, notifications, health data |
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### BFF Web
+### Web BFF
 
 ```go
 package bff
@@ -143,22 +143,22 @@ func NewWebBFF(port int, logger *slog.Logger) *WebBFF {
 }
 
 func (b *WebBFF) setupRoutes() {
-	// Liste produits avec toutes les infos pour SEO et UX web
+	// Product list with all info for SEO and web UX
 	b.mux.HandleFunc("/products", b.handleProducts)
-	
-	// Detail produit complet pour web
+
+	// Full product detail for web
 	b.mux.HandleFunc("/products/", b.handleProductDetail)
 }
 
 func (b *WebBFF) handleProducts(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	page := getIntParam(r, "page", 1)
 	pageSize := getIntParam(r, "pageSize", 20)
 	category := r.URL.Query().Get("category")
 	sort := r.URL.Query().Get("sort")
 
-	// Aggregation de plusieurs services en parallele
+	// Aggregate from multiple services in parallel
 	type result struct {
 		products   *ProductsResult
 		filters    []Filter
@@ -314,7 +314,7 @@ func (b *WebBFF) fetchAggregatedData(ctx context.Context, page, pageSize int, ca
 	}
 	filters := []Filter{}
 	breadcrumb := []string{"Home", category}
-	
+
 	return products, filters, breadcrumb, nil
 }
 
@@ -323,7 +323,7 @@ func (b *WebBFF) fetchProductDetails(ctx context.Context, id string) (*Product, 
 	product := &Product{}
 	reviews := &ReviewsResult{}
 	related := []Product{}
-	
+
 	return product, reviews, related, nil
 }
 
@@ -356,12 +356,12 @@ func getIntParam(r *http.Request, name string, defaultValue int) int {
 	if value == "" {
 		return defaultValue
 	}
-	
+
 	intValue, err := strconv.Atoi(value)
 	if err != nil {
 		return defaultValue
 	}
-	
+
 	return intValue
 }
 
@@ -375,7 +375,7 @@ func truncate(s string, maxLen int) string {
 
 ---
 
-### BFF Mobile
+### Mobile BFF
 
 ```go
 package bff
@@ -436,13 +436,13 @@ func NewMobileBFF(port int, logger *slog.Logger) *MobileBFF {
 }
 
 func (b *MobileBFF) setupRoutes() {
-	// Liste produits optimisee pour mobile
+	// Product list optimized for mobile
 	b.mux.HandleFunc("/products", b.handleProducts)
-	
-	// Detail produit compact
+
+	// Compact product detail
 	b.mux.HandleFunc("/products/", b.handleProductDetail)
-	
-	// Endpoint separe pour lazy loading
+
+	// Separate endpoint for lazy loading
 	b.mux.HandleFunc("/products/{id}/reviews", b.handleProductReviews)
 }
 
@@ -475,7 +475,7 @@ func (b *MobileBFF) handleProducts(w http.ResponseWriter, r *http.Request) {
 		HasMore:    products.HasMore,
 	}
 
-	// Headers pour caching mobile
+	// Headers for mobile caching
 	etag := b.generateETag(response)
 	w.Header().Set("Cache-Control", "public, max-age=300")
 	w.Header().Set("ETag", etag)
@@ -506,7 +506,7 @@ func (b *MobileBFF) handleProductDetail(w http.ResponseWriter, r *http.Request) 
 		"rating":      product.Rating.Average,
 		"reviewCount": product.Rating.Count,
 		"inStock":     product.Stock > 0,
-		// Pas de related products, reviews - lazy load
+		// No related products, reviews - lazy load
 	}
 
 	b.writeJSON(w, response)
@@ -589,7 +589,7 @@ func (b *MobileBFF) writeError(w http.ResponseWriter, code int, message string) 
 
 ---
 
-### BFF IoT
+### IoT BFF
 
 ```go
 package bff
@@ -640,7 +640,7 @@ func NewIoTBFF(port int, logger *slog.Logger) *IoTBFF {
 func (b *IoTBFF) setupRoutes() {
 	// Minimal data for constrained devices
 	b.mux.HandleFunc("/p", b.handleProducts)
-	
+
 	// Price check only (for barcode scanners)
 	b.mux.HandleFunc("/p/", b.handleProductPrice)
 }
@@ -658,7 +658,7 @@ func (b *IoTBFF) handleProducts(w http.ResponseWriter, r *http.Request) {
 		if p.Stock > 0 {
 			stockFlag = 1
 		}
-		
+
 		response[i] = IoTProductData{
 			I: p.ID,
 			P: int(p.Price * 100), // Cents, integer
@@ -716,38 +716,38 @@ func (b *IoTBFF) writeError(w http.ResponseWriter, code int, message string) {
 
 ---
 
-## GraphQL Federation comme alternative
+## GraphQL Federation as an Alternative
 
-GraphQL offre une alternative au pattern BFF en permettant aux clients de demander exactement les données dont ils ont besoin via un seul endpoint. Chaque client (web, mobile) peut effectuer des requêtes différentes adaptées à ses besoins spécifiques.
-
----
-
-## Quand utiliser
-
-- Plusieurs types de clients (web, mobile, desktop)
-- Besoins tres differents par plateforme
-- Optimisation reseau critique (mobile)
-- Equipes frontend independantes
+GraphQL offers an alternative to the BFF pattern by allowing clients to request exactly the data they need through a single endpoint. Each client (web, mobile) can perform different queries tailored to its specific needs.
 
 ---
 
-## Quand NE PAS utiliser
+## When to Use
 
-- Un seul type de client
-- API RESTful simple suffit
-- Equipe trop petite pour maintenir plusieurs BFFs
-- Clients avec besoins similaires
+- Multiple client types (web, mobile, desktop)
+- Very different needs per platform
+- Critical network optimization (mobile)
+- Independent frontend teams
 
 ---
 
-## Lie a
+## When NOT to Use
+
+- A single client type
+- Simple RESTful API is sufficient
+- Team too small to maintain multiple BFFs
+- Clients with similar needs
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| [API Gateway](api-gateway.md) | BFF derriere le gateway |
-| GraphQL | Alternative avec un seul endpoint |
-| [Sidecar](sidecar.md) | Fonctions partagees entre BFFs |
-| CQRS | Read models par client |
+| [API Gateway](api-gateway.md) | BFF behind the gateway |
+| GraphQL | Alternative with a single endpoint |
+| [Sidecar](sidecar.md) | Shared functions between BFFs |
+| CQRS | Read models per client |
 
 ---
 

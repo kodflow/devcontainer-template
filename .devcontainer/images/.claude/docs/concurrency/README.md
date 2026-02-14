@@ -1,12 +1,12 @@
 # Concurrency Patterns
 
-Patterns pour la programmation concurrente et parallèle.
+Patterns for concurrent and parallel programming.
 
-## Les 15 Patterns
+## The 15 Patterns
 
 ### 1. Thread Pool
 
-> Pool de workers pour exécuter des tâches en parallèle.
+> Pool of workers for executing tasks in parallel.
 
 ```go
 class ThreadPool {
@@ -53,14 +53,14 @@ const results = await Promise.all(
 );
 ```
 
-**Quand :** Limiter la concurrence, CPU-bound tasks, rate limiting.
-**Lié à :** Object Pool, Executor.
+**When:** Limit concurrency, CPU-bound tasks, rate limiting.
+**Related:** Object Pool, Executor.
 
 ---
 
 ### 2. Producer-Consumer
 
-> Séparer production et consommation via une queue.
+> Separate production and consumption via a queue.
 
 ```go
 class ProducerConsumer<T> {
@@ -74,12 +74,12 @@ class ProducerConsumer<T> {
 
   produce(item: T): boolean {
     if (this.queue.length >= this.maxSize) {
-      return false; // Queue pleine
+      return false; // Queue full
     }
 
     const consumer = this.consumers.shift();
     if (consumer) {
-      consumer(item); // Consommateur en attente
+      consumer(item); // Waiting consumer
     } else {
       this.queue.push(item);
     }
@@ -117,17 +117,17 @@ for (let i = 0; i < 3; i++) {
 }
 ```
 
-**Quand :** Message queues, work distribution, async processing.
-**Lié à :** Buffer, Queue, Observer.
+**When:** Message queues, work distribution, async processing.
+**Related:** Buffer, Queue, Observer.
 
 ---
 
 ### 3. Future / Promise
 
-> Résultat asynchrone différé.
+> Deferred asynchronous result.
 
 ```go
-// Deferred pattern - Promise contrôlable
+// Deferred pattern - Controllable Promise
 class Deferred<T> {
   readonly promise: Promise<T>;
   resolve!: (value: T) => void;
@@ -144,10 +144,10 @@ class Deferred<T> {
 // Usage
 const deferred = new Deferred<string>();
 
-// Quelque part plus tard...
+// Somewhere later...
 deferred.resolve('result');
 
-// Ailleurs...
+// Elsewhere...
 const result = await deferred.promise;
 
 // CompletableFuture pattern
@@ -177,14 +177,14 @@ class CompletableFuture<T> {
 }
 ```
 
-**Quand :** Async operations, lazy evaluation, cancellation.
-**Lié à :** Observer, Callback.
+**When:** Async operations, lazy evaluation, cancellation.
+**Related:** Observer, Callback.
 
 ---
 
 ### 4. Mutex / Lock
 
-> Accès exclusif à une ressource partagée.
+> Exclusive access to a shared resource.
 
 ```go
 class Mutex {
@@ -234,14 +234,14 @@ async function increment() {
 }
 ```
 
-**Quand :** Race conditions, ressource partagée unique.
-**Lié à :** Semaphore, Read-Write Lock.
+**When:** Race conditions, single shared resource.
+**Related:** Semaphore, Read-Write Lock.
 
 ---
 
 ### 5. Semaphore
 
-> Limiter l'accès concurrent à N ressources.
+> Limit concurrent access to N resources.
 
 ```go
 class Semaphore {
@@ -284,7 +284,7 @@ class Semaphore {
   }
 }
 
-// Usage - Limiter à 5 requêtes simultanées
+// Usage - Limit to 5 simultaneous requests
 const apiSemaphore = new Semaphore(5);
 
 async function fetchWithLimit(url: string) {
@@ -292,14 +292,14 @@ async function fetchWithLimit(url: string) {
 }
 ```
 
-**Quand :** Rate limiting, connection pools, resource limiting.
-**Lié à :** Mutex, Bulkhead.
+**When:** Rate limiting, connection pools, resource limiting.
+**Related:** Mutex, Bulkhead.
 
 ---
 
 ### 6. Read-Write Lock
 
-> Plusieurs lecteurs OU un seul écrivain.
+> Multiple readers OR a single writer.
 
 ```go
 class ReadWriteLock {
@@ -344,7 +344,7 @@ class ReadWriteLock {
 
   releaseWrite() {
     this.writer = false;
-    // Priorité aux lecteurs en attente
+    // Priority to waiting readers
     while (this.readerWaiting.length > 0) {
       this.readerWaiting.shift()!();
     }
@@ -355,14 +355,14 @@ class ReadWriteLock {
 }
 ```
 
-**Quand :** Caches, configurations, données lues fréquemment.
-**Lié à :** Mutex, Cache.
+**When:** Caches, configurations, frequently read data.
+**Related:** Mutex, Cache.
 
 ---
 
 ### 7. Actor Model
 
-> Entités isolées communiquant par messages.
+> Isolated entities communicating via messages.
 
 ```go
 type Message = { type: string; payload?: any };
@@ -419,14 +419,14 @@ counter.send({
 });
 ```
 
-**Quand :** Distributed systems, isolation, fault tolerance.
-**Lié à :** Message Queue, Observer.
+**When:** Distributed systems, isolation, fault tolerance.
+**Related:** Message Queue, Observer.
 
 ---
 
 ### 8. Active Object
 
-> Découpler invocation et exécution de méthode.
+> Decouple method invocation from execution.
 
 ```go
 class ActiveObject<T> {
@@ -468,18 +468,18 @@ class DatabaseService {
 }
 
 const activeDb = new ActiveObject(new DatabaseService());
-// Toutes les queries sont sérialisées
+// All queries are serialized
 await activeDb.invoke((db) => db.query('SELECT 1'));
 ```
 
-**Quand :** Sérialiser les accès, thread-safety.
-**Lié à :** Actor, Command.
+**When:** Serialize access, thread-safety.
+**Related:** Actor, Command.
 
 ---
 
 ### 9. Monitor
 
-> Synchronisation avec conditions.
+> Synchronization with conditions.
 
 ```go
 class Monitor {
@@ -521,14 +521,14 @@ class Monitor {
 }
 ```
 
-**Quand :** Producer-consumer, bounded buffer, state machines.
-**Lié à :** Mutex, Condition Variable.
+**When:** Producer-consumer, bounded buffer, state machines.
+**Related:** Mutex, Condition Variable.
 
 ---
 
 ### 10. Barrier
 
-> Synchroniser plusieurs threads à un point.
+> Synchronize multiple threads at a point.
 
 ```go
 class Barrier {
@@ -543,7 +543,7 @@ class Barrier {
     this.count--;
 
     if (this.count === 0) {
-      // Dernier arrivé - libère tous
+      // Last to arrive - release all
       this.waiting.forEach((w) => w());
       this.waiting = [];
       this.count = this.parties;
@@ -565,18 +565,18 @@ async function worker(id: number) {
   console.log(`Worker ${id} phase 2 starting`);
 }
 
-// Tous attendent que les 3 aient terminé phase 1
+// All wait until all 3 have completed phase 1
 await Promise.all([worker(1), worker(2), worker(3)]);
 ```
 
-**Quand :** Phases synchronisées, parallel algorithms.
-**Lié à :** CountDownLatch, CyclicBarrier.
+**When:** Synchronized phases, parallel algorithms.
+**Related:** CountDownLatch, CyclicBarrier.
 
 ---
 
 ### 11. Fork-Join
 
-> Diviser pour régner en parallèle.
+> Divide and conquer in parallel.
 
 ```go
 class ForkJoin {
@@ -615,14 +615,14 @@ async function parallelSort(arr: number[]): Promise<number[]> {
 }
 ```
 
-**Quand :** Divide and conquer, recursive parallelism.
-**Lié à :** Thread Pool, Map-Reduce.
+**When:** Divide and conquer, recursive parallelism.
+**Related:** Thread Pool, Map-Reduce.
 
 ---
 
 ### 12. Pipeline
 
-> Chaîne de stages de traitement.
+> Chain of processing stages.
 
 ```go
 type Stage<I, O> = (input: I) => Promise<O>;
@@ -643,7 +643,7 @@ class Pipeline<I, O> {
     return result;
   }
 
-  // Stream avec backpressure
+  // Stream with backpressure
   async* stream(inputs: AsyncIterable<I>): AsyncGenerator<O> {
     for await (const input of inputs) {
       yield await this.execute(input);
@@ -661,14 +661,14 @@ const imageProcessor = new Pipeline<Buffer, string>()
 const url = await imageProcessor.execute(imageBuffer);
 ```
 
-**Quand :** Data processing, ETL, stream processing.
-**Lié à :** Chain of Responsibility, Decorator.
+**When:** Data processing, ETL, stream processing.
+**Related:** Chain of Responsibility, Decorator.
 
 ---
 
 ### 13. Scheduler
 
-> Planifier l'exécution des tâches.
+> Schedule task execution.
 
 ```go
 interface ScheduledTask {
@@ -719,18 +719,18 @@ scheduler.schedule({
   id: 'cleanup',
   execute: async () => await cleanupOldFiles(),
   nextRun: Date.now() + 60000,
-  interval: 3600000, // Toutes les heures
+  interval: 3600000, // Every hour
 });
 ```
 
-**Quand :** Cron jobs, delayed tasks, periodic tasks.
-**Lié à :** Command, Timer.
+**When:** Cron jobs, delayed tasks, periodic tasks.
+**Related:** Command, Timer.
 
 ---
 
 ### 14. Double-Checked Locking
 
-> Initialisation thread-safe performante.
+> Performant thread-safe initialization.
 
 ```go
 class LazyInitialization<T> {
@@ -768,14 +768,14 @@ const dbConnection = new LazyInitialization(async () => {
 const db = await dbConnection.get();
 ```
 
-**Quand :** Singleton thread-safe, lazy initialization coûteuse.
-**Lié à :** Singleton, Lazy Loading.
+**When:** Thread-safe singleton, expensive lazy initialization.
+**Related:** Singleton, Lazy Loading.
 
 ---
 
 ### 15. Async Queue
 
-> Queue avec traitement asynchrone ordonné.
+> Queue with ordered asynchronous processing.
 
 ```go
 class AsyncQueue<T> {
@@ -831,36 +831,36 @@ class AsyncQueue<T> {
 // Usage
 const emailQueue = new AsyncQueue<Email>(
   async (email) => await sendEmail(email),
-  5, // 5 emails en parallèle max
+  5, // Max 5 emails in parallel
 );
 
 emailQueue.push({ to: 'user@example.com', subject: 'Hello' });
 ```
 
-**Quand :** Job queues, background tasks, rate limiting.
-**Lié à :** Producer-Consumer, Thread Pool.
+**When:** Job queues, background tasks, rate limiting.
+**Related:** Producer-Consumer, Thread Pool.
 
 ---
 
-## Tableau de décision
+## Decision Table
 
-| Besoin | Pattern |
-|--------|---------|
-| Limiter workers | Thread Pool |
-| Découpler prod/cons | Producer-Consumer |
-| Résultat différé | Future/Promise |
-| Accès exclusif | Mutex |
-| N accès simultanés | Semaphore |
-| Multi lecteurs / 1 écrivain | Read-Write Lock |
-| Isolation par messages | Actor |
-| Sérialiser méthodes | Active Object |
-| Sync avec conditions | Monitor |
-| Sync à un point | Barrier |
+| Need | Pattern |
+|------|---------|
+| Limit workers | Thread Pool |
+| Decouple prod/cons | Producer-Consumer |
+| Deferred result | Future/Promise |
+| Exclusive access | Mutex |
+| N simultaneous accesses | Semaphore |
+| Multiple readers / 1 writer | Read-Write Lock |
+| Isolation via messages | Actor |
+| Serialize methods | Active Object |
+| Sync with conditions | Monitor |
+| Sync at a point | Barrier |
 | Divide & conquer | Fork-Join |
-| Stages de traitement | Pipeline |
-| Tâches planifiées | Scheduler |
-| Init thread-safe | Double-Checked Locking |
-| Queue avec concurrence | Async Queue |
+| Processing stages | Pipeline |
+| Scheduled tasks | Scheduler |
+| Thread-safe init | Double-Checked Locking |
+| Queue with concurrency | Async Queue |
 
 ## Sources
 

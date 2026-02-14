@@ -1,12 +1,12 @@
 # Pipeline
 
-Pattern de traitement par etapes sequentielles potentiellement paralleles.
+Pattern for processing through sequential, potentially parallel stages.
 
 ---
 
-## Qu'est-ce qu'un Pipeline ?
+## What is a Pipeline?
 
-> Chaine de stages de traitement ou chaque stage transforme les donnees pour le suivant.
+> Chain of processing stages where each stage transforms data for the next.
 
 ```
 +--------------------------------------------------------------+
@@ -15,29 +15,29 @@ Pattern de traitement par etapes sequentielles potentiellement paralleles.
 |  Input --> [Stage 1] --> [Stage 2] --> [Stage 3] --> Output   |
 |             Parse        Transform       Validate             |
 |                                                               |
-|  Parallelisme par stage:                                      |
+|  Per-stage parallelism:                                       |
 |                                                               |
 |  Data 1: [S1] -----> [S2] -----> [S3]                         |
 |  Data 2:      [S1] -----> [S2] -----> [S3]                    |
 |  Data 3:           [S1] -----> [S2] -----> [S3]               |
 |                                                               |
-|  Chaque stage peut traiter pendant que les autres travaillent |
+|  Each stage can process while others are working              |
 |                                                               |
-|  Throughput = (N items) / (temps stage le plus lent)          |
+|  Throughput = (N items) / (slowest stage time)                |
 +--------------------------------------------------------------+
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Decomposer un traitement complexe
-- Paralleliser les etapes independantes
-- Meilleure utilisation des ressources
+- Decompose complex processing
+- Parallelize independent stages
+- Better resource utilization
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### Pipeline basique
+### Basic Pipeline
 
 ```go
 package pipeline
@@ -134,7 +134,7 @@ func main() {
 
 ---
 
-### Pipeline avec streaming (channels)
+### Pipeline with streaming (channels)
 
 ```go
 package pipeline
@@ -193,7 +193,7 @@ type Result[T any] struct {
 
 ---
 
-## Pipeline parallele
+## Parallel Pipeline
 
 ```go
 package pipeline
@@ -277,7 +277,7 @@ func resultify[T any](input <-chan T) <-chan Result[T] {
 
 ---
 
-## Pipeline avec error handling
+## Pipeline with error handling
 
 ```go
 package pipeline
@@ -412,50 +412,50 @@ func FanIn[T any](ctx context.Context, inputs ...<-chan T) <-chan T {
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
-| Aspect | Valeur |
-|--------|--------|
-| Latence (1 item) | O(sum of stages) |
+| Aspect | Value |
+|--------|-------|
+| Latency (1 item) | O(sum of stages) |
 | Throughput | O(1 / slowest stage) |
-| Memoire | O(queue sizes) |
+| Memory | O(queue sizes) |
 
-### Avantages
+### Advantages
 
-- Separation des responsabilites
-- Parallelisme naturel
-- Testabilite par stage
-- Monitoring par stage
-- Channels natifs Go
+- Separation of responsibilities
+- Natural parallelism
+- Per-stage testability
+- Per-stage monitoring
+- Native Go channels
 
-### Inconvenients
+### Disadvantages
 
-- Overhead pour petits traitements
-- Complexite debugging
-- Backpressure a gerer
-
----
-
-## Quand utiliser
-
-| Situation | Recommande |
-|-----------|------------|
-| Traitement multi-etapes | Oui |
-| ETL / Data processing | Oui |
-| Traitement d'images | Oui |
-| Logique metier simple | Non |
-| Latence critique | Prudence |
+- Overhead for small processing
+- Debugging complexity
+- Backpressure to manage
 
 ---
 
-## Patterns connexes
+## When to Use
+
+| Situation | Recommended |
+|-----------|-------------|
+| Multi-stage processing | Yes |
+| ETL / Data processing | Yes |
+| Image processing | Yes |
+| Simple business logic | No |
+| Critical latency | Caution |
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Chain of Responsibility** | Similaire, focus sur handlers |
-| **Producer-Consumer** | Queues entre stages |
-| **Decorator** | Transformation sequentielle |
-| **Stream** | Pipeline sur flux continu |
+| **Chain of Responsibility** | Similar, focus on handlers |
+| **Producer-Consumer** | Queues between stages |
+| **Decorator** | Sequential transformation |
+| **Stream** | Pipeline on continuous flow |
 
 ---
 

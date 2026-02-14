@@ -1,69 +1,69 @@
-# Convention DTO Tags
+# DTO Tags Convention
 
-> Tag `dto:` pour le groupement de structs DTO dans un meme fichier (exception KTN-STRUCT-ONEFILE).
+> `dto:` tag for grouping DTO structs in the same file (exception to KTN-STRUCT-ONEFILE).
 
-## Objectif Principal
+## Main Objective
 
-Le tag `dto:` signale au **KTN-Linter** que les structs marquees sont des DTOs
-et doivent etre **exemptees de KTN-STRUCT-ONEFILE**.
+The `dto:` tag signals to the **KTN-Linter** that marked structs are DTOs
+and must be **exempt from KTN-STRUCT-ONEFILE**.
 
 ```yaml
-comportement:
-  sans_dto_tag: "Une struct par fichier (regle standard)"
-  avec_dto_tag: "Plusieurs structs DTO groupees dans un fichier (exception)"
+behavior:
+  without_dto_tag: "One struct per file (standard rule)"
+  with_dto_tag: "Multiple DTO structs grouped in one file (exception)"
 
-exemple:
-  fichier: "user_dto.go"
-  contenu: "CreateUserRequest, UpdateUserRequest, UserResponse, etc."
+example:
+  file: "user_dto.go"
+  content: "CreateUserRequest, UpdateUserRequest, UserResponse, etc."
 ```
 
-## Format du Tag
+## Tag Format
 
 ```go
 dto:"<direction>,<context>,<security>"
 ```
 
-| Position | Valeurs | Description |
-|----------|---------|-------------|
-| **direction** | `in`, `out`, `inout` | Sens du flux de donnees |
-| **context** | `api`, `cmd`, `query`, `event`, `msg`, `priv` | Type de DTO |
-| **security** | `pub`, `priv`, `pii`, `secret` | Classification securite |
+| Position | Values | Description |
+|----------|--------|-------------|
+| **direction** | `in`, `out`, `inout` | Data flow direction |
+| **context** | `api`, `cmd`, `query`, `event`, `msg`, `priv` | DTO type |
+| **security** | `pub`, `priv`, `pii`, `secret` | Security classification |
 
-## Valeurs
+## Values
 
 ### Direction
 
-| Valeur | Usage | Exemple |
-|--------|-------|---------|
-| `in` | Donnees entrantes | Request, Command input |
-| `out` | Donnees sortantes | Response, Query result |
-| `inout` | Bidirectionnel | Update, Patch |
+| Value | Usage | Example |
+|-------|-------|---------|
+| `in` | Incoming data | Request, Command input |
+| `out` | Outgoing data | Response, Query result |
+| `inout` | Bidirectional | Update, Patch |
 
 ### Context
 
-| Valeur | Usage | Exemple |
-|--------|-------|---------|
-| `api` | API REST/GraphQL | CreateUserRequest |
-| `cmd` | Commande CQRS | TransferMoneyCommand |
-| `query` | Requete CQRS | GetOrderQuery |
+| Value | Usage | Example |
+|-------|-------|---------|
+| `api` | REST/GraphQL API | CreateUserRequest |
+| `cmd` | CQRS Command | TransferMoneyCommand |
+| `query` | CQRS Query | GetOrderQuery |
 | `event` | Event sourcing | UserCreatedEvent |
 | `msg` | Message broker | OrderPayload |
-| `priv` | Interne | ServiceDTO |
+| `priv` | Internal | ServiceDTO |
 
 ### Security
 
-| Valeur | Usage | Logging | Marshaling |
-|--------|-------|---------|------------|
-| `pub` | Donnees publiques | Affiche | Inclus |
-| `priv` | Interne (IDs, timestamps) | Affiche | Inclus |
-| `pii` | RGPD (email, nom) | Masque | Conditionnel |
-| `secret` | Credentials | REDACTED | Omis |
+| Value | Usage | Logging | Marshaling |
+|-------|-------|---------|------------|
+| `pub` | Public data | Displayed | Included |
+| `priv` | Internal (IDs, timestamps) | Displayed | Included |
+| `pii` | GDPR (email, name) | Masked | Conditional |
+| `secret` | Credentials | REDACTED | Omitted |
 
-## Exemples Go
+## Go Examples
 
 ```go
-// Fichier: user_dto.go
-// PLUSIEURS DTOs groupes grace au tag dto:
+// File: user_dto.go
+// MULTIPLE DTOs grouped thanks to the dto: tag
 
 // API Request
 type CreateUserRequest struct {
@@ -95,76 +95,76 @@ type UserCreatedEvent struct {
 }
 ```
 
-## Guide de Decision
+## Decision Guide
 
 ```text
-1. DIRECTION: D'ou viennent les donnees?
-   - Entree utilisateur/client → in
-   - Sortie vers utilisateur/client → out
-   - Les deux (update/patch) → inout
+1. DIRECTION: Where does the data come from?
+   - User/client input → in
+   - Output to user/client → out
+   - Both (update/patch) → inout
 
-2. CONTEXT: Ou est utilise ce DTO?
-   - API REST/GraphQL externe → api
-   - Commande CQRS (write) → cmd
-   - Query CQRS (read) → query
+2. CONTEXT: Where is this DTO used?
+   - External REST/GraphQL API → api
+   - CQRS Command (write) → cmd
+   - CQRS Query (read) → query
    - Event sourcing/messaging → event
    - Queue/Message broker → msg
-   - Interne entre services → priv
+   - Internal between services → priv
 
-3. SECURITY: Quelle sensibilite pour CE CHAMP?
-   - Peut etre public (nom produit, status) → pub
-   - Interne non sensible (IDs, timestamps) → priv
-   - Donnees personnelles RGPD (email, nom) → pii
-   - Secret (password, token, cle API) → secret
+3. SECURITY: What is the sensitivity for THIS FIELD?
+   - Can be public (product name, status) → pub
+   - Internal non-sensitive (IDs, timestamps) → priv
+   - GDPR personal data (email, name) → pii
+   - Secret (password, token, API key) → secret
 ```
 
-## Matrice de Reference
+## Reference Matrix
 
-| Type de Champ | Direction | Context | Security | Tag |
-|---------------|-----------|---------|----------|-----|
+| Field Type | Direction | Context | Security | Tag |
+|------------|-----------|---------|----------|-----|
 | Username (creation) | in | api | pub | `dto:"in,api,pub"` |
 | Email (creation) | in | api | pii | `dto:"in,api,pii"` |
 | Password | in | api | secret | `dto:"in,api,secret"` |
-| User ID (reponse) | out | api | pub | `dto:"out,api,pub"` |
+| User ID (response) | out | api | pub | `dto:"out,api,pub"` |
 | API Key | in | priv | secret | `dto:"in,priv,secret"` |
 | Order Total | out | query | pub | `dto:"out,query,pub"` |
 | Event Timestamp | out | event | pub | `dto:"out,event,pub"` |
 | Customer Address | inout | api | pii | `dto:"inout,api,pii"` |
 
-## Suffixes Reconnus
+## Recognized Suffixes
 
-Le linter detecte automatiquement les DTOs par ces suffixes :
+The linter automatically detects DTOs by these suffixes:
 
 ```text
 Request, Response, DTO, Input, Output,
 Payload, Message, Event, Command, Query, Params
 ```
 
-## Regles Linter
+## Linter Rules
 
-| Regle | Comportement DTOs |
-|-------|-------------------|
-| KTN-STRUCT-ONEFILE | **Exempte** - DTOs groupables |
-| KTN-STRUCT-CTOR | **Exempte** - Pas de constructeur requis |
-| KTN-DTO-TAG | **Valide** format `dto:"dir,ctx,sec"` |
-| KTN-STRUCT-JSONTAG | **Valide** tags serialisation |
-| KTN-STRUCT-PRIVTAG | **Interdit** tags sur champs prives |
+| Rule | DTO Behavior |
+|------|--------------|
+| KTN-STRUCT-ONEFILE | **Exempt** - DTOs can be grouped |
+| KTN-STRUCT-CTOR | **Exempt** - No constructor required |
+| KTN-DTO-TAG | **Validates** `dto:"dir,ctx,sec"` format |
+| KTN-STRUCT-JSONTAG | **Validates** serialization tags |
+| KTN-STRUCT-PRIVTAG | **Forbids** tags on private fields |
 
 ## FAQ
 
-**Q: Pourquoi le tag dto: est-il obligatoire?**
-A: Pour que le linter sache que ces structs peuvent etre groupees (exception KTN-STRUCT-ONEFILE).
+**Q: Why is the dto: tag mandatory?**
+A: So the linter knows these structs can be grouped (exception to KTN-STRUCT-ONEFILE).
 
-**Q: Puis-je avoir plusieurs DTOs dans un meme fichier?**
-A: OUI, c'est le but! Groupez-les par domaine: `user_dto.go`, `order_dto.go`.
+**Q: Can I have multiple DTOs in the same file?**
+A: YES, that is the purpose! Group them by domain: `user_dto.go`, `order_dto.go`.
 
-**Q: Difference entre priv (security) et priv (context)?**
-A: Context priv = DTO interne. Security priv = Champ non sensible mais pas public.
+**Q: Difference between priv (security) and priv (context)?**
+A: Context priv = internal DTO. Security priv = non-sensitive field but not public.
 
-**Q: Comment choisir entre pii et secret?**
-A: pii = Donnees personnelles RGPD. secret = Credentials (JAMAIS exposes).
+**Q: How to choose between pii and secret?**
+A: pii = GDPR personal data. secret = Credentials (NEVER exposed).
 
-## Patterns Lies
+## Related Patterns
 
 - [DTO Pattern](../enterprise/dto.md)
 - [CQRS](../architectural/cqrs.md)

@@ -1,45 +1,45 @@
 # Architectural Patterns
 
-Patterns d'architecture logicielle pour structurer les applications.
+Software architecture patterns for structuring applications.
 
 ---
 
-## Fichiers
+## Files
 
-| Fichier | Contenu | Usage |
+| File | Content | Usage |
 |---------|---------|-------|
-| [monolith.md](monolith.md) | Architecture monolithique | Simple, démarrage rapide |
-| [modular-monolith.md](modular-monolith.md) | Monolithe modulaire | Structure sans distribution |
-| [layered.md](layered.md) | Architecture en couches | Séparation responsabilités |
-| [hexagonal.md](hexagonal.md) | Ports & Adapters | Isolation domaine |
-| [microservices.md](microservices.md) | Services distribués | Scale et autonomie |
-| [cqrs.md](cqrs.md) | Command Query Separation | Read/Write séparés |
-| [event-sourcing.md](event-sourcing.md) | Historique événements | Audit, replay |
-| [event-driven.md](event-driven.md) | Architecture événementielle | Découplage asynchrone |
+| [monolith.md](monolith.md) | Monolithic architecture | Simple, quick start |
+| [modular-monolith.md](modular-monolith.md) | Modular monolith | Structure without distribution |
+| [layered.md](layered.md) | Layered architecture | Separation of responsibilities |
+| [hexagonal.md](hexagonal.md) | Ports & Adapters | Domain isolation |
+| [microservices.md](microservices.md) | Distributed services | Scale and autonomy |
+| [cqrs.md](cqrs.md) | Command Query Separation | Separate Read/Write |
+| [event-sourcing.md](event-sourcing.md) | Event history | Audit, replay |
+| [event-driven.md](event-driven.md) | Event-driven architecture | Asynchronous decoupling |
 | [serverless.md](serverless.md) | FaaS / Event-driven | Pay-per-use, auto-scale |
 
 ---
 
-## Tableau de décision
+## Decision Table
 
-| Architecture | Équipe | Complexité domaine | Scalabilité | DevOps |
+| Architecture | Team | Domain Complexity | Scalability | DevOps |
 |--------------|--------|-------------------|-------------|--------|
-| **Monolith** | 1-10 | Simple/Moyenne | Verticale | Basique |
-| **Modular Monolith** | 5-30 | Moyenne/Complexe | Verticale | Basique |
-| **Layered (N-tier)** | 5-20 | Moyenne | Verticale | Basique |
-| **Hexagonal** | 5-30 | Complexe | Verticale | Moyen |
-| **Microservices** | 20+ | Complexe | Horizontale | Avancé |
-| **Event Sourcing** | 10+ | Audit requis | Horizontale | Avancé |
-| **Event-Driven** | 10+ | Asynchrone | Horizontale | Avancé |
-| **Serverless** | 1-50 | Variable | Auto | Moyen |
+| **Monolith** | 1-10 | Simple/Medium | Vertical | Basic |
+| **Modular Monolith** | 5-30 | Medium/Complex | Vertical | Basic |
+| **Layered (N-tier)** | 5-20 | Medium | Vertical | Basic |
+| **Hexagonal** | 5-30 | Complex | Vertical | Medium |
+| **Microservices** | 20+ | Complex | Horizontal | Advanced |
+| **Event Sourcing** | 10+ | Audit required | Horizontal | Advanced |
+| **Event-Driven** | 10+ | Asynchronous | Horizontal | Advanced |
+| **Serverless** | 1-50 | Variable | Auto | Medium |
 
 ---
 
-## Vue d'ensemble
+## Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                 SPECTRE ARCHITECTURAL                            │
+│                 ARCHITECTURAL SPECTRUM                            │
 │                                                                  │
 │  Monolith ──────────────────────────────────▶ Microservices     │
 │                                                                  │
@@ -52,117 +52,117 @@ Patterns d'architecture logicielle pour structurer les applications.
 │  │ └─────┘ │   │   │     │   │  └───┘  │   │ └─┘ └─┘ └─┘    │ │
 │  └─────────┘   └─────────┘   └─────────┘   └─────────────────┘ │
 │                                                                  │
-│  Simple ◀───────────────────────────────────────────▶ Complexe │
-│  Couplé ◀───────────────────────────────────────────▶ Découplé │
+│  Simple ◀───────────────────────────────────────────▶ Complex   │
+│  Coupled ◀──────────────────────────────────────────▶ Decoupled │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Flux de décision
+## Decision Flow
 
 ```
-                        Nouveau projet?
+                        New project?
                              │
                              ▼
-              ┌─── Domaine bien compris? ───┐
-              │                              │
-            Non                            Oui
-              │                              │
-              ▼                              ▼
-          Monolith              ┌── Équipe > 20 devs? ──┐
-          (explorer)            │                        │
-                              Non                      Oui
-                                │                        │
-                                ▼                        ▼
-                    ┌── Audit/Replay requis? ──┐    Microservices
-                    │                           │
-                  Oui                         Non
-                    │                           │
-                    ▼                           ▼
-              Event Sourcing        ┌── Tests domaine critiques? ──┐
-                    +               │                               │
-              Event-Driven        Oui                             Non
-                                    │                               │
-                                    ▼                               ▼
-                              Hexagonal /                   Modular Monolith
-                              Clean Arch                    ou Layered
+              ┌─── Domain well understood? ───┐
+              │                               │
+             No                              Yes
+              │                               │
+              ▼                               ▼
+          Monolith              ┌── Team > 20 devs? ──┐
+          (explore)             │                      │
+                               No                    Yes
+                                │                      │
+                                ▼                      ▼
+                    ┌── Audit/Replay required? ──┐  Microservices
+                    │                            │
+                   Yes                          No
+                    │                            │
+                    ▼                            ▼
+              Event Sourcing        ┌── Critical domain tests? ──┐
+                    +               │                             │
+              Event-Driven         Yes                           No
+                                    │                             │
+                                    ▼                             ▼
+                              Hexagonal /                  Modular Monolith
+                              Clean Arch                   or Layered
 ```
 
 ---
 
-## Comparaison des architectures
+## Architecture Comparison
 
-### Couplage & Cohésion
+### Coupling & Cohesion
 
-| Architecture | Couplage | Cohésion | Testabilité |
+| Architecture | Coupling | Cohesion | Testability |
 |--------------|----------|----------|-------------|
-| Monolith | Fort | Variable | Difficile |
-| Modular Monolith | Moyen | Haute | Bonne |
-| Layered | Moyen | Moyenne | Moyenne |
-| Hexagonal | Faible | Haute | Excellente |
-| Microservices | Faible | Haute | Excellente |
-| Event-Driven | Très faible | Haute | Complexe |
+| Monolith | Strong | Variable | Difficult |
+| Modular Monolith | Medium | High | Good |
+| Layered | Medium | Medium | Medium |
+| Hexagonal | Low | High | Excellent |
+| Microservices | Low | High | Excellent |
+| Event-Driven | Very low | High | Complex |
 
-### Coût & Complexité
+### Cost & Complexity
 
-| Architecture | Coût initial | Coût maintenance | Complexité ops |
+| Architecture | Initial Cost | Maintenance Cost | Ops Complexity |
 |--------------|--------------|------------------|----------------|
-| Monolith | Bas | Croissant | Bas |
-| Modular Monolith | Moyen | Stable | Bas |
-| Layered | Bas | Moyen | Bas |
-| Hexagonal | Moyen | Stable | Moyen |
-| Microservices | Élevé | Distribué | Élevé |
-| Serverless | Bas | Pay-per-use | Moyen |
+| Monolith | Low | Growing | Low |
+| Modular Monolith | Medium | Stable | Low |
+| Layered | Low | Medium | Low |
+| Hexagonal | Medium | Stable | Medium |
+| Microservices | High | Distributed | High |
+| Serverless | Low | Pay-per-use | Medium |
 
 ---
 
-## Migration paths
+## Migration Paths
 
-### Monolith vers Microservices
+### Monolith to Microservices
 
 ```
 Monolith → Modular Monolith → Microservices
     │              │                 │
     ▼              ▼                 ▼
-1. Identifier     2. Séparer en     3. Extraire
-   bounded           modules avec      services
-   contexts          interfaces         un par un
-                     claires          (Strangler Fig)
+1. Identify       2. Separate into  3. Extract
+   bounded           modules with      services
+   contexts          clear             one by one
+                     interfaces       (Strangler Fig)
 ```
 
-### Vers Event Sourcing
+### To Event Sourcing
 
 ```
-CRUD traditionnel → CQRS → Event Sourcing
+Traditional CRUD → CQRS → Event Sourcing
        │              │           │
        ▼              ▼           ▼
-   1. Séparer      2. Ajouter   3. Remplacer
-      read/write      events       état par
-      modèles         comme        stream
-                      side-effect   d'events
+   1. Separate      2. Add       3. Replace
+      read/write      events       state with
+      models          as           event
+                      side-effect   stream
 ```
 
 ---
 
-## Patterns par problème
+## Patterns by Problem
 
-| Problème | Architecture recommandée |
+| Problem | Recommended Architecture |
 |----------|-------------------------|
 | MVP / Startup | Monolith |
-| Domaine complexe | Hexagonal |
-| Équipe > 20 devs | Microservices |
+| Complex domain | Hexagonal |
+| Team > 20 devs | Microservices |
 | Audit/Compliance | Event Sourcing |
-| Haute disponibilité | Event-Driven |
+| High availability | Event-Driven |
 | Variable workloads | Serverless |
 | Legacy modernization | Modular Monolith |
-| API simple | Layered |
+| Simple API | Layered |
 
 ---
 
-## Combinaisons courantes
+## Common Combinations
 
-### Backend moderne
+### Modern Backend
 
 ```
 Hexagonal + CQRS + Event-Driven
@@ -205,9 +205,9 @@ Serverless + Event-Driven
 
 ---
 
-## Patterns liés par catégorie
+## Related Patterns by Category
 
-| Catégorie | Patterns |
+| Category | Patterns |
 |-----------|----------|
 | **Design** | DDD, Clean Architecture |
 | **Communication** | REST, gRPC, GraphQL, Events |

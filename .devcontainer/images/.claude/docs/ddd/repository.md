@@ -1,6 +1,6 @@
 # Repository Pattern (DDD)
 
-> Médiateur entre le domaine et les couches de mapping de données, agissant comme une collection en mémoire d'objets domaine.
+> Mediator between the domain and data mapping layers, acting as an in-memory collection of domain objects.
 
 ## Definition
 
@@ -67,7 +67,7 @@ func (r *PostgresOrderRepository) FindByID(ctx context.Context, id OrderID) (*Or
 		SELECT id, customer_id, status, shipping_address, created_at, version
 		FROM orders WHERE id = $1
 	`
-	
+
 	var entity OrderEntity
 	err := r.db.QueryRowContext(ctx, query, id.Value()).Scan(
 		&entity.ID,
@@ -77,21 +77,21 @@ func (r *PostgresOrderRepository) FindByID(ctx context.Context, id OrderID) (*Or
 		&entity.CreatedAt,
 		&entity.Version,
 	)
-	
+
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrOrderNotFound
 		}
 		return nil, fmt.Errorf("finding order %s: %w", id.Value(), err)
 	}
-	
+
 	// Load items
 	items, err := r.loadOrderItems(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("loading order items: %w", err)
 	}
 	entity.Items = items
-	
+
 	return r.toDomain(entity)
 }
 
@@ -106,13 +106,13 @@ func (r *PostgresOrderRepository) FindByCustomer(
 		WHERE customer_id = $1
 		ORDER BY created_at DESC
 	`
-	
+
 	rows, err := r.db.QueryContext(ctx, query, customerID.Value())
 	if err != nil {
 		return nil, fmt.Errorf("querying orders by customer: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var orders []*Order
 	for rows.Next() {
 		var entity OrderEntity
@@ -126,20 +126,20 @@ func (r *PostgresOrderRepository) FindByCustomer(
 		); err != nil {
 			return nil, err
 		}
-		
+
 		items, err := r.loadOrderItems(ctx, mustParseOrderID(entity.ID))
 		if err != nil {
 			return nil, err
 		}
 		entity.Items = items
-		
+
 		order, err := r.toDomain(entity)
 		if err != nil {
 			return nil, err
 		}
 		orders = append(orders, order)
 	}
-	
+
 	return orders, rows.Err()
 }
 
@@ -150,9 +150,9 @@ func (r *PostgresOrderRepository) Save(ctx context.Context, order *Order) error 
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
 	defer tx.Rollback()
-	
+
 	entity := r.toEntity(order)
-	
+
 	// Optimistic locking
 	query := `
 		INSERT INTO orders (id, customer_id, status, shipping_address, created_at, version)
@@ -164,7 +164,7 @@ func (r *PostgresOrderRepository) Save(ctx context.Context, order *Order) error 
 			version = EXCLUDED.version
 		WHERE orders.version = $6
 	`
-	
+
 	result, err := tx.ExecContext(ctx, query,
 		entity.ID,
 		entity.CustomerID,
@@ -176,21 +176,21 @@ func (r *PostgresOrderRepository) Save(ctx context.Context, order *Order) error 
 	if err != nil {
 		return fmt.Errorf("saving order: %w", err)
 	}
-	
+
 	affected, _ := result.RowsAffected()
 	if affected == 0 {
 		return ErrOptimisticLockConflict
 	}
-	
+
 	// Save items
 	if err := r.saveOrderItems(ctx, tx, order); err != nil {
 		return fmt.Errorf("saving order items: %w", err)
 	}
-	
+
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("committing transaction: %w", err)
 	}
-	
+
 	// Publish domain events after successful save
 	events := order.PullDomainEvents()
 	for _, event := range events {
@@ -198,7 +198,7 @@ func (r *PostgresOrderRepository) Save(ctx context.Context, order *Order) error 
 			return fmt.Errorf("publishing event: %w", err)
 		}
 	}
-	
+
 	order.IncrementVersion()
 	return nil
 }
@@ -216,13 +216,13 @@ func (r *PostgresOrderRepository) Delete(ctx context.Context, order *Order) erro
 // Exists checks if an order exists.
 func (r *PostgresOrderRepository) Exists(ctx context.Context, id OrderID) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM orders WHERE id = $1)`
-	
+
 	var exists bool
 	err := r.db.QueryRowContext(ctx, query, id.Value()).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("checking order existence: %w", err)
 	}
-	
+
 	return exists, nil
 }
 
@@ -234,40 +234,40 @@ func (r *PostgresOrderRepository) toDomain(entity OrderEntity) (*Order, error) {
 		if err != nil {
 			return nil, err
 		}
-		
+
 		productID, err := ProductIDFrom(item.ProductID)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		quantity, err := NewQuantity(item.Quantity)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		money, err := NewMoney(item.UnitPrice, CurrencyUSD)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		items[i] = ReconstituteOrderItem(itemID, productID, quantity, money)
 	}
-	
+
 	orderID, err := OrderIDFrom(entity.ID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	customerID, err := CustomerIDFrom(entity.CustomerID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	address, err := AddressFromJSON(entity.ShippingAddress)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return ReconstituteOrder(
 		orderID,
 		customerID,
@@ -290,7 +290,7 @@ func (r *PostgresOrderRepository) toEntity(order *Order) OrderEntity {
 			UnitPrice: item.UnitPrice().Amount(),
 		}
 	}
-	
+
 	return OrderEntity{
 		ID:              order.ID().Value(),
 		CustomerID:      order.CustomerID().Value(),
@@ -325,12 +325,12 @@ func NewInMemoryOrderRepository() *InMemoryOrderRepository {
 func (r *InMemoryOrderRepository) FindByID(ctx context.Context, id OrderID) (*Order, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	order, ok := r.orders[id.Value()]
 	if !ok {
 		return nil, ErrOrderNotFound
 	}
-	
+
 	return order, nil
 }
 
@@ -341,14 +341,14 @@ func (r *InMemoryOrderRepository) FindByCustomer(
 ) ([]*Order, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	var orders []*Order
 	for _, order := range r.orders {
 		if order.CustomerID().Equals(customerID) {
 			orders = append(orders, order)
 		}
 	}
-	
+
 	return orders, nil
 }
 
@@ -356,14 +356,14 @@ func (r *InMemoryOrderRepository) FindByCustomer(
 func (r *InMemoryOrderRepository) Save(ctx context.Context, order *Order) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	// Clone to simulate persistence behavior
 	r.orders[order.ID().Value()] = order
-	
+
 	// Collect events for testing
 	events := order.PullDomainEvents()
 	r.publishedEvents = append(r.publishedEvents, events...)
-	
+
 	order.IncrementVersion()
 	return nil
 }
@@ -372,7 +372,7 @@ func (r *InMemoryOrderRepository) Save(ctx context.Context, order *Order) error 
 func (r *InMemoryOrderRepository) Delete(ctx context.Context, order *Order) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	delete(r.orders, order.ID().Value())
 	return nil
 }
@@ -381,7 +381,7 @@ func (r *InMemoryOrderRepository) Delete(ctx context.Context, order *Order) erro
 func (r *InMemoryOrderRepository) Exists(ctx context.Context, id OrderID) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	_, ok := r.orders[id.Value()]
 	return ok, nil
 }
@@ -390,7 +390,7 @@ func (r *InMemoryOrderRepository) Exists(ctx context.Context, id OrderID) (bool,
 func (r *InMemoryOrderRepository) Clear() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	r.orders = make(map[string]*Order)
 	r.publishedEvents = make([]DomainEvent, 0)
 }
@@ -399,7 +399,7 @@ func (r *InMemoryOrderRepository) Clear() {
 func (r *InMemoryOrderRepository) PublishedEvents() []DomainEvent {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	events := make([]DomainEvent, len(r.publishedEvents))
 	copy(events, r.publishedEvents)
 	return events
@@ -488,14 +488,14 @@ func NewOrderRepository(db *sql.DB, eventBus EventBus) OrderRepository {
    }
    ```
 
-## Quand utiliser
+## When to Use
 
-- Persistance et récupération des racines d'agrégats
-- Encapsulation de la logique de requêtes complexes
-- Abstraction de la technologie d'accès aux données
-- Tests avec des implémentations en mémoire
+- Persistence and retrieval of aggregate roots
+- Encapsulation of complex query logic
+- Abstraction of data access technology
+- Testing with in-memory implementations
 
-## Patterns liés
+## Related Patterns
 
 - [Aggregate](./aggregate.md) - Repository per aggregate root
 - [Specification](./specification.md) - Query composition

@@ -1,11 +1,11 @@
 # Builder Pattern
 
-> Construire des objets complexes etape par etape avec une interface fluide.
+> Build complex objects step by step with a fluent interface.
 
 ## Intention
 
-Separer la construction d'un objet complexe de sa representation, permettant
-au meme processus de construction de creer differentes representations.
+Separate the construction of a complex object from its representation, allowing
+the same construction process to create different representations.
 
 ## Structure
 
@@ -17,7 +17,7 @@ import (
 	"fmt"
 )
 
-// 1. Produit complexe
+// 1. Complex product
 type HTTPRequest struct {
 	Method  string
 	URL     string
@@ -27,12 +27,12 @@ type HTTPRequest struct {
 	Retries int
 }
 
-// 2. Builder avec methodes chainees
+// 2. Builder with chained methods
 type RequestBuilder struct {
 	request *HTTPRequest
 }
 
-// NewRequestBuilder cree un nouveau builder.
+// NewRequestBuilder creates a new builder.
 func NewRequestBuilder() *RequestBuilder {
 	return &RequestBuilder{
 		request: &HTTPRequest{
@@ -41,43 +41,43 @@ func NewRequestBuilder() *RequestBuilder {
 	}
 }
 
-// SetMethod configure la methode HTTP.
+// SetMethod configures the HTTP method.
 func (b *RequestBuilder) SetMethod(method string) *RequestBuilder {
 	b.request.Method = method
 	return b
 }
 
-// SetURL configure l'URL.
+// SetURL configures the URL.
 func (b *RequestBuilder) SetURL(url string) *RequestBuilder {
 	b.request.URL = url
 	return b
 }
 
-// AddHeader ajoute un header.
+// AddHeader adds a header.
 func (b *RequestBuilder) AddHeader(key, value string) *RequestBuilder {
 	b.request.Headers[key] = value
 	return b
 }
 
-// SetBody configure le corps de la requete.
+// SetBody configures the request body.
 func (b *RequestBuilder) SetBody(body string) *RequestBuilder {
 	b.request.Body = body
 	return b
 }
 
-// SetTimeout configure le timeout en millisecondes.
+// SetTimeout configures the timeout in milliseconds.
 func (b *RequestBuilder) SetTimeout(ms int) *RequestBuilder {
 	b.request.Timeout = ms
 	return b
 }
 
-// SetRetries configure le nombre de tentatives.
+// SetRetries configures the number of retries.
 func (b *RequestBuilder) SetRetries(count int) *RequestBuilder {
 	b.request.Retries = count
 	return b
 }
 
-// Build construit la requete finale avec validation.
+// Build constructs the final request with validation.
 func (b *RequestBuilder) Build() (*HTTPRequest, error) {
 	if b.request.Method == "" || b.request.URL == "" {
 		return nil, errors.New("method and URL are required")
@@ -85,17 +85,17 @@ func (b *RequestBuilder) Build() (*HTTPRequest, error) {
 	return b.request, nil
 }
 
-// 4. Director (optionnel)
+// 4. Director (optional)
 type RequestDirector struct {
 	builder *RequestBuilder
 }
 
-// NewRequestDirector cree un nouveau director.
+// NewRequestDirector creates a new director.
 func NewRequestDirector(builder *RequestBuilder) *RequestDirector {
 	return &RequestDirector{builder: builder}
 }
 
-// BuildGetRequest construit une requete GET preconfiguree.
+// BuildGetRequest builds a preconfigured GET request.
 func (d *RequestDirector) BuildGetRequest(url string) (*HTTPRequest, error) {
 	return d.builder.
 		SetMethod("GET").
@@ -104,7 +104,7 @@ func (d *RequestDirector) BuildGetRequest(url string) (*HTTPRequest, error) {
 		Build()
 }
 
-// BuildJSONPostRequest construit une requete POST JSON preconfiguree.
+// BuildJSONPostRequest builds a preconfigured JSON POST request.
 func (d *RequestDirector) BuildJSONPostRequest(url string, data string) (*HTTPRequest, error) {
 	return d.builder.
 		SetMethod("POST").
@@ -129,7 +129,7 @@ import (
 )
 
 func main() {
-	// Sans Director (fluent interface)
+	// Without Director (fluent interface)
 	request, err := NewRequestBuilder().
 		SetMethod("POST").
 		SetURL("https://api.example.com/users").
@@ -143,7 +143,7 @@ func main() {
 	}
 	fmt.Printf("Request: %+v\n", request)
 
-	// Avec Director
+	// With Director
 	director := NewRequestDirector(NewRequestBuilder())
 	getRequest, err := director.BuildGetRequest("https://api.example.com/users")
 	if err != nil {
@@ -162,26 +162,26 @@ func main() {
 }
 ```
 
-## Variantes
+## Variants
 
-### Step Builder (validation a chaque etape)
+### Step Builder (validation at each step)
 
 ```go
 package main
 
-// MethodStep definit les methodes HTTP disponibles.
+// MethodStep defines available HTTP methods.
 type MethodStep interface {
 	GET(url string) HeadersStep
 	POST(url string) BodyStep
 }
 
-// HeadersStep permet d'ajouter des headers.
+// HeadersStep allows adding headers.
 type HeadersStep interface {
 	WithHeader(key, value string) HeadersStep
 	Build() (*HTTPRequest, error)
 }
 
-// BodyStep necessite un body avant les headers.
+// BodyStep requires a body before headers.
 type BodyStep interface {
 	WithBody(body string) HeadersStep
 }
@@ -190,7 +190,7 @@ type stepBuilder struct {
 	request *HTTPRequest
 }
 
-// NewStepBuilder cree un builder avec validation par etapes.
+// NewStepBuilder creates a builder with step-by-step validation.
 func NewStepBuilder() MethodStep {
 	return &stepBuilder{
 		request: &HTTPRequest{
@@ -234,12 +234,12 @@ func (b *stepBuilder) Build() (*HTTPRequest, error) {
 ```go
 package main
 
-// ImmutableRequestBuilder cree de nouvelles instances a chaque modification.
+// ImmutableRequestBuilder creates new instances on each modification.
 type ImmutableRequestBuilder struct {
 	config *HTTPRequest
 }
 
-// NewImmutableRequestBuilder cree un builder immutable.
+// NewImmutableRequestBuilder creates an immutable builder.
 func NewImmutableRequestBuilder() *ImmutableRequestBuilder {
 	return &ImmutableRequestBuilder{
 		config: &HTTPRequest{
@@ -248,7 +248,7 @@ func NewImmutableRequestBuilder() *ImmutableRequestBuilder {
 	}
 }
 
-// WithMethod retourne un nouveau builder avec la methode configuree.
+// WithMethod returns a new builder with the method configured.
 func (b *ImmutableRequestBuilder) WithMethod(method string) *ImmutableRequestBuilder {
 	newHeaders := make(map[string]string)
 	for k, v := range b.config.Headers {
@@ -266,7 +266,7 @@ func (b *ImmutableRequestBuilder) WithMethod(method string) *ImmutableRequestBui
 	}
 }
 
-// WithURL retourne un nouveau builder avec l'URL configuree.
+// WithURL returns a new builder with the URL configured.
 func (b *ImmutableRequestBuilder) WithURL(url string) *ImmutableRequestBuilder {
 	newHeaders := make(map[string]string)
 	for k, v := range b.config.Headers {
@@ -284,7 +284,7 @@ func (b *ImmutableRequestBuilder) WithURL(url string) *ImmutableRequestBuilder {
 	}
 }
 
-// Build retourne une copie de la requete.
+// Build returns a copy of the request.
 func (b *ImmutableRequestBuilder) Build() (*HTTPRequest, error) {
 	if b.config.Method == "" || b.config.URL == "" {
 		return nil, errors.New("method and URL are required")
@@ -307,7 +307,7 @@ func (b *ImmutableRequestBuilder) Build() (*HTTPRequest, error) {
 ## Anti-patterns
 
 ```go
-// MAUVAIS: Constructeur telescopique
+// BAD: Telescoping constructor
 func NewRequest(
 	method string,
 	url string,
@@ -315,29 +315,29 @@ func NewRequest(
 	body string,
 	timeout int,
 	retries int,
-	// ... 10 autres parametres
+	// ... 10 other parameters
 ) *HTTPRequest {
-	// Difficile a lire et maintenir
+	// Hard to read and maintain
 	return &HTTPRequest{}
 }
 
-// MAUVAIS: Builder sans validation
+// BAD: Builder without validation
 type BadBuilder struct {
 	request *HTTPRequest
 }
 
 func (b *BadBuilder) Build() *HTTPRequest {
-	// Retourne un objet potentiellement invalide
+	// Returns a potentially invalid object
 	return b.request
 }
 
-// MAUVAIS: Builder mutable reutilise
+// BAD: Reused mutable builder
 builder := NewRequestBuilder()
 req1, _ := builder.SetURL("/a").Build()
-req2, _ := builder.SetURL("/b").Build() // req1 aussi modifie!
+req2, _ := builder.SetURL("/b").Build() // req1 also modified!
 ```
 
-## Alternative moderne : Functional Options
+## Modern Alternative: Functional Options
 
 ```go
 package main
@@ -347,24 +347,24 @@ import (
 	"time"
 )
 
-// Option configure une HTTPRequest.
+// Option configures an HTTPRequest.
 type Option func(*HTTPRequest)
 
-// WithMethod configure la methode HTTP.
+// WithMethod configures the HTTP method.
 func WithMethod(method string) Option {
 	return func(r *HTTPRequest) {
 		r.Method = method
 	}
 }
 
-// WithURL configure l'URL.
+// WithURL configures the URL.
 func WithURL(url string) Option {
 	return func(r *HTTPRequest) {
 		r.URL = url
 	}
 }
 
-// WithHeader ajoute un header.
+// WithHeader adds a header.
 func WithHeader(key, value string) Option {
 	return func(r *HTTPRequest) {
 		if r.Headers == nil {
@@ -374,18 +374,18 @@ func WithHeader(key, value string) Option {
 	}
 }
 
-// WithTimeout configure le timeout.
+// WithTimeout configures the timeout.
 func WithTimeout(ms int) Option {
 	return func(r *HTTPRequest) {
 		r.Timeout = ms
 	}
 }
 
-// NewHTTPRequest cree une requete avec des options fonctionnelles.
+// NewHTTPRequest creates a request with functional options.
 func NewHTTPRequest(opts ...Option) (*HTTPRequest, error) {
 	req := &HTTPRequest{
 		Headers: make(map[string]string),
-		Timeout: 5000, // Valeur par defaut
+		Timeout: 5000, // Default value
 	}
 	for _, opt := range opts {
 		opt(req)
@@ -396,7 +396,7 @@ func NewHTTPRequest(opts ...Option) (*HTTPRequest, error) {
 	return req, nil
 }
 
-// Usage simple pour cas simples
+// Simple usage for simple cases
 func ExampleFunctionalOptions() {
 	req, err := NewHTTPRequest(
 		WithMethod("GET"),
@@ -410,7 +410,7 @@ func ExampleFunctionalOptions() {
 }
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```go
 package main
@@ -493,18 +493,18 @@ func TestRequestDirector_BuildGetRequest(t *testing.T) {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-- Objets avec de nombreux parametres optionnels
-- Construction complexe en plusieurs etapes
-- Meme processus pour differentes representations
-- Immutabilite souhaitee pendant la construction
+- Objects with many optional parameters
+- Complex multi-step construction
+- Same process for different representations
+- Immutability desired during construction
 
-## Patterns lies
+## Related Patterns
 
-- **Abstract Factory** : Peut utiliser Builder pour creer des produits
-- **Prototype** : Alternative quand le clonage est plus simple
-- **Fluent Interface** : Technique utilisee par Builder
+- **Abstract Factory**: Can use Builder to create products
+- **Prototype**: Alternative when cloning is simpler
+- **Fluent Interface**: Technique used by Builder
 
 ## Sources
 

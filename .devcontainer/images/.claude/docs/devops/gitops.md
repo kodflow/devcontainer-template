@@ -1,8 +1,8 @@
 # GitOps
 
-> Git comme source de vérité pour l'infrastructure et les applications.
+> Git as source of truth pour l'infrastructure et les applications.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -173,12 +173,12 @@ spec:
 | Environnements | Kustomize overlays |
 | Drift detection | Reconciliation loop |
 
-## Patterns liés
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
 | Infrastructure as Code | GitOps pour IaC |
-| Immutable Infrastructure | Déploiement déclaratif |
+| Immutable Infrastructure | Declarative deployment |
 | Blue-Green | Via Git branches |
 
 ## Sources

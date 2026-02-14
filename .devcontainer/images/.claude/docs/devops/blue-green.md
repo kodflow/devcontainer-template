@@ -2,7 +2,7 @@
 
 > Deux environnements identiques permettant un basculement instantané.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -195,7 +195,7 @@ type HealthChecker interface {
 
 // NewController crée un nouveau contrôleur Blue-Green.
 func NewController(router Router, checker HealthChecker) *BlueGreenController {
-	c := &BlueGreenController{
+	c:= &BlueGreenController{
 		router:  router,
 		checker: checker,
 	}
@@ -205,9 +205,9 @@ func NewController(router Router, checker HealthChecker) *BlueGreenController {
 
 // Deploy déploie une nouvelle version sur l'environnement inactif.
 func (c *BlueGreenController) Deploy(ctx context.Context, version string) error {
-	inactive := c.getInactiveEnv()
+	inactive:= c.getInactiveEnv()
 
-	deployment := &Deployment{
+	deployment:= &Deployment{
 		Env:       inactive,
 		Version:   version,
 		Instances: 3,
@@ -221,7 +221,7 @@ func (c *BlueGreenController) Deploy(ctx context.Context, version string) error 
 	}
 
 	// Attendre que l'environnement soit healthy
-	if err := c.waitHealthy(ctx, inactive); err != nil {
+	if err:= c.waitHealthy(ctx, inactive); err != nil {
 		return fmt.Errorf("deployment unhealthy: %w", err)
 	}
 
@@ -230,10 +230,10 @@ func (c *BlueGreenController) Deploy(ctx context.Context, version string) error 
 
 // Switch bascule le trafic vers l'environnement inactif.
 func (c *BlueGreenController) Switch(ctx context.Context) error {
-	inactive := c.getInactiveEnv()
+	inactive:= c.getInactiveEnv()
 
 	// Vérifier la santé avant switch
-	healthy, err := c.checker.Check(ctx, inactive)
+	healthy, err:= c.checker.Check(ctx, inactive)
 	if err != nil {
 		return fmt.Errorf("health check failed: %w", err)
 	}
@@ -242,7 +242,7 @@ func (c *BlueGreenController) Switch(ctx context.Context) error {
 	}
 
 	// Basculer le trafic
-	if err := c.router.SwitchTo(ctx, inactive); err != nil {
+	if err:= c.router.SwitchTo(ctx, inactive); err != nil {
 		return fmt.Errorf("router switch failed: %w", err)
 	}
 
@@ -263,7 +263,7 @@ func (c *BlueGreenController) getInactiveEnv() Environment {
 }
 
 func (c *BlueGreenController) waitHealthy(ctx context.Context, env Environment) error {
-	ticker := time.NewTicker(2 * time.Second)
+	ticker:= time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -271,7 +271,7 @@ func (c *BlueGreenController) waitHealthy(ctx context.Context, env Environment) 
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			healthy, err := c.checker.Check(ctx, env)
+			healthy, err:= c.checker.Check(ctx, env)
 			if err != nil {
 				continue
 			}
@@ -309,7 +309,7 @@ Contrainte: Migrations backward-compatible
              └────────┘     └────────┘
 ```
 
-## Quand utiliser
+## When to Use
 
 | Utiliser | Eviter |
 |----------|--------|
@@ -363,7 +363,7 @@ Contrainte: Migrations backward-compatible
 3. Conserver Blue-Green comme fallback
 ```
 
-## Patterns liés
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|

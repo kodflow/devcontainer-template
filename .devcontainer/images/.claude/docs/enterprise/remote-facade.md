@@ -4,23 +4,23 @@
 
 ## Concept
 
-Remote Facade est une interface simplifiee qui expose des operations coarse-grained (grosses granularites) pour reduire le nombre d'appels reseau. Elle encapsule plusieurs appels fins en une seule operation.
+Remote Facade is a simplified interface that exposes coarse-grained operations to reduce the number of network calls. It encapsulates multiple fine-grained calls into a single operation.
 
-## Probleme resolu
+## Problem Solved
 
 ```go
-// PROBLEME: Fine-grained API = nombreux appels reseau
+// PROBLEM: Fine-grained API = many network calls
 customer := api.GetCustomer(ctx, id)                    // Call 1
 address := api.GetAddress(ctx, customer.AddressID)      // Call 2
 orders := api.GetOrders(ctx, customer.ID)               // Call 3
 // ... N more calls
 
 // SOLUTION: Coarse-grained Remote Facade
-customerProfile := api.GetCustomerProfile(ctx, id)      // 1 seul appel
-// Contient: customer, address, recentOrders, etc.
+customerProfile := api.GetCustomerProfile(ctx, id)      // 1 single call
+// Contains: customer, address, recentOrders, etc.
 ```
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package facade
@@ -311,37 +311,37 @@ func (s *NotificationService) SendOrderConfirmation(ctx context.Context, orderID
 }
 ```
 
-## Comparaison avec alternatives
+## Comparison with Alternatives
 
 | Aspect | Remote Facade | Fine-grained API | BFF |
 |--------|--------------|------------------|-----|
-| Appels reseau | Peu | Beaucoup | Peu |
-| Couplage client | Faible | Fort | Faible |
-| Flexibilite | Moyenne | Elevee | Elevee |
-| Complexite serveur | Elevee | Faible | Moyenne |
-| Performance | Meilleure | Variable | Bonne |
+| Network calls | Few | Many | Few |
+| Client coupling | Low | High | Low |
+| Flexibility | Medium | High | High |
+| Server complexity | High | Low | Medium |
+| Performance | Better | Variable | Good |
 
-## Quand utiliser
+## When to Use
 
-**Utiliser Remote Facade quand :**
+**Use Remote Facade when:**
 
-- Communication reseau couteuse (latence)
-- Clients distants (mobile, SPA, microservices)
-- Operations complexes multi-etapes
-- Besoin de reduire la bande passante
+- Expensive network communication (latency)
+- Remote clients (mobile, SPA, microservices)
+- Complex multi-step operations
+- Need to reduce bandwidth
 
-**Eviter Remote Facade quand :**
+**Avoid Remote Facade when:**
 
-- Clients locaux (monolithe)
-- Operations simples
-- Besoin de flexibilite maximale (GraphQL)
+- Local clients (monolith)
+- Simple operations
+- Need for maximum flexibility (GraphQL)
 
-## Patterns liés
+## Related Patterns
 
-- [DTO](./dto.md) - Objets de transfert pour les operations coarse-grained
-- [Service Layer](./service-layer.md) - Logique metier appelee par Remote Facade
-- [Gateway](./gateway.md) - Acces aux systemes externes
-- [Data Transfer Object](./dto.md) - Transport des donnees agregees
+- [DTO](./dto.md) - Transfer objects for coarse-grained operations
+- [Service Layer](./service-layer.md) - Business logic called by Remote Facade
+- [Gateway](./gateway.md) - Access to external systems
+- [Data Transfer Object](./dto.md) - Transport of aggregated data
 
 ## Sources
 

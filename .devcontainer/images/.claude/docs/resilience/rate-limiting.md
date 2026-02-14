@@ -1,10 +1,10 @@
 # Rate Limiting Pattern
 
-> Controler le debit des requetes pour proteger les services contre la surcharge.
+> Control request throughput to protect services against overload.
 
 ---
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -25,19 +25,19 @@
 
 ---
 
-## Algorithmes
+## Algorithms
 
-| Algorithme | Description | Usage |
-|------------|-------------|-------|
-| **Token Bucket** | Tokens regeneres a taux constant | API rate limiting |
-| **Leaky Bucket** | Queue qui se vide a taux constant | Traffic shaping |
-| **Fixed Window** | Compteur par fenetre de temps fixe | Simple, mais burst |
-| **Sliding Window Log** | Log des timestamps des requetes | Precis, plus de memoire |
-| **Sliding Window Counter** | Approximation entre fenetres | Bon compromis |
+| Algorithm | Description | Usage |
+|-----------|-------------|-------|
+| **Token Bucket** | Tokens regenerated at constant rate | API rate limiting |
+| **Leaky Bucket** | Queue that drains at constant rate | Traffic shaping |
+| **Fixed Window** | Counter per fixed time window | Simple, but burst-prone |
+| **Sliding Window Log** | Log of request timestamps | Precise, more memory |
+| **Sliding Window Counter** | Approximation between windows | Good compromise |
 
 ---
 
-## Implementation Token Bucket
+## Token Bucket Implementation
 
 ```go
 package ratelimiting
@@ -120,7 +120,7 @@ func handleRequest(bucket *TokenBucket, req *Request) *Response {
 
 ---
 
-## Implementation Sliding Window
+## Sliding Window Implementation
 
 ```go
 package ratelimiting
@@ -228,7 +228,7 @@ func (s *SlidingWindowRateLimiter) GetResetTime(key string) int64 {
 
 ---
 
-## Rate Limiter multi-niveau
+## Multi-level Rate Limiter
 
 ```go
 package ratelimiting
@@ -348,7 +348,7 @@ func handleAPIRequest(limiter *MultiLevelRateLimiter, userID string, req *Reques
 
 ---
 
-## Rate Limiter distribue (Redis)
+## Distributed Rate Limiter (Redis)
 
 ```go
 package ratelimiting
@@ -436,7 +436,7 @@ func (r *RedisRateLimiter) IsAllowed(ctx context.Context, key string) (RedisResu
 
 ---
 
-## Middleware HTTP
+## HTTP Middleware
 
 ```go
 package ratelimiting
@@ -480,9 +480,9 @@ func RateLimitMiddleware(limiter *SlidingWindowRateLimiter, keyExtractor func(*h
 // Usage
 func setupRouter() *http.ServeMux {
 	mux := http.NewServeMux()
-	
+
 	apiLimiter := NewSlidingWindowRateLimiter(60000, 100)
-	
+
 	// Apply rate limiting middleware
 	mux.Handle("/api/", RateLimitMiddleware(apiLimiter, nil)(
 		http.HandlerFunc(apiHandler),
@@ -507,36 +507,36 @@ func setupRouter() *http.ServeMux {
 
 ---
 
-## Comparaison des algorithmes
+## Algorithm Comparison
 
-| Algorithme | Precision | Memoire | Burst | Complexite |
-|------------|-----------|---------|-------|------------|
-| Token Bucket | Moyenne | O(1) | Permet burst | Simple |
-| Leaky Bucket | Haute | O(n) | Lisse | Moyenne |
-| Fixed Window | Basse | O(1) | Double burst possible | Simple |
-| Sliding Log | Haute | O(n) | Precis | Complexe |
-| Sliding Counter | Moyenne | O(1) | Approximatif | Moyenne |
-
----
-
-## Quand utiliser
-
-- APIs publiques (protection DoS)
-- Endpoints couteux (generation, AI)
-- Fair usage entre utilisateurs
-- Prevention de l'abus
-- Quota par tier de service
+| Algorithm | Precision | Memory | Burst | Complexity |
+|-----------|-----------|--------|-------|------------|
+| Token Bucket | Medium | O(1) | Allows burst | Simple |
+| Leaky Bucket | High | O(n) | Smooth | Medium |
+| Fixed Window | Low | O(1) | Double burst possible | Simple |
+| Sliding Log | High | O(n) | Precise | Complex |
+| Sliding Counter | Medium | O(1) | Approximate | Medium |
 
 ---
 
-## Lie a
+## When to Use
+
+- Public APIs (DoS protection)
+- Expensive endpoints (generation, AI)
+- Fair usage between users
+- Abuse prevention
+- Quota per service tier
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| [Bulkhead](bulkhead.md) | Limite concurrence vs debit |
-| [Circuit Breaker](circuit-breaker.md) | Complementaire |
-| Throttling | Synonyme cote client |
-| Backpressure | Cote producteur |
+| [Bulkhead](bulkhead.md) | Limits concurrency vs throughput |
+| [Circuit Breaker](circuit-breaker.md) | Complementary |
+| Throttling | Client-side synonym |
+| Backpressure | Producer-side |
 
 ---
 

@@ -1,10 +1,10 @@
 # Modular Monolith
 
-> Un monolithe structuré en modules indépendants avec des frontières claires.
+> A monolith structured into independent modules with clear boundaries.
 
-**Position :** Entre Monolith classique et Microservices
+**Position:** Between classic Monolith and Microservices
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -43,12 +43,12 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Structure de fichiers
+## File Structure
 
 ```
 src/
 ├── modules/
-│   ├── orders/                    # Module Orders
+│   ├── orders/                    # Orders module
 │   │   ├── domain/
 │   │   │   ├── Order.go
 │   │   │   ├── OrderItem.go
@@ -59,12 +59,12 @@ src/
 │   │   ├── infrastructure/
 │   │   │   ├── OrderRepository.go
 │   │   │   └── OrderController.go
-│   │   ├── api/                   # API publique du module
+│   │   ├── api/                   # Module public API
 │   │   │   ├── OrderModuleAPI.go  # Interface
-│   │   │   └── OrderModuleImpl.go # Implémentation
-│   │   └── module.go              # Export public
+│   │   │   └── OrderModuleImpl.go # Implementation
+│   │   └── module.go              # Public export
 │   │
-│   ├── users/                     # Module Users
+│   ├── users/                     # Users module
 │   │   ├── domain/
 │   │   ├── application/
 │   │   ├── infrastructure/
@@ -72,7 +72,7 @@ src/
 │   │   │   └── UserModuleAPI.go
 │   │   └── module.go
 │   │
-│   └── inventory/                 # Module Inventory
+│   └── inventory/                 # Inventory module
 │       └── ...
 │
 ├── shared/                        # Shared Kernel
@@ -83,9 +83,9 @@ src/
 └── main.go                        # Composition root
 ```
 
-## Communication inter-modules
+## Inter-module Communication
 
-### Via API publique
+### Via Public API
 
 ```go
 package api
@@ -171,7 +171,7 @@ func (s *ShippingService) ShipOrder(ctx context.Context, orderID string) error {
 }
 ```
 
-### Via événements internes
+### Via Internal Events
 
 ```go
 package events
@@ -249,7 +249,7 @@ func (h *OrderCreatedHandler) Handle(ctx context.Context, event DomainEvent) err
 }
 ```
 
-## Règles d'isolation
+## Isolation Rules
 
 ```go
 package validation
@@ -260,7 +260,7 @@ const (
 	// - Its own packages
 	// - The shared kernel
 	// - Public APIs from other modules (modules/*/api)
-	
+
 	// FORBIDDEN:
 	// - Direct import of domain/ from other modules
 	// - Direct import of infrastructure/ from other modules
@@ -268,10 +268,10 @@ const (
 
 // Example violations:
 
-// ❌ FORBIDDEN: Direct access to internal infrastructure
+// FORBIDDEN: Direct access to internal infrastructure
 // import "app/modules/users/infrastructure"
 
-// ✅ ALLOWED: Use public API
+// ALLOWED: Use public API
 // import "app/modules/users/api"
 ```
 
@@ -316,36 +316,36 @@ func main() {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-| Utiliser | Eviter |
+| Use | Avoid |
 |----------|--------|
-| Équipe 5-30 devs | Équipe < 5 (overkill) |
-| Domaine complexe | CRUD simple |
-| Pas prêt pour microservices | DevOps mature |
-| Préparation future split | Déjà microservices |
-| Tests importants | Prototype rapide |
+| Team 5-30 devs | Team < 5 (overkill) |
+| Complex domain | Simple CRUD |
+| Not ready for microservices | Mature DevOps |
+| Preparing future split | Already microservices |
+| Important tests | Quick prototype |
 
-## Avantages
+## Advantages
 
-- **Simplicité opérationnelle** : Un seul déploiement
-- **Structure claire** : Frontières explicites
-- **Refactoring facile** : Tout dans un repo
-- **Tests intégrés** : Tests end-to-end simples
-- **Préparation microservices** : Extraction future facile
-- **Transactions** : ACID possible
+- **Operational simplicity**: Single deployment
+- **Clear structure**: Explicit boundaries
+- **Easy refactoring**: Everything in one repo
+- **Integrated tests**: Simple end-to-end tests
+- **Microservices preparation**: Easy future extraction
+- **Transactions**: ACID possible
 
-## Inconvénients
+## Disadvantages
 
-- **Discipline requise** : Respecter les frontières
-- **Scaling uniforme** : Pas de scale par module
-- **Deploy tout ou rien** : Un module = tout redéployer
-- **Couplage technique** : Même stack
-- **Base partagée** : Schéma peut devenir couplé
+- **Discipline required**: Respect boundaries
+- **Uniform scaling**: No per-module scale
+- **All-or-nothing deploy**: One module = redeploy everything
+- **Technical coupling**: Same stack
+- **Shared base**: Schema can become coupled
 
-## Exemples réels
+## Real-world Examples
 
-| Entreprise | Usage |
+| Company | Usage |
 |------------|-------|
 | **Shopify** | Modular monolith Ruby |
 | **Basecamp** | Majestic Monolith |
@@ -353,29 +353,29 @@ func main() {
 | **GitLab** | Modular Ruby monolith |
 | **Stripe** | Ruby modules |
 
-## Migration path
+## Migration Path
 
-### Depuis Monolith classique
-
-```
-Phase 1: Identifier bounded contexts (DDD)
-Phase 2: Extraire modules avec interfaces
-Phase 3: Ajouter règles d'isolation (linting)
-Phase 4: Migrer données vers schémas séparés
-Phase 5: Implémenter event bus interne
-```
-
-### Vers Microservices
+### From Classic Monolith
 
 ```
-Phase 1: Chaque module a sa propre DB schema
-Phase 2: Remplacer appels sync par async (events)
-Phase 3: Containeriser modules indépendamment
-Phase 4: Extraire en services séparés
-Phase 5: Ajouter API Gateway
+Phase 1: Identify bounded contexts (DDD)
+Phase 2: Extract modules with interfaces
+Phase 3: Add isolation rules (linting)
+Phase 4: Migrate data to separate schemas
+Phase 5: Implement internal event bus
 ```
 
-## Comparaison
+### To Microservices
+
+```
+Phase 1: Each module has its own DB schema
+Phase 2: Replace sync calls with async (events)
+Phase 3: Containerize modules independently
+Phase 4: Extract into separate services
+Phase 5: Add API Gateway
+```
+
+## Comparison
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
@@ -397,14 +397,14 @@ Phase 5: Ajouter API Gateway
 └───────────────────────────────────────────────────────────────┘
 ```
 
-## Patterns liés
+## Related Patterns
 
-| Pattern | Relation |
+| Pattern | Relationship |
 |---------|----------|
-| Hexagonal | Architecture de chaque module |
+| Hexagonal | Architecture of each module |
 | DDD | Bounded Contexts = Modules |
-| Microservices | Évolution possible |
-| Event-Driven | Communication inter-modules |
+| Microservices | Possible evolution |
+| Event-Driven | Inter-module communication |
 
 ## Sources
 

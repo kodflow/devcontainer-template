@@ -1,12 +1,12 @@
 # Domain-Driven Design Patterns
 
-Patterns tactiques et stratégiques de DDD - Eric Evans.
+Tactical and strategic DDD patterns - Eric Evans.
 
 ## Building Blocks (Tactical)
 
 ### 1. Entity
 
-> Objet avec identité unique et cycle de vie.
+> Object with unique identity and lifecycle.
 
 ```go
 abstract class Entity<T> {
@@ -53,20 +53,20 @@ class User extends Entity<UserId> {
 }
 ```
 
-**Caractéristiques :**
+**Characteristics:**
 
-- Identité stable dans le temps
-- Mutable (peut changer d'état)
-- Égalité basée sur l'ID
+- Stable identity over time
+- Mutable (can change state)
+- Equality based on ID
 
-**Quand :** Utilisateurs, commandes, produits, comptes.
-**Lié à :** Value Object, Aggregate.
+**When:** Users, orders, products, accounts.
+**Related:** Value Object, Aggregate.
 
 ---
 
 ### 2. Value Object
 
-> Objet immutable défini par ses attributs.
+> Immutable object defined by its attributes.
 
 ```go
 class Money {
@@ -126,21 +126,21 @@ class Address {
 }
 ```
 
-**Caractéristiques :**
+**Characteristics:**
 
 - Immutable
-- Égalité par valeur (tous les attributs)
-- Pas d'identité propre
-- Auto-validant
+- Equality by value (all attributes)
+- No own identity
+- Self-validating
 
-**Quand :** Montants, adresses, dates, coordonnées, emails.
-**Lié à :** Entity.
+**When:** Amounts, addresses, dates, coordinates, emails.
+**Related:** Entity.
 
 ---
 
 ### 3. Aggregate
 
-> Cluster d'objets avec une racine cohérente.
+> Cluster of objects with a coherent root.
 
 ```go
 // Aggregate Root
@@ -216,21 +216,21 @@ class OrderItem {
 }
 ```
 
-**Règles :**
+**Rules:**
 
-- Une seule racine d'agrégat
-- Références externes uniquement vers la racine (par ID)
-- Invariants garantis dans les limites de l'agrégat
-- Modifications atomiques
+- A single aggregate root
+- External references only to the root (by ID)
+- Invariants guaranteed within aggregate boundaries
+- Atomic modifications
 
-**Quand :** Cohérence transactionnelle, invariants complexes.
-**Lié à :** Entity, Repository.
+**When:** Transactional consistency, complex invariants.
+**Related:** Entity, Repository.
 
 ---
 
 ### 4. Repository
 
-> Abstraction de la persistence des agrégats.
+> Abstraction of aggregate persistence.
 
 ```go
 interface Repository<T extends Entity<ID>, ID> {
@@ -275,20 +275,20 @@ class PostgresOrderRepository implements OrderRepository {
 }
 ```
 
-**Caractéristiques :**
+**Characteristics:**
 
-- Interface orientée collection
-- Un repository par agrégat
-- Abstrait le stockage
+- Collection-oriented interface
+- One repository per aggregate
+- Abstracts storage
 
-**Quand :** Accès aux agrégats, isolation persistence.
-**Lié à :** Aggregate, Unit of Work.
+**When:** Access to aggregates, persistence isolation.
+**Related:** Aggregate, Unit of Work.
 
 ---
 
 ### 5. Domain Service
 
-> Logique métier qui n'appartient à aucune entité.
+> Business logic that does not belong to any entity.
 
 ```go
 class TransferService {
@@ -340,20 +340,20 @@ class PricingService {
 }
 ```
 
-**Caractéristiques :**
+**Characteristics:**
 
 - Stateless
-- Opérations sur plusieurs entités
-- Logique qui n'appartient pas naturellement à une entité
+- Operations on multiple entities
+- Logic that does not naturally belong to an entity
 
-**Quand :** Transferts, calculs cross-entity, validations complexes.
-**Lié à :** Entity, Application Service.
+**When:** Transfers, cross-entity calculations, complex validations.
+**Related:** Entity, Application Service.
 
 ---
 
 ### 6. Domain Event
 
-> Notification d'un fait significatif du domaine.
+> Notification of a significant domain fact.
 
 ```go
 interface DomainEvent {
@@ -406,20 +406,20 @@ class DomainEventPublisher {
 }
 ```
 
-**Caractéristiques :**
+**Characteristics:**
 
 - Immutable
-- Passé (quelque chose s'est passé)
-- Nommé en langage ubiquitaire
+- Past tense (something happened)
+- Named in ubiquitous language
 
-**Quand :** Découplage, event sourcing, notifications.
-**Lié à :** Event Sourcing, CQRS.
+**When:** Decoupling, event sourcing, notifications.
+**Related:** Event Sourcing, CQRS.
 
 ---
 
 ### 7. Factory
 
-> Création d'objets complexes du domaine.
+> Creation of complex domain objects.
 
 ```go
 class OrderFactory {
@@ -462,14 +462,14 @@ class User extends Entity<UserId> {
 }
 ```
 
-**Quand :** Création complexe, reconstitution, invariants à l'initialisation.
-**Lié à :** Aggregate, Repository.
+**When:** Complex creation, reconstitution, invariants at initialization.
+**Related:** Aggregate, Repository.
 
 ---
 
 ### 8. Specification
 
-> Encapsuler une règle métier réutilisable.
+> Encapsulate a reusable business rule.
 
 ```go
 interface Specification<T> {
@@ -529,8 +529,8 @@ class CustomersByCountry extends CompositeSpecification<Customer> {
 }
 ```
 
-**Quand :** Règles métier composables, filtrage, validation.
-**Lié à :** Strategy, Query Object.
+**When:** Composable business rules, filtering, validation.
+**Related:** Strategy, Query Object.
 
 ---
 
@@ -538,7 +538,7 @@ class CustomersByCountry extends CompositeSpecification<Customer> {
 
 ### 9. Bounded Context
 
-> Limite explicite où un modèle s'applique.
+> Explicit boundary where a model applies.
 
 ```go
 // Sales Context
@@ -575,20 +575,20 @@ namespace ShippingContext {
 // Each context has its own ubiquitous language
 ```
 
-**Caractéristiques :**
+**Characteristics:**
 
-- Limites claires
-- Modèle cohérent à l'intérieur
-- Langage ubiquitaire spécifique
+- Clear boundaries
+- Coherent model within
+- Specific ubiquitous language
 
-**Quand :** Grands systèmes, équipes multiples.
-**Lié à :** Context Map, Anti-Corruption Layer.
+**When:** Large systems, multiple teams.
+**Related:** Context Map, Anti-Corruption Layer.
 
 ---
 
 ### 10. Context Map
 
-> Relations entre bounded contexts.
+> Relationships between bounded contexts.
 
 ```go
 // Different relationship types:
@@ -624,25 +624,25 @@ namespace OrderContext {
 // 6. Published Language - Standard interchange format
 ```
 
-**Types de relations :**
+**Relationship types:**
 
-- **Partnership** : Coopération étroite
-- **Shared Kernel** : Code partagé
-- **Customer-Supplier** : Dépendance dirigée
-- **Conformist** : Adoption du modèle upstream
-- **ACL** : Traduction/protection
-- **Open Host Service** : API publique
-- **Published Language** : Format standard (JSON, XML)
-- **Separate Ways** : Pas d'intégration
+- **Partnership**: Close cooperation
+- **Shared Kernel**: Shared code
+- **Customer-Supplier**: Directed dependency
+- **Conformist**: Adoption of upstream model
+- **ACL**: Translation/protection
+- **Open Host Service**: Public API
+- **Published Language**: Standard format (JSON, XML)
+- **Separate Ways**: No integration
 
-**Quand :** Visualiser les dépendances, planifier l'intégration.
-**Lié à :** Bounded Context.
+**When:** Visualize dependencies, plan integration.
+**Related:** Bounded Context.
 
 ---
 
 ### 11. Anti-Corruption Layer (ACL)
 
-> Couche de traduction entre contextes.
+> Translation layer between contexts.
 
 ```go
 // External/Legacy system
@@ -705,14 +705,14 @@ class LegacyCustomerAdapter {
 }
 ```
 
-**Quand :** Intégration legacy, protection du modèle.
-**Lié à :** Adapter, Facade.
+**When:** Legacy integration, model protection.
+**Related:** Adapter, Facade.
 
 ---
 
 ### 12. Domain Events for Integration
 
-> Événements pour communication inter-contextes.
+> Events for cross-context communication.
 
 ```go
 // Integration Event (cross-context)
@@ -765,8 +765,8 @@ class ShippingContext {
 }
 ```
 
-**Quand :** Communication async entre contextes, découplage.
-**Lié à :** Event-Driven Architecture.
+**When:** Async communication between contexts, decoupling.
+**Related:** Event-Driven Architecture.
 
 ---
 
@@ -774,7 +774,7 @@ class ShippingContext {
 
 ### 13. Event Sourcing
 
-> Stocker les événements au lieu de l'état.
+> Store events instead of state.
 
 ```go
 interface EventStore {
@@ -861,21 +861,21 @@ class EventSourcedOrderRepository {
 }
 ```
 
-**Avantages :**
+**Advantages:**
 
-- Audit trail complet
-- Debug temporal
-- Rebuild d'état
+- Complete audit trail
+- Temporal debugging
+- State rebuild
 - Analytics
 
-**Quand :** Audit requis, undo/redo, analytics temporelles.
-**Lié à :** CQRS, Event Store.
+**When:** Audit required, undo/redo, temporal analytics.
+**Related:** CQRS, Event Store.
 
 ---
 
 ### 14. CQRS (Command Query Responsibility Segregation)
 
-> Séparer lectures et écritures.
+> Separate reads and writes.
 
 ```go
 // Command side
@@ -951,34 +951,34 @@ class OrderProjector {
 }
 ```
 
-**Avantages :**
+**Advantages:**
 
-- Optimisation lectures/écritures indépendantes
-- Scaling séparé
-- Modèles de lecture spécialisés
+- Independent read/write optimization
+- Separate scaling
+- Specialized read models
 
-**Quand :** Lectures >> écritures, vues multiples, scaling.
-**Lié à :** Event Sourcing.
+**When:** Reads >> writes, multiple views, scaling.
+**Related:** Event Sourcing.
 
 ---
 
-## Tableau de décision
+## Decision Table
 
-| Besoin | Pattern |
-|--------|---------|
-| Objet avec identité | Entity |
-| Objet par valeur | Value Object |
-| Cohérence transactionnelle | Aggregate |
-| Accès aux agrégats | Repository |
-| Logique cross-entity | Domain Service |
-| Notification fait passé | Domain Event |
-| Création complexe | Factory |
-| Règle métier réutilisable | Specification |
-| Limite de modèle | Bounded Context |
-| Relations inter-contextes | Context Map |
-| Protection contre legacy | Anti-Corruption Layer |
+| Need | Pattern |
+|------|---------|
+| Object with identity | Entity |
+| Object by value | Value Object |
+| Transactional consistency | Aggregate |
+| Access to aggregates | Repository |
+| Cross-entity logic | Domain Service |
+| Past fact notification | Domain Event |
+| Complex creation | Factory |
+| Reusable business rule | Specification |
+| Model boundary | Bounded Context |
+| Inter-context relationships | Context Map |
+| Protection against legacy | Anti-Corruption Layer |
 | Audit / History | Event Sourcing |
-| Optimiser reads/writes | CQRS |
+| Optimize reads/writes | CQRS |
 
 ## Sources
 

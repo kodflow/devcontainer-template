@@ -1,22 +1,22 @@
 # Batch Processing
 
-Pattern de regroupement d'operations pour reduire l'overhead.
+Pattern for grouping operations to reduce overhead.
 
 ---
 
-## Qu'est-ce que le Batch Processing ?
+## What is Batch Processing?
 
-> Collecter plusieurs operations et les executer en une seule fois.
+> Collect multiple operations and execute them all at once.
 
 ```
 +--------------------------------------------------------------+
 |                    Batch Processing                           |
 |                                                               |
-|  Sans batch:     Op1 --> DB                                   |
+|  Without batch:  Op1 --> DB                                   |
 |                  Op2 --> DB                                   |
 |                  Op3 --> DB     (3 round-trips)               |
 |                                                               |
-|  Avec batch:     Op1 -+                                       |
+|  With batch:     Op1 -+                                       |
 |                  Op2 -+--> [Batch] --> DB  (1 round-trip)     |
 |                  Op3 -+                                       |
 |                                                               |
@@ -31,17 +31,17 @@ Pattern de regroupement d'operations pour reduire l'overhead.
 +--------------------------------------------------------------+
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Reduire les round-trips reseau/DB
-- Amortir les couts fixes (connexion, headers)
-- Optimiser le throughput
+- Reduce network/DB round-trips
+- Amortize fixed costs (connection, headers)
+- Optimize throughput
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### BatchProcessor basique
+### Basic BatchProcessor
 
 ```go
 package batch
@@ -152,7 +152,7 @@ func (bp *BatchProcessor[T]) Close() error {
 // logBatcher.Add(LogEntry{Level: "info", Message: "User logged in"})
 ```
 
-### BatchProcessor avec resultats
+### BatchProcessor with Results
 
 ```go
 package batch
@@ -302,12 +302,12 @@ func (bp *BatchProcessorWithResults[TInput, TResult]) flush() {
 
 ---
 
-## Strategies de batching
+## Batching Strategies
 
 ### 1. Time-based
 
 ```go
-// Flush toutes les N millisecondes
+// Flush every N milliseconds
 ticker := time.NewTicker(1 * time.Second)
 go func() {
 	for range ticker.C {
@@ -319,16 +319,16 @@ go func() {
 ### 2. Size-based
 
 ```go
-// Flush quand le batch atteint N items
+// Flush when batch reaches N items
 if len(batch) >= maxSize {
 	flush()
 }
 ```
 
-### 3. Hybride (recommande)
+### 3. Hybrid (recommended)
 
 ```go
-// Flush au premier de: maxSize ou maxWait
+// Flush on first of: maxSize or maxWait
 func (bp *BatchProcessor[T]) Add(item T) {
 	bp.batch = append(bp.batch, item)
 
@@ -434,7 +434,7 @@ func (bb *BackpressureBatcher[T]) processWithQueue(ctx context.Context, items []
 
 ---
 
-## Cas d'usage
+## Use Cases
 
 ```go
 package examples
@@ -444,7 +444,7 @@ import (
 	"time"
 )
 
-// 1. Insertion DB en masse
+// 1. Bulk DB insertion
 func insertBatcher() {
 	batcher := batch.New(
 		func(ctx context.Context, records []Record) error {
@@ -455,7 +455,7 @@ func insertBatcher() {
 	_ = batcher
 }
 
-// 2. Envoi d'emails
+// 2. Email sending
 func emailBatcher() {
 	batcher := batch.New(
 		func(ctx context.Context, emails []Email) error {
@@ -490,46 +490,46 @@ var (
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
-| Aspect | Valeur |
-|--------|--------|
-| Latence ajoutee | maxWait (pire cas) |
-| Reduction round-trips | ~N/maxSize |
-| Memoire | O(maxSize) |
+| Aspect | Value |
+|--------|-------|
+| Added latency | maxWait (worst case) |
+| Round-trip reduction | ~N/maxSize |
+| Memory | O(maxSize) |
 
-### Avantages
+### Advantages
 
-- Throughput ameliore
-- Moins de connexions/requetes
-- Meilleure utilisation reseau
+- Improved throughput
+- Fewer connections/requests
+- Better network utilization
 
-### Inconvenients
+### Disadvantages
 
-- Latence ajoutee
-- Complexite erreurs partielles
-- Risque de perte si crash avant flush
-
----
-
-## Quand utiliser
-
-- Insertions massives en base de donnees (bulk insert)
-- Envoi d'emails ou notifications en masse (email marketing, alertes)
-- Collecte de metriques et analytics (aggregation avant envoi)
-- Synchronisation de donnees entre systemes (ETL, data pipelines)
-- Traitement d'evenements haute frequence (logs, IoT, streaming)
+- Added latency
+- Partial error complexity
+- Risk of data loss if crash before flush
 
 ---
 
-## Patterns connexes
+## When to Use
+
+- Bulk database insertions (bulk insert)
+- Mass email or notification sending (email marketing, alerts)
+- Metrics and analytics collection (aggregation before sending)
+- Data synchronization between systems (ETL, data pipelines)
+- High-frequency event processing (logs, IoT, streaming)
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Buffer** | Stockage temporaire similaire |
-| **DataLoader** | Batch + cache pour GraphQL |
-| **Producer-Consumer** | Queue entre production et traitement |
-| **Debounce** | Grouper dans le temps, pas en nombre |
+| **Buffer** | Similar temporary storage |
+| **DataLoader** | Batch + cache for GraphQL |
+| **Producer-Consumer** | Queue between production and processing |
+| **Debounce** | Group by time, not by count |
 
 ---
 

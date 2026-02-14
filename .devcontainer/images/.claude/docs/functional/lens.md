@@ -1,6 +1,6 @@
 # Lens Pattern
 
-> Paire getter/setter composable permettant de manipuler des structures de données imbriquées de manière fonctionnelle et immuable.
+> Composable getter/setter pair for manipulating nested data structures in a functional and immutable way.
 
 ## Definition
 
@@ -182,17 +182,17 @@ func example() {
 			},
 		},
 	}
-	
+
 	// For simple cases in Go, direct field access is more idiomatic
 	// But lenses shine when you need reusable, composable accessors
-	
+
 	// Get nested value (direct access)
 	city := user.Company.Address.City // "Boston"
-	
+
 	// Set nested value immutably (requires copy)
 	updatedUser := *user
 	updatedUser.Company.Address.City = "New York"
-	
+
 	// Modify nested value
 	modifiedUser := *user
 	modifiedUser.Company.Address.City = "BOSTON"
@@ -254,7 +254,7 @@ func userCityLens() Lens[User, string] {
 	userCompany := UserLens{}.Company()
 	companyAddr := CompanyLens{}.Address()
 	addrCity := AddressLens{}.City()
-	
+
 	return Compose(Compose(userCompany, companyAddr), addrCity)
 }
 
@@ -272,9 +272,9 @@ func lensOperations() {
 			},
 		},
 	}
-	
+
 	cityLens := userCityLens()
-	
+
 	getCity := cityLens.Get(user)                              // "Boston"
 	setCity := cityLens.Set("Chicago")(user)                   // New user with Chicago
 	modifyCity := Modify(cityLens, strings.ToUpper)(user)      // New user with BOSTON
@@ -326,7 +326,7 @@ func profileNicknameOptional() Optional[Profile, string] {
 func optionalExample() {
 	bob := "bob"
 	account := Account{Profile: &Profile{Nickname: &bob}}
-	
+
 	profileOpt := accountProfileOptional()
 	if profile := profileOpt.GetOption(account); profile != nil {
 		nicknameOpt := profileNicknameOptional()
@@ -334,7 +334,7 @@ func optionalExample() {
 			// Use nickname
 		}
 	}
-	
+
 	emptyAccount := Account{}
 	profile := accountProfileOptional().GetOption(emptyAccount) // nil
 }
@@ -381,9 +381,9 @@ func prismExample() {
 		Circle{Radius: 10},
 		Rectangle{Width: 5, Height: 3},
 	}
-	
+
 	prism := circlePrism()
-	
+
 	// Get only circles
 	circles := []Circle{}
 	for _, s := range shapes {
@@ -438,15 +438,15 @@ func effectStyleExample() {
 			},
 		},
 	}
-	
+
 	cityLens := userCityLens()
-	
+
 	// Get value
 	cityValue := Get(cityLens)(user)
-	
+
 	// Set value
 	updatedUser := Replace(cityLens)("Chicago")(user)
-	
+
 	// Modify value
 	modifiedUser := ModifyField(cityLens)(strings.ToUpper)(user)
 }
@@ -476,17 +476,17 @@ func configDatabaseLens() Lens[Config, *Database] {
 func optionalAccessExample() {
 	localhost := "localhost"
 	port := 5432
-	
+
 	config := Config{
 		Database: &Database{
 			Host: &localhost,
 			Port: &port,
 		},
 	}
-	
+
 	dbLens := configDatabaseLens()
 	db := dbLens.Get(config)
-	
+
 	if db != nil && db.Host != nil {
 		host := *db.Host // "localhost"
 	}
@@ -542,9 +542,9 @@ func traversalExample() {
 			{Price: 200},
 		},
 	}
-	
+
 	traversal := orderItemsTraversal()
-	
+
 	// Apply 10% discount
 	discountedOrder := traversal.ModifyAll(func(p float64) float64 {
 		return p * 0.9
@@ -587,7 +587,7 @@ func updateCityWithLens(user User, newCity string) User {
 // Lens advantage: reusable for multiple operations
 func lensAdvantages(user User) {
 	cityLens := userCityLens()
-	
+
 	getCity := cityLens.Get(user)
 	setCity := cityLens.Set("NYC")(user)
 	upperCity := Modify(cityLens, strings.ToUpper)(user)
@@ -604,7 +604,7 @@ func lensAdvantages(user User) {
    	func(u User) string { return u.Company.Address.City },
    	func(c string) func(User) User { /* complex copy logic */ },
    )(user)
-   
+
    // GOOD - Reusable lens
    cityLens := userCityLens()
    city := cityLens.Get(user)
@@ -623,7 +623,7 @@ func lensAdvantages(user User) {
    		}
    	},
    )
-   
+
    // OK for simple cases in Go
    user.Name = "Bob"
    ```
@@ -636,15 +636,15 @@ func lensAdvantages(user User) {
    addr.City = "NYC" // Mutation!
    ```
 
-## Quand utiliser
+## When to Use
 
-- Mises à jour immuables profondément imbriquées
-- Logique accessor/mutator réutilisable
-- Gestion d'état complexe
-- Travail avec des structures de données immuables
-- Reducers Redux avec état imbriqué
+- Deeply nested immutable updates
+- Reusable accessor/mutator logic
+- Complex state management
+- Working with immutable data structures
+- Redux reducers with nested state
 
-## Patterns liés
+## Related Patterns
 
 - [Composition](./composition.md) - Lenses are composable
 - [Option](./option.md) - Optional optics return Option

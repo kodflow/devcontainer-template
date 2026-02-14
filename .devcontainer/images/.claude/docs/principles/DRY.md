@@ -1,20 +1,20 @@
 # DRY - Don't Repeat Yourself
 
-> Chaque élément de connaissance doit avoir une représentation unique et non ambiguë dans un système.
+> Every piece of knowledge must have a single, unambiguous representation within a system.
 
-**Auteurs :** Andrew Hunt & David Thomas (The Pragmatic Programmer, 1999)
+**Authors:** Andrew Hunt & David Thomas (The Pragmatic Programmer, 1999)
 
-## Principe
+## Principle
 
-**DRY ne concerne pas seulement le code dupliqué, mais toute forme de duplication de connaissance :**
+**DRY is not only about duplicated code, but any form of knowledge duplication:**
 
 - Code
 - Documentation
 - Configuration
-- Schémas de données
-- Processus
+- Data schemas
+- Processes
 
-## Exemples
+## Examples
 
 ### Code
 
@@ -26,7 +26,7 @@ func validateEmail(email string) bool {
 }
 
 func validateUserEmail(email string) bool {
-	matched, _ := regexp.MatchString(`^[^\s@]+@[^\s@]+\.[^\s@]+$`, email) // Dupliqué
+	matched, _ := regexp.MatchString(`^[^\s@]+@[^\s@]+\.[^\s@]+$`, email) // Duplicated
 	return matched
 }
 
@@ -49,7 +49,7 @@ type Config struct {
 
 type EnvironmentConfig struct {
 	DatabaseHost string
-	DatabasePort int  // Dupliqué partout
+	DatabasePort int  // Duplicated everywhere
 	DatabaseName string
 }
 
@@ -61,7 +61,7 @@ var config = Config{
 	},
 	Staging: EnvironmentConfig{
 		DatabaseHost: "staging.example.com",
-		DatabasePort: 5432, // Dupliqué
+		DatabasePort: 5432, // Duplicated
 		DatabaseName: "myapp_staging",
 	},
 }
@@ -92,10 +92,10 @@ var config = Config{
 ### Documentation
 
 ```go
-// ❌ WET - Doc et code désynchronisés
+// ❌ WET - Doc and code out of sync
 // CalculateTotal calculates the total price with 20% tax
 func CalculateTotal(price float64) float64 {
-	return price * 1.15 // Bug: doc dit 20%, code fait 15%
+	return price * 1.15 // Bug: doc says 20%, code does 15%
 }
 
 // ✅ DRY - Single source of truth
@@ -107,15 +107,15 @@ func CalculateTotal(price float64) float64 {
 }
 ```
 
-## Quand NE PAS appliquer DRY
+## When NOT to Apply DRY
 
-### Couplage accidentel
+### Accidental Coupling
 
 ```go
-// ❌ Mauvaise abstraction DRY
+// ❌ Bad DRY abstraction
 func processEntity(entity interface{}) error {
-	// Logic très différente selon le type
-	// → Mieux vaut 3 fonctions séparées
+	// Very different logic depending on type
+	// → Better to have 3 separate functions
 	switch e := entity.(type) {
 	case *User:
 		// ...
@@ -129,7 +129,7 @@ func processEntity(entity interface{}) error {
 	return nil
 }
 
-// ✅ Duplication acceptable
+// ✅ Acceptable duplication
 func processUser(user *User) error {
 	// User-specific logic
 	return nil
@@ -146,45 +146,45 @@ func processOrder(order *Order) error {
 }
 ```
 
-### Règle des 3
+### Rule of Three
 
-> Dupliquer 2 fois est acceptable. À la 3ème, refactoriser.
+> Duplicating twice is acceptable. On the third occurrence, refactor.
 
-Raison : Éviter les abstractions prématurées.
+Reason: Avoid premature abstractions.
 
-## Anti-pattern : WET
+## Anti-pattern: WET
 
-**WET = Write Everything Twice** (ou "Waste Everyone's Time")
+**WET = Write Everything Twice** (or "Waste Everyone's Time")
 
-Symptômes :
+Symptoms:
 
-- Même bug à corriger à plusieurs endroits
-- Changement de règle métier = modifications multiples
-- "J'ai oublié de modifier l'autre endroit"
+- Same bug to fix in multiple places
+- Business rule change = multiple modifications
+- "I forgot to update the other place"
 
-## Patterns liés
+## Related Patterns
 
-| Pattern | Relation avec DRY |
-|---------|-------------------|
-| Template Method | Factoriser le squelette d'algorithme |
-| Strategy | Factoriser les variations d'algorithme |
-| Decorator | Éviter la duplication dans les sous-classes |
-| Factory | Centraliser la logique de création |
+| Pattern | Relationship with DRY |
+|---------|----------------------|
+| Template Method | Factorize the algorithm skeleton |
+| Strategy | Factorize algorithm variations |
+| Decorator | Avoid duplication in subclasses |
+| Factory | Centralize creation logic |
 
-## Quand utiliser
+## When to Use
 
-- Quand une meme logique metier apparait a plusieurs endroits
-- Lors de la centralisation de constantes ou configurations
-- Pour synchroniser documentation et code (single source of truth)
-- Quand un bug doit etre corrige a plusieurs endroits identiques
-- Apres la 3eme occurrence d'un pattern similaire (regle des 3)
+- When the same business logic appears in multiple places
+- When centralizing constants or configurations
+- To synchronize documentation and code (single source of truth)
+- When a bug needs to be fixed in multiple identical locations
+- After the 3rd occurrence of a similar pattern (rule of three)
 
 ## Checklist
 
-- [ ] Ce code existe-t-il ailleurs ?
-- [ ] Cette config est-elle dupliquée ?
-- [ ] La doc et le code sont-ils synchronisés ?
-- [ ] Les constantes sont-elles centralisées ?
+- [ ] Does this code exist elsewhere?
+- [ ] Is this config duplicated?
+- [ ] Are the doc and code synchronized?
+- [ ] Are the constants centralized?
 
 ## Sources
 

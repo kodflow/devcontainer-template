@@ -1,23 +1,23 @@
 # Creational Patterns (GoF)
 
-Patterns de creation d'objets.
+Object creation patterns.
 
-## Fichiers detailles
+## Detailed Files
 
-| Pattern | Fichier | Description |
+| Pattern | File | Description |
 |---------|---------|-------------|
-| Builder | [builder.md](builder.md) | Construction complexe etape par etape |
-| Factory Method / Abstract Factory | [factory.md](factory.md) | Delegation de creation |
-| Prototype | [prototype.md](prototype.md) | Cloner des objets existants |
-| Singleton | [singleton.md](singleton.md) | Instance unique + alternatives DI |
+| Builder | [builder.md](builder.md) | Complex step-by-step construction |
+| Factory Method / Abstract Factory | [factory.md](factory.md) | Creation delegation |
+| Prototype | [prototype.md](prototype.md) | Clone existing objects |
+| Singleton | [singleton.md](singleton.md) | Unique instance + DI alternatives |
 
-## Les 5 Patterns
+## The 5 Patterns
 
 ### 1. Factory Method
 
-> Deleguer la creation aux sous-classes.
+> Delegate creation to subclasses.
 
-Voir fichier detaille: [factory.md](factory.md)
+See detailed file: [factory.md](factory.md)
 
 ```go
 package factory
@@ -53,15 +53,15 @@ func LogMessage(factory LoggerFactory, message string) {
 }
 ```
 
-**Quand :** Creation deleguee aux sous-classes.
+**When:** Creation delegated to subclasses.
 
 ---
 
 ### 2. Abstract Factory
 
-> Familles d'objets lies.
+> Families of related objects.
 
-Voir fichier detaille: [factory.md](factory.md)
+See detailed file: [factory.md](factory.md)
 
 ```go
 package factory
@@ -99,15 +99,15 @@ func (f *MaterialUIFactory) CreateButton() Button { return &MaterialButton{} }
 func (f *MaterialUIFactory) CreateInput() Input   { return &MaterialInput{} }
 ```
 
-**Quand :** Plusieurs familles d'objets coherents.
+**When:** Multiple families of coherent objects.
 
 ---
 
 ### 3. Builder
 
-> Construction complexe etape par etape.
+> Complex step-by-step construction.
 
-Voir fichier detaille: [builder.md](builder.md)
+See detailed file: [builder.md](builder.md)
 
 ```go
 package builder
@@ -151,13 +151,13 @@ func (qb *QueryBuilder) Build() string {
 //     Build()
 ```
 
-**Quand :** Objets complexes avec nombreuses options.
+**When:** Complex objects with many options.
 
 ---
 
 ### 4. Prototype
 
-> Cloner des objets existants.
+> Clone existing objects.
 
 ```go
 package prototype
@@ -189,15 +189,15 @@ func (d *Document) Clone() *Document {
 }
 ```
 
-**Quand :** Cout de creation eleve, copie plus efficace.
+**When:** High creation cost, copy is more efficient.
 
 ---
 
 ### 5. Singleton
 
-> Instance unique globale.
+> Unique global instance.
 
-Voir fichier detaille: [singleton.md](singleton.md)
+See detailed file: [singleton.md](singleton.md)
 
 ```go
 package singleton
@@ -223,21 +223,21 @@ var GetDB = sync.OnceValue(func() *Database {
 // fmt.Println(db1 == db2) // true
 ```
 
-**Quand :** Une seule instance requise (attention: souvent un anti-pattern).
+**When:** A single instance required (caution: often an anti-pattern).
 
 ---
 
-## Tableau de decision
+## Decision Table
 
-| Besoin | Pattern |
+| Need | Pattern |
 |--------|---------|
-| Deleguer creation a sous-classes | Factory Method |
-| Familles d'objets coherents | Abstract Factory |
-| Construction complexe/optionnelle | Builder |
-| Clonage plus efficace que creation | Prototype |
-| Instance unique | Singleton |
+| Delegate creation to subclasses | Factory Method |
+| Families of coherent objects | Abstract Factory |
+| Complex/optional construction | Builder |
+| Cloning more efficient than creation | Prototype |
+| Unique instance | Singleton |
 
-## Alternatives modernes
+## Modern Alternatives
 
 | Pattern | Alternative |
 |---------|-------------|

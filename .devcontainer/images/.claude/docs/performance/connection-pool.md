@@ -1,12 +1,12 @@
 # Connection Pool
 
-Pattern de gestion des connexions reseau reutilisables (DB, HTTP, etc.).
+Pattern for managing reusable network connections (DB, HTTP, etc.).
 
 ---
 
-## Qu'est-ce que le Connection Pool ?
+## What is the Connection Pool?
 
-> Maintenir un ensemble de connexions pre-etablies pour eviter l'overhead de connexion.
+> Maintain a set of pre-established connections to avoid connection overhead.
 
 ```
 +--------------------------------------------------------------+
@@ -30,15 +30,15 @@ Pattern de gestion des connexions reseau reutilisables (DB, HTTP, etc.).
 +--------------------------------------------------------------+
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Eviter le handshake TCP/TLS a chaque requete
-- Limiter le nombre de connexions au serveur
-- Reduire la latence des requetes
+- Avoid TCP/TLS handshake on each request
+- Limit the number of connections to the server
+- Reduce request latency
 
 ---
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package connpool
@@ -286,7 +286,7 @@ func (cp *ConnectionPool) Close() error {
 
 ---
 
-## Configuration recommandee
+## Recommended Configuration
 
 ```go
 package main
@@ -351,52 +351,52 @@ func main() {
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
-| Aspect | Valeur |
-|--------|--------|
-| Acquisition (idle dispo) | O(1) |
+| Aspect | Value |
+|--------|-------|
+| Acquisition (idle available) | O(1) |
 | Acquisition (creation) | O(handshake) |
-| Liberation | O(1) |
-| Memoire | O(maxConnections) |
+| Release | O(1) |
+| Memory | O(maxConnections) |
 
-### Avantages
+### Advantages
 
-- Latence reduite (pas de handshake)
-- Limite la charge sur le serveur DB
-- Gestion automatique des connexions mortes
+- Reduced latency (no handshake)
+- Limits load on the DB server
+- Automatic dead connection management
 
-### Inconvenients
+### Disadvantages
 
-- Connexions inutilisees consomment des ressources
-- Complexite de configuration (sizing)
-- Deadlock possible si pool trop petit
-
----
-
-## Quand utiliser
-
-- Applications avec connexions frequentes a une base de donnees
-- Services HTTP/gRPC necessitant des connexions persistantes
-- Systemes avec latence de connexion elevee (TLS handshake, authentication)
-- Applications a fort trafic necessitant une limitation des connexions
-- Microservices communiquant avec des backends externes (cache, queue, DB)
+- Unused connections consume resources
+- Configuration complexity (sizing)
+- Possible deadlock if pool is too small
 
 ---
 
-## Patterns connexes
+## When to Use
+
+- Applications with frequent connections to a database
+- HTTP/gRPC services requiring persistent connections
+- Systems with high connection latency (TLS handshake, authentication)
+- High-traffic applications requiring connection limiting
+- Microservices communicating with external backends (cache, queue, DB)
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Object Pool** | Generalisation |
-| **Circuit Breaker** | Protection si serveur down |
-| **Retry** | Resilience a l'acquisition |
-| **Semaphore** | Limitation similaire |
+| **Object Pool** | Generalization |
+| **Circuit Breaker** | Protection if server is down |
+| **Retry** | Acquisition resilience |
+| **Semaphore** | Similar limitation |
 
 ---
 
 ## Sources
 
-- [HikariCP](https://github.com/brettwooldridge/HikariCP) - Pool Java haute perf
+- [HikariCP](https://github.com/brettwooldridge/HikariCP) - High-perf Java pool
 - [node-postgres Pool](https://node-postgres.com/features/pooling)
 - [Database Connection Pooling Best Practices](https://vladmihalcea.com/connection-pooling/)

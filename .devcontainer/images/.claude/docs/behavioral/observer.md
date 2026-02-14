@@ -1,13 +1,13 @@
 # Observer Pattern
 
-> Definir une dependance un-a-plusieurs entre objets pour notifier les changements.
+> Define a one-to-many dependency between objects to notify changes.
 
-## Intention
+## Intent
 
-Definir un mecanisme de souscription pour notifier plusieurs objets de tout
-changement d'etat de l'objet qu'ils observent.
+Define a subscription mechanism to notify multiple objects of any
+state change in the object they observe.
 
-## Structure classique
+## Classic Structure
 
 ```go
 package main
@@ -60,7 +60,7 @@ func (e *EventEmitter[T]) Unsubscribe(observer Observer[T]) {
 func (e *EventEmitter[T]) Notify(data T) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	for observer := range e.observers {
+	for observer:= range e.observers {
 		observer.Update(data)
 	}
 }
@@ -106,9 +106,9 @@ func (s *Stock) SetPrice(value float64) {
 
 // Usage
 func classicExample() {
-	apple := NewStock()
-	display1 := NewPriceDisplay("Terminal 1")
-	display2 := NewPriceDisplay("Terminal 2")
+	apple:= NewStock()
+	display1:= NewPriceDisplay("Terminal 1")
+	display2:= NewPriceDisplay("Terminal 2")
 
 	apple.Subscribe(display1)
 	apple.Subscribe(display2)
@@ -116,7 +116,7 @@ func classicExample() {
 }
 ```
 
-## Event Emitter moderne (type-safe)
+## Modern Event Emitter (type-safe)
 
 ```go
 // EventCallback is a typed event callback.
@@ -153,8 +153,8 @@ func (e *TypedEventEmitter[K, V]) Off(event K, callback EventCallback[V]) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	callbacks := e.listeners[event]
-	for i, cb := range callbacks {
+	callbacks:= e.listeners[event]
+	for i, cb:= range callbacks {
 		// Note: Function comparison in Go is limited
 		// This is a simplified version
 		if &cb == &callback {
@@ -169,7 +169,7 @@ func (e *TypedEventEmitter[K, V]) Emit(event K, data V) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	for _, callback := range e.listeners[event] {
+	for _, callback:= range e.listeners[event] {
 		callback(data)
 	}
 }
@@ -177,7 +177,7 @@ func (e *TypedEventEmitter[K, V]) Emit(event K, data V) {
 // Once registers a one-time listener.
 func (e *TypedEventEmitter[K, V]) Once(event K, callback EventCallback[V]) func() {
 	var unsubscribe func()
-	wrapper := func(data V) {
+	wrapper:= func(data V) {
 		unsubscribe()
 		callback(data)
 	}
@@ -196,10 +196,10 @@ type UserLogoutData struct {
 }
 
 func typedExample() {
-	userEvents := NewTypedEventEmitter[string, interface{}]()
+	userEvents:= NewTypedEventEmitter[string, interface{}]()
 
 	userEvents.On("login", func(data interface{}) {
-		if loginData, ok := data.(UserLoginData); ok {
+		if loginData, ok:= data.(UserLoginData); ok {
 			fmt.Printf("User %s logged in at %s\n", loginData.UserID, loginData.Timestamp)
 		}
 	})
@@ -238,7 +238,7 @@ func NewObservable[T any](producer func(*Subscriber[T]) Unsubscribe) *Observable
 
 // Subscribe subscribes to the observable.
 func (o *Observable[T]) Subscribe(subscriber *Subscriber[T]) Unsubscribe {
-	if cleanup := o.producer(subscriber); cleanup != nil {
+	if cleanup:= o.producer(subscriber); cleanup != nil {
 		return cleanup
 	}
 	return func() {}
@@ -277,7 +277,7 @@ func (o *Observable[T]) Debounce(ctx context.Context, duration int64) *Observabl
 	return NewObservable(func(subscriber *Subscriber[T]) Unsubscribe {
 		var timer *time.Timer
 
-		unsubscribe := o.Subscribe(&Subscriber[T]{
+		unsubscribe:= o.Subscribe(&Subscriber[T]{
 			Next: func(value T) {
 				if timer != nil {
 					timer.Stop()
@@ -302,8 +302,8 @@ func (o *Observable[T]) Debounce(ctx context.Context, duration int64) *Observabl
 // Interval creates an observable that emits values at intervals.
 func Interval(ctx context.Context, ms int64) *Observable[int] {
 	return NewObservable(func(subscriber *Subscriber[int]) Unsubscribe {
-		count := 0
-		ticker := time.NewTicker(time.Duration(ms) * time.Millisecond)
+		count:= 0
+		ticker:= time.NewTicker(time.Duration(ms) * time.Millisecond)
 
 		go func() {
 			for {
@@ -326,7 +326,7 @@ func Interval(ctx context.Context, ms int64) *Observable[int] {
 }
 ```
 
-## PubSub (decouple)
+## PubSub (decoupled)
 
 ```go
 // PubSub provides publish-subscribe functionality.
@@ -359,8 +359,8 @@ func (p *PubSub) Unsubscribe(channel string, callback func(interface{})) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	callbacks := p.channels[channel]
-	for i, cb := range callbacks {
+	callbacks:= p.channels[channel]
+	for i, cb:= range callbacks {
 		if &cb == &callback {
 			p.channels[channel] = append(callbacks[:i], callbacks[i+1:]...)
 			break
@@ -373,7 +373,7 @@ func (p *PubSub) Publish(channel string, data interface{}) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	for _, callback := range p.channels[channel] {
+	for _, callback:= range p.channels[channel] {
 		callback(data)
 	}
 }
@@ -390,16 +390,16 @@ func (p *PubSub) Clear(channel string) {
 	}
 }
 
-// Usage - composants decouple
+// Usage - decoupled components
 func pubsubExample() {
-	ps := NewPubSub()
+	ps:= NewPubSub()
 
 	// Component A
 	ps.Publish("user:updated", map[string]string{"id": "123", "name": "John"})
 
-	// Component B (ne connait pas A)
+	// Component B (does not know A)
 	ps.Subscribe("user:updated", func(data interface{}) {
-		if user, ok := data.(map[string]string); ok {
+		if user, ok:= data.(map[string]string); ok {
 			fmt.Printf("User updated: %+v\n", user)
 		}
 	})
@@ -409,7 +409,7 @@ func pubsubExample() {
 ## Anti-patterns
 
 ```go
-// MAUVAIS: Observer qui modifie le subject
+// BAD: Observer that modifies the subject
 type BadObserver struct {
 	stock *Stock
 }
@@ -420,35 +420,35 @@ func (o *BadObserver) Update(price float64) {
 	}
 }
 
-// MAUVAIS: Memory leak - oublier unsubscribe
+// BAD: Memory leak - forgetting to unsubscribe
 type LeakyComponent struct{}
 
 func NewLeakyComponent(emitter *EventEmitter[string]) *LeakyComponent {
-	comp := &LeakyComponent{}
+	comp:= &LeakyComponent{}
 	emitter.Subscribe(comp) // Jamais unsubscribe = fuite memoire
 	return comp
 }
 
 func (l *LeakyComponent) Update(data string) {}
 
-// MAUVAIS: Ordre de notification important
+// BAD: Notification order matters
 type OrderDependentObserver struct{}
 
 func (o *OrderDependentObserver) Update(data interface{}) {
-	// Depend d'un autre observer execute avant
-	// L'ordre n'est pas garanti!
+	// Depends on another observer executed before
+	// Order is not guaranteed!
 }
 
-// MAUVAIS: Observer synchrone bloquant
+// BAD: Blocking synchronous observer
 type SlowObserver struct{}
 
 func (o *SlowObserver) Update(data interface{}) {
-	// Bloque tous les autres observers
+	// Blocks all other observers
 	time.Sleep(5 * time.Second) // 5 secondes...
 }
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```go
 package main
@@ -459,12 +459,12 @@ import (
 
 func TestEventEmitter(t *testing.T) {
 	t.Run("should notify all subscribers", func(t *testing.T) {
-		emitter := NewEventEmitter[string]()
-		called1 := false
-		called2 := false
+		emitter:= NewEventEmitter[string]()
+		called1:= false
+		called2:= false
 
-		observer1 := &testObserver{callback: func(s string) { called1 = true }}
-		observer2 := &testObserver{callback: func(s string) { called2 = true }}
+		observer1:= &testObserver{callback: func(s string) { called1 = true }}
+		observer2:= &testObserver{callback: func(s string) { called2 = true }}
 
 		emitter.Subscribe(observer1)
 		emitter.Subscribe(observer2)
@@ -476,10 +476,10 @@ func TestEventEmitter(t *testing.T) {
 	})
 
 	t.Run("should allow unsubscribe", func(t *testing.T) {
-		emitter := NewEventEmitter[string]()
-		called := false
+		emitter:= NewEventEmitter[string]()
+		called:= false
 
-		observer := &testObserver{callback: func(s string) { called = true }}
+		observer:= &testObserver{callback: func(s string) { called = true }}
 
 		emitter.Subscribe(observer)
 		emitter.Unsubscribe(observer)
@@ -501,8 +501,8 @@ func (t *testObserver) Update(data string) {
 
 func TestTypedEventEmitter(t *testing.T) {
 	t.Run("should handle typed events", func(t *testing.T) {
-		emitter := NewTypedEventEmitter[string, string]()
-		received := ""
+		emitter:= NewTypedEventEmitter[string, string]()
+		received:= ""
 
 		emitter.On("message", func(data string) {
 			received = data
@@ -516,10 +516,10 @@ func TestTypedEventEmitter(t *testing.T) {
 	})
 
 	t.Run("should return unsubscribe function", func(t *testing.T) {
-		emitter := NewTypedEventEmitter[string, string]()
-		called := false
+		emitter:= NewTypedEventEmitter[string, string]()
+		called:= false
 
-		unsubscribe := emitter.On("test", func(data string) {
+		unsubscribe:= emitter.On("test", func(data string) {
 			called = true
 		})
 
@@ -532,8 +532,8 @@ func TestTypedEventEmitter(t *testing.T) {
 	})
 
 	t.Run("should support once", func(t *testing.T) {
-		emitter := NewTypedEventEmitter[string, string]()
-		count := 0
+		emitter:= NewTypedEventEmitter[string, string]()
+		count:= 0
 
 		emitter.Once("test", func(data string) {
 			count++
@@ -550,9 +550,9 @@ func TestTypedEventEmitter(t *testing.T) {
 
 func TestObservable(t *testing.T) {
 	t.Run("should support map operator", func(t *testing.T) {
-		results := []int{}
+		results:= []int{}
 
-		source := NewObservable(func(subscriber *Subscriber[int]) Unsubscribe {
+		source:= NewObservable(func(subscriber *Subscriber[int]) Unsubscribe {
 			subscriber.Next(1)
 			subscriber.Next(2)
 			subscriber.Next(3)
@@ -567,8 +567,8 @@ func TestObservable(t *testing.T) {
 			},
 		})
 
-		expected := []int{2, 4, 6}
-		for i, v := range results {
+		expected:= []int{2, 4, 6}
+		for i, v:= range results {
 			if v != expected[i] {
 				t.Errorf("expected %d, got %d at index %d", expected[i], v, i)
 			}
@@ -576,10 +576,10 @@ func TestObservable(t *testing.T) {
 	})
 
 	t.Run("should support filter operator", func(t *testing.T) {
-		results := []int{}
+		results:= []int{}
 
-		source := NewObservable(func(subscriber *Subscriber[int]) Unsubscribe {
-			for i := 1; i <= 5; i++ {
+		source:= NewObservable(func(subscriber *Subscriber[int]) Unsubscribe {
+			for i:= 1; i <= 5; i++ {
 				subscriber.Next(i)
 			}
 			return nil
@@ -593,8 +593,8 @@ func TestObservable(t *testing.T) {
 			},
 		})
 
-		expected := []int{2, 4}
-		for i, v := range results {
+		expected:= []int{2, 4}
+		for i, v:= range results {
 			if v != expected[i] {
 				t.Errorf("expected %d, got %d at index %d", expected[i], v, i)
 			}
@@ -603,18 +603,18 @@ func TestObservable(t *testing.T) {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-- Systemes d'evenements
-- UI reactive (etat -> vue)
-- Notifications en temps reel
-- Decouplage entre modules
+- Event systems
+- Reactive UI (state -> view)
+- Real-time notifications
+- Decoupling between modules
 
-## Patterns lies
+## Related Patterns
 
-- **Mediator** : Centralise la communication
-- **Event Sourcing** : Stocke les evenements
-- **CQRS** : Separe lecture/ecriture avec events
+- **Mediator**: Centralizes communication
+- **Event Sourcing**: Stores events
+- **CQRS**: Separates read/write with events
 
 ## Sources
 

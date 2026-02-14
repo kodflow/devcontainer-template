@@ -1,14 +1,14 @@
 # Iterator
 
-> Acceder aux elements d'une collection sans exposer sa structure interne.
+> Access elements of a collection without exposing its internal structure.
 
 ---
 
-## Principe
+## Principle
 
-Le pattern Iterator permet de parcourir une collection sans connaitre sa
-structure sous-jacente (liste, arbre, graphe).
-Go utilise nativement ce pattern avec `range` et les channels.
+The Iterator pattern allows traversing a collection without knowing its
+underlying structure (list, tree, graph).
+Go natively uses this pattern with `range` and channels.
 
 ```text
 ┌────────────────┐      ┌────────────────┐
@@ -24,10 +24,10 @@ Go utilise nativement ce pattern avec `range` et les channels.
 
 ---
 
-## Probleme resolu
+## Problem Solved
 
 - Parcourir une collection sans connaitre son implementation
-- Supporter plusieurs parcours simultanes
+- Support multiple simultaneous traversals
 - Fournir une interface uniforme pour differentes structures
 - Separer la logique de parcours de la collection
 
@@ -40,18 +40,18 @@ package main
 
 import "fmt"
 
-// Iterator definit l'interface de parcours.
+// Iterator defines the traversal interface.
 type Iterator[T any] interface {
     HasNext() bool
     Next() T
 }
 
-// Collection definit l'interface de collection.
+// Collection defines the collection interface.
 type Collection[T any] interface {
     CreateIterator() Iterator[T]
 }
 
-// SliceCollection est une collection basee sur un slice.
+// SliceCollection is a slice-based collection.
 type SliceCollection[T any] struct {
     items []T
 }
@@ -64,7 +64,7 @@ func (c *SliceCollection[T]) CreateIterator() Iterator[T] {
     return &SliceIterator[T]{collection: c, index: 0}
 }
 
-// SliceIterator parcourt un slice.
+// SliceIterator traverses a slice.
 type SliceIterator[T any] struct {
     collection *SliceCollection[T]
     index      int
@@ -76,7 +76,7 @@ func (i *SliceIterator[T]) HasNext() bool {
 
 func (i *SliceIterator[T]) Next() T {
     if i.HasNext() {
-        item := i.collection.items[i.index]
+        item:= i.collection.items[i.index]
         i.index++
         return item
     }
@@ -85,8 +85,8 @@ func (i *SliceIterator[T]) Next() T {
 }
 
 // Usage:
-// coll := NewSliceCollection(1, 2, 3, 4, 5)
-// iter := coll.CreateIterator()
+// coll:= NewSliceCollection(1, 2, 3, 4, 5)
+// iter:= coll.CreateIterator()
 // for iter.HasNext() {
 //     fmt.Println(iter.Next())
 // }
@@ -94,7 +94,7 @@ func (i *SliceIterator[T]) Next() T {
 
 ---
 
-## Exemple complet
+## Complete Example
 
 ```go
 package main
@@ -104,14 +104,14 @@ import (
     "iter"
 )
 
-// Book represente un livre.
+// Book represents a book.
 type Book struct {
     Title  string
     Author string
     Year   int
 }
 
-// Library est une collection de livres.
+// Library is a collection of books.
 type Library struct {
     books []*Book
 }
@@ -124,10 +124,10 @@ func (l *Library) Add(book *Book) {
     l.books = append(l.books, book)
 }
 
-// All retourne un iterateur Go 1.23+ (iter.Seq).
+// All returns a Go 1.23+ iterator (iter.Seq).
 func (l *Library) All() iter.Seq[*Book] {
     return func(yield func(*Book) bool) {
-        for _, book := range l.books {
+        for _, book:= range l.books {
             if !yield(book) {
                 return
             }
@@ -135,10 +135,10 @@ func (l *Library) All() iter.Seq[*Book] {
     }
 }
 
-// ByAuthor retourne un iterateur filtre par auteur.
+// ByAuthor returns an iterator filtered by author.
 func (l *Library) ByAuthor(author string) iter.Seq[*Book] {
     return func(yield func(*Book) bool) {
-        for _, book := range l.books {
+        for _, book:= range l.books {
             if book.Author == author {
                 if !yield(book) {
                     return
@@ -148,10 +148,10 @@ func (l *Library) ByAuthor(author string) iter.Seq[*Book] {
     }
 }
 
-// ByYearRange retourne les livres dans une plage d'annees.
+// ByYearRange returns books within a year range.
 func (l *Library) ByYearRange(from, to int) iter.Seq[*Book] {
     return func(yield func(*Book) bool) {
-        for _, book := range l.books {
+        for _, book:= range l.books {
             if book.Year >= from && book.Year <= to {
                 if !yield(book) {
                     return
@@ -163,10 +163,10 @@ func (l *Library) ByYearRange(from, to int) iter.Seq[*Book] {
 
 // Channel-based iterator (pre Go 1.23 approach)
 func (l *Library) Chan() <-chan *Book {
-    ch := make(chan *Book)
+    ch:= make(chan *Book)
     go func() {
         defer close(ch)
-        for _, book := range l.books {
+        for _, book:= range l.books {
             ch <- book
         }
     }()
@@ -174,33 +174,33 @@ func (l *Library) Chan() <-chan *Book {
 }
 
 func main() {
-    library := NewLibrary()
+    library:= NewLibrary()
     library.Add(&Book{Title: "1984", Author: "George Orwell", Year: 1949})
     library.Add(&Book{Title: "Brave New World", Author: "Aldous Huxley", Year: 1932})
     library.Add(&Book{Title: "Animal Farm", Author: "George Orwell", Year: 1945})
     library.Add(&Book{Title: "Fahrenheit 451", Author: "Ray Bradbury", Year: 1953})
 
-    // Parcourir tous les livres (Go 1.23+)
+    // Iterate over all books (Go 1.23+)
     fmt.Println("All books:")
-    for book := range library.All() {
+    for book:= range library.All() {
         fmt.Printf("  - %s (%d)\n", book.Title, book.Year)
     }
 
-    // Filtrer par auteur
+    // Filter by author
     fmt.Println("\nBooks by George Orwell:")
-    for book := range library.ByAuthor("George Orwell") {
+    for book:= range library.ByAuthor("George Orwell") {
         fmt.Printf("  - %s (%d)\n", book.Title, book.Year)
     }
 
-    // Filtrer par annee
+    // Filter by year
     fmt.Println("\nBooks from 1940-1950:")
-    for book := range library.ByYearRange(1940, 1950) {
+    for book:= range library.ByYearRange(1940, 1950) {
         fmt.Printf("  - %s (%d)\n", book.Title, book.Year)
     }
 
     // Channel-based (pre Go 1.23)
     fmt.Println("\nUsing channel iterator:")
-    for book := range library.Chan() {
+    for book:= range library.Chan() {
         fmt.Printf("  - %s\n", book.Title)
     }
 }
@@ -208,71 +208,71 @@ func main() {
 
 ---
 
-## Variantes
+## Variants
 
-| Variante | Description | Cas d'usage |
+| Variant | Description | Use Case |
 |----------|-------------|-------------|
-| Forward Iterator | Parcours vers l'avant | Cas standard |
-| Reverse Iterator | Parcours inverse | Historique, undo |
-| Filter Iterator | Filtre les elements | Requetes complexes |
-| Transform Iterator | Transforme en parcourant | Map/Select |
+| Forward Iterator | Forward traversal | Standard case |
+| Reverse Iterator | Reverse traversal | History, undo |
+| Filter Iterator | Filters elements | Complex queries |
+| Transform Iterator | Transforms while traversing | Map/Select |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Parcourir une collection sans exposer sa structure
-- Supporter plusieurs parcours simultanes
-- Fournir differentes strategies de parcours
-- Decoupler les algorithmes des collections
+- Traverse a collection without exposing its structure
+- Support multiple simultaneous traversals
+- Provide different traversal strategies
+- Decouple algorithms from collections
 
-## Quand NE PAS utiliser
+## When NOT to Use
 
-- Collections simples (utiliser range directement)
-- Un seul type de parcours necessaire
-- Performance critique (overhead d'abstraction)
+- Simple collections (use range directly)
+- Only one type of traversal needed
+- Performance critical (overhead d'abstraction)
 
 ---
 
-## Avantages / Inconvenients
+## Advantages / Disadvantages
 
 | Avantages | Inconvenients |
 |-----------|---------------|
-| Single Responsibility | Overhead pour collections simples |
-| Open/Closed Principle | Complexite ajoutee |
-| Parcours paralleles | Go a deja range et channels |
-| Iterateurs lazy | |
+| Single Responsibility | Overhead for simple collections |
+| Open/Closed Principle | Added complexity |
+| Parallel traversals | Go already has range and channels |
+| Lazy iterators | |
 
 ---
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Composite | Iterator peut parcourir les composites |
-| Factory Method | Creer les iterateurs |
-| Memento | L'iterateur peut sauvegarder sa position |
-| Visitor | Alternative: Visitor itere, Iterator parcourt |
+| Composite | Iterator can traverse composites |
+| Factory Method | Create iterators |
+| Memento | Iterator can save its position |
+| Visitor | Alternative: Visitor iterates, Iterator traverses |
 
 ---
 
-## Implementation dans les frameworks
+## Framework Implementations
 
 | Framework/Lib | Implementation |
 |---------------|----------------|
 | iter (Go 1.23+) | iter.Seq, iter.Seq2 |
-| channels | Iterateurs concurrent-safe |
-| bufio.Scanner | Iterator sur lignes/tokens |
+| channels | Concurrent-safe iterators |
+| bufio.Scanner | Iterator over lines/tokens |
 
 ---
 
-## Anti-patterns a eviter
+## Anti-patterns to Avoid
 
 | Anti-pattern | Probleme | Solution |
 |--------------|----------|----------|
-| Iterator mutable | Etat partage | Creer nouvel iterateur |
-| Oublier close | Resource leak (channels) | defer close() |
-| Modification pendant iteration | Comportement indefini | Copie ou lock |
+| Mutable iterator | Shared state | Create new iterator |
+| Forgetting close | Resource leak (channels) | defer close() |
+| Modification during iteration | Undefined behavior | Copy or lock |
 
 ---
 
@@ -280,22 +280,22 @@ func main() {
 
 ```go
 func TestSliceIterator(t *testing.T) {
-    coll := NewSliceCollection(1, 2, 3)
-    iter := coll.CreateIterator()
+    coll:= NewSliceCollection(1, 2, 3)
+    iter:= coll.CreateIterator()
 
     var result []int
     for iter.HasNext() {
         result = append(result, iter.Next())
     }
 
-    expected := []int{1, 2, 3}
+    expected:= []int{1, 2, 3}
     if !reflect.DeepEqual(result, expected) {
         t.Errorf("expected %v, got %v", expected, result)
     }
 }
 
 func TestLibrary_ByAuthor(t *testing.T) {
-    library := NewLibrary()
+    library:= NewLibrary()
     library.Add(&Book{Title: "Book1", Author: "A", Year: 2000})
     library.Add(&Book{Title: "Book2", Author: "B", Year: 2001})
     library.Add(&Book{Title: "Book3", Author: "A", Year: 2002})
@@ -311,8 +311,8 @@ func TestLibrary_ByAuthor(t *testing.T) {
 }
 
 func TestIterator_Empty(t *testing.T) {
-    coll := NewSliceCollection[int]()
-    iter := coll.CreateIterator()
+    coll:= NewSliceCollection[int]()
+    iter:= coll.CreateIterator()
 
     if iter.HasNext() {
         t.Error("expected empty iterator")

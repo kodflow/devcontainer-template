@@ -1,6 +1,6 @@
 # Function Composition Pattern
 
-> Combinaison de fonctions simples pour construire des fonctions plus complexes - la sortie d'une fonction devient l'entrée de la suivante.
+> Combining simple functions to build more complex functions - the output of one function becomes the input of the next.
 
 ## Definition
 
@@ -189,13 +189,13 @@ import (
 // Pipe-style immediate execution
 func processingPipeline() string {
 	input := "  Hello World  "
-	
+
 	result := input
 	result = strings.TrimSpace(result)
 	result = strings.ToLower(result)
 	parts := strings.Split(result, " ")
 	result = strings.Join(parts, "-")
-	
+
 	return result // "hello-world"
 }
 
@@ -219,13 +219,13 @@ type ExtendedUser struct {
 func getActiveAdminEmails(users []ExtendedUser) []string {
 	// Filter active users
 	active := filter(func(u ExtendedUser) bool { return u.IsActive })(users)
-	
+
 	// Filter admins
 	admins := filter(func(u ExtendedUser) bool { return u.Role == "admin" })(active)
-	
+
 	// Map to emails
 	emails := mapSlice(func(u ExtendedUser) string { return u.Email })(admins)
-	
+
 	// Remove duplicates
 	return unique(emails)
 }
@@ -263,17 +263,17 @@ func processPayment(orderID string, amount float64) PaymentResult {
 	if err := validateAmount(amount); err != nil {
 		return PaymentResult{Success: false, Error: err.Error()}
 	}
-	
+
 	order, err := findOrder(orderID)
 	if err != nil {
 		return PaymentResult{Success: false, Error: err.Error()}
 	}
-	
+
 	payment, err := chargeCustomer(order)
 	if err != nil {
 		return PaymentResult{Success: false, Error: err.Error()}
 	}
-	
+
 	return PaymentResult{Success: true, Confirmation: payment.Confirmation}
 }
 
@@ -382,7 +382,7 @@ func multiply(a int) func(int) int {
 func example() {
 	add5 := add(5)
 	double := multiply(2)
-	
+
 	// (x + 5) * 2
 	transform := Pipe(add5, double)
 	result := transform(10) // 30
@@ -420,7 +420,7 @@ func mapFunc[A, B any](f func(A) B) func([]A) []B {
 func partialExample() {
 	adults := filterFunc(func(u User) bool { return u.Age >= 18 })
 	names := mapFunc(func(u User) string { return u.Name })
-	
+
 	getAdultNames := Pipe(adults, names)
 }
 ```
@@ -498,7 +498,7 @@ func oopExample() {
 // FP - Function composition
 func fpExample() {
 	input := "  Hello World  "
-	
+
 	result := input
 	result = strings.TrimSpace(result)
 	result = strings.ToLower(result)
@@ -523,7 +523,7 @@ func fpExample() {
    ```go
    // BAD - 20 steps, hard to trace errors
    result := Pipe10(data, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10)
-   
+
    // GOOD - Break into named stages
    stage1 := Pipe3(data, f1, f2, f3)
    stage2 := Pipe3(stage1, f4, f5, f6)
@@ -537,7 +537,7 @@ func fpExample() {
    	fmt.Println(u) // Side effect!
    	return u
    }
-   
+
    // GOOD - Separate concerns
    users := getUsers()
    for _, u := range users {
@@ -553,22 +553,22 @@ func fpExample() {
    process := func(x interface{}) interface{} {
    	return strings.TrimSpace(x.(string))
    }
-   
+
    // GOOD - Use generics with clear types
    process := func(x string) string {
    	return strings.TrimSpace(x)
    }
    ```
 
-## Quand utiliser
+## When to Use
 
-- Pipelines de transformation de données
-- Construction d'opérations complexes à partir de simples
-- Éviter les variables intermédiaires
-- Création de combinaisons de fonctions réutilisables
-- Style de programmation point-free
+- Data transformation pipelines
+- Building complex operations from simple ones
+- Avoiding intermediate variables
+- Creating reusable function combinations
+- Point-free programming style
 
-## Patterns liés
+## Related Patterns
 
 - [Monad](./monad.md) - Monadic composition with flatMap
 - [Either](./either.md) - Composing fallible functions

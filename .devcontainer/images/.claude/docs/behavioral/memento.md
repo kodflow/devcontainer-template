@@ -1,13 +1,13 @@
 # Memento
 
-> Capturer et externaliser l'etat interne d'un objet pour pouvoir le restaurer ulterieurement.
+> Capture and externalize an object's internal state to be able to restore it later.
 
 ---
 
-## Principe
+## Principle
 
-Le pattern Memento permet de sauvegarder et restaurer l'etat d'un objet
-sans violer son encapsulation. Utilise pour implementer undo/redo.
+The Memento pattern allows saving and restoring an object's state
+without violating its encapsulation. Used to implement undo/redo.
 
 ```text
 ┌────────────────┐    ┌────────────────┐    ┌────────────────┐
@@ -19,7 +19,7 @@ sans violer son encapsulation. Utilise pour implementer undo/redo.
 
 ---
 
-## Probleme resolu
+## Problem Solved
 
 - Sauvegarder l'etat d'un objet a un moment donne
 - Implementer undo/redo sans exposer les details internes
@@ -35,7 +35,7 @@ package main
 
 import "fmt"
 
-// Memento stocke l'etat de l'Originator.
+// Memento stores the Originator's state.
 type Memento struct {
     state string
 }
@@ -44,7 +44,7 @@ func (m *Memento) GetState() string {
     return m.state
 }
 
-// Editor est l'Originator.
+// Editor is the Originator.
 type Editor struct {
     content string
 }
@@ -69,7 +69,7 @@ func (e *Editor) Restore(m *Memento) {
     e.content = m.GetState()
 }
 
-// History est le Caretaker.
+// History is the Caretaker.
 type History struct {
     mementos []*Memento
 }
@@ -86,14 +86,14 @@ func (h *History) Pop() *Memento {
     if len(h.mementos) == 0 {
         return nil
     }
-    last := h.mementos[len(h.mementos)-1]
+    last:= h.mementos[len(h.mementos)-1]
     h.mementos = h.mementos[:len(h.mementos)-1]
     return last
 }
 
 // Usage:
-// editor := NewEditor()
-// history := NewHistory()
+// editor:= NewEditor()
+// history:= NewHistory()
 // editor.Type("Hello")
 // history.Push(editor.Save())
 // editor.Type(" World")
@@ -102,7 +102,7 @@ func (h *History) Pop() *Memento {
 
 ---
 
-## Exemple complet
+## Complete Example
 
 ```go
 package main
@@ -113,7 +113,7 @@ import (
     "time"
 )
 
-// GameState represente l'etat d'une partie.
+// GameState represents a game's state.
 type GameState struct {
     Level      int               `json:"level"`
     Health     int               `json:"health"`
@@ -127,7 +127,7 @@ type Position struct {
     X, Y int
 }
 
-// GameMemento est le memento pour le jeu.
+// GameMemento is the memento for the game.
 type GameMemento struct {
     state []byte
 }
@@ -136,7 +136,7 @@ func (m *GameMemento) GetState() []byte {
     return m.state
 }
 
-// Game est l'Originator.
+// Game is the Originator.
 type Game struct {
     level     int
     health    int
@@ -175,20 +175,20 @@ func (g *Game) Status() string {
 }
 
 func (g *Game) Save() *GameMemento {
-    state := GameState{
+    state:= GameState{
         Level:     g.level,
         Health:    g.health,
         Position:  g.position,
         Inventory: append([]string{}, g.inventory...),
         SavedAt:   time.Now(),
     }
-    data, _ := json.Marshal(state)
+    data, _:= json.Marshal(state)
     return &GameMemento{state: data}
 }
 
 func (g *Game) Restore(m *GameMemento) error {
     var state GameState
-    if err := json.Unmarshal(m.GetState(), &state); err != nil {
+    if err:= json.Unmarshal(m.GetState(), &state); err != nil {
         return err
     }
     g.level = state.Level
@@ -198,7 +198,7 @@ func (g *Game) Restore(m *GameMemento) error {
     return nil
 }
 
-// SaveSlot est le Caretaker qui gere plusieurs sauvegardes.
+// SaveSlot is the Caretaker that manages multiple saves.
 type SaveSlot struct {
     name     string
     mementos map[string]*GameMemento
@@ -233,16 +233,16 @@ func (s *SaveSlot) Undo() *GameMemento {
     if len(s.undoStack) == 0 {
         return nil
     }
-    m := s.undoStack[len(s.undoStack)-1]
+    m:= s.undoStack[len(s.undoStack)-1]
     s.undoStack = s.undoStack[:len(s.undoStack)-1]
     return m
 }
 
 func main() {
-    game := NewGame()
-    slots := NewSaveSlot("Player1")
+    game:= NewGame()
+    slots:= NewSaveSlot("Player1")
 
-    // Jouer et sauvegarder
+    // Play and save
     fmt.Println("Starting game:", game.Status())
 
     game.Play("move")
@@ -263,13 +263,13 @@ func main() {
     fmt.Println("Near death:", game.Status())
 
     // Undo
-    if m := slots.Undo(); m != nil {
+    if m:= slots.Undo(); m != nil {
         game.Restore(m)
         fmt.Println("After undo:", game.Status())
     }
 
     // Quick load
-    if m := slots.QuickLoad("checkpoint1"); m != nil {
+    if m:= slots.QuickLoad("checkpoint1"); m != nil {
         game.Restore(m)
         fmt.Println("After quick load:", game.Status())
     }
@@ -287,69 +287,69 @@ func main() {
 
 ---
 
-## Variantes
+## Variants
 
-| Variante | Description | Cas d'usage |
+| Variant | Description | Use Case |
 |----------|-------------|-------------|
-| Full Memento | Copie complete de l'etat | Petits objets |
-| Incremental | Sauvegarde des deltas | Gros objets |
-| Serialized | JSON/Gob encoding | Persistance |
+| Full Memento | Complete state copy | Small objects |
+| Incremental | Delta saves | Large objects |
+| Serialized | JSON/Gob encoding | Persistence |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Undo/Redo fonctionnalite requise
-- Snapshots/checkpoints necessaires
-- Transactions avec rollback
-- Historique d'etats
+- Undo/Redo functionality required
+- Snapshots/checkpoints needed
+- Transactions with rollback
+- State history
 
-## Quand NE PAS utiliser
+## When NOT to Use
 
-- Etat tres volumineux (memoire)
-- Pas besoin de restauration
-- Etat simple (copie directe suffit)
+- Very large state (memory)
+- No need for restoration
+- Simple state (direct copy is sufficient)
 
 ---
 
-## Avantages / Inconvenients
+## Advantages / Disadvantages
 
 | Avantages | Inconvenients |
 |-----------|---------------|
-| Preserve l'encapsulation | Cout memoire (nombreux mementos) |
-| Simplifie l'Originator | Serialisation peut etre couteuse |
-| Historique complet | Caretaker doit gerer le lifecycle |
+| Preserves encapsulation | Memory cost (many mementos) |
+| Simplifies the Originator | Serialization can be costly |
+| Complete history | Caretaker must manage the lifecycle |
 
 ---
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Command | Combine pour undo parfait |
+| Command | Combined for perfect undo |
 | Prototype | Clone vs Memento |
-| Iterator | Parcourir l'historique |
-| State | Memento sauvegarde State |
+| Iterator | Traverse history |
+| State | Memento saves State |
 
 ---
 
-## Implementation dans les frameworks
+## Framework Implementations
 
 | Framework/Lib | Implementation |
 |---------------|----------------|
-| encoding/json | Serialisation d'etat |
-| encoding/gob | Serialisation binaire |
+| encoding/json | State serialization |
+| encoding/gob | Binary serialization |
 | database/sql | Transactions |
 
 ---
 
-## Anti-patterns a eviter
+## Anti-patterns to Avoid
 
 | Anti-pattern | Probleme | Solution |
 |--------------|----------|----------|
-| Trop de mementos | Memory leak | Limiter l'historique |
-| Memento mutable | Corruption | Copie profonde |
-| Exposer l'etat | Viole encapsulation | Interface opaque |
+| Too many mementos | Memory leak | Limit history |
+| Mutable memento | Corruption | Deep copy |
+| Exposing state | Violates encapsulation | Opaque interface |
 
 ---
 
@@ -357,8 +357,8 @@ func main() {
 
 ```go
 func TestEditor_SaveRestore(t *testing.T) {
-    editor := NewEditor()
-    history := NewHistory()
+    editor:= NewEditor()
+    history:= NewHistory()
 
     editor.Type("Hello")
     history.Push(editor.Save())
@@ -375,11 +375,11 @@ func TestEditor_SaveRestore(t *testing.T) {
 }
 
 func TestGame_SaveRestore(t *testing.T) {
-    game := NewGame()
+    game:= NewGame()
 
     game.Play("damage")
-    original := game.health
-    memento := game.Save()
+    original:= game.health
+    memento:= game.Save()
 
     game.Play("damage")
     if game.health >= original {
@@ -393,8 +393,8 @@ func TestGame_SaveRestore(t *testing.T) {
 }
 
 func TestSaveSlot_Undo(t *testing.T) {
-    game := NewGame()
-    slots := NewSaveSlot("test")
+    game:= NewGame()
+    slots:= NewSaveSlot("test")
 
     slots.SaveForUndo(game.Save())
     game.Play("level_up")
@@ -403,7 +403,7 @@ func TestSaveSlot_Undo(t *testing.T) {
         t.Error("expected level 2")
     }
 
-    m := slots.Undo()
+    m:= slots.Undo()
     if m == nil {
         t.Fatal("expected memento")
     }

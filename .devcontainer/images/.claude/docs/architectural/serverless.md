@@ -1,10 +1,10 @@
 # Serverless Architecture
 
-> Architecture où l'infrastructure est gérée par le cloud provider, facturée à l'usage.
+> Architecture where infrastructure is managed by the cloud provider, billed per usage.
 
-**Aussi appelé :** FaaS (Function as a Service), Event-driven Serverless
+**Also called:** FaaS (Function as a Service), Event-driven Serverless
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -39,12 +39,12 @@
 │  │  └────────┘  └────────┘  └────────┘  └────────┘        │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                  │
-│  ❌ No servers to manage    ✅ Pay per invocation               │
-│  ❌ No scaling config       ✅ Auto-scale to zero               │
+│  No servers to manage       Pay per invocation                  │
+│  No scaling config          Auto-scale to zero                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Architecture typique AWS
+## Typical AWS Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -78,9 +78,9 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Implémentation AWS Lambda
+## AWS Lambda Implementation
 
-### Handler basique
+### Basic Handler
 
 ```go
 package main
@@ -162,7 +162,7 @@ func main() {
 }
 ```
 
-### Event-driven handler
+### Event-driven Handler
 
 ```go
 package main
@@ -290,20 +290,20 @@ Resources:
           KeyType: HASH
 ```
 
-## Patterns Serverless
+## Serverless Patterns
 
 ### API Pattern
 
 ```
-Client → API Gateway → Lambda → DynamoDB
+Client -> API Gateway -> Lambda -> DynamoDB
 ```
 
 ### Fan-out Pattern
 
 ```
-                    ┌─── Lambda A → Service A
-Event → Lambda ────┼─── Lambda B → Service B
-                    └─── Lambda C → Service C
+                    ┌─── Lambda A -> Service A
+Event -> Lambda ────┼─── Lambda B -> Service B
+                    └─── Lambda C -> Service C
 ```
 
 ### Saga Pattern (Step Functions)
@@ -346,33 +346,33 @@ OrderProcessingSaga:
           Type: Fail
 ```
 
-## Quand utiliser
+## When to Use
 
-| Utiliser | Eviter |
+| Use | Avoid |
 |----------|--------|
-| Trafic variable | Trafic constant élevé |
-| APIs simples | Calculs longs (>15min) |
+| Variable traffic | Constant high traffic |
+| Simple APIs | Long computations (>15min) |
 | Event processing | Stateful applications |
-| Startups (faible coût initial) | Latence ultra-faible requise |
-| Prototypes | Vendor lock-in problématique |
+| Startups (low initial cost) | Ultra-low latency required |
+| Prototypes | Vendor lock-in problematic |
 
-## Avantages
+## Advantages
 
-- **No ops** : Pas de serveurs à gérer
-- **Auto-scale** : Scale automatique (y compris à 0)
-- **Pay-per-use** : Facturation à l'invocation
-- **Focus code** : Business logic seulement
-- **Haute disponibilité** : Built-in
-- **Intégrations** : Écosystème cloud riche
+- **No ops**: No servers to manage
+- **Auto-scale**: Automatic scaling (including to 0)
+- **Pay-per-use**: Billed per invocation
+- **Focus code**: Business logic only
+- **High availability**: Built-in
+- **Integrations**: Rich cloud ecosystem
 
-## Inconvénients
+## Disadvantages
 
-- **Cold starts** : Latence au démarrage
-- **Timeout** : Limites d'exécution (15min max)
-- **Vendor lock-in** : Dépendance au provider
-- **Debugging** : Plus complexe
-- **Stateless** : État externe requis
-- **Coût** : Peut exploser à fort trafic
+- **Cold starts**: Startup latency
+- **Timeout**: Execution limits (15min max)
+- **Vendor lock-in**: Provider dependency
+- **Debugging**: More complex
+- **Stateless**: External state required
+- **Cost**: Can explode at high traffic
 
 ## Cold Start Mitigation
 
@@ -387,9 +387,9 @@ Resources:
         ProvisionedConcurrentExecutions: 10
 ```
 
-## Exemples réels
+## Real-world Examples
 
-| Entreprise | Usage |
+| Company | Usage |
 |------------|-------|
 | **Netflix** | Data processing |
 | **Coca-Cola** | Vending machines IoT |
@@ -397,34 +397,34 @@ Resources:
 | **Nordstrom** | E-commerce backend |
 | **Financial Times** | Content delivery |
 
-## Migration path
+## Migration Path
 
-### Vers Serverless
-
-```
-Phase 1: Identifier workloads événementiels
-Phase 2: Containeriser les fonctions
-Phase 3: Déployer sur Lambda/Cloud Functions
-Phase 4: Migrer data vers services managés
-Phase 5: Implémenter observabilité
-```
-
-### Depuis Serverless (scale out)
+### To Serverless
 
 ```
-1. Containeriser les Lambdas
-2. Déployer sur ECS/EKS
-3. Remplacer par Fargate/Kubernetes
+Phase 1: Identify event-driven workloads
+Phase 2: Containerize functions
+Phase 3: Deploy on Lambda/Cloud Functions
+Phase 4: Migrate data to managed services
+Phase 5: Implement observability
 ```
 
-## Patterns liés
+### From Serverless (scale out)
 
-| Pattern | Relation |
+```
+1. Containerize Lambdas
+2. Deploy on ECS/EKS
+3. Replace with Fargate/Kubernetes
+```
+
+## Related Patterns
+
+| Pattern | Relationship |
 |---------|----------|
-| Event-Driven | Architecture sous-jacente |
-| CQRS | Lecture/Écriture séparées |
-| Saga | Transactions distribuées |
-| Circuit Breaker | Résilience |
+| Event-Driven | Underlying architecture |
+| CQRS | Separate read/write |
+| Saga | Distributed transactions |
+| Circuit Breaker | Resilience |
 
 ## Sources
 

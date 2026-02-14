@@ -1,8 +1,8 @@
 # Scatter-Gather Pattern
 
-> Distribuer une requête à plusieurs services en parallèle et agréger leurs réponses selon une stratégie définie.
+> Distribute a request to multiple services in parallel and aggregate their responses according to a defined strategy.
 
-## Vue d'ensemble
+## Overview
 
 ```
                          +-------------+
@@ -22,7 +22,7 @@
 
 ---
 
-## Implementation de base
+## Base Implementation
 
 ```go
 package messaging
@@ -71,27 +71,27 @@ func NewScatterGather[TRequest any, TResponse any](
 }
 
 func (sg *ScatterGather[TRequest, TResponse]) Scatter(ctx context.Context, request TRequest) ([]ScatterResult[TResponse], error) {
-	correlationID := uuid.New().String()
-	results := make([]ScatterResult[TResponse], len(sg.config.Destinations))
+	correlationID:= uuid.New().String()
+	results:= make([]ScatterResult[TResponse], len(sg.config.Destinations))
 	
 	var wg sync.WaitGroup
-	resultChan := make(chan struct {
+	resultChan:= make(chan struct {
 		index  int
 		result ScatterResult[TResponse]
 	}, len(sg.config.Destinations))
 
-	ctx, cancel := context.WithTimeout(ctx, sg.config.Timeout)
+	ctx, cancel:= context.WithTimeout(ctx, sg.config.Timeout)
 	defer cancel()
 
-	for i, dest := range sg.config.Destinations {
-		idxCaptured := i
-		destCaptured := dest
+	for i, dest:= range sg.config.Destinations {
+		idxCaptured:= i
+		destCaptured:= dest
 		wg.Go(func() {
-			startTime := time.Now()
-			response, err := sg.sendAndWait(ctx, destCaptured, request, correlationID)
-			latency := time.Since(startTime).Milliseconds()
+			startTime:= time.Now()
+			response, err:= sg.sendAndWait(ctx, destCaptured, request, correlationID)
+			latency:= time.Since(startTime).Milliseconds()
 
-			result := ScatterResult[TResponse]{
+			result:= ScatterResult[TResponse]{
 				Source:    destCaptured,
 				LatencyMs: latency,
 			}
@@ -117,7 +117,7 @@ func (sg *ScatterGather[TRequest, TResponse]) Scatter(ctx context.Context, reque
 		close(resultChan)
 	}()
 
-	for r := range resultChan {
+	for r:= range resultChan {
 		results[r.index] = r.result
 	}
 
@@ -130,14 +130,14 @@ func (sg *ScatterGather[TRequest, TResponse]) sendAndWait(
 	request TRequest,
 	correlationID string,
 ) (*TResponse, error) {
-	responseChan := make(chan *TResponse, 1)
-	errorChan := make(chan error, 1)
-	replyQueue := fmt.Sprintf("reply.%s", correlationID)
+	responseChan:= make(chan *TResponse, 1)
+	errorChan:= make(chan error, 1)
+	replyQueue:= fmt.Sprintf("reply.%s", correlationID)
 
 	// Setup temporary reply queue
 	go func() {
 		sg.channel.Subscribe(ctx, replyQueue, func(msg interface{}) {
-			if response, ok := msg.(*TResponse); ok {
+			if response, ok:= msg.(*TResponse); ok {
 				select {
 				case responseChan <- response:
 				case <-ctx.Done():
@@ -147,7 +147,7 @@ func (sg *ScatterGather[TRequest, TResponse]) sendAndWait(
 	}()
 
 	// Send request
-	requestMsg := struct {
+	requestMsg:= struct {
 		Payload       TRequest
 		CorrelationID string
 		ReplyTo       string
@@ -157,15 +157,15 @@ func (sg *ScatterGather[TRequest, TResponse]) sendAndWait(
 		ReplyTo:       replyQueue,
 	}
 
-	if err := sg.channel.Send(ctx, destination, requestMsg); err != nil {
+	if err:= sg.channel.Send(ctx, destination, requestMsg); err != nil {
 		return nil, fmt.Errorf("sending request: %w", err)
 	}
 
 	// Wait for response or timeout
 	select {
-	case response := <-responseChan:
+	case response:= <-responseChan:
 		return response, nil
-	case err := <-errorChan:
+	case err:= <-errorChan:
 		return nil, err
 	case <-ctx.Done():
 		return nil, fmt.Errorf("timeout waiting for response from %s", destination)
@@ -175,7 +175,7 @@ func (sg *ScatterGather[TRequest, TResponse]) sendAndWait(
 
 ---
 
-## Strategies d'aggregation
+## Aggregation Strategies
 
 ```go
 package messaging
@@ -210,8 +210,8 @@ type PriceQuote struct {
 }
 
 func BestPriceStrategy(results []ScatterResult[PriceQuote]) (PriceQuote, error) {
-	validResults := make([]PriceQuote, 0)
-	for _, r := range results {
+	validResults:= make([]PriceQuote, 0)
+	for _, r:= range results {
 		if r.Response != nil && r.Error == nil {
 			validResults = append(validResults, *r.Response)
 		}
@@ -221,8 +221,8 @@ func BestPriceStrategy(results []ScatterResult[PriceQuote]) (PriceQuote, error) 
 		return PriceQuote{}, &NoValidResponsesError{}
 	}
 
-	bestQuote := validResults[0]
-	for _, quote := range validResults[1:] {
+	bestQuote:= validResults[0]
+	for _, quote:= range validResults[1:] {
 		if quote.Price < bestQuote.Price {
 			bestQuote = quote
 		}
@@ -256,9 +256,9 @@ type SourceInfo struct {
 
 func CombineAllStrategy(results []ScatterResult[SearchResult]) (CombinedResults, error) {
 	var allItems []SearchItem
-	sources := make([]SourceInfo, len(results))
+	sources:= make([]SourceInfo, len(results))
 
-	for i, r := range results {
+	for i, r:= range results {
 		sources[i] = SourceInfo{
 			Name:      r.Source,
 			Success:   r.Error == nil,
@@ -279,8 +279,8 @@ func CombineAllStrategy(results []ScatterResult[SearchResult]) (CombinedResults,
 
 // Fastest - premier resultat valide
 func FastestStrategy[T any](results []ScatterResult[T]) (*T, error) {
-	sorted := make([]ScatterResult[T], 0, len(results))
-	for _, r := range results {
+	sorted:= make([]ScatterResult[T], 0, len(results))
+	for _, r:= range results {
 		if r.Response != nil && r.Error == nil {
 			sorted = append(sorted, r)
 		}
@@ -304,21 +304,21 @@ func QuorumStrategy[T comparable](
 ) AggregationStrategy[T, T] {
 	return func(results []ScatterResult[T]) (T, error) {
 		var zero T
-		validResults := make([]T, 0)
+		validResults:= make([]T, 0)
 
-		for _, r := range results {
+		for _, r:= range results {
 			if r.Response != nil && r.Error == nil {
 				validResults = append(validResults, *r.Response)
 			}
 		}
 
-		// Compter les votes pour chaque reponse unique
-		votes := make(map[int]int)
-		uniqueResults := make([]T, 0)
+		// Count votes for each unique response
+		votes:= make(map[int]int)
+		uniqueResults:= make([]T, 0)
 
-		for _, result := range validResults {
-			found := false
-			for i, existing := range uniqueResults {
+		for _, result:= range validResults {
+			found:= false
+			for i, existing:= range uniqueResults {
 				if compareFn(existing, result) {
 					votes[i]++
 					found = true
@@ -331,8 +331,8 @@ func QuorumStrategy[T comparable](
 			}
 		}
 
-		// Trouver le quorum
-		for i, result := range uniqueResults {
+		// Find quorum
+		for i, result:= range uniqueResults {
 			if votes[i] >= requiredVotes {
 				return result, nil
 			}
@@ -348,7 +348,7 @@ func QuorumStrategy[T comparable](
 
 ---
 
-## Exemple: Comparateur de prix
+## Example: Price Comparator
 
 ```go
 package messaging
@@ -403,7 +403,7 @@ type PriceComparator struct {
 }
 
 func NewPriceComparator(suppliers []string, channel MessageChannel) *PriceComparator {
-	config := &ScatterGatherConfig{
+	config:= &ScatterGatherConfig{
 		Destinations:        suppliers,
 		Timeout:             5 * time.Second,
 		MinResponses:        1,
@@ -416,13 +416,13 @@ func NewPriceComparator(suppliers []string, channel MessageChannel) *PriceCompar
 }
 
 func (pc *PriceComparator) GetBestPrice(ctx context.Context, request PriceRequest) (*PriceComparisonResult, error) {
-	results, err := pc.scatterGather.Scatter(ctx, request)
+	results, err:= pc.scatterGather.Scatter(ctx, request)
 	if err != nil {
 		return nil, fmt.Errorf("scatter-gather failed: %w", err)
 	}
 
-	validQuotes := make([]FullPriceQuote, 0)
-	for _, r := range results {
+	validQuotes:= make([]FullPriceQuote, 0)
+	for _, r:= range results {
 		if r.Response != nil && r.Response.InStock {
 			validQuotes = append(validQuotes, *r.Response)
 		}
@@ -432,21 +432,21 @@ func (pc *PriceComparator) GetBestPrice(ctx context.Context, request PriceReques
 		return nil, &NoAvailableSupplierError{ProductID: request.ProductID}
 	}
 
-	sortedByPrice := make([]FullPriceQuote, len(validQuotes))
+	sortedByPrice:= make([]FullPriceQuote, len(validQuotes))
 	copy(sortedByPrice, validQuotes)
 	sort.Slice(sortedByPrice, func(i, j int) bool {
 		return sortedByPrice[i].TotalPrice < sortedByPrice[j].TotalPrice
 	})
 
-	sortedByDelivery := make([]FullPriceQuote, len(validQuotes))
+	sortedByDelivery:= make([]FullPriceQuote, len(validQuotes))
 	copy(sortedByDelivery, validQuotes)
 	sort.Slice(sortedByDelivery, func(i, j int) bool {
 		return sortedByDelivery[i].DeliveryDays < sortedByDelivery[j].DeliveryDays
 	})
 
-	supplierStats := make([]SupplierStat, len(results))
-	for i, r := range results {
-		stat := SupplierStat{
+	supplierStats:= make([]SupplierStat, len(results))
+	for i, r:= range results {
+		stat:= SupplierStat{
 			Supplier:  r.Source,
 			Responded: r.Response != nil,
 			LatencyMs: r.LatencyMs,
@@ -468,7 +468,7 @@ func (pc *PriceComparator) GetBestPrice(ctx context.Context, request PriceReques
 
 ---
 
-## Avec RabbitMQ/Kafka
+## With RabbitMQ/Kafka
 
 ```go
 package messaging
@@ -498,13 +498,13 @@ func (r *RabbitMQScatterGather) Scatter(
 	destinations []string,
 	request interface{},
 ) ([]interface{}, error) {
-	correlationID := uuid.New().String()
-	results := make([]interface{}, 0)
-	resultChan := make(chan interface{}, len(destinations))
+	correlationID:= uuid.New().String()
+	results:= make([]interface{}, 0)
+	resultChan:= make(chan interface{}, len(destinations))
 	var mu sync.Mutex
 
 	// Consumer sur amq.rabbitmq.reply-to
-	msgs, err := r.channel.Consume(
+	msgs, err:= r.channel.Consume(
 		"amq.rabbitmq.reply-to",
 		"",
 		true,  // auto-ack
@@ -518,7 +518,7 @@ func (r *RabbitMQScatterGather) Scatter(
 	}
 
 	go func() {
-		for msg := range msgs {
+		for msg:= range msgs {
 			if msg.CorrelationId == correlationID {
 				var result interface{}
 				json.Unmarshal(msg.Body, &result)
@@ -528,9 +528,9 @@ func (r *RabbitMQScatterGather) Scatter(
 	}()
 
 	// Envoyer a toutes les destinations
-	requestBytes, _ := json.Marshal(request)
-	for _, dest := range destinations {
-		err := r.channel.PublishWithContext(
+	requestBytes, _:= json.Marshal(request)
+	for _, dest:= range destinations {
+		err:= r.channel.PublishWithContext(
 			ctx,
 			"",   // exchange
 			dest, // routing key
@@ -548,10 +548,10 @@ func (r *RabbitMQScatterGather) Scatter(
 	}
 
 	// Collect results with timeout
-	timeout := time.After(5 * time.Second)
-	for i := 0; i < len(destinations); i++ {
+	timeout:= time.After(5 * time.Second)
+	for i:= 0; i < len(destinations); i++ {
 		select {
-		case result := <-resultChan:
+		case result:= <-resultChan:
 			mu.Lock()
 			results = append(results, result)
 			mu.Unlock()
@@ -588,11 +588,11 @@ func (k *KafkaScatterGather) Scatter(
 	groupTopics []string,
 	request interface{},
 ) ([]interface{}, error) {
-	correlationID := uuid.New().String()
-	replyTopic := fmt.Sprintf("replies.%s", correlationID)
+	correlationID:= uuid.New().String()
+	replyTopic:= fmt.Sprintf("replies.%s", correlationID)
 
-	// Creer topic temporaire
-	_, err := k.admin.CreateTopics(ctx, &kafka.CreateTopicsRequest{
+	// Create temporary topic
+	_, err:= k.admin.CreateTopics(ctx, &kafka.CreateTopicsRequest{
 		Topics: []kafka.TopicConfig{
 			{
 				Topic:             replyTopic,
@@ -611,20 +611,20 @@ func (k *KafkaScatterGather) Scatter(
 		})
 	}()
 
-	// Consumer pour les reponses
-	reader := kafka.NewReader(kafka.ReaderConfig{
+	// Consumer for responses
+	reader:= kafka.NewReader(kafka.ReaderConfig{
 		Brokers: k.admin.Addr.Network(),
 		Topic:   replyTopic,
 		GroupID: correlationID,
 	})
 	defer reader.Close()
 
-	results := make([]interface{}, 0, len(groupTopics))
-	resultChan := make(chan interface{}, len(groupTopics))
+	results:= make([]interface{}, 0, len(groupTopics))
+	resultChan:= make(chan interface{}, len(groupTopics))
 
 	go func() {
-		for i := 0; i < len(groupTopics); i++ {
-			msg, err := reader.ReadMessage(ctx)
+		for i:= 0; i < len(groupTopics); i++ {
+			msg, err:= reader.ReadMessage(ctx)
 			if err != nil {
 				return
 			}
@@ -634,10 +634,10 @@ func (k *KafkaScatterGather) Scatter(
 		}
 	}()
 
-	// Envoyer requetes
-	requestBytes, _ := json.Marshal(request)
-	messages := make([]kafka.Message, len(groupTopics))
-	for i, topic := range groupTopics {
+	// Send requests
+	requestBytes, _:= json.Marshal(request)
+	messages:= make([]kafka.Message, len(groupTopics))
+	for i, topic:= range groupTopics {
 		messages[i] = kafka.Message{
 			Key:   []byte(correlationID),
 			Value: requestBytes,
@@ -648,15 +648,15 @@ func (k *KafkaScatterGather) Scatter(
 		}
 	}
 
-	if err := k.producer.WriteMessages(ctx, messages...); err != nil {
+	if err:= k.producer.WriteMessages(ctx, messages...); err != nil {
 		return nil, fmt.Errorf("writing messages: %w", err)
 	}
 
 	// Collect results with timeout
-	timeout := time.After(5 * time.Second)
-	for i := 0; i < len(groupTopics); i++ {
+	timeout:= time.After(5 * time.Second)
+	for i:= 0; i < len(groupTopics); i++ {
 		select {
-		case result := <-resultChan:
+		case result:= <-resultChan:
 			results = append(results, result)
 		case <-timeout:
 			return results, nil
@@ -671,7 +671,7 @@ func (k *KafkaScatterGather) Scatter(
 
 ---
 
-## Cas d'erreur
+## Error Cases
 
 ```go
 package messaging
@@ -716,13 +716,13 @@ func (r *ResilientScatterGather[T, R]) ScatterWithFallback(
 ) (R, error) {
 	var zero R
 
-	results, err := r.Scatter(ctx, request)
+	results, err:= r.Scatter(ctx, request)
 	if err != nil {
 		return fallbackFn(), nil
 	}
 
-	validCount := 0
-	for _, result := range results {
+	validCount:= 0
+	for _, result:= range results {
 		if result.Response != nil && result.Error == nil {
 			validCount++
 		}
@@ -741,9 +741,9 @@ func (r *ResilientScatterGather[T, R]) ScatterWithCircuitBreaker(
 	ctx context.Context,
 	request T,
 ) ([]ScatterResult[R], error) {
-	// Filtrer les destinations avec circuit ouvert
-	healthyDestinations := make([]string, 0)
-	for _, dest := range r.config.Destinations {
+	// Filter destinations with open circuit
+	healthyDestinations:= make([]string, 0)
+	for _, dest:= range r.config.Destinations {
 		if !r.circuitBreaker.IsOpen(dest) {
 			healthyDestinations = append(healthyDestinations, dest)
 		}
@@ -754,17 +754,17 @@ func (r *ResilientScatterGather[T, R]) ScatterWithCircuitBreaker(
 	}
 
 	// Create temporary config with healthy destinations
-	tempConfig := *r.config
+	tempConfig:= *r.config
 	tempConfig.Destinations = healthyDestinations
-	tempSG := NewScatterGather[T, R](&tempConfig, r.channel)
+	tempSG:= NewScatterGather[T, R](&tempConfig, r.channel)
 
-	results, err := tempSG.Scatter(ctx, request)
+	results, err:= tempSG.Scatter(ctx, request)
 	if err != nil {
 		return nil, err
 	}
 
-	// Mettre a jour les circuit breakers
-	for _, result := range results {
+	// Update circuit breakers
+	for _, result:= range results {
 		if result.Error != nil {
 			r.circuitBreaker.RecordFailure(result.Source)
 		} else {
@@ -778,17 +778,17 @@ func (r *ResilientScatterGather[T, R]) ScatterWithCircuitBreaker(
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Comparaison de prix entre plusieurs fournisseurs
-- Recherche fédérée sur plusieurs sources
-- Agrégation de données de plusieurs microservices
-- Requêtes parallèles avec consolidation
-- Systèmes de vote ou consensus
+- Price comparison between multiple suppliers
+- Federated search across multiple sources
+- Data aggregation from multiple microservices
+- Parallel queries with consolidation
+- Voting or consensus systems
 
-## Patterns liés
+## Related Patterns
 
-- [Splitter-Aggregator](./splitter-aggregator.md) - Division/recombinaison
-- [Circuit Breaker](../cloud/circuit-breaker.md) - Protection contre pannes
-- [Timeout](../resilience/timeout.md) - Limiter attente
-- [Producer-Consumer](../concurrency/producer-consumer.md) - Scale les consumers
+- [Splitter-Aggregator](./splitter-aggregator.md) - Split/recombine
+- [Circuit Breaker](../cloud/circuit-breaker.md) - Failure protection
+- [Timeout](../resilience/timeout.md) - Limit waiting
+- [Producer-Consumer](../concurrency/producer-consumer.md) - Scale consumers

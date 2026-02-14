@@ -1,17 +1,17 @@
 # SOLID Principles
 
-5 principes fondamentaux de la programmation orientée objet par Robert C. Martin.
+5 fundamental principles of object-oriented programming by Robert C. Martin.
 
-## Les 5 Principes
+## The 5 Principles
 
 ### S - Single Responsibility Principle (SRP)
 
-> Une classe ne doit avoir qu'une seule raison de changer.
+> A class should have only one reason to change.
 
-**Problème :**
+**Problem:**
 
 ```go
-// ❌ Mauvais - Multiple responsabilités
+// ❌ Bad - Multiple responsibilities
 type User struct {
 	ID    string
 	Email string
@@ -22,10 +22,10 @@ func (u *User) Validate() error { /* Validation logic */ }
 func (u *User) SendEmail() error { /* Email logic */ }
 ```
 
-**Solution :**
+**Solution:**
 
 ```go
-// ✅ Bon - Une responsabilité par type
+// ✅ Good - One responsibility per type
 type User struct {
 	ID    string
 	Email string
@@ -48,18 +48,18 @@ type UserNotifier struct {
 func (n *UserNotifier) SendEmail(user *User) error { /* Email logic */ }
 ```
 
-**Quand l'appliquer :** Toujours. C'est le principe le plus fondamental.
+**When to apply:** Always. This is the most fundamental principle.
 
 ---
 
 ### O - Open/Closed Principle (OCP)
 
-> Ouvert à l'extension, fermé à la modification.
+> Open for extension, closed for modification.
 
-**Problème :**
+**Problem:**
 
 ```go
-// ❌ Mauvais - Modifier pour ajouter
+// ❌ Bad - Modify to add
 type PaymentProcessor struct{}
 
 func (p *PaymentProcessor) Process(paymentType string) error {
@@ -68,7 +68,7 @@ func (p *PaymentProcessor) Process(paymentType string) error {
 		// ... card logic
 	case "paypal":
 		// ... paypal logic
-	// Ajouter ici = modifier
+	// Adding here = modifying
 	default:
 		return errors.New("unknown payment type")
 	}
@@ -76,10 +76,10 @@ func (p *PaymentProcessor) Process(paymentType string) error {
 }
 ```
 
-**Solution :**
+**Solution:**
 
 ```go
-// ✅ Bon - Étendre sans modifier
+// ✅ Good - Extend without modifying
 type PaymentMethod interface {
 	Process() error
 }
@@ -102,7 +102,7 @@ func (p *PayPalPayment) Process() error {
 	return nil
 }
 
-// Ajouter = nouvelle struct implémentant PaymentMethod
+// Adding = new struct implementing PaymentMethod
 type CryptoPayment struct {
 	WalletAddress string
 }
@@ -120,18 +120,18 @@ func (p *PaymentProcessor) ProcessPayment(method PaymentMethod) error {
 }
 ```
 
-**Quand l'appliquer :** Quand le code change souvent pour ajouter des variantes.
+**When to apply:** When the code changes often to add variants.
 
 ---
 
 ### L - Liskov Substitution Principle (LSP)
 
-> Les sous-types doivent être substituables à leurs types de base.
+> Subtypes must be substitutable for their base types.
 
-**Problème :**
+**Problem:**
 
 ```go
-// ❌ Mauvais - Carré n'est pas un Rectangle
+// ❌ Bad - Square is not a Rectangle
 type Rectangle struct {
 	width  float64
 	height float64
@@ -147,19 +147,19 @@ type Square struct {
 
 func (s *Square) SetWidth(w float64) {
 	s.width = w
-	s.height = w // Viole LSP - comportement inattendu
+	s.height = w // Violates LSP - unexpected behavior
 }
 
 func (s *Square) SetHeight(h float64) {
 	s.width = h
-	s.height = h // Viole LSP - comportement inattendu
+	s.height = h // Violates LSP - unexpected behavior
 }
 ```
 
-**Solution :**
+**Solution:**
 
 ```go
-// ✅ Bon - Abstraction commune
+// ✅ Good - Common abstraction
 type Shape interface {
 	Area() float64
 }
@@ -189,24 +189,24 @@ func (s *Square) Area() float64 {
 	return s.side * s.side
 }
 
-// Usage - les deux sont substituables
+// Usage - both are substitutable
 func PrintArea(s Shape) {
 	fmt.Printf("Area: %.2f\n", s.Area())
 }
 ```
 
-**Quand l'appliquer :** Avant chaque héritage/composition, vérifier la substitution.
+**When to apply:** Before each inheritance/composition, verify substitution.
 
 ---
 
 ### I - Interface Segregation Principle (ISP)
 
-> Plusieurs interfaces spécifiques valent mieux qu'une interface générale.
+> Multiple specific interfaces are better than one general interface.
 
-**Problème :**
+**Problem:**
 
 ```go
-// ❌ Mauvais - Interface trop large
+// ❌ Bad - Interface too broad
 type Worker interface {
 	Work()
 	Eat()
@@ -220,20 +220,20 @@ func (r *Robot) Work() {
 }
 
 func (r *Robot) Eat() {
-	// Robots don't eat - méthode forcée
+	// Robots don't eat - forced method
 	panic("robots don't eat")
 }
 
 func (r *Robot) Sleep() {
-	// Robots don't sleep - méthode forcée
+	// Robots don't sleep - forced method
 	panic("robots don't sleep")
 }
 ```
 
-**Solution :**
+**Solution:**
 
 ```go
-// ✅ Bon - Interfaces spécifiques
+// ✅ Good - Specific interfaces
 type Workable interface {
 	Work()
 }
@@ -249,7 +249,7 @@ type Sleepable interface {
 type Robot struct{}
 
 func (r *Robot) Work() {
-	// OK - Robot implémente seulement Workable
+	// OK - Robot implements only Workable
 }
 
 type Human struct{}
@@ -269,18 +269,18 @@ func TakeCareOf(e Eatable, s Sleepable) {
 }
 ```
 
-**Quand l'appliquer :** Quand des implémenteurs doivent laisser des méthodes vides ou panic.
+**When to apply:** When implementers have to leave methods empty or panic.
 
 ---
 
 ### D - Dependency Inversion Principle (DIP)
 
-> Dépendre d'abstractions, pas d'implémentations concrètes.
+> Depend on abstractions, not on concrete implementations.
 
-**Problème :**
+**Problem:**
 
 ```go
-// ❌ Mauvais - Dépendance concrète
+// ❌ Bad - Concrete dependency
 type MySQLDatabase struct{}
 
 func (db *MySQLDatabase) Query(sql string) ([]byte, error) {
@@ -289,12 +289,12 @@ func (db *MySQLDatabase) Query(sql string) ([]byte, error) {
 }
 
 type UserService struct {
-	db *MySQLDatabase // Couplage fort à MySQL
+	db *MySQLDatabase // Tight coupling to MySQL
 }
 
 func NewUserService() *UserService {
 	return &UserService{
-		db: &MySQLDatabase{}, // Dépendance hard-codée
+		db: &MySQLDatabase{}, // Hard-coded dependency
 	}
 }
 
@@ -308,10 +308,10 @@ func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
 }
 ```
 
-**Solution :**
+**Solution:**
 
 ```go
-// ✅ Bon - Dépendance sur abstraction
+// ✅ Good - Dependency on abstraction
 type Database interface {
 	Query(ctx context.Context, sql string, args ...interface{}) ([]byte, error)
 }
@@ -331,11 +331,11 @@ func (db *PostgresDatabase) Query(ctx context.Context, sql string, args ...inter
 }
 
 type UserService struct {
-	db Database // Dépend de l'abstraction
+	db Database // Depends on the abstraction
 }
 
 func NewUserService(db Database) *UserService {
-	return &UserService{db: db} // Injection de dépendance
+	return &UserService{db: db} // Dependency injection
 }
 
 func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
@@ -349,54 +349,54 @@ func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
 
 // Usage
 func main() {
-	// Facilement interchangeable
+	// Easily interchangeable
 	mysqlDB := &MySQLDatabase{}
 	service1 := NewUserService(mysqlDB)
-	
+
 	postgresDB := &PostgresDatabase{}
 	service2 := NewUserService(postgresDB)
-	
+
 	_, _ = service1, service2
 }
 ```
 
-**Quand l'appliquer :** Pour tout ce qui est externe (DB, API, filesystem).
+**When to apply:** For everything external (DB, API, filesystem).
 
 ---
 
-## Résumé Visuel
+## Visual Summary
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  S  │ Une struct/package = Une responsabilité               │
+│  S  │ One struct/package = One responsibility               │
 ├─────────────────────────────────────────────────────────────┤
-│  O  │ Ajouter du code, pas modifier                         │
+│  O  │ Add code, don't modify                                │
 ├─────────────────────────────────────────────────────────────┤
-│  L  │ Sous-type = comportement parent préservé              │
+│  L  │ Subtype = parent behavior preserved                   │
 ├─────────────────────────────────────────────────────────────┤
-│  I  │ Interfaces petites et spécifiques                     │
+│  I  │ Small and specific interfaces                         │
 ├─────────────────────────────────────────────────────────────┤
-│  D  │ Dépendre d'interfaces, pas de structs                 │
+│  D  │ Depend on interfaces, not structs                     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Quand utiliser
+## When to Use
 
-- Lors de la conception de classes et interfaces (SRP, ISP)
-- Quand on ajoute de nouvelles variantes sans modifier l'existant (OCP)
-- Avant d'utiliser l'heritage ou la composition (LSP)
-- Pour decoupler les modules et faciliter les tests (DIP)
-- Lors de revues de code pour evaluer la qualite architecturale
+- When designing classes and interfaces (SRP, ISP)
+- When adding new variants without modifying existing code (OCP)
+- Before using inheritance or composition (LSP)
+- To decouple modules and facilitate testing (DIP)
+- During code reviews to evaluate architectural quality
 
-## Patterns liés
+## Related Patterns
 
-- [GRASP](./GRASP.md) - Complementaire pour l'attribution des responsabilites
-- [DRY](./DRY.md) - SRP aide a centraliser les responsabilites
-- [Defensive Programming](./defensive.md) - DIP facilite l'injection de mocks
-- **Factory** : Respecte OCP pour la création
-- **Strategy** : Respecte OCP pour les algorithmes
-- **Adapter** : Aide à respecter DIP
-- **Facade** : Aide à respecter ISP
+- [GRASP](./GRASP.md) - Complementary for responsibility assignment
+- [DRY](./DRY.md) - SRP helps centralize responsibilities
+- [Defensive Programming](./defensive.md) - DIP facilitates mock injection
+- **Factory**: Respects OCP for creation
+- **Strategy**: Respects OCP for algorithms
+- **Adapter**: Helps respect DIP
+- **Facade**: Helps respect ISP
 
 ## Sources
 

@@ -4,14 +4,14 @@
 
 ## Concept
 
-Lazy Load est un pattern qui differe le chargement des donnees jusqu'au moment ou elles sont reellement necessaires. Cela ameliore les performances en evitant de charger des donnees qui ne seront peut-etre jamais utilisees.
+Lazy Load is a pattern that defers data loading until the moment it is actually needed. This improves performance by avoiding loading data that may never be used.
 
-## Quatre variantes
+## Four Variants
 
-1. **Lazy Initialization** : Champ initialise a null, charge au premier acces
-2. **Virtual Proxy** : Objet proxy qui charge le vrai objet a la demande
-3. **Value Holder** : Wrapper generique qui encapsule le chargement
-4. **Ghost** : Objet partiellement charge qui se complete lui-meme
+1. **Lazy Initialization**: Field initialized to null, loaded on first access
+2. **Virtual Proxy**: Proxy object that loads the real object on demand
+3. **Value Holder**: Generic wrapper that encapsulates loading
+4. **Ghost**: Partially loaded object that completes itself
 
 ## Lazy Initialization
 
@@ -382,36 +382,36 @@ func (l *BatchLoader[K, V]) executeBatch(ctx context.Context) {
 }
 ```
 
-## Comparaison des variantes
+## Variant Comparison
 
-| Variante | Complexite | Use Case | Avantage |
-|----------|------------|----------|----------|
-| Lazy Init | Faible | Simple, un champ | Simple a implementer |
-| Virtual Proxy | Moyenne | Interface complete | Transparent pour le client |
-| Value Holder | Moyenne | Generique, reutilisable | Type-safe, reutilisable |
-| Ghost | Elevee | Objets complexes | Un seul chargement |
+| Variant | Complexity | Use Case | Advantage |
+|---------|------------|----------|-----------|
+| Lazy Init | Low | Simple, one field | Easy to implement |
+| Virtual Proxy | Medium | Full interface | Transparent to the client |
+| Value Holder | Medium | Generic, reusable | Type-safe, reusable |
+| Ghost | High | Complex objects | Single loading |
 
-## Quand utiliser
+## When to Use
 
-**Utiliser Lazy Load quand :**
+**Use Lazy Load when:**
 
-- Relations one-to-many ou many-to-many
-- Donnees rarement accedees
-- Donnees volumineuses (LOB, collections)
-- Performance critique
+- One-to-many or many-to-many relations
+- Rarely accessed data
+- Large data (LOB, collections)
+- Critical performance
 
-**Eviter Lazy Load quand :**
+**Avoid Lazy Load when:**
 
-- Donnees toujours necessaires (eager load)
+- Data always needed (eager load)
 - N+1 queries problem (batch loading)
-- Contexte deconnecte (DTOs)
+- Disconnected context (DTOs)
 
-## Patterns liés
+## Related Patterns
 
-- [Identity Map](./identity-map.md) - Cache des entites chargees paresseusement
-- [Repository](./repository.md) - Fournit les methodes de chargement
-- [Data Mapper](./data-mapper.md) - Execute le chargement des donnees
-- [Unit of Work](./unit-of-work.md) - Tracking des entites lazy-loaded
+- [Identity Map](./identity-map.md) - Cache of lazily loaded entities
+- [Repository](./repository.md) - Provides loading methods
+- [Data Mapper](./data-mapper.md) - Executes data loading
+- [Unit of Work](./unit-of-work.md) - Tracking of lazy-loaded entities
 
 ## Sources
 

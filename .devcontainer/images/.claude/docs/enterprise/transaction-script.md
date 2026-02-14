@@ -4,16 +4,16 @@
 
 ## Concept
 
-Transaction Script est le pattern le plus simple pour organiser la logique metier. Chaque operation metier est implementee comme une procedure unique qui execute toutes les etapes de la transaction de bout en bout.
+Transaction Script is the simplest pattern for organizing business logic. Each business operation is implemented as a single procedure that executes all the steps of the transaction from start to finish.
 
-## Caracteristiques
+## Characteristics
 
-- **Procedurale** : Code organise par transactions, pas par objets
-- **Directe** : Lecture lineaire du flux de donnees
-- **Simple** : Pas d'abstraction complexe
-- **Autonome** : Chaque script est independant
+- **Procedural**: Code organized by transactions, not by objects
+- **Direct**: Linear reading of the data flow
+- **Simple**: No complex abstraction
+- **Autonomous**: Each script is independent
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package orderscripts
@@ -359,45 +359,45 @@ type PaymentResult struct {
 }
 ```
 
-## Comparaison avec les alternatives
+## Comparison with Alternatives
 
 | Aspect | Transaction Script | Domain Model | Service Layer |
 |--------|-------------------|--------------|---------------|
-| Complexite | Faible | Elevee | Moyenne |
-| Reutilisation | Faible | Elevee | Moyenne |
-| Testabilite | Moyenne | Elevee | Elevee |
-| Courbe d'apprentissage | Faible | Elevee | Moyenne |
-| Maintenance long terme | Difficile | Facile | Moyenne |
+| Complexity | Low | High | Medium |
+| Reusability | Low | High | Medium |
+| Testability | Medium | High | High |
+| Learning curve | Low | High | Medium |
+| Long-term maintenance | Difficult | Easy | Medium |
 
-## Quand utiliser
+## When to Use
 
-**Utiliser Transaction Script quand :**
+**Use Transaction Script when:**
 
-- Logique metier simple et directe
-- Applications CRUD basiques
-- Prototypes et MVPs
-- Equipe peu experimentee avec OOP/DDD
-- Deadlines serrees
-- Logique qui ne changera pas souvent
+- Simple and straightforward business logic
+- Basic CRUD applications
+- Prototypes and MVPs
+- Team with little OOP/DDD experience
+- Tight deadlines
+- Logic that will not change often
 
-**Eviter Transaction Script quand :**
+**Avoid Transaction Script when:**
 
-- Regles metier complexes ou changeantes
-- Logique partagee entre plusieurs operations
-- Besoin de tests unitaires fins
-- Application destinee a evoluer significativement
-- Domaine metier riche avec invariants
+- Complex or changing business rules
+- Logic shared between multiple operations
+- Need for fine-grained unit tests
+- Application intended to evolve significantly
+- Rich business domain with invariants
 
-## Relation avec DDD
+## Relationship with DDD
 
-Transaction Script est souvent considere comme l'**antithese du DDD**.
+Transaction Script is often considered the **antithesis of DDD**.
 
-## Patterns liés
+## Related Patterns
 
-- [Domain Model](./domain-model.md) - Alternative pour logique metier complexe
-- [Service Layer](./service-layer.md) - Coordination au-dessus de Transaction Script
-- [Table Data Gateway](./gateway.md) - Acces aux donnees simplifie
-- [Active Record](./active-record.md) - Alternative avec persistance integree
+- [Domain Model](./domain-model.md) - Alternative for complex business logic
+- [Service Layer](./service-layer.md) - Coordination on top of Transaction Script
+- [Table Data Gateway](./gateway.md) - Simplified data access
+- [Active Record](./active-record.md) - Alternative with integrated persistence
 
 ## Sources
 

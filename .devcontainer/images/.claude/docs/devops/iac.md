@@ -2,7 +2,7 @@
 
 > Gérer l'infrastructure via du code versionné.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -184,7 +184,7 @@ Mutable:
                 └─────────┘
 ```
 
-## Patterns liés
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|

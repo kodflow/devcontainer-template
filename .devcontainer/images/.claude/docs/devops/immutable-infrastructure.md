@@ -2,9 +2,9 @@
 
 > Remplacer les serveurs au lieu de les modifier.
 
-**Principe :** Traiter les serveurs comme du bétail, pas comme des animaux de compagnie.
+**Principe:** Traiter les serveurs comme du bétail, pas comme des animaux de compagnie.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -196,7 +196,7 @@ resource "aws_autoscaling_group" "app" {
 }
 ```
 
-## Docker : Immutable par défaut
+## Docker: Immutable par défaut
 
 ```dockerfile
 # Dockerfile - Image immutable
@@ -259,7 +259,7 @@ spec:
         name: myapp-secrets
 ```
 
-## Quand utiliser
+## When to Use
 
 | Utiliser | Eviter |
 |----------|--------|
@@ -302,7 +302,7 @@ spec:
 |--------------|----------|----------|
 | SSH en production | Modifications manuelles | Rebuild image |
 | Config locale | Drift configuration | ConfigMap/Secrets |
-| Hotfix direct | Non reproductible | Pipeline CI/CD |
+| Hotfix direct | No reproductible | Pipeline CI/CD |
 | Logs locaux | Perdus au destroy | ELK/CloudWatch |
 
 ## Migration path
@@ -327,7 +327,7 @@ Phase 5: Éliminer accès SSH production
 - [ ] Tests sur images
 - [ ] Rollback automatisé
 
-## Patterns liés
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|

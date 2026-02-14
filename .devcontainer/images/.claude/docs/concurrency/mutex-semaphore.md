@@ -1,10 +1,10 @@
-# Mutex et Semaphore
+# Mutex and Semaphore
 
-Primitives de synchronisation pour controler l'acces aux ressources partagees.
+Synchronization primitives for controlling access to shared resources.
 
 ---
 
-## Vue d'ensemble
+## Overview
 
 ```
 +--------------------------------------------------------------+
@@ -21,8 +21,8 @@ Primitives de synchronisation pour controler l'acces aux ressources partagees.
 |  [1 thread]                       [N threads max]             |
 |                                                               |
 |  Usage:                           Usage:                      |
-|  - Section critique               - Connection pool           |
-|  - Ecriture fichier unique        - Rate limiting             |
+|  - Critical section               - Connection pool           |
+|  - Single file write              - Rate limiting             |
 |  - Singleton init                 - Resource limiting         |
 |                                                               |
 +--------------------------------------------------------------+
@@ -32,7 +32,7 @@ Primitives de synchronisation pour controler l'acces aux ressources partagees.
 
 ## Mutex
 
-> Assure qu'une seule tache peut acceder a une ressource a la fois.
+> Ensures that only one task can access a resource at a time.
 
 ```go
 package mutex
@@ -119,7 +119,7 @@ func main() {
 
 ## Semaphore
 
-> Limite l'acces concurrent a N ressources.
+> Limits concurrent access to N resources.
 
 ```go
 package semaphore
@@ -200,7 +200,7 @@ func (s *Semaphore) Available() int {
 }
 ```
 
-**Usage - Limiter les requetes API:**
+**Usage - Limiting API requests:**
 
 ```go
 package main
@@ -251,9 +251,9 @@ func main() {
 
 ---
 
-## Semaphore avec golang.org/x/sync
+## Semaphore with golang.org/x/sync
 
-Go fournit une implementation officielle:
+Go provides an official implementation:
 
 ```go
 package main
@@ -285,7 +285,7 @@ func main() {
 
 ---
 
-## Patterns courants
+## Common Patterns
 
 ### Rate Limiter
 
@@ -380,56 +380,56 @@ func (rg *ResourceGuard[T]) Use(fn func(*T) error) error {
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
 | Operation | Mutex | Semaphore |
 |-----------|-------|-----------|
 | acquire (no wait) | O(1) | O(n) n=permits |
 | release | O(1) | O(n) |
-| Memoire | O(1) | O(capacity) |
+| Memory | O(1) | O(capacity) |
 
 ### Mutex vs Semaphore
 
-| Critere | Mutex | Semaphore |
-|---------|-------|-----------|
+| Criterion | Mutex | Semaphore |
+|-----------|-------|-----------|
 | Permits | 1 | N |
-| Owner | Oui (celui qui lock) | Non |
-| Usage | Section critique | Resource pool |
+| Owner | Yes (the one who locks) | No |
+| Usage | Critical section | Resource pool |
 
-### Avantages
+### Advantages
 
-- Prevention race conditions
-- Controle de concurrence
-- Simple a comprendre
-- Native dans stdlib Go
+- Race condition prevention
+- Concurrency control
+- Simple to understand
+- Native in Go stdlib
 
-### Inconvenients
+### Disadvantages
 
-- Risque de deadlock
-- Contention = latence
+- Risk of deadlock
+- Contention = latency
 - Priority inversion possible
 
 ---
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
-|-----------|------------|
-| Acces exclusif a une ressource | Mutex |
-| Pool de N ressources | Semaphore(N) |
+| Situation | Recommended |
+|-----------|-------------|
+| Exclusive access to a resource | Mutex |
+| Pool of N resources | Semaphore(N) |
 | Rate limiting | Semaphore + timer |
 | Read-heavy workload | sync.RWMutex |
 
 ---
 
-## Patterns connexes
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Read-Write Lock** | Specialisation pour lectures |
+| **Read-Write Lock** | Specialization for reads |
 | **Monitor** | Mutex + conditions |
-| **Object Pool** | Semaphore pour limiter |
-| **Circuit Breaker** | Protection differente |
+| **Object Pool** | Semaphore for limiting |
+| **Circuit Breaker** | Different protection |
 
 ---
 

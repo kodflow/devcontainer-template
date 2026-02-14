@@ -1,10 +1,10 @@
 # Hexagonal Architecture (Ports & Adapters)
 
-> Isoler le cœur métier des détails techniques.
+> Isolate the business core from technical details.
 
-**Auteur :** Alistair Cockburn (2005)
+**Author:** Alistair Cockburn (2005)
 
-## Principe
+## Principle
 
 ```
                     ┌─────────────────────────────────────┐
@@ -15,7 +15,7 @@
                                       ▼
                     ┌─────────────────────────────────────┐
                     │             PORTS (In)               │
-                    │      Interfaces d'entrée             │
+                    │        Input interfaces              │
                     └─────────────────────────────────────┘
                                       │
                                       ▼
@@ -32,7 +32,7 @@
                                       ▼
                     ┌─────────────────────────────────────┐
                     │             PORTS (Out)              │
-                    │      Interfaces de sortie            │
+                    │        Output interfaces             │
                     └─────────────────────────────────────┘
                                       │
                                       ▼
@@ -42,11 +42,11 @@
                     └─────────────────────────────────────┘
 ```
 
-## Structure de fichiers
+## File Structure
 
 ```
 src/
-├── domain/                    # Cœur métier (AUCUNE dépendance externe)
+├── domain/                    # Business core (NO external dependencies)
 │   ├── entities/
 │   │   └── User.go
 │   ├── services/
@@ -64,7 +64,7 @@ src/
 │   └── handlers/
 │       └── CreateUserHandler.go
 │
-├── infrastructure/            # Adapters (implémentations)
+├── infrastructure/            # Adapters (implementations)
 │   ├── persistence/
 │   │   ├── PostgresUserRepository.go
 │   │   └── InMemoryUserRepository.go
@@ -76,7 +76,7 @@ src/
 └── main.go                    # Composition root (DI)
 ```
 
-## Exemple
+## Example
 
 ### Port (Interface)
 
@@ -137,7 +137,7 @@ func (s *UserService) CreateUser(ctx context.Context, email, name string) (*User
 }
 ```
 
-### Adapter (Implémentation)
+### Adapter (Implementation)
 
 ```go
 package persistence
@@ -163,7 +163,7 @@ func NewPostgresUserRepository(db *sql.DB) *PostgresUserRepository {
 // FindByID finds a user by ID.
 func (r *PostgresUserRepository) FindByID(ctx context.Context, id string) (*User, error) {
 	query := "SELECT id, email, name FROM users WHERE id = $1"
-	
+
 	var user User
 	err := r.db.QueryRowContext(ctx, query, id).Scan(&user.ID, &user.Email, &user.Name)
 	if err != nil {
@@ -179,7 +179,7 @@ func (r *PostgresUserRepository) FindByID(ctx context.Context, id string) (*User
 // Save saves a user.
 func (r *PostgresUserRepository) Save(ctx context.Context, user *User) error {
 	query := "INSERT INTO users (id, email, name) VALUES ($1, $2, $3)"
-	
+
 	_, err := r.db.ExecContext(ctx, query, user.ID, user.Email, user.Name)
 	if err != nil {
 		return fmt.Errorf("inserting user: %w", err)
@@ -189,7 +189,7 @@ func (r *PostgresUserRepository) Save(ctx context.Context, user *User) error {
 }
 ```
 
-### Test (avec Mock Adapter)
+### Test (with Mock Adapter)
 
 ```go
 package services_test
@@ -249,46 +249,46 @@ func TestUserService_CreateUser(t *testing.T) {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-| ✅ Utiliser | ❌ Éviter |
+| Use | Avoid |
 |-------------|-----------|
-| Applications métier complexes | CRUD simple |
-| Longue durée de vie | Prototypes/MVPs |
-| Tests importants | Scripts one-shot |
-| Équipes multiples | Projets solo courts |
-| Changements d'infra prévisibles | Stack figé |
+| Complex business applications | Simple CRUD |
+| Long-lived applications | Prototypes/MVPs |
+| Important tests | One-shot scripts |
+| Multiple teams | Short solo projects |
+| Foreseeable infra changes | Fixed stack |
 
-## Avantages
+## Advantages
 
-- **Testabilité** : Domain testable sans DB/HTTP
-- **Flexibilité** : Changer de DB = un adapter
-- **Clarté** : Séparation claire des responsabilités
-- **Indépendance** : Le métier ne dépend de rien
+- **Testability**: Domain testable without DB/HTTP
+- **Flexibility**: Changing DB = one adapter
+- **Clarity**: Clear separation of responsibilities
+- **Independence**: Business depends on nothing
 
-## Inconvénients
+## Disadvantages
 
-- **Verbosité** : Plus de fichiers/interfaces
-- **Overhead** : Mapping entre couches
-- **Courbe d'apprentissage** : Concepts à maîtriser
+- **Verbosity**: More files/interfaces
+- **Overhead**: Mapping between layers
+- **Learning curve**: Concepts to master
 
-## Patterns liés
+## Related Patterns
 
-| Pattern | Relation |
+| Pattern | Relationship |
 |---------|----------|
-| Clean Architecture | Évolution avec plus de couches |
-| DIP (SOLID) | Fondement du pattern |
-| Adapter (GoF) | Implémentation des ports |
-| Repository | Port typique pour la persistance |
+| Clean Architecture | Evolution with more layers |
+| DIP (SOLID) | Foundation of the pattern |
+| Adapter (GoF) | Implementation of ports |
+| Repository | Typical port for persistence |
 
-## Frameworks qui supportent Hexagonal
+## Frameworks Supporting Hexagonal
 
-| Langage | Framework |
+| Language | Framework |
 |---------|-----------|
 | TypeScript | NestJS, ts-arch |
 | Java | Spring (modules) |
-| Go | go-kit, structure manuelle |
-| Python | FastAPI + structure manuelle |
+| Go | go-kit, manual structure |
+| Python | FastAPI + manual structure |
 
 ## Sources
 

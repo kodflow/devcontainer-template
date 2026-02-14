@@ -1,8 +1,8 @@
 # Splitter-Aggregator Pattern
 
-Diviser un message composite en parties et les recombiner.
+Split a composite message into parts and recombine them.
 
-## Vue d'ensemble
+## Overview
 
 ```
                     +----------+
@@ -27,7 +27,7 @@ Diviser un message composite en parties et les recombiner.
 
 ## Splitter Pattern
 
-> Divise un message en plusieurs messages individuels.
+> Splits a message into multiple individual messages.
 
 ### Schema
 
@@ -86,12 +86,12 @@ type Message[T any] struct {
 }
 
 func (s *Splitter[TComposite, TPart]) Split(message Message[TComposite]) []SplitResult[TPart] {
-	parts := s.extractParts(message.Payload)
-	correlationID := uuid.New().String()
-	results := make([]SplitResult[TPart], len(parts))
+	parts:= s.extractParts(message.Payload)
+	correlationID:= uuid.New().String()
+	results:= make([]SplitResult[TPart], len(parts))
 
-	for i, part := range parts {
-		enriched := part
+	for i, part:= range parts {
+		enriched:= part
 		if s.enrichPart != nil {
 			enriched = s.enrichPart(part, message.Payload, i)
 		}
@@ -109,7 +109,7 @@ func (s *Splitter[TComposite, TPart]) Split(message Message[TComposite]) []Split
 	return results
 }
 
-// Exemple: Splitter de commande
+// Example: Order splitter
 type Order struct {
 	OrderID         string
 	CustomerID      string
@@ -140,8 +140,8 @@ type OrderItemMessage struct {
 func NewOrderSplitter() *Splitter[Order, OrderItemMessage] {
 	return NewSplitter(
 		func(order Order) []OrderItemMessage {
-			messages := make([]OrderItemMessage, len(order.Items))
-			for i, item := range order.Items {
+			messages:= make([]OrderItemMessage, len(order.Items))
+			for i, item:= range order.Items {
 				messages[i] = OrderItemMessage{
 					OrderID:         order.OrderID,
 					CustomerID:      order.CustomerID,
@@ -155,22 +155,22 @@ func NewOrderSplitter() *Splitter[Order, OrderItemMessage] {
 	)
 }
 
-// Usage avec RabbitMQ
+// Usage with RabbitMQ
 func SplitAndPublish(ctx context.Context, order Order, channel MessagePublisher) error {
-	splitter := NewOrderSplitter()
-	splitMessages := splitter.Split(Message[Order]{
+	splitter:= NewOrderSplitter()
+	splitMessages:= splitter.Split(Message[Order]{
 		ID:      order.OrderID,
 		Payload: order,
 	})
 
-	for _, msg := range splitMessages {
-		headers := map[string]interface{}{
+	for _, msg:= range splitMessages {
+		headers:= map[string]interface{}{
 			"x-correlation-id":  msg.CorrelationID,
 			"x-sequence-number": msg.SequenceNumber,
 			"x-sequence-size":   msg.SequenceSize,
 		}
 
-		if err := channel.Publish(ctx, "order-items", msg, headers); err != nil {
+		if err:= channel.Publish(ctx, "order-items", msg, headers); err != nil {
 			return fmt.Errorf("publishing split message: %w", err)
 		}
 	}
@@ -183,14 +183,14 @@ type MessagePublisher interface {
 }
 ```
 
-**Quand :** Traitement parallele, distribution de charge, batch processing.
-**Lie a :** Aggregator, Scatter-Gather.
+**When:** Parallel processing, load distribution, batch processing.
+**Related to:** Aggregator, Scatter-Gather.
 
 ---
 
 ## Aggregator Pattern
 
-> Combine plusieurs messages relies en un seul.
+> Combines multiple related messages into one.
 
 ### Aggregator Schema
 
@@ -249,7 +249,7 @@ func NewAggregator[TPart any, TResult any](
 		defaultTimeout = 30 * time.Second
 	}
 
-	agg := &Aggregator[TPart, TResult]{
+	agg:= &Aggregator[TPart, TResult]{
 		contexts:           make(map[string]*AggregationContext[TPart, TResult]),
 		completionStrategy: completionStrategy,
 		aggregateFn:        aggregateFn,
@@ -266,9 +266,9 @@ func (a *Aggregator[TPart, TResult]) Add(message SplitResult[TPart]) *TResult {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	correlationID := message.CorrelationID
+	correlationID:= message.CorrelationID
 
-	if _, exists := a.contexts[correlationID]; !exists {
+	if _, exists:= a.contexts[correlationID]; !exists {
 		a.contexts[correlationID] = &AggregationContext[TPart, TResult]{
 			CorrelationID: correlationID,
 			ExpectedCount: message.SequenceSize,
@@ -278,11 +278,11 @@ func (a *Aggregator[TPart, TResult]) Add(message SplitResult[TPart]) *TResult {
 		}
 	}
 
-	ctx := a.contexts[correlationID]
+	ctx:= a.contexts[correlationID]
 	ctx.ReceivedParts = append(ctx.ReceivedParts, message.Payload)
 
 	if a.completionStrategy((*AggregationContext[TPart, any])(unsafe.Pointer(ctx))) {
-		result := a.aggregateFn(ctx.ReceivedParts)
+		result:= a.aggregateFn(ctx.ReceivedParts)
 		delete(a.contexts, correlationID)
 		return &result
 	}
@@ -291,7 +291,7 @@ func (a *Aggregator[TPart, TResult]) Add(message SplitResult[TPart]) *TResult {
 }
 
 func (a *Aggregator[TPart, TResult]) startCleanup() {
-	ticker := time.NewTicker(a.cleanupInterval)
+	ticker:= time.NewTicker(a.cleanupInterval)
 	defer ticker.Stop()
 
 	for {
@@ -308,8 +308,8 @@ func (a *Aggregator[TPart, TResult]) cleanupExpired() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	now := time.Now()
-	for id, ctx := range a.contexts {
+	now:= time.Now()
+	for id, ctx:= range a.contexts {
 		if now.Sub(ctx.StartedAt) > a.defaultTimeout {
 			a.handleTimeout(ctx)
 			delete(a.contexts, id)
@@ -326,7 +326,7 @@ func (a *Aggregator[TPart, TResult]) Stop() {
 	close(a.stopCleanup)
 }
 
-// Strategies de completion
+// Completion strategies
 func AllReceivedStrategy[T any](ctx *AggregationContext[T, any]) bool {
 	return len(ctx.ReceivedParts) >= ctx.ExpectedCount
 }
@@ -343,7 +343,7 @@ func TimeoutOrAllStrategy[T any](timeoutMs int) CompletionStrategy[T] {
 }
 ```
 
-### Exemple complet
+### Complete Example
 
 ```go
 package messaging
@@ -354,7 +354,7 @@ import (
 	"time"
 )
 
-// Aggregation des resultats de traitement d'items
+// Aggregation of item processing results
 type ItemProcessingResult struct {
 	ItemID            string `json:"itemId"`
 	Success           bool   `json:"success"`
@@ -373,11 +373,11 @@ func NewOrderResultAggregator() *Aggregator[SplitResult[ItemProcessingResult], O
 	return NewAggregator(
 		AllReceivedStrategy[SplitResult[ItemProcessingResult]],
 		func(parts []SplitResult[ItemProcessingResult]) OrderProcessingResult {
-			results := make([]ItemProcessingResult, len(parts))
-			allSuccessful := true
+			results:= make([]ItemProcessingResult, len(parts))
+			allSuccessful:= true
 			var orderID string
 
-			for i, part := range parts {
+			for i, part:= range parts {
 				results[i] = part.Payload
 				if !part.Payload.Success {
 					allSuccessful = false
@@ -401,22 +401,22 @@ func NewOrderResultAggregator() *Aggregator[SplitResult[ItemProcessingResult], O
 
 // Consumer
 func ConsumeItemResults(ctx context.Context, channel <-chan []byte, publisher MessagePublisher) error {
-	aggregator := NewOrderResultAggregator()
+	aggregator:= NewOrderResultAggregator()
 	defer aggregator.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case msgBytes := <-channel:
+		case msgBytes:= <-channel:
 			var result SplitResult[ItemProcessingResult]
-			if err := json.Unmarshal(msgBytes, &result); err != nil {
+			if err:= json.Unmarshal(msgBytes, &result); err != nil {
 				continue
 			}
 
-			if aggregated := aggregator.Add(result); aggregated != nil {
-				// Ordre complet, publier le resultat
-				if err := publisher.Publish(ctx, "order-results", aggregated, nil); err != nil {
+			if aggregated:= aggregator.Add(result); aggregated != nil {
+				// Order complete, publish result
+				if err:= publisher.Publish(ctx, "order-results", aggregated, nil); err != nil {
 					fmt.Printf("Error publishing aggregated result: %v\n", err)
 				}
 			}
@@ -425,12 +425,12 @@ func ConsumeItemResults(ctx context.Context, channel <-chan []byte, publisher Me
 }
 ```
 
-**Quand :** Apres Splitter, collecter reponses, batch results.
-**Lie a :** Splitter, Scatter-Gather.
+**When:** After Splitter, collect responses, batch results.
+**Related to:** Splitter, Scatter-Gather.
 
 ---
 
-## Cas d'erreur
+## Error Cases
 
 ```go
 package messaging
@@ -461,13 +461,13 @@ func NewResilientAggregator[T any, R any](
 }
 
 func (r *ResilientAggregator[T, R]) handleTimeout(ctx *AggregationContext[T, R]) {
-	// Option 1: Agreger avec ce qu'on a
+	// Option 1: Aggregate with what we have
 	if len(ctx.ReceivedParts) > 0 {
-		partialResult := r.aggregateFn(ctx.ReceivedParts)
+		partialResult:= r.aggregateFn(ctx.ReceivedParts)
 		r.publishPartialResult(partialResult, ctx)
 	}
 
-	// Option 2: Envoyer en dead letter
+	// Option 2: Send to dead letter
 	r.deadLetterQueue.Send(context.Background(), map[string]interface{}{
 		"type":          "aggregation_timeout",
 		"correlationId": ctx.CorrelationID,
@@ -484,41 +484,41 @@ func (r *ResilientAggregator[T, R]) publishPartialResult(result R, ctx *Aggregat
 
 func (r *ResilientAggregator[T, R]) handleDuplicate(message SplitResult[T]) {
 	fmt.Printf("Duplicate message received: %s:%d\n", message.CorrelationID, message.SequenceNumber)
-	// Ignorer le duplicate - idempotence
+	// Ignore the duplicate - idempotency
 }
 ```
 
 ---
 
-## Tableau de decision
+## Decision Table
 
-| Scenario | Pattern | Strategie |
+| Scenario | Pattern | Strategy |
 |----------|---------|-----------|
-| Batch processing | Splitter | Par item |
+| Batch processing | Splitter | Per item |
 | Collect all results | Aggregator | Wait all |
 | Partial results OK | Aggregator | Timeout |
 | Best effort | Aggregator | Majority |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Traitement parallele de collections (batch processing)
-- Division de messages composites pour traitement distribue
-- Agregation de resultats provenant de plusieurs sources
-- Fan-out/Fan-in pour acceleration du traitement
-- Decomposition de commandes complexes en sous-taches
+- Parallel collection processing (batch processing)
+- Splitting composite messages for distributed processing
+- Aggregation of results from multiple sources
+- Fan-out/Fan-in for processing acceleration
+- Decomposition of complex commands into subtasks
 
-## Patterns lies
+## Related Patterns
 
-- [Scatter-Gather](./scatter-gather.md) - Splitter et Aggregator combines
-- [Pipes and Filters](./pipes-filters.md) - Pipeline de traitement
-- [Message Channel](./message-channel.md) - Transport des parties
-- [Idempotent Receiver](./idempotent-receiver.md) - Gestion des duplications
+- [Scatter-Gather](./scatter-gather.md) - Combined Splitter and Aggregator
+- [Pipes and Filters](./pipes-filters.md) - Processing pipeline
+- [Message Channel](./message-channel.md) - Part transport
+- [Idempotent Receiver](./idempotent-receiver.md) - Duplication handling
 
-## Patterns complementaires
+## Complementary Patterns
 
-- **Scatter-Gather** - Splitter + Aggregator combines
-- **Composed Message Processor** - Transformation en pipeline
-- **Correlation Identifier** - Lier les parties
-- **Resequencer** - Reordonner les messages
+- **Scatter-Gather** - Splitter + Aggregator combined
+- **Composed Message Processor** - Pipeline transformation
+- **Correlation Identifier** - Link the parts
+- **Resequencer** - Reorder messages

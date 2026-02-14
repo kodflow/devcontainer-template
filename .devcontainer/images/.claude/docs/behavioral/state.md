@@ -1,11 +1,11 @@
 # State Pattern
 
-> Permettre a un objet de modifier son comportement lorsque son etat change.
+> Allow an object to change its behavior when its state changes.
 
-## Intention
+## Intent
 
-Permettre a un objet de modifier son comportement lorsque son etat interne
-change. L'objet semblera changer de classe.
+Allow an object to change its behavior when its internal state
+changes. The object will appear to change its class.
 
 ## Structure
 
@@ -205,7 +205,7 @@ func (s *CancelledState) Cancel(order *Order) error {
 
 ```go
 func main() {
-	order := NewOrder("ORD-001", []OrderItem{{Product: "Laptop", Qty: 1}})
+	order:= NewOrder("ORD-001", []OrderItem{{Product: "Laptop", Qty: 1}})
 
 	fmt.Println(order.GetState()) // Pending
 
@@ -215,7 +215,7 @@ func main() {
 	order.Ship() // Order shipped!
 	fmt.Println(order.GetState()) // Shipped
 
-	if err := order.Cancel(); err != nil {
+	if err:= order.Cancel(); err != nil {
 		fmt.Println(err) // Error: Cannot cancel: order already shipped
 	}
 
@@ -224,7 +224,7 @@ func main() {
 }
 ```
 
-## State Machine avec transitions explicites
+## State Machine with Explicit Transitions
 
 ```go
 // StateType represents possible states.
@@ -266,11 +266,11 @@ type StateMachine struct {
 
 // NewStateMachine creates a new state machine.
 func NewStateMachine(initialState StateType, config MachineConfig) *StateMachine {
-	machine := &StateMachine{
+	machine:= &StateMachine{
 		state:  initialState,
 		config: config,
 	}
-	if cfg := config[initialState]; cfg != nil && cfg.OnEnter != nil {
+	if cfg:= config[initialState]; cfg != nil && cfg.OnEnter != nil {
 		cfg.OnEnter()
 	}
 	return machine
@@ -283,13 +283,13 @@ func (m *StateMachine) GetState() StateType {
 
 // Send sends an event to the state machine.
 func (m *StateMachine) Send(event EventType) {
-	currentConfig := m.config[m.state]
+	currentConfig:= m.config[m.state]
 	if currentConfig == nil {
 		fmt.Printf("No config for state %s\n", m.state)
 		return
 	}
 
-	nextState, ok := currentConfig.On[event]
+	nextState, ok:= currentConfig.On[event]
 	if !ok {
 		fmt.Printf("No transition for %s from %s\n", event, m.state)
 		return
@@ -305,23 +305,23 @@ func (m *StateMachine) Send(event EventType) {
 	m.state = nextState
 
 	// Execute enter action
-	if nextConfig := m.config[nextState]; nextConfig != nil && nextConfig.OnEnter != nil {
+	if nextConfig:= m.config[nextState]; nextConfig != nil && nextConfig.OnEnter != nil {
 		nextConfig.OnEnter()
 	}
 }
 
 // Can checks if an event is valid in the current state.
 func (m *StateMachine) Can(event EventType) bool {
-	if cfg := m.config[m.state]; cfg != nil {
-		_, ok := cfg.On[event]
+	if cfg:= m.config[m.state]; cfg != nil {
+		_, ok:= cfg.On[event]
 		return ok
 	}
 	return false
 }
 
-// Configuration declarative
+// Declarative configuration
 func stateMachineExample() {
-	fetchMachine := NewStateMachine(StateIdle, MachineConfig{
+	fetchMachine:= NewStateMachine(StateIdle, MachineConfig{
 		StateIdle: {
 			On:      map[EventType]StateType{EventFetch: StateLoading},
 			OnEnter: func() { fmt.Println("Ready to fetch") },
@@ -346,7 +346,7 @@ func stateMachineExample() {
 }
 ```
 
-## State avec historique
+## State with History
 
 ```go
 // StateWithHistory is a state that can be saved in history.
@@ -403,7 +403,7 @@ func (s *DraftState) Handle(context *DocumentContext) error {
 }
 ```
 
-## State avec persistence
+## State with Persistence
 
 ```go
 // SerializableState represents a state that can be persisted.
@@ -427,7 +427,7 @@ type PersistentStateMachine struct {
 
 // NewPersistentStateMachine creates a new persistent state machine.
 func NewPersistentStateMachine(serialized *SerializableState, db DB) *PersistentStateMachine {
-	machine := &PersistentStateMachine{
+	machine:= &PersistentStateMachine{
 		stateData: make(map[string]interface{}),
 		db:        db,
 	}
@@ -443,7 +443,7 @@ func NewPersistentStateMachine(serialized *SerializableState, db DB) *Persistent
 }
 
 func (m *PersistentStateMachine) deserializeState(name string) OrderState {
-	states := map[string]OrderState{
+	states:= map[string]OrderState{
 		"Pending":   &PendingState{},
 		"Confirmed": &ConfirmedState{},
 		"Shipped":   &ShippedState{},
@@ -451,7 +451,7 @@ func (m *PersistentStateMachine) deserializeState(name string) OrderState {
 		"Cancelled": &CancelledState{},
 	}
 
-	if state, ok := states[name]; ok {
+	if state, ok:= states[name]; ok {
 		return state
 	}
 	return &PendingState{}
@@ -472,7 +472,7 @@ func (m *PersistentStateMachine) Persist() error {
 
 // Load loads the state from the database.
 func (m *PersistentStateMachine) Load() error {
-	data, err := m.db.Get("state")
+	data, err:= m.db.Get("state")
 	if err != nil {
 		return err
 	}
@@ -485,13 +485,13 @@ func (m *PersistentStateMachine) Load() error {
 ## Anti-patterns
 
 ```go
-// MAUVAIS: Logique de transition dans le context
+// BAD: Transition logic in the context
 type BadContext struct {
 	state string
 }
 
 func (c *BadContext) Process() {
-	// La logique devrait etre dans les states
+	// Logic should be in the states
 	if c.state == "pending" {
 		// ...
 		c.state = "processing"
@@ -501,28 +501,28 @@ func (c *BadContext) Process() {
 	}
 }
 
-// MAUVAIS: States qui connaissent trop de contexte
+// BAD: States that know too much context
 type TightlyCoupledState struct{}
 
 func (s *TightlyCoupledState) Handle(order *Order) error {
-	// Acces direct aux proprietes internes
-	// Violation encapsulation
+	// Direct access to internal properties
+	// Encapsulation violation
 	return nil
 }
 
-// MAUVAIS: State avec etat interne
+// BAD: State with internal state
 type StatefulState struct {
 	attempts int // Etat dans le state = problemes
 }
 
 func (s *StatefulState) Handle(order *Order) error {
 	s.attempts++
-	// Le state est partage entre tous les orders!
+	// The state is shared between all orders!
 	return nil
 }
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```go
 package main
@@ -533,7 +533,7 @@ import (
 
 func TestOrderStateMachine(t *testing.T) {
 	t.Run("PendingState should transition to Confirmed on confirm", func(t *testing.T) {
-		order := NewOrder("1", []OrderItem{})
+		order:= NewOrder("1", []OrderItem{})
 		if order.GetState() != "Pending" {
 			t.Errorf("expected Pending, got %s", order.GetState())
 		}
@@ -546,7 +546,7 @@ func TestOrderStateMachine(t *testing.T) {
 	})
 
 	t.Run("PendingState should transition to Cancelled on cancel", func(t *testing.T) {
-		order := NewOrder("1", []OrderItem{})
+		order:= NewOrder("1", []OrderItem{})
 
 		order.Cancel()
 
@@ -556,9 +556,9 @@ func TestOrderStateMachine(t *testing.T) {
 	})
 
 	t.Run("PendingState should error on ship", func(t *testing.T) {
-		order := NewOrder("1", []OrderItem{})
+		order:= NewOrder("1", []OrderItem{})
 
-		err := order.Ship()
+		err:= order.Ship()
 
 		if err == nil {
 			t.Error("expected error when shipping pending order")
@@ -566,7 +566,7 @@ func TestOrderStateMachine(t *testing.T) {
 	})
 
 	t.Run("ShippedState should transition to Delivered on deliver", func(t *testing.T) {
-		order := NewOrder("1", []OrderItem{})
+		order:= NewOrder("1", []OrderItem{})
 		order.Confirm()
 		order.Ship()
 
@@ -578,11 +578,11 @@ func TestOrderStateMachine(t *testing.T) {
 	})
 
 	t.Run("ShippedState should error on cancel", func(t *testing.T) {
-		order := NewOrder("1", []OrderItem{})
+		order:= NewOrder("1", []OrderItem{})
 		order.Confirm()
 		order.Ship()
 
-		err := order.Cancel()
+		err:= order.Cancel()
 
 		if err == nil {
 			t.Error("expected error when cancelling shipped order")
@@ -590,7 +590,7 @@ func TestOrderStateMachine(t *testing.T) {
 	})
 
 	t.Run("Full workflow should complete happy path", func(t *testing.T) {
-		order := NewOrder("1", []OrderItem{})
+		order:= NewOrder("1", []OrderItem{})
 
 		order.Confirm()
 		order.Ship()
@@ -602,7 +602,7 @@ func TestOrderStateMachine(t *testing.T) {
 	})
 
 	t.Run("Full workflow should handle cancellation path", func(t *testing.T) {
-		order := NewOrder("1", []OrderItem{})
+		order:= NewOrder("1", []OrderItem{})
 
 		order.Confirm()
 		order.Cancel()
@@ -615,7 +615,7 @@ func TestOrderStateMachine(t *testing.T) {
 
 func TestStateMachine(t *testing.T) {
 	t.Run("should transition on valid events", func(t *testing.T) {
-		machine := NewStateMachine(StateIdle, MachineConfig{
+		machine:= NewStateMachine(StateIdle, MachineConfig{
 			StateIdle:    {On: map[EventType]StateType{EventFetch: StateLoading}},
 			StateLoading: {On: map[EventType]StateType{EventSuccess: StateSuccess}},
 			StateSuccess: {On: map[EventType]StateType{}},
@@ -633,7 +633,7 @@ func TestStateMachine(t *testing.T) {
 	})
 
 	t.Run("should ignore invalid transitions", func(t *testing.T) {
-		machine := NewStateMachine(StateIdle, MachineConfig{
+		machine:= NewStateMachine(StateIdle, MachineConfig{
 			StateIdle:    {On: map[EventType]StateType{EventFetch: StateLoading}},
 			StateLoading: {On: map[EventType]StateType{}},
 		})
@@ -646,10 +646,10 @@ func TestStateMachine(t *testing.T) {
 	})
 
 	t.Run("should call onEnter/onExit hooks", func(t *testing.T) {
-		enterCalled := false
-		exitCalled := false
+		enterCalled:= false
+		exitCalled:= false
 
-		machine := NewStateMachine(StateIdle, MachineConfig{
+		machine:= NewStateMachine(StateIdle, MachineConfig{
 			StateIdle: {
 				On:     map[EventType]StateType{EventFetch: StateLoading},
 				OnExit: func() { exitCalled = true },
@@ -672,18 +672,18 @@ func TestStateMachine(t *testing.T) {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-- Comportement depend de l'etat
-- Nombreux etats avec transitions complexes
-- Logique conditionnelle sur l'etat
-- Workflow ou processus metier
+- Behavior depends on state
+- Many states with complex transitions
+- Conditional logic on state
+- Workflow or business process
 
-## Patterns lies
+## Related Patterns
 
-- **Strategy** : Change d'algorithme (explicite) vs comportement (implicite)
-- **Flyweight** : Partager les instances de State
-- **Singleton** : States sans donnees peuvent etre singletons
+- **Strategy**: Changes algorithm (explicit) vs behavior (implicit)
+- **Flyweight**: Share State instances
+- **Singleton**: Stateless states can be singletons
 
 ## Sources
 

@@ -1,8 +1,8 @@
 # Rolling Update
 
-> Mise à jour progressive des instances sans interruption de service.
+> Progressive update des instances sans interruption de service.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -144,7 +144,7 @@ strategy:
     maxUnavailable: 25%
 ```
 
-## Gestion des erreurs
+## Error Handling
 
 ```yaml
 # PodDisruptionBudget pour protection
@@ -231,7 +231,7 @@ func NewHandler(database, cache, dependencies Checker) *Handler {
 // LivenessHandler handles liveness probe requests.
 func (h *Handler) LivenessHandler(w http.ResponseWriter, r *http.Request) {
 	// Process is alive?
-	response := Response{
+	response:= Response{
 		Status: StatusAlive,
 	}
 
@@ -242,31 +242,31 @@ func (h *Handler) LivenessHandler(w http.ResponseWriter, r *http.Request) {
 
 // ReadinessHandler handles readiness probe requests.
 func (h *Handler) ReadinessHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx:= r.Context()
 
 	// Ready to receive traffic?
-	checks := []Check{
+	checks:= []Check{
 		{Name: "database", Healthy: h.database.Check(ctx)},
 		{Name: "cache", Healthy: h.cache.Check(ctx)},
 		{Name: "dependencies", Healthy: h.dependencies.Check(ctx)},
 	}
 
-	allHealthy := true
-	for _, check := range checks {
+	allHealthy:= true
+	for _, check:= range checks {
 		if !check.Healthy {
 			allHealthy = false
 			break
 		}
 	}
 
-	status := StatusReady
-	httpStatus := http.StatusOK
+	status:= StatusReady
+	httpStatus:= http.StatusOK
 	if !allHealthy {
 		status = StatusNotReady
 		httpStatus = http.StatusServiceUnavailable
 	}
 
-	response := Response{
+	response:= Response{
 		Status: status,
 		Checks: checks,
 	}
@@ -312,7 +312,7 @@ func (c *DependenciesChecker) Check(ctx context.Context) bool {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
 | Utiliser | Eviter |
 |----------|--------|
@@ -325,7 +325,7 @@ func (c *DependenciesChecker) Check(ctx context.Context) bool {
 ## Avantages
 
 - **Simplicité** : Natif Kubernetes/ECS
-- **Zero-downtime** : Mise à jour progressive
+- **Zero-downtime** : Progressive update
 - **Ressources** : Pas de double infrastructure
 - **Automatique** : Health checks intégrés
 - **Rollback** : Historique conservé
@@ -412,7 +412,7 @@ minAvailable: 50%
 3. Ajouter analyse métriques
 ```
 
-## Patterns liés
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|

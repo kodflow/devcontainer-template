@@ -1,10 +1,10 @@
 # Sidecar Pattern
 
-> Deployer des composants auxiliaires dans un conteneur separe pour fournir des fonctionnalites transverses.
+> Deploy auxiliary components in a separate container to provide cross-cutting features.
 
 ---
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -26,22 +26,22 @@
 │  │                                                           │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │                                                                  │
-│  Avantages:                                                      │
-│  - Separation des responsabilites                                │
-│  - Reutilisation cross-language                                  │
-│  - Cycle de vie independant                                      │
-│  - Isolation des defaillances                                    │
+│  Advantages:                                                     │
+│  - Separation of responsibilities                                │
+│  - Cross-language reuse                                          │
+│  - Independent lifecycle                                         │
+│  - Failure isolation                                             │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Cas d'usage courants
+## Common Use Cases
 
-| Sidecar | Fonction |
+| Sidecar | Function |
 |---------|----------|
 | **Proxy** | Envoy, nginx - routing, TLS, retry |
-| **Logging** | Fluentd, Filebeat - collecte de logs |
+| **Logging** | Fluentd, Filebeat - log collection |
 | **Monitoring** | Prometheus exporter, Datadog agent |
 | **Security** | Vault agent, OAuth proxy |
 | **Config** | Consul agent, config reloader |
@@ -49,7 +49,7 @@
 
 ---
 
-## Implementation Kubernetes
+## Kubernetes Implementation
 
 ### Logging Sidecar
 
@@ -60,7 +60,7 @@ metadata:
   name: app-with-logging
 spec:
   containers:
-    # Application principale
+    # Main application
     - name: app
       image: my-app:latest
       ports:
@@ -69,7 +69,7 @@ spec:
         - name: logs
           mountPath: /var/log/app
 
-    # Sidecar de logging
+    # Logging sidecar
     - name: log-collector
       image: fluent/fluentd:latest
       volumeMounts:
@@ -124,14 +124,14 @@ metadata:
   name: app-with-proxy
 spec:
   containers:
-    # Application (ne connait pas le reseau externe)
+    # Application (unaware of external network)
     - name: app
       image: my-app:latest
       ports:
         - containerPort: 8080
       env:
         - name: UPSTREAM_URL
-          value: "http://localhost:9001"  # Parle au sidecar
+          value: "http://localhost:9001"  # Talks to the sidecar
 
     # Envoy Sidecar
     - name: envoy
@@ -231,9 +231,9 @@ spec:
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### Sidecar local pour dev
+### Local Sidecar for Development
 
 ```go
 package sidecar
@@ -477,7 +477,7 @@ func (s *LocalSidecar) handleMetrics(w http.ResponseWriter, r *http.Request) {
 
 ---
 
-### Usage du sidecar
+### Sidecar Usage
 
 ```go
 package main
@@ -528,7 +528,7 @@ func main() {
 
 ---
 
-### Init Container pour config
+### Init Container for Config
 
 ```yaml
 apiVersion: v1
@@ -582,44 +582,44 @@ spec:
 
 ---
 
-## Comparaison avec alternatives
+## Comparison with Alternatives
 
-| Approche | Avantages | Inconvenients |
+| Approach | Advantages | Disadvantages |
 |----------|-----------|---------------|
-| **Sidecar** | Isolation, polyglotte | Overhead ressources |
-| **Library** | Performance, simplicite | Couplage, single-language |
-| **DaemonSet** | Moins de ressources | Moins isole |
-| **Service Mesh** | Full-featured | Complexite |
+| **Sidecar** | Isolation, polyglot | Resource overhead |
+| **Library** | Performance, simplicity | Coupling, single-language |
+| **DaemonSet** | Fewer resources | Less isolated |
+| **Service Mesh** | Full-featured | Complexity |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Fonctionnalites cross-cutting (logging, security)
-- Equipe polyglotte (Java, Node, Go, Python)
-- Besoin d'isolation (failure domains)
-- Configuration dynamique
-- Proxy et networking
-
----
-
-## Quand NE PAS utiliser
-
-- Application monolithique simple
-- Contraintes ressources strictes
-- Latence critique (<1ms)
-- Complexite non justifiee
+- Cross-cutting features (logging, security)
+- Polyglot team (Java, Node, Go, Python)
+- Need for isolation (failure domains)
+- Dynamic configuration
+- Proxy and networking
 
 ---
 
-## Lie a
+## When NOT to Use
+
+- Simple monolithic application
+- Strict resource constraints
+- Critical latency (<1ms)
+- Unjustified complexity
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| [Service Mesh](service-mesh.md) | Utilise des sidecars |
-| Ambassador | Variante du sidecar |
-| Adapter | Sidecar de translation |
-| Init Container | Initialisation avant app |
+| [Service Mesh](service-mesh.md) | Uses sidecars |
+| Ambassador | Sidecar variant |
+| Adapter | Translation sidecar |
+| Init Container | Initialization before app |
 
 ---
 
