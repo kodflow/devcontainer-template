@@ -22,7 +22,7 @@ Language-specific installation scripts. Conventions handled by specialist agents
 | Fortran | Fortran 2023 | `developer-specialist-fortran` |
 | PHP | >= 8.5.0 | `developer-specialist-php` |
 | Rust | >= 1.92.0 | `developer-specialist-rust` |
-| Go | >= 1.25.0 | `developer-specialist-go` |
+| Go | >= 1.26.0 | `developer-specialist-go` |
 | Ada | Ada 2022 | `developer-specialist-ada` |
 | MATLAB/Octave | Octave 9+ | `developer-specialist-matlab` |
 | Assembly | NASM 2.16+ | `developer-specialist-assembly` |

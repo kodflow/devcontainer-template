@@ -120,7 +120,7 @@ KTN-VAR-SYNCPOOL     → Use sync.Pool
 KTN-VAR-ARRAY        → Use array if <=64 bytes
 ```
 
-**PHASE 5 - MODERN** (Go 1.18-1.25 idioms)
+**PHASE 5 - MODERN** (Go 1.18-1.26 idioms)
 
 ```text
 KTN-VAR-USEANY       → interface{} → any
