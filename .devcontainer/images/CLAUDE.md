@@ -65,7 +65,7 @@ Lifecycle hooks delegate from workspace stubs to `/etc/devcontainer-hooks/` (ima
 | Security (8) | security/ | OAuth, JWT, RBAC |
 | Testing (8) | testing/ | Mock, Stub, Fixture |
 
-**Usage par les agents :** Voir `.claude/docs/CLAUDE.md`
+**Agent usage:** See `.claude/docs/CLAUDE.md`
 
 ## Installed Tools
 
