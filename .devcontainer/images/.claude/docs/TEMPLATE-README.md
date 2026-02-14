@@ -1,71 +1,71 @@
-# [Catégorie] Patterns
+# [Category] Patterns
 
-[Description de la catégorie en 1-2 phrases]
-
----
-
-## Fichiers documentés
-
-| Pattern | Fichier | Description |
-|---------|---------|-------------|
-| [Pattern1] | [pattern1.md](pattern1.md) | [Description courte] |
-| [Pattern2] | [pattern2.md](pattern2.md) | [Description courte] |
-| [Pattern3] | [pattern3.md](pattern3.md) | [Description courte] |
+[Category description in 1-2 sentences]
 
 ---
 
-## Vue d'ensemble
+## Documented Files
 
-[Paragraphe expliquant le contexte et l'utilité de cette catégorie de patterns]
+| Pattern | File | Description |
+|---------|------|-------------|
+| [Pattern1] | [pattern1.md](pattern1.md) | [Short description] |
+| [Pattern2] | [pattern2.md](pattern2.md) | [Short description] |
+| [Pattern3] | [pattern3.md](pattern3.md) | [Short description] |
+
+---
+
+## Overview
+
+[Paragraph explaining the context and usefulness of this pattern category]
 
 ---
 
 ## 1. [Pattern Name]
 
-> [Description courte]
+> [Short description]
 
 ```go
-// Exemple minimal mais fonctionnel
+// Minimal but functional example
 [code]
 ```
 
-**Quand :** [Cas d'usage principal]
+**When:** [Primary use case]
 
-**Lié à :** [Pattern1], [Pattern2]
+**Related to:** [Pattern1], [Pattern2]
 
-→ Voir détails : [pattern-name.md](pattern-name.md)
+→ See details: [pattern-name.md](pattern-name.md)
 
 ---
 
 ## 2. [Pattern Name]
 
-> [Description courte]
+> [Short description]
 
 ```go
-// Exemple minimal
+// Minimal example
 [code]
 ```
 
-**Quand :** [Cas d'usage principal]
+**When:** [Primary use case]
 
-**Lié à :** [Pattern1], [Pattern2]
+**Related to:** [Pattern1], [Pattern2]
 
-→ Voir détails : [pattern-name.md](pattern-name.md)
-
----
-
-## Tableau de décision
-
-| Problème / Besoin | Pattern recommandé |
-|-------------------|-------------------|
-| [Besoin 1] | [Pattern1] |
-| [Besoin 2] | [Pattern2] |
-| [Besoin 3] | [Pattern3] |
-| [Besoin 4] | [Pattern4] |
+→ See details: [pattern-name.md](pattern-name.md)
 
 ---
 
-## Relations entre patterns
+## Decision Table
+
+| Problem / Need | Recommended Pattern |
+|----------------|---------------------|
+| [Need 1] | [Pattern1] |
+| [Need 2] | [Pattern2] |
+| [Need 3] | [Pattern3] |
+| [Need 4] | [Pattern4] |
+
+---
+
+## Relationships Between Patterns
 
 ```
 [Pattern1] ──────► [Pattern2]
@@ -74,24 +74,24 @@
      └──────────► [Pattern3]
 ```
 
-| De | Vers | Relation |
-|----|------|----------|
-| [Pattern1] | [Pattern2] | [Type de relation] |
-| [Pattern1] | [Pattern3] | [Type de relation] |
+| From | To | Relation |
+|------|----|----------|
+| [Pattern1] | [Pattern2] | [Relationship type] |
+| [Pattern1] | [Pattern3] | [Relationship type] |
 
 ---
 
-## Patterns connexes (autres catégories)
+## Related Patterns (Other Categories)
 
-| Pattern | Catégorie | Relation |
-|---------|-----------|----------|
-| [PatternX] | [autre-categorie/](../autre-categorie/) | [Complémentaire] |
-| [PatternY] | [autre-categorie/](../autre-categorie/) | [Alternative] |
+| Pattern | Category | Relation |
+|---------|----------|----------|
+| [PatternX] | [other-category/](../other-category/) | [Complementary] |
+| [PatternY] | [other-category/](../other-category/) | [Alternative] |
 
 ---
 
 ## Sources
 
-- [Référence 1](https://url1)
-- [Référence 2](https://url2)
-- [Livre de référence]
+- [Reference 1](https://url1)
+- [Reference 2](https://url2)
+- [Reference book]
