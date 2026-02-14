@@ -36,7 +36,7 @@ Expert Go developer enforcing **idiomatic Go patterns**. Code must follow Effect
 
 | Requirement | Minimum |
 |-------------|---------|
-| **Go** | >= 1.25.0 |
+| **Go** | >= 1.26.0 |
 | **golangci-lint** | Latest |
 | **Generics** | Required where appropriate |
 
@@ -71,11 +71,60 @@ design_patterns:
   - "Dependency injection via interfaces"
   - "Table-driven tests"
 
-go_1_25_features:
-  - "Container-aware GOMAXPROCS (auto-detects cgroup limits)"
-  - "FlightRecorder for lightweight tracing"
-  - "GOEXPERIMENT=jsonv2 for faster JSON (experimental)"
-  - "GOEXPERIMENT=greenteagc for improved GC (10-40% reduction)"
+go_version_features:
+  go_1_18:
+    - "Generics (type parameters, constraints, ~T)"
+    - "Fuzzing (go test -fuzz)"
+    - "Workspaces (go work)"
+  go_1_19:
+    - "Revised memory model (aligns with C/C++/Rust)"
+    - "atomic.Int64, atomic.Pointer[T] (typed atomics)"
+    - "Soft memory limit (GOMEMLIMIT)"
+  go_1_20:
+    - "Profile-Guided Optimization (PGO, go build -pgo)"
+    - "errors.Join for multi-error wrapping"
+    - "Slice-to-array conversion: [4]byte(slice)"
+  go_1_21:
+    - "min/max/clear builtins"
+    - "log/slog structured logging"
+    - "sync.OnceValue/OnceFunc for type-safe singletons"
+    - "slices/maps/cmp generic packages"
+    - "PGO generally available (2-7% improvement)"
+  go_1_22:
+    - "Range over integers: for i := range n"
+    - "Loop variable per-iteration scoping (no more closure bugs)"
+    - "Enhanced net/http routing: methods + wildcards"
+    - "math/rand/v2 (ChaCha8, PCG)"
+  go_1_23:
+    - "Range over function types (iterators)"
+    - "iter package for user-defined iterators"
+    - "unique package for value canonicalization"
+    - "Timer/Ticker: GC-eligible without Stop(), unbuffered channels"
+  go_1_24:
+    - "Generic type aliases: type MySlice[T any] = []T"
+    - "Post-quantum crypto: crypto/mlkem (FIPS 203)"
+    - "FIPS 140-3 compliance (GOFIPS140)"
+    - "Swiss Tables map implementation"
+    - "Module tool directives (go get -tool)"
+    - "os.Root for directory-scoped filesystem access"
+  go_1_25:
+    - "sync.WaitGroup.Go() for finite tasks"
+    - "testing/synctest for deterministic concurrent testing"
+    - "Container-aware GOMAXPROCS (auto-detects cgroup limits)"
+    - "FlightRecorder for lightweight runtime tracing"
+    - "GOEXPERIMENT=jsonv2 for faster JSON (experimental)"
+    - "GOEXPERIMENT=greenteagc for improved GC (experimental)"
+    - "Nil-check before value use enforced (panic on violation)"
+  go_1_26:
+    - "Green Tea GC enabled by default (10-40% GC overhead reduction)"
+    - "new() with expressions: new(int64(300)) for optional pointer fields"
+    - "Self-referential generic constraints: type Adder[A Adder[A]] interface"
+    - "errors.AsType[T]() for type-safe generic error matching"
+    - "go fix modernizers for automated code migration"
+    - "~30% faster cgo calls"
+    - "Heap address randomization on 64-bit (security hardening)"
+    - "Experimental: goroutine leak profiling (GOEXPERIMENT=goroutineleakprofile)"
+    - "Experimental: SIMD via simd/archsimd (GOEXPERIMENT=simd, amd64)"
 ```
 
 ## Validation Checklist
@@ -213,6 +262,153 @@ func TestConcurrent(t *testing.T) {
         }
     })
 }
+```
+
+### new() with expressions (Go 1.26 - optional pointer fields)
+
+```go
+// ✅ CORRECT: Inline pointer creation for optional fields
+type Person struct {
+    Name string  `json:"name"`
+    Age  *int    `json:"age,omitempty"` // nil = unknown
+}
+
+p := Person{
+    Name: "Alice",
+    Age:  new(yearsSince(born)), // Go 1.26: new() accepts expressions
+}
+
+// ❌ WRONG: Old pattern (verbose helper variable)
+// age := yearsSince(born)
+// p := Person{Name: "Alice", Age: &age}
+```
+
+### errors.AsType[T]() (Go 1.26 - type-safe error matching)
+
+```go
+// ✅ CORRECT: Generic type-safe error assertion
+if pathErr, ok := errors.AsType[*os.PathError](err); ok {
+    log.Printf("path error: %s", pathErr.Path)
+}
+
+// ❌ WRONG: Old pattern (manual type assertion with pointer)
+// var pathErr *os.PathError
+// if errors.As(err, &pathErr) {
+//     log.Printf("path error: %s", pathErr.Path)
+// }
+```
+
+### Generics (Go 1.18 - type constraints)
+
+```go
+// ✅ CORRECT: Generic function with constraint
+func Map[S ~[]E, E, R any](s S, f func(E) R) []R {
+    result := make([]R, len(s))
+    for i, v := range s {
+        result[i] = f(v)
+    }
+    return result
+}
+
+// ✅ CORRECT: Custom constraint
+type Number interface {
+    ~int | ~int64 | ~float64
+}
+
+func Sum[T Number](nums []T) T {
+    var total T
+    for _, n := range nums {
+        total += n
+    }
+    return total
+}
+
+// ❌ WRONG: interface{} + type assertion
+// func Sum(nums []interface{}) interface{} { ... }
+```
+
+### errors.Join (Go 1.20 - multi-error wrapping)
+
+```go
+// ✅ CORRECT: Combine multiple errors
+func validateUser(u User) error {
+    var errs []error
+    if u.Name == "" {
+        errs = append(errs, fmt.Errorf("name required"))
+    }
+    if u.Age < 0 {
+        errs = append(errs, fmt.Errorf("age must be positive"))
+    }
+    return errors.Join(errs...)
+}
+
+// ❌ WRONG: Return only first error
+// if u.Name == "" { return fmt.Errorf("name required") }
+// if u.Age < 0 { return fmt.Errorf("age must be positive") }
+```
+
+### Range over integers (Go 1.22 - REQUIRED)
+
+```go
+// ✅ CORRECT: Range over integer
+for i := range 10 {
+    process(i) // i = 0..9
+}
+
+// ✅ CORRECT: Loop variable safe in closures (Go 1.22+)
+for i := range 10 {
+    go func() {
+        fmt.Println(i) // Safe - each iteration has its own i
+    }()
+}
+
+// ❌ WRONG: Old C-style loop
+// for i := 0; i < 10; i++ { process(i) }
+
+// ❌ WRONG: Unnecessary closure capture (Go 1.22+)
+// for i := range 10 {
+//     i := i // No longer needed
+//     go func() { fmt.Println(i) }()
+// }
+```
+
+### Iterators (Go 1.23 - range over function types)
+
+```go
+// ✅ CORRECT: Iterator function
+func Filter[E any](s []E, pred func(E) bool) iter.Seq[E] {
+    return func(yield func(E) bool) {
+        for _, v := range s {
+            if pred(v) && !yield(v) {
+                return
+            }
+        }
+    }
+}
+
+// Usage: range over iterator
+for v := range Filter(users, isActive) {
+    process(v)
+}
+
+// ❌ WRONG: Collect then filter (allocates intermediate slice)
+// active := make([]User, 0)
+// for _, u := range users {
+//     if isActive(u) { active = append(active, u) }
+// }
+```
+
+### Generic type aliases (Go 1.24)
+
+```go
+// ✅ CORRECT: Generic type alias
+type Set[T comparable] = map[T]struct{}
+
+// ✅ CORRECT: Constrained alias for domain clarity
+type OrderIDs = Set[int64]
+
+// ❌ WRONG: Wrapper type when alias suffices
+// type Set[T comparable] struct { m map[T]struct{} }
 ```
 
 ### Functional Options
@@ -394,6 +590,10 @@ SECURITY:  pub (public) | priv (IDs) | pii (RGPD) | secret (password)
 | `go func()` without sync | Leaked goroutines | WaitGroup or context |
 | `wg.Add(1)` for finite tasks | Verbose, error-prone | `wg.Go()` (Go 1.25) |
 | `sync.Once` + variable | Not type-safe | `sync.OnceValue` (Go 1.21+) |
+| `errors.As` with pointer | Verbose, unsafe | `errors.AsType[T]()` (Go 1.26) |
+| `for i := 0; i < n; i++` | Verbose | `for i := range n` (Go 1.22) |
+| Loop var capture `i := i` | Unnecessary since Go 1.22 | Per-iteration scoping (Go 1.22) |
+| Intermediate slice to filter | Allocates needlessly | `iter.Seq` iterator (Go 1.23) |
 | Use value before error check | Panics in Go 1.25 | Check error first |
 | `go/ast.Package` | Deprecated | Use type checker |
 | Manual GOMAXPROCS in K8s | Ignores cgroups | Let runtime auto-detect |
