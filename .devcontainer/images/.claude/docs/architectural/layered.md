@@ -1,10 +1,10 @@
 # Layered Architecture (N-Tier)
 
-> Organiser le code en couches horizontales avec des responsabilités distinctes.
+> Organize code into horizontal layers with distinct responsibilities.
 
-**Aussi appelé :** N-Tier, Multi-tier, Onion (variante)
+**Also called:** N-Tier, Multi-tier, Onion (variant)
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -14,31 +14,31 @@
 │  │                  PRESENTATION LAYER                      │    │
 │  │              (Controllers, Views, APIs)                  │    │
 │  │                                                          │    │
-│  │  • Gère les requêtes HTTP                               │    │
-│  │  • Valide les entrées                                   │    │
-│  │  • Formate les réponses                                 │    │
+│  │  • Handles HTTP requests                                │    │
+│  │  • Validates inputs                                     │    │
+│  │  • Formats responses                                    │    │
 │  └──────────────────────────┬──────────────────────────────┘    │
-│                             │ Dépend de                          │
+│                             │ Depends on                         │
 │                             ▼                                    │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │                   BUSINESS LAYER                         │    │
 │  │              (Services, Use Cases, Logic)                │    │
 │  │                                                          │    │
-│  │  • Logique métier                                       │    │
-│  │  • Règles de validation                                 │    │
+│  │  • Business logic                                       │    │
+│  │  • Validation rules                                     │    │
 │  │  • Orchestration                                        │    │
 │  └──────────────────────────┬──────────────────────────────┘    │
-│                             │ Dépend de                          │
+│                             │ Depends on                         │
 │                             ▼                                    │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │                 PERSISTENCE LAYER                        │    │
 │  │              (Repositories, DAOs, ORM)                   │    │
 │  │                                                          │    │
-│  │  • Accès aux données                                    │    │
-│  │  • Mapping objet-relationnel                            │    │
+│  │  • Data access                                          │    │
+│  │  • Object-relational mapping                            │    │
 │  │  • Queries                                              │    │
 │  └──────────────────────────┬──────────────────────────────┘    │
-│                             │ Dépend de                          │
+│                             │ Depends on                         │
 │                             ▼                                    │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │                   DATABASE LAYER                         │    │
@@ -46,14 +46,14 @@
 │  └─────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────┘
 
-Règle: Une couche ne peut appeler que la couche immédiatement en dessous
+Rule: A layer can only call the layer immediately below
 ```
 
-## Structure de fichiers
+## File Structure
 
 ```
 src/
-├── presentation/                # Couche présentation
+├── presentation/                # Presentation layer
 │   ├── controllers/
 │   │   ├── UserController.go
 │   │   └── OrderController.go
@@ -66,7 +66,7 @@ src/
 │   └── routes/
 │       └── routes.go
 │
-├── business/                    # Couche métier
+├── business/                    # Business layer
 │   ├── services/
 │   │   ├── UserService.go
 │   │   └── OrderService.go
@@ -75,7 +75,7 @@ src/
 │   └── rules/
 │       └── PricingRules.go
 │
-├── persistence/                 # Couche persistance
+├── persistence/                 # Persistence layer
 │   ├── repositories/
 │   │   ├── UserRepository.go
 │   │   └── OrderRepository.go
@@ -91,7 +91,7 @@ src/
     └── types/
 ```
 
-## Implémentation
+## Implementation
 
 ### Presentation Layer
 
@@ -324,31 +324,31 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*User, 
 }
 ```
 
-## Variantes
+## Variants
 
-### 3-Tier classique
+### Classic 3-Tier
 
 ```
 ┌───────────────────┐
 │   Presentation    │  UI / API
 ├───────────────────┤
-│     Business      │  Logique métier
+│     Business      │  Business logic
 ├───────────────────┤
-│       Data        │  Base de données
+│       Data        │  Database
 └───────────────────┘
 ```
 
-### 4-Tier avec Intégration
+### 4-Tier with Integration
 
 ```
 ┌───────────────────┐
 │   Presentation    │  UI / API
 ├───────────────────┤
-│     Business      │  Logique métier
+│     Business      │  Business logic
 ├───────────────────┤
-│   Integration     │  APIs externes, messaging
+│   Integration     │  External APIs, messaging
 ├───────────────────┤
-│       Data        │  Base de données
+│       Data        │  Database
 └───────────────────┘
 ```
 
@@ -370,73 +370,73 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*User, 
         │  (DB, Web, External Services)    │
         └───────────────────────────────────┘
 
-Dépendances: vers le centre (Domain)
+Dependencies: toward the center (Domain)
 ```
 
-## Quand utiliser
+## When to Use
 
-| Utiliser | Eviter |
+| Use | Avoid |
 |----------|--------|
-| Applications CRUD | Domaine très complexe |
-| Équipes traditionnelles | Microservices |
-| APIs simples | Haute performance |
-| Prototypes évolutifs | Scaling horizontal |
-| Applications web classiques | Event-driven |
+| CRUD applications | Very complex domain |
+| Traditional teams | Microservices |
+| Simple APIs | High performance |
+| Evolvable prototypes | Horizontal scaling |
+| Classic web applications | Event-driven |
 
-## Avantages
+## Advantages
 
-- **Simplicité** : Facile à comprendre
-- **Séparation** : Responsabilités claires
-- **Testabilité** : Couches isolables
-- **Maintenabilité** : Changements localisés
-- **Standard** : Pattern bien connu
+- **Simplicity**: Easy to understand
+- **Separation**: Clear responsibilities
+- **Testability**: Isolatable layers
+- **Maintainability**: Localized changes
+- **Standard**: Well-known pattern
 
-## Inconvénients
+## Disadvantages
 
-- **Overhead** : Mapping entre couches
-- **Rigidité** : Structure parfois contraignante
-- **Performance** : Traversée des couches
-- **Couplage** : Dépendances descendantes
-- **Monolithe** : Tendance au monolithe
+- **Overhead**: Mapping between layers
+- **Rigidity**: Sometimes constraining structure
+- **Performance**: Layer traversal
+- **Coupling**: Downward dependencies
+- **Monolith**: Tendency toward monolith
 
-## Exemples réels
+## Real-world Examples
 
 | Framework | Architecture |
 |-----------|--------------|
 | **Spring MVC** | Controller-Service-Repository |
 | **ASP.NET MVC** | Controller-Service-Data |
 | **Django** | Views-Models-Templates |
-| **Rails** | MVC traditionnel |
+| **Rails** | Traditional MVC |
 | **NestJS** | Controller-Service-Repository |
 
-## Migration path
+## Migration Path
 
-### Vers Hexagonal
-
-```
-1. Extraire interfaces des repositories
-2. Inverser les dépendances (DIP)
-3. Créer un vrai Domain layer
-4. Séparer ports (interfaces) et adapters (implem)
-```
-
-### Vers Microservices
+### To Hexagonal
 
 ```
-1. Identifier bounded contexts
-2. Séparer en modules indépendants
-3. Extraire en services
-4. Remplacer appels par API/Events
+1. Extract repository interfaces
+2. Invert dependencies (DIP)
+3. Create a real Domain layer
+4. Separate ports (interfaces) and adapters (impl)
 ```
 
-## Patterns liés
+### To Microservices
 
-| Pattern | Relation |
+```
+1. Identify bounded contexts
+2. Separate into independent modules
+3. Extract into services
+4. Replace calls with API/Events
+```
+
+## Related Patterns
+
+| Pattern | Relationship |
 |---------|----------|
-| Hexagonal | Évolution avec inversion dépendances |
-| Clean Architecture | Variante avec cercles |
-| MVC | Sous-pattern de presentation |
-| Repository | Pattern de la couche data |
+| Hexagonal | Evolution with dependency inversion |
+| Clean Architecture | Variant with circles |
+| MVC | Presentation sub-pattern |
+| Repository | Data layer pattern |
 
 ## Sources
 

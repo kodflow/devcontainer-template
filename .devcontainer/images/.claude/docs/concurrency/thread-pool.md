@@ -1,12 +1,12 @@
 # Thread Pool
 
-Pattern de gestion d'un pool de workers pour executer des taches en parallele.
+Pattern for managing a pool of workers to execute tasks in parallel.
 
 ---
 
-## Qu'est-ce qu'un Thread Pool ?
+## What is a Thread Pool?
 
-> Maintenir un ensemble de workers pre-crees pour traiter des taches sans overhead de creation.
+> Maintain a set of pre-created workers to process tasks without creation overhead.
 
 ```
 +--------------------------------------------------------------+
@@ -29,17 +29,17 @@ Pattern de gestion d'un pool de workers pour executer des taches en parallele.
 +--------------------------------------------------------------+
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Eviter le cout de creation/destruction de threads
-- Limiter la concurrence (eviter surcharge)
-- Reutiliser les ressources
+- Avoid thread creation/destruction cost
+- Limit concurrency (prevent overload)
+- Reuse resources
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### ThreadPool basique
+### Basic ThreadPool
 
 ```go
 package pool
@@ -198,7 +198,7 @@ func main() {
 
 ---
 
-### ThreadPool avec priorite
+### ThreadPool with priority
 
 ```go
 package pool
@@ -337,7 +337,7 @@ func (p *PriorityPool) Shutdown() {
 
 ---
 
-### ThreadPool avec timeout et context
+### ThreadPool with timeout and context
 
 ```go
 package pool
@@ -397,47 +397,47 @@ func (p *RobustPool) SubmitWithTimeout(ctx context.Context, task Task) error {
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
-| Aspect | Valeur |
-|--------|--------|
+| Aspect | Value |
+|--------|-------|
 | Submit task | O(1) |
-| Memoire | O(maxWorkers + queueSize) |
-| Context switch | Reduit vs creation threads |
+| Memory | O(maxWorkers + queueSize) |
+| Context switch | Reduced vs thread creation |
 
-### Avantages
+### Advantages
 
-- Controle de la concurrence
-- Reutilisation des workers
-- Backpressure naturelle (queue)
+- Concurrency control
+- Worker reuse
+- Natural backpressure (queue)
 
-### Inconvenients
+### Disadvantages
 
-- Dimensionnement delicat
-- Deadlock si taches interdependantes
-- Queue non bornee = memory leak
-
----
-
-## Quand utiliser
-
-| Situation | Recommande |
-|-----------|------------|
-| Requetes HTTP paralleles | Oui |
-| Calculs CPU-intensive | Oui |
-| Traitement batch | Oui |
-| Taches dependantes entre elles | Prudence (deadlock) |
+- Tricky sizing
+- Deadlock if tasks are interdependent
+- Unbounded queue = memory leak
 
 ---
 
-## Patterns connexes
+## When to Use
+
+| Situation | Recommended |
+|-----------|-------------|
+| Parallel HTTP requests | Yes |
+| CPU-intensive computations | Yes |
+| Batch processing | Yes |
+| Interdependent tasks | Caution (deadlock) |
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Object Pool** | Meme concept, objets vs workers |
-| **Producer-Consumer** | Queue entre producteur et pool |
-| **Semaphore** | Limitation similaire |
-| **Fork-Join** | Diviser taches pour le pool |
+| **Object Pool** | Same concept, objects vs workers |
+| **Producer-Consumer** | Queue between producer and pool |
+| **Semaphore** | Similar limitation |
+| **Fork-Join** | Divide tasks for the pool |
 
 ---
 

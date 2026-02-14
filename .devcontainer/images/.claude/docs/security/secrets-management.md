@@ -1,8 +1,8 @@
 # Secrets Management
 
-> Gestion securisee des secrets, credentials et cles de chiffrement.
+> Secure management of secrets, credentials, and encryption keys.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -622,7 +622,7 @@ func (e *Encryptor) Decrypt(ciphertext string) (string, error) {
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
@@ -632,58 +632,58 @@ func (e *Encryptor) Decrypt(ciphertext string) (string, error) {
 | `github.com/Azure/azure-sdk-for-go/sdk/keyvault` | Azure Key Vault |
 | `github.com/joho/godotenv` | Local .env loading |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Secrets dans git | Exposition publique | .gitignore, git-secrets |
-| Secrets en logs | Leakage | Masquer dans logs |
-| Pas de rotation | Breach persistante | Rotation automatique |
-| Hardcoded secrets | Difficile a changer | Toujours externaliser |
-| Secrets partages | Blast radius large | Secrets par service |
-| Pas de chiffrement au repos | Breach si acces storage | Toujours chiffrer |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Secrets in git | Public exposure | .gitignore, git-secrets |
+| Secrets in logs | Leakage | Mask in logs |
+| No rotation | Persistent breach | Automatic rotation |
+| Hardcoded secrets | Hard to change | Always externalize |
+| Shared secrets | Large blast radius | Per-service secrets |
+| No encryption at rest | Breach if storage accessed | Always encrypt |
 
-## Best practices
+## Best Practices
 
 ```yaml
 # Checklist secrets management
 checklist:
   storage:
-    - [ ] Jamais en clair dans le code
-    - [ ] Jamais dans git (meme prive)
-    - [ ] Chiffre au repos
-    - [ ] Access control strict
+    - [ ] Never in plaintext in code
+    - [ ] Never in git (even private)
+    - [ ] Encrypted at rest
+    - [ ] Strict access control
 
   transport:
-    - [ ] TLS obligatoire
-    - [ ] Pas dans URLs
-    - [ ] Pas dans logs
+    - [ ] TLS mandatory
+    - [ ] Not in URLs
+    - [ ] Not in logs
 
   lifecycle:
-    - [ ] Rotation automatique
+    - [ ] Automatic rotation
     - [ ] Revocation possible
-    - [ ] Audit trail complet
+    - [ ] Complete audit trail
 
   access:
     - [ ] Least privilege
-    - [ ] Un secret par usage
-    - [ ] Expiration si possible
+    - [ ] One secret per usage
+    - [ ] Expiration when possible
 ```
 
-## Quand utiliser
+## When to Use
 
-- Applications manipulant des credentials bases de donnees ou services tiers
-- Microservices necessitant des secrets partages de maniere securisee
-- Environnements multi-tenant avec isolation des secrets par client
-- Systemes soumis a des exigences de conformite (PCI-DSS, SOC2, HIPAA)
-- Infrastructure cloud avec rotation automatique des credentials
+- Applications handling database credentials or third-party service credentials
+- Microservices requiring securely shared secrets
+- Multi-tenant environments with per-client secret isolation
+- Systems subject to compliance requirements (PCI-DSS, SOC2, HIPAA)
+- Cloud infrastructure with automatic credential rotation
 
-## Patterns lies
+## Related Patterns
 
-- **OAuth 2.0** : Tokens plutot que credentials
-- **JWT** : Signing keys a proteger
-- **Encryption** : Master key management
-- **API Keys** : Gestion des cles d'API comme secrets
+- **OAuth 2.0**: Tokens rather than credentials
+- **JWT**: Signing keys to protect
+- **Encryption**: Master key management
+- **API Keys**: Managing API keys as secrets
 
 ## Sources
 

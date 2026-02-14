@@ -1,13 +1,13 @@
 # Factory Patterns
 
-> Deleguer la creation d'objets a des methodes ou classes specialisees.
+> Delegate object creation to specialized methods or classes.
 
 ## Factory Method
 
 ### Intention
 
-Definir une interface pour creer un objet, mais laisser les sous-classes
-decider quelle classe instancier.
+Define an interface for creating an object, but let subclasses
+decide which class to instantiate.
 
 ### Structure
 
@@ -19,17 +19,17 @@ import (
 	"fmt"
 )
 
-// 1. Interface produit
+// 1. Product interface
 type Notification interface {
 	Send(ctx context.Context, message string) error
 }
 
-// 2. Produits concrets
+// 2. Concrete products
 type EmailNotification struct {
 	email string
 }
 
-// NewEmailNotification cree une notification email.
+// NewEmailNotification creates an email notification.
 func NewEmailNotification(email string) *EmailNotification {
 	return &EmailNotification{email: email}
 }
@@ -43,7 +43,7 @@ type SMSNotification struct {
 	phone string
 }
 
-// NewSMSNotification cree une notification SMS.
+// NewSMSNotification creates an SMS notification.
 func NewSMSNotification(phone string) *SMSNotification {
 	return &SMSNotification{phone: phone}
 }
@@ -57,7 +57,7 @@ type PushNotification struct {
 	deviceID string
 }
 
-// NewPushNotification cree une notification push.
+// NewPushNotification creates a push notification.
 func NewPushNotification(deviceID string) *PushNotification {
 	return &PushNotification{deviceID: deviceID}
 }
@@ -73,7 +73,7 @@ type NotificationFactory interface {
 	Notify(ctx context.Context, recipient, message string) error
 }
 
-// 4. Factory de base avec methode template
+// 4. Base factory with template method
 type baseFactory struct{}
 
 func (f *baseFactory) Notify(ctx context.Context, factory NotificationFactory, recipient, message string) error {
@@ -81,7 +81,7 @@ func (f *baseFactory) Notify(ctx context.Context, factory NotificationFactory, r
 	return notification.Send(ctx, message)
 }
 
-// 5. Factories concretes
+// 5. Concrete factories
 type EmailNotificationFactory struct {
 	baseFactory
 }
@@ -111,8 +111,8 @@ func (f *SMSNotificationFactory) Notify(ctx context.Context, recipient, message 
 
 ### Intention (Abstract Factory)
 
-Fournir une interface pour creer des familles d'objets lies sans specifier
-leurs classes concretes.
+Provide an interface for creating families of related objects without specifying
+their concrete classes.
 
 ### Structure (Abstract Factory)
 
@@ -121,7 +121,7 @@ package main
 
 import "fmt"
 
-// 1. Interfaces produits
+// 1. Product interfaces
 type Button interface {
 	Render() string
 	OnClick(handler func())
@@ -144,7 +144,7 @@ type UIFactory interface {
 	CreateModal(title string) Modal
 }
 
-// 3. Famille Material Design
+// 3. Material Design family
 type MaterialButton struct {
 	label   string
 	handler func()
@@ -197,7 +197,7 @@ func (f *MaterialUIFactory) CreateModal(title string) Modal {
 	return &MaterialModal{title: title}
 }
 
-// 4. Famille Bootstrap
+// 4. Bootstrap family
 type BootstrapButton struct {
 	label   string
 	handler func()
@@ -251,7 +251,7 @@ func (f *BootstrapUIFactory) CreateModal(title string) Modal {
 }
 ```
 
-## Simple Factory (non-GoF mais courant)
+## Simple Factory (non-GoF but common)
 
 ```go
 package main
@@ -269,7 +269,7 @@ const (
 	NotificationPush  NotificationType = "push"
 )
 
-// CreateNotification cree une notification selon le type.
+// CreateNotification creates a notification based on type.
 func CreateNotification(notifType NotificationType, recipient string) (Notification, error) {
 	switch notifType {
 	case NotificationEmail:
@@ -293,9 +293,9 @@ func ExampleSimpleFactory() {
 }
 ```
 
-## Variantes modernes
+## Modern Variants
 
-### Factory avec registre
+### Factory with Registry
 
 ```go
 package main
@@ -306,30 +306,30 @@ import (
 	"sync"
 )
 
-// Creator definit une fonction de creation.
+// Creator defines a creation function.
 type Creator func(...interface{}) Notification
 
-// NotificationRegistry gere un registre de creators.
+// NotificationRegistry manages a registry of creators.
 type NotificationRegistry struct {
 	mu       sync.RWMutex
 	creators map[string]Creator
 }
 
-// NewNotificationRegistry cree un nouveau registre.
+// NewNotificationRegistry creates a new registry.
 func NewNotificationRegistry() *NotificationRegistry {
 	return &NotificationRegistry{
 		creators: make(map[string]Creator),
 	}
 }
 
-// Register enregistre un creator pour un type donne.
+// Register registers a creator for a given type.
 func (r *NotificationRegistry) Register(notifType string, creator Creator) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.creators[notifType] = creator
 }
 
-// Create cree une notification selon le type enregistre.
+// Create creates a notification based on the registered type.
 func (r *NotificationRegistry) Create(notifType string, args ...interface{}) (Notification, error) {
 	r.mu.RLock()
 	creator, exists := r.creators[notifType]
@@ -361,27 +361,27 @@ func ExampleRegistry() {
 }
 ```
 
-### Factory avec Dependency Injection
+### Factory with Dependency Injection
 
 ```go
 package main
 
 import "context"
 
-// NotificationConfig configure la creation de notifications.
+// NotificationConfig configures notification creation.
 type NotificationConfig struct {
 	Type      NotificationType
 	Recipient string
 }
 
-// NotificationService gere les factories injectees.
+// NotificationService manages injected factories.
 type NotificationService struct {
 	emailFactory func(string) Notification
 	smsFactory   func(string) Notification
 	pushFactory  func(string) Notification
 }
 
-// NewNotificationService cree un service avec DI.
+// NewNotificationService creates a service with DI.
 func NewNotificationService(
 	emailFactory func(string) Notification,
 	smsFactory func(string) Notification,
@@ -394,7 +394,7 @@ func NewNotificationService(
 	}
 }
 
-// Create cree une notification selon la config.
+// Create creates a notification based on config.
 func (s *NotificationService) Create(config NotificationConfig) (Notification, error) {
 	switch config.Type {
 	case NotificationEmail:
@@ -412,38 +412,38 @@ func (s *NotificationService) Create(config NotificationConfig) (Notification, e
 ## Anti-patterns
 
 ```go
-// MAUVAIS: Factory avec trop de responsabilites
+// BAD: Factory with too many responsibilities
 type GodFactory struct{}
 
 func (f *GodFactory) CreateUser() interface{}         { return nil }
 func (f *GodFactory) CreateOrder() interface{}        { return nil }
 func (f *GodFactory) CreateNotification() interface{} { return nil }
-// Viole SRP
+// Violates SRP
 
-// MAUVAIS: Logique metier dans la factory
+// BAD: Business logic in the factory
 func BadCreateNotification(notifType string) Notification {
 	notification := NewEmailNotification("")
-	// Non! C'est de la logique metier
+	// No! This is business logic
 	// notification.Validate()
 	// notification.Save()
 	return notification
 }
 
-// MAUVAIS: Factory qui retourne interface{} sans type
+// BAD: Factory that returns interface{} without type
 func UnsafeCreate(notifType string) interface{} {
-	// Perte de type safety
+	// Loss of type safety
 	return NewEmailNotification("")
 }
 ```
 
-## Alternative moderne : Functions
+## Modern Alternative: Functions
 
 ```go
 package main
 
 import "context"
 
-// Factory functions (plus simple, meme resultat)
+// Factory functions (simpler, same result)
 func createEmailNotification(email string) Notification {
 	return NewEmailNotification(email)
 }
@@ -452,13 +452,13 @@ func createSMSNotification(phone string) Notification {
 	return NewSMSNotification(phone)
 }
 
-// NotificationOptions configure les options de notification.
+// NotificationOptions configures notification options.
 type NotificationOptions struct {
 	Retries int
 	Timeout int
 }
 
-// CreateNotificationWithOptions cree une notification avec options.
+// CreateNotificationWithOptions creates a notification with options.
 func CreateNotificationWithOptions(
 	notifType NotificationType,
 	recipient string,
@@ -478,7 +478,7 @@ func CreateNotificationWithOptions(
 }
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```go
 package main
@@ -556,28 +556,28 @@ func TestUIFactory_CreateConsistentFamily(t *testing.T) {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-### Choisir Factory Method
+### Choose Factory Method
 
-- Creation deleguee aux sous-classes
-- Produit unique avec variantes
+- Creation delegated to subclasses
+- Single product with variants
 
-### Choisir Abstract Factory
+### Choose Abstract Factory
 
-- Familles d'objets coherents
-- Independance plateforme/theme
+- Families of coherent objects
+- Platform/theme independence
 
 ### Simple Factory
 
-- Logique de creation centralisee
-- Pas besoin d'extensibilite par heritage
+- Centralized creation logic
+- No need for extensibility through inheritance
 
-## Patterns lies
+## Related Patterns
 
-- **Builder** : Construction complexe vs selection de type
-- **Prototype** : Clonage vs instantiation
-- **Singleton** : Souvent combine avec Factory
+- **Builder**: Complex construction vs type selection
+- **Prototype**: Cloning vs instantiation
+- **Singleton**: Often combined with Factory
 
 ## Sources
 

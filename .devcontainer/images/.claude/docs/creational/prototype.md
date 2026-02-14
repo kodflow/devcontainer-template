@@ -1,13 +1,13 @@
 # Prototype
 
-> Creer de nouveaux objets en clonant une instance existante plutot qu'en l'instanciant.
+> Create new objects by cloning an existing instance rather than instantiating it.
 
 ---
 
-## Principe
+## Principle
 
-Le pattern Prototype permet de copier des objets existants sans dependre
-de leurs classes. Utile quand la creation d'un objet est couteuse.
+The Prototype pattern allows copying existing objects without depending
+on their classes. Useful when creating an object is expensive.
 
 ```text
 ┌─────────────┐         ┌─────────────┐
@@ -24,12 +24,12 @@ de leurs classes. Utile quand la creation d'un objet est couteuse.
 
 ---
 
-## Probleme resolu
+## Problem Solved
 
-- Creation d'objets complexes avec de nombreux parametres
-- Duplication d'objets sans connaitre leur classe concrete
-- Eviter les hierarchies de factories paralleles
-- Performance: cloner plutot que reconstruire
+- Creating complex objects with many parameters
+- Duplicating objects without knowing their concrete class
+- Avoiding parallel factory hierarchies
+- Performance: cloning rather than rebuilding
 
 ---
 
@@ -40,12 +40,12 @@ package main
 
 import "fmt"
 
-// Cloner definit l'interface de clonage.
+// Cloner defines the cloning interface.
 type Cloner interface {
     Clone() Cloner
 }
 
-// Document represente un document clonable.
+// Document represents a cloneable document.
 type Document struct {
     Title    string
     Content  string
@@ -53,9 +53,9 @@ type Document struct {
     Metadata map[string]string
 }
 
-// Clone cree une copie profonde du document.
+// Clone creates a deep copy of the document.
 func (d *Document) Clone() Cloner {
-    // Copie profonde de la map
+    // Deep copy of the map
     metaCopy := make(map[string]string, len(d.Metadata))
     for k, v := range d.Metadata {
         metaCopy[k] = v
@@ -77,7 +77,7 @@ func (d *Document) Clone() Cloner {
 
 ---
 
-## Exemple complet
+## Complete Example
 
 ```go
 package main
@@ -87,13 +87,13 @@ import (
     "fmt"
 )
 
-// Shape definit une forme clonable.
+// Shape defines a cloneable shape.
 type Shape interface {
     Clone() Shape
     GetInfo() string
 }
 
-// Rectangle implemente Shape.
+// Rectangle implements Shape.
 type Rectangle struct {
     Width  float64
     Height float64
@@ -112,7 +112,7 @@ func (r *Rectangle) GetInfo() string {
     return fmt.Sprintf("Rectangle %.2fx%.2f (%s)", r.Width, r.Height, r.Color)
 }
 
-// Circle implemente Shape.
+// Circle implements Shape.
 type Circle struct {
     Radius float64
     Color  string
@@ -129,7 +129,7 @@ func (c *Circle) GetInfo() string {
     return fmt.Sprintf("Circle r=%.2f (%s)", c.Radius, c.Color)
 }
 
-// ShapeRegistry gere un cache de prototypes.
+// ShapeRegistry manages a cache of prototypes.
 type ShapeRegistry struct {
     shapes map[string]Shape
 }
@@ -152,19 +152,19 @@ func (r *ShapeRegistry) Get(name string) (Shape, bool) {
 }
 
 func main() {
-    // 1. Creer un registre de prototypes
+    // 1. Create a prototype registry
     registry := NewShapeRegistry()
 
-    // 2. Enregistrer des prototypes
+    // 2. Register prototypes
     registry.Register("red-rect", &Rectangle{Width: 10, Height: 5, Color: "red"})
     registry.Register("blue-circle", &Circle{Radius: 3, Color: "blue"})
 
-    // 3. Cloner depuis le registre
+    // 3. Clone from the registry
     shape1, _ := registry.Get("red-rect")
     shape2, _ := registry.Get("red-rect")
     shape3, _ := registry.Get("blue-circle")
 
-    // 4. Modifier les clones independamment
+    // 4. Modify clones independently
     shape1.(*Rectangle).Width = 20
 
     fmt.Println(shape1.GetInfo()) // Rectangle 20.00x5.00 (red)
@@ -175,71 +175,71 @@ func main() {
 
 ---
 
-## Variantes
+## Variants
 
-| Variante | Description | Cas d'usage |
+| Variant | Description | Use Case |
 |----------|-------------|-------------|
-| Shallow Copy | Copie les references | Objets immutables |
-| Deep Copy | Copie recursive | Objets avec etat mutable |
-| Registry | Cache de prototypes | Templates reutilisables |
-| Serialization | Clone via JSON/Gob | Objets complexes |
+| Shallow Copy | Copies references | Immutable objects |
+| Deep Copy | Recursive copy | Objects with mutable state |
+| Registry | Prototype cache | Reusable templates |
+| Serialization | Clone via JSON/Gob | Complex objects |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- La creation d'objets est couteuse (DB, reseau, calculs)
-- Besoin de copies independantes d'objets complexes
-- Eviter une explosion de sous-classes de factories
-- Systeme de templates/presets
+- Object creation is expensive (DB, network, computations)
+- Need independent copies of complex objects
+- Avoid an explosion of factory subclasses
+- Template/preset system
 
-## Quand NE PAS utiliser
+## When NOT to Use
 
-- Objets simples avec peu de champs
-- Pas besoin de copies (passage par valeur suffit)
-- Graphes d'objets avec references circulaires complexes
+- Simple objects with few fields
+- No need for copies (pass by value is sufficient)
+- Object graphs with complex circular references
 
 ---
 
-## Avantages / Inconvenients
+## Advantages / Disadvantages
 
-| Avantages | Inconvenients |
+| Advantages | Disadvantages |
 |-----------|---------------|
-| Evite le couplage aux classes | Cloner objets complexes difficile |
-| Elimine le code d'init repetitif | Gestion des refs circulaires |
-| Alternative aux factories | Deep copy peut etre couteux |
-| Produit des objets preconfigures | |
+| Avoids coupling to classes | Cloning complex objects is difficult |
+| Eliminates repetitive init code | Managing circular references |
+| Alternative to factories | Deep copy can be expensive |
+| Produces preconfigured objects | |
 
 ---
 
-## Patterns lies
+## Related Patterns
 
-| Pattern | Relation |
+| Pattern | Relationship |
 |---------|----------|
-| Factory Method | Alternative: Factory cree, Prototype clone |
-| Abstract Factory | Peut utiliser Prototype pour creer les produits |
-| Memento | Similaire: sauvegarde d'etat vs copie complete |
-| Composite | Les composites peuvent etre clones recursivement |
+| Factory Method | Alternative: Factory creates, Prototype clones |
+| Abstract Factory | Can use Prototype to create products |
+| Memento | Similar: state saving vs complete copy |
+| Composite | Composites can be cloned recursively |
 
 ---
 
-## Implementation dans les frameworks
+## Framework Implementations
 
 | Framework/Lib | Implementation |
 |---------------|----------------|
-| Go standard | `encoding/gob` pour deep copy |
+| Go standard | `encoding/gob` for deep copy |
 | copier | `github.com/jinzhu/copier` |
 | deepcopy | `github.com/mohae/deepcopy` |
 
 ---
 
-## Anti-patterns a eviter
+## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
+| Anti-pattern | Problem | Solution |
 |--------------|----------|----------|
-| Shallow copy accidentel | Mutation partagee | Deep copy explicite |
-| Clone() retourne interface{} | Perte type safety | Retourner type concret |
-| Oublier champs prives | Clone incomplet | Serialization/reflexion |
+| Accidental shallow copy | Shared mutation | Explicit deep copy |
+| Clone() returns interface{} | Loss of type safety | Return concrete type |
+| Forgetting private fields | Incomplete clone | Serialization/reflection |
 
 ---
 
@@ -256,12 +256,12 @@ func TestDocument_Clone(t *testing.T) {
 
     clone := original.Clone().(*Document)
 
-    // Verifier copie
+    // Verify copy
     if clone.Title != original.Title {
         t.Errorf("expected %s, got %s", original.Title, clone.Title)
     }
 
-    // Verifier independance
+    // Verify independence
     clone.Title = "Modified"
     clone.Metadata["key"] = "modified"
 
@@ -284,10 +284,10 @@ func TestShapeRegistry(t *testing.T) {
         t.Fatal("expected shapes from registry")
     }
 
-    // Modifier un clone
+    // Modify a clone
     shape1.(*Rectangle).Width = 20
 
-    // L'autre clone doit etre inchange
+    // The other clone must be unchanged
     if shape2.(*Rectangle).Width != 10 {
         t.Error("clones should be independent")
     }

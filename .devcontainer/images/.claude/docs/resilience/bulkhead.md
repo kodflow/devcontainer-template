@@ -1,16 +1,16 @@
 # Bulkhead Pattern
 
-> Isoler les ressources pour empecher qu'une defaillance ne se propage a l'ensemble du systeme.
+> Isolate resources to prevent a failure from spreading to the entire system.
 
 ---
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    BULKHEAD PATTERN                              │
 │                                                                  │
-│  Sans Bulkhead:                Avec Bulkhead:                   │
+│  Without Bulkhead:               With Bulkhead:                  │
 │                                                                  │
 │  ┌──────────────────┐          ┌───────┐ ┌───────┐ ┌───────┐   │
 │  │   Shared Pool    │          │Pool A │ │Pool B │ │Pool C │   │
@@ -20,25 +20,25 @@
 │  └──────────────────┘          └───────┘ └───────┘ └───────┘   │
 │         │                           │         │         │       │
 │         ▼                           ▼         ▼         ▼       │
-│  Si un service bloque,      Service A lent n'affecte pas       │
-│  TOUT le pool est epuise    B et C (isolation)                  │
+│  If one service blocks,       Slow service A does not affect    │
+│  the ENTIRE pool is exhausted B and C (isolation)               │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Types de Bulkhead
+## Types of Bulkhead
 
 | Type | Description | Usage |
 |------|-------------|-------|
-| **Thread Pool** | Pool de threads dedie par service | Java, .NET |
-| **Semaphore** | Limite le nombre d'appels concurrents | Node.js, async |
-| **Connection Pool** | Pool de connexions dedie | Database, HTTP |
-| **Process Isolation** | Processus separes | Microservices |
+| **Thread Pool** | Dedicated thread pool per service | Java, .NET |
+| **Semaphore** | Limits the number of concurrent calls | Node.js, async |
+| **Connection Pool** | Dedicated connection pool | Database, HTTP |
+| **Process Isolation** | Separate processes | Microservices |
 
 ---
 
-## Implementation Go - Semaphore
+## Go Implementation - Semaphore
 
 ```go
 package bulkhead
@@ -99,7 +99,7 @@ func (s *Semaphore) WaitingCount() int {
 
 ---
 
-## Bulkhead avec timeout et rejet
+## Bulkhead with Timeout and Rejection
 
 ```go
 package bulkhead
@@ -242,7 +242,7 @@ func (b *Bulkhead) GetMetrics() (running, waiting int) {
 
 ---
 
-## Bulkhead par service
+## Bulkhead per Service
 
 ```go
 package bulkhead
@@ -367,7 +367,7 @@ func processOrder(ctx context.Context, order *Order) error {
 
 ---
 
-## Bulkhead avec Connection Pool
+## Bulkhead with Connection Pool
 
 ```go
 package bulkhead
@@ -477,36 +477,36 @@ func (cp *ConnectionPool) Execute(ctx context.Context, fn func(Connection) error
 
 ---
 
-## Configuration recommandee
+## Recommended Configuration
 
 | Service | maxConcurrent | maxWaiting | Justification |
 |---------|---------------|------------|---------------|
-| Payment Gateway | 5-10 | 20-50 | Service critique, limiter |
-| Database | 10-20 | 50-100 | Selon pool DB |
-| Cache | 50-100 | 200 | Rapide, plus permissif |
-| External API | 10-20 | 30-50 | Rate limiting externe |
+| Payment Gateway | 5-10 | 20-50 | Critical service, limit |
+| Database | 10-20 | 50-100 | Depends on DB pool |
+| Cache | 50-100 | 200 | Fast, more permissive |
+| External API | 10-20 | 30-50 | External rate limiting |
 | File I/O | 5-10 | 20 | I/O bound |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Services avec SLAs differents
-- Protection contre les slow consumers
-- Isolation des dependances critiques
-- Prevention de l'epuisement des ressources
-- Microservices avec dependances multiples
+- Services with different SLAs
+- Protection against slow consumers
+- Isolation of critical dependencies
+- Prevention of resource exhaustion
+- Microservices with multiple dependencies
 
 ---
 
-## Lie a
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| [Circuit Breaker](circuit-breaker.md) | Utiliser ensemble |
-| [Timeout](timeout.md) | Timeout dans le bulkhead |
-| [Rate Limiting](rate-limiting.md) | Limite differente (debit vs concurrence) |
-| Thread Pool | Implementation alternative |
+| [Circuit Breaker](circuit-breaker.md) | Use together |
+| [Timeout](timeout.md) | Timeout within the bulkhead |
+| [Rate Limiting](rate-limiting.md) | Different limit (throughput vs concurrency) |
+| Thread Pool | Alternative implementation |
 
 ---
 

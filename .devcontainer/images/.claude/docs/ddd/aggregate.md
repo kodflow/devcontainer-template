@@ -1,6 +1,6 @@
 # Aggregate Pattern
 
-> Cluster d'objets domaine traité comme une unité pour les modifications de données, avec une Entity racine qui contrôle l'accès et maintient les invariants.
+> Cluster of domain objects treated as a unit for data modifications, with a root Entity that controls access and maintains invariants.
 
 ## Definition
 
@@ -128,9 +128,9 @@ func NewOrder(customerID CustomerID, shippingAddress Address) (*Order, error) {
 		createdAt:       time.Now(),
 		items:           make([]OrderItem, 0),
 	}
-	
+
 	order.AddDomainEvent(NewOrderCreatedEvent(id, customerID))
-	
+
 	return order, nil
 }
 
@@ -144,28 +144,28 @@ func (o *Order) AddItem(
 	if o.status != OrderStatusDraft {
 		return errors.New("cannot add items to a non-draft order")
 	}
-	
+
 	// Invariant: Maximum 10 items per order
 	if len(o.items) >= 10 {
 		return errors.New("order cannot have more than 10 items")
 	}
-	
+
 	// Check if item already exists
 	for i := range o.items {
 		if o.items[i].ProductID().Equals(productID) {
 			return o.items[i].IncreaseQuantity(quantity)
 		}
 	}
-	
+
 	// Add new item
 	item, err := NewOrderItem(productID, quantity, unitPrice)
 	if err != nil {
 		return err
 	}
-	
+
 	o.items = append(o.items, item)
 	o.AddDomainEvent(NewOrderItemAddedEvent(o.ID(), productID, quantity))
-	
+
 	return nil
 }
 
@@ -174,7 +174,7 @@ func (o *Order) RemoveItem(productID ProductID) error {
 	if o.status != OrderStatusDraft {
 		return errors.New("cannot remove items from a non-draft order")
 	}
-	
+
 	for i, item := range o.items {
 		if item.ProductID().Equals(productID) {
 			o.items = append(o.items[:i], o.items[i+1:]...)
@@ -182,7 +182,7 @@ func (o *Order) RemoveItem(productID ProductID) error {
 			return nil
 		}
 	}
-	
+
 	return errors.New("item not found")
 }
 
@@ -192,15 +192,15 @@ func (o *Order) Confirm() error {
 	if len(o.items) == 0 {
 		return errors.New("cannot confirm empty order")
 	}
-	
+
 	// Invariant: Must be in Draft status
 	if o.status != OrderStatusDraft {
 		return errors.New("order already confirmed")
 	}
-	
+
 	o.status = OrderStatusConfirmed
 	o.AddDomainEvent(NewOrderConfirmedEvent(o.ID(), o.TotalAmount()))
-	
+
 	return nil
 }
 
@@ -209,22 +209,22 @@ func (o *Order) Cancel(reason string) error {
 	if o.status == OrderStatusShipped {
 		return errors.New("cannot cancel shipped order")
 	}
-	
+
 	o.status = OrderStatusCancelled
 	o.AddDomainEvent(NewOrderCancelledEvent(o.ID(), reason))
-	
+
 	return nil
 }
 
 // TotalAmount calculates the total order amount.
 func (o *Order) TotalAmount() Money {
 	total, _ := NewMoney(0, CurrencyUSD)
-	
+
 	for _, item := range o.items {
 		subtotal := item.Subtotal()
 		total, _ = total.Add(subtotal)
 	}
-	
+
 	return total
 }
 
@@ -351,7 +351,7 @@ func (i OrderItem) UnitPrice() Money     { return i.unitPrice }
 type Order struct {
 	AggregateRoot[OrderID]
 	customerID CustomerID // Reference by ID, not Customer object
-	
+
 	// NOT this:
 	// customer *Customer // BAD - crosses aggregate boundary
 }
@@ -410,9 +410,9 @@ func (h *OrderConfirmedHandler) Handle(
        Items  []OrderItem
        Status string
    }
-   
+
    type OrderService struct{}
-   
+
    func (s *OrderService) AddItem(order *Order, item OrderItem) {
        // Logic here instead of in aggregate
    }
@@ -425,10 +425,10 @@ func (h *OrderConfirmedHandler) Handle(
    func (s *OrderService) ConfirmOrder(ctx context.Context, orderID OrderID) error {
        order, _ := s.orderRepo.FindByID(ctx, orderID)
        customer, _ := s.customerRepo.FindByID(ctx, order.CustomerID())
-       
+
        order.Confirm()
        customer.AddLoyaltyPoints(100) // Different aggregate!
-       
+
        // Single transaction - BAD
        tx, _ := s.db.Begin()
        s.orderRepo.SaveTx(tx, order)
@@ -444,7 +444,7 @@ func (h *OrderConfirmedHandler) Handle(
    func (o *Order) Items() []OrderItem {
        return o.items // Returns mutable slice!
    }
-   
+
    // GOOD
    func (o *Order) Items() []OrderItem {
        items := make([]OrderItem, len(o.items))
@@ -453,14 +453,14 @@ func (h *OrderConfirmedHandler) Handle(
    }
    ```
 
-## Quand utiliser
+## When to Use
 
-- Groupe d'objets qui changent ensemble
-- Règles métier qui couvrent plusieurs entités
-- Besoin de cohérence transactionnelle pour un ensemble d'objets
-- Domaine complexe avec de nombreuses relations
+- Group of objects that change together
+- Business rules that span multiple entities
+- Need for transactional consistency for a set of objects
+- Complex domain with many relationships
 
-## Patterns liés
+## Related Patterns
 
 - [Entity](./entity.md) - Aggregate root is an entity
 - [Value Object](./value-object.md) - Aggregates contain value objects

@@ -32,162 +32,162 @@ Fallback to Grep ONLY for exact string matches or regex patterns.
 
 ---
 
-## WORKFLOW AUTOMATIQUE
+## AUTOMATIC WORKFLOW
 
-Ce skill corrige **TOUTES** les issues ktn-linter sans exception.
-Pas d'arguments. Pas de flags. Juste execution complete.
+This skill fixes **ALL** ktn-linter issues without exception.
+No arguments. No flags. Just complete execution.
 
 ---
 
-## EXECUTION IMMEDIATE
+## IMMEDIATE EXECUTION
 
-### Etape 1 : Lancer ktn-linter
+### Step 1: Run ktn-linter
 
 ```bash
 ./builds/ktn-linter lint ./... 2>&1
 ```
 
-Si le binaire n'existe pas :
+If the binary does not exist:
 
 ```bash
 go build -o ./builds/ktn-linter ./cmd/ktn-linter && ./builds/ktn-linter lint ./...
 ```
 
-### Etape 2 : Parser le retour
+### Step 2: Parse the output
 
-Pour chaque ligne d'erreur format `fichier:ligne:colonne: KTN-XXX-YYY: message` :
+For each error line with format `file:line:column: KTN-XXX-YYY: message`:
 
-1. Extraire le fichier
-2. Extraire la regle (KTN-XXX-YYY)
-3. Extraire le message
-4. Classer dans la phase appropriee
+1. Extract the file
+2. Extract the rule (KTN-XXX-YYY)
+3. Extract the message
+4. Classify into the appropriate phase
 
-### Etape 3 : Classer par phase
+### Step 3: Classify by phase
 
-**PHASE 1 - STRUCTURAL** (fixer EN PREMIER - affecte les autres phases)
-
-```text
-KTN-STRUCT-ONEFILE   → Splitter fichiers multi-structs OU ajouter dto:"..."
-KTN-TEST-SUFFIX      → Renommer _test.go → _external_test.go ou _internal_test.go
-KTN-TEST-INTPRIV     → Deplacer tests prives vers _internal_test.go
-KTN-TEST-EXTPUB      → Deplacer tests publics vers _external_test.go
-KTN-TEST-PKGNAME     → Corriger nom de package test
-KTN-CONST-ORDER      → Deplacer const en haut du fichier
-KTN-VAR-ORDER        → Deplacer var apres const
-```
-
-**PHASE 2 - SIGNATURES** (modifier signatures de fonctions)
+**PHASE 1 - STRUCTURAL** (fix FIRST - affects other phases)
 
 ```text
-KTN-FUNC-ERRLAST     → Mettre error en dernier retour
-KTN-FUNC-CTXFIRST    → Mettre context.Context en premier parametre
-KTN-FUNC-MAXPARAM    → Grouper parametres ou creer struct
-KTN-FUNC-NAMERET     → Ajouter noms aux retours si >3
-KTN-FUNC-GROUPARG    → Grouper params de meme type
-KTN-RECEIVER-MIXPTR  → Uniformiser receiver (pointer ou value)
-KTN-RECEIVER-NAME    → Corriger nom receiver (1-2 chars)
+KTN-STRUCT-ONEFILE   → Split multi-struct files OR add dto:"..."
+KTN-TEST-SUFFIX      → Rename _test.go → _external_test.go or _internal_test.go
+KTN-TEST-INTPRIV     → Move private tests to _internal_test.go
+KTN-TEST-EXTPUB      → Move public tests to _external_test.go
+KTN-TEST-PKGNAME     → Fix test package name
+KTN-CONST-ORDER      → Move const to top of file
+KTN-VAR-ORDER        → Move var after const
 ```
 
-**PHASE 3 - LOGIC** (corriger erreurs de logique)
+**PHASE 2 - SIGNATURES** (modify function signatures)
 
 ```text
-KTN-VAR-SHADOW       → Renommer variable qui shadow
-KTN-CONST-SHADOW     → Renommer const qui shadow builtin
-KTN-FUNC-DEADCODE    → Supprimer fonction non utilisee
-KTN-FUNC-CYCLO       → Refactorer fonction trop complexe
-KTN-FUNC-MAXSTMT     → Splitter fonction >35 statements
-KTN-FUNC-MAXLOC      → Splitter fonction >50 LOC
-KTN-VAR-TYPEASSERT   → Ajouter check ok sur type assertion
-KTN-ERROR-WRAP       → Utiliser %w dans fmt.Errorf
-KTN-ERROR-SENTINEL   → Creer sentinel error package-level
-KTN-GENERIC-*        → Corriger contraintes generiques
-KTN-ITER-*           → Corriger patterns iterator
-KTN-GOVET-*          → Corriger tous les govet
+KTN-FUNC-ERRLAST     → Put error as last return value
+KTN-FUNC-CTXFIRST    → Put context.Context as first parameter
+KTN-FUNC-MAXPARAM    → Group parameters or create struct
+KTN-FUNC-NAMERET     → Add names to return values if >3
+KTN-FUNC-GROUPARG    → Group params of same type
+KTN-RECEIVER-MIXPTR  → Unify receiver (pointer or value)
+KTN-RECEIVER-NAME    → Fix receiver name (1-2 chars)
 ```
 
-**PHASE 4 - PERFORMANCE** (optimisations memoire)
+**PHASE 3 - LOGIC** (fix logic errors)
 
 ```text
-KTN-VAR-HOTLOOP      → Sortir allocation de la boucle
-KTN-VAR-BIGSTRUCT    → Passer par pointeur si >64 bytes
-KTN-VAR-SLICECAP     → Prealloc slice avec capacite
-KTN-VAR-MAPCAP       → Prealloc map avec capacite
-KTN-VAR-MAKEAPPEND   → Utiliser make au lieu de append
-KTN-VAR-GROW         → Utiliser Buffer.Grow
-KTN-VAR-STRBUILDER   → Utiliser strings.Builder
-KTN-VAR-STRCONV      → Eviter string() en boucle
-KTN-VAR-SYNCPOOL     → Utiliser sync.Pool
-KTN-VAR-ARRAY        → Utiliser array si <=64 bytes
+KTN-VAR-SHADOW       → Rename shadowing variable
+KTN-CONST-SHADOW     → Rename const that shadows builtin
+KTN-FUNC-DEADCODE    → Remove unused function
+KTN-FUNC-CYCLO       → Refactor overly complex function
+KTN-FUNC-MAXSTMT     → Split function >35 statements
+KTN-FUNC-MAXLOC      → Split function >50 LOC
+KTN-VAR-TYPEASSERT   → Add ok check on type assertion
+KTN-ERROR-WRAP       → Use %w in fmt.Errorf
+KTN-ERROR-SENTINEL   → Create package-level sentinel error
+KTN-GENERIC-*        → Fix generic constraints
+KTN-ITER-*           → Fix iterator patterns
+KTN-GOVET-*          → Fix all govet issues
 ```
 
-**PHASE 5 - MODERN** (idiomes Go 1.18-1.25)
+**PHASE 4 - PERFORMANCE** (memory optimizations)
+
+```text
+KTN-VAR-HOTLOOP      → Move allocation out of loop
+KTN-VAR-BIGSTRUCT    → Pass by pointer if >64 bytes
+KTN-VAR-SLICECAP     → Preallocate slice with capacity
+KTN-VAR-MAPCAP       → Preallocate map with capacity
+KTN-VAR-MAKEAPPEND   → Use make instead of append
+KTN-VAR-GROW         → Use Buffer.Grow
+KTN-VAR-STRBUILDER   → Use strings.Builder
+KTN-VAR-STRCONV      → Avoid string() in loop
+KTN-VAR-SYNCPOOL     → Use sync.Pool
+KTN-VAR-ARRAY        → Use array if <=64 bytes
+```
+
+**PHASE 5 - MODERN** (Go 1.18-1.25 idioms)
 
 ```text
 KTN-VAR-USEANY       → interface{} → any
-KTN-VAR-USECLEAR     → boucle delete → clear()
+KTN-VAR-USECLEAR     → delete loop → clear()
 KTN-VAR-USEMINMAX    → math.Min/Max → min/max
 KTN-VAR-RANGEINT     → for i := 0; i < n → for i := range n
-KTN-VAR-LOOPVAR      → Supprimer copie variable boucle (Go 1.22+)
-KTN-VAR-SLICEGROW    → Utiliser slices.Grow
-KTN-VAR-SLICECLONE   → Utiliser slices.Clone
-KTN-VAR-MAPCLONE     → Utiliser maps.Clone
-KTN-VAR-CMPOR        → Utiliser cmp.Or
-KTN-VAR-WGGO         → Utiliser WaitGroup.Go (Go 1.25+)
+KTN-VAR-LOOPVAR      → Remove loop variable copy (Go 1.22+)
+KTN-VAR-SLICEGROW    → Use slices.Grow
+KTN-VAR-SLICECLONE   → Use slices.Clone
+KTN-VAR-MAPCLONE     → Use maps.Clone
+KTN-VAR-CMPOR        → Use cmp.Or
+KTN-VAR-WGGO         → Use WaitGroup.Go (Go 1.25+)
 KTN-FUNC-MINMAX      → math.Min/Max → min/max
 KTN-FUNC-USECLEAR    → clear() builtin
 KTN-FUNC-RANGEINT    → range over int
-MODERNIZE-*          → Tous les modernize
+MODERNIZE-*          → All modernize rules
 ```
 
-**PHASE 6 - STYLE** (conventions de nommage)
+**PHASE 6 - STYLE** (naming conventions)
 
 ```text
 KTN-VAR-CAMEL        → snake_case → camelCase
 KTN-CONST-CAMEL      → UPPER_CASE → UpperCase
-KTN-VAR-MINLEN       → Renommer var trop courte
-KTN-VAR-MAXLEN       → Renommer var trop longue
-KTN-CONST-MINLEN     → Renommer const trop courte
-KTN-CONST-MAXLEN     → Renommer const trop longue
-KTN-FUNC-UNUSEDARG   → Prefixer _ si unused
-KTN-FUNC-BLANKPARAM  → Supprimer _ si pas interface
-KTN-FUNC-NOMAGIC     → Extraire magic number en const
-KTN-FUNC-EARLYRET    → Supprimer else apres return
-KTN-FUNC-NAKEDRET    → Ajouter return explicite
+KTN-VAR-MINLEN       → Rename var too short
+KTN-VAR-MAXLEN       → Rename var too long
+KTN-CONST-MINLEN     → Rename const too short
+KTN-CONST-MAXLEN     → Rename const too long
+KTN-FUNC-UNUSEDARG   → Prefix _ if unused
+KTN-FUNC-BLANKPARAM  → Remove _ if not interface
+KTN-FUNC-NOMAGIC     → Extract magic number into const
+KTN-FUNC-EARLYRET    → Remove else after return
+KTN-FUNC-NAKEDRET    → Add explicit return
 KTN-STRUCT-NOGET     → GetX() → X()
-KTN-INTERFACE-ERNAME → Ajouter suffix -er
+KTN-INTERFACE-ERNAME → Add -er suffix
 ```
 
-**PHASE 7 - DOCS** (documentation - EN DERNIER)
+**PHASE 7 - DOCS** (documentation - LAST)
 
 ```text
-KTN-COMMENT-PKGDOC   → Ajouter doc package
-KTN-COMMENT-FUNC     → Ajouter doc fonction
-KTN-COMMENT-STRUCT   → Ajouter doc struct
-KTN-COMMENT-CONST    → Ajouter doc const
-KTN-COMMENT-VAR      → Ajouter doc var
-KTN-COMMENT-BLOCK    → Ajouter commentaire bloc
-KTN-COMMENT-LINELEN  → Wrapper ligne >100 chars
-KTN-GOROUTINE-LIFECYCLE → Documenter lifecycle goroutine
+KTN-COMMENT-PKGDOC   → Add package doc
+KTN-COMMENT-FUNC     → Add function doc
+KTN-COMMENT-STRUCT   → Add struct doc
+KTN-COMMENT-CONST    → Add const doc
+KTN-COMMENT-VAR      → Add var doc
+KTN-COMMENT-BLOCK    → Add block comment
+KTN-COMMENT-LINELEN  → Wrap line >100 chars
+KTN-GOROUTINE-LIFECYCLE → Document goroutine lifecycle
 ```
 
-**PHASE 8 - TESTS** (patterns de test)
+**PHASE 8 - TESTS** (test patterns)
 
 ```text
-KTN-TEST-TABLE       → Convertir en table-driven
-KTN-TEST-COVERAGE    → Ajouter tests manquants
-KTN-TEST-ASSERT      → Ajouter assertions
-KTN-TEST-ERRCASES    → Ajouter cas d'erreur
-KTN-TEST-NOSKIP      → Supprimer t.Skip()
-KTN-TEST-SETENV      → Corriger t.Setenv en parallel
-KTN-TEST-SUBPARALLEL → Ajouter t.Parallel aux subtests
-KTN-TEST-CLEANUP     → Utiliser t.Cleanup
+KTN-TEST-TABLE       → Convert to table-driven
+KTN-TEST-COVERAGE    → Add missing tests
+KTN-TEST-ASSERT      → Add assertions
+KTN-TEST-ERRCASES    → Add error cases
+KTN-TEST-NOSKIP      → Remove t.Skip()
+KTN-TEST-SETENV      → Fix t.Setenv in parallel
+KTN-TEST-SUBPARALLEL → Add t.Parallel to subtests
+KTN-TEST-CLEANUP     → Use t.Cleanup
 ```
 
 ---
 
-## Convention DTO : dto:"direction,context,security"
+## DTO Convention: dto:"direction,context,security"
 
-**Le tag dto:"..." exempte les structs de KTN-STRUCT-ONEFILE et KTN-STRUCT-CTOR.**
+**The dto:"..." tag exempts structs from KTN-STRUCT-ONEFILE and KTN-STRUCT-CTOR.**
 
 ### Format
 
@@ -195,25 +195,25 @@ KTN-TEST-CLEANUP     → Utiliser t.Cleanup
 dto:"<direction>,<context>,<security>"
 ```
 
-| Position | Valeurs | Description |
-|----------|---------|-------------|
-| direction | `in`, `out`, `inout` | Sens du flux |
-| context | `api`, `cmd`, `query`, `event`, `msg`, `priv` | Type DTO |
+| Position | Values | Description |
+|----------|--------|-------------|
+| direction | `in`, `out`, `inout` | Flow direction |
+| context | `api`, `cmd`, `query`, `event`, `msg`, `priv` | DTO type |
 | security | `pub`, `priv`, `pii`, `secret` | Classification |
 
-### Valeurs Security
+### Security Values
 
-| Valeur | Logging | Marshaling | Usage |
-|--------|---------|------------|-------|
-| `pub` | Affiche | Inclus | Donnees publiques |
-| `priv` | Affiche | Inclus | IDs, timestamps |
-| `pii` | Masque | Conditionnel | Email, nom (RGPD) |
-| `secret` | REDACTED | Omis | Password, token |
+| Value | Logging | Marshaling | Usage |
+|-------|---------|------------|-------|
+| `pub` | Displayed | Included | Public data |
+| `priv` | Displayed | Included | IDs, timestamps |
+| `pii` | Masked | Conditional | Email, name (GDPR) |
+| `secret` | REDACTED | Omitted | Password, token |
 
-### Exemple Complet
+### Complete Example
 
 ```go
-// Fichier: user_dto.go - PLUSIEURS DTOs (grace a dto:"...")
+// File: user_dto.go - MULTIPLE DTOs (thanks to dto:"...")
 
 type CreateUserRequest struct {
     Username string `dto:"in,api,pub" json:"username" validate:"required"`
@@ -234,191 +234,191 @@ type UpdateUserCommand struct {
 }
 ```
 
-### Quand Ajouter dto:"..."
+### When to Add dto:"..."
 
 | Situation | Action |
 |-----------|--------|
-| Struct DTO/Request/Response | Ajouter `dto:"dir,ctx,sec"` |
-| Struct sans tags (DTO) | Ajouter `dto:"dir,ctx,sec"` |
-| Struct avec json/yaml/xml | OK, detecte DTO |
+| DTO/Request/Response struct | Add `dto:"dir,ctx,sec"` |
+| Struct without tags (DTO) | Add `dto:"dir,ctx,sec"` |
+| Struct with json/yaml/xml | OK, detected as DTO |
 | KTN-STRUCT-ONEFILE DTO | dto tags → OK |
 
-### Suffixes Reconnus
+### Recognized Suffixes
 
 ```text
 DTO, Request, Response, Params, Input, Output,
 Payload, Message, Event, Command, Query
 ```
 
-### Guide Choix Valeurs
+### Value Selection Guide
 
 ```text
 DIRECTION:
-  - Entree utilisateur → in
-  - Sortie vers client → out
+  - User input → in
+  - Output to client → out
   - Update/Patch → inout
 
 CONTEXT:
-  - API REST/GraphQL → api
-  - Commande CQRS → cmd
-  - Query CQRS → query
+  - REST/GraphQL API → api
+  - CQRS Command → cmd
+  - CQRS Query → query
   - Event sourcing → event
   - Message queue → msg
-  - Interne → priv
+  - Internal → priv
 
 SECURITY:
-  - Nom produit, status → pub
+  - Product name, status → pub
   - IDs, timestamps → priv
-  - Email, nom, adresse → pii
-  - Password, token, cle → secret
+  - Email, name, address → pii
+  - Password, token, key → secret
 ```
 
 ---
 
-## Regles d'Application DTO
+## DTO Application Rules
 
 ```text
-SI KTN-STRUCT-ONEFILE sur un struct :
-   1. Lire le fichier
-   2. Verifier si le struct devrait etre un DTO (par NOM)
-   3. SI oui → Ajouter dto:"dir,ctx,sec" sur chaque champ
-   4. Relancer le linter → plus d'erreur ONEFILE
+IF KTN-STRUCT-ONEFILE on a struct:
+   1. Read the file
+   2. Check if the struct should be a DTO (by NAME)
+   3. IF yes → Add dto:"dir,ctx,sec" on each field
+   4. Re-run the linter → no more ONEFILE error
 
-SI KTN-STRUCT-CTOR sur un struct :
-   1. Verifier si DTO (par tags ou nom)
-   2. SI DTO sans tags → Ajouter dto:"dir,ctx,sec"
-   3. Relancer → plus d'erreur CTOR
+IF KTN-STRUCT-CTOR on a struct:
+   1. Check if DTO (by tags or name)
+   2. IF DTO without tags → Add dto:"dir,ctx,sec"
+   3. Re-run → no more CTOR error
 
-SI KTN-DTO-TAG (format invalide) :
-   → Corriger le format: dto:"direction,context,security"
+IF KTN-DTO-TAG (invalid format):
+   → Fix the format: dto:"direction,context,security"
 
-SI KTN-STRUCT-JSONTAG :
-   → Ajouter le tag manquant (json, xml, ou dto selon contexte)
+IF KTN-STRUCT-JSONTAG:
+   → Add the missing tag (json, xml, or dto depending on context)
 
-SI KTN-STRUCT-PRIVTAG :
-   → Supprimer les tags des champs prives
+IF KTN-STRUCT-PRIVTAG:
+   → Remove tags from private fields
 ```
 
 ---
 
 ## Execution Mode: Agent Teams (Claude 4.6)
 
-**Si `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` est active**, utiliser Agent Teams pour paralleliser les phases independantes.
+**If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is enabled**, use Agent Teams to parallelize independent phases.
 
-### Architecture Agent Teams
+### Agent Teams Architecture
 
 ```text
-LEAD (Phase 1-3 : SEQUENTIAL - dependances inter-fichiers)
-  Phase 1: STRUCTURAL (7 regles)
+LEAD (Phase 1-3: SEQUENTIAL - inter-file dependencies)
+  Phase 1: STRUCTURAL (7 rules)
     ↓
-  Phase 2: SIGNATURES (7 regles)
+  Phase 2: SIGNATURES (7 rules)
     ↓
-  Phase 3: LOGIC (17 regles)
+  Phase 3: LOGIC (17 rules)
     ↓
-  Re-run ktn-linter → valider convergence Phase 1-3
+  Re-run ktn-linter → validate Phase 1-3 convergence
     ↓
   === SPAWN 4 TEAMMATES ===
-    ├── "perf"   → Phase 4 PERFORMANCE (11 regles)
-    ├── "modern" → Phase 5 MODERN (20 regles)
-    ├── "polish" → Phase 6 STYLE + Phase 7 DOCS (25 regles)
-    └── "tester" → Phase 8 TESTS (8 regles)
+    ├── "perf"   → Phase 4 PERFORMANCE (11 rules)
+    ├── "modern" → Phase 5 MODERN (20 rules)
+    ├── "polish" → Phase 6 STYLE + Phase 7 DOCS (25 rules)
+    └── "tester" → Phase 8 TESTS (8 rules)
     ↓
-  LEAD: attend completion de tous les teammates
+  LEAD: wait for all teammates to complete
     ↓
-  Re-run ktn-linter final → valider convergence globale
+  Final re-run ktn-linter → validate global convergence
 ```
 
 ### Teammate Roles
 
-**Lead** : Orchestre le workflow. Execute Phase 1-3 (structurel + signatures + logique) qui ont des dependances inter-fichiers. Apres convergence Phase 3, spawne les 4 teammates. Collecte les resultats et lance la verification finale.
+**Lead**: Orchestrates the workflow. Executes Phase 1-3 (structural + signatures + logic) which have inter-file dependencies. After Phase 3 convergence, spawns the 4 teammates. Collects results and launches the final verification.
 
-**Teammate "perf"** (Phase 4) : Specialiste optimisation memoire. Corrige : KTN-VAR-HOTLOOP, KTN-VAR-BIGSTRUCT, KTN-VAR-SLICECAP, KTN-VAR-MAPCAP, KTN-VAR-MAKEAPPEND, KTN-VAR-GROW, KTN-VAR-STRBUILDER, KTN-VAR-STRCONV, KTN-VAR-SYNCPOOL, KTN-VAR-ARRAY.
+**Teammate "perf"** (Phase 4): Memory optimization specialist. Fixes: KTN-VAR-HOTLOOP, KTN-VAR-BIGSTRUCT, KTN-VAR-SLICECAP, KTN-VAR-MAPCAP, KTN-VAR-MAKEAPPEND, KTN-VAR-GROW, KTN-VAR-STRBUILDER, KTN-VAR-STRCONV, KTN-VAR-SYNCPOOL, KTN-VAR-ARRAY.
 
-**Teammate "modern"** (Phase 5) : Specialiste Go idiomatique. Corrige : KTN-VAR-USEANY, KTN-VAR-USECLEAR, KTN-VAR-USEMINMAX, KTN-VAR-RANGEINT, KTN-VAR-LOOPVAR, KTN-VAR-SLICEGROW, KTN-VAR-SLICECLONE, KTN-VAR-MAPCLONE, KTN-VAR-CMPOR, KTN-VAR-WGGO, MODERNIZE-*.
+**Teammate "modern"** (Phase 5): Idiomatic Go specialist. Fixes: KTN-VAR-USEANY, KTN-VAR-USECLEAR, KTN-VAR-USEMINMAX, KTN-VAR-RANGEINT, KTN-VAR-LOOPVAR, KTN-VAR-SLICEGROW, KTN-VAR-SLICECLONE, KTN-VAR-MAPCLONE, KTN-VAR-CMPOR, KTN-VAR-WGGO, MODERNIZE-*.
 
-**Teammate "polish"** (Phase 6+7) : Style et documentation. Corrige : KTN-VAR-CAMEL, KTN-CONST-CAMEL, KTN-VAR-MINLEN/MAXLEN, KTN-FUNC-UNUSEDARG, KTN-FUNC-NOMAGIC, KTN-FUNC-EARLYRET, KTN-STRUCT-NOGET, KTN-INTERFACE-ERNAME + tous les KTN-COMMENT-*.
+**Teammate "polish"** (Phase 6+7): Style and documentation. Fixes: KTN-VAR-CAMEL, KTN-CONST-CAMEL, KTN-VAR-MINLEN/MAXLEN, KTN-FUNC-UNUSEDARG, KTN-FUNC-NOMAGIC, KTN-FUNC-EARLYRET, KTN-STRUCT-NOGET, KTN-INTERFACE-ERNAME + all KTN-COMMENT-*.
 
-**Teammate "tester"** (Phase 8) : Qualite tests. Corrige : KTN-TEST-TABLE, KTN-TEST-COVERAGE, KTN-TEST-ASSERT, KTN-TEST-ERRCASES, KTN-TEST-NOSKIP, KTN-TEST-SETENV, KTN-TEST-SUBPARALLEL, KTN-TEST-CLEANUP.
+**Teammate "tester"** (Phase 8): Test quality. Fixes: KTN-TEST-TABLE, KTN-TEST-COVERAGE, KTN-TEST-ASSERT, KTN-TEST-ERRCASES, KTN-TEST-NOSKIP, KTN-TEST-SETENV, KTN-TEST-SUBPARALLEL, KTN-TEST-CLEANUP.
 
 ### User Interaction (VS Code)
 
-- `Shift+Up/Down` pour naviguer entre teammates
-- Ecrire directement a un teammate pour guider ses decisions
-- Chaque teammate utilise TaskCreate/TaskUpdate pour reporter sa progression
+- `Shift+Up/Down` to navigate between teammates
+- Write directly to a teammate to guide its decisions
+- Each teammate uses TaskCreate/TaskUpdate to report its progress
 
-### Fallback : Mode Sequentiel
+### Fallback: Sequential Mode
 
-**Si Agent Teams non disponible**, executer le mode classique :
+**If Agent Teams not available**, execute the classic mode:
 
 ```text
-POUR chaque phase de 1 a 8 :
-    POUR chaque issue de cette phase :
-        1. Lire le fichier concerne
-        2. SI struct DTO → appliquer convention dto:"dir,ctx,sec"
-        3. Appliquer la correction
+FOR each phase from 1 to 8:
+    FOR each issue in this phase:
+        1. Read the affected file
+        2. IF struct DTO → apply dto:"dir,ctx,sec" convention
+        3. Apply the fix
         4. TaskUpdate → completed
-    FIN POUR
-FIN POUR
+    END FOR
+END FOR
 
-Relancer ktn-linter pour verifier convergence
-SI encore des issues : recommencer
-SINON : terminer avec rapport
+Re-run ktn-linter to verify convergence
+IF still issues: restart
+ELSE: finish with report
 ```
 
 ---
 
-## Rapport Final
+## Final Report
 
 ```text
 ═══════════════════════════════════════════════════════════════
   /lint - COMPLETE
 ═══════════════════════════════════════════════════════════════
 
-  Mode           : Agent Teams (4 teammates) | Sequential
-  Issues corrigees : 47
+  Mode             : Agent Teams (4 teammates) | Sequential
+  Issues fixed     : 47
   Iterations       : 3
-  DTOs detectes    : 4 (exclus de ONEFILE/CTOR)
+  DTOs detected    : 4 (excluded from ONEFILE/CTOR)
 
-  Par phase :
-    STRUCTURAL  : 5 corriges (dont 2 via dto tags)  [Lead]
-    SIGNATURES  : 8 corriges                         [Lead]
-    LOGIC       : 12 corriges                        [Lead]
-    PERFORMANCE : 4 corriges                         [perf]
-    MODERN      : 10 corriges                        [modern]
-    STYLE       : 5 corriges                         [polish]
-    DOCS        : 3 corriges                         [polish]
-    TESTS       : 0 corriges                         [tester]
+  By phase:
+    STRUCTURAL  : 5 fixed (including 2 via dto tags)  [Lead]
+    SIGNATURES  : 8 fixed                              [Lead]
+    LOGIC       : 12 fixed                             [Lead]
+    PERFORMANCE : 4 fixed                              [perf]
+    MODERN      : 10 fixed                             [modern]
+    STYLE       : 5 fixed                              [polish]
+    DOCS        : 3 fixed                              [polish]
+    TESTS       : 0 fixed                              [tester]
 
-  DTOs traites :
+  DTOs processed:
     - user_dto.go: CreateUserRequest, UserResponse (dto:"...,api,...")
     - order_dto.go: OrderCommand, OrderQuery (dto:"...,cmd/query,...")
 
-  Verification finale : 0 issues
+  Final verification: 0 issues
 
 ═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## REGLES ABSOLUES
+## ABSOLUTE RULES
 
-1. **TOUT corriger** - Aucune exception, aucun skip
-2. **Ordre des phases** - Phase 1→3 sequentiel, Phase 4→8 parallele (Agent Teams) ou sequentiel (fallback)
-3. **DTOs au vol** - Detecter et appliquer dto:"dir,ctx,sec"
-4. **Iteration** - Relancer jusqu'a 0 issues
-5. **Pas de questions** - Tout est automatique
-6. **Format dto strict** - Toujours 3 valeurs separees par virgule
-7. **TaskCreate** - Chaque phase = 1 task avec progression
+1. **Fix EVERYTHING** - No exceptions, no skips
+2. **Phase ordering** - Phase 1→3 sequential, Phase 4→8 parallel (Agent Teams) or sequential (fallback)
+3. **DTOs on-the-fly** - Detect and apply dto:"dir,ctx,sec"
+4. **Iteration** - Re-run until 0 issues
+5. **No questions** - Everything is automatic
+6. **Strict dto format** - Always 3 values separated by comma
+7. **TaskCreate** - Each phase = 1 task with progress
 
 ---
 
-## DEMARRER MAINTENANT
+## START NOW
 
-1. Lancer `./builds/ktn-linter lint ./...`
-2. Parser le retour
-3. Classer par phase
-4. Detecter Agent Teams disponible (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`)
-5. SI Agent Teams : Lead Phase 1-3, spawn teammates Phase 4-8
-6. SINON : corriger sequentiellement 1→8 (DTOs avec convention dto:"dir,ctx,sec")
-7. Relancer jusqu'a convergence
-8. Afficher rapport final
+1. Run `./builds/ktn-linter lint ./...`
+2. Parse the output
+3. Classify by phase
+4. Detect Agent Teams availability (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`)
+5. IF Agent Teams: Lead Phase 1-3, spawn teammates Phase 4-8
+6. ELSE: fix sequentially 1→8 (DTOs with dto:"dir,ctx,sec" convention)
+7. Re-run until convergence
+8. Display final report

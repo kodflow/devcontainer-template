@@ -1,6 +1,6 @@
 # Specification Pattern
 
-> Encapsule des règles métier composables et réutilisables, séparant la logique de correspondance de l'objet candidat lui-même.
+> Encapsulates composable and reusable business rules, separating the matching logic from the candidate object itself.
 
 ## Definition
 
@@ -307,14 +307,14 @@ func GetEligibleOrders(
    }
    ```
 
-## Quand utiliser
+## When to Use
 
-- Règles métier complexes nécessitant une composition
-- Règles réutilisées pour la validation et les requêtes
-- Logique du domaine qui doit être testable isolément
-- Filtrage de collections par critères métier
+- Complex business rules requiring composition
+- Rules reused for validation and queries
+- Domain logic that must be testable in isolation
+- Filtering collections by business criteria
 
-## Patterns liés
+## Related Patterns
 
 - [Repository](./repository.md) - Uses specifications for queries
 - [Value Object](./value-object.md) - Rules often involve value objects

@@ -184,7 +184,7 @@ principles:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**SI `$ARGUMENTS` contient `--help`** : Afficher l'aide ci-dessus et STOP.
+**IF `$ARGUMENTS` contains `--help`**: Display the help above and STOP.
 
 ---
 
@@ -1434,39 +1434,39 @@ quick:
 
 ---
 
-## GARDE-FOUS (ABSOLUS)
+## Guardrails (ABSOLUTE)
 
-| Action | Status | Raison |
+| Action | Status | Reason |
 |--------|--------|--------|
-| Creer page vide/placeholder | **INTERDIT** | UX cassee |
-| Lancer agents sequentiellement | **INTERDIT** | Performance degradee |
-| Skip scoring | **INTERDIT** | Perte de priorisation |
-| Generer sans analyse | **INTERDIT** | Contenu superficiel |
-| "Coming Soon" / "TBD" | **INTERDIT** | Promesses vides |
-| Creer section score < 16 standalone | **INTERDIT** | Pollution navigation |
-| Ignorer PROJECT_TYPE | **INTERDIT** | Structure inadaptee |
-| Page architecture sans diagramme | **INTERDIT** | Comprehension degradee |
-| Copier fichier config entier inline | **INTERDIT** | Desynchronisation |
-| Phrase generique sans info specifique | **INTERDIT** | Contenu creux |
-| index.md qui commence par du technique | **INTERDIT** | Pitch produit d'abord |
-| Skip architecture-analyzer pour app | **INTERDIT** | Architecture est critique |
-| Skip freshness check (Phase 3.0) | **INTERDIT** | Regeneration inutile |
-| Generer sans marker dans index.md | **INTERDIT** | Freshness impossible ensuite |
-| Full regen si incremental suffit | **EVITER** | Gaspillage de tokens/temps |
-| Skip Phase 1.0 (config questions) | **INTERDIT** | Config pilote tout le contenu conditionnel |
-| GitHub links si PUBLIC_REPO=false | **INTERDIT** | Fuite URL repo prive |
-| Tableau comparatif si INTERNAL_PROJECT=true | **INTERDIT** | Pas de concurrents pour projet interne |
-| Tableau simple si INTERNAL_PROJECT=false | **INTERDIT** | Doit montrer avantage competitif |
-| Menu API si API_COUNT=0 | **INTERDIT** | Section nav vide |
-| Transport page sans cross-links vers API | **INTERDIT** | Cross-linking est la feature cle |
-| API page sans cross-links vers Transport | **INTERDIT** | Bidirectionnel obligatoire |
-| Palette toggle dans mkdocs.yml | **INTERDIT** | Dark-only, scheme: slate uniquement |
-| Couleurs hardcodees dans C4 templates | **INTERDIT** | Utiliser COLOR_* variables |
-| c4-fix.css dans mkdocs.yml | **INTERDIT** | Remplace par theme.css |
-| Flowchart/sequence sans %%{init}%% | **INTERDIT** | Couleurs incoherentes |
-| C4 sans UpdateElementStyle | **INTERDIT** | C4 ignore les themes Mermaid |
-| Background hex sans suffixe "1a" | **INTERDIT** | Pattern: border=full, bg=10% alpha |
-| Skip accent_color question | **INTERDIT** | Couleur pilote tout le theme |
+| Create empty/placeholder page | **FORBIDDEN** | Broken UX |
+| Launch agents sequentially | **FORBIDDEN** | Degraded performance |
+| Skip scoring | **FORBIDDEN** | Loss of prioritization |
+| Generate without analysis | **FORBIDDEN** | Superficial content |
+| "Coming Soon" / "TBD" | **FORBIDDEN** | Empty promises |
+| Create standalone section with score < 16 | **FORBIDDEN** | Navigation pollution |
+| Ignore PROJECT_TYPE | **FORBIDDEN** | Unsuitable structure |
+| Architecture page without diagram | **FORBIDDEN** | Degraded comprehension |
+| Copy entire config file inline | **FORBIDDEN** | Desynchronization |
+| Generic sentence without specific info | **FORBIDDEN** | Hollow content |
+| index.md starting with technical content | **FORBIDDEN** | Product pitch first |
+| Skip architecture-analyzer for app | **FORBIDDEN** | Architecture is critical |
+| Skip freshness check (Phase 3.0) | **FORBIDDEN** | Unnecessary regeneration |
+| Generate without marker in index.md | **FORBIDDEN** | Freshness impossible afterwards |
+| Full regen when incremental suffices | **AVOID** | Waste of tokens/time |
+| Skip Phase 1.0 (config questions) | **FORBIDDEN** | Config drives all conditional content |
+| GitHub links when PUBLIC_REPO=false | **FORBIDDEN** | Private repo URL leak |
+| Comparison table when INTERNAL_PROJECT=true | **FORBIDDEN** | No competitors for internal project |
+| Simple table when INTERNAL_PROJECT=false | **FORBIDDEN** | Must show competitive advantage |
+| API menu when API_COUNT=0 | **FORBIDDEN** | Empty nav section |
+| Transport page without cross-links to API | **FORBIDDEN** | Cross-linking is the key feature |
+| API page without cross-links to Transport | **FORBIDDEN** | Bidirectional is MANDATORY |
+| Palette toggle in mkdocs.yml | **FORBIDDEN** | Dark-only, scheme: slate only |
+| Hardcoded colors in C4 templates | **FORBIDDEN** | Use COLOR_* variables |
+| c4-fix.css in mkdocs.yml | **FORBIDDEN** | Replaced by theme.css |
+| Flowchart/sequence without %%{init}%% | **FORBIDDEN** | Inconsistent colors |
+| C4 without UpdateElementStyle | **FORBIDDEN** | C4 ignores Mermaid themes |
+| Background hex without "1a" suffix | **FORBIDDEN** | Pattern: border=full, bg=10% alpha |
+| Skip accent_color question | **FORBIDDEN** | Color drives the entire theme |
 
 ---
 

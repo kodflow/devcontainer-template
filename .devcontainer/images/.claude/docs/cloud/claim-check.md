@@ -1,8 +1,8 @@
 # Claim Check Pattern
 
-> Separer le message de son payload volumineux via une reference.
+> Separate the message from its large payload via a reference.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -51,14 +51,14 @@
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Probleme resolu
+## Problem Solved
 
-| Approche | Message Queue | Latence | Cout |
+| Approach | Message Queue | Latency | Cost |
 |----------|---------------|---------|------|
-| **Sans Claim Check** | 10MB par message | Haute | Eleve |
-| **Avec Claim Check** | ~100 bytes | Basse | Faible |
+| **Without Claim Check** | 10MB per message | High | High |
+| **With Claim Check** | ~100 bytes | Low | Low |
 
-## Exemple Go
+## Go Example
 
 ```go
 package claimcheck
@@ -188,22 +188,22 @@ func generateClaimID() string {
 ## Usage
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
-## Gestion du cycle de vie
+## Lifecycle Management
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
-## Configuration S3 Lifecycle
+## S3 Lifecycle Configuration
 
 ```json
 {
@@ -222,41 +222,41 @@ func generateClaimID() string {
 }
 ```
 
-## Cas d'usage
+## Use Cases
 
-| Scenario | Taille typique | Benefice |
-|----------|----------------|----------|
-| **Documents PDF** | 1-50 MB | Queue legere |
-| **Images/Videos** | 1 MB - 1 GB | Traitement async |
-| **Rapports** | 10-100 MB | Scalabilite |
-| **Backups** | 100+ MB | Decouplage |
+| Scenario | Typical Size | Benefit |
+|----------|--------------|---------|
+| **PDF Documents** | 1-50 MB | Lightweight queue |
+| **Images/Videos** | 1 MB - 1 GB | Async processing |
+| **Reports** | 10-100 MB | Scalability |
+| **Backups** | 100+ MB | Decoupling |
 | **ETL data** | GB+ | Performance |
 
 ## Anti-patterns
 
-| Anti-pattern | Probleme | Solution |
-|--------------|----------|----------|
-| Sans TTL | Accumulation storage | TTL obligatoire |
-| Claim non-unique | Collisions | UUID ou hash |
-| Sans retry | Perte de donnees | Retry + DLQ |
-| Cleanup synchrone | Latence | Async/lifecycle rules |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| No TTL | Storage accumulation | Mandatory TTL |
+| Non-unique claim | Collisions | UUID or hash |
+| No retry | Data loss | Retry + DLQ |
+| Synchronous cleanup | Latency | Async/lifecycle rules |
 
-## Quand utiliser
+## When to Use
 
-- Messages depassant la limite de taille du broker (typiquement > 256KB)
-- Transfert de fichiers volumineux via file de messages
-- Reduction des couts de messaging en evitant les gros payloads
-- Decouplage du traitement de donnees volumineuses
-- Pipelines ETL ou batch processing avec donnees massives
+- Messages exceeding the broker size limit (typically > 256KB)
+- Large file transfer via message queue
+- Reducing messaging costs by avoiding large payloads
+- Decoupling large data processing
+- ETL or batch processing pipelines with massive data
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
 | Content Enricher | Inverse (add data) |
-| Message Expiration | TTL des claims |
-| Dead Letter | Claims non-consommes |
-| Event Sourcing | Stocker events volumineux |
+| Message Expiration | Claim TTL |
+| Dead Letter | Unconsumed claims |
+| Event Sourcing | Storing large events |
 
 ## Sources
 

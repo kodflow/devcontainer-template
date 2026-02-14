@@ -1,12 +1,12 @@
 # Chain of Responsibility Pattern
 
-> Passer une requete le long d'une chaine de handlers.
+> Pass a request along a chain of handlers.
 
-## Intention
+## Intent
 
-Eviter de coupler l'emetteur d'une requete a son recepteur en permettant
-a plusieurs objets de traiter la requete. Chainer les objets recepteurs
-et passer la requete jusqu'a ce qu'un objet la traite.
+Avoid coupling the sender of a request to its receiver by allowing
+multiple objects to handle the request. Chain the receiver objects
+and pass the request until an object handles it.
 
 ## Structure
 
@@ -73,7 +73,7 @@ type AuthenticationHandler struct {
 
 // Handle authenticates the request.
 func (h *AuthenticationHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
-	token, ok := request.Headers["authorization"]
+	token, ok:= request.Headers["authorization"]
 	if !ok || token == "" {
 		return &HttpResponse{
 			Status: 401,
@@ -82,7 +82,7 @@ func (h *AuthenticationHandler) Handle(request *HttpRequest) (*HttpResponse, err
 	}
 
 	token = strings.TrimPrefix(token, "Bearer ")
-	user, err := h.verifyToken(token)
+	user, err:= h.verifyToken(token)
 	if err != nil {
 		return &HttpResponse{
 			Status: 401,
@@ -119,8 +119,8 @@ func (h *AuthorizationHandler) Handle(request *HttpRequest) (*HttpResponse, erro
 		}, nil
 	}
 
-	allowed := false
-	for _, role := range h.allowedRoles {
+	allowed:= false
+	for _, role:= range h.allowedRoles {
 		if role == request.User.Role {
 			allowed = true
 			break
@@ -155,7 +155,7 @@ func NewValidationHandler(schema Schema) *ValidationHandler {
 
 // Handle validates the request body.
 func (h *ValidationHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
-	errors := h.schema.Validate(request.Body)
+	errors:= h.schema.Validate(request.Body)
 	if len(errors) > 0 {
 		return &HttpResponse{
 			Status: 400,
@@ -185,17 +185,17 @@ func NewRateLimitHandler(limit int, windowMs int64) *RateLimitHandler {
 
 // Handle checks rate limits.
 func (h *RateLimitHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
-	clientID := request.Headers["x-client-id"]
+	clientID:= request.Headers["x-client-id"]
 	if clientID == "" {
 		clientID = "anonymous"
 	}
 
-	now := time.Now().UnixMilli()
-	windowStart := now - h.windowMs
+	now:= time.Now().UnixMilli()
+	windowStart:= now - h.windowMs
 
 	// Clean old requests
-	clientRequests := []int64{}
-	for _, reqTime := range h.requests[clientID] {
+	clientRequests:= []int64{}
+	for _, reqTime:= range h.requests[clientID] {
 		if reqTime > windowStart {
 			clientRequests = append(clientRequests, reqTime)
 		}
@@ -223,7 +223,7 @@ type LoggingHandler struct {
 func (h *LoggingHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
 	fmt.Printf("[%s] %s %s\n", time.Now().Format(time.RFC3339), request.Method, request.Path)
 
-	response, err := h.AbstractHandler.Handle(request)
+	response, err:= h.AbstractHandler.Handle(request)
 	if err != nil {
 		return nil, err
 	}
@@ -263,10 +263,10 @@ func (s *CreateUserSchema) Validate(body interface{}) []string {
 }
 
 func main() {
-	schema := &CreateUserSchema{}
+	schema:= &CreateUserSchema{}
 
 	// Build the chain
-	chain := &LoggingHandler{}
+	chain:= &LoggingHandler{}
 	chain.
 		SetNext(NewRateLimitHandler(100, 60000)).
 		SetNext(&AuthenticationHandler{}).
@@ -283,7 +283,7 @@ func main() {
 		}))
 
 	// Process a request
-	request := &HttpRequest{
+	request:= &HttpRequest{
 		Method: "POST",
 		Path:   "/api/users",
 		Headers: map[string]string{
@@ -296,7 +296,7 @@ func main() {
 		},
 	}
 
-	response, err := chain.Handle(request)
+	response, err:= chain.Handle(request)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -305,9 +305,9 @@ func main() {
 }
 ```
 
-## Variantes
+## Variants
 
-### Chain avec fonction next explicite
+### Chain with Explicit next Function
 
 ```go
 // Middleware is a function that processes a request.
@@ -326,13 +326,13 @@ func (m *MiddlewareChain) Use(middleware Middleware) *MiddlewareChain {
 
 // Execute runs all middleware in order.
 func (m *MiddlewareChain) Execute(request *HttpRequest) *HttpResponse {
-	response := &HttpResponse{Status: 200, Body: nil}
-	index := 0
+	response:= &HttpResponse{Status: 200, Body: nil}
+	index:= 0
 
 	var next func()
 	next = func() {
 		if index < len(m.middlewares) {
-			middleware := m.middlewares[index]
+			middleware:= m.middlewares[index]
 			index++
 			middleware(request, response, next)
 		}
@@ -342,9 +342,9 @@ func (m *MiddlewareChain) Execute(request *HttpRequest) *HttpResponse {
 	return response
 }
 
-// Usage Express-like
+// Express-like usage
 func exampleMiddleware() {
-	app := &MiddlewareChain{}
+	app:= &MiddlewareChain{}
 
 	app.Use(func(req *HttpRequest, res *HttpResponse, next func()) {
 		fmt.Println("Logging...")
@@ -388,12 +388,12 @@ func (c *AsyncChain[T, R]) Use(handler AsyncHandler[T, R]) *AsyncChain[T, R] {
 // Handle executes handlers until one returns a non-nil result.
 func (c *AsyncChain[T, R]) Handle(ctx context.Context, request T) (R, error) {
 	var zero R
-	for _, handler := range c.handlers {
-		result, err := handler(ctx, request)
+	for _, handler:= range c.handlers {
+		result, err:= handler(ctx, request)
 		if err != nil {
 			return zero, err
 		}
-		// Handler a traite la requete
+		// Handler has processed the request
 		if !isZero(result) {
 			return result, nil
 		}
@@ -417,12 +417,12 @@ func asyncExample() {
 		Query(ctx context.Context, path string) (interface{}, error)
 	}
 
-	asyncChain := &AsyncChain[*HttpRequest, *HttpResponse]{}
+	asyncChain:= &AsyncChain[*HttpRequest, *HttpResponse]{}
 
 	// Check cache
 	asyncChain.Use(func(ctx context.Context, req *HttpRequest) (*HttpResponse, error) {
 		var cache Cache
-		cached, err := cache.Get(ctx, req.Path)
+		cached, err:= cache.Get(ctx, req.Path)
 		if err == nil && cached != nil {
 			return &HttpResponse{Status: 200, Body: cached}, nil
 		}
@@ -434,7 +434,7 @@ func asyncExample() {
 	asyncChain.Use(func(ctx context.Context, req *HttpRequest) (*HttpResponse, error) {
 		var db DB
 		var cache Cache
-		data, err := db.Query(ctx, req.Path)
+		data, err:= db.Query(ctx, req.Path)
 		if err != nil {
 			return nil, err
 		}
@@ -444,7 +444,7 @@ func asyncExample() {
 }
 ```
 
-### Chain avec priorite
+### Chain with Priority
 
 ```go
 // PriorityHandler handles requests with priority.
@@ -463,7 +463,7 @@ type PriorityChain[T, R any] struct {
 func (c *PriorityChain[T, R]) Register(handler *PriorityHandler[T, R]) {
 	c.handlers = append(c.handlers, handler)
 	// Sort by priority (descending)
-	for i := len(c.handlers) - 1; i > 0; i-- {
+	for i:= len(c.handlers) - 1; i > 0; i-- {
 		if c.handlers[i].Priority > c.handlers[i-1].Priority {
 			c.handlers[i], c.handlers[i-1] = c.handlers[i-1], c.handlers[i]
 		}
@@ -473,7 +473,7 @@ func (c *PriorityChain[T, R]) Register(handler *PriorityHandler[T, R]) {
 // Handle finds the first handler that can process the request.
 func (c *PriorityChain[T, R]) Handle(request T) (R, error) {
 	var zero R
-	for _, handler := range c.handlers {
+	for _, handler:= range c.handlers {
 		if handler.CanHandle(request) {
 			return handler.Handle(request)
 		}
@@ -485,9 +485,9 @@ func (c *PriorityChain[T, R]) Handle(request T) (R, error) {
 ## Anti-patterns
 
 ```go
-// MAUVAIS: Chaine trop longue
+// BAD: Chain too long
 func badLongChain() {
-	chain := &Handler1{}
+	chain:= &Handler1{}
 	chain.
 		SetNext(&Handler2{}).
 		SetNext(&Handler3{}).
@@ -495,30 +495,30 @@ func badLongChain() {
 		SetNext(&Handler20{}) // Difficile a debugger
 }
 
-// MAUVAIS: Handler qui ne passe jamais au suivant
+// BAD: Handler that never passes to the next
 type GreedyHandler struct {
 	AbstractHandler[*HttpRequest, *HttpResponse]
 }
 
 func (h *GreedyHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
-	// Traite TOUJOURS, ne passe jamais au suivant
+	// ALWAYS processes, never passes to the next
 	return &HttpResponse{Status: 200, Body: "Always me"}, nil
 }
 
-// MAUVAIS: Dependance a l'ordre non documentee
+// BAD: Undocumented order dependency
 type OrderDependentHandler struct {
 	AbstractHandler[*HttpRequest, *HttpResponse]
 }
 
 func (h *OrderDependentHandler) Handle(request *HttpRequest) (*HttpResponse, error) {
-	// Suppose que AuthHandler a deja ete execute
-	// Sans documentation, c'est fragile
-	user := request.User // Peut être nil!
+	// Assumes AuthHandler has already been executed
+	// Without documentation, this is fragile
+	user:= request.User // Can be nil!
 	_ = user
 	return h.AbstractHandler.Handle(request)
 }
 
-// MAUVAIS: Modification de la chaine pendant l'execution
+// BAD: Modifying the chain during execution
 type DynamicHandler struct {
 	AbstractHandler[*HttpRequest, *HttpResponse]
 	someCondition bool
@@ -536,7 +536,7 @@ type AnotherHandler struct {
 }
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```go
 package main
@@ -547,14 +547,14 @@ import (
 
 func TestAuthenticationHandler(t *testing.T) {
 	t.Run("should reject requests without token", func(t *testing.T) {
-		handler := &AuthenticationHandler{}
-		request := &HttpRequest{
+		handler:= &AuthenticationHandler{}
+		request:= &HttpRequest{
 			Method:  "GET",
 			Path:    "/api/data",
 			Headers: map[string]string{},
 		}
 
-		response, err := handler.Handle(request)
+		response, err:= handler.Handle(request)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -565,16 +565,16 @@ func TestAuthenticationHandler(t *testing.T) {
 	})
 
 	t.Run("should pass authenticated requests to next", func(t *testing.T) {
-		nextCalled := false
-		nextHandler := NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
+		nextCalled:= false
+		nextHandler:= NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
 			nextCalled = true
 			return &HttpResponse{Status: 200, Body: "ok"}, nil
 		})
 
-		handler := &AuthenticationHandler{}
+		handler:= &AuthenticationHandler{}
 		handler.SetNext(nextHandler)
 
-		request := &HttpRequest{
+		request:= &HttpRequest{
 			Method: "GET",
 			Path:   "/api/data",
 			Headers: map[string]string{
@@ -582,7 +582,7 @@ func TestAuthenticationHandler(t *testing.T) {
 			},
 		}
 
-		_, err := handler.Handle(request)
+		_, err:= handler.Handle(request)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -599,20 +599,20 @@ func TestAuthenticationHandler(t *testing.T) {
 
 func TestRateLimitHandler(t *testing.T) {
 	t.Run("should allow requests within limit", func(t *testing.T) {
-		handler := NewRateLimitHandler(3, 1000)
+		handler:= NewRateLimitHandler(3, 1000)
 		handler.SetNext(NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
 			return &HttpResponse{Status: 200, Body: "ok"}, nil
 		}))
 
-		request := &HttpRequest{
+		request:= &HttpRequest{
 			Method:  "GET",
 			Path:    "/api",
 			Headers: map[string]string{"x-client-id": "test"},
 		}
 
-		r1, _ := handler.Handle(request)
-		r2, _ := handler.Handle(request)
-		r3, _ := handler.Handle(request)
+		r1, _:= handler.Handle(request)
+		r2, _:= handler.Handle(request)
+		r3, _:= handler.Handle(request)
 
 		if r1.Status != 200 || r2.Status != 200 || r3.Status != 200 {
 			t.Error("requests within limit should succeed")
@@ -620,12 +620,12 @@ func TestRateLimitHandler(t *testing.T) {
 	})
 
 	t.Run("should reject requests over limit", func(t *testing.T) {
-		handler := NewRateLimitHandler(2, 10000)
+		handler:= NewRateLimitHandler(2, 10000)
 		handler.SetNext(NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
 			return &HttpResponse{Status: 200, Body: "ok"}, nil
 		}))
 
-		request := &HttpRequest{
+		request:= &HttpRequest{
 			Method:  "GET",
 			Path:    "/api",
 			Headers: map[string]string{"x-client-id": "test"},
@@ -633,7 +633,7 @@ func TestRateLimitHandler(t *testing.T) {
 
 		handler.Handle(request)
 		handler.Handle(request)
-		response, _ := handler.Handle(request)
+		response, _:= handler.Handle(request)
 
 		if response.Status != 429 {
 			t.Errorf("expected status 429, got %d", response.Status)
@@ -643,18 +643,18 @@ func TestRateLimitHandler(t *testing.T) {
 
 func TestFullChain(t *testing.T) {
 	t.Run("should process request through all handlers", func(t *testing.T) {
-		finalCalled := false
-		finalHandler := NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
+		finalCalled:= false
+		finalHandler:= NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
 			finalCalled = true
 			return &HttpResponse{Status: 200, Body: "done"}, nil
 		})
 
-		chain := &LoggingHandler{}
+		chain:= &LoggingHandler{}
 		chain.
 			SetNext(&AuthenticationHandler{}).
 			SetNext(finalHandler)
 
-		request := &HttpRequest{
+		request:= &HttpRequest{
 			Method: "GET",
 			Path:   "/api/data",
 			Headers: map[string]string{
@@ -662,7 +662,7 @@ func TestFullChain(t *testing.T) {
 			},
 		}
 
-		response, err := chain.Handle(request)
+		response, err:= chain.Handle(request)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -677,20 +677,20 @@ func TestFullChain(t *testing.T) {
 	})
 
 	t.Run("should stop at first error", func(t *testing.T) {
-		shouldNotBeCalled := false
-		chain := &AuthenticationHandler{}
+		shouldNotBeCalled:= false
+		chain:= &AuthenticationHandler{}
 		chain.SetNext(NewRequestHandler(func(req *HttpRequest) (*HttpResponse, error) {
 			shouldNotBeCalled = true
 			return &HttpResponse{Status: 200, Body: "ok"}, nil
 		}))
 
-		request := &HttpRequest{
+		request:= &HttpRequest{
 			Method:  "GET",
 			Path:    "/api/data",
 			Headers: map[string]string{}, // No auth
 		}
 
-		response, _ := chain.Handle(request)
+		response, _:= chain.Handle(request)
 
 		if response.Status != 401 {
 			t.Errorf("expected status 401, got %d", response.Status)
@@ -703,18 +703,18 @@ func TestFullChain(t *testing.T) {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-- Plusieurs handlers peuvent traiter une requete
-- L'ensemble des handlers n'est pas connu a l'avance
-- L'ordre de traitement importe
+- Multiple handlers can process a request
+- The set of handlers is not known in advance
+- Processing order matters
 - Middleware pattern (HTTP, message queues)
 
-## Patterns lies
+## Related Patterns
 
-- **Decorator** : Structure similaire, mais enrichit vs traite
-- **Composite** : Peut combiner des chaines
-- **Command** : Peut etre combine pour queuer des handlers
+- **Decorator**: Similar structure, but enriches vs processes
+- **Composite**: Can combine chains
+- **Command**: Can be combined to queue handlers
 
 ## Sources
 

@@ -1,27 +1,27 @@
 # Clean Architecture
 
-> Uncle Bob - Indépendance des frameworks et testabilité maximale
+> Uncle Bob - Framework independence and maximum testability
 
 ## Concept
 
-Couches concentriques avec dépendances vers l'intérieur uniquement.
+Concentric layers with dependencies pointing inward only.
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Adaptation |
+| Language | Suitability |
 |---------|-----------|
 | **Go** | Excellent |
 | **Java** | Excellent |
-| **TypeScript** | Très bon |
-| **Kotlin** | Très bon |
+| **TypeScript** | Very good |
+| **Kotlin** | Very good |
 | **C#** | Excellent |
-| **Python** | Bon |
+| **Python** | Good |
 
 ## Structure
 
 ```
 /src
-├── entities/            # Business objects (centre)
+├── entities/            # Business objects (center)
 │   └── user.go
 ├── usecases/            # Application logic
 │   ├── create_user.go
@@ -35,47 +35,47 @@ Couches concentriques avec dépendances vers l'intérieur uniquement.
     └── web/
 ```
 
-## Avantages
+## Advantages
 
-- Indépendant du framework
-- Testabilité excellente
-- Logique métier protégée
-- Interchangeabilité (DB, UI, etc.)
-- Maintenable long terme
+- Framework independent
+- Excellent testability
+- Protected business logic
+- Interchangeability (DB, UI, etc.)
+- Long-term maintainability
 
-## Inconvénients
+## Disadvantages
 
-- Verbeux
-- Over-engineering pour petits projets
+- Verbose
+- Over-engineering for small projects
 - Learning curve
-- Beaucoup d'interfaces
+- Many interfaces
 
-## Contraintes
+## Constraints
 
-- Dépendances → vers le centre uniquement
-- Entities ne connaissent RIEN d'externe
-- Use cases définissent les interfaces (ports)
-- Adapters implémentent les interfaces
+- Dependencies point inward only
+- Entities know NOTHING about the outside
+- Use cases define interfaces (ports)
+- Adapters implement interfaces
 
-## Règles
+## Rules
 
-1. Dependency Rule : dépendances vers l'intérieur
-2. Entities = logique métier universelle
-3. Use Cases = logique application
-4. Adapters = traduction in/out
-5. Frameworks = détails (interchangeables)
+1. Dependency Rule: dependencies point inward
+2. Entities = universal business logic
+3. Use Cases = application logic
+4. Adapters = in/out translation
+5. Frameworks = details (interchangeable)
 
-## Quand utiliser
+## When to Use
 
-- Applications complexes
-- Long terme (>2 ans)
-- Changements fréquents de frameworks
-- Tests critiques
-- Équipe expérimentée
+- Complex applications
+- Long-term (>2 years)
+- Frequent framework changes
+- Critical tests
+- Experienced team
 
-## Quand éviter
+## When to Avoid
 
-- POC/MVP rapide
-- CRUD simple → MVC
-- Scripts → Flat
-- Équipe junior sans mentorat
+- Quick POC/MVP
+- Simple CRUD -> MVC
+- Scripts -> Flat
+- Junior team without mentoring

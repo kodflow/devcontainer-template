@@ -1,30 +1,30 @@
 # Behavioral Patterns (GoF)
 
-Patterns de communication entre objets.
+Communication patterns between objects.
 
-## Fichiers detailles
+## Detailed Files
 
 | Pattern | Fichier | Description |
 |---------|---------|-------------|
 | Chain of Responsibility | [chain-of-responsibility.md](chain-of-responsibility.md) | Middleware pattern |
 | Command | [command.md](command.md) | Undo/Redo, transactions |
-| Interpreter | [interpreter.md](interpreter.md) | Interpreter une grammaire/DSL |
-| Iterator | [iterator.md](iterator.md) | Parcourir sans exposer la structure |
-| Mediator | [mediator.md](mediator.md) | Reduire les dependances directes |
-| Memento | [memento.md](memento.md) | Sauvegarder et restaurer l'etat |
-| Observer | [observer.md](observer.md) | Event Emitter moderne |
+| Interpreter | [interpreter.md](interpreter.md) | Interpret a grammar/DSL |
+| Iterator | [iterator.md](iterator.md) | Traverse without exposing structure |
+| Mediator | [mediator.md](mediator.md) | Reduce direct dependencies |
+| Memento | [memento.md](memento.md) | Save and restore state |
+| Observer | [observer.md](observer.md) | Modern Event Emitter |
 | State | [state.md](state.md) | State machine pattern |
-| Strategy | [strategy.md](strategy.md) | Algorithmes interchangeables |
-| Template Method | [template-method.md](template-method.md) | Squelette d'algorithme avec variations |
-| Visitor | [visitor.md](visitor.md) | Operations sur une structure d'objets |
+| Strategy | [strategy.md](strategy.md) | Interchangeable algorithms |
+| Template Method | [template-method.md](template-method.md) | Algorithm skeleton with variations |
+| Visitor | [visitor.md](visitor.md) | Operations on an object structure |
 
-## Les 11 Patterns
+## The 11 Patterns
 
 ### 1. Chain of Responsibility
 
-> Chaine de handlers qui passent la requete.
+> Chain of handlers that pass the request.
 
-Voir fichier detaille: [chain-of-responsibility.md](chain-of-responsibility.md)
+See detailed file: [chain-of-responsibility.md](chain-of-responsibility.md)
 
 ```go
 const chain = new AuthHandler();
@@ -32,15 +32,15 @@ chain.setNext(new ValidationHandler()).setNext(new BusinessHandler());
 chain.handle(request);
 ```
 
-**Quand :** Middleware, validations, filtres.
+**When:** Middleware, validations, filters.
 
 ---
 
 ### 2. Command
 
-> Encapsuler une requete comme un objet.
+> Encapsulate a request as an object.
 
-Voir fichier detaille: [command.md](command.md)
+See detailed file: [command.md](command.md)
 
 ```go
 interface Command {
@@ -62,13 +62,13 @@ class CommandInvoker {
 }
 ```
 
-**Quand :** Undo/redo, queues, transactions.
+**When:** Undo/redo, queues, transactions.
 
 ---
 
 ### 3. Iterator
 
-> Parcourir sans exposer la structure interne.
+> Traverse without exposing internal structure.
 
 ```go
 interface Iterator<T> {
@@ -93,13 +93,13 @@ class TreeIterator<T> implements Iterator<T> {
 }
 ```
 
-**Quand :** Collections custom, lazy loading.
+**When:** Collections custom, lazy loading.
 
 ---
 
 ### 4. Mediator
 
-> Reduire les dependances directes entre composants.
+> Reduce direct dependencies between components.
 
 ```go
 interface Mediator {
@@ -115,13 +115,13 @@ class DialogMediator implements Mediator {
 }
 ```
 
-**Quand :** UI complexes, systemes avec beaucoup d'interactions.
+**When:** Complex UIs, systems with many interactions.
 
 ---
 
 ### 5. Memento
 
-> Sauvegarder et restaurer l'etat.
+> Save and restore state.
 
 ```go
 class Editor {
@@ -135,15 +135,15 @@ class Editor {
 }
 ```
 
-**Quand :** Undo, snapshots, checkpoints.
+**When:** Undo, snapshots, checkpoints.
 
 ---
 
 ### 6. Observer
 
-> Notification de changements.
+> Notification of changes.
 
-Voir fichier detaille: [observer.md](observer.md)
+See detailed file: [observer.md](observer.md)
 
 ```go
 class TypedEventEmitter<Events extends EventMap> {
@@ -157,15 +157,15 @@ class TypedEventEmitter<Events extends EventMap> {
 }
 ```
 
-**Quand :** Events, reactive programming, UI updates.
+**When:** Events, reactive programming, UI updates.
 
 ---
 
 ### 7. State
 
-> Comportement qui change selon l'etat.
+> Behavior that changes according to state.
 
-Voir fichier detaille: [state.md](state.md)
+See detailed file: [state.md](state.md)
 
 ```go
 class Order {
@@ -177,15 +177,15 @@ class Order {
 }
 ```
 
-**Quand :** State machines, workflows.
+**When:** State machines, workflows.
 
 ---
 
 ### 8. Strategy
 
-> Algorithmes interchangeables.
+> Interchangeable algorithms.
 
-Voir fichier detaille: [strategy.md](strategy.md)
+See detailed file: [strategy.md](strategy.md)
 
 ```go
 class PaymentProcessor {
@@ -201,13 +201,13 @@ class PaymentProcessor {
 }
 ```
 
-**Quand :** Plusieurs algorithmes, selection runtime.
+**When:** Multiple algorithms, runtime selection.
 
 ---
 
 ### 9. Template Method
 
-> Squelette d'algorithme, details dans sous-classes.
+> Algorithm skeleton, details in subclasses.
 
 ```go
 abstract class DataMiner {
@@ -224,13 +224,13 @@ abstract class DataMiner {
 }
 ```
 
-**Quand :** Algorithme commun, etapes variables.
+**When:** Common algorithm, variable steps.
 
 ---
 
 ### 10. Visitor
 
-> Operations sur une structure d'objets.
+> Operations on an object structure.
 
 ```go
 interface Visitor {
@@ -244,13 +244,13 @@ class AreaCalculator implements Visitor {
 }
 ```
 
-**Quand :** Operations variees sur structures stables.
+**When:** Various operations on stable structures.
 
 ---
 
 ### 11. Interpreter
 
-> Interpreter une grammaire.
+> Interpret a grammar.
 
 ```go
 interface Expression {
@@ -265,24 +265,24 @@ class AddExpression implements Expression {
 }
 ```
 
-**Quand :** DSL, regles, expressions (rarement utilise).
+**When:** DSL, rules, expressions (rarely used).
 
 ---
 
-## Tableau de decision
+## Decision Table
 
-| Besoin | Pattern |
+| Need | Pattern |
 |--------|---------|
-| Pipeline de handlers | Chain of Responsibility |
+| Pipeline of handlers | Chain of Responsibility |
 | Undo/redo, queue | Command |
-| Parcours custom | Iterator |
-| Reduire couplage UI | Mediator |
-| Snapshot etat | Memento |
-| Evenements, reactive | Observer |
-| Machine a etats | State |
-| Algorithmes variables | Strategy |
-| Squelette + variations | Template Method |
-| Operations sur structure | Visitor |
+| Custom traversal | Iterator |
+| Reduce UI coupling | Mediator |
+| State snapshot | Memento |
+| Events, reactive | Observer |
+| State machine | State |
+| Variable algorithms | Strategy |
+| Skeleton + variations | Template Method |
+| Operations on structure | Visitor |
 
 ## Sources
 

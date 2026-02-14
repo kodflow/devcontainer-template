@@ -1,18 +1,18 @@
 # Lazy Loading
 
-Pattern differant l'initialisation d'une ressource jusqu'a son premier usage.
+Pattern deferring resource initialization until its first use.
 
 ---
 
-## Qu'est-ce que le Lazy Loading ?
+## What is Lazy Loading?
 
-> Ne charger/initialiser une ressource que lorsqu'elle est reellement necessaire.
+> Only load/initialize a resource when it is actually needed.
 
 ```
 +--------------------------------------------------------------+
 |                     Lazy Loading                              |
 |                                                               |
-|  Premier acces:                                               |
+|  First access:                                                |
 |                                                               |
 |  get() --> [null?] --> YES --> create() --> cache --> return  |
 |                |                                              |
@@ -20,24 +20,24 @@ Pattern differant l'initialisation d'une ressource jusqu'a son premier usage.
 |                |                                              |
 |                +-----> return cached                          |
 |                                                               |
-|  Acces suivants:                                              |
+|  Subsequent accesses:                                         |
 |                                                               |
-|  get() --> [cached] --> return (instantane)                   |
+|  get() --> [cached] --> return (instantaneous)                |
 |                                                               |
 +--------------------------------------------------------------+
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Reduire le temps de demarrage
-- Economiser la memoire (ressources non utilisees)
-- Eviter les effets de bord au chargement
+- Reduce startup time
+- Save memory (unused resources)
+- Avoid side effects at load time
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### Lazy Value avec sync.OnceValue (Go 1.21+ - RECOMMENDED)
+### Lazy Value with sync.OnceValue (Go 1.21+ - RECOMMENDED)
 
 ```go
 package lazy
@@ -46,26 +46,26 @@ import (
 	"sync"
 )
 
-// Pour les cas simples sans reset ni erreur, utiliser sync.OnceValue directement:
+// For simple cases without reset or error, use sync.OnceValue directly:
 var expensiveResource = sync.OnceValue(func() *Dataset {
 	log.Println("Creating expensive resource...")
 	return loadHugeDataset()
 })
 
-// Avec gestion d'erreur, utiliser sync.OnceValues:
+// With error handling, use sync.OnceValues:
 var config = sync.OnceValues(func() (*Config, error) {
 	return loadConfig()
 })
 
 // Usage:
-// dataset := expensiveResource()  // Premier appel: charge
-// dataset2 := expensiveResource() // Appels suivants: cache
+// dataset := expensiveResource()  // First call: loads
+// dataset2 := expensiveResource() // Subsequent calls: cached
 //
 // cfg, err := config()
 // if err != nil { ... }
 ```
 
-### Lazy Value struct (si reset necessaire)
+### Lazy Value struct (if reset is needed)
 
 ```go
 package lazy
@@ -75,7 +75,7 @@ import (
 )
 
 // Value holds a lazily-initialized value with reset capability.
-// Pour les cas simples sans reset, preferez sync.OnceValue.
+// For simple cases without reset, prefer sync.OnceValue.
 type Value[T any] struct {
 	factory func() T
 	value   T
@@ -103,10 +103,10 @@ func (lv *Value[T]) Get() T {
 //     return loadHugeDataset()
 // })
 //
-// Pas de chargement ici
+// No loading here
 // log.Println("App started")
 //
-// Chargement au premier acces
+// Loading on first access
 // data := expensiveResource.Get()
 ```
 
@@ -152,7 +152,7 @@ func (lv *AsyncValue[T]) Get(ctx context.Context) (T, error) {
 //     return db, db.PingContext(ctx)
 // })
 //
-// Connexion seulement au premier appel
+// Connection only on first call
 // db, err := lazyDb.Get(ctx)
 ```
 
@@ -217,7 +217,7 @@ func (r *Resettable[T]) Reset() {
 
 ---
 
-## Variantes du pattern
+## Pattern Variants
 
 ### 1. Virtual Proxy
 
@@ -434,49 +434,49 @@ func (la *LazyArray[T]) Len() int {
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
-| Aspect | Valeur |
-|--------|--------|
-| Premier acces | O(init) |
-| Acces suivants | O(1) |
-| Memoire avant init | O(1) |
-| Memoire apres init | O(ressource) |
+| Aspect | Value |
+|--------|-------|
+| First access | O(init) |
+| Subsequent accesses | O(1) |
+| Memory before init | O(1) |
+| Memory after init | O(resource) |
 
-### Avantages
+### Advantages
 
-- Demarrage rapide
-- Economie memoire si non utilise
-- Chargement a la demande
+- Fast startup
+- Memory savings if unused
+- On-demand loading
 
-### Inconvenients
+### Disadvantages
 
-- Latence au premier acces
-- Complexite du code
-- Gestion des erreurs differee
+- Latency on first access
+- Code complexity
+- Deferred error handling
 
 ---
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
+| Situation | Recommended |
 |-----------|------------|
-| Ressource couteuse optionnelle | Oui |
-| Optimiser temps demarrage | Oui |
-| Dependances circulaires | Oui (rompt le cycle) |
-| Ressource toujours utilisee | Non (overhead inutile) |
-| Acces temps-reel critique | Non (latence premier acces) |
+| Expensive optional resource | Yes |
+| Optimize startup time | Yes |
+| Circular dependencies | Yes (breaks the cycle) |
+| Resource always used | No (unnecessary overhead) |
+| Critical real-time access | No (first access latency) |
 
 ---
 
-## Patterns connexes
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Proxy** | Encapsule le lazy loading |
-| **Singleton** | Souvent combine avec lazy |
-| **Factory** | Cree l'objet lors de l'init |
-| **Memoization** | Cache de resultats similaire |
+| **Proxy** | Encapsulates lazy loading |
+| **Singleton** | Often combined with lazy |
+| **Factory** | Creates the object during init |
+| **Memoization** | Similar result caching |
 
 ---
 

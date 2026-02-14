@@ -4,16 +4,16 @@
 
 ## Concept
 
-Le Gateway est un objet qui encapsule l'acces a un systeme externe ou une ressource. Il fournit une API simple et coherente pour interagir avec des services tiers, des bases de donnees, ou des systemes legacy.
+The Gateway is an object that encapsulates access to an external system or resource. It provides a simple and consistent API for interacting with third-party services, databases, or legacy systems.
 
-## Types de Gateways
+## Types of Gateways
 
-1. **Table Data Gateway** : Acces a une table de base de donnees
-2. **Row Data Gateway** : Acces a une ligne de base de donnees
-3. **Service Gateway** : Acces a un service externe
-4. **Messaging Gateway** : Acces a un systeme de messaging
+1. **Table Data Gateway**: Access to a database table
+2. **Row Data Gateway**: Access to a database row
+3. **Service Gateway**: Access to an external service
+4. **Messaging Gateway**: Access to a messaging system
 
-## Service Gateway - Implementation Go
+## Service Gateway - Go Implementation
 
 ```go
 package gateway
@@ -317,37 +317,37 @@ type openWeatherResponse struct {
 }
 ```
 
-## Comparaison avec alternatives
+## Comparison with Alternatives
 
 | Aspect | Gateway | Adapter | Facade |
 |--------|---------|---------|--------|
-| Objectif | Acces externe | Compatibilite | Simplification |
-| Direction | Sortant | Bidirectionnel | Interne |
-| Abstraction | Systeme externe | Interface | Sous-systeme |
-| Testabilite | Mockable | Mockable | Moins important |
+| Objective | External access | Compatibility | Simplification |
+| Direction | Outbound | Bidirectional | Internal |
+| Abstraction | External system | Interface | Subsystem |
+| Testability | Mockable | Mockable | Less important |
 
-## Quand utiliser
+## When to Use
 
-**Utiliser Gateway quand :**
+**Use Gateway when:**
 
-- Integration avec services externes
-- Besoin d'abstraction des details techniques
-- Multiples implementations possibles (Stripe/PayPal)
-- Testabilite importante (mocking)
-- Resilience requise (retry, circuit breaker)
+- Integration with external services
+- Need to abstract technical details
+- Multiple possible implementations (Stripe/PayPal)
+- Testability is important (mocking)
+- Resilience required (retry, circuit breaker)
 
-**Eviter Gateway quand :**
+**Avoid Gateway when:**
 
-- Acces simple et direct suffit
-- Un seul service externe sans changement prevu
-- Performance ultra-critique (overhead)
+- Simple and direct access is sufficient
+- Single external service with no planned changes
+- Ultra-critical performance (overhead)
 
-## Patterns liés
+## Related Patterns
 
-- [Remote Facade](./remote-facade.md) - Facade coarse-grained pour clients distants
-- [Service Layer](./service-layer.md) - Utilise Gateway pour acces externes
-- [Repository](./repository.md) - Abstraction similaire pour donnees locales
-- [Data Mapper](./data-mapper.md) - Mapping entre systemes
+- [Remote Facade](./remote-facade.md) - Coarse-grained facade for remote clients
+- [Service Layer](./service-layer.md) - Uses Gateway for external access
+- [Repository](./repository.md) - Similar abstraction for local data
+- [Data Mapper](./data-mapper.md) - Mapping between systems
 
 ## Sources
 

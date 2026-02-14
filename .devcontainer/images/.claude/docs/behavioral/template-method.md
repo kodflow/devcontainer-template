@@ -1,20 +1,20 @@
 # Template Method
 
-> Definir le squelette d'un algorithme, en deleguant des etapes aux sous-classes.
+> Define the skeleton of an algorithm, delegating steps to subclasses.
 
 ---
 
-## Principe
+## Principle
 
-Le pattern Template Method definit la structure d'un algorithme dans une
-classe de base. Les sous-classes redefinissent certaines etapes sans
-changer la structure globale.
+The Template Method pattern defines the structure of an algorithm in a
+base class. Subclasses redefine certain steps without
+changing the overall structure.
 
 ```text
 ┌─────────────────────┐
 │  AbstractClass      │
 │  ──────────────     │
-│  templateMethod()   │ ─► appelle step1(), step2(), step3()
+│  templateMethod()   │ ─► calls step1(), step2(), step3()
 │  step1()            │
 │  step2() (abstract) │
 │  step3()            │
@@ -30,12 +30,12 @@ changer la structure globale.
 
 ---
 
-## Probleme resolu
+## Problem Solved
 
-- Code duplique dans plusieurs classes avec variations mineures
-- Algorithme avec etapes fixes et etapes variables
-- Inverser le controle (Hollywood Principle)
-- Eviter la duplication tout en permettant la personnalisation
+- Duplicated code in multiple classes with minor variations
+- Algorithm with fixed steps and variable steps
+- Inversion of control (Hollywood Principle)
+- Avoid duplication while allowing customization
 
 ---
 
@@ -46,10 +46,10 @@ package main
 
 import "fmt"
 
-// DataMiner definit le template.
+// DataMiner defines the template.
 type DataMiner interface {
     Mine(path string)
-    // Methodes a implementer
+    // Methods to implement
     OpenFile(path string)
     ExtractData()
     ParseData()
@@ -58,12 +58,12 @@ type DataMiner interface {
     CloseFile()
 }
 
-// BaseDataMiner fournit l'implementation du template.
+// BaseDataMiner provides the template implementation.
 type BaseDataMiner struct {
     DataMiner
 }
 
-// Mine est la methode template.
+// Mine is the template method.
 func (b *BaseDataMiner) Mine(path string) {
     b.OpenFile(path)
     b.ExtractData()
@@ -73,7 +73,7 @@ func (b *BaseDataMiner) Mine(path string) {
     b.CloseFile()
 }
 
-// Implementations par defaut (hooks)
+// Default implementations (hooks)
 func (b *BaseDataMiner) AnalyzeData() {
     fmt.Println("Default analysis...")
 }
@@ -82,13 +82,13 @@ func (b *BaseDataMiner) SendReport() {
     fmt.Println("Sending report via email...")
 }
 
-// PDFDataMiner implemente les etapes specifiques.
+// PDFDataMiner implements the specific steps.
 type PDFDataMiner struct {
     BaseDataMiner
 }
 
 func NewPDFDataMiner() *PDFDataMiner {
-    m := &PDFDataMiner{}
+    m:= &PDFDataMiner{}
     m.DataMiner = m
     return m
 }
@@ -112,7 +112,7 @@ func (p *PDFDataMiner) CloseFile() {
 
 ---
 
-## Exemple complet
+## Complete Example
 
 ```go
 package main
@@ -122,10 +122,10 @@ import (
     "strings"
 )
 
-// GameAI definit le template pour l'IA du jeu.
+// GameAI defines the template for the game AI.
 type GameAI interface {
     Turn()
-    // Etapes abstraites
+    // Abstract steps
     CollectResources()
     BuildStructures()
     BuildUnits()
@@ -134,7 +134,7 @@ type GameAI interface {
     CanAttack() bool
 }
 
-// BaseGameAI fournit le template.
+// BaseGameAI provides the template.
 type BaseGameAI struct {
     name string
     GameAI
@@ -152,19 +152,19 @@ func (b *BaseGameAI) Turn() {
     }
 }
 
-// Hook par defaut
+// Default hook
 func (b *BaseGameAI) CanAttack() bool {
     return true
 }
 
-// OrcsAI implemente une strategie agressive.
+// OrcsAI implements an aggressive strategy.
 type OrcsAI struct {
     BaseGameAI
     warriors int
 }
 
 func NewOrcsAI() *OrcsAI {
-    ai := &OrcsAI{warriors: 0}
+    ai:= &OrcsAI{warriors: 0}
     ai.name = "Orcs"
     ai.GameAI = ai
     return ai
@@ -191,7 +191,7 @@ func (o *OrcsAI) CanAttack() bool {
     return o.warriors >= 10
 }
 
-// HumansAI implemente une strategie defensive.
+// HumansAI implements a defensive strategy.
 type HumansAI struct {
     BaseGameAI
     knights int
@@ -199,7 +199,7 @@ type HumansAI struct {
 }
 
 func NewHumansAI() *HumansAI {
-    ai := &HumansAI{knights: 0, walls: 0}
+    ai:= &HumansAI{knights: 0, walls: 0}
     ai.name = "Humans"
     ai.GameAI = ai
     return ai
@@ -227,7 +227,7 @@ func (h *HumansAI) CanAttack() bool {
     return h.walls >= 2 && h.knights >= 4
 }
 
-// DocumentProcessor avec hooks.
+// DocumentProcessor with hooks.
 type DocumentProcessor interface {
     Process(content string) string
     // Template steps
@@ -246,7 +246,7 @@ func (b *BaseDocumentProcessor) Process(content string) string {
     if b.ShouldLog() {
         fmt.Println("Processing document...")
     }
-    result := b.PreProcess(content)
+    result:= b.PreProcess(content)
     result = b.MainProcess(result)
     result = b.PostProcess(result)
     if b.ShouldLog() {
@@ -255,7 +255,7 @@ func (b *BaseDocumentProcessor) Process(content string) string {
     return result
 }
 
-// Hook par defaut
+// Default hook
 func (b *BaseDocumentProcessor) ShouldLog() bool {
     return false
 }
@@ -268,21 +268,21 @@ func (b *BaseDocumentProcessor) PostProcess(content string) string {
     return content
 }
 
-// MarkdownProcessor implemente le traitement Markdown.
+// MarkdownProcessor implements Markdown processing.
 type MarkdownProcessor struct {
     BaseDocumentProcessor
     verbose bool
 }
 
 func NewMarkdownProcessor(verbose bool) *MarkdownProcessor {
-    p := &MarkdownProcessor{verbose: verbose}
+    p:= &MarkdownProcessor{verbose: verbose}
     p.DocumentProcessor = p
     return p
 }
 
 func (m *MarkdownProcessor) MainProcess(content string) string {
-    // Simuler la conversion Markdown -> HTML
-    result := strings.ReplaceAll(content, "# ", "<h1>")
+    // Simulate Markdown -> HTML conversion
+    result:= strings.ReplaceAll(content, "# ", "<h1>")
     result = strings.ReplaceAll(result, "\n", "</h1>\n")
     return result
 }
@@ -292,20 +292,20 @@ func (m *MarkdownProcessor) ShouldLog() bool {
 }
 
 func main() {
-    // Exemple 1: Game AI
-    orcs := NewOrcsAI()
-    humans := NewHumansAI()
+    // Example 1: Game AI
+    orcs:= NewOrcsAI()
+    humans:= NewHumansAI()
 
-    // Simuler plusieurs tours
-    for i := 0; i < 3; i++ {
+    // Simulate multiple turns
+    for i:= 0; i < 3; i++ {
         orcs.Turn()
         humans.Turn()
     }
 
-    // Exemple 2: Document Processor
+    // Example 2: Document Processor
     fmt.Println("\n=== Document Processing ===")
-    processor := NewMarkdownProcessor(true)
-    result := processor.Process("# Hello World\n# Second Title")
+    processor:= NewMarkdownProcessor(true)
+    result:= processor.Process("# Hello World\n# Second Title")
     fmt.Println("Result:", result)
 
     // Output shows template method controlling the flow
@@ -315,69 +315,69 @@ func main() {
 
 ---
 
-## Variantes
+## Variants
 
-| Variante | Description | Cas d'usage |
+| Variant | Description | Use Case |
 |----------|-------------|-------------|
-| Abstract Steps | Etapes obligatoires | Comportement requis |
-| Default Steps | Implementations par defaut | Comportement optionnel |
-| Hooks | Points d'extension | Personnalisation fine |
+| Abstract Steps | Required steps | Required behavior |
+| Default Steps | Default implementations | Optional behavior |
+| Hooks | Extension points | Fine-grained customization |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Algorithme avec structure fixe et etapes variables
-- Eviter la duplication de code
-- Points d'extension controles pour sous-classes
-- Inversion de controle ("Don't call us, we'll call you")
+- Algorithm with fixed structure and variable steps
+- Avoid code duplication
+- Controlled extension points for subclasses
+- Inversion of control ("Don't call us, we'll call you")
 
-## Quand NE PAS utiliser
+## When NOT to Use
 
-- Algorithme entierement different par classe
-- Une seule implementation prevue
-- Trop de variations rendent le template complexe
+- Entirely different algorithm per class
+- Only one implementation planned
+- Too many variations make the template complex
 
 ---
 
-## Avantages / Inconvenients
+## Advantages / Disadvantages
 
-| Avantages | Inconvenients |
+| Advantages | Disadvantages |
 |-----------|---------------|
-| Elimine la duplication | Heritage requis (moins flexible) |
-| Points d'extension clairs | Peut violer Liskov si mal concu |
-| Inversion de controle | Maintenance si template change |
-| | Nombre limite d'etapes par template |
+| Eliminates duplication | Inheritance required (less flexible) |
+| Clear extension points | Can violate Liskov if poorly designed |
+| Inversion of control | Maintenance if template changes |
+| | Limited number of steps per template |
 
 ---
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Strategy | Strategy utilise composition, Template heritage |
-| Factory Method | Souvent une etape du Template |
-| Hook | Extension du Template Method |
+| Strategy | Strategy uses composition, Template uses inheritance |
+| Factory Method | Often a step in the Template |
+| Hook | Extension of the Template Method |
 
 ---
 
-## Implementation dans les frameworks
+## Framework Implementations
 
 | Framework/Lib | Implementation |
 |---------------|----------------|
-| http.Handler | ServeHTTP comme template |
-| sort.Interface | Len, Less, Swap comme etapes |
-| testing.T | Run comme template |
+| http.Handler | ServeHTTP as template |
+| sort.Interface | Len, Less, Swap as steps |
+| testing.T | Run as template |
 
 ---
 
-## Anti-patterns a eviter
+## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
+| Anti-pattern | Problem | Solution |
 |--------------|----------|----------|
-| Too many steps | Complexite | Limiter a 5-7 etapes |
-| Forced override | Rigidite | Utiliser des hooks |
-| Deep hierarchy | Fragilite | Preferer composition |
+| Too many steps | Complexity | Limit to 5-7 steps |
+| Forced override | Rigidity | Use hooks |
+| Deep hierarchy | Fragility | Prefer composition |
 
 ---
 
@@ -385,28 +385,28 @@ func main() {
 
 ```go
 func TestOrcsAI_AttackWhenReady(t *testing.T) {
-    orcs := NewOrcsAI()
+    orcs:= NewOrcsAI()
 
-    // Pas assez de guerriers
+    // Not enough warriors
     if orcs.CanAttack() {
         t.Error("orcs should not attack with 0 warriors")
     }
 
-    // Accumuler des guerriers
-    for i := 0; i < 2; i++ {
+    // Accumulate warriors
+    for i:= 0; i < 2; i++ {
         orcs.Turn()
     }
 
-    // Maintenant prets
+    // Now ready
     if !orcs.CanAttack() {
         t.Error("orcs should be ready to attack")
     }
 }
 
 func TestHumansAI_DefensiveStrategy(t *testing.T) {
-    humans := NewHumansAI()
+    humans:= NewHumansAI()
 
-    // Premiere phase: construction
+    // First phase: construction
     humans.Turn()
 
     if humans.walls != 1 {
@@ -418,8 +418,8 @@ func TestHumansAI_DefensiveStrategy(t *testing.T) {
 }
 
 func TestMarkdownProcessor(t *testing.T) {
-    processor := NewMarkdownProcessor(false)
-    result := processor.Process("# Test")
+    processor:= NewMarkdownProcessor(false)
+    result:= processor.Process("# Test")
 
     if !strings.Contains(result, "<h1>") {
         t.Error("expected HTML h1 tag")

@@ -1,11 +1,11 @@
 # Adapter Pattern
 
-> Convertir l'interface d'une classe en une autre interface attendue par le client.
+> Convert the interface of a class into another interface expected by the client.
 
-## Intention
+## Intent
 
-Permettre a des classes avec des interfaces incompatibles de travailler
-ensemble en encapsulant une classe existante avec une nouvelle interface.
+Allow classes with incompatible interfaces to work together
+by wrapping an existing class with a new interface.
 
 ## Structure
 
@@ -18,7 +18,7 @@ import (
 	"strings"
 )
 
-// 1. Interface cible (ce que le client attend)
+// 1. Target interface (what the client expects)
 type PaymentProcessor interface {
 	Charge(ctx context.Context, amount float64, currency string) (*PaymentResult, error)
 	Refund(ctx context.Context, transactionID string, amount float64) (*RefundResult, error)
@@ -34,7 +34,7 @@ type RefundResult struct {
 	Status   string // "success" or "failed"
 }
 
-// 2. Classe existante (interface incompatible)
+// 2. Existing class (incompatible interface)
 type StripeCharge struct {
 	ID     string
 	Amount int64
@@ -50,7 +50,7 @@ type StripeRefund struct {
 type StripeAPI struct{}
 
 func (s *StripeAPI) CreateCharge(ctx context.Context, amount int64, currency, source string) (*StripeCharge, error) {
-	// API Stripe reelle
+	// Real Stripe API
 	return &StripeCharge{
 		ID:     "ch_123",
 		Amount: amount,
@@ -80,7 +80,7 @@ func NewStripeAdapter(stripe *StripeAPI, defaultSource string) *StripeAdapter {
 }
 
 func (s *StripeAdapter) Charge(ctx context.Context, amount float64, currency string) (*PaymentResult, error) {
-	// Stripe utilise les centimes
+	// Stripe uses cents
 	amountCents := int64(amount * 100)
 
 	result, err := s.stripe.CreateCharge(
@@ -141,7 +141,7 @@ type Order struct {
 	Status        string
 }
 
-// Le client utilise l'interface generique
+// The client uses the generic interface
 type PaymentService struct {
 	processor PaymentProcessor
 }
@@ -177,9 +177,9 @@ func main() {
 }
 ```
 
-## Variantes
+## Variants
 
-### Object Adapter (composition - recommande)
+### Object Adapter (composition - recommended)
 
 ```go
 type StripeAdapter struct {
@@ -187,7 +187,7 @@ type StripeAdapter struct {
 }
 ```
 
-### Embedding Adapter (similaire au Class Adapter)
+### Embedding Adapter (similar to Class Adapter)
 
 ```go
 type StripeEmbeddingAdapter struct {
@@ -235,7 +235,7 @@ func NewTwoWayLoggerAdapter(modern ModernLogger, legacy LegacyLogger) *TwoWayLog
 	}
 }
 
-// Interface moderne
+// Modern interface
 func (t *TwoWayLoggerAdapter) Log(level, message string, meta map[string]interface{}) {
 	if t.modern != nil {
 		t.modern.Log(level, message, meta)
@@ -248,7 +248,7 @@ func (t *TwoWayLoggerAdapter) Log(level, message string, meta map[string]interfa
 	}
 }
 
-// Interface legacy
+// Legacy interface
 func (t *TwoWayLoggerAdapter) Info(message string) {
 	t.Log("info", message, nil)
 }
@@ -258,7 +258,7 @@ func (t *TwoWayLoggerAdapter) Error(message string) {
 }
 ```
 
-### Adapter avec cache
+### Adapter with Cache
 
 ```go
 package main
@@ -282,7 +282,7 @@ func NewCachedPaymentAdapter(adapter PaymentProcessor) *CachedPaymentAdapter {
 }
 
 func (c *CachedPaymentAdapter) Charge(ctx context.Context, amount float64, currency string) (*PaymentResult, error) {
-	// Pas de cache pour les charges (non idempotent)
+	// No cache for charges (non-idempotent)
 	return c.adapter.Charge(ctx, amount, currency)
 }
 
@@ -290,7 +290,7 @@ func (c *CachedPaymentAdapter) Refund(ctx context.Context, transactionID string,
 	return c.adapter.Refund(ctx, transactionID, amount)
 }
 
-// Methode supplementaire pour consulter l'historique
+// Additional method to consult history
 func (c *CachedPaymentAdapter) GetHistory() []*PaymentResult {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -303,9 +303,9 @@ func (c *CachedPaymentAdapter) GetHistory() []*PaymentResult {
 }
 ```
 
-## Cas d'usage concrets
+## Concrete Use Cases
 
-### Adapter pour API tierce
+### Third-party API Adapter
 
 ```go
 package main
@@ -316,7 +316,7 @@ type ExternalWeatherData struct {
 	WindKph     float64
 }
 
-// API externe avec format different
+// External API with different format
 type ExternalWeatherAPI struct{}
 
 func (e *ExternalWeatherAPI) GetWeather(lat, lon float64) *ExternalWeatherData {
@@ -327,7 +327,7 @@ func (e *ExternalWeatherAPI) GetWeather(lat, lon float64) *ExternalWeatherData {
 	}
 }
 
-// Notre interface interne
+// Our internal interface
 type WeatherData struct {
 	Temperature float64
 	Humidity    int
@@ -354,7 +354,7 @@ func (w *WeatherAdapter) GetWeather(lat, lon float64) *WeatherData {
 }
 ```
 
-### Adapter pour legacy code
+### Legacy Code Adapter
 
 ```go
 package main
@@ -364,15 +364,15 @@ import (
 	"fmt"
 )
 
-// Ancien systeme callback-based
+// Old callback-based system
 type LegacyFileReader struct{}
 
 func (l *LegacyFileReader) Read(path string, callback func(error, string)) {
-	// Simule lecture asynchrone
+	// Simulates asynchronous reading
 	callback(nil, "file contents")
 }
 
-// Interface moderne Promise-based
+// Modern Promise-based interface
 type FileReader interface {
 	Read(ctx context.Context, path string) (string, error)
 }
@@ -411,13 +411,13 @@ func (f *FileReaderAdapter) Read(ctx context.Context, path string) (string, erro
 ## Anti-patterns
 
 ```go
-// MAUVAIS: Adapter qui fait trop
+// BAD: Adapter that does too much
 type OverloadedAdapter struct {
 	stripe *StripeAPI
 }
 
 func (o *OverloadedAdapter) Charge(ctx context.Context, amount float64, currency string) (*PaymentResult, error) {
-	// Validation - devrait etre ailleurs
+	// Validation - should be elsewhere
 	if amount <= 0 {
 		return nil, fmt.Errorf("invalid amount")
 	}
@@ -425,26 +425,26 @@ func (o *OverloadedAdapter) Charge(ctx context.Context, amount float64, currency
 	// Logging - cross-cutting concern
 	fmt.Println("Processing payment...")
 
-	// Business logic - ne devrait pas etre ici
+	// Business logic - should not be here
 	fee := amount * 0.03
 	total := amount + fee
 
-	// Finalement l'adaptation
+	// Finally the adaptation
 	result, _ := o.stripe.CreateCharge(ctx, int64(total*100), currency, "")
 	return &PaymentResult{TransactionID: result.ID, Status: "success"}, nil
 }
 
-// MAUVAIS: Adapter qui expose l'implementation
+// BAD: Adapter that exposes the implementation
 type LeakyAdapter struct {
 	stripe *StripeAPI
 }
 
 func (l *LeakyAdapter) GetStripeInstance() *StripeAPI {
-	return l.stripe // Fuite d'abstraction!
+	return l.stripe // Abstraction leak!
 }
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```go
 package main
@@ -476,29 +476,29 @@ func TestStripeAdapter_ConvertsCurrency(t *testing.T) {
 	mockStripe := &StripeAPI{}
 	adapter := NewStripeAdapter(mockStripe, "tok_test")
 
-	// Verifie conversion dollars -> centimes
+	// Verify dollars -> cents conversion
 	_, err := adapter.Charge(context.Background(), 100.0, "USD")
 	if err != nil {
 		t.Fatalf("Charge failed: %v", err)
 	}
 
-	// Verifier que l'API Stripe a recu 10000 centimes
+	// Verify the Stripe API received 10000 cents
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-- Integrer du code legacy ou bibliotheques tierces
-- Uniformiser des interfaces incompatibles
-- Isoler le code client des changements d'API
-- Reutiliser des classes existantes sans les modifier
+- Integrating legacy code or third-party libraries
+- Unifying incompatible interfaces
+- Isolating client code from API changes
+- Reusing existing classes without modifying them
 
-## Patterns lies
+## Related Patterns
 
-- **Bridge** : Separe abstraction/implementation (conception)
-- **Decorator** : Ajoute des comportements (meme interface)
-- **Facade** : Simplifie une interface complexe
-- **Proxy** : Meme interface, controle d'acces
+- **Bridge**: Separates abstraction/implementation (design time)
+- **Decorator**: Adds behaviors (same interface)
+- **Facade**: Simplifies a complex interface
+- **Proxy**: Same interface, access control
 
 ## Sources
 

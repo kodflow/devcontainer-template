@@ -1,6 +1,6 @@
 # Option / Maybe Pattern
 
-> Type représentant une valeur optionnelle - soit une valeur existe (Some) soit elle n'existe pas (None), éliminant les erreurs null à la compilation.
+> Type representing an optional value - either a value exists (Some) or it does not (None), eliminating null errors at compile time.
 
 ## Definition
 
@@ -568,15 +568,15 @@ func findUserWithError(id string) Either[NotFoundError, User] {
    }
    ```
 
-## Quand utiliser
+## When to Use
 
-- Remplacement de null/undefined
-- Paramètres de fonction optionnels
-- Recherches dans Dictionary/Map
-- Opérations de recherche dans les tableaux
-- Enchaînement d'opérations optionnelles
+- Replacing null/undefined
+- Optional function parameters
+- Dictionary/Map lookups
+- Array search operations
+- Chaining optional operations
 
-## Patterns liés
+## Related Patterns
 
 - [Monad](./monad.md) - Option is a monad
 - [Either](./either.md) - When error information needed

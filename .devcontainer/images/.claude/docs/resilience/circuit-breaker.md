@@ -1,10 +1,10 @@
 # Circuit Breaker Pattern
 
-> Prevenir les pannes en cascade en arretant les appels vers un service defaillant.
+> Prevent cascading failures by stopping calls to a failing service.
 
 ---
 
-## Principe
+## Principle
 
 ```
         ┌──────────────────────────────────────────────────────┐
@@ -27,17 +27,17 @@
 
 ---
 
-## Etats
+## States
 
-| Etat | Comportement |
-|------|--------------|
-| **CLOSED** | Requetes passent normalement. Compte les echecs. |
-| **OPEN** | Requetes echouent immediatement (fail fast). |
-| **HALF-OPEN** | Permet quelques requetes test pour verifier la recovery. |
+| State | Behavior |
+|-------|----------|
+| **CLOSED** | Requests pass normally. Counts failures. |
+| **OPEN** | Requests fail immediately (fail fast). |
+| **HALF-OPEN** | Allows a few test requests to check recovery. |
 
 ---
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package circuitbreaker
@@ -209,7 +209,7 @@ func (cb *CircuitBreaker) GetState() State {
 
 ---
 
-## Usage avec fallback
+## Usage with Fallback
 
 ```go
 package circuitbreaker
@@ -269,41 +269,41 @@ func fetchUserFromAPI(ctx context.Context, userID string) (*User, error) {
 
 ---
 
-## Configuration recommandee
+## Recommended Configuration
 
-| Parametre | Valeur typique | Description |
-|-----------|----------------|-------------|
-| `failureThreshold` | 5-10 | Echecs consecutifs avant ouverture |
-| `successThreshold` | 2-3 | Succes en HALF_OPEN pour fermer |
-| `timeout` | 30-60s | Duree avant passage en HALF_OPEN |
-| `halfOpenRequests` | 1-3 | Requetes test en HALF_OPEN |
-
----
-
-## Quand utiliser
-
-- Appels vers des services externes (APIs, databases)
-- Microservices avec dependances reseau
-- Integration avec des systemes tiers instables
-- Protection contre les pannes en cascade
+| Parameter | Typical Value | Description |
+|-----------|---------------|-------------|
+| `failureThreshold` | 5-10 | Consecutive failures before opening |
+| `successThreshold` | 2-3 | Successes in HALF_OPEN to close |
+| `timeout` | 30-60s | Duration before switching to HALF_OPEN |
+| `halfOpenRequests` | 1-3 | Test requests in HALF_OPEN |
 
 ---
 
-## Lie a
+## When to Use
+
+- Calls to external services (APIs, databases)
+- Microservices with network dependencies
+- Integration with unstable third-party systems
+- Protection against cascading failures
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| [Retry](retry.md) | Utiliser avant le circuit breaker |
-| [Timeout](timeout.md) | Limiter le temps par tentative |
-| [Bulkhead](bulkhead.md) | Isolation complementaire |
-| [Health Check](health-check.md) | Monitoring du circuit |
+| [Retry](retry.md) | Use before the circuit breaker |
+| [Timeout](timeout.md) | Limit time per attempt |
+| [Bulkhead](bulkhead.md) | Complementary isolation |
+| [Health Check](health-check.md) | Circuit monitoring |
 
 ---
 
-## Librairies
+## Libraries
 
-| Langage | Librairie |
-|---------|-----------|
+| Language | Library |
+|---------|---------|
 | Node.js | `opossum`, `cockatiel` |
 | Java | Resilience4j |
 | Go | `sony/gobreaker` |

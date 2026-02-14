@@ -1,8 +1,8 @@
 # Scheduler-Agent-Supervisor Pattern
 
-> Coordonner les taches distribuees avec un superviseur centralise.
+> Coordinate distributed tasks with a centralized supervisor.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -11,8 +11,8 @@
 │   ┌─────────────────┐    ┌─────────────────┐    ┌───────────────┐   │
 │   │    Scheduler    │    │   State Store   │    │   Recovery    │   │
 │   │                 │    │                 │    │   Manager     │   │
-│   │ - Planification │    │ - Etat tasks    │    │ - Retry       │   │
-│   │ - Priorites     │    │ - Historique    │    │ - Compensation│   │
+│   │ - Scheduling    │    │ - Task state    │    │ - Retry       │   │
+│   │ - Priorities    │    │ - History       │    │ - Compensation│   │
 │   │ - Timing        │    │ - Checkpoints   │    │ - Alerting    │   │
 │   └────────┬────────┘    └─────────────────┘    └───────────────┘   │
 │            │                                                         │
@@ -34,16 +34,16 @@
      └───────────────────────────────────────────────────────────┘
 ```
 
-## Composants
+## Components
 
-| Composant | Responsabilite |
+| Component | Responsibility |
 |-----------|----------------|
-| **Scheduler** | Planifie et assigne les taches |
-| **Agent** | Execute les taches atomiques |
-| **Supervisor** | Monitore, recupere des echecs |
-| **State Store** | Persiste l'etat des taches |
+| **Scheduler** | Plans and assigns tasks |
+| **Agent** | Executes atomic tasks |
+| **Supervisor** | Monitors, recovers from failures |
+| **State Store** | Persists task state |
 
-## Exemple Go
+## Go Example
 
 ```go
 package schedulerAgentSupervisor
@@ -271,19 +271,19 @@ func (sv *Supervisor) retryFailedTasks(ctx context.Context) {
 }
 ```
 
-## Workflow complet
+## Complete Workflow
 
 ```
-1. Client soumet une tache
+1. Client submits a task
           │
           ▼
-2. Scheduler place en queue
+2. Scheduler places in queue
           │
           ▼
-3. Scheduler assigne a un Agent idle
+3. Scheduler assigns to an idle Agent
           │
           ▼
-4. Agent execute la tache
+4. Agent executes the task
           │
     ┌─────┴─────┐
     ▼           ▼
@@ -295,36 +295,36 @@ Success      Failure
     │           │
     └─────┬─────┘
           ▼
-6. Supervisor met a jour l'etat
+6. Supervisor updates the state
           │
           ▼
-7. Supervisor retry si necessaire
+7. Supervisor retries if necessary
 ```
 
-## Anti-patterns
+## Anti-patterns to Avoid
 
-| Anti-pattern | Probleme | Solution |
-|--------------|----------|----------|
-| Supervisor SPOF | Panne = pas de recovery | Supervisor haute dispo |
-| Polling excessif | Charge reseau | Long polling / events |
-| Tasks non-idempotentes | Retries causent duplications | Design idempotent |
-| Sans timeout | Tasks zombies | Timeout + detection |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| Supervisor SPOF | Failure = no recovery | High availability supervisor |
+| Excessive polling | Network load | Long polling / events |
+| Non-idempotent tasks | Retries cause duplications | Idempotent design |
+| Without timeout | Zombie tasks | Timeout + detection |
 
-## Quand utiliser
+## When to Use
 
-- Workflows complexes avec plusieurs etapes dependantes
-- Taches distribuees necessitant une coordination centralisee
-- Systemes de batch processing avec monitoring et recovery
-- Pipelines de traitement avec retry automatique
-- Orchestration de jobs dans un cluster de workers
+- Complex workflows with multiple dependent steps
+- Distributed tasks requiring centralized coordination
+- Batch processing systems with monitoring and recovery
+- Processing pipelines with automatic retry
+- Job orchestration in a worker cluster
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Saga | Transactions distribuees |
-| Queue-based Load Leveling | Buffer des taches |
-| Competing Consumers | Agents multiples |
+| Saga | Distributed transactions |
+| Queue-based Load Leveling | Task buffer |
+| Competing Consumers | Multiple agents |
 | Leader Election | Supervisor HA |
 
 ## Sources

@@ -1,13 +1,13 @@
 # Proxy Pattern
 
-> Fournir un substitut ou placeholder pour controler l'acces a un objet.
+> Provide a substitute or placeholder to control access to an object.
 
-## Intention
+## Intent
 
-Fournir un intermediaire pour un autre objet afin de controler l'acces,
-reduire le cout, ou ajouter des fonctionnalites sans modifier l'objet original.
+Provide an intermediary for another object to control access,
+reduce cost, or add functionality without modifying the original object.
 
-## Types de Proxy
+## Proxy Types
 
 ### 1. Virtual Proxy (Lazy Loading)
 
@@ -36,7 +36,7 @@ func NewRealImage(filename string) *RealImage {
 
 func (r *RealImage) loadFromDisk() {
 	fmt.Printf("Loading image: %s\n", r.filename)
-	// Simulation chargement lourd
+	// Heavy loading simulation
 	r.data = make([]byte, 1024*1024*10) // 10MB
 }
 
@@ -68,14 +68,14 @@ func (i *ImageProxy) Display() {
 	i.ensureLoaded().Display()
 }
 
-// Metadata accessible sans charger l'image
+// Metadata accessible without loading the image
 func (i *ImageProxy) GetSize() (width, height int) {
-	// Lire seulement les headers du fichier
+	// Read only the file headers
 	return 1920, 1080
 }
 ```
 
-### 2. Protection Proxy (Controle d'acces)
+### 2. Protection Proxy (Access Control)
 
 ```go
 package main
@@ -139,7 +139,7 @@ func NewProtectedDocument(doc Document, user *User) *ProtectedDocument {
 }
 
 func (p *ProtectedDocument) Read() string {
-	// Tout le monde peut lire
+	// Everyone can read
 	return p.document.Read()
 }
 
@@ -217,11 +217,11 @@ func (r *RemoteUserService) GetUser(ctx context.Context, id string) (*User, erro
 }
 
 func (r *RemoteUserService) UpdateUser(ctx context.Context, id string, data map[string]interface{}) (*User, error) {
-	// Implementation similaire
+	// Similar implementation
 	return &User{ID: id}, nil
 }
 
-// Le client utilise l'interface comme si c'etait local
+// The client uses the interface as if it were local
 type UserController struct {
 	userService UserService
 }
@@ -373,7 +373,7 @@ func (l *LoggingDatabaseProxy) Execute(ctx context.Context, sql string) (int, er
 }
 ```
 
-## Variantes avancees
+## Advanced Variants
 
 ### Smart Reference Proxy
 
@@ -490,13 +490,13 @@ func (v *ValidatingProxy) Set(field string, value interface{}) error {
 ## Anti-patterns
 
 ```go
-// MAUVAIS: Proxy qui change le comportement
+// BAD: Proxy that changes behavior
 type BadProxy struct {
 	service UserService
 }
 
 func (b *BadProxy) GetUser(ctx context.Context, id string) (*User, error) {
-	// Modifie les donnees = pas un proxy!
+	// Modifies data = not a proxy!
 	user, err := b.service.GetUser(ctx, id)
 	if err != nil {
 		return nil, err
@@ -505,7 +505,7 @@ func (b *BadProxy) GetUser(ctx context.Context, id string) (*User, error) {
 	return user, nil
 }
 
-// MAUVAIS: Proxy avec logique metier
+// BAD: Proxy with business logic
 type Order struct {
 	Items []OrderItem
 	Total float64
@@ -524,7 +524,7 @@ type BusinessLogicProxy struct {
 }
 
 func (b *BusinessLogicProxy) CreateOrder(ctx context.Context, order *Order) (*Order, error) {
-	// Calcul de prix = logique metier, pas proxy
+	// Price calculation = business logic, not proxy
 	var total float64
 	for _, item := range order.Items {
 		total += item.Price
@@ -534,7 +534,7 @@ func (b *BusinessLogicProxy) CreateOrder(ctx context.Context, order *Order) (*Or
 }
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```go
 package main
@@ -547,9 +547,9 @@ import (
 func TestImageProxy_LazyLoad(t *testing.T) {
 	proxy := NewImageProxy("test.jpg")
 
-	// Pas encore charge - verifier avec un compteur dans RealImage
+	// Not loaded yet - verify with a counter in RealImage
 
-	// Charge au premier acces
+	// Loaded on first access
 	proxy.Display()
 }
 
@@ -612,21 +612,21 @@ func (m *mockDataService) FetchData(ctx context.Context, key string) (*Data, err
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-| Type | Cas d'usage |
-|------|-------------|
-| Virtual | Objets couteux a creer |
-| Protection | Controle d'acces/permissions |
-| Remote | Appels reseau/RPC |
-| Cache | Optimisation performance |
+| Type | Use Case |
+|------|----------|
+| Virtual | Expensive objects to create |
+| Protection | Access control/permissions |
+| Remote | Network/RPC calls |
+| Cache | Performance optimization |
 | Logging | Debug, monitoring |
 
-## Patterns lies
+## Related Patterns
 
-- **Decorator** : Ajoute des comportements vs controle acces
-- **Adapter** : Change l'interface vs meme interface
-- **Facade** : Simplifie vs controle
+- **Decorator**: Adds behaviors vs controls access
+- **Adapter**: Changes the interface vs same interface
+- **Facade**: Simplifies vs controls
 
 ## Sources
 

@@ -1,6 +1,6 @@
 # Entity Pattern
 
-> Objet domaine avec une identité distincte qui persiste à travers le temps et les différentes représentations.
+> Domain object with a distinct identity that persists through time and different representations.
 
 ## Definition
 
@@ -99,7 +99,7 @@ type User struct {
 func NewUser(email Email, name Name) User {
 	id := NewUserID()
 	now := time.Now()
-	
+
 	return User{
 		Entity:    NewEntity(id),
 		email:     email,
@@ -206,7 +206,7 @@ func ChangeEmail(user User, newEmail Email) (User, error) {
 	if user.Status == UserStatusDeactivated {
 		return User{}, errors.New("cannot change email of deactivated user")
 	}
-	
+
 	return User{
 		ID:        user.ID,
 		Email:     newEmail,
@@ -222,7 +222,7 @@ func Deactivate(user User) (User, error) {
 	if user.Status == UserStatusDeactivated {
 		return User{}, errors.New("user already deactivated")
 	}
-	
+
 	return User{
 		ID:        user.ID,
 		Email:     user.Email,
@@ -262,7 +262,7 @@ func Deactivate(user User) (User, error) {
    type User struct {
        ID string
    }
-   
+
    // GOOD
    type User struct {
        ID UserID
@@ -274,7 +274,7 @@ func Deactivate(user User) (User, error) {
    ```go
    // BAD - No validation
    user.Status = UserStatusDeactivated
-   
+
    // GOOD - Controlled transition
    err := user.Deactivate()
    ```
@@ -284,19 +284,19 @@ func Deactivate(user User) (User, error) {
    ```go
    // BAD
    user1.Email == user2.Email
-   
+
    // GOOD
    user1.ID().Equals(user2.ID())
    ```
 
-## Quand utiliser
+## When to Use
 
-- L'objet doit être suivi dans le temps
-- L'objet a un cycle de vie (création, modification, suppression)
-- Deux objets avec les mêmes attributs doivent être distinguables
-- Les opérations métier dépendent de l'historique de l'objet
+- The object must be tracked over time
+- The object has a lifecycle (creation, modification, deletion)
+- Two objects with the same attributes must be distinguishable
+- Business operations depend on the object's history
 
-## Patterns liés
+## Related Patterns
 
 - [Value Object](./value-object.md) - For objects defined by attributes
 - [Aggregate](./aggregate.md) - For clustering entities

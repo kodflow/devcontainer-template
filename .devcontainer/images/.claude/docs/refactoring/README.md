@@ -1,23 +1,23 @@
 # Refactoring Patterns
 
-Patterns pour améliorer et migrer du code existant de manière sûre.
+Patterns for safely improving and migrating existing code.
 
 ---
 
-## Patterns documentés
+## Documented Patterns
 
-| Pattern | Fichier | Usage |
-|---------|---------|-------|
-| Branch by Abstraction | [branch-by-abstraction.md](branch-by-abstraction.md) | Migration progressive sur trunk |
-| Strangler Fig | (cloud/strangler.md) | Remplacement système legacy |
-| Parallel Run | [branch-by-abstraction.md](branch-by-abstraction.md#parallel-run) | Tester deux implémentations |
-| Dark Launch | [branch-by-abstraction.md](branch-by-abstraction.md#dark-launch) | Feature invisible en prod |
+| Pattern | File | Usage |
+|---------|------|-------|
+| Branch by Abstraction | [branch-by-abstraction.md](branch-by-abstraction.md) | Progressive migration on trunk |
+| Strangler Fig | (cloud/strangler.md) | Legacy system replacement |
+| Parallel Run | [branch-by-abstraction.md](branch-by-abstraction.md#parallel-run) | Testing two implementations |
+| Dark Launch | [branch-by-abstraction.md](branch-by-abstraction.md#dark-launch) | Invisible feature in production |
 
 ---
 
 ## 1. Branch by Abstraction
 
-> Migrer une implémentation vers une autre sans branches Git longues.
+> Migrate an implementation to another without long-lived Git branches.
 
 ```go
 package payment
@@ -41,12 +41,12 @@ type Result struct {
 	Error       error
 }
 
-// Étape 1: Créer abstraction
+// Step 1: Create abstraction
 type PaymentProcessor interface {
 	Charge(ctx context.Context, amount Money) (*Result, error)
 }
 
-// Étape 2: Ancienne implémentation
+// Step 2: Old implementation
 type StripeProcessor struct {
 	apiKey string
 }
@@ -56,7 +56,7 @@ func NewStripeProcessor(apiKey string) *StripeProcessor {
 }
 
 func (s *StripeProcessor) Charge(ctx context.Context, amount Money) (*Result, error) {
-	// Ancienne logique Stripe
+	// Old Stripe logic
 	return &Result{
 		ID:     "stripe_123",
 		Status: "success",
@@ -64,7 +64,7 @@ func (s *StripeProcessor) Charge(ctx context.Context, amount Money) (*Result, er
 	}, nil
 }
 
-// Étape 3: Nouvelle implémentation
+// Step 3: New implementation
 type AdyenProcessor struct {
 	apiKey string
 }
@@ -74,7 +74,7 @@ func NewAdyenProcessor(apiKey string) *AdyenProcessor {
 }
 
 func (a *AdyenProcessor) Charge(ctx context.Context, amount Money) (*Result, error) {
-	// Nouvelle logique Adyen
+	// New Adyen logic
 	return &Result{
 		ID:     "adyen_456",
 		Status: "success",
@@ -88,7 +88,7 @@ type FeatureToggle interface {
 	RolloutPercentage(ctx context.Context, feature string) int
 }
 
-// Étape 4: Factory pour router
+// Step 4: Factory for routing
 type PaymentFactory struct {
 	stripeKey string
 	adyenKey  string
@@ -110,23 +110,23 @@ func (f *PaymentFactory) Create(ctx context.Context) PaymentProcessor {
 	return NewStripeProcessor(f.stripeKey)
 }
 
-// Étape 5: Rollout progressif
+// Step 5: Progressive rollout
 // 1% → 10% → 50% → 100%
-// Configuration dans FeatureToggle
+// Configuration in FeatureToggle
 
-// Étape 6: Supprimer l'ancienne implémentation
-// Une fois le rollout à 100%, supprimer StripeProcessor
+// Step 6: Remove the old implementation
+// Once rollout reaches 100%, remove StripeProcessor
 ```
 
-**Quand :** Remplacer une dépendance, refactorer un module, migrer une API.
+**When:** Replacing a dependency, refactoring a module, migrating an API.
 
-**Lié à :** Feature Toggle, Adapter, Strategy
+**Related to:** Feature Toggle, Adapter, Strategy
 
 ---
 
 ## 2. Strangler Fig
 
-> Remplacer progressivement un système legacy par un nouveau.
+> Progressively replace a legacy system with a new one.
 
 ```go
 package order
@@ -165,7 +165,7 @@ type FeatureFlags interface {
 	IsEnabled(ctx context.Context, feature string) bool
 }
 
-// Façade qui route vers legacy ou nouveau
+// Facade that routes to legacy or new
 type OrderFacade struct {
 	legacySystem LegacyOrderSystem
 	newService   NewOrderService
@@ -192,7 +192,7 @@ func (o *OrderFacade) CreateOrder(ctx context.Context, data OrderData) (*Order, 
 		}
 		return order, nil
 	}
-	
+
 	order, err := o.legacySystem.CreateOrder(ctx, data)
 	if err != nil {
 		return nil, fmt.Errorf("legacy order system: %w", err)
@@ -201,22 +201,22 @@ func (o *OrderFacade) CreateOrder(ctx context.Context, data OrderData) (*Order, 
 }
 
 func (o *OrderFacade) canUseNewSystem(ctx context.Context, data OrderData) bool {
-	// Critères de migration progressifs
+	// Progressive migration criteria
 	return data.Region == "EU" &&
 		data.Total < 10000 &&
 		o.features.IsEnabled(ctx, "new-order-system")
 }
 ```
 
-**Quand :** Migrer un monolithe, remplacer un système legacy.
+**When:** Migrating a monolith, replacing a legacy system.
 
-**Lié à :** Branch by Abstraction, Anti-Corruption Layer
+**Related to:** Branch by Abstraction, Anti-Corruption Layer
 
 ---
 
 ## 3. Parallel Run
 
-> Exécuter deux implémentations en parallèle et comparer les résultats.
+> Run two implementations in parallel and compare results.
 
 ```go
 package processor
@@ -278,13 +278,13 @@ func (p *ParallelProcessor) Process(ctx context.Context, data Data) (*ProcessRes
 
 	g, gctx := errgroup.WithContext(ctx)
 
-	// Exécuter legacy
+	// Run legacy
 	g.Go(func() error {
 		legacyResult, legacyErr = p.legacy.Process(gctx, data)
 		return legacyErr
 	})
 
-	// Exécuter modern (ne pas propager l'erreur)
+	// Run modern (do not propagate error)
 	g.Go(func() error {
 		modernResult, modernErr = p.modern.Process(gctx, data)
 		if modernErr != nil {
@@ -292,29 +292,29 @@ func (p *ParallelProcessor) Process(ctx context.Context, data Data) (*ProcessRes
 				"error", modernErr,
 				"data_id", data.ID)
 		}
-		return nil // Ne pas bloquer le legacy
+		return nil // Do not block legacy
 	})
 
-	// Attendre les deux
+	// Wait for both
 	if err := g.Wait(); err != nil {
 		return nil, fmt.Errorf("legacy processor: %w", err)
 	}
 
-	// Comparer en arrière-plan
+	// Compare in the background
 	go p.compare.Compare(context.Background(), legacyResult, modernResult)
 
-	// Retourner le résultat de confiance (legacy)
+	// Return the trusted result (legacy)
 	return legacyResult, nil
 }
 ```
 
-**Quand :** Valider une nouvelle implémentation en production.
+**When:** Validating a new implementation in production.
 
 ---
 
 ## 4. Dark Launch
 
-> Activer du code en production sans exposer le résultat.
+> Activate code in production without exposing the result.
 
 ```go
 package feature
@@ -367,18 +367,18 @@ func NewDarkLaunchFeature(
 }
 
 func (d *DarkLaunchFeature) Process(ctx context.Context, data Data) (*Result, error) {
-	// Exécuter le code legacy (celui de confiance)
+	// Run legacy code (the trusted one)
 	result, err := d.legacy.Process(ctx, data)
 	if err != nil {
 		return nil, err
 	}
 
-	// Exécuter le nouveau code sans utiliser le résultat
-	// Ne pas bloquer la réponse, ne pas propager les erreurs
+	// Run the new code without using the result
+	// Do not block the response, do not propagate errors
 	go func() {
-		// Créer un nouveau contexte pour éviter l'annulation
+		// Create a new context to avoid cancellation
 		bgCtx := context.Background()
-		
+
 		modernResult, modernErr := d.modern.Process(bgCtx, data)
 		if modernErr != nil {
 			d.logger.Error("dark launch error",
@@ -387,7 +387,7 @@ func (d *DarkLaunchFeature) Process(ctx context.Context, data Data) (*Result, er
 			return
 		}
 
-		// Enregistrer les métriques
+		// Record metrics
 		d.metrics.Record(bgCtx, modernResult)
 	}()
 
@@ -395,40 +395,40 @@ func (d *DarkLaunchFeature) Process(ctx context.Context, data Data) (*Result, er
 }
 ```
 
-**Quand :** Tester la charge et les performances avant activation.
+**When:** Testing load and performance before activation.
 
 ---
 
-## Tableau de décision
+## Decision Table
 
-| Besoin | Pattern |
-|--------|---------|
-| Remplacer une dépendance | Branch by Abstraction |
-| Migrer un système legacy | Strangler Fig |
-| Valider en production | Parallel Run |
-| Tester la charge | Dark Launch |
-| Rollback instantané | Feature Toggle |
-| Migration base de données | Double-Write + Switch |
+| Need | Pattern |
+|------|---------|
+| Replace a dependency | Branch by Abstraction |
+| Migrate a legacy system | Strangler Fig |
+| Validate in production | Parallel Run |
+| Test the load | Dark Launch |
+| Instant rollback | Feature Toggle |
+| Database migration | Double-Write + Switch |
 
 ---
 
-## Workflow de migration type
+## Typical Migration Workflow
 
 ```
-1. Créer l'abstraction (interface)
+1. Create the abstraction (interface)
        │
-2. Implémenter le nouveau code
+2. Implement the new code
        │
-3. Double-write (si données)
+3. Double-write (if data)
        │
 4. Parallel Run (validation)
        │
 5. Feature Toggle (rollout)
        │  0% → 1% → 10% → 50% → 100%
        │
-6. Supprimer l'ancien code
+6. Remove the old code
        │
-7. Supprimer le toggle
+7. Remove the toggle
 ```
 
 ---

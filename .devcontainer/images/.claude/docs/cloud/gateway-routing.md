@@ -1,8 +1,8 @@
 # Gateway Routing Pattern
 
-> Router les requetes vers les services backend appropries.
+> Route requests to the appropriate backend services.
 
-## Principe
+## Principle
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -23,17 +23,17 @@
     └─────────┘    └─────────┘     └─────────┘     └─────────┘
 ```
 
-## Types de routage
+## Routing Types
 
-| Type | Description | Exemple |
+| Type | Description | Example |
 |------|-------------|---------|
-| **Path-based** | Route selon le chemin URL | `/api/users/*` → User Service |
-| **Header-based** | Route selon headers | `X-Version: 2` → API v2 |
-| **Query-based** | Route selon query params | `?region=eu` → EU cluster |
-| **Method-based** | Route selon methode HTTP | `POST /orders` → Write Service |
-| **Weight-based** | Distribution ponderee | 90% stable, 10% canary |
+| **Path-based** | Route by URL path | `/api/users/*` -> User Service |
+| **Header-based** | Route by headers | `X-Version: 2` -> API v2 |
+| **Query-based** | Route by query params | `?region=eu` -> EU cluster |
+| **Method-based** | Route by HTTP method | `POST /orders` -> Write Service |
+| **Weight-based** | Weighted distribution | 90% stable, 10% canary |
 
-## Exemple Go
+## Go Example
 
 ```go
 package gateway
@@ -78,27 +78,27 @@ func (gr *GatewayRouter) AddRule(rule *RoutingRule) *GatewayRouter {
 // Route routes a request to the appropriate backend.
 func (gr *GatewayRouter) Route(w http.ResponseWriter, r *http.Request) {
 	matchedRules := make([]*RoutingRule, 0)
-	
+
 	for _, rule := range gr.rules {
 		if rule.Match(r) {
 			matchedRules = append(matchedRules, rule)
 		}
 	}
-	
+
 	if len(matchedRules) == 0 {
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	}
-	
+
 	// Select rule by weight
 	selectedRule := gr.selectByWeight(matchedRules)
-	
+
 	// Transform request if needed
 	targetReq := r
 	if selectedRule.Transform != nil {
 		targetReq = selectedRule.Transform(r)
 	}
-	
+
 	// Forward to target
 	gr.forward(w, targetReq, selectedRule.Target)
 }
@@ -108,16 +108,16 @@ func (gr *GatewayRouter) selectByWeight(rules []*RoutingRule) *RoutingRule {
 	for _, r := range rules {
 		totalWeight += r.Weight
 	}
-	
+
 	random := rand.Intn(totalWeight)
-	
+
 	for _, rule := range rules {
 		random -= rule.Weight
 		if random < 0 {
 			return rule
 		}
 	}
-	
+
 	return rules[0]
 }
 
@@ -127,75 +127,75 @@ func (gr *GatewayRouter) forward(w http.ResponseWriter, r *http.Request, target 
 		http.Error(w, "Invalid target URL", http.StatusInternalServerError)
 		return
 	}
-	
+
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 	proxy.ServeHTTP(w, r)
 }
 ```
 
-## Configuration des routes
+## Route Configuration
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
-## Strategies avancees
+## Advanced Strategies
 
 ### A/B Testing
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
 ### Blue-Green Deployment
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
 ### Circuit Breaker Integration
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
 ## Anti-patterns
 
-| Anti-pattern | Probleme | Solution |
-|--------------|----------|----------|
-| Regles trop specifiques | Maintenance difficile | Grouper par service |
-| Logique metier | Couplage gateway/domaine | Routage technique seulement |
-| Sans fallback | Echec silencieux | Route par defaut + monitoring |
-| Ordre non deterministe | Comportement imprevisible | Priorite explicite |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| Overly specific rules | Difficult maintenance | Group by service |
+| Business logic | Gateway/domain coupling | Technical routing only |
+| No fallback | Silent failure | Default route + monitoring |
+| Non-deterministic order | Unpredictable behavior | Explicit priority |
 
-## Quand utiliser
+## When to Use
 
-- Architecture microservices avec point d'entree unique
-- Versionning d'API avec routage vers differentes versions
-- Deploiements canary ou blue-green necessitant du traffic splitting
-- Migration progressive entre systemes legacy et nouveaux services
-- Load balancing intelligent base sur des criteres metier
+- Microservices architecture with a single entry point
+- API versioning with routing to different versions
+- Canary or blue-green deployments requiring traffic splitting
+- Progressive migration between legacy systems and new services
+- Intelligent load balancing based on business criteria
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Gateway Aggregation | Complementaire |
-| Gateway Offloading | Complementaire |
-| Service Discovery | Resolution dynamique |
-| Load Balancer | Distribution intra-service |
+| Gateway Aggregation | Complementary |
+| Gateway Offloading | Complementary |
+| Service Discovery | Dynamic resolution |
+| Load Balancer | Intra-service distribution |
 
 ## Sources
 

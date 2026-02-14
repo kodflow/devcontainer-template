@@ -1,21 +1,21 @@
 # Static Content Hosting Pattern
 
-> Servir les assets statiques depuis un CDN ou storage dedie pour performance et scalabilite.
+> Serve static assets from a CDN or dedicated storage for performance and scalability.
 
-## Principe
+## Principle
 
 ```
                     ┌─────────────────────────────────────────────┐
                     │          STATIC CONTENT HOSTING              │
                     └─────────────────────────────────────────────┘
 
-  SANS (app sert tout):
+  WITHOUT (app serves everything):
   ┌────────┐   /api/data     ┌─────────┐
   │ Client │ ───────────────▶│   App   │  CPU: API + assets
-  └────────┘   /img/logo.png │ Server  │  Bandwidth: sature
+  └────────┘   /img/logo.png │ Server  │  Bandwidth: saturated
                /css/app.css  └─────────┘
 
-  AVEC (separation):
+  WITH (separation):
   ┌────────┐   /api/data     ┌─────────┐
   │ Client │ ───────────────▶│   App   │  CPU: API only
   └────────┘                 └─────────┘
@@ -25,7 +25,7 @@
                              │ (cache) │     │ (origin)│
                              └─────────┘     └─────────┘
 
-  Architecture CDN:
+  CDN Architecture:
                         ┌───────────────┐
                         │    Origin     │
                         │  (S3/Blob)    │
@@ -42,7 +42,7 @@
        └─────────┘         └─────────┘         └─────────┘
 ```
 
-## Configuration TypeScript
+## Go Configuration
 
 ```go
 package staticcontent
@@ -96,7 +96,7 @@ func (scs *StaticContentService) GetHashedURL(path, hash string) string {
 			break
 		}
 	}
-	
+
 	return fmt.Sprintf("https://%s/%s.%s%s", scs.config.CDNDomain, path, hash, ext)
 }
 
@@ -145,7 +145,7 @@ func (au *AssetUploader) UploadWithHash(
 	contentType string,
 ) (string, error) {
 	hash := au.computeHash(content)
-	
+
 	// Extract extension
 	ext := ""
 	base := originalPath
@@ -156,9 +156,9 @@ func (au *AssetUploader) UploadWithHash(
 			break
 		}
 	}
-	
+
 	hashedPath := fmt.Sprintf("%s.%s%s", base, hash, ext)
-	
+
 	return au.UploadAsset(hashedPath, content, contentType, true)
 }
 
@@ -170,43 +170,43 @@ func (au *AssetUploader) computeHash(content []byte) string {
 }
 ```
 
-## Upload avec metadata cache
+## Upload with cache metadata
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
 ## Build pipeline integration
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
 ## Cache strategies
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Headers de securite
+## Security headers
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Services cloud
+## Cloud Services
 
 | Service | Provider | Features |
 |---------|----------|----------|
@@ -216,33 +216,33 @@ func (au *AssetUploader) computeHash(content []byte) string {
 | Cloudflare | - | Workers, R2 storage |
 | Fastly | - | Instant purge, VCL |
 
-## Invalidation cache
+## Cache Invalidation
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
-|-----------|------------|
-| Assets frontend (JS, CSS, images) | Oui |
-| Media/video streaming | Oui |
-| Audience geographiquement distribuee | Oui |
-| Contenu personnalise par user | Non (ou avec edge compute) |
-| Donnees temps reel | Non |
+| Situation | Recommended |
+|-----------|-------------|
+| Frontend assets (JS, CSS, images) | Yes |
+| Media/video streaming | Yes |
+| Geographically distributed audience | Yes |
+| Personalized content per user | No (or with edge compute) |
+| Real-time data | No |
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Valet Key | Upload direct |
-| Cache-Aside | Caching dynamique |
+| Valet Key | Direct upload |
+| Cache-Aside | Dynamic caching |
 | Backends for Frontends | API + static separation |
-| Gateway Offloading | Decharger l'app server |
+| Gateway Offloading | Offload the app server |
 
 ## Sources
 

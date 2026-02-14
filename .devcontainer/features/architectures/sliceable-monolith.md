@@ -1,22 +1,22 @@
 # Sliceable Monolith
 
-> **DEFAULT RECOMMANDÉ** pour projets backend/API scalables
+> **RECOMMENDED DEFAULT** for scalable backend/API projects
 
 ## Concept
 
-Monolithe modulaire où chaque domaine peut être extrait et déployé indépendamment.
+Modular monolith where each domain can be extracted and deployed independently.
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Adaptation |
+| Language | Suitability |
 |---------|-----------|
-| **Go** | Excellent - modules natifs |
+| **Go** | Excellent - native modules |
 | **Java** | Excellent - Spring Modulith |
-| **Node.js/TS** | Très bon - workspaces |
-| **Rust** | Très bon - workspace Cargo |
-| **Python** | Bon - packages |
-| **Scala** | Bon - sbt multi-project |
-| **Elixir** | Bon - umbrella apps |
+| **Node.js/TS** | Very good - workspaces |
+| **Rust** | Very good - Cargo workspace |
+| **Python** | Good - packages |
+| **Scala** | Good - sbt multi-project |
+| **Elixir** | Good - umbrella apps |
 
 ## Structure
 
@@ -44,59 +44,59 @@ Monolithe modulaire où chaque domaine peut être extrait et déployé indépend
     └── k8s/
 ```
 
-## Avantages
+## Advantages
 
-- Dev simple (monorepo, un build)
-- Scale granulaire (extrait ce qui en a besoin)
-- Pas de duplication (shared kernel)
-- Migration progressive (pas de big bang)
-- Tests intégrés faciles
-- Refactoring sûr (tout dans un repo)
+- Simple dev (monorepo, one build)
+- Granular scaling (extract what needs it)
+- No duplication (shared kernel)
+- Progressive migration (no big bang)
+- Easy integrated tests
+- Safe refactoring (everything in one repo)
 
-## Inconvénients
+## Disadvantages
 
-- Discipline requise (boundaries strictes)
-- Complexité initiale plus élevée
-- Nécessite conventions d'équipe
-- Shared kernel = couplage potentiel
+- Discipline required (strict boundaries)
+- Higher initial complexity
+- Requires team conventions
+- Shared kernel = potential coupling
 
-## Contraintes
+## Constraints
 
-- Chaque domain DOIT être autonome
-- Communication inter-domain via events/interfaces
-- Pas d'import direct entre domains
-- Shared kernel minimal et stable
-- Chaque domain a son propre Dockerfile
+- Each domain MUST be autonomous
+- Inter-domain communication via events/interfaces
+- No direct imports between domains
+- Shared kernel minimal and stable
+- Each domain has its own Dockerfile
 
-## Règles
+## Rules
 
-1. Un domain ne peut PAS importer un autre domain directement
+1. A domain CANNOT directly import another domain
 2. Communication via shared kernel (events, interfaces)
-3. Chaque domain expose une API publique claire
-4. Infrastructure par domain (pas de DB partagée)
-5. Tests par domain + tests d'intégration globaux
+3. Each domain exposes a clear public API
+4. Infrastructure per domain (no shared DB)
+5. Tests per domain + global integration tests
 
-## Commandes
+## Commands
 
 ```bash
-make build                    # Monolithe complet
-make build-domain D=billing   # Domain seul
-make extract D=billing        # Prépare extraction
-make test                     # Tests tous domains
-make test-domain D=billing    # Tests un domain
+make build                    # Full monolith
+make build-domain D=billing   # Single domain
+make extract D=billing        # Prepare extraction
+make test                     # Tests all domains
+make test-domain D=billing    # Tests one domain
 ```
 
-## Quand utiliser
+## When to Use
 
-- Projet qui va scaler mais incertain où
-- Équipe moyenne (3-15 devs)
-- Besoin de flexibilité déploiement
-- Domaines métier clairs
-- Budget K8s/infra variable
+- Project that will scale but uncertain where
+- Medium team (3-15 devs)
+- Need for deployment flexibility
+- Clear business domains
+- Variable K8s/infra budget
 
-## Quand éviter
+## When to Avoid
 
-- Petit projet/POC (trop de structure)
-- Équipe énorme (>30) avec ownership clair → microservices
-- Script/CLI simple → Flat
-- Web traditionnel PHP/Ruby → MVC
+- Small project/POC (too much structure)
+- Huge team (>30) with clear ownership -> microservices
+- Simple script/CLI -> Flat
+- Traditional web PHP/Ruby -> MVC

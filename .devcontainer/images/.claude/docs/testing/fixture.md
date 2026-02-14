@@ -1,8 +1,8 @@
 # Test Fixtures
 
-> Configuration et donnees partagees pour les tests.
+> Shared configuration and data for tests.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -516,7 +516,7 @@ func TestWithGlobalFixture(t *testing.T) {
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
@@ -524,19 +524,19 @@ func TestWithGlobalFixture(t *testing.T) {
 | `github.com/testcontainers/testcontainers-go` | Container-based fixtures |
 | `github.com/stretchr/testify/suite` | Test suite pattern |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Setup dans chaque test | Tests lents | TestMain pour setup couteux |
-| Pas de cleanup | State leak entre tests | defer Teardown() |
-| Fixtures mutables partagees | Tests dependants | Reset ou copie profonde |
-| Ordre des tests compte | Flaky tests | Isolation complete |
-| Fixtures trop grosses | Slow tests | Fixtures minimales par suite |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Setup in each test | Slow tests | TestMain for expensive setup |
+| No cleanup | State leak between tests | defer Teardown() |
+| Shared mutable fixtures | Dependent tests | Reset or deep copy |
+| Test order matters | Flaky tests | Complete isolation |
+| Oversized fixtures | Slow tests | Minimal fixtures per suite |
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Type de Fixture |
+| Scenario | Fixture Type |
 |----------|-----------------|
 | Database tests | Transaction rollback |
 | API tests | HTTP server fixture |
@@ -544,11 +544,11 @@ func TestWithGlobalFixture(t *testing.T) {
 | Per-test isolation | Scoped fixtures |
 | Shared expensive resources | TestMain setup |
 
-## Patterns lies
+## Related Patterns
 
-- **Object Mother** : Factory pour objets de fixture
-- **Test Data Builder** : Construction fluide de fixtures
-- **Test Containers** : Fixtures avec containers Docker
+- **Object Mother**: Factory for fixture objects
+- **Test Data Builder**: Fluent fixture construction
+- **Test Containers**: Fixtures with Docker containers
 
 ## Sources
 

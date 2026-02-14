@@ -39,16 +39,16 @@ $ARGUMENTS
 
 ## Overview
 
-Automatisation Git avec patterns **RLM** :
+Git automation with **RLM** patterns:
 
-- **Identity** - Vérifier/configurer l'identité git via `.env`
-- **Peek** - Analyser l'état git avant action
-- **Decompose** - Identifier les fichiers par catégorie
-- **Parallelize** - Checks en parallèle (lint, test, CI)
-- **Context** - `/warmup --update` sur fichiers modifiés (branch diff)
-- **Synthesize** - Rapport consolidé
+- **Identity** - Verify/configure git identity via `.env`
+- **Peek** - Analyze git state before action
+- **Decompose** - Identify files by category
+- **Parallelize** - Parallel checks (lint, test, CI)
+- **Context** - `/warmup --update` on modified files (branch diff)
+- **Synthesize** - Consolidated report
 
-**Note :** L'identité git (user.name/user.email) est stockée dans `/workspace/.env` et synchronisée automatiquement avec git config à chaque exécution.
+**Note:** The git identity (user.name/user.email) is stored in `/workspace/.env` and automatically synchronized with git config on each execution.
 
 ---
 
@@ -56,27 +56,27 @@ Automatisation Git avec patterns **RLM** :
 
 | Pattern | Action |
 |---------|--------|
-| `--commit` | Workflow complet : branch, commit, push, PR/MR |
-| `--merge` | Merge la PR/MR avec CI validation |
-| `--help` | Affiche l'aide |
+| `--commit` | Full workflow: branch, commit, push, PR/MR |
+| `--merge` | Merge the PR/MR with CI validation |
+| `--help` | Display help |
 
 ### Options --commit
 
 | Option | Action |
 |--------|--------|
-| `--branch <nom>` | Force le nom de branche |
-| `--no-pr` | Skip la création de PR/MR |
-| `--amend` | Amend le dernier commit |
-| `--skip-identity` | Skip la vérification d'identité git |
+| `--branch <name>` | Force the branch name |
+| `--no-pr` | Skip PR/MR creation |
+| `--amend` | Amend the last commit |
+| `--skip-identity` | Skip git identity verification |
 
 ### Options --merge
 
 | Option | Action |
 |--------|--------|
-| `--pr <number>` | Merge une PR spécifique (GitHub) |
-| `--mr <number>` | Merge une MR spécifique (GitLab) |
-| `--strategy <type>` | Méthode: merge/squash/rebase (défaut: squash) |
-| `--dry-run` | Vérifier sans merger |
+| `--pr <number>` | Merge a specific PR (GitHub) |
+| `--mr <number>` | Merge a specific MR (GitLab) |
+| `--strategy <type>` | Method: merge/squash/rebase (default: squash) |
+| `--dry-run` | Verify without merging |
 
 ---
 
@@ -90,133 +90,133 @@ Automatisation Git avec patterns **RLM** :
 Usage: /git <action> [options]
 
 Actions:
-  --commit          Workflow complet (branch, commit, push, PR/MR)
-  --merge           Merge avec CI validation et auto-fix
+  --commit          Full workflow (branch, commit, push, PR/MR)
+  --merge           Merge with CI validation and auto-fix
 
 RLM Patterns:
-  0.5. Identity    - Vérifier/configurer git user via .env
-  1. Peek          - Analyser état git
-  2. Decompose     - Catégoriser fichiers
-  3. Parallelize   - Checks simultanés
+  0.5. Identity    - Verify/configure git user via .env
+  1. Peek          - Analyze git state
+  2. Decompose     - Categorize files
+  3. Parallelize   - Simultaneous checks
   3.8. Context     - /warmup --update (branch diff, 5min staleness)
-  4. Synthesize    - Rapport consolidé
+  4. Synthesize    - Consolidated report
 
 Options --commit:
-  --branch <nom>    Force le nom de branche
-  --no-pr           Skip la création de PR/MR
-  --amend           Amend le dernier commit
-  --skip-identity   Skip la vérification d'identité
+  --branch <name>   Force the branch name
+  --no-pr           Skip PR/MR creation
+  --amend           Amend the last commit
+  --skip-identity   Skip identity verification
 
 Options --merge:
-  --pr <number>     Merge une PR spécifique (GitHub)
-  --mr <number>     Merge une MR spécifique (GitLab)
-  --strategy <type> Méthode: merge/squash/rebase (défaut: squash)
-  --dry-run         Vérifier sans merger
+  --pr <number>     Merge a specific PR (GitHub)
+  --mr <number>     Merge a specific MR (GitLab)
+  --strategy <type> Method: merge/squash/rebase (default: squash)
+  --dry-run         Verify without merging
 
 Identity (.env):
-  - GIT_USER et GIT_EMAIL stockés dans /workspace/.env
-  - Synchronisé automatiquement avec git config
-  - Demandé à l'utilisateur si absent
+  - GIT_USER and GIT_EMAIL stored in /workspace/.env
+  - Automatically synchronized with git config
+  - Prompted to user if missing
 
-Exemples:
-  /git --commit                 Commit + PR automatique
-  /git --commit --no-pr         Commit sans créer de PR
-  /git --commit --skip-identity Skip vérification identité
-  /git --merge                  Merge la PR/MR courante
-  /git --merge --pr 42          Merge la PR #42
+Examples:
+  /git --commit                 Automatic commit + PR
+  /git --commit --no-pr         Commit without creating PR
+  /git --commit --skip-identity Skip identity verification
+  /git --merge                  Merge current PR/MR
+  /git --merge --pr 42          Merge PR #42
 
 ═══════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Priorité MCP vs CLI
+## MCP vs CLI Priority
 
-**IMPORTANT** : Toujours privilégier les outils MCP quand disponibles.
+**IMPORTANT**: Always prefer MCP tools when available.
 
-**Platform auto-détectée :** `git remote get-url origin` → github.com | gitlab.*
+**Platform auto-detected:** `git remote get-url origin` → github.com | gitlab.*
 
 ### GitHub (PRs)
 
-| Action | Priorité 1 (MCP) | Fallback (CLI) |
+| Action | Priority 1 (MCP) | Fallback (CLI) |
 |--------|------------------|----------------|
-| Créer branche | `mcp__github__create_branch` | `git checkout -b` |
-| Créer PR | `mcp__github__create_pull_request` | `gh pr create` |
-| Lister PRs | `mcp__github__list_pull_requests` | `gh pr list` |
-| Voir PR | `mcp__github__get_pull_request` | `gh pr view` |
-| Status CI | `mcp__github__get_pull_request_status` | `gh pr checks` |
-| Merger PR | `mcp__github__merge_pull_request` | `gh pr merge` |
+| Create branch | `mcp__github__create_branch` | `git checkout -b` |
+| Create PR | `mcp__github__create_pull_request` | `gh pr create` |
+| List PRs | `mcp__github__list_pull_requests` | `gh pr list` |
+| View PR | `mcp__github__get_pull_request` | `gh pr view` |
+| CI Status | `mcp__github__get_pull_request_status` | `gh pr checks` |
+| Merge PR | `mcp__github__merge_pull_request` | `gh pr merge` |
 
 ### GitLab (MRs)
 
-| Action | Priorité 1 (MCP) | Fallback (CLI) |
+| Action | Priority 1 (MCP) | Fallback (CLI) |
 |--------|------------------|----------------|
-| Créer branche | `git checkout -b` + push | `git checkout -b` |
-| Créer MR | `mcp__gitlab__create_merge_request` | `glab mr create` |
-| Lister MRs | `mcp__gitlab__list_merge_requests` | `glab mr list` |
-| Voir MR | `mcp__gitlab__get_merge_request` | `glab mr view` |
-| Status CI | `mcp__gitlab__list_pipelines` | `glab ci status` |
-| Merger MR | `mcp__gitlab__merge_merge_request` | `glab mr merge` |
+| Create branch | `git checkout -b` + push | `git checkout -b` |
+| Create MR | `mcp__gitlab__create_merge_request` | `glab mr create` |
+| List MRs | `mcp__gitlab__list_merge_requests` | `glab mr list` |
+| View MR | `mcp__gitlab__get_merge_request` | `glab mr view` |
+| CI Status | `mcp__gitlab__list_pipelines` | `glab ci status` |
+| Merge MR | `mcp__gitlab__merge_merge_request` | `glab mr merge` |
 
 ---
 
 ## Action: --commit
 
-### Phase 1.0 : Git Identity Validation (OBLIGATOIRE)
+### Phase 1.0: Git Identity Validation (MANDATORY)
 
-**Vérifier et configurer l'identité git AVANT toute action :**
+**Verify and configure git identity BEFORE any action:**
 
 ```yaml
 identity_validation:
   env_file: "/workspace/.env"
 
   1_check_env:
-    action: "Vérifier si .env existe et contient GIT_USER/GIT_EMAIL"
+    action: "Check if .env exists and contains GIT_USER/GIT_EMAIL"
     tool: Read("/workspace/.env")
-    fallback: "Fichier non trouvé → créer"
+    fallback: "File not found → create"
 
   2_extract_or_ask:
     rule: |
-      SI .env existe ET contient GIT_USER ET GIT_EMAIL:
+      IF .env exists AND contains GIT_USER AND GIT_EMAIL:
         user = extract(GIT_USER)
         email = extract(GIT_EMAIL)
-      SINON:
-        → AskUserQuestion (voir ci-dessous)
-        → Créer/Mettre à jour .env
+      ELSE:
+        → AskUserQuestion (see below)
+        → Create/Update .env
 
   3_verify_git_config:
-    action: "Comparer avec git config actuel"
+    action: "Compare with current git config"
     commands:
       - "git config user.name"
       - "git config user.email"
     decision:
-      if_match: "→ Continuer vers Phase 1"
-      if_mismatch: "→ Corriger git config"
+      if_match: "→ Continue to Phase 1"
+      if_mismatch: "→ Fix git config"
 
   4_fix_if_needed:
-    action: "Appliquer la configuration correcte"
+    action: "Apply the correct configuration"
     commands:
       - "git config user.name '{user}'"
       - "git config user.email '{email}'"
 
   5_check_gpg:
-    action: "Vérifier si GPG signing est configuré"
+    action: "Check if GPG signing is configured"
     commands:
       - "git config --get commit.gpgsign"
       - "git config --get user.signingkey"
 
   6_configure_gpg_if_missing:
     condition: "commit.gpgsign != true OR user.signingkey is empty"
-    action: "Lister les clés GPG et demander sélection si nécessaire"
+    action: "List GPG keys and prompt for selection if needed"
     workflow:
       1_list_keys: "gpg --list-secret-keys --keyid-format LONG"
       2_find_matching:
-        rule: "Chercher clé correspondant à GIT_EMAIL"
-        action: "grep -B1 '{email}' dans output gpg"
+        rule: "Find key matching GIT_EMAIL"
+        action: "grep -B1 '{email}' in gpg output"
       3_if_no_match_but_keys_exist:
         tool: AskUserQuestion
         questions:
-          - question: "Quelle clé GPG utiliser pour signer les commits ?"
+          - question: "Which GPG key to use for signing commits?"
             header: "GPG Key"
             options: "<dynamically generated from gpg output>"
       4_configure:
@@ -226,31 +226,31 @@ identity_validation:
           - "git config --global tag.forceSignAnnotated true"
 ```
 
-**Question si .env absent ou incomplet :**
+**Prompt if .env is missing or incomplete:**
 
 ```yaml
 ask_identity:
   tool: AskUserQuestion
   questions:
-    - question: "Quel nom utiliser pour les commits git ?"
+    - question: "What name to use for git commits?"
       header: "Git User"
       options:
         - label: "{detected_user}"
-          description: "Détecté depuis git config global"
+          description: "Detected from global git config"
         - label: "{github_user}"
-          description: "Détecté depuis GitHub/GitLab"
-      # L'utilisateur peut aussi entrer "Other" avec valeur custom
+          description: "Detected from GitHub/GitLab"
+      # User can also enter "Other" with custom value
 
-    - question: "Quelle adresse email utiliser pour les commits ?"
+    - question: "What email address to use for commits?"
       header: "Git Email"
       options:
         - label: "{detected_email}"
-          description: "Détecté depuis git config global"
+          description: "Detected from global git config"
         - label: "{noreply_email}"
-          description: "Email noreply GitHub/GitLab"
+          description: "GitHub/GitLab noreply email"
 ```
 
-**Format .env généré/mis à jour :**
+**Generated/updated .env format:**
 
 ```bash
 # Git identity for commits (managed by /git)
@@ -258,7 +258,7 @@ GIT_USER="John Doe"
 GIT_EMAIL="john.doe@example.com"
 ```
 
-**Output Phase 0.5 :**
+**Output Phase 0.5:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -283,7 +283,7 @@ GIT_EMAIL="john.doe@example.com"
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output si correction nécessaire :**
+**Output if correction needed:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -308,7 +308,7 @@ GIT_EMAIL="john.doe@example.com"
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output si .env absent :**
+**Output if .env missing:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -334,36 +334,36 @@ GIT_EMAIL="john.doe@example.com"
 
 ---
 
-### Phase 2.0 : Peek (RLM Pattern)
+### Phase 2.0: Peek (RLM Pattern)
 
-**Analyser l'état git AVANT toute action :**
+**Analyze git state BEFORE any action:**
 
 ```yaml
 peek_workflow:
   1_status:
-    action: "Vérifier l'état du repo (TOUTES les modifications, pas seulement la tâche courante)"
+    action: "Check repo state (ALL modifications, not just current task)"
     commands:
       - "git status --porcelain"
       - "git branch --show-current"
       - "git log -1 --format='%h %s'"
     critical_rule: |
-      LISTER TOUS les fichiers modifiés — y compris CLAUDE.md, .devcontainer/,
-      .claude/commands/. Ne JAMAIS ignorer des fichiers trackés modifiés.
-      git status --porcelain montre TOUT ce qui est tracké et modifié.
-      Les fichiers gitignorés N'APPARAISSENT PAS → pas de risque de les inclure.
+      LIST ALL modified files — including CLAUDE.md, .devcontainer/,
+      .claude/commands/. NEVER ignore tracked modified files.
+      git status --porcelain shows EVERYTHING that is tracked and modified.
+      Gitignored files DO NOT APPEAR → no risk of including them.
 
   2_changes:
-    action: "Analyser les changements"
+    action: "Analyze changes"
     tools: [Bash(git diff --stat)]
 
   3_branch_check:
-    action: "Vérifier la branche courante"
+    action: "Check current branch"
     decision:
       - "main/master → MUST create new branch"
       - "feat/* | fix/* → Check coherence"
 ```
 
-**Output Phase 1 :**
+**Output Phase 1:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -387,9 +387,9 @@ peek_workflow:
 
 ---
 
-### Phase 3.0 : Decompose (RLM Pattern)
+### Phase 3.0: Decompose (RLM Pattern)
 
-**Catégoriser les fichiers modifiés :**
+**Categorize modified files:**
 
 ```yaml
 decompose_workflow:
@@ -419,25 +419,25 @@ decompose_workflow:
       prefix: "fix"
 
   auto_detect:
-    action: "Déduire le type dominant"
+    action: "Infer the dominant type"
     output: "commit_type, scope, branch_name"
 
   gitignore_awareness:
     rule: |
-      AVANT de catégoriser, vérifier le statut gitignore de chaque fichier.
-      Utiliser `git status --porcelain` pour lister TOUS les fichiers modifiés.
-      Les fichiers gitignorés n'apparaissent pas dans git status → pas de risque.
-      Les fichiers trackés modifiés DOIVENT être inclus, même s'ils sont dans .claude/ ou CLAUDE.md.
+      BEFORE categorizing, check the gitignore status of each file.
+      Use `git status --porcelain` to list ALL modified files.
+      Gitignored files do not appear in git status → no risk.
+      Tracked modified files MUST be included, even if they are in .claude/ or CLAUDE.md.
     check: |
-      # Lister TOUTES les modifications (staged + unstaged + untracked non-ignored)
+      # List ALL modifications (staged + unstaged + untracked non-ignored)
       git status --porcelain
-      # Vérifier que rien de tracké n'est oublié après staging
-      git diff --name-only  # Doit être vide après git add -A
+      # Verify that nothing tracked is forgotten after staging
+      git diff --name-only  # Must be empty after git add -A
 ```
 
 ---
 
-### Phase 4.0 : Parallelize (RLM Pattern) - Multi-Language Pre-commit
+### Phase 4.0: Parallelize (RLM Pattern) - Multi-Language Pre-commit
 
 **Auto-detect ALL project languages and run checks for each:**
 
@@ -547,24 +547,24 @@ parallel_checks:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**IMPORTANT** : Run `.claude/scripts/pre-commit-checks.sh` which auto-detects languages.
+**IMPORTANT**: Run `.claude/scripts/pre-commit-checks.sh` which auto-detects languages.
 
 ---
 
-### Phase 5.0 : Secret Scan (1Password Integration)
+### Phase 5.0: Secret Scan (1Password Integration)
 
-**REGLE ABSOLUE : Aucun secret/mot de passe reel ne doit fuiter dans un commit.**
+**ABSOLUTE RULE: No real secret/password must leak into a commit.**
 
-**Politique secrets :**
+**Secrets policy:**
 
-| Type | Action | Exemple |
+| Type | Action | Example |
 |------|--------|---------|
-| Secret reel (token, mdp prod) | **BLOQUER le commit** | `ghp_abc123...`, `postgres://user:realpass@prod/db` |
-| Mot de passe de test | **OK si dans fichier `.example`** | `.env.example`, `config.example.yaml` |
-| Mot de passe de test dans le code | **OK si commente explicitement** | `// TEST ONLY - not a real credential` |
-| Fichier `.env` avec vrais secrets | **JAMAIS committe** | Doit etre dans `.gitignore` |
+| Real secret (token, prod password) | **BLOCK the commit** | `ghp_abc123...`, `postgres://user:realpass@prod/db` |
+| Test password | **OK if in `.example` file** | `.env.example`, `config.example.yaml` |
+| Test password in code | **OK if explicitly commented** | `// TEST ONLY - not a real credential` |
+| `.env` file with real secrets | **NEVER committed** | Must be in `.gitignore` |
 
-**Fichiers `.example` :** Les mots de passe de test dans des fichiers `.example` sont acceptes car ils servent de documentation. Ils DOIVENT avoir un commentaire expliquant que ce sont des valeurs de test :
+**`.example` files:** Test passwords in `.example` files are accepted because they serve as documentation. They MUST have a comment explaining they are test values:
 
 ```bash
 # .env.example - Test/default values only, NOT real credentials
@@ -572,12 +572,12 @@ DB_PASSWORD=test_password_change_me    # TEST ONLY
 API_KEY=sk-test-fake-key-for-dev       # TEST ONLY
 ```
 
-**Scanner les fichiers staged pour des secrets hardcodes :**
+**Scan staged files for hardcoded secrets:**
 
 ```yaml
 secret_scan:
   trigger: "ALWAYS run in parallel with language checks"
-  blocking: true  # BLOQUE le commit si secret reel detecte
+  blocking: true  # BLOCKS the commit if real secret detected
 
   0_policy:
     real_secrets: "BLOCK - never commit real tokens, passwords, API keys"
@@ -592,9 +592,9 @@ secret_scan:
   1b_check_env_not_staged:
     command: "git diff --cached --name-only | grep -E '^\.env$' || true"
     action: |
-      SI .env est staged:
-        BLOQUER le commit
-        Message: ".env contient potentiellement des secrets reels. Utilisez .env.example pour les valeurs par defaut."
+      IF .env is staged:
+        BLOCK the commit
+        Message: ".env potentially contains real secrets. Use .env.example for default values."
 
   2_scan_patterns:
     patterns:
@@ -657,12 +657,12 @@ secret_scan:
 
 ---
 
-### Phase 6.0 : Context Update (MANDATORY before commit)
+### Phase 6.0: Context Update (MANDATORY before commit)
 
-**Met à jour les fichiers CLAUDE.md pour refléter les modifications de la branche.**
+**Updates CLAUDE.md files to reflect the branch modifications.**
 
-**IMPORTANT** : Cette phase s'exécute APRÈS lint/test/build (Phase 3) pour éviter de
-relancer `/warmup --update` si les checks échouent et nécessitent des corrections.
+**IMPORTANT**: This phase runs AFTER lint/test/build (Phase 3) to avoid
+re-running `/warmup --update` if checks fail and require corrections.
 
 ```yaml
 context_update_workflow:
@@ -671,67 +671,67 @@ context_update_workflow:
   tool: "/warmup --update"
 
   1_collect_branch_diff:
-    action: "Identifier TOUS les fichiers modifiés sur la branche"
+    action: "Identify ALL files modified on the branch"
     command: |
-      # Fichiers modifiés dans la branche entière (vs main)
+      # Files modified in the entire branch (vs main)
       git diff main...HEAD --name-only 2>/dev/null || git diff HEAD --name-only
-      # + fichiers non-staged/non-committed (en cours)
+      # + unstaged/uncommitted files (in progress)
       git diff --name-only
       git diff --cached --name-only
-      # Dédupliquer
+      # Deduplicate
     output: "changed_files[] (unique list)"
 
   2_resolve_claude_files:
-    action: "Trouver les CLAUDE.md concernés par les fichiers modifiés"
+    action: "Find CLAUDE.md files affected by modified files"
     algorithm: |
-      POUR chaque fichier modifié:
-        dir = dirname(fichier)
-        TANT QUE dir != /workspace:
-          SI existe(dir/CLAUDE.md):
-            ajouter(dir/CLAUDE.md) au set
+      FOR each modified file:
+        dir = dirname(file)
+        WHILE dir != /workspace:
+          IF exists(dir/CLAUDE.md):
+            add(dir/CLAUDE.md) to set
           dir = parent(dir)
-      # Toujours inclure /workspace/CLAUDE.md (racine)
+      # Always include /workspace/CLAUDE.md (root)
     output: "claude_files_to_update[] (unique set)"
 
   3_check_staleness:
-    action: "Vérifier le timestamp de dernière mise à jour"
+    action: "Check the last update timestamp"
     algorithm: |
-      POUR chaque claude_file DANS claude_files_to_update:
+      FOR each claude_file IN claude_files_to_update:
         first_line = read_first_line(claude_file)
-        SI first_line match '<!-- updated: YYYY-MM-DDTHH:MM:SSZ -->':
+        IF first_line matches '<!-- updated: YYYY-MM-DDTHH:MM:SSZ -->':
           timestamp = parse_iso(first_line)
           age = now() - timestamp
-          SI age < 5 minutes:
-            skip(claude_file)  # Déjà à jour
+          IF age < 5 minutes:
+            skip(claude_file)  # Already up to date
             log("Skipping {claude_file} (updated {age} ago)")
-        SINON:
-          include(claude_file)  # Pas de timestamp = toujours mettre à jour
+        ELSE:
+          include(claude_file)  # No timestamp = always update
     output: "stale_claude_files[] (files needing update)"
 
   4_run_warmup_update:
     condition: "stale_claude_files is not empty"
-    action: "Exécuter /warmup --update sur les fichiers périmés"
+    action: "Run /warmup --update on stale files"
     tool: "Skill(warmup, --update)"
-    scope: "Limité aux répertoires des stale_claude_files"
+    scope: "Limited to directories of stale_claude_files"
     note: |
-      /warmup --update ajoutera automatiquement le timestamp ISO
-      en première ligne de chaque CLAUDE.md mis à jour:
+      /warmup --update will automatically add the ISO timestamp
+      as the first line of each updated CLAUDE.md:
         <!-- updated: 2026-02-11T14:30:00Z -->
 
   5_stage_updated_docs:
-    action: "Ajouter les CLAUDE.md mis à jour au staging"
+    action: "Add updated CLAUDE.md files to staging"
     command: "git add **/CLAUDE.md"
-    note: "Inclus dans le même commit que les modifications de code"
+    note: "Included in the same commit as code modifications"
 
   timestamp_format:
     format: "<!-- updated: YYYY-MM-DDTHH:MM:SSZ -->"
     example: "<!-- updated: 2026-02-11T14:30:00Z -->"
-    position: "Première ligne du fichier CLAUDE.md"
-    purpose: "Détection de fraîcheur (staleness check 5 minutes)"
-    parse: "ISO 8601 - format le plus facile à parser programmatiquement"
+    position: "First line of CLAUDE.md file"
+    purpose: "Freshness detection (staleness check 5 minutes)"
+    parse: "ISO 8601 - easiest format to parse programmatically"
 ```
 
-**Output Phase 3.8 :**
+**Output Phase 3.8:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -756,59 +756,59 @@ context_update_workflow:
 
 ---
 
-### Phase 7.0 : Execute & Synthesize
+### Phase 7.0: Execute & Synthesize
 
 ```yaml
 execute_workflow:
   1_branch:
-    action: "Créer ou utiliser branche"
+    action: "Create or use branch"
     auto: true
 
   2_stage:
-    action: "Stage TOUS les fichiers modifiés trackés"
+    action: "Stage ALL tracked modified files"
     steps:
       - command: "git add -A"
-        note: "git add -A respecte .gitignore automatiquement — aucun fichier ignoré ne sera stagé"
+        note: "git add -A respects .gitignore automatically — no ignored file will be staged"
       - command: "git diff --name-only"
-        verify: "DOIT être vide — sinon des fichiers trackés ont été oubliés"
+        verify: "MUST be empty — otherwise tracked files have been missed"
         on_failure: |
-          Si des fichiers trackés restent unstaged après git add -A :
-          → Les ajouter explicitement avec git add <file>
-          → Ne JAMAIS ignorer des modifications de fichiers trackés (CLAUDE.md, .claude/commands/, hooks/)
+          If tracked files remain unstaged after git add -A:
+          → Add them explicitly with git add <file>
+          → NEVER ignore modifications to tracked files (CLAUDE.md, .claude/commands/, hooks/)
     rules:
-      - "TOUJOURS utiliser git add -A (jamais de staging sélectif par nom de fichier)"
-      - "git add -A inclut automatiquement : CLAUDE.md, .devcontainer/, .claude/commands/"
-      - "git add -A exclut automatiquement : .env, mcp.json, .grepai/, .claude/* (sauf exceptions gitignore)"
-      - "Vérifier git diff --name-only après staging — si non-vide, il y a un problème"
-      - "Si un fichier tracké ne doit PAS être commité → git restore <file> AVANT staging, pas après"
+      - "ALWAYS use git add -A (never selective staging by filename)"
+      - "git add -A automatically includes: CLAUDE.md, .devcontainer/, .claude/commands/"
+      - "git add -A automatically excludes: .env, mcp.json, .grepai/, .claude/* (except gitignore exceptions)"
+      - "Check git diff --name-only after staging — if non-empty, there is a problem"
+      - "If a tracked file should NOT be committed → git restore <file> BEFORE staging, not after"
 
   3_commit:
-    action: "Créer le commit"
+    action: "Create the commit"
     format: |
       <type>(<scope>): <description>
 
-      [body optionnel]
+      [optional body]
 
   4_push:
-    action: "Push vers origin"
+    action: "Push to origin"
     command: "git push -u origin <branch>"
 
   5_pr_mr:
-    action: "Créer la PR/MR"
+    action: "Create the PR/MR"
     tools:
       github: mcp__github__create_pull_request
       gitlab: mcp__gitlab__create_merge_request
     skip_if: "--no-pr"
 ```
 
-**Output Final (GitHub) :**
+**Final Output (GitHub):**
 
 ```
 ═══════════════════════════════════════════════════════════════
   /git --commit - Completed (GitHub)
 ═══════════════════════════════════════════════════════════════
 
-| Étape   | Status                           |
+| Step    | Status                           |
 |---------|----------------------------------|
 | Peek    | ✓ 5 files analyzed               |
 | Checks  | ✓ lint, test, build PASS         |
@@ -823,14 +823,14 @@ URL: https://github.com/<owner>/<repo>/pull/42
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output Final (GitLab) :**
+**Final Output (GitLab):**
 
 ```
 ═══════════════════════════════════════════════════════════════
   /git --commit - Completed (GitLab)
 ═══════════════════════════════════════════════════════════════
 
-| Étape   | Status                           |
+| Step    | Status                           |
 |---------|----------------------------------|
 | Peek    | ✓ 5 files analyzed               |
 | Checks  | ✓ lint, test, build PASS         |
@@ -878,7 +878,7 @@ mcp_only_policy:
 
 ---
 
-### Phase 1.0 : Peek + Commit-Pinned Tracking
+### Phase 1.0: Peek + Commit-Pinned Tracking
 
 **CRITICAL: Track pipeline for SPECIFIC commit SHA**
 
@@ -891,7 +891,7 @@ peek_workflow:
     critical: true
 
   1_pr_mr_info:
-    action: "Récupérer info PR/MR"
+    action: "Retrieve PR/MR info"
     tools:
       github: mcp__github__get_pull_request
       gitlab: mcp__gitlab__get_merge_request
@@ -913,7 +913,7 @@ peek_workflow:
     on_timeout: "ERROR: No pipeline triggered for commit {sha}"
 
   4_conflicts:
-    action: "Vérifier les conflits"
+    action: "Check for conflicts"
     command: "git fetch && git merge-base..."
 ```
 
@@ -938,7 +938,7 @@ peek_workflow:
 
 ---
 
-### Phase 2.0 : Job-Level Status Parsing (CRITICAL)
+### Phase 2.0: Job-Level Status Parsing (CRITICAL)
 
 **Parse EACH job individually, not overall status:**
 
@@ -991,27 +991,27 @@ job_by_job_output:
 
 ---
 
-### Phase 3.0 : CI Monitoring avec Backoff Exponentiel et Hard Timeout
+### Phase 3.0: CI Monitoring with Exponential Backoff and Hard Timeout
 
 **ABSOLUTE LIMIT: 10 minutes / 30 polls**
 
 ```yaml
 ci_monitoring:
-  description: "Suivi intelligent du statut CI avec polling adaptatif"
+  description: "Intelligent CI status tracking with adaptive polling"
 
   #---------------------------------------------------------------------------
   # CONFIGURATION
   #---------------------------------------------------------------------------
   config:
-    initial_interval: 10s          # Intervalle initial
-    max_interval: 120s             # Plafonné à 2 minutes
+    initial_interval: 10s          # Initial interval
+    max_interval: 120s             # Capped at 2 minutes
     backoff_multiplier: 1.5        # 10s → 15s → 22s → 33s → 50s → 75s → 112s → 120s
-    jitter_percent: 20             # +/- 20% aléatoire (évite thundering herd)
+    jitter_percent: 20             # +/- 20% random (prevents thundering herd)
     timeout: 600s                  # 10 minutes HARD timeout total
-    max_poll_attempts: 30          # Limite de sécurité
+    max_poll_attempts: 30          # Safety limit
 
   #---------------------------------------------------------------------------
-  # STRATÉGIE DE POLLING (MCP-ONLY - NO CLI FALLBACK)
+  # POLLING STRATEGY (MCP-ONLY - NO CLI FALLBACK)
   #---------------------------------------------------------------------------
   polling_strategy:
     github:
@@ -1031,7 +1031,7 @@ ci_monitoring:
       # NO FALLBACK - CLI FORBIDDEN
 
   #---------------------------------------------------------------------------
-  # ALGORITHME DE BACKOFF EXPONENTIEL
+  # EXPONENTIAL BACKOFF ALGORITHM
   #---------------------------------------------------------------------------
   backoff_algorithm:
     pseudocode: |
@@ -1047,12 +1047,12 @@ ci_monitoring:
         IF status in [FAILURE, ERROR, CANCELED]:
           RETURN {status: "failed", duration: elapsed, details: get_failure_details()}
         IF status in [PENDING, RUNNING]:
-          # Appliquer jitter
+          # Apply jitter
           jitter = interval * (random(-jitter_percent, +jitter_percent) / 100)
           sleep(interval + jitter)
           elapsed += interval + jitter
 
-          # Backoff exponentiel
+          # Exponential backoff
           interval = min(interval * backoff_multiplier, max_interval)
           attempt++
 
@@ -1085,19 +1085,19 @@ ci_monitoring:
       ═══════════════════════════════════════════════════════════════
 
   #---------------------------------------------------------------------------
-  # PARALLEL TASKS (pendant le polling)
+  # PARALLEL TASKS (during polling)
   #---------------------------------------------------------------------------
   parallel_tasks:
     - task: "Check conflicts"
       action: "git fetch && git merge-base --is-ancestor origin/main HEAD"
-      on_conflict: "Rebase automatique si --auto-rebase"
+      on_conflict: "Automatic rebase if --auto-rebase"
 
     - task: "Sync with main"
-      action: "Rebase si behind (max 10 commits)"
+      action: "Rebase if behind (max 10 commits)"
       on_behind: "git rebase origin/main"
 ```
 
-**Output Phase 2.5 :**
+**Output Phase 2.5:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -1127,7 +1127,7 @@ ci_monitoring:
 
 ---
 
-### Phase 4.0 : Error Log Extraction (on failure)
+### Phase 4.0: Error Log Extraction (on failure)
 
 **When pipeline fails, extract actionable information:**
 
@@ -1186,26 +1186,26 @@ error_extraction:
 
 ---
 
-### Phase 5.0 : Auto-fix Loop avec Catégories d'Erreurs
+### Phase 5.0: Auto-fix Loop with Error Categories
 
 ```yaml
 autofix_loop:
-  description: "Détection, catégorisation et correction automatique des erreurs CI"
+  description: "Detection, categorization and automatic correction of CI errors"
 
   #---------------------------------------------------------------------------
   # CONFIGURATION
   #---------------------------------------------------------------------------
   config:
     max_attempts: 3
-    cooldown_between_attempts: 30s    # Attente avant re-trigger CI
-    autofix_per_attempt_timeout: 120s # 2 min max par tentative de fix
+    cooldown_between_attempts: 30s    # Wait before re-triggering CI
+    autofix_per_attempt_timeout: 120s # 2 min max per fix attempt
     require_human_for:
       - security_scan
       - timeout
       - "confidence == LOW after 2 attempts"
 
   #---------------------------------------------------------------------------
-  # CATÉGORIES D'ERREURS
+  # ERROR CATEGORIES
   #---------------------------------------------------------------------------
   error_categories:
     #-------------------------------------------------------------------------
@@ -1314,7 +1314,7 @@ autofix_loop:
       fix_strategy: "retry_ci"
 
   #---------------------------------------------------------------------------
-  # ALGORITHME DE LA BOUCLE
+  # LOOP ALGORITHM
   #---------------------------------------------------------------------------
   loop_algorithm:
     pseudocode: |
@@ -1324,28 +1324,28 @@ autofix_loop:
       WHILE attempt < max_attempts:
         attempt++
 
-        # Step 1: Récupérer détails de l'échec CI
+        # Step 1: Retrieve CI failure details
         failure = get_ci_failure_details()
         category = categorize_error(failure)
 
-        # Step 2: Vérifier si auto-fixable
+        # Step 2: Check if auto-fixable
         IF NOT category.auto_fixable:
           RETURN abort_with_report(category, failure)
 
-        # Step 3: Détecter fix circulaire
+        # Step 3: Detect circular fix
         IF is_circular_fix(category, fix_history):
           RETURN abort_with_circular_warning(fix_history)
 
-        # Step 4: Appliquer stratégie de fix
+        # Step 4: Apply fix strategy
         fix_result = apply_fix_strategy(category)
         fix_history.append({category, fix_result})
 
         IF fix_result.success:
-          # Step 5: Commit et push
+          # Step 5: Commit and push
           commit_fix(fix_result)
           push_to_remote()
 
-          # Step 6: Attendre cooldown puis re-poll CI
+          # Step 6: Wait cooldown then re-poll CI
           sleep(cooldown_between_attempts)
           ci_status = poll_ci_with_backoff()  # Re-use Phase 2.5
 
@@ -1373,9 +1373,9 @@ autofix_loop:
 
     type_fix:
       workflow:
-        1_extract: "Parser CI log pour erreurs de type spécifiques"
-        2_analyze: "Identifier le fichier et la ligne"
-        3_fix: "Appliquer correction minimale"
+        1_extract: "Parse CI log for specific type errors"
+        2_analyze: "Identify the file and line"
+        3_fix: "Apply minimal correction"
         4_verify: "npm run typecheck OR go build"
       commit_format: "fix(types): resolve {error_code} in {file}"
 
@@ -1384,7 +1384,7 @@ autofix_loop:
         assertion_mismatch:
           pattern: "expected.*but got"
           auto_fix: true
-          strategy: "Update assertion si implementation changed"
+          strategy: "Update assertion if implementation changed"
         snapshot_mismatch:
           pattern: "snapshot.*differ"
           auto_fix: true
@@ -1417,7 +1417,7 @@ autofix_loop:
       block_merge: true
 ```
 
-**Output Phase 4 (Auto-fix Success) :**
+**Output Phase 4 (Auto-fix Success):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -1456,7 +1456,7 @@ autofix_loop:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output Phase 4 (Security Block) :**
+**Output Phase 4 (Security Block):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -1487,7 +1487,7 @@ autofix_loop:
 
 ---
 
-### Phase 6.0 : Synthesize (Merge & Cleanup)
+### Phase 6.0: Synthesize (Merge & Cleanup)
 
 ```yaml
 merge_workflow:
@@ -1512,7 +1512,7 @@ merge_workflow:
       - "git pull origin main"
 ```
 
-**Output Final (GitHub) :**
+**Final Output (GitHub):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -1542,7 +1542,7 @@ merge_workflow:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output Final (GitLab) :**
+**Final Output (GitLab):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -1569,8 +1569,8 @@ merge_workflow:
 
 | Type | Usage |
 |------|-------|
-| `feat` | Nouvelle fonctionnalité |
-| `fix` | Correction de bug |
+| `feat` | New feature |
+| `fix` | Bug fix |
 | `refactor` | Refactoring |
 | `docs` | Documentation |
 | `test` | Tests |
@@ -1579,44 +1579,44 @@ merge_workflow:
 
 ---
 
-## GARDE-FOUS (ABSOLUS)
+## Guardrails (ABSOLUTE)
 
-| Action | Status | Raison |
+| Action | Status | Reason |
 |--------|--------|--------|
-| Skip Phase 0.5 (Identity) sans flag | ❌ **INTERDIT** | Identité git requise |
-| Skip Phase 1 (Peek) | ❌ **INTERDIT** | git status avant action |
-| Skip Phase 3.8 (Context) | ❌ **INTERDIT** | CLAUDE.md doivent refléter les changements |
-| Skip Phase 2 (CI Polling) | ❌ **INTERDIT** | CI validation obligatoire |
-| Merge automatique sans CI | ❌ **INTERDIT** | Qualité code |
-| Push sur main/master | ❌ **INTERDIT** | Branche protégée |
-| Force merge si CI échoue x3 | ❌ **INTERDIT** | Limite tentatives |
-| Push sans --force-with-lease | ❌ **INTERDIT** | Sécurité |
-| Mentions IA dans commits | ❌ **INTERDIT** | Discrétion |
-| Commit sans identité validée | ❌ **INTERDIT** | Traçabilité |
-| CLI for CI status | ❌ **INTERDIT** | MCP-ONLY policy |
-| Report success if ANY job failed | ❌ **INTERDIT** | Job-level parsing |
-| Wait > 10 min for pipeline | ❌ **INTERDIT** | Hard timeout |
-| Monitor wrong commit's pipeline | ❌ **INTERDIT** | Commit-pinned tracking |
+| Skip Phase 0.5 (Identity) without flag | **FORBIDDEN** | Git identity required |
+| Skip Phase 1 (Peek) | **FORBIDDEN** | git status before action |
+| Skip Phase 3.8 (Context) | **FORBIDDEN** | CLAUDE.md must reflect changes |
+| Skip Phase 2 (CI Polling) | **FORBIDDEN** | CI validation mandatory |
+| Automatic merge without CI | **FORBIDDEN** | Code quality |
+| Push to main/master | **FORBIDDEN** | Protected branch |
+| Force merge if CI fails x3 | **FORBIDDEN** | Attempt limit |
+| Push without --force-with-lease | **FORBIDDEN** | Safety |
+| AI mentions in commits | **FORBIDDEN** | Discretion |
+| Commit without validated identity | **FORBIDDEN** | Traceability |
+| CLI for CI status | **FORBIDDEN** | MCP-ONLY policy |
+| Report success if ANY job failed | **FORBIDDEN** | Job-level parsing |
+| Wait > 10 min for pipeline | **FORBIDDEN** | Hard timeout |
+| Monitor wrong commit's pipeline | **FORBIDDEN** | Commit-pinned tracking |
 
 ### Auto-fix Safeguards
 
-| Action | Status | Raison |
+| Action | Status | Reason |
 |--------|--------|--------|
-| Auto-fix vulnerabilités sécurité | ❌ **INTERDIT** | Review humain requis |
-| Merge avec issues CRITICAL | ❌ **INTERDIT** | Sécurité first |
-| Fix circulaire (même erreur 3x) | ❌ **INTERDIT** | Prévient boucle infinie |
-| Modifier .claude/ via auto-fix | ❌ **INTERDIT** | Config protégée |
-| Modifier .devcontainer/ via auto-fix | ❌ **INTERDIT** | Config protégée |
-| Auto-fix sans commit message | ❌ **INTERDIT** | Traçabilité |
+| Auto-fix security vulnerabilities | **FORBIDDEN** | Human review required |
+| Merge with CRITICAL issues | **FORBIDDEN** | Security first |
+| Circular fix (same error 3x) | **FORBIDDEN** | Prevents infinite loop |
+| Modify .claude/ via auto-fix | **FORBIDDEN** | Protected config |
+| Modify .devcontainer/ via auto-fix | **FORBIDDEN** | Protected config |
+| Auto-fix without commit message | **FORBIDDEN** | Traceability |
 
-### Timeouts Auto-fix
+### Auto-fix Timeouts
 
-| Élément | Valeur | Raison |
-|---------|--------|--------|
-| CI Polling total | 600s (10min) | Éviter attente infinie |
-| Par tentative de fix | 120s (2min) | Éviter blocage |
-| Cooldown entre tentatives | 30s | Laisser CI démarrer |
-| Jitter polling | ±20% | Éviter thundering herd |
+| Element | Value | Reason |
+|---------|-------|--------|
+| CI Polling total | 600s (10min) | Prevent infinite wait |
+| Per fix attempt | 120s (2min) | Prevent blocking |
+| Cooldown between attempts | 30s | Allow CI to start |
+| Polling jitter | ±20% | Prevent thundering herd |
 
 ### CLI Commands FORBIDDEN for CI Monitoring
 
@@ -1640,14 +1640,14 @@ required_mcp:
   gitlab: "mcp__gitlab__list_pipelines, mcp__gitlab__list_pipeline_jobs"
 ```
 
-### Parallélisation légitime
+### Legitimate Parallelization
 
-| Élément | Parallèle? | Raison |
-|---------|------------|--------|
-| Pré-commit checks (lint+test+build) | ✅ Parallèle | Indépendants |
-| Language checks (Go+Rust+Node) | ✅ Parallèle | Indépendants |
-| CI polling + conflict check | ✅ Parallèle | Indépendants |
-| Opérations git (branch→commit→push→PR) | ❌ Séquentiel | Chaîne de dépendances |
-| Tentatives auto-fix | ❌ Séquentiel | Dépend du résultat CI |
-| CI checks en attente | ❌ Séquentiel | Attendre résultat |
-| Pipeline polling | ❌ Séquentiel | État change entre polls |
+| Element | Parallel? | Reason |
+|---------|-----------|--------|
+| Pre-commit checks (lint+test+build) | Parallel | Independent |
+| Language checks (Go+Rust+Node) | Parallel | Independent |
+| CI polling + conflict check | Parallel | Independent |
+| Git operations (branch→commit→push→PR) | Sequential | Dependency chain |
+| Auto-fix attempts | Sequential | Depends on CI result |
+| CI checks waiting | Sequential | Wait for result |
+| Pipeline polling | Sequential | State changes between polls |

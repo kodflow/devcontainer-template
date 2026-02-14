@@ -27,14 +27,14 @@ $ARGUMENTS
 
 ## Overview
 
-Préchargement du contexte projet avec patterns **RLM** :
+Project context pre-loading with **RLM** patterns:
 
-- **Peek** - Découvrir la hiérarchie CLAUDE.md
-- **Funnel** - Lecture en entonnoir (racine → feuilles)
-- **Parallelize** - Analyse parallèle par domaine
-- **Synthesize** - Contexte consolidé prêt à l'emploi
+- **Peek** - Discover the CLAUDE.md hierarchy
+- **Funnel** - Funnel reading (root → leaves)
+- **Parallelize** - Parallel analysis by domain
+- **Synthesize** - Consolidated context ready to use
 
-**Principe** : Charger le contexte → Être plus efficace sur les tâches
+**Principle**: Load context → Be more effective on tasks
 
 ---
 
@@ -42,10 +42,10 @@ Préchargement du contexte projet avec patterns **RLM** :
 
 | Pattern | Action |
 |---------|--------|
-| (none) | Précharge tout le contexte projet |
-| `--update` | Met à jour tous les CLAUDE.md + crée les manquants |
-| `--dry-run` | Affiche ce qui serait mis à jour (avec --update) |
-| `--help` | Affiche l'aide |
+| (none) | Pre-load all project context |
+| `--update` | Update all CLAUDE.md + create missing ones |
+| `--dry-run` | Show what would be updated (with --update) |
+| `--help` | Display help |
 
 ---
 
@@ -59,17 +59,17 @@ Préchargement du contexte projet avec patterns **RLM** :
 Usage: /warmup [options]
 
 Options:
-  (none)            Précharge le contexte complet
-  --update          Met à jour + crée les CLAUDE.md manquants
-  --dry-run         Affiche les changements (avec --update)
-  --help            Affiche cette aide
+  (none)            Pre-load complete context
+  --update          Update + create missing CLAUDE.md
+  --dry-run         Show changes (with --update)
+  --help            Display this help
 
 Line Thresholds (CLAUDE.md):
-  IDEAL       :   0-150 lignes (simple directories)
-  ACCEPTABLE  : 151-200 lignes (medium complexity)
-  WARNING     : 201-250 lignes (review recommended)
-  CRITICAL    : 251-300 lignes (must be condensed)
-  FORBIDDEN   :  301+ lignes (split required)
+  IDEAL       :   0-150 lines (simple directories)
+  ACCEPTABLE  : 151-200 lines (medium complexity)
+  WARNING     : 201-250 lines (review recommended)
+  CRITICAL    : 251-300 lines (must be condensed)
+  FORBIDDEN   :  301+ lines (split required)
 
 Exclusions (STRICT .gitignore respect):
   - vendor/, node_modules/, .git/
@@ -77,15 +77,15 @@ Exclusions (STRICT .gitignore respect):
   - bin/, dist/, build/ (generated outputs)
 
 RLM Patterns:
-  1. Peek       - Découvrir la hiérarchie CLAUDE.md
-  2. Funnel     - Lecture entonnoir (root → leaves)
-  3. Parallelize - Analyse par domaine
-  4. Synthesize - Contexte consolidé
+  1. Peek       - Discover the CLAUDE.md hierarchy
+  2. Funnel     - Funnel reading (root → leaves)
+  3. Parallelize - Analysis by domain
+  4. Synthesize - Consolidated context
 
-Exemples:
-  /warmup                       Précharge le contexte
-  /warmup --update              Met à jour + crée manquants
-  /warmup --update --dry-run    Preview des changements
+Examples:
+  /warmup                       Pre-load context
+  /warmup --update              Update + create missing
+  /warmup --update --dry-run    Preview changes
 
 Workflow:
   /warmup → /plan → /do → /git
@@ -93,34 +93,34 @@ Workflow:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**SI `$ARGUMENTS` contient `--help`** : Afficher l'aide ci-dessus et STOP.
+**IF `$ARGUMENTS` contains `--help`**: Display the help above and STOP.
 
 ---
 
-## Mode Normal (Préchargement)
+## Normal Mode (Pre-loading)
 
-### Phase 1.0 : Peek (Découverte hiérarchie)
+### Phase 1.0: Peek (Hierarchy Discovery)
 
 ```yaml
 peek_workflow:
   1_discover:
-    action: "Découvrir tous les CLAUDE.md du projet"
+    action: "Discover all CLAUDE.md files in the project"
     tool: Glob
     pattern: "**/CLAUDE.md"
     output: [claude_files]
 
   2_build_tree:
-    action: "Construire l'arbre de contexte par profondeur"
+    action: "Build the context tree by depth"
     algorithm: |
-      POUR chaque fichier:
+      FOR each file:
         depth = path.count('/') - base.count('/')
-      Trier par profondeur croissante
-      depth 0: /CLAUDE.md (racine)
+      Sort by ascending depth
+      depth 0: /CLAUDE.md (root)
       depth 1: /src/CLAUDE.md, /.devcontainer/CLAUDE.md
-      depth 2+: sous-dossiers
+      depth 2+: subdirectories
 
   3_detect_project:
-    action: "Identifier le type de projet"
+    action: "Identify the project type"
     tools: [Glob]
     patterns:
       - "go.mod" → Go
@@ -148,7 +148,7 @@ peek_workflow:
       - "*.vbproj" → VB.NET
 ```
 
-**Output Phase 1 :**
+**Output Phase 1:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -171,11 +171,11 @@ peek_workflow:
 
 ---
 
-### Phase 2.0 : Funnel (Lecture en entonnoir)
+### Phase 2.0: Funnel (Funnel Reading)
 
 ```yaml
 funnel_strategy:
-  principle: "Lire du plus général au plus spécifique"
+  principle: "Read from most general to most specific"
 
   levels:
     depth_0:
@@ -195,32 +195,32 @@ funnel_strategy:
 
   extraction_rules:
     include:
-      - "Règles MANDATORY/ABSOLUES"
-      - "Structure du dossier"
-      - "Conventions spécifiques"
-      - "GARDE-FOUS"
+      - "MANDATORY/ABSOLUTE rules"
+      - "Directory structure"
+      - "Specific conventions"
+      - "Guardrails"
     exclude:
-      - "Exemples de code complets"
-      - "Détails d'implémentation"
-      - "Longs blocs de code"
+      - "Complete code examples"
+      - "Implementation details"
+      - "Long code blocks"
 ```
 
-**Algorithme de lecture :**
+**Reading algorithm:**
 
 ```
-POUR profondeur DE 0 À max_profondeur:
-    fichiers = filtrer(claude_files, profondeur)
+FOR depth FROM 0 TO max_depth:
+    files = filter(claude_files, depth)
 
-    PARALLÈLE POUR chaque fichier DANS fichiers:
-        contenu = Read(fichier)
-        contexte[fichier] = extraire_essentiel(contenu, niveau_détail)
+    PARALLEL FOR each file IN files:
+        content = Read(file)
+        context[file] = extract_essential(content, detail_level)
 
-    consolider(contexte, profondeur)
+    consolidate(context, depth)
 ```
 
 ---
 
-### Phase 3.0 : Parallelize (Analyse par domaine)
+### Phase 3.0: Parallelize (Analysis by Domain)
 
 ```yaml
 parallel_analysis:
@@ -231,51 +231,51 @@ parallel_analysis:
       type: "Explore"
       scope: "src/"
       prompt: |
-        Analyser la structure du code source:
-        - Packages/modules principaux
-        - Patterns architecturaux détectés
-        - Points d'attention (TODO, FIXME, HACK)
+        Analyze the source code structure:
+        - Main packages/modules
+        - Detected architectural patterns
+        - Attention points (TODO, FIXME, HACK)
         Return: {packages[], patterns[], attention_points[]}
 
     - task: "config-analyzer"
       type: "Explore"
       scope: ".devcontainer/"
       prompt: |
-        Analyser la configuration DevContainer:
-        - Features installées
-        - Services configurés
-        - MCP servers disponibles
+        Analyze the DevContainer configuration:
+        - Installed features
+        - Configured services
+        - Available MCP servers
         Return: {features[], services[], mcp_servers[]}
 
     - task: "test-analyzer"
       type: "Explore"
       scope: "tests/ OR **/*_test.go OR **/*.test.ts"
       prompt: |
-        Analyser la couverture de tests:
-        - Fichiers de test trouvés
-        - Patterns de test utilisés
+        Analyze the test coverage:
+        - Test files found
+        - Test patterns used
         Return: {test_files[], patterns[], coverage_estimate}
 
     - task: "docs-analyzer"
       type: "Explore"
       scope: "~/.claude/docs/"
       prompt: |
-        Analyser la base de connaissances:
-        - Catégories de patterns disponibles
-        - Nombre de patterns par catégorie
+        Analyze the knowledge base:
+        - Available pattern categories
+        - Number of patterns per category
         Return: {categories[], pattern_count}
 ```
 
-**IMPORTANT** : Lancer les 4 agents dans UN SEUL message.
+**IMPORTANT**: Launch all 4 agents in ONE SINGLE message.
 
 ---
 
-### Phase 4.0 : Synthesize (Contexte consolidé)
+### Phase 4.0: Synthesize (Consolidated Context)
 
 ```yaml
 synthesize_workflow:
   1_merge:
-    action: "Fusionner les résultats des agents"
+    action: "Merge agent results"
     inputs:
       - "context_tree (Phase 2)"
       - "source_analysis (Phase 3)"
@@ -284,19 +284,19 @@ synthesize_workflow:
       - "docs_analysis (Phase 3)"
 
   2_prioritize:
-    action: "Prioriser les informations"
+    action: "Prioritize information"
     levels:
-      - CRITICAL: "Règles absolues, garde-fous, conventions obligatoires"
-      - HIGH: "Structure projet, patterns utilisés, MCP disponibles"
-      - MEDIUM: "Features, services, couverture tests"
-      - LOW: "Détails spécifiques, points d'attention mineurs"
+      - CRITICAL: "Absolute rules, guardrails, mandatory conventions"
+      - HIGH: "Project structure, patterns used, available MCP"
+      - MEDIUM: "Features, services, test coverage"
+      - LOW: "Specific details, minor attention points"
 
   3_format:
-    action: "Formater le contexte pour session"
+    action: "Format context for session"
     output: "Session context ready"
 ```
 
-**Output Final (Mode Normal) :**
+**Final Output (Normal Mode):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -334,22 +334,22 @@ synthesize_workflow:
 
 ---
 
-## Mode --update (Mise à jour documentation)
+## Mode --update (Documentation Update)
 
-### Phase 1.0 : Scan complet du code
+### Phase 1.0: Full Code Scan
 
 ```yaml
 scan_workflow:
   0_load_gitignore:
-    action: "Charger les patterns .gitignore"
+    action: "Load .gitignore patterns"
     command: "cat /workspace/.gitignore 2>/dev/null"
-    rule: "TOUS les patterns sont STRICTEMENT respectés"
+    rule: "ALL patterns are STRICTLY respected"
 
   1_discover_code:
-    action: "Scanner tous les fichiers de code (respectant .gitignore)"
+    action: "Scan all code files (respecting .gitignore)"
     tools: [Bash, Glob]
     command: |
-      # Utilise git ls-files pour respecter .gitignore
+      # Uses git ls-files to respect .gitignore
       git ls-files --cached --others --exclude-standard \
         '*.go' '*.ts' '*.py' '*.sh' '*.rs' '*.java'
     patterns:
@@ -362,58 +362,58 @@ scan_workflow:
       - ".git/"
 
   2_extract_metadata:
-    action: "Extraire les métadonnées par dossier"
+    action: "Extract metadata per directory"
     parallel_per_directory:
-      - "Fonctions/types publics"
-      - "Patterns utilisés"
+      - "Public functions/types"
+      - "Patterns used"
       - "TODO/FIXME/HACK"
-      - "Imports critiques"
-      - "Éléments obsolètes"
+      - "Critical imports"
+      - "Obsolete elements"
 
   3_check_claude_files:
-    action: "Vérifier cohérence avec CLAUDE.md existants"
+    action: "Verify consistency with existing CLAUDE.md files"
     for_each: claude_files
     checks:
-      - "Structure documentée vs structure réelle"
-      - "Fichiers mentionnés existent encore"
-      - "Conventions documentées respectées"
-      - "Informations obsolètes à supprimer"
+      - "Documented structure vs actual structure"
+      - "Referenced files still exist"
+      - "Documented conventions are followed"
+      - "Obsolete information to remove"
 ```
 
 ---
 
-### Phase 2.0 : Création des CLAUDE.md manquants
+### Phase 2.0: Creating Missing CLAUDE.md Files
 
-**Comportement par défaut de --update** (pas une option séparée).
+**Default behavior of --update** (not a separate option).
 
 ```yaml
 create_missing_workflow:
-  trigger: "Toujours exécuté avec --update"
+  trigger: "Always executed with --update"
 
   gitignore_respect:
-    rule: "STRICT - Tout pattern .gitignore est honoré"
+    rule: "STRICT - All .gitignore patterns are honored"
     implementation: |
-      # Lire et parser .gitignore
+      # Read and parse .gitignore
       gitignore_patterns = parse_gitignore("/workspace/.gitignore")
 
-      # Utiliser git ls-files pour lister uniquement les fichiers trackés
+      # Use git ls-files to list only tracked files
       tracked_dirs = git ls-files --directory | get_unique_dirs()
 
-      # OU utiliser git check-ignore pour valider
+      # OR use git check-ignore to validate
       for dir in candidate_dirs:
         if git check-ignore -q "$dir":
-          skip(dir)  # Ignoré par .gitignore
+          skip(dir)  # Ignored by .gitignore
 
   scan_directories:
-    action: "Trouver les dossiers sans CLAUDE.md (respectant .gitignore)"
+    action: "Find directories without CLAUDE.md (respecting .gitignore)"
     tool: Bash + Glob
     command: |
-      # Liste uniquement les dossiers NON ignorés par git
+      # List only directories NOT ignored by git
       find /workspace -type d \
         -not -path '*/.git/*' \
         -exec sh -c 'git check-ignore -q "$1" 2>/dev/null || echo "$1"' _ {} \; \
         | while read dir; do
-            # Vérifie si contient du code source
+            # Check if it contains source code
             if ls "$dir"/*.{go,ts,py,rs,java,sh,html,tf} 2>/dev/null | head -1 > /dev/null; then
               [ ! -f "$dir/CLAUDE.md" ] && echo "$dir"
             fi
@@ -450,7 +450,7 @@ create_missing_workflow:
       |------|-------------|
       | <files> | TODO |
 
-    max_lines: 30  # Template minimal, enrichi ensuite
+    max_lines: 30  # Minimal template, enriched later
 
   output: |
     ═══════════════════════════════════════════════════════════
@@ -475,60 +475,60 @@ create_missing_workflow:
     ═══════════════════════════════════════════════════════════
 ```
 
-**RÈGLE ABSOLUE : .gitignore est la source de vérité pour les exclusions.**
+**ABSOLUTE RULE: .gitignore is the source of truth for exclusions.**
 
-| Source d'exclusion | Priorité | Exemples |
-|--------------------|----------|----------|
-| `.gitignore` | **STRICTE** | vendor/, node_modules/, *.log |
-| Toujours exclus | Hardcoded | .git/, testdata/, __pycache__/ |
+| Exclusion source | Priority | Examples |
+|------------------|----------|----------|
+| `.gitignore` | **STRICT** | vendor/, node_modules/, *.log |
+| Always excluded | Hardcoded | .git/, testdata/, __pycache__/ |
 
-**Heuristiques de création :**
+**Creation heuristics:**
 
-| Contenu détecté | Créer CLAUDE.md? | Condition |
-|-----------------|------------------|-----------|
-| Code source (*.go, *.ts, *.py) | ✅ OUI | Si non gitignored |
-| Scripts (*.sh) | ✅ OUI | Si non gitignored |
-| Web assets (*.html, *.css) | ✅ OUI | Si non gitignored |
-| Config infra (Dockerfile, *.tf) | ✅ OUI | Si non gitignored |
-| Tout dossier gitignored | ❌ NON | .gitignore respecté |
+| Detected content | Create CLAUDE.md? | Condition |
+|------------------|-------------------|-----------|
+| Source code (*.go, *.ts, *.py) | YES | If not gitignored |
+| Scripts (*.sh) | YES | If not gitignored |
+| Web assets (*.html, *.css) | YES | If not gitignored |
+| Infra config (Dockerfile, *.tf) | YES | If not gitignored |
+| Any gitignored directory | NO | .gitignore respected |
 
 ---
 
-### Phase 3.0 : Détection des obsolescences
+### Phase 3.0: Obsolescence Detection
 
 ```yaml
 obsolete_detection:
   file_references:
-    description: "Fichiers mentionnés dans CLAUDE.md mais supprimés"
+    description: "Files mentioned in CLAUDE.md but deleted"
     action: |
-      POUR chaque CLAUDE.md:
-        extraire les chemins de fichiers mentionnés
-        vérifier que chaque fichier existe
-        marquer comme obsolète si non trouvé
+      FOR each CLAUDE.md:
+        extract referenced file paths
+        verify each file exists
+        mark as obsolete if not found
 
   structure_changes:
-    description: "Structure de dossier changée"
+    description: "Directory structure changed"
     action: |
-      POUR chaque CLAUDE.md avec section 'Structure':
-        comparer la structure documentée vs réelle
-        identifier les différences
+      FOR each CLAUDE.md with 'Structure' section:
+        compare documented structure vs actual
+        identify differences
 
   api_changes:
-    description: "APIs/fonctions renommées ou supprimées"
+    description: "APIs/functions renamed or removed"
     action: |
-      utiliser grepai pour chercher les références
-      si 0 résultat → possiblement obsolète
+      use grepai to search for references
+      if 0 results → possibly obsolete
 
   deprecated_patterns:
-    description: "Patterns dépréciés encore documentés"
+    description: "Deprecated patterns still documented"
     action: |
-      vérifier les imports/usages dans le code
-      comparer avec ce qui est documenté
+      verify imports/usages in code
+      compare with what is documented
 ```
 
 ---
 
-### Phase 4.0 : Génération des mises à jour
+### Phase 4.0: Generating Updates
 
 ```yaml
 update_generation:
@@ -538,11 +538,11 @@ update_generation:
     # <Directory Name>
 
     ## Purpose
-    <Description courte du rôle du dossier>
+    <Short description of the directory's role>
 
     ## Structure
     ```text
-    <arborescence actuelle>
+    <current tree>
     ```
 
     ## Key Files
@@ -555,7 +555,7 @@ update_generation:
     - <convention 2>
 
     ## Attention Points
-    - <point d'attention détecté dans le code>
+    - <attention point detected in code>
 
   constraints:
     max_lines: 200  # ACCEPTABLE threshold
@@ -567,13 +567,13 @@ update_generation:
 
 ---
 
-### Phase 5.0 : Application des changements
+### Phase 5.0: Applying Changes
 
 ```yaml
 apply_workflow:
   dry_run:
     condition: "--dry-run flag present"
-    action: "Afficher les différences sans modifier"
+    action: "Display differences without modifying"
     output: |
       ═══════════════════════════════════════════════════════════
         /warmup --update --dry-run
@@ -594,7 +594,7 @@ apply_workflow:
   interactive:
     condition: "No --dry-run flag"
     for_each_file:
-      action: "Afficher diff et demander confirmation"
+      action: "Display diff and ask for confirmation"
       tool: AskUserQuestion
       options:
         - "Apply this change"
@@ -603,24 +603,24 @@ apply_workflow:
         - "Apply all remaining"
 
     on_apply:
-      action: "Écrire le fichier mis à jour"
+      action: "Write the updated file"
       tool: Edit or Write
       backup: true
 
   timestamp_injection:
-    action: "Ajouter/mettre à jour le timestamp ISO en première ligne"
+    action: "Add/update ISO timestamp on first line"
     algorithm: |
-      POUR chaque CLAUDE.md mis à jour:
+      FOR each updated CLAUDE.md:
         timestamp = "<!-- updated: " + now().toISO8601() + "Z -->"
-        SI première_ligne match '<!-- updated: .* -->':
-          remplacer première_ligne par timestamp
-        SINON:
-          insérer timestamp en première ligne
+        IF first_line matches '<!-- updated: .* -->':
+          replace first_line with timestamp
+        ELSE:
+          insert timestamp as first line
     format: "<!-- updated: YYYY-MM-DDTHH:MM:SSZ -->"
     example: "<!-- updated: 2026-02-11T14:30:00Z -->"
     purpose: |
-      Permet à /git Phase 3.8 de détecter la fraîcheur (staleness).
-      Les fichiers mis à jour il y a moins de 5 minutes sont ignorés.
+      Allows /git Phase 3.8 to detect staleness.
+      Files updated less than 5 minutes ago are ignored.
 
   validation:
     post_apply:
@@ -631,9 +631,9 @@ apply_workflow:
       - "Verify timestamp injected in first line"
 ```
 
-### Phase 6.0 : GrepAI Config Update (Project-Specific Exclusions)
+### Phase 6.0: GrepAI Config Update (Project-Specific Exclusions)
 
-**Met à jour la configuration grepai avec les exclusions spécifiques au projet.**
+**Updates the grepai configuration with project-specific exclusions.**
 
 ```yaml
 grepai_config_update:
@@ -643,27 +643,27 @@ grepai_config_update:
 
   workflow:
     1_detect_project_patterns:
-      action: "Analyser les patterns spécifiques au projet"
+      action: "Analyze project-specific patterns"
       checks:
-        - ".gitignore patterns non couverts par template"
-        - "Dossiers générés dynamiquement (logs, cache)"
-        - "Frameworks spécifiques (Next.js .next/, Nuxt .nuxt/)"
+        - ".gitignore patterns not covered by template"
+        - "Dynamically generated directories (logs, cache)"
+        - "Framework-specific directories (Next.js .next/, Nuxt .nuxt/)"
 
     2_compare_with_template:
-      action: "Comparer config actuelle vs template"
+      action: "Compare current config vs template"
       detect:
-        - "Nouvelles exclusions à ajouter"
-        - "Exclusions obsolètes à retirer"
+        - "New exclusions to add"
+        - "Obsolete exclusions to remove"
 
     3_merge_exclusions:
-      action: "Fusionner les exclusions"
+      action: "Merge exclusions"
       rules:
-        - "Garder toutes les exclusions du template"
-        - "Ajouter les exclusions projet-spécifiques"
-        - "Marquer les ajouts avec commentaire # Project-specific"
+        - "Keep all template exclusions"
+        - "Add project-specific exclusions"
+        - "Mark additions with comment # Project-specific"
 
     4_apply_config:
-      action: "Écrire la config mise à jour"
+      action: "Write the updated config"
       tool: Write
       backup: true
 
@@ -713,7 +713,7 @@ grepai_config_update:
 
 ---
 
-**Output Final (Mode --update) :**
+**Final Output (--update Mode):**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -748,72 +748,72 @@ grepai_config_update:
 
 ---
 
-## GARDE-FOUS (ABSOLUS)
+## Guardrails (ABSOLUTE)
 
-| Action | Status | Raison |
+| Action | Status | Reason |
 |--------|--------|--------|
-| Skip Phase 1 (Peek) | ❌ **INTERDIT** | Découverte hiérarchie obligatoire |
-| Modifier .claude/commands/ | ❌ **INTERDIT** | Fichiers protégés |
-| Supprimer CLAUDE.md | ❌ **INTERDIT** | Seule mise à jour autorisée |
-| Ignorer .gitignore | ❌ **INTERDIT** | Source de vérité pour exclusions |
-| Créer CLAUDE.md dans gitignored | ❌ **INTERDIT** | vendor/, node_modules/, etc. |
-| CLAUDE.md > 300 lignes | ❌ **FORBIDDEN** | Doit être splitté |
-| CLAUDE.md 251-300 lignes | 🔴 **CRITICAL** | Condensation obligatoire |
-| CLAUDE.md 201-250 lignes | ⚠ **WARNING** | Révision recommandée |
-| Lecture aléatoire | ❌ **INTERDIT** | Funnel (root→leaves) obligatoire |
-| Détails d'implémentation | ❌ **INTERDIT** | Contexte, pas code |
-| --update sans backup | ⚠ **WARNING** | Risque de perte |
+| Skip Phase 1 (Peek) | **FORBIDDEN** | Hierarchy discovery is MANDATORY |
+| Modify .claude/commands/ | **FORBIDDEN** | Protected files |
+| Delete CLAUDE.md | **FORBIDDEN** | Only updates allowed |
+| Ignore .gitignore | **FORBIDDEN** | Source of truth for exclusions |
+| Create CLAUDE.md in gitignored dir | **FORBIDDEN** | vendor/, node_modules/, etc. |
+| CLAUDE.md > 300 lines | **FORBIDDEN** | Must be split |
+| CLAUDE.md 251-300 lines | **CRITICAL** | Condensation MANDATORY |
+| CLAUDE.md 201-250 lines | **WARNING** | Review recommended |
+| Random reading | **FORBIDDEN** | Funnel (root→leaves) MANDATORY |
+| Implementation details | **FORBIDDEN** | Context, not code |
+| --update without backup | **WARNING** | Risk of loss |
 
-**Seuils de lignes CLAUDE.md :**
+**CLAUDE.md line thresholds:**
 
 ```
 ┌────────────┬─────────┬───────────────────────────────────────┐
-│   Niveau   │ Lignes  │             Action                    │
+│   Level    │ Lines   │             Action                    │
 ├────────────┼─────────┼───────────────────────────────────────┤
-│ IDEAL      │ 0-150   │ ✅ Aucune action                      │
+│ IDEAL      │ 0-150   │ No action needed                      │
 ├────────────┼─────────┼───────────────────────────────────────┤
-│ ACCEPTABLE │ 151-200 │ ✅ Dossier moyen, acceptable          │
+│ ACCEPTABLE │ 151-200 │ Medium directory, acceptable           │
 ├────────────┼─────────┼───────────────────────────────────────┤
-│ WARNING    │ 201-250 │ ⚠️ Révision recommandée à la prochaine│
+│ WARNING    │ 201-250 │ Review recommended at next pass        │
 ├────────────┼─────────┼───────────────────────────────────────┤
-│ CRITICAL   │ 251-300 │ 🔴 Condensation obligatoire           │
+│ CRITICAL   │ 251-300 │ Condensation MANDATORY                 │
 ├────────────┼─────────┼───────────────────────────────────────┤
-│ FORBIDDEN  │ 301+    │ ❌ Doit être splitté ou restructuré   │
+│ FORBIDDEN  │ 301+    │ Must be split or restructured          │
 └────────────┴─────────┴───────────────────────────────────────┘
 ```
 
-**Justification des seuils :**
+**Threshold justification:**
 
-| Critère | 250 lignes (WARNING) | 300 lignes (CRITICAL) |
-|---------|----------------------|-----------------------|
-| Temps lecture | ~10 min | ~15 min |
-| Tokens LLM | ~2500 | ~3000 |
-| Flexibilité | Projets complexes OK | Limite absolue |
+| Criterion | 250 lines (WARNING) | 300 lines (CRITICAL) |
+|-----------|---------------------|----------------------|
+| Read time | ~10 min | ~15 min |
+| LLM tokens | ~2500 | ~3000 |
+| Flexibility | Complex projects OK | Absolute limit |
 
-**Quand 300+ lignes ?** → Le dossier doit être splitté en sous-dossiers avec leurs propres CLAUDE.md.
+**When 300+ lines?** → The directory must be split into subdirectories with their own CLAUDE.md.
 
 ---
 
-## Intégration Workflow
+## Workflow Integration
 
 ```
-/warmup                     # Précharger contexte
+/warmup                     # Pre-load context
     ↓
-/plan "feature X"           # Planifier avec contexte
+/plan "feature X"           # Plan with context
     ↓
-/do                         # Exécuter le plan
+/do                         # Execute the plan
     ↓
-/warmup --update            # Mettre à jour doc
+/warmup --update            # Update documentation
     ↓
-/git --commit               # Commiter les changements
+/git --commit               # Commit changes
 ```
 
-**Intégration avec autres skills :**
+**Integration with other skills:**
 
-| Avant /warmup | Après /warmup |
-|---------------|---------------|
+| Before /warmup | After /warmup |
+|----------------|---------------|
 | Container start | /plan, /review, /do |
-| /init | Toute tâche complexe |
+| /init | Any complex task |
 
 ---
 
@@ -821,11 +821,11 @@ grepai_config_update:
 
 | Pattern | Category | Usage |
 |---------|----------|-------|
-| Cache-Aside | Cloud | Vérifier cache avant chargement |
-| Lazy Loading | Performance | Charger par phases (funnel) |
-| Progressive Disclosure | DevOps | Détail croissant par profondeur |
+| Cache-Aside | Cloud | Check cache before loading |
+| Lazy Loading | Performance | Load by phases (funnel) |
+| Progressive Disclosure | DevOps | Increasing detail by depth |
 
-**Références :**
+**References:**
 - `~/.claude/docs/cloud/cache-aside.md`
 - `~/.claude/docs/performance/lazy-load.md`
 - `~/.claude/docs/devops/feature-toggles.md`

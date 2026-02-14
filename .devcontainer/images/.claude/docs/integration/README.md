@@ -1,34 +1,34 @@
 # Integration Patterns
 
-Patterns pour integrer des systemes heterogenes et gerer les frontieres applicatives.
+Patterns for integrating heterogeneous systems and managing application boundaries.
 
 ---
 
-## Patterns documentes
+## Documented Patterns
 
-| Pattern | Fichier | Usage |
-|---------|---------|-------|
-| API Gateway | [api-gateway.md](api-gateway.md) | Point d'entree unique pour APIs |
-| Backend for Frontend | [bff.md](bff.md) | API dediee par type de client |
-| Anti-Corruption Layer | [anti-corruption-layer.md](anti-corruption-layer.md) | Isoler les systemes legacy |
-| Service Mesh | [service-mesh.md](service-mesh.md) | Communication inter-services |
-| Sidecar | [sidecar.md](sidecar.md) | Fonctionnalites transverses |
-
----
-
-## Tableau de decision
-
-| Probleme | Pattern | Quand l'utiliser |
-|----------|---------|------------------|
-| Multiples microservices exposes | API Gateway | Facade unifiee pour clients |
-| Clients heterogenes (web, mobile) | BFF | Besoins specifiques par plateforme |
-| Integration systeme legacy | Anti-Corruption Layer | Proteger le nouveau domaine |
-| Observabilite, securite, retry | Service Mesh | Infrastructure as code |
-| Fonctionnalite transverse | Sidecar | Logging, proxy, monitoring |
+| Pattern | File | Usage |
+|---------|------|-------|
+| API Gateway | [api-gateway.md](api-gateway.md) | Single entry point for APIs |
+| Backend for Frontend | [bff.md](bff.md) | Dedicated API per client type |
+| Anti-Corruption Layer | [anti-corruption-layer.md](anti-corruption-layer.md) | Isolate legacy systems |
+| Service Mesh | [service-mesh.md](service-mesh.md) | Inter-service communication |
+| Sidecar | [sidecar.md](sidecar.md) | Cross-cutting features |
 
 ---
 
-## Relation entre patterns
+## Decision Table
+
+| Problem | Pattern | When to Use |
+|---------|---------|-------------|
+| Multiple exposed microservices | API Gateway | Unified facade for clients |
+| Heterogeneous clients (web, mobile) | BFF | Platform-specific needs |
+| Legacy system integration | Anti-Corruption Layer | Protect the new domain |
+| Observability, security, retry | Service Mesh | Infrastructure as code |
+| Cross-cutting feature | Sidecar | Logging, proxy, monitoring |
+
+---
+
+## Relationship Between Patterns
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -62,14 +62,14 @@ Patterns pour integrer des systemes heterogenes et gerer les frontieres applicat
 
 ---
 
-## Combinaisons courantes
+## Common Combinations
 
 | Scenario | Patterns | Justification |
 |----------|----------|---------------|
-| SaaS multi-tenant | API Gateway + BFF | Unification + personnalisation |
-| Migration legacy | ACL + Strangler Fig | Isolation + remplacement progressif |
-| Microservices | Service Mesh + Sidecar | Observabilite + resilience |
-| Mobile-first | BFF + API Gateway | Optimisation reseau |
+| Multi-tenant SaaS | API Gateway + BFF | Unification + customization |
+| Legacy migration | ACL + Strangler Fig | Isolation + progressive replacement |
+| Microservices | Service Mesh + Sidecar | Observability + resilience |
+| Mobile-first | BFF + API Gateway | Network optimization |
 
 ---
 
@@ -85,10 +85,10 @@ Patterns pour integrer des systemes heterogenes et gerer les frontieres applicat
 
 ---
 
-## Metriques cles
+## Key Metrics
 
-| Pattern | Metriques |
-|---------|-----------|
+| Pattern | Metrics |
+|---------|---------|
 | API Gateway | Latency, error rate, requests/sec, auth failures |
 | BFF | Response size, cache hit rate, aggregation time |
 | ACL | Translation errors, legacy calls, sync lag |
@@ -99,13 +99,13 @@ Patterns pour integrer des systemes heterogenes et gerer les frontieres applicat
 
 ## Anti-patterns
 
-| Anti-pattern | Probleme | Solution |
-|--------------|----------|----------|
-| Gateway monolithique | SPOF, bottleneck | Plusieurs gateways specialises |
-| BFF generique | Perd l'interet du BFF | Un BFF par type de client |
-| ACL trop fin | Complexite excessive | Grouper par bounded context |
-| Mesh overhead | Latence ajoutee | Evaluer le besoin reel |
-| Sidecar trop lourd | Consommation ressources | Optimiser ou consolider |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| Monolithic gateway | SPOF, bottleneck | Multiple specialized gateways |
+| Generic BFF | Loses the purpose of BFF | One BFF per client type |
+| Too fine-grained ACL | Excessive complexity | Group by bounded context |
+| Mesh overhead | Added latency | Evaluate the actual need |
+| Too heavy sidecar | Resource consumption | Optimize or consolidate |
 
 ---
 

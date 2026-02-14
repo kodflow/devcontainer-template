@@ -1,22 +1,22 @@
 # YAGNI - You Aren't Gonna Need It
 
-> N'implémentez jamais quelque chose avant d'en avoir réellement besoin.
+> Never implement something before you actually need it.
 
-**Origine :** Kent Beck, Extreme Programming (XP)
+**Origin:** Kent Beck, Extreme Programming (XP)
 
-## Principe
+## Principle
 
-Résister à la tentation d'ajouter des fonctionnalités "au cas où".
+Resist the temptation to add features "just in case".
 
-**Coût de la fonctionnalité prématurée :**
+**Cost of premature features:**
 
-- Temps de développement
-- Temps de test
-- Complexité ajoutée
-- Maintenance future
-- Souvent jamais utilisée
+- Development time
+- Testing time
+- Added complexity
+- Future maintenance
+- Often never used
 
-## Exemples
+## Examples
 
 ### Code
 
@@ -27,10 +27,10 @@ type UserService struct {
 }
 
 func (s *UserService) GetUser(id string) (*User, error) { /* ... */ }
-func (s *UserService) GetUserWithCache(id string) (*User, error) { /* ... */ }  // "On aura besoin de cache"
-func (s *UserService) GetUserAsync(id string) <-chan *User { /* ... */ }       // "Peut-être async un jour"
-func (s *UserService) GetUserBatch(ids []string) ([]*User, error) { /* ... */ } // "Au cas où"
-func (s *UserService) GetUserWithRetry(id string) (*User, error) { /* ... */ }  // "Pour la résilience"
+func (s *UserService) GetUserWithCache(id string) (*User, error) { /* ... */ }  // "We'll need caching"
+func (s *UserService) GetUserAsync(id string) <-chan *User { /* ... */ }       // "Maybe async someday"
+func (s *UserService) GetUserBatch(ids []string) ([]*User, error) { /* ... */ } // "Just in case"
+func (s *UserService) GetUserWithRetry(id string) (*User, error) { /* ... */ }  // "For resilience"
 
 // ✅ YAGNI
 type UserService struct {
@@ -38,7 +38,7 @@ type UserService struct {
 }
 
 func (s *UserService) GetUser(id string) (*User, error) { /* ... */ }
-// Ajouter les autres QUAND on en a besoin
+// Add the others WHEN we need them
 ```
 
 ### Configuration
@@ -59,7 +59,7 @@ type DatabaseConfig struct {
 	ConnectionTimeout time.Duration
 	QueryTimeout      time.Duration
 	IdleTimeout       time.Duration
-	// 20 autres options "au cas où"
+	// 20 more options "just in case"
 }
 
 // ✅ YAGNI
@@ -71,14 +71,14 @@ type DatabaseConfig struct {
 	Host string
 	Port int
 }
-// Ajouter SSL QUAND on déploie en prod
-// Ajouter PoolSize QUAND on a des problèmes de perf
+// Add SSL WHEN deploying to production
+// Add PoolSize WHEN we have performance issues
 ```
 
 ### Architecture
 
 ```
-❌ YAGNI violation (Jour 1 d'un MVP)
+❌ YAGNI violation (Day 1 of an MVP)
 ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
 │ Gateway │─▶│ Service │─▶│  Cache  │─▶│   DB    │
 └─────────┘  └─────────┘  └─────────┘  └─────────┘
@@ -93,100 +93,100 @@ type DatabaseConfig struct {
            │ Worker  │
            └─────────┘
 
-✅ YAGNI (Jour 1 d'un MVP)
+✅ YAGNI (Day 1 of an MVP)
 ┌─────────┐
 │   App   │───▶ SQLite
 └─────────┘
 
-(Évoluer QUAND nécessaire)
+(Evolve WHEN necessary)
 ```
 
 ## Exceptions
 
-YAGNI ne s'applique pas à :
+YAGNI does not apply to:
 
-### 1. Sécurité
+### 1. Security
 
 ```go
-// ✅ Toujours inclure (pas YAGNI)
+// ✅ Always include (not YAGNI)
 func HashPassword(password string) (string, error) {
 	return bcrypt.GenerateFromPassword([]byte(password), 12)
 }
 ```
 
-### 2. Architecture difficile à changer
+### 2. Architecture difficult to change
 
 ```go
-// ✅ Réfléchir dès le départ
+// ✅ Think about it from the start
 type Database interface {
 	Query(ctx context.Context, sql string, args ...interface{}) (*sql.Rows, error)
 }
-// Car changer l'interface DB après = très coûteux
+// Because changing the DB interface later = very costly
 ```
 
-### 3. Contrats d'API publique
+### 3. Public API contracts
 
 ```go
-// ✅ Versionner dès le départ
+// ✅ Version from the start
 // /api/v1/users
-// Car changer = breaking change pour les clients
+// Because changing = breaking change for clients
 ```
 
 ## YAGNI vs Anticipation
 
-| YAGNI (Bon) | Anticipation (Acceptable) |
-|-------------|---------------------------|
-| "On aura peut-être besoin de MongoDB" | Abstraction Database interface |
-| "Ajoutons un cache Redis" | Pas de cache pour l'instant |
-| "Préparons le multi-tenant" | Architecture simple |
-| "Supportons 10 langues" | Support i18n basique |
+| YAGNI (Good) | Anticipation (Acceptable) |
+|--------------|---------------------------|
+| "We might need MongoDB" | Database interface abstraction |
+| "Let's add a Redis cache" | No cache for now |
+| "Let's prepare for multi-tenant" | Simple architecture |
+| "Let's support 10 languages" | Basic i18n support |
 
 ## Workflow
 
 ```
-1. Besoin identifié
-2. Solution minimale
-3. Livrer
+1. Need identified
+2. Minimal solution
+3. Deliver
 4. Feedback
-5. Itérer si nécessaire
+5. Iterate if necessary
 ```
 
-## Signaux de violation YAGNI
+## YAGNI Violation Signals
 
-- "On pourrait avoir besoin de..."
-- "Au cas où..."
-- "Pour le futur..."
-- "Ce serait bien d'avoir..."
-- "Un jour on voudra..."
+- "We might need..."
+- "Just in case..."
+- "For the future..."
+- "It would be nice to have..."
+- "Someday we'll want..."
 
-## Relation avec autres principes
+## Relationship with Other Principles
 
-| Principe | Relation |
-|----------|----------|
-| KISS | YAGNI maintient la simplicité |
-| DRY | Appliquer DRY aux besoins réels seulement |
-| SOLID | Appliquer SOLID progressivement |
+| Principle | Relationship |
+|-----------|--------------|
+| KISS | YAGNI maintains simplicity |
+| DRY | Apply DRY to actual needs only |
+| SOLID | Apply SOLID progressively |
 
 ## Checklist
 
-- [ ] Ce besoin existe-t-il aujourd'hui ?
-- [ ] Un utilisateur l'a-t-il demandé ?
-- [ ] Que se passe-t-il si on ne le fait pas ?
-- [ ] Peut-on l'ajouter facilement plus tard ?
+- [ ] Does this need exist today?
+- [ ] Has a user requested it?
+- [ ] What happens if we don't do it?
+- [ ] Can we add it easily later?
 
-## Quand utiliser
+## When to Use
 
-- Avant d'ajouter une fonctionnalite "au cas ou" ou "pour le futur"
-- Lors de la conception d'une architecture pour un MVP ou un prototype
-- Quand on hesite a ajouter des options de configuration supplementaires
-- Pour evaluer si une abstraction est vraiment necessaire maintenant
-- Lors des revues de code pour challenger les ajouts speculatifs
+- Before adding a feature "just in case" or "for the future"
+- When designing an architecture for an MVP or a prototype
+- When hesitating to add extra configuration options
+- To evaluate whether an abstraction is truly needed now
+- During code reviews to challenge speculative additions
 
-## Patterns liés
+## Related Patterns
 
-- [KISS](./KISS.md) - Complementaire : YAGNI evite la complexite inutile
-- [DRY](./DRY.md) - Appliquer DRY uniquement aux besoins reels
-- [SOLID](./SOLID.md) - Appliquer progressivement selon les besoins
+- [KISS](./KISS.md) - Complementary: YAGNI avoids unnecessary complexity
+- [DRY](./DRY.md) - Apply DRY only to actual needs
+- [SOLID](./SOLID.md) - Apply progressively according to needs
 
 ## Sources
 

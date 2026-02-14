@@ -1,18 +1,18 @@
 # Ring Buffer (Circular Buffer)
 
-Structure de donnees circulaire haute performance pour flux continus.
+High-performance circular data structure for continuous streams.
 
 ---
 
-## Qu'est-ce qu'un Ring Buffer ?
+## What is a Ring Buffer?
 
-> Tampon de taille fixe qui ecrase les donnees anciennes quand il est plein.
+> Fixed-size buffer that overwrites old data when full.
 
 ```
 +--------------------------------------------------------------+
 |                      Ring Buffer                              |
 |                                                               |
-|  Capacite: 8                                                  |
+|  Capacity: 8                                                  |
 |                                                               |
 |      0     1     2     3     4     5     6     7              |
 |    +-----+-----+-----+-----+-----+-----+-----+-----+          |
@@ -20,27 +20,27 @@ Structure de donnees circulaire haute performance pour flux continus.
 |    +-----+-----+-----+-----+-----+-----+-----+-----+          |
 |            ^                 ^                                |
 |          head              tail                               |
-|        (lecture)         (ecriture)                           |
+|        (read)            (write)                              |
 |                                                               |
-|  Write: tail avance (modulo capacity)                         |
-|  Read:  head avance (modulo capacity)                         |
+|  Write: tail advances (modulo capacity)                       |
+|  Read:  head advances (modulo capacity)                       |
 |                                                               |
-|  Quand tail == head: buffer vide                              |
-|  Quand (tail+1) % cap == head: buffer plein                   |
+|  When tail == head: buffer empty                              |
+|  When (tail+1) % cap == head: buffer full                     |
 +--------------------------------------------------------------+
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Allocation memoire fixe (pas de GC)
-- O(1) pour lecture/ecriture
-- Ideal pour streaming et logs
+- Fixed memory allocation (no GC)
+- O(1) for read/write
+- Ideal for streaming and logs
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### RingBuffer basique
+### Basic RingBuffer
 
 ```go
 package ringbuffer
@@ -153,7 +153,7 @@ func (rb *RingBuffer[T]) Clear() {
 }
 ```
 
-### RingBuffer avec overwrite
+### RingBuffer with Overwrite
 
 ```go
 package ringbuffer
@@ -253,9 +253,9 @@ func (orb *OverwriteRingBuffer[T]) Items() []T {
 
 ---
 
-## Cas d'usage
+## Use Cases
 
-### 1. Buffer audio/video
+### 1. Audio/Video Buffer
 
 ```go
 package audio
@@ -289,7 +289,7 @@ func (ab *AudioBuffer) GetNextChunk() ([]float32, error) {
 }
 ```
 
-### 2. Historique de logs
+### 2. Log History
 
 ```go
 package logging
@@ -335,7 +335,7 @@ func (lh *LogHistory) GetLastN(n int) []LogEntry {
 }
 ```
 
-### 3. Metriques rolling window
+### 3. Rolling Window Metrics
 
 ```go
 package metrics
@@ -392,7 +392,7 @@ func (ra *RollingAverage) GetPercentile(p float64) float64 {
 }
 ```
 
-### 4. Undo/Redo limite
+### 4. Limited Undo/Redo
 
 ```go
 package undo
@@ -442,7 +442,7 @@ func (lus *LimitedUndoStack[T]) Redo(current T) (T, error) {
 
 ---
 
-## Variantes
+## Variants
 
 ### Lock-free Ring Buffer (multi-thread)
 
@@ -498,50 +498,50 @@ func (lfb *LockFreeRingBuffer[T]) Read() (T, bool) {
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
-| Operation | Complexite |
+| Operation | Complexity |
 |-----------|------------|
 | write() | O(1) |
 | read() | O(1) |
 | peek() | O(1) |
-| Memoire | O(capacity) fixe |
+| Memory | O(capacity) fixed |
 
-### Avantages
+### Advantages
 
-- Pas d'allocation dynamique
-- Performances predictibles
-- Ideal pour temps reel
+- No dynamic allocation
+- Predictable performance
+- Ideal for real-time
 
-### Inconvenients
+### Disadvantages
 
-- Taille fixe (doit etre dimensionne)
-- Perte de donnees si overwrite
-
----
-
-## Quand utiliser
-
-- Traitement de flux de donnees en temps reel (audio, video, capteurs)
-- Systeme de logging avec retention limitee (garder les N derniers logs)
-- Metriques et statistiques sur fenetre glissante (rolling average, percentiles)
-- Communication producteur-consommateur avec taille fixe predictible
-- Applications embarquees ou temps-reel necessitant une memoire bornee
+- Fixed size (must be dimensioned)
+- Data loss if overwrite
 
 ---
 
-## Patterns connexes
+## When to Use
+
+- Real-time data stream processing (audio, video, sensors)
+- Logging system with limited retention (keep the last N logs)
+- Metrics and statistics over sliding window (rolling average, percentiles)
+- Producer-consumer communication with predictable fixed size
+- Embedded or real-time applications requiring bounded memory
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Queue** | Ring buffer est une implementation |
-| **Producer-Consumer** | Utilise souvent un ring buffer |
-| **Double Buffer** | Deux buffers alternes vs circulaire |
-| **Object Pool** | Gestion memoire similaire |
+| **Queue** | Ring buffer is an implementation |
+| **Producer-Consumer** | Often uses a ring buffer |
+| **Double Buffer** | Two alternating buffers vs circular |
+| **Object Pool** | Similar memory management |
 
 ---
 
 ## Sources
 
 - [Wikipedia - Circular Buffer](https://en.wikipedia.org/wiki/Circular_buffer)
-- [LMAX Disruptor](https://lmax-exchange.github.io/disruptor/) - Ring buffer haute perf
+- [LMAX Disruptor](https://lmax-exchange.github.io/disruptor/) - High-perf ring buffer

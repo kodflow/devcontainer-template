@@ -116,12 +116,11 @@ if [ ! -t 0 ]; then
 
         if [ $ISSUES_FOUND -eq 1 ]; then
             echo "═══════════════════════════════════════════════"
-            echo "  ⚠️  COMMIT BLOQUÉ - Secrets détectés"
+            echo "  ⚠️  COMMIT BLOCKED - Secrets detected"
             echo "═══════════════════════════════════════════════"
             echo ""
-            echo "  Des secrets potentiels ont été trouvés dans les"
-            echo "  fichiers staged. Veuillez les supprimer avant"
-            echo "  de commiter."
+            echo "  Potential secrets were found in the staged"
+            echo "  files. Please remove them before committing."
             echo ""
             echo "═══════════════════════════════════════════════"
             exit 2

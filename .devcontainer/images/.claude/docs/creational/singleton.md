@@ -1,13 +1,13 @@
 # Singleton Pattern
 
-> Garantir une instance unique d'une classe avec un point d'acces global.
+> Guarantee a unique instance of a class with a global access point.
 
 ## Intention
 
-S'assurer qu'une classe n'a qu'une seule instance et fournir un point
-d'acces global a cette instance.
+Ensure that a class has only one instance and provide a global
+access point to that instance.
 
-## Structure classique
+## Classic Structure
 
 ```go
 package main
@@ -17,17 +17,17 @@ import (
 	"sync"
 )
 
-// Connection represente une connexion a la base de donnees.
+// Connection represents a database connection.
 type Connection struct {
 	host string
 }
 
-// Execute execute une requete SQL.
+// Execute executes an SQL query.
 func (c *Connection) Execute(sql string) string {
 	return fmt.Sprintf("Executing: %s on %s", sql, c.host)
 }
 
-// Database gere la connexion singleton.
+// Database manages the singleton connection.
 type Database struct {
 	connection *Connection
 }
@@ -37,7 +37,7 @@ var (
 	once     sync.Once
 )
 
-// getInstance retourne l'instance unique (thread-safe avec sync.Once).
+// getInstance returns the unique instance (thread-safe with sync.Once).
 func getInstance() *Database {
 	once.Do(func() {
 		fmt.Println("Connecting to database...")
@@ -48,7 +48,7 @@ func getInstance() *Database {
 	return instance
 }
 
-// Query execute une requete SQL.
+// Query executes an SQL query.
 func (db *Database) Query(sql string) string {
 	return db.connection.Execute(sql)
 }
@@ -61,9 +61,9 @@ func ExampleDatabase() {
 }
 ```
 
-## Variantes
+## Variants
 
-### Singleton Thread-safe (avec sync.Once)
+### Thread-safe Singleton (with sync.Once)
 
 ```go
 package main
@@ -73,7 +73,7 @@ import (
 	"sync"
 )
 
-// ThreadSafeDatabase garantit une instance unique en environnement concurrent.
+// ThreadSafeDatabase guarantees a unique instance in a concurrent environment.
 type ThreadSafeDatabase struct {
 	connectionString string
 }
@@ -83,7 +83,7 @@ var (
 	safeOnce     sync.Once
 )
 
-// GetInstance retourne l'instance unique de maniere thread-safe.
+// GetInstance returns the unique instance in a thread-safe manner.
 func GetInstance() *ThreadSafeDatabase {
 	safeOnce.Do(func() {
 		fmt.Println("Initializing database connection...")
@@ -94,13 +94,13 @@ func GetInstance() *ThreadSafeDatabase {
 	return safeInstance
 }
 
-// Query execute une requete.
+// Query executes a query.
 func (db *ThreadSafeDatabase) Query(sql string) string {
 	return fmt.Sprintf("Query on %s: %s", db.connectionString, sql)
 }
 ```
 
-### Singleton avec sync.OnceValue (Go 1.21+ - RECOMMENDED)
+### Singleton with sync.OnceValue (Go 1.21+ - RECOMMENDED)
 
 ```go
 package main
@@ -110,12 +110,12 @@ import (
 	"sync"
 )
 
-// Database represente une connexion singleton.
+// Database represents a singleton connection.
 type Database struct {
 	connectionString string
 }
 
-// NewDatabase cree une nouvelle instance de Database.
+// NewDatabase creates a new Database instance.
 func newDatabase() *Database {
 	fmt.Println("Initializing database connection...")
 	return &Database{
@@ -123,11 +123,11 @@ func newDatabase() *Database {
 	}
 }
 
-// GetDB retourne l'instance singleton de maniere type-safe.
-// sync.OnceValue (Go 1.21+) est plus concis et type-safe que sync.Once.
+// GetDB returns the singleton instance in a type-safe manner.
+// sync.OnceValue (Go 1.21+) is more concise and type-safe than sync.Once.
 var GetDB = sync.OnceValue(newDatabase)
 
-// Query execute une requete.
+// Query executes a query.
 func (db *Database) Query(sql string) string {
 	return fmt.Sprintf("Query on %s: %s", db.connectionString, sql)
 }
@@ -143,7 +143,7 @@ func ExampleOnceValue() {
 }
 ```
 
-### Singleton avec sync.OnceValues (pour valeur + erreur)
+### Singleton with sync.OnceValues (for value + error)
 
 ```go
 package main
@@ -154,13 +154,13 @@ import (
 	"sync"
 )
 
-// Config represente la configuration de l'application.
+// Config represents the application configuration.
 type Config struct {
 	DatabaseURL string
 	APIKey      string
 }
 
-// loadConfig charge la configuration depuis l'environnement.
+// loadConfig loads the configuration from the environment.
 func loadConfig() (*Config, error) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -178,8 +178,8 @@ func loadConfig() (*Config, error) {
 	}, nil
 }
 
-// GetConfig retourne la configuration singleton avec gestion d'erreur.
-// sync.OnceValues (Go 1.21+) permet de retourner une valeur ET une erreur.
+// GetConfig returns the singleton configuration with error handling.
+// sync.OnceValues (Go 1.21+) allows returning a value AND an error.
 var GetConfig = sync.OnceValues(loadConfig)
 
 // Usage
@@ -189,13 +189,13 @@ func ExampleOnceValues() {
 		panic(err)
 	}
 
-	// Les appels suivants retournent le meme resultat (cache)
+	// Subsequent calls return the same result (cached)
 	config2, _ := GetConfig()
 	println(config == config2) // true
 }
 ```
 
-### Singleton avec initialisation paresseuse (Lazy)
+### Singleton with Lazy Initialization
 
 ```go
 package main
@@ -205,7 +205,7 @@ import (
 	"sync"
 )
 
-// LazyLogger implemente un logger singleton avec initialisation paresseuse.
+// LazyLogger implements a singleton logger with lazy initialization.
 type LazyLogger struct {
 	logLevel string
 }
@@ -215,7 +215,7 @@ var (
 	loggerOnce     sync.Once
 )
 
-// GetLogger retourne l'instance du logger (initialise au premier appel).
+// GetLogger returns the logger instance (initialized on first call).
 func GetLogger() *LazyLogger {
 	loggerOnce.Do(func() {
 		loggerInstance = &LazyLogger{
@@ -225,13 +225,13 @@ func GetLogger() *LazyLogger {
 	return loggerInstance
 }
 
-// Log ecrit un message de log.
+// Log writes a log message.
 func (l *LazyLogger) Log(message string) {
 	fmt.Printf("[%s] %s\n", l.logLevel, message)
 }
 ```
 
-### Singleton avec configuration
+### Singleton with Configuration
 
 ```go
 package main
@@ -241,14 +241,14 @@ import (
 	"sync"
 )
 
-// ConfigOptions definit les options de configuration.
+// ConfigOptions defines the configuration options.
 type ConfigOptions struct {
 	Host  string
 	Port  int
 	Debug bool
 }
 
-// ConfigManager gere la configuration singleton.
+// ConfigManager manages the singleton configuration.
 type ConfigManager struct {
 	config ConfigOptions
 }
@@ -260,7 +260,7 @@ var (
 	initialized    bool
 )
 
-// Initialize initialise le ConfigManager avec les options donnees.
+// Initialize initializes the ConfigManager with the given options.
 func Initialize(options ConfigOptions) error {
 	configMu.Lock()
 	defer configMu.Unlock()
@@ -279,7 +279,7 @@ func Initialize(options ConfigOptions) error {
 	return nil
 }
 
-// GetConfigManager retourne l'instance du ConfigManager.
+// GetConfigManager returns the ConfigManager instance.
 func GetConfigManager() (*ConfigManager, error) {
 	configMu.RLock()
 	defer configMu.RUnlock()
@@ -290,17 +290,17 @@ func GetConfigManager() (*ConfigManager, error) {
 	return configInstance, nil
 }
 
-// GetHost retourne le host configure.
+// GetHost returns the configured host.
 func (cm *ConfigManager) GetHost() string {
 	return cm.config.Host
 }
 
-// GetPort retourne le port configure.
+// GetPort returns the configured port.
 func (cm *ConfigManager) GetPort() int {
 	return cm.config.Port
 }
 
-// IsDebug retourne si le mode debug est active.
+// IsDebug returns whether debug mode is enabled.
 func (cm *ConfigManager) IsDebug() bool {
 	return cm.config.Debug
 }
@@ -324,16 +324,16 @@ func ExampleConfigManager() {
 }
 ```
 
-## Pourquoi Singleton est souvent un anti-pattern
+## Why Singleton Is Often an Anti-pattern
 
 ```go
-// PROBLEMES:
+// PROBLEMS:
 
-// 1. Etat global cache - difficile a tracer
+// 1. Hidden global state - hard to trace
 type OrderService struct{}
 
 func (s *OrderService) Process(order Order) error {
-	// D'ou vient cette dependance? Invisible dans la signature
+	// Where does this dependency come from? Invisible in the signature
 	db := getInstance()
 	db.Query("INSERT INTO orders...")
 	logger := GetLogger()
@@ -341,17 +341,17 @@ func (s *OrderService) Process(order Order) error {
 	return nil
 }
 
-// 2. Couplage fort - difficile a tester
+// 2. Tight coupling - hard to test
 type UserService struct{}
 
 func (s *UserService) GetUser(id string) (*User, error) {
-	// Comment mocker Database dans les tests?
+	// How to mock Database in tests?
 	db := getInstance()
 	result := db.Query("SELECT * FROM users WHERE id=" + id)
 	return &User{}, nil
 }
 
-// 3. Violation du SRP - gere son cycle de vie + sa logique
+// 3. SRP violation - manages its lifecycle + its logic
 type BadSingleton struct {
 	data string
 }
@@ -359,24 +359,24 @@ type BadSingleton struct {
 var badInstance *BadSingleton
 var badOnce sync.Once
 
-func getBadSingleton() *BadSingleton { // Responsabilite 1: cycle de vie
+func getBadSingleton() *BadSingleton { // Responsibility 1: lifecycle
 	badOnce.Do(func() {
 		badInstance = &BadSingleton{}
 	})
 	return badInstance
 }
 
-func (b *BadSingleton) ProcessData() { // Responsabilite 2: logique metier
+func (b *BadSingleton) ProcessData() { // Responsibility 2: business logic
 	// ...
 }
 
-// 4. Problemes de concurrence dans les tests
-// Les tests partagent la meme instance = effets de bord
+// 4. Concurrency issues in tests
+// Tests share the same instance = side effects
 ```
 
-## Alternatives modernes
+## Modern Alternatives
 
-### Dependency Injection (recommande)
+### Dependency Injection (recommended)
 
 ```go
 package main
@@ -387,17 +387,17 @@ import (
 	"fmt"
 )
 
-// 1. Interface pour l'abstraction
+// 1. Interface for abstraction
 type IDatabase interface {
 	Query(ctx context.Context, sql string) (string, error)
 }
 
-// 2. Implementation concrete
+// 2. Concrete implementation
 type Database struct {
 	connectionString string
 }
 
-// NewDatabase cree une nouvelle instance de Database.
+// NewDatabase creates a new Database instance.
 func NewDatabase(connectionString string) *Database {
 	return &Database{
 		connectionString: connectionString,
@@ -408,27 +408,27 @@ func (db *Database) Query(ctx context.Context, sql string) (string, error) {
 	return fmt.Sprintf("Query result for: %s", sql), nil
 }
 
-// 3. Container DI
+// 3. DI Container
 type Container struct {
 	mu       sync.RWMutex
 	services map[string]interface{}
 }
 
-// NewContainer cree un nouveau container DI.
+// NewContainer creates a new DI container.
 func NewContainer() *Container {
 	return &Container{
 		services: make(map[string]interface{}),
 	}
 }
 
-// RegisterSingleton enregistre un service singleton.
+// RegisterSingleton registers a singleton service.
 func (c *Container) RegisterSingleton(token string, instance interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.services[token] = instance
 }
 
-// Resolve resout un service par son token.
+// Resolve resolves a service by its token.
 func (c *Container) Resolve(token string) (interface{}, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -445,7 +445,7 @@ func ExampleDI() {
 	container := NewContainer()
 	container.RegisterSingleton("database", NewDatabase("postgres://localhost:5432"))
 
-	// 5. Usage - dependances explicites
+	// 5. Usage - explicit dependencies
 	type UserService struct {
 		db IDatabase
 	}
@@ -478,12 +478,12 @@ var (
 	once       sync.Once
 )
 
-// Connection represente une connexion a la base de donnees.
+// Connection represents a database connection.
 type Connection struct {
 	host string
 }
 
-// init initialise la connexion au demarrage du package.
+// init initializes the connection at package startup.
 func init() {
 	once.Do(func() {
 		connection = &Connection{
@@ -492,23 +492,23 @@ func init() {
 	})
 }
 
-// Query execute une requete SQL (acces direct a la connexion singleton).
+// Query executes an SQL query (direct access to the singleton connection).
 func Query(ctx context.Context, sql string) (string, error) {
 	return fmt.Sprintf("Executing: %s", sql), nil
 }
 
-// Close ferme la connexion.
+// Close closes the connection.
 func Close() error {
-	// Implementation de fermeture
+	// Close implementation
 	return nil
 }
 
-// Usage - le package est naturellement singleton
+// Usage - the package is naturally a singleton
 // import "yourproject/database"
 // result, err := database.Query(ctx, "SELECT * FROM users")
 ```
 
-### Factory avec scope
+### Factory with Scope
 
 ```go
 package main
@@ -517,7 +517,7 @@ import (
 	"sync"
 )
 
-// Scope definit la portee d'un service.
+// Scope defines the scope of a service.
 type Scope string
 
 const (
@@ -526,20 +526,20 @@ const (
 	ScopeScoped    Scope = "scoped"
 )
 
-// ServiceFactory gere la creation de services avec differents scopes.
+// ServiceFactory manages service creation with different scopes.
 type ServiceFactory struct {
 	mu        sync.RWMutex
 	instances map[string]interface{}
 }
 
-// NewServiceFactory cree une nouvelle factory.
+// NewServiceFactory creates a new factory.
 func NewServiceFactory() *ServiceFactory {
 	return &ServiceFactory{
 		instances: make(map[string]interface{}),
 	}
 }
 
-// Singleton retourne ou cree une instance singleton.
+// Singleton returns or creates a singleton instance.
 func (f *ServiceFactory) Singleton(key string, factory func() interface{}) interface{} {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -553,12 +553,12 @@ func (f *ServiceFactory) Singleton(key string, factory func() interface{}) inter
 	return instance
 }
 
-// Transient cree toujours une nouvelle instance.
+// Transient always creates a new instance.
 func (f *ServiceFactory) Transient(factory func() interface{}) interface{} {
 	return factory()
 }
 
-// Scoped retourne une instance limitee a un scope donne.
+// Scoped returns an instance limited to a given scope.
 func (f *ServiceFactory) Scoped(scope, key string, factory func() interface{}) interface{} {
 	scopeKey := fmt.Sprintf("%s:%s", scope, key)
 	f.mu.Lock()
@@ -574,7 +574,7 @@ func (f *ServiceFactory) Scoped(scope, key string, factory func() interface{}) i
 }
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```go
 package main
@@ -585,9 +585,9 @@ import (
 	"testing"
 )
 
-// Test du Singleton classique
+// Classic Singleton test
 func TestDatabase_Singleton(t *testing.T) {
-	// Reset necessaire entre les tests (utiliser build tags ou interfaces)
+	// Reset needed between tests (use build tags or interfaces)
 	once = sync.Once{}
 	instance = nil
 
@@ -599,7 +599,7 @@ func TestDatabase_Singleton(t *testing.T) {
 	}
 }
 
-// Test avec DI (facile)
+// Test with DI (easy)
 type mockDatabase struct{}
 
 func (m *mockDatabase) Query(ctx context.Context, sql string) (string, error) {
@@ -624,7 +624,7 @@ func TestUserService_WithDI(t *testing.T) {
 	}
 }
 
-// Test du module pattern
+// Module pattern test
 func TestDatabaseModule_Query(t *testing.T) {
 	ctx := context.Background()
 	result, err := Query(ctx, "SELECT 1")
@@ -636,7 +636,7 @@ func TestDatabaseModule_Query(t *testing.T) {
 	}
 }
 
-// Test de thread-safety
+// Thread-safety test
 func TestGetInstance_Concurrent(t *testing.T) {
 	once = sync.Once{}
 	instance = nil
@@ -653,7 +653,7 @@ func TestGetInstance_Concurrent(t *testing.T) {
 
 	wg.Wait()
 
-	// Toutes les instances doivent etre identiques
+	// All instances must be identical
 	for i := 1; i < len(instances); i++ {
 		if instances[i] != instances[0] {
 			t.Error("expected all instances to be the same")
@@ -662,35 +662,35 @@ func TestGetInstance_Concurrent(t *testing.T) {
 }
 ```
 
-## Quand utiliser (vraiment)
+## When to Use (really)
 
-- Ressources partagees couteuses (pool de connexions)
-- Configuration globale de l'application
-- Cache applicatif
-- Logger (mais preferer DI)
+- Expensive shared resources (connection pool)
+- Global application configuration
+- Application cache
+- Logger (but prefer DI)
 
-## Quand eviter
+## When to Avoid
 
-- Quand la testabilite est importante
-- Quand plusieurs configurations sont possibles
-- Dans les bibliotheques (imposer un singleton aux utilisateurs)
-- Quand l'etat global cree du couplage
+- When testability is important
+- When multiple configurations are possible
+- In libraries (imposing a singleton on users)
+- When global state creates coupling
 
-## Decision : Singleton vs DI
+## Decision: Singleton vs DI
 
-| Critere | Singleton | DI Container |
+| Criterion | Singleton | DI Container |
 |---------|-----------|--------------|
-| Simplicite initiale | Oui | Non |
-| Testabilite | Difficile | Facile |
-| Flexibilite | Faible | Elevee |
-| Couplage | Fort | Faible |
-| Configuration | Statique | Dynamique |
+| Initial simplicity | Yes | No |
+| Testability | Hard | Easy |
+| Flexibility | Low | High |
+| Coupling | Tight | Loose |
+| Configuration | Static | Dynamic |
 
-## Patterns lies
+## Related Patterns
 
-- **Factory** : Controle la creation du Singleton
-- **Facade** : Souvent implemente comme Singleton
-- **Service Locator** : Alternative au DI (mais anti-pattern similaire)
+- **Factory**: Controls Singleton creation
+- **Facade**: Often implemented as Singleton
+- **Service Locator**: Alternative to DI (but similar anti-pattern)
 
 ## Sources
 

@@ -1,8 +1,8 @@
 # Snapshot Testing
 
-> Capturer et comparer la sortie avec une reference enregistree.
+> Capture and compare output with a saved reference.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -389,7 +389,7 @@ jobs:
           fi
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
@@ -398,26 +398,26 @@ jobs:
 | `github.com/stretchr/testify/assert` | Assertions |
 | `github.com/sergi/go-diff/diffmatchpatch` | Diff visualization |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Snapshots trop grands | Review difficile | Snapshots partiels |
-| Update sans review | Bugs masques | Review chaque update |
-| Donnees dynamiques | Tests flaky | Normaliser avant snapshot |
-| Commit auto-updates | Changements non voulus | CI check strict |
-| Trop de snapshots | Maintenance lourde | Cibler elements stables |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Oversized snapshots | Difficult review | Partial snapshots |
+| Update without review | Hidden bugs | Review each update |
+| Dynamic data | Flaky tests | Normalize before snapshot |
+| Auto-commit updates | Unwanted changes | Strict CI check |
+| Too many snapshots | Heavy maintenance | Target stable elements |
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Recommande |
+| Scenario | Recommended |
 |----------|------------|
-| Serialization output | Oui |
-| API response format | Oui |
-| Config/output generation | Oui |
-| Highly dynamic content | Non |
-| Logic testing | Non (assertions) |
-| Frequent structure changes | Avec prudence |
+| Serialization output | Yes |
+| API response format | Yes |
+| Config/output generation | Yes |
+| Highly dynamic content | No |
+| Logic testing | No (assertions) |
+| Frequent structure changes | With caution |
 
 ## Best practices
 
@@ -448,11 +448,11 @@ func TestFormatting(t *testing.T) {
 // Remove unused .snapshots files
 ```
 
-## Patterns lies
+## Related Patterns
 
-- **Visual Regression** : Screenshot comparison
-- **Contract Testing** : API structure validation
-- **Golden Master** : Reference output testing
+- **Visual Regression**: Screenshot comparison
+- **Contract Testing**: API structure validation
+- **Golden Master**: Reference output testing
 
 ## Sources
 

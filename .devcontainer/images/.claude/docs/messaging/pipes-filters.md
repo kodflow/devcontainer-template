@@ -1,8 +1,8 @@
 # Pipes and Filters Pattern
 
-> Pipeline de traitement composable pour les messages, où chaque filtre effectue une transformation indépendante.
+> Composable message processing pipeline where each filter performs an independent transformation.
 
-## Vue d'ensemble
+## Overview
 
 ```
 +--------+     +--------+     +--------+     +--------+
@@ -18,7 +18,7 @@ Input ============= PIPE ============= PIPE =============> Output
 
 ---
 
-## Concepts fondamentaux
+## Fundamental Concepts
 
 ```
 FILTER: Unite de traitement autonome
@@ -34,7 +34,7 @@ PIPE: Connecteur entre filtres
 
 ---
 
-## Implementation de base
+## Base Implementation
 
 ```go
 package pipeline
@@ -69,9 +69,9 @@ func (p *Pipeline[T]) AddFilter(filter Filter[T, T]) *Pipeline[T] {
 
 // Execute runs the pipeline.
 func (p *Pipeline[T]) Execute(ctx context.Context, input T) (T, error) {
-	current := input
-	for _, filter := range p.filters {
-		result, err := filter.Process(ctx, current)
+	current:= input
+	for _, filter:= range p.filters {
+		result, err:= filter.Process(ctx, current)
 		if err != nil {
 			var zero T
 			return zero, fmt.Errorf("pipeline filter failed: %w", err)
@@ -106,12 +106,12 @@ type EnrichedOrder struct {
 }
 ```
 
-**Quand :** Traitement composable, separation des responsabilites.
-**Lie a :** Chain of Responsibility, Decorator.
+**When:** Composable processing, separation of responsibilities.
+**Related to:** Chain of Responsibility, Decorator.
 
 ---
 
-## Filtres reusables
+## Reusable Filters
 
 ```go
 package filters
@@ -135,7 +135,7 @@ func NewValidationFilter[T any](validator func(T) error) *ValidationFilter[T] {
 
 // Process validates the input.
 func (vf *ValidationFilter[T]) Process(ctx context.Context, input T) (T, error) {
-	if err := vf.validator(input); err != nil {
+	if err:= vf.validator(input); err != nil {
 		var zero T
 		return zero, fmt.Errorf("validation failed: %w", err)
 	}
@@ -177,7 +177,7 @@ func NewEnrichmentFilter[T any](
 
 // Process enriches the input.
 func (ef *EnrichmentFilter[T]) Process(ctx context.Context, input T) (T, error) {
-	enrichedData, err := ef.enricher(ctx, input)
+	enrichedData, err:= ef.enricher(ctx, input)
 	if err != nil {
 		var zero T
 		return zero, fmt.Errorf("enrichment failed: %w", err)
@@ -208,12 +208,12 @@ func (cf *ConditionalFilter[T]) Process(ctx context.Context, input T) (T, error)
 }
 ```
 
-**Quand :** Filtres generiques reutilisables.
-**Lie a :** Strategy, Template Method.
+**When:** Generic reusable filters.
+**Related to:** Strategy, Template Method.
 
 ---
 
-## Pipeline asynchrone avec channels
+## Asynchronous Pipeline with Channels
 
 ```go
 package async
@@ -255,8 +255,8 @@ func (ap *AsyncPipeline[T]) AddStage(name string, filter AsyncFilter[T], bufferS
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 
-	inputCh := make(chan T, bufferSize)
-	outputCh := make(chan T, bufferSize)
+	inputCh:= make(chan T, bufferSize)
+	outputCh:= make(chan T, bufferSize)
 
 	ap.stages = append(ap.stages, stage[T]{
 		name:     name,
@@ -277,14 +277,14 @@ func (ap *AsyncPipeline[T]) Start(ctx context.Context) error {
 	var wg sync.WaitGroup
 
 	// Connect stages
-	for i := 0; i < len(ap.stages)-1; i++ {
-		current := &ap.stages[i]
-		next := &ap.stages[i+1]
-		currentCaptured := current
-		nextCaptured := next
+	for i:= 0; i < len(ap.stages)-1; i++ {
+		current:= &ap.stages[i]
+		next:= &ap.stages[i+1]
+		currentCaptured:= current
+		nextCaptured:= next
 
 		wg.Go(func() {
-			for msg := range currentCaptured.outputCh {
+			for msg:= range currentCaptured.outputCh {
 				select {
 				case nextCaptured.inputCh <- msg:
 				case <-ctx.Done():
@@ -296,20 +296,20 @@ func (ap *AsyncPipeline[T]) Start(ctx context.Context) error {
 	}
 
 	// Start workers for each stage
-	for i := range ap.stages {
-		st := &ap.stages[i]
-		for w := 0; w < st.workers; w++ {
+	for i:= range ap.stages {
+		st:= &ap.stages[i]
+		for w:= 0; w < st.workers; w++ {
 			wg.Go(func() {
 				for {
 					select {
 					case <-ctx.Done():
 						return
-					case msg, ok := <-s.inputCh:
+					case msg, ok:= <-s.inputCh:
 						if !ok {
 							return
 						}
 
-						result, err := s.filter.Process(ctx, msg)
+						result, err:= s.filter.Process(ctx, msg)
 						if err != nil {
 							// Log error and continue
 							continue
@@ -353,12 +353,12 @@ func (ap *AsyncPipeline[T]) Output() <-chan T {
 }
 ```
 
-**Quand :** Traitement asynchrone haute performance.
-**Lie a :** Producer-Consumer, Worker Pool.
+**When:** High-performance asynchronous processing.
+**Related to:** Producer-Consumer, Worker Pool.
 
 ---
 
-## Parallelisation
+## Parallelization
 
 ```go
 package parallel
@@ -387,13 +387,13 @@ func NewParallelPipeline[TInput, TOutput any](
 
 // Process runs filters in parallel.
 func (pp *ParallelPipeline[TInput, TOutput]) Process(ctx context.Context, input TInput) (TOutput, error) {
-	results := make([]TOutput, len(pp.filters))
-	errCh := make(chan error, len(pp.filters))
+	results:= make([]TOutput, len(pp.filters))
+	errCh:= make(chan error, len(pp.filters))
 	var wg sync.WaitGroup
 
-	for i, filter := range pp.filters {
+	for i, filter:= range pp.filters {
 		wg.Go(func() {
-			result, err := f.Process(ctx, input)
+			result, err:= f.Process(ctx, input)
 			if err != nil {
 				errCh <- err
 				return
@@ -405,7 +405,7 @@ func (pp *ParallelPipeline[TInput, TOutput]) Process(ctx context.Context, input 
 	wg.Wait()
 	close(errCh)
 
-	if err := <-errCh; err != nil {
+	if err:= <-errCh; err != nil {
 		var zero TOutput
 		return zero, err
 	}
@@ -419,12 +419,12 @@ type Filter[TInput, TOutput any] interface {
 }
 ```
 
-**Quand :** Enrichissement parallele, fan-out/fan-in.
-**Lie a :** Scatter-Gather, Fork-Join.
+**When:** Parallel enrichment, fan-out/fan-in.
+**Related to:** Scatter-Gather, Fork-Join.
 
 ---
 
-## Gestion des erreurs
+## Error Handling
 
 ```go
 package resilient
@@ -480,22 +480,22 @@ func (rp *ResilientPipeline[T]) AddFilter(name string, filter Filter[T, T], hand
 
 // Execute runs the pipeline with resilience.
 func (rp *ResilientPipeline[T]) Execute(ctx context.Context, input T) (T, error) {
-	current := input
+	current:= input
 
-	for i, filter := range rp.filters {
-		filterName := fmt.Sprintf("filter_%d", i)
+	for i, filter:= range rp.filters {
+		filterName:= fmt.Sprintf("filter_%d", i)
 
 		// Execute with timeout
-		result, err := rp.executeWithTimeout(ctx, filter, current)
+		result, err:= rp.executeWithTimeout(ctx, filter, current)
 		if err != nil {
-			handler, exists := rp.errorHandlers[filterName]
+			handler, exists:= rp.errorHandlers[filterName]
 			if !exists {
 				var zero T
 				return zero, fmt.Errorf("%s failed: %w", filterName, err)
 			}
 
 			// Try to recover
-			recovered, cont, handlerErr := handler.Handle(ctx, err, current)
+			recovered, cont, handlerErr:= handler.Handle(ctx, err, current)
 			if handlerErr != nil {
 				var zero T
 				return zero, fmt.Errorf("error handler failed: %w", handlerErr)
@@ -521,14 +521,14 @@ func (rp *ResilientPipeline[T]) executeWithTimeout(
 	filter Filter[T, T],
 	input T,
 ) (T, error) {
-	ctx, cancel := context.WithTimeout(ctx, rp.timeout)
+	ctx, cancel:= context.WithTimeout(ctx, rp.timeout)
 	defer cancel()
 
-	resultCh := make(chan T, 1)
-	errCh := make(chan error, 1)
+	resultCh:= make(chan T, 1)
+	errCh:= make(chan error, 1)
 
 	go func() {
-		result, err := filter.Process(ctx, input)
+		result, err:= filter.Process(ctx, input)
 		if err != nil {
 			errCh <- err
 			return
@@ -543,38 +543,38 @@ func (rp *ResilientPipeline[T]) executeWithTimeout(
 			return zero, ErrTimeout
 		}
 		return zero, ctx.Err()
-	case err := <-errCh:
+	case err:= <-errCh:
 		var zero T
 		return zero, err
-	case result := <-resultCh:
+	case result:= <-resultCh:
 		return result, nil
 	}
 }
 ```
 
-**Quand :** Production, haute disponibilite, tolerance aux pannes.
-**Lie a :** Circuit Breaker, Retry, Bulkhead.
+**When:** Production, high availability, fault tolerance.
+**Related to:** Circuit Breaker, Retry, Bulkhead.
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Traitement de messages en plusieurs etapes independantes et reutilisables
-- Composition flexible de transformations avec separation des responsabilites
-- Pipelines asynchrones haute performance avec parallelisation
-- Traitement de flux de donnees avec filtres conditionnels
-- Architecture modulaire permettant l'ajout/suppression de filtres
+- Multi-step message processing with independent and reusable steps
+- Flexible composition of transformations with separation of responsibilities
+- High-performance asynchronous pipelines with parallelization
+- Data stream processing with conditional filters
+- Modular architecture allowing adding/removing filters
 
-## Patterns lies
+## Related Patterns
 
-- [Message Translator](./message-translator.md) - Filtre de transformation
-- [Message Router](./message-router.md) - Routage dans le pipeline
-- [Splitter-Aggregator](./splitter-aggregator.md) - Division et recomposition
-- [Dead Letter Channel](./dead-letter.md) - Gestion des erreurs de pipeline
+- [Message Translator](./message-translator.md) - Transformation filter
+- [Message Router](./message-router.md) - Routing in the pipeline
+- [Splitter-Aggregator](./splitter-aggregator.md) - Split and recombine
+- [Dead Letter Channel](./dead-letter.md) - Pipeline error handling
 
-## Patterns complementaires
+## Complementary Patterns
 
-- **Message Router** - Routage dynamique
-- **Splitter/Aggregator** - Division et fusion
-- **Content Enricher** - Type de filtre
-- **Message Filter** - Type de filtre
+- **Message Router** - Dynamic routing
+- **Splitter/Aggregator** - Split and merge
+- **Content Enricher** - Filter type
+- **Message Filter** - Filter type

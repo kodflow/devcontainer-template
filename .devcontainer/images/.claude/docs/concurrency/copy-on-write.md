@@ -1,41 +1,41 @@
 # Copy-on-Write (COW)
 
-Pattern d'optimisation différant la copie jusqu'à la modification.
+Optimization pattern deferring the copy until modification.
 
 ---
 
-## Qu'est-ce que Copy-on-Write ?
+## What is Copy-on-Write?
 
-> Stratégie de copie paresseuse : partager les données en lecture, copier seulement lors de l'écriture.
+> Lazy copy strategy: share data for reads, copy only on write.
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                    Copy-on-Write                              │
-│                                                               │
-│  Initial:                     After Write to B:               │
-│                                                               │
-│  ┌───────┐                    ┌───────┐                       │
-│  │   A   │──┐                 │   A   │───► Data (original)   │
-│  └───────┘  │                 └───────┘                       │
-│             ├──► Data                                         │
-│  ┌───────┐  │                 ┌───────┐                       │
-│  │   B   │──┘                 │   B   │───► Data' (copy)      │
-│  └───────┘                    └───────┘                       │
-│                                                               │
-│  A et B partagent              B a sa propre copie            │
-└──────────────────────────────────────────────────────────────┘
++--------------------------------------------------------------+
+|                    Copy-on-Write                              |
+|                                                               |
+|  Initial:                     After Write to B:               |
+|                                                               |
+|  +-------+                    +-------+                       |
+|  |   A   |--+                 |   A   |---> Data (original)   |
+|  +-------+  |                 +-------+                       |
+|             +---> Data                                        |
+|  +-------+  |                 +-------+                       |
+|  |   B   |--+                 |   B   |---> Data' (copy)      |
+|  +-------+                    +-------+                       |
+|                                                               |
+|  A and B share                 B has its own copy             |
++--------------------------------------------------------------+
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Économiser la mémoire (pas de copie si pas de modification)
-- Améliorer les performances (copie différée)
-- Sécurité des snapshots (état cohérent)
-- Partage efficace entre threads
+- Save memory (no copy if no modification)
+- Improve performance (deferred copy)
+- Snapshot safety (consistent state)
+- Efficient sharing between threads
 
 ---
 
-## Implementation Go
+## Go Implementation
 
 ### Immutable List (COW)
 
@@ -210,7 +210,7 @@ func (m *ImmutableMap[K, V]) Merge(other *ImmutableMap[K, V]) *ImmutableMap[K, V
 
 ---
 
-## COW pour Thread Safety (sync.Map alternative)
+## COW for Thread Safety (sync.Map alternative)
 
 ```go
 package cow
@@ -306,7 +306,7 @@ func main() {
 
 ---
 
-## COW pour Snapshots
+## COW for Snapshots
 
 ```go
 package snapshot
@@ -378,7 +378,7 @@ func (ds *DocumentStore[K, V]) Rollback(snapshotID int) error {
 
 ---
 
-## Cas d'usage typiques
+## Typical Use Cases
 
 ### 1. Undo/Redo
 
@@ -442,47 +442,47 @@ func (um *UndoManager[T]) Current() T {
 
 ---
 
-## Avantages et Inconvénients
+## Advantages and Disadvantages
 
-### Avantages
+### Advantages
 
-| Avantage | Explication |
-|----------|-------------|
-| Mémoire | Pas de copie si pas de modification |
-| Performance lecture | Lock-free reads avec atomic |
-| Snapshots gratuits | Juste copier les pointeurs |
-| Thread-safe | Références immutables |
-| Undo/Redo facile | Conserver les anciennes versions |
+| Advantage | Explanation |
+|-----------|-------------|
+| Memory | No copy if no modification |
+| Read performance | Lock-free reads with atomic |
+| Free snapshots | Just copy the pointers |
+| Thread-safe | Immutable references |
+| Easy undo/redo | Keep old versions |
 
-### Inconvénients
+### Disadvantages
 
-| Inconvénient | Mitigation |
+| Disadvantage | Mitigation |
 |--------------|------------|
-| Coût d'écriture | Batch les modifications |
-| Pression GC | Utiliser sync.Pool pour buffers |
-| Complexité | Encapsuler dans API simple |
+| Write cost | Batch the modifications |
+| GC pressure | Use sync.Pool for buffers |
+| Complexity | Encapsulate in simple API |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Lectures frequentes, ecritures rares (read-heavy workloads)
-- Besoin de snapshots coherents sans bloquer les lecteurs
-- Historique/versioning avec undo/redo
-- Partage de donnees entre threads sans locks en lecture
-- Structures de donnees persistantes/immutables
+- Frequent reads, rare writes (read-heavy workloads)
+- Need consistent snapshots without blocking readers
+- History/versioning with undo/redo
+- Data sharing between threads without read locks
+- Persistent/immutable data structures
 
 ---
 
-## Patterns connexes
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Immutability** | Base du COW |
-| **Structural Sharing** | Optimisation du COW |
-| **Snapshot** | Cas d'usage principal |
-| **Flyweight** | Partage de données similaire |
-| **sync.Map** | Alternative pour cas simples |
+| **Immutability** | Foundation of COW |
+| **Structural Sharing** | COW optimization |
+| **Snapshot** | Primary use case |
+| **Flyweight** | Similar data sharing |
+| **sync.Map** | Alternative for simple cases |
 
 ---
 

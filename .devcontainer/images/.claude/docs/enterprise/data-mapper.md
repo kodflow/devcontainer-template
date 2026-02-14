@@ -4,16 +4,16 @@
 
 ## Concept
 
-Data Mapper est un pattern qui separe completement les objets du domaine de la logique de persistance. Les objets metier n'ont aucune connaissance de la base de donnees, et inversement.
+Data Mapper is a pattern that completely separates domain objects from persistence logic. Business objects have no knowledge of the database, and vice versa.
 
-## Principes cles
+## Key Principles
 
-1. **Separation totale** : Domain Model ignore la DB
-2. **Bidirectionnel** : Mapping domaine <-> DB dans les deux sens
-3. **Encapsulation** : Le mapper connait les deux mondes
-4. **Testabilite** : Domain Model testable sans DB
+1. **Total separation**: Domain Model is unaware of the DB
+2. **Bidirectional**: Mapping domain <-> DB in both directions
+3. **Encapsulation**: The mapper knows both worlds
+4. **Testability**: Domain Model testable without DB
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package datamapper
@@ -382,39 +382,39 @@ func generateID() string {
 }
 ```
 
-## Comparaison avec alternatives
+## Comparison with Alternatives
 
 | Aspect | Data Mapper | Active Record | Table Data Gateway |
 |--------|-------------|---------------|-------------------|
-| Couplage domaine-DB | Aucun | Fort | Moyen |
-| Complexite | Elevee | Faible | Faible |
-| Testabilite domaine | Excellente | Moyenne | N/A |
-| ORM integration | Naturelle | Native | Manuelle |
-| Domain Model rich | Oui | Difficile | Non |
+| Domain-DB coupling | None | Strong | Medium |
+| Complexity | High | Low | Low |
+| Domain testability | Excellent | Medium | N/A |
+| ORM integration | Natural | Native | Manual |
+| Rich Domain Model | Yes | Difficult | No |
 
-## Quand utiliser
+## When to Use
 
-**Utiliser Data Mapper quand :**
+**Use Data Mapper when:**
 
-- Domain Model riche avec logique complexe
-- Tests unitaires du domaine sans DB
-- Schema DB different du modele objet
-- Multiple sources de donnees
+- Rich Domain Model with complex logic
+- Unit testing domain without DB
+- DB schema different from object model
+- Multiple data sources
 - ORM (sqlx, ent, etc.)
 
-**Eviter Data Mapper quand :**
+**Avoid Data Mapper when:**
 
-- CRUD simple
-- Schema DB = modele objet
-- Performance critique (overhead mapping)
-- Equipe non familiere avec le pattern
+- Simple CRUD
+- DB schema = object model
+- Critical performance (mapping overhead)
+- Team unfamiliar with the pattern
 
-## Patterns liés
+## Related Patterns
 
-- [Repository](./repository.md) - Interface collection-like au-dessus de Data Mapper
-- [Unit of Work](./unit-of-work.md) - Coordination des modifications avec Data Mapper
-- [Identity Map](./identity-map.md) - Cache des objets charges par Data Mapper
-- [Domain Model](./domain-model.md) - Objets mappes par Data Mapper
+- [Repository](./repository.md) - Collection-like interface on top of Data Mapper
+- [Unit of Work](./unit-of-work.md) - Coordination of modifications with Data Mapper
+- [Identity Map](./identity-map.md) - Cache of objects loaded by Data Mapper
+- [Domain Model](./domain-model.md) - Objects mapped by Data Mapper
 
 ## Sources
 

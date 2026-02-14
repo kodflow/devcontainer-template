@@ -4,17 +4,17 @@
 
 ## Concept
 
-Code exécuté à la demande, sans gestion de serveurs.
+Code executed on demand, without server management.
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Platform | Adaptation |
+| Language | Platform | Suitability |
 |---------|----------|-----------|
 | **Node.js** | AWS Lambda, Vercel | Excellent |
 | **Python** | AWS Lambda, GCP | Excellent |
-| **Go** | AWS Lambda, GCP | Très bon |
-| **Rust** | AWS Lambda | Bon |
-| **Java** | AWS Lambda | Moyen (cold start) |
+| **Go** | AWS Lambda, GCP | Very good |
+| **Rust** | AWS Lambda | Good |
+| **Java** | AWS Lambda | Average (cold start) |
 
 ## Structure
 
@@ -32,52 +32,52 @@ Code exécuté à la demande, sans gestion de serveurs.
 ├── shared/
 │   ├── utils/
 │   └── types/
-└── serverless.yml       # ou terraform/
+└── serverless.yml       # or terraform/
 ```
 
-## Avantages
+## Advantages
 
 - Zero ops (managed)
 - Pay per use
-- Scale automatique
-- Déploiement simple
-- Focus sur le code
+- Automatic scaling
+- Simple deployment
+- Focus on code
 
-## Inconvénients
+## Disadvantages
 
 - Cold starts
 - Vendor lock-in
-- Stateless obligatoire
-- Coût imprévisible à scale
-- Debug difficile
-- Limites d'exécution
+- Stateless mandatory
+- Unpredictable cost at scale
+- Difficult debugging
+- Execution limits
 
-## Contraintes
+## Constraints
 
-- Stateless (pas d'état local)
+- Stateless (no local state)
 - Timeout (15min max AWS)
 - Memory limits
-- Idempotency requise
+- Idempotency required
 
-## Règles
+## Rules
 
-1. Une fonction = une responsabilité
-2. Stateless toujours
-3. Idempotent toujours
+1. One function = one responsibility
+2. Always stateless
+3. Always idempotent
 4. External state (DynamoDB, S3)
-5. Fast cold start (bundle petit)
+5. Fast cold start (small bundle)
 
-## Quand utiliser
+## When to Use
 
-- Trafic variable/imprévisible
-- Tâches event-driven
-- APIs légères
-- Budget variable
-- POC rapide
+- Variable/unpredictable traffic
+- Event-driven tasks
+- Lightweight APIs
+- Variable budget
+- Quick POC
 
-## Quand éviter
+## When to Avoid
 
-- Trafic constant élevé → EC2/K8s moins cher
-- Besoins temps réel stricts
+- Constant high traffic -> EC2/K8s is cheaper
+- Strict real-time requirements
 - Long-running tasks
 - Complex state management

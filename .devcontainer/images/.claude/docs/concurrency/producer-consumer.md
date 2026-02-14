@@ -1,12 +1,12 @@
 # Producer-Consumer
 
-Pattern separant production et consommation de donnees via une queue.
+Pattern separating data production and consumption via a queue.
 
 ---
 
-## Qu'est-ce que Producer-Consumer ?
+## What is Producer-Consumer?
 
-> Decoupler les producteurs des consommateurs avec une queue intermediaire.
+> Decouple producers from consumers with an intermediate queue.
 
 ```
 +--------------------------------------------------------------+
@@ -26,24 +26,24 @@ Pattern separant production et consommation de donnees via une queue.
 |                                     +---|Consumer 3|          |
 |                                         +----------+          |
 |                                                               |
-|  Decouplage:                                                  |
-|  - Producteurs independants des consommateurs                 |
-|  - Vitesses differentes gerees par la queue                   |
-|  - Scalabilite independante                                   |
+|  Decoupling:                                                  |
+|  - Producers independent from consumers                       |
+|  - Different speeds managed by the queue                      |
+|  - Independent scalability                                    |
 +--------------------------------------------------------------+
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Decoupler production/consommation
-- Gerer les differences de vitesse
-- Permettre le buffering
+- Decouple production/consumption
+- Handle speed differences
+- Enable buffering
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### Queue basique avec channels
+### Basic Queue with channels
 
 ```go
 package queue
@@ -291,23 +291,23 @@ func main() {
 
 ---
 
-## Patterns de distribution
+## Distribution Patterns
 
 ```
 1. Competing Consumers (Work Queue):
-   Producer --> [Queue] --> Consumer 1 (traite un message)
-                       --> Consumer 2 (traite un message)
-   Chaque message traite par UN seul consumer
+   Producer --> [Queue] --> Consumer 1 (processes one message)
+                       --> Consumer 2 (processes one message)
+   Each message processed by ONE consumer only
 
 2. Publish-Subscribe:
-   Producer --> [Topic] --> Consumer 1 (recoit tous)
-                       --> Consumer 2 (recoit tous)
-   Chaque message traite par TOUS les consumers
+   Producer --> [Topic] --> Consumer 1 (receives all)
+                       --> Consumer 2 (receives all)
+   Each message processed by ALL consumers
 
 3. Fan-Out:
    Producer --> [Router] --> Queue 1 --> Consumer type A
                         --> Queue 2 --> Consumer type B
-   Messages routes selon leur type
+   Messages routed by their type
 ```
 
 ### Fan-Out Implementation
@@ -372,48 +372,48 @@ func (f *FanOut[T]) Close() {
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
-| Aspect | Valeur |
-|--------|--------|
-| Produce | O(1) ou O(wait) si bounded |
-| Consume | O(1) ou O(wait) si vide |
-| Memoire | O(queue_size) |
+| Aspect | Value |
+|--------|-------|
+| Produce | O(1) or O(wait) if bounded |
+| Consume | O(1) or O(wait) if empty |
+| Memory | O(queue_size) |
 
-### Avantages
+### Advantages
 
-- Decouplage temporel
-- Absorption des pics
-- Scalabilite independante
-- Channels natifs en Go
+- Temporal decoupling
+- Spike absorption
+- Independent scalability
+- Native channels in Go
 
-### Inconvenients
+### Disadvantages
 
-- Latence ajoutee
-- Complexite de gestion queue
-- Perte possible si crash
-
----
-
-## Quand utiliser
-
-| Situation | Recommande |
-|-----------|------------|
-| Vitesses production/consommation differentes | Oui |
-| Traitement async en arriere-plan | Oui |
-| Pics de charge | Oui |
-| Latence minimale critique | Non |
+- Added latency
+- Queue management complexity
+- Possible loss on crash
 
 ---
 
-## Patterns connexes
+## When to Use
+
+| Situation | Recommended |
+|-----------|-------------|
+| Different production/consumption speeds | Yes |
+| Background async processing | Yes |
+| Load spikes | Yes |
+| Minimal latency critical | No |
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Thread Pool** | Consumers = workers du pool |
+| **Thread Pool** | Consumers = pool workers |
 | **Buffer** | Queue = buffer |
-| **Pipeline** | Chaine de producer-consumer |
-| **Fan-Out/Fan-In** | Distribution/agregation |
+| **Pipeline** | Chain of producer-consumer |
+| **Fan-Out/Fan-In** | Distribution/aggregation |
 
 ---
 

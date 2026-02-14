@@ -1,80 +1,80 @@
 # MVC - Model View Controller
 
-> **DEFAULT** pour projets web scripting (PHP, Ruby, Python/Django)
+> **DEFAULT** for web scripting projects (PHP, Ruby, Python/Django)
 
 ## Concept
 
-Séparation en 3 couches : données, présentation, logique de contrôle.
+Separation into 3 layers: data, presentation, control logic.
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Framework | Adaptation |
+| Language | Framework | Suitability |
 |---------|-----------|-----------|
 | **PHP** | Laravel, Symfony | Excellent |
 | **Ruby** | Rails | Excellent |
 | **Python** | Django | Excellent |
-| **Node.js** | Express | Bon |
-| **Java** | Spring MVC | Bon |
+| **Node.js** | Express | Good |
+| **Java** | Spring MVC | Good |
 
 ## Structure
 
 ```
 /src
-├── models/              # Données, ORM, validations
+├── models/              # Data, ORM, validations
 │   ├── User.php
 │   └── Post.php
 ├── views/               # Templates, UI
 │   ├── layouts/
 │   └── pages/
-├── controllers/         # Logique requête/réponse
+├── controllers/         # Request/response logic
 │   ├── UserController.php
 │   └── PostController.php
-├── routes/              # Définition URLs
+├── routes/              # URL definitions
 └── config/
 ```
 
-## Avantages
+## Advantages
 
-- Simple à comprendre
-- Bien documenté (30+ ans)
-- Frameworks matures
-- Conventions établies
-- Onboarding rapide
+- Easy to understand
+- Well documented (30+ years)
+- Mature frameworks
+- Established conventions
+- Quick onboarding
 
-## Inconvénients
+## Disadvantages
 
-- Controllers obèses possible
-- Couplage View-Model
-- Difficulté à tester isolément
-- Scale horizontal limité
-- Logique métier dispersée
+- Fat controllers possible
+- View-Model coupling
+- Difficult to test in isolation
+- Limited horizontal scaling
+- Scattered business logic
 
-## Contraintes
+## Constraints
 
-- Controller = orchestration uniquement
-- Pas de logique métier dans views
-- Models = données + validations
-- Un controller par ressource
+- Controller = orchestration only
+- No business logic in views
+- Models = data + validations
+- One controller per resource
 
-## Règles
+## Rules
 
-1. Controllers fins (orchestration)
-2. Logique métier dans Models ou Services
-3. Views sans logique (juste affichage)
-4. Routes explicites et RESTful
-5. Pas d'accès DB dans Controllers
+1. Thin controllers (orchestration)
+2. Business logic in Models or Services
+3. Views without logic (display only)
+4. Explicit and RESTful routes
+5. No DB access in Controllers
 
-## Quand utiliser
+## When to Use
 
-- Sites web traditionnels
+- Traditional websites
 - CRUD apps
-- CMS, blogs, e-commerce simple
-- Équipe junior
-- Prototypage rapide
+- CMS, blogs, simple e-commerce
+- Junior team
+- Rapid prototyping
 
-## Quand éviter
+## When to Avoid
 
-- Logique métier complexe → Clean/Hexagonal
-- Besoin de scale → Sliceable Monolith
-- API pure (sans views) → Layered
-- Mobile app backend → Clean
+- Complex business logic -> Clean/Hexagonal
+- Need to scale -> Sliceable Monolith
+- Pure API (no views) -> Layered
+- Mobile app backend -> Clean

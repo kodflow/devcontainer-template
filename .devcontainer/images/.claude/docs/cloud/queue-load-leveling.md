@@ -1,36 +1,36 @@
 # Queue-Based Load Leveling Pattern
 
-> Utiliser une queue comme buffer pour lisser les pics de charge.
+> Use a queue as a buffer to smooth out traffic spikes.
 
-## Principe
+## Principle
 
 ```
                     ┌─────────────────────────────────────────────┐
                     │          QUEUE LOAD LEVELING                 │
                     └─────────────────────────────────────────────┘
 
-  SANS QUEUE (pics saturent le service):
+  WITHOUT QUEUE (spikes saturate the service):
                                            ┌─────────┐
   ████████████                            │ Service │
   ██  PEAK  ██ ─────────────────────────▶ │ OVERLOAD│
   ████████████                            │   !!!   │
        │                                   └─────────┘
-       │ Capacite max
+       │ Max capacity
        ▼
   ═══════════════
 
-  AVEC QUEUE (charge lissee):
+  WITH QUEUE (smoothed load):
                     ┌─────────────┐        ┌─────────┐
   ████████████      │             │        │ Service │
   ██  PEAK  ██ ───▶ │    QUEUE    │ ─────▶ │ Stable  │
   ████████████      │   (buffer)  │        │  Load   │
                     └─────────────┘        └─────────┘
                           │                     │
-  Charge entrante         │    Debit constant   │
+  Incoming load           │    Constant rate    │
   ════════════════════════════════════════════════
 ```
 
-## Comparaison patterns
+## Pattern Comparison
 
 ```
   INPUT RATE        QUEUE DEPTH         OUTPUT RATE
@@ -43,7 +43,7 @@
        Time              Time                Time
 ```
 
-## Exemple Go
+## Go Example
 
 ```go
 package queueloadleveling
@@ -191,7 +191,7 @@ func (lc *LeveledConsumer) processTask(ctx context.Context, task *Task) {
 	if err := lc.handler(ctx, task); err != nil {
 		fmt.Printf("Task %s failed: %v
 ", task.ID, err)
-		
+
 		// Optionally re-queue for retry
 		task.Attempts++
 		if task.Attempts < 3 {
@@ -208,61 +208,61 @@ func (lc *LeveledConsumer) Stop() {
 }
 ```
 
-## Implementation avec rate limiting
+## Implementation with rate limiting
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Auto-scaling base sur la queue
+## Queue-based auto-scaling
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Metriques cles
+## Key Metrics
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Services cloud
+## Cloud Services
 
-| Service | Provider | Caracteristiques |
-|---------|----------|------------------|
-| SQS | AWS | Serverless, auto-scale, 14j retention |
-| Azure Queue | Azure | Integre Functions, 7j retention |
+| Service | Provider | Characteristics |
+|---------|----------|-----------------|
+| SQS | AWS | Serverless, auto-scale, 14d retention |
+| Azure Queue | Azure | Integrated with Functions, 7d retention |
 | Cloud Tasks | GCP | HTTP targets, scheduling |
-| RabbitMQ | Self-hosted | Features avancees, clustering |
-| Redis Streams | Redis | Ultra-rapide, persistence |
+| RabbitMQ | Self-hosted | Advanced features, clustering |
+| Redis Streams | Redis | Ultra-fast, persistence |
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
-|-----------|------------|
-| Pics de trafic previsibles | Oui |
-| Decoupler producteur/consommateur | Oui |
-| Service downstream lent | Oui |
-| Latence temps reel critique | Non (ajoute delai) |
-| Ordre strict requis | Avec FIFO garantie |
+| Situation | Recommended |
+|-----------|-------------|
+| Predictable traffic spikes | Yes |
+| Decouple producer/consumer | Yes |
+| Slow downstream service | Yes |
+| Critical real-time latency | No (adds delay) |
+| Strict order required | With guaranteed FIFO |
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Priority Queue | Traitement par importance |
-| Competing Consumers | Parallelisation |
-| Throttling | Limiter le debit |
-| Circuit Breaker | Si consumer defaillant |
+| Priority Queue | Processing by importance |
+| Competing Consumers | Parallelization |
+| Throttling | Rate limiting |
+| Circuit Breaker | If consumer fails |
 
 ## Sources
 

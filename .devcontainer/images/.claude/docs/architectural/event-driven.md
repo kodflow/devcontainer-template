@@ -1,25 +1,25 @@
 # Event-Driven Architecture
 
-> Architecture où les composants communiquent via des événements asynchrones.
+> Architecture where components communicate via asynchronous events.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│               SYNCHRONE vs EVENT-DRIVEN                          │
+│               SYNCHRONOUS vs EVENT-DRIVEN                        │
 │                                                                  │
-│  SYNCHRONE (Request/Response)     EVENT-DRIVEN                  │
+│  SYNCHRONOUS (Request/Response)     EVENT-DRIVEN                │
 │  ┌──────┐  request  ┌──────┐     ┌──────┐   ┌─────────┐        │
 │  │  A   │──────────►│  B   │     │  A   │──►│  Event  │        │
 │  │      │◄──────────│      │     │      │   │  Bus    │        │
 │  └──────┘  response └──────┘     └──────┘   └────┬────┘        │
 │                                                   │              │
-│  A attend B                            ┌─────────┼─────────┐    │
-│  Couplage fort                         ▼         ▼         ▼    │
+│  A waits for B                        ┌─────────┼─────────┐    │
+│  Strong coupling                      ▼         ▼         ▼    │
 │                                    ┌──────┐ ┌──────┐ ┌──────┐  │
 │                                    │  B   │ │  C   │ │  D   │  │
 │                                    └──────┘ └──────┘ └──────┘  │
-│                                    A ne connaît pas B, C, D     │
+│                                    A does not know B, C, D      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -51,7 +51,7 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Types d'événements
+## Event Types
 
 ### Domain Events
 
@@ -132,7 +132,7 @@ type OrderCreatedEvent struct {
 }
 ```
 
-## Implémentation avec Kafka
+## Implementation with Kafka
 
 ```go
 package kafka
@@ -269,7 +269,7 @@ func (s *EventSubscriber) Close() error {
 }
 ```
 
-## Patterns Event-Driven
+## Event-Driven Patterns
 
 ### Choreography
 
@@ -288,7 +288,7 @@ func (s *EventSubscriber) Close() error {
 │Service │              │Service │                │Service │
 └────────┘              └────────┘                └────────┘
 
-Décentralisé, pas de coordinateur
+Decentralized, no coordinator
 ```
 
 ### Orchestration
@@ -314,7 +314,7 @@ Décentralisé, pas de coordinateur
 │  └────────┘ └────────┘ └────────┘     │
 └────────────────────────────────────────┘
 
-Centralisé, logique dans orchestrator
+Centralized, logic in orchestrator
 ```
 
 ### Event Sourcing + Event-Driven
@@ -340,63 +340,63 @@ Centralisé, logique dans orchestrator
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## Quand utiliser
+## When to Use
 
-| Utiliser | Eviter |
+| Use | Avoid |
 |----------|--------|
-| Découplage requis | Transactions ACID simples |
-| Haute disponibilité | Faible latence critique |
-| Scale horizontal | Petite équipe |
-| Résilience | Pas besoin asynchrone |
-| Intégrations multiples | Flux linéaire simple |
+| Decoupling required | Simple ACID transactions |
+| High availability | Critical low latency |
+| Horizontal scale | Small team |
+| Resilience | No async need |
+| Multiple integrations | Simple linear flow |
 
-## Avantages
+## Advantages
 
-- **Découplage** : Services indépendants
-- **Scalabilité** : Consumers parallèles
-- **Résilience** : Pannes isolées
-- **Extensibilité** : Ajouter consumers sans modifier producer
-- **Audit** : Log centralisé d'événements
-- **Replay** : Rejouer les événements
+- **Decoupling**: Independent services
+- **Scalability**: Parallel consumers
+- **Resilience**: Isolated failures
+- **Extensibility**: Add consumers without modifying producer
+- **Audit**: Centralized event log
+- **Replay**: Replay events
 
-## Inconvénients
+## Disadvantages
 
-- **Complexité** : Debug difficile
-- **Eventual consistency** : Pas de ACID
-- **Ordre** : Garantir l'ordre peut être complexe
-- **Monitoring** : Observabilité nécessaire
-- **Idempotency** : Gérer les doublons
+- **Complexity**: Difficult debugging
+- **Eventual consistency**: No ACID
+- **Ordering**: Guaranteeing order can be complex
+- **Monitoring**: Observability required
+- **Idempotency**: Handle duplicates
 
-## Exemples réels
+## Real-world Examples
 
-| Entreprise | Usage |
+| Company | Usage |
 |------------|-------|
 | **LinkedIn** | Kafka (backbone) |
-| **Uber** | Events pour matching |
+| **Uber** | Events for matching |
 | **Netflix** | Event-driven microservices |
 | **Airbnb** | Real-time notifications |
 | **Twitter** | Timeline updates |
 
-## Migration path
+## Migration Path
 
-### Depuis Synchrone
+### From Synchronous
 
 ```
-Phase 1: Identifier bounded contexts
-Phase 2: Ajouter broker (Kafka/RabbitMQ)
+Phase 1: Identify bounded contexts
+Phase 2: Add broker (Kafka/RabbitMQ)
 Phase 3: Dual-write (sync + async)
-Phase 4: Migrer vers async
-Phase 5: Supprimer appels synchrones
+Phase 4: Migrate to async
+Phase 5: Remove synchronous calls
 ```
 
-## Patterns liés
+## Related Patterns
 
-| Pattern | Relation |
+| Pattern | Relationship |
 |---------|----------|
-| Event Sourcing | Events persistés |
-| CQRS | Séparation read/write |
-| Saga | Transactions distribuées |
-| Circuit Breaker | Résilience consumers |
+| Event Sourcing | Persisted events |
+| CQRS | Read/write separation |
+| Saga | Distributed transactions |
+| Circuit Breaker | Consumer resilience |
 
 ## Sources
 

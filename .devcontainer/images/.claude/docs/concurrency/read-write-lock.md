@@ -1,18 +1,18 @@
 # Read-Write Lock
 
-Pattern permettant plusieurs lecteurs simultanes mais un seul ecrivain exclusif.
+Pattern allowing multiple simultaneous readers but a single exclusive writer.
 
 ---
 
-## Qu'est-ce qu'un Read-Write Lock ?
+## What is a Read-Write Lock?
 
-> Optimise l'acces concurrent en permettant la lecture parallele tout en garantissant l'ecriture exclusive.
+> Optimizes concurrent access by allowing parallel reads while guaranteeing exclusive writes.
 
 ```
 +--------------------------------------------------------------+
 |                    Read-Write Lock                            |
 |                                                               |
-|  Mode Lecture:                 Mode Ecriture:                 |
+|  Read Mode:                    Write Mode:                   |
 |                                                               |
 |  +--------+                    +--------+                     |
 |  |Resource|                    |Resource|                     |
@@ -20,33 +20,33 @@ Pattern permettant plusieurs lecteurs simultanes mais un seul ecrivain exclusif.
 |      |                             |                          |
 |  +---+---+---+                     |                          |
 |  |   |   |   |                     |                          |
-|  R1  R2  R3  R4               W (exclusif)                    |
+|  R1  R2  R3  R4               W (exclusive)                   |
 |                                                               |
-|  Regles:                                                      |
-|  - Plusieurs readers en parallele OK                          |
-|  - Un seul writer a la fois                                   |
-|  - Writer bloque tous les readers                             |
-|  - Readers bloquent les writers                               |
+|  Rules:                                                       |
+|  - Multiple readers in parallel OK                            |
+|  - Only one writer at a time                                  |
+|  - Writer blocks all readers                                  |
+|  - Readers block writers                                      |
 |                                                               |
 |  Timeline:                                                    |
 |  R1 ====                                                      |
 |  R2    ====                                                   |
-|  W        ====  (attend fin lectures)                         |
-|  R3            ====  (attend fin ecriture)                    |
+|  W        ====  (waits for reads to finish)                   |
+|  R3            ====  (waits for write to finish)              |
 +--------------------------------------------------------------+
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Lectures frequentes, ecritures rares
-- Maximiser le throughput en lecture
-- Garantir la consistance en ecriture
+- Frequent reads, rare writes
+- Maximize read throughput
+- Guarantee write consistency
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### ReadWriteLock avec sync.RWMutex
+### ReadWriteLock with sync.RWMutex
 
 ```go
 package rwlock
@@ -103,7 +103,7 @@ func (rw *RWLock) WithWrite(fn func() error) error {
 
 ---
 
-## Cas d'usage: Cache Thread-Safe
+## Use Case: Thread-Safe Cache
 
 ```go
 package cache
@@ -245,70 +245,70 @@ func main() {
 
 ---
 
-## Comparaison des strategies
+## Strategy Comparison
 
 ```
 Reader Preference (sync.RWMutex default):
   Readers: ========    ========    ========
   Writers:         ====        ====
-  (Writers peuvent starve si lectures continues)
+  (Writers can starve if reads are continuous)
 
 Writer Preference:
   Readers: ====              ====
   Writers:     ====    ====
-  (Readers attendent si writers en queue)
+  (Readers wait if writers are queued)
 
 Fair (FIFO):
   Queue:  R1, R2, W1, R3, R4, W2
   Exec:   R1 R2  W1  R3 R4  W2
-  (Ordre d'arrivee respecte)
+  (Arrival order respected)
 ```
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
-| Operation | Complexite |
+| Operation | Complexity |
 |-----------|------------|
 | RLock (no contention) | O(1) |
 | Lock (no contention) | O(1) |
 | Unlock | O(1) |
 
-### Avantages
+### Advantages
 
-- Throughput lecture maximise
-- Consistance ecriture garantie
-- Meilleur que mutex pour read-heavy
-- Native dans la stdlib Go
+- Maximized read throughput
+- Guaranteed write consistency
+- Better than mutex for read-heavy workloads
+- Native in Go stdlib
 
-### Inconvenients
+### Disadvantages
 
-- Plus complexe que mutex simple
-- Risque de starvation (reader ou writer)
-- Overhead si peu de lectures
-
----
-
-## Quand utiliser
-
-| Situation | Recommande |
-|-----------|------------|
-| Lectures >> Ecritures | Oui |
-| Cache en memoire | Oui |
-| Configuration partagee | Oui |
-| Ecritures frequentes | Non (mutex suffit) |
-| Courtes operations | Non (overhead) |
+- More complex than simple mutex
+- Risk of starvation (reader or writer)
+- Overhead if few reads
 
 ---
 
-## Patterns connexes
+## When to Use
+
+| Situation | Recommended |
+|-----------|-------------|
+| Reads >> Writes | Yes |
+| In-memory cache | Yes |
+| Shared configuration | Yes |
+| Frequent writes | No (mutex suffices) |
+| Short operations | No (overhead) |
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Mutex** | Cas special avec 1 reader/writer |
-| **Semaphore** | RWLock = Semaphore specialise |
-| **Copy-on-Write** | Alternative sans locks |
-| **sync.Map** | Alternative pour cas simples |
+| **Mutex** | Special case with 1 reader/writer |
+| **Semaphore** | RWLock = specialized Semaphore |
+| **Copy-on-Write** | Lock-free alternative |
+| **sync.Map** | Alternative for simple cases |
 
 ---
 

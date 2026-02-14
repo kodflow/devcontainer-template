@@ -1,33 +1,33 @@
 # Package / Library
 
-> **DEFAULT** pour bibliothèques réutilisables
+> **DEFAULT** for reusable libraries
 
 ## Concept
 
-Code destiné à être importé par d'autres projets.
+Code intended to be imported by other projects.
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Registry | Adaptation |
+| Language | Registry | Suitability |
 |---------|----------|-----------|
 | **Go** | pkg.go.dev | Excellent |
 | **Rust** | crates.io | Excellent |
 | **Node.js** | npm | Excellent |
-| **Python** | PyPI | Très bon |
-| **Java** | Maven Central | Bon |
-| **Ruby** | RubyGems | Bon |
+| **Python** | PyPI | Very good |
+| **Java** | Maven Central | Good |
+| **Ruby** | RubyGems | Good |
 
 ## Structure
 
 ```
 /src
-├── lib/                 # Code public (exported)
+├── lib/                 # Public code (exported)
 │   ├── client.go
 │   ├── types.go
 │   └── errors.go
-├── internal/            # Code privé (non exported)
+├── internal/            # Private code (not exported)
 │   └── helpers.go
-├── examples/            # Exemples d'utilisation
+├── examples/            # Usage examples
 │   └── basic/
 ├── README.md
 ├── LICENSE
@@ -35,54 +35,54 @@ Code destiné à être importé par d'autres projets.
 └── go.mod / package.json / Cargo.toml
 ```
 
-## Avantages
+## Advantages
 
-- Réutilisable
-- Versionné (semver)
-- Documenté
-- Testé
-- Maintenable
+- Reusable
+- Versioned (semver)
+- Documented
+- Tested
+- Maintainable
 
-## Inconvénients
+## Disadvantages
 
-- API publique = engagement
-- Breaking changes sensibles
-- Documentation obligatoire
+- Public API = commitment
+- Sensitive breaking changes
+- Documentation mandatory
 - Backward compatibility
 
-## Contraintes
+## Constraints
 
-- Semantic versioning strict
-- Public API stable
-- Documentation exhaustive
+- Strict semantic versioning
+- Stable public API
+- Comprehensive documentation
 - Tests >90% coverage
-- Pas de dépendances lourdes
+- No heavy dependencies
 
-## Règles
+## Rules
 
-1. API publique minimale
-2. Internal pour l'implémentation
-3. Examples obligatoires
-4. CHANGELOG maintenu
+1. Minimal public API
+2. Internal for implementation
+3. Examples mandatory
+4. CHANGELOG maintained
 5. Breaking = major version
 
 ## Conventions
 
 ```
-v1.0.0 → v1.1.0  # Nouvelle feature (backward compatible)
+v1.0.0 → v1.1.0  # New feature (backward compatible)
 v1.1.0 → v1.1.1  # Bug fix
 v1.1.1 → v2.0.0  # Breaking change
 ```
 
-## Quand utiliser
+## When to Use
 
-- Code partagé entre projets
-- SDK/Client pour API
-- Utilitaires communs
+- Code shared between projects
+- SDK/Client for API
+- Common utilities
 - Open source
 
-## Quand éviter
+## When to Avoid
 
-- Application finale → autre architecture
-- Code non réutilisable
+- Final application -> other architecture
+- Non-reusable code
 - Prototype

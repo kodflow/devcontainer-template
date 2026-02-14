@@ -1,12 +1,12 @@
 # Future / Promise
 
-Pattern representant une valeur qui sera disponible dans le futur.
+Pattern representing a value that will be available in the future.
 
 ---
 
-## Qu'est-ce que Future/Promise ?
+## What is Future/Promise?
 
-> Placeholder pour un resultat asynchrone, permettant de composer des operations.
+> Placeholder for an asynchronous result, enabling operation composition.
 
 ```
 +--------------------------------------------------------------+
@@ -18,30 +18,30 @@ Pattern representant une valeur qui sera disponible dans le futur.
 |       |                         |                             |
 |       |                         +-> [ Rejected  ] --> error   |
 |       |                                                       |
-|       +-- resolve(value) ou reject(error)                     |
+|       +-- resolve(value) or reject(error)                     |
 |                                                               |
 |  Chaining:                                                    |
 |                                                               |
 |  promise                                                      |
-|    .then(fn1)  --> nouvelle Promise                           |
-|    .then(fn2)  --> nouvelle Promise                           |
-|    .catch(err) --> gestion erreur                             |
+|    .then(fn1)  --> new Promise                                |
+|    .then(fn2)  --> new Promise                                |
+|    .catch(err) --> error handling                             |
 |    .finally()  --> cleanup                                    |
 |                                                               |
 +--------------------------------------------------------------+
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Representer des operations asynchrones
-- Composer des operations sequentielles/paralleles
-- Gerer les erreurs de maniere uniforme
+- Represent asynchronous operations
+- Compose sequential/parallel operations
+- Handle errors uniformly
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### Future basique avec channels
+### Basic Future with channels
 
 ```go
 package future
@@ -135,7 +135,7 @@ func main() {
 
 ---
 
-### Promise avec resolver
+### Promise with resolver
 
 ```go
 package promise
@@ -202,7 +202,7 @@ func (p *Promise[T]) IsDone() bool {
 
 ---
 
-## Patterns de composition
+## Composition Patterns
 
 ### Sequential composition
 
@@ -318,7 +318,7 @@ func Race[T any](futures ...*Future[T]) *Future[T] {
 
 ---
 
-## Future avec timeout
+## Future with timeout
 
 ```go
 package future
@@ -345,7 +345,7 @@ func WithTimeout[T any](f *Future[T], timeout time.Duration) *Future[T] {
 
 ---
 
-## Future cancellable
+## Cancellable Future
 
 ```go
 package future
@@ -484,49 +484,49 @@ func (lf *LazyFuture[T]) Get(ctx context.Context) (T, error) {
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
-| Aspect | Valeur |
-|--------|--------|
+| Aspect | Value |
+|--------|-------|
 | Creation | O(1) |
 | Get (completed) | O(1) |
 | Get (pending) | O(wait) |
-| Memoire | O(1) per future |
+| Memory | O(1) per future |
 
-### Avantages
+### Advantages
 
-- Composition elegante
-- Context natif Go
-- Type-safe avec generics
-- Compatible avec goroutines
+- Elegant composition
+- Native Go context
+- Type-safe with generics
+- Compatible with goroutines
 
-### Inconvenients
+### Disadvantages
 
-- Plus verbose que async/await
-- Pas de retry natif
+- More verbose than async/await
+- No native retry
 - Requires manual error handling
 
 ---
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
-|-----------|------------|
-| Operations async simples | Non (use goroutines) |
-| Composition operations | Oui |
-| Valeur calculee une fois | Oui |
-| Stream de valeurs | Non (use channels) |
+| Situation | Recommended |
+|-----------|-------------|
+| Simple async operations | No (use goroutines) |
+| Operation composition | Yes |
+| Value computed once | Yes |
+| Stream of values | No (use channels) |
 
 ---
 
-## Patterns connexes
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
 | **Channel** | Future = single-value channel |
 | **Context** | Cancellation and timeout |
-| **Async/Await** | Future est le primitif sous-jacent |
-| **Pipeline** | Futures dans une pipeline |
+| **Async/Await** | Future is the underlying primitive |
+| **Pipeline** | Futures in a pipeline |
 
 ---
 

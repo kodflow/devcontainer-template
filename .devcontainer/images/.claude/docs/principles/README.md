@@ -1,98 +1,98 @@
-# Principes de Conception
+# Design Principles
 
-Principes fondamentaux et patterns de programmation défensive.
-
----
-
-## Fichiers
-
-| Fichier | Contenu | Patterns |
-|---------|---------|----------|
-| [SOLID.md](SOLID.md) | 5 principes OOP | SRP, OCP, LSP, ISP, DIP |
-| [DRY.md](DRY.md) | Don't Repeat Yourself | Factorisation |
-| [KISS.md](KISS.md) | Keep It Simple | Simplicité |
-| [YAGNI.md](YAGNI.md) | You Ain't Gonna Need It | Éviter la sur-ingénierie |
-| [GRASP.md](GRASP.md) | 9 patterns de responsabilité | Expert, Creator, Controller... |
-| [defensive.md](defensive.md) | 11 patterns défensifs | Guard Clause, Assertions... |
+Fundamental principles and defensive programming patterns.
 
 ---
 
-## SOLID (5 principes)
+## Files
 
-| Principe | Description |
-|----------|-------------|
-| **S**ingle Responsibility | Une classe = une raison de changer |
-| **O**pen/Closed | Ouvert à l'extension, fermé à la modification |
-| **L**iskov Substitution | Sous-types substituables |
-| **I**nterface Segregation | Interfaces spécifiques > génériques |
-| **D**ependency Inversion | Dépendre des abstractions |
+| File | Content | Patterns |
+|------|---------|----------|
+| [SOLID.md](SOLID.md) | 5 OOP principles | SRP, OCP, LSP, ISP, DIP |
+| [DRY.md](DRY.md) | Don't Repeat Yourself | Factorization |
+| [KISS.md](KISS.md) | Keep It Simple | Simplicity |
+| [YAGNI.md](YAGNI.md) | You Ain't Gonna Need It | Avoid over-engineering |
+| [GRASP.md](GRASP.md) | 9 responsibility patterns | Expert, Creator, Controller... |
+| [defensive.md](defensive.md) | 11 defensive patterns | Guard Clause, Assertions... |
+
+---
+
+## SOLID (5 principles)
+
+| Principle | Description |
+|-----------|-------------|
+| **S**ingle Responsibility | One class = one reason to change |
+| **O**pen/Closed | Open for extension, closed for modification |
+| **L**iskov Substitution | Subtypes must be substitutable |
+| **I**nterface Segregation | Specific interfaces > generic ones |
+| **D**ependency Inversion | Depend on abstractions |
 
 ---
 
 ## GRASP (9 patterns)
 
-| Pattern | Question | Réponse |
-|---------|----------|---------|
-| Information Expert | Qui fait X ? | Celui qui a les données |
-| Creator | Qui crée X ? | Celui qui contient/utilise X |
-| Controller | Qui reçoit les requêtes ? | Un coordinateur dédié |
-| Low Coupling | Réduire dépendances ? | Interfaces, DI |
-| High Cohesion | Garder le focus ? | Une responsabilité/classe |
-| Polymorphism | Éviter switch sur type ? | Interfaces + implémentations |
-| Pure Fabrication | Logique orpheline ? | Classe dédiée (Service, Repo) |
-| Indirection | Découpler A de B ? | Ajouter intermédiaire |
-| Protected Variations | Isoler changements ? | Interfaces stables |
+| Pattern | Question | Answer |
+|---------|----------|--------|
+| Information Expert | Who does X? | The one who has the data |
+| Creator | Who creates X? | The one who contains/uses X |
+| Controller | Who receives requests? | A dedicated coordinator |
+| Low Coupling | Reduce dependencies? | Interfaces, DI |
+| High Cohesion | Keep focus? | One responsibility per class |
+| Polymorphism | Avoid switch on type? | Interfaces + implementations |
+| Pure Fabrication | Orphan logic? | Dedicated class (Service, Repo) |
+| Indirection | Decouple A from B? | Add an intermediary |
+| Protected Variations | Isolate changes? | Stable interfaces |
 
 ---
 
 ## Defensive Programming (11 patterns)
 
-| Pattern | Problème | Solution |
-|---------|----------|----------|
-| Guard Clause | Conditions imbriquées | Validation early return |
-| Assertions | Invariants violés | Vérifier explicitement |
-| Null Object | Null checks répétés | Objet neutre |
-| Optional Chaining | Propriétés nullables | `?.` et `??` |
-| Default Values | Valeurs manquantes | Defaults sûrs |
-| Fail-Fast | Erreurs silencieuses | Échouer immédiatement |
-| Input Validation | Données externes | Valider aux frontières |
-| Type Guards | Types inconnus | Narrowing TypeScript |
-| Immutability | Modifications accidentelles | Données immutables |
-| Dependency Validation | Dépendances manquantes | Vérifier au démarrage |
-| Design by Contract | Garanties formelles | Pré/post conditions |
+| Pattern | Problem | Solution |
+|---------|---------|----------|
+| Guard Clause | Nested conditions | Validation early return |
+| Assertions | Violated invariants | Verify explicitly |
+| Null Object | Repeated null checks | Neutral object |
+| Optional Chaining | Nullable properties | `?.` and `??` |
+| Default Values | Missing values | Safe defaults |
+| Fail-Fast | Silent errors | Fail immediately |
+| Input Validation | External data | Validate at boundaries |
+| Type Guards | Unknown types | TypeScript narrowing |
+| Immutability | Accidental modifications | Immutable data |
+| Dependency Validation | Missing dependencies | Verify at startup |
+| Design by Contract | Formal guarantees | Pre/post conditions |
 
 ---
 
-## Tableau de décision rapide
+## Quick Decision Table
 
-| Problème | Principe/Pattern |
-|----------|------------------|
-| Classe fait trop de choses | SRP, High Cohesion |
-| Code dupliqué | DRY |
-| Code trop complexe | KISS |
-| Feature "au cas où" | YAGNI |
-| Variables nulles partout | Guard Clause, Null Object |
-| Conditions imbriquées | Guard Clause |
-| Couplage fort | Low Coupling, DIP |
-| Switch sur types | Polymorphism |
-| Où mettre la logique ? | Information Expert |
-| Qui crée les objets ? | Creator |
+| Problem | Principle/Pattern |
+|---------|-------------------|
+| Class does too many things | SRP, High Cohesion |
+| Duplicated code | DRY |
+| Overly complex code | KISS |
+| "Just in case" feature | YAGNI |
+| Null variables everywhere | Guard Clause, Null Object |
+| Nested conditions | Guard Clause |
+| Tight coupling | Low Coupling, DIP |
+| Switch on types | Polymorphism |
+| Where to put the logic? | Information Expert |
+| Who creates the objects? | Creator |
 
 ---
 
-## Hiérarchie d'application
+## Application Hierarchy
 
 ```
-1. SOLID (fondamentaux OOP)
+1. SOLID (OOP fundamentals)
        │
-2. GRASP (attribution responsabilités)
+2. GRASP (responsibility assignment)
        │
-3. Defensive (robustesse)
+3. Defensive (robustness)
        │
-4. GoF Patterns (solutions concrètes)
+4. GoF Patterns (concrete solutions)
 ```
 
-**Règle :** Les principes guident le choix des patterns.
+**Rule:** Principles guide the choice of patterns.
 
 ---
 

@@ -1,8 +1,8 @@
 # Dead Letter Channel Pattern
 
-> Gestion des messages non traitables via une queue dédiée pour capturer les messages qui échouent après plusieurs tentatives de traitement.
+> Handle unprocessable messages via a dedicated queue to capture messages that fail after multiple processing attempts.
 
-## Vue d'ensemble
+## Overview
 
 ```
 +----------+     +-------------+     +-----------+
@@ -36,7 +36,7 @@
 
 ---
 
-## Implementation de base
+## Base Implementation
 
 ```go
 package messaging
@@ -87,7 +87,7 @@ func NewDeadLetterChannel(dlq MessageQueue, alertService AlertService) *DeadLett
 }
 
 func (d *DeadLetterChannel) Send(ctx context.Context, originalQueue string, message interface{}, err error, attempts int) error {
-	dlMessage := &DeadLetterMessage{
+	dlMessage:= &DeadLetterMessage{
 		ID:              uuid.New().String(),
 		OriginalQueue:   originalQueue,
 		OriginalMessage: message,
@@ -101,13 +101,13 @@ func (d *DeadLetterChannel) Send(ctx context.Context, originalQueue string, mess
 		Headers:       extractHeaders(message),
 	}
 
-	if err := d.dlq.Send(ctx, "dead-letter-queue", dlMessage); err != nil {
+	if err:= d.dlq.Send(ctx, "dead-letter-queue", dlMessage); err != nil {
 		return fmt.Errorf("sending to DLQ: %w", err)
 	}
 
-	// Alerter si erreur critique
+	// Alert on critical error
 	if d.isCriticalError(err) {
-		alertErr := d.alertService.Critical(ctx, "Message moved to DLQ", map[string]interface{}{
+		alertErr:= d.alertService.Critical(ctx, "Message moved to DLQ", map[string]interface{}{
 			"queue":     originalQueue,
 			"error":     err.Error(),
 			"messageId": dlMessage.ID,
@@ -121,9 +121,9 @@ func (d *DeadLetterChannel) Send(ctx context.Context, originalQueue string, mess
 }
 
 func (d *DeadLetterChannel) isCriticalError(err error) bool {
-	_, isPayment := err.(*PaymentError)
-	_, isDataCorruption := err.(*DataCorruptionError)
-	_, isSecurity := err.(*SecurityError)
+	_, isPayment:= err.(*PaymentError)
+	_, isDataCorruption:= err.(*DataCorruptionError)
+	_, isSecurity:= err.(*SecurityError)
 	return isPayment || isDataCorruption || isSecurity
 }
 
@@ -131,7 +131,7 @@ func extractHeaders(message interface{}) map[string]string {
 	type withHeaders interface {
 		GetHeaders() map[string]string
 	}
-	if msg, ok := message.(withHeaders); ok {
+	if msg, ok:= message.(withHeaders); ok {
 		return msg.GetHeaders()
 	}
 	return make(map[string]string)
@@ -145,7 +145,7 @@ type SecurityError struct{ error }
 
 ---
 
-## Consumer avec retry et DLQ
+## Consumer with Retry and DLQ
 
 ```go
 package messaging
@@ -197,8 +197,8 @@ func (rc *ResilientConsumer) Consume(ctx context.Context, messages <-chan Messag
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case msg := <-messages:
-			if err := rc.processMessage(ctx, msg); err != nil {
+		case msg:= <-messages:
+			if err:= rc.processMessage(ctx, msg); err != nil {
 				return fmt.Errorf("processing message: %w", err)
 			}
 		}
@@ -211,16 +211,16 @@ type Message struct {
 }
 
 func (rc *ResilientConsumer) processMessage(ctx context.Context, msg Message) error {
-	attempts := rc.getRetryCount(msg.Meta.Headers)
+	attempts:= rc.getRetryCount(msg.Meta.Headers)
 
-	if err := rc.handler(ctx, msg.Content); err != nil {
+	if err:= rc.handler(ctx, msg.Content); err != nil {
 		if attempts >= rc.retryConfig.MaxRetries {
-			// Max retries atteint -> DLQ
+			// Max retries reached -> DLQ
 			return rc.deadLetter.Send(ctx, msg.Meta.Queue, msg.Content, err, attempts)
 		}
 
-		// Requeue avec delay
-		delay := rc.calculateDelay(attempts)
+		// Requeue with delay
+		delay:= rc.calculateDelay(attempts)
 		return rc.requeueWithDelay(ctx, msg.Content, attempts+1, delay)
 	}
 
@@ -228,8 +228,8 @@ func (rc *ResilientConsumer) processMessage(ctx context.Context, msg Message) er
 }
 
 func (rc *ResilientConsumer) calculateDelay(attempts int) time.Duration {
-	delay := float64(rc.retryConfig.InitialDelayMs) * math.Pow(rc.retryConfig.BackoffMultiplier, float64(attempts))
-	maxDelay := float64(rc.retryConfig.MaxDelayMs)
+	delay:= float64(rc.retryConfig.InitialDelayMs) * math.Pow(rc.retryConfig.BackoffMultiplier, float64(attempts))
+	maxDelay:= float64(rc.retryConfig.MaxDelayMs)
 	if delay > maxDelay {
 		delay = maxDelay
 	}
@@ -238,7 +238,7 @@ func (rc *ResilientConsumer) calculateDelay(attempts int) time.Duration {
 
 func (rc *ResilientConsumer) requeueWithDelay(ctx context.Context, message interface{}, attempts int, delay time.Duration) error {
 	time.Sleep(delay)
-	headers := map[string]string{
+	headers:= map[string]string{
 		"x-retry-count": fmt.Sprintf("%d", attempts),
 	}
 	return rc.queue.Send(ctx, "retry-queue", struct {
@@ -248,7 +248,7 @@ func (rc *ResilientConsumer) requeueWithDelay(ctx context.Context, message inter
 }
 
 func (rc *ResilientConsumer) getRetryCount(headers map[string]string) int {
-	if count, ok := headers["x-retry-count"]; ok {
+	if count, ok:= headers["x-retry-count"]; ok {
 		var attempts int
 		fmt.Sscanf(count, "%d", &attempts)
 		return attempts
@@ -283,7 +283,7 @@ func NewRabbitMQDeadLetterSetup(channel *amqp.Channel) *RabbitMQDeadLetterSetup 
 
 func (r *RabbitMQDeadLetterSetup) Setup(ctx context.Context) error {
 	// Dead Letter Exchange
-	if err := r.channel.ExchangeDeclare(
+	if err:= r.channel.ExchangeDeclare(
 		"dlx",     // name
 		"direct",  // type
 		true,      // durable
@@ -296,10 +296,10 @@ func (r *RabbitMQDeadLetterSetup) Setup(ctx context.Context) error {
 	}
 
 	// Dead Letter Queue
-	args := amqp.Table{
+	args:= amqp.Table{
 		"x-message-ttl": int32(7 * 24 * 60 * 60 * 1000), // 7 jours
 	}
-	if _, err := r.channel.QueueDeclare(
+	if _, err:= r.channel.QueueDeclare(
 		"dead-letter-queue", // name
 		true,                // durable
 		false,               // delete when unused
@@ -310,7 +310,7 @@ func (r *RabbitMQDeadLetterSetup) Setup(ctx context.Context) error {
 		return fmt.Errorf("declaring DLQ: %w", err)
 	}
 
-	if err := r.channel.QueueBind(
+	if err:= r.channel.QueueBind(
 		"dead-letter-queue", // queue name
 		"dead-letter",       // routing key
 		"dlx",               // exchange
@@ -320,12 +320,12 @@ func (r *RabbitMQDeadLetterSetup) Setup(ctx context.Context) error {
 		return fmt.Errorf("binding DLQ: %w", err)
 	}
 
-	// Queue principale avec DLX configure
+	// Main queue with DLX configured
 	args = amqp.Table{
 		"x-dead-letter-exchange":    "dlx",
 		"x-dead-letter-routing-key": "dead-letter",
 	}
-	if _, err := r.channel.QueueDeclare(
+	if _, err:= r.channel.QueueDeclare(
 		"orders",
 		true,
 		false,
@@ -347,7 +347,7 @@ type DeathInfo struct {
 }
 
 func (r *RabbitMQDeadLetterSetup) ConsumeDeadLetters(ctx context.Context) error {
-	msgs, err := r.channel.Consume(
+	msgs, err:= r.channel.Consume(
 		"dead-letter-queue",
 		"",    // consumer
 		false, // auto-ack
@@ -361,12 +361,12 @@ func (r *RabbitMQDeadLetterSetup) ConsumeDeadLetters(ctx context.Context) error 
 	}
 
 	go func() {
-		for d := range msgs {
+		for d:= range msgs {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				if err := r.processDLQMessage(ctx, d); err != nil {
+				if err:= r.processDLQMessage(ctx, d); err != nil {
 					fmt.Printf("Error processing DLQ message: %v\n", err)
 					d.Nack(false, false)
 					continue
@@ -381,9 +381,9 @@ func (r *RabbitMQDeadLetterSetup) ConsumeDeadLetters(ctx context.Context) error 
 
 func (r *RabbitMQDeadLetterSetup) processDLQMessage(ctx context.Context, msg amqp.Delivery) error {
 	var deathInfo []DeathInfo
-	if xDeath, ok := msg.Headers["x-death"].([]interface{}); ok && len(xDeath) > 0 {
-		if death, ok := xDeath[0].(amqp.Table); ok {
-			info := DeathInfo{
+	if xDeath, ok:= msg.Headers["x-death"].([]interface{}); ok && len(xDeath) > 0 {
+		if death, ok:= xDeath[0].(amqp.Table); ok {
+			info:= DeathInfo{
 				Queue:  death["queue"].(string),
 				Reason: death["reason"].(string),
 				Count:  int(death["count"].(int64)),
@@ -393,7 +393,7 @@ func (r *RabbitMQDeadLetterSetup) processDLQMessage(ctx context.Context, msg amq
 	}
 
 	var content interface{}
-	if err := json.Unmarshal(msg.Body, &content); err != nil {
+	if err:= json.Unmarshal(msg.Body, &content); err != nil {
 		return fmt.Errorf("unmarshaling message: %w", err)
 	}
 
@@ -424,7 +424,7 @@ type KafkaDeadLetterHandler struct {
 }
 
 func NewKafkaDeadLetterHandler(brokers []string, mainTopic string) *KafkaDeadLetterHandler {
-	dlqTopic := fmt.Sprintf("%s.dlq", mainTopic)
+	dlqTopic:= fmt.Sprintf("%s.dlq", mainTopic)
 	return &KafkaDeadLetterHandler{
 		writer: &kafka.Writer{
 			Addr:     kafka.TCP(brokers...),
@@ -436,7 +436,7 @@ func NewKafkaDeadLetterHandler(brokers []string, mainTopic string) *KafkaDeadLet
 }
 
 func (k *KafkaDeadLetterHandler) SendToDLQ(ctx context.Context, msg kafka.Message, err error, partition int, offset int64) error {
-	headers := make([]kafka.Header, 0, len(msg.Headers)+5)
+	headers:= make([]kafka.Header, 0, len(msg.Headers)+5)
 	headers = append(headers, msg.Headers...)
 	headers = append(headers,
 		kafka.Header{Key: "x-original-topic", Value: []byte(msg.Topic)},
@@ -457,7 +457,7 @@ func (k *KafkaDeadLetterHandler) SendToDLQ(ctx context.Context, msg kafka.Messag
 type MessageHandler func(ctx context.Context, payload interface{}) error
 
 func (k *KafkaDeadLetterHandler) ConsumeWithDLQ(ctx context.Context, topic string, brokers []string, groupID string, handler MessageHandler) error {
-	reader := kafka.NewReader(kafka.ReaderConfig{
+	reader:= kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  brokers,
 		Topic:    topic,
 		GroupID:  groupID,
@@ -471,19 +471,19 @@ func (k *KafkaDeadLetterHandler) ConsumeWithDLQ(ctx context.Context, topic strin
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			msg, err := reader.FetchMessage(ctx)
+			msg, err:= reader.FetchMessage(ctx)
 			if err != nil {
 				return fmt.Errorf("fetching message: %w", err)
 			}
 
 			var payload interface{}
-			if err := json.Unmarshal(msg.Value, &payload); err != nil {
+			if err:= json.Unmarshal(msg.Value, &payload); err != nil {
 				k.SendToDLQ(ctx, msg, err, msg.Partition, msg.Offset)
 				reader.CommitMessages(ctx, msg)
 				continue
 			}
 
-			if err := handler(ctx, payload); err != nil {
+			if err:= handler(ctx, payload); err != nil {
 				k.SendToDLQ(ctx, msg, err, msg.Partition, msg.Offset)
 			}
 
@@ -499,7 +499,7 @@ func (k *KafkaDeadLetterHandler) Close() error {
 
 ---
 
-## DLQ Consumer et Remediation
+## DLQ Consumer and Remediation
 
 ```go
 package messaging
@@ -542,8 +542,8 @@ func (d *DLQRemediator) ProcessDeadLetters(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case dlMessage := <-d.dlqConsumer:
-			if err := d.processMessage(ctx, dlMessage); err != nil {
+		case dlMessage:= <-d.dlqConsumer:
+			if err:= d.processMessage(ctx, dlMessage); err != nil {
 				fmt.Printf("Error processing DLQ message: %v\n", err)
 			}
 		}
@@ -551,13 +551,13 @@ func (d *DLQRemediator) ProcessDeadLetters(ctx context.Context) error {
 }
 
 func (d *DLQRemediator) processMessage(ctx context.Context, dlMessage DeadLetterMessage) error {
-	action := d.determineAction(dlMessage)
+	action:= d.determineAction(dlMessage)
 
 	switch action {
 	case ActionRetry:
 		return d.retryMessage(ctx, dlMessage)
 	case ActionFixAndRetry:
-		fixed := d.fixMessage(dlMessage)
+		fixed:= d.fixMessage(dlMessage)
 		dlMessage.OriginalMessage = fixed
 		return d.retryMessage(ctx, dlMessage)
 	case ActionArchive:
@@ -571,7 +571,7 @@ func (d *DLQRemediator) processMessage(ctx context.Context, dlMessage DeadLetter
 }
 
 func (d *DLQRemediator) determineAction(dlMessage DeadLetterMessage) RemediationAction {
-	errorType := dlMessage.Error.Name
+	errorType:= dlMessage.Error.Name
 
 	if errorType == "TransientError" || errorType == "TimeoutError" {
 		return ActionRetry
@@ -590,12 +590,12 @@ func (d *DLQRemediator) determineAction(dlMessage DeadLetterMessage) Remediation
 }
 
 func (d *DLQRemediator) retryMessage(ctx context.Context, dlMessage DeadLetterMessage) error {
-	queue, ok := d.originalQueues[dlMessage.OriginalQueue]
+	queue, ok:= d.originalQueues[dlMessage.OriginalQueue]
 	if !ok {
 		return fmt.Errorf("unknown queue: %s", dlMessage.OriginalQueue)
 	}
 
-	headers := map[string]string{
+	headers:= map[string]string{
 		"x-retry-from-dlq":     "true",
 		"x-original-failure":   dlMessage.Error.Message,
 	}
@@ -612,12 +612,12 @@ func (d *DLQRemediator) retryMessage(ctx context.Context, dlMessage DeadLetterMe
 }
 
 func (d *DLQRemediator) fixMessage(dlMessage DeadLetterMessage) interface{} {
-	message, ok := dlMessage.OriginalMessage.(map[string]interface{})
+	message, ok:= dlMessage.OriginalMessage.(map[string]interface{})
 	if !ok {
 		return dlMessage.OriginalMessage
 	}
 
-	// Exemples de corrections automatiques
+	// Examples of automatic corrections
 	if contains(dlMessage.Error.Message, "missing field") {
 		message["missingField"] = "default_value"
 	}
@@ -629,7 +629,7 @@ func (d *DLQRemediator) fixMessage(dlMessage DeadLetterMessage) interface{} {
 }
 
 func (d *DLQRemediator) archiveMessage(ctx context.Context, dlMessage DeadLetterMessage) error {
-	archiveData := struct {
+	archiveData:= struct {
 		DeadLetterMessage
 		ArchivedAt time.Time
 	}{
@@ -646,7 +646,7 @@ func contains(s, substr string) bool {
 
 ---
 
-## Monitoring et Alerting
+## Monitoring and Alerting
 
 ```go
 package messaging
@@ -676,22 +676,22 @@ func NewDLQMonitor(queue MessageQueue, alertService AlertService) *DLQMonitor {
 }
 
 func (m *DLQMonitor) CheckHealth(ctx context.Context) (*DLQHealth, error) {
-	queueSize, err := m.getQueueSize(ctx)
+	queueSize, err:= m.getQueueSize(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting queue size: %w", err)
 	}
 
-	oldestMessageAge, err := m.getOldestMessageAge(ctx)
+	oldestMessageAge, err:= m.getOldestMessageAge(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting oldest message age: %w", err)
 	}
 
-	errorBreakdown, err := m.getErrorBreakdown(ctx)
+	errorBreakdown, err:= m.getErrorBreakdown(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting error breakdown: %w", err)
 	}
 
-	health := &DLQHealth{
+	health:= &DLQHealth{
 		QueueSize:               queueSize,
 		OldestMessageAgeMinutes: oldestMessageAge,
 		ErrorTypes:              errorBreakdown,
@@ -699,7 +699,7 @@ func (m *DLQMonitor) CheckHealth(ctx context.Context) (*DLQHealth, error) {
 	}
 
 	if health.Status == "critical" {
-		if err := m.alertService.Critical(ctx, "DLQ Critical", map[string]interface{}{
+		if err:= m.alertService.Critical(ctx, "DLQ Critical", map[string]interface{}{
 			"queueSize":               health.QueueSize,
 			"oldestMessageAgeMinutes": health.OldestMessageAgeMinutes,
 			"errorTypes":              health.ErrorTypes,
@@ -741,17 +741,17 @@ func (m *DLQMonitor) getErrorBreakdown(ctx context.Context) (map[string]int, err
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Messages non traitables après plusieurs tentatives
-- Erreurs permanentes (données invalides, ressources manquantes)
-- Besoin de conserver les messages échoués pour analyse
-- Système de remediation ou replay requis
-- Audit trail des échecs de traitement
+- Messages unprocessable after multiple attempts
+- Permanent errors (invalid data, missing resources)
+- Need to keep failed messages for analysis
+- Remediation or replay system required
+- Processing failure audit trail
 
-## Patterns liés
+## Related Patterns
 
-- [Retry Pattern](../resilience/retry.md) - Avant DLQ
-- [Circuit Breaker](../cloud/circuit-breaker.md) - Prévenir surcharge
+- [Retry Pattern](../resilience/retry.md) - Before DLQ
+- [Circuit Breaker](../cloud/circuit-breaker.md) - Prevent overload
 - [Idempotent Receiver](./idempotent-receiver.md) - Retry safe
-- [Process Manager](./process-manager.md) - Orchestrer remediation
+- [Process Manager](./process-manager.md) - Orchestrate remediation

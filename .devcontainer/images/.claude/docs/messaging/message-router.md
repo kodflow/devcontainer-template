@@ -1,8 +1,8 @@
 # Message Router Patterns
 
-Patterns de routage dynamique des messages.
+Dynamic message routing patterns.
 
-## Vue d'ensemble
+## Overview
 
 ```
                     +-------------------+
@@ -20,7 +20,7 @@ Message In -------->|  [Route Logic]    |
 
 ## Content-Based Router
 
-> Route les messages selon leur contenu.
+> Routes messages based on their content.
 
 ### Schema
 
@@ -75,7 +75,7 @@ func (cbr *ContentBasedRouter[T]) AddRule(predicate func(T) bool, destination st
 
 // Route determines the destination for a message.
 func (cbr *ContentBasedRouter[T]) Route(ctx context.Context, message T) string {
-	for _, rule := range cbr.rules {
+	for _, rule:= range cbr.rules {
 		if rule.Predicate(message) {
 			return rule.Destination
 		}
@@ -100,7 +100,7 @@ type OrderRouter struct {
 
 // NewOrderRouter creates a new order router.
 func NewOrderRouter(channels map[string]chan<- Order) *OrderRouter {
-	router := NewContentBasedRouter[Order]("default-queue")
+	router:= NewContentBasedRouter[Order]("default-queue")
 	
 	router.
 		AddRule(func(o Order) bool {
@@ -124,9 +124,9 @@ func NewOrderRouter(channels map[string]chan<- Order) *OrderRouter {
 
 // RouteOrder routes an order to the appropriate channel.
 func (or *OrderRouter) RouteOrder(ctx context.Context, order Order) error {
-	destination := or.router.Route(ctx, order)
+	destination:= or.router.Route(ctx, order)
 	
-	ch, exists := or.channels[destination]
+	ch, exists:= or.channels[destination]
 	if !exists {
 		return fmt.Errorf("destination channel not found: %s", destination)
 	}
@@ -165,13 +165,13 @@ func (rp *RoutingPipeline[T]) Start(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case msg, ok := <-rp.inputCh:
+		case msg, ok:= <-rp.inputCh:
 			if !ok {
 				return nil
 			}
 
-			dest := rp.router.Route(ctx, msg)
-			ch, exists := rp.channels[dest]
+			dest:= rp.router.Route(ctx, msg)
+			ch, exists:= rp.channels[dest]
 			if !exists {
 				continue // Log error
 			}
@@ -186,14 +186,14 @@ func (rp *RoutingPipeline[T]) Start(ctx context.Context) error {
 }
 ```
 
-**Quand :** Routage par regles metier, segregation de charge.
-**Lie a :** Message Filter, Recipient List.
+**When:** Routing by business rules, load segregation.
+**Related to:** Message Filter, Recipient List.
 
 ---
 
 ## Dynamic Router
 
-> Destination determinee au runtime depuis une source externe.
+> Destination determined at runtime from an external source.
 
 ### Dynamic Router Schema
 
@@ -251,16 +251,16 @@ func NewDynamicRouter[T any](
 
 // Route routes a message to the appropriate destination.
 func (dr *DynamicRouter[T]) Route(ctx context.Context, message T) error {
-	msgType := dr.typeExtractor(message)
-	metadata := dr.metaExtractor(message)
+	msgType:= dr.typeExtractor(message)
+	metadata:= dr.metaExtractor(message)
 
-	destination, err := dr.config.GetDestination(ctx, msgType, metadata)
+	destination, err:= dr.config.GetDestination(ctx, msgType, metadata)
 	if err != nil {
 		return fmt.Errorf("getting destination: %w", err)
 	}
 
 	dr.mu.RLock()
-	ch, exists := dr.channels[destination]
+	ch, exists:= dr.channels[destination]
 	dr.mu.RUnlock()
 
 	if !exists {
@@ -301,17 +301,17 @@ func (crc *CachedRoutingConfig) GetDestination(
 	messageType string,
 	metadata map[string]interface{},
 ) (string, error) {
-	cacheKey := fmt.Sprintf("%s:%v", messageType, metadata)
+	cacheKey:= fmt.Sprintf("%s:%v", messageType, metadata)
 
-	if entry, ok := crc.cache.Load(cacheKey); ok {
-		cached := entry.(cacheEntry)
+	if entry, ok:= crc.cache.Load(cacheKey); ok {
+		cached:= entry.(cacheEntry)
 		if time.Now().Before(cached.expiresAt) {
 			return cached.destination, nil
 		}
 		crc.cache.Delete(cacheKey)
 	}
 
-	destination, err := crc.delegate.GetDestination(ctx, messageType, metadata)
+	destination, err:= crc.delegate.GetDestination(ctx, messageType, metadata)
 	if err != nil {
 		return "", err
 	}
@@ -325,14 +325,14 @@ func (crc *CachedRoutingConfig) GetDestination(
 }
 ```
 
-**Quand :** Regles changeantes, A/B testing, feature flags.
-**Lie a :** Content-Based Router.
+**When:** Changing rules, A/B testing, feature flags.
+**Related to:** Content-Based Router.
 
 ---
 
 ## Recipient List
 
-> Envoie le message a une liste dynamique de destinataires.
+> Sends the message to a dynamic list of recipients.
 
 ### Recipient List Schema
 
@@ -394,9 +394,9 @@ func NewRecipientList[T any](
 
 // Distribute sends message to all recipients.
 func (rl *RecipientList[T]) Distribute(ctx context.Context, message T) (*DistributionResult, error) {
-	recipients := rl.resolver(message)
+	recipients:= rl.resolver(message)
 	
-	result := &DistributionResult{
+	result:= &DistributionResult{
 		Total:  len(recipients),
 		Failed: make([]FailedRecipient, 0),
 	}
@@ -404,11 +404,11 @@ func (rl *RecipientList[T]) Distribute(ctx context.Context, message T) (*Distrib
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	for _, recipient := range recipients {
-		rcpt := recipient
+	for _, recipient:= range recipients {
+		rcpt:= recipient
 		wg.Go(func() {
 			rl.mu.RLock()
-			ch, exists := rl.channels[rcpt]
+			ch, exists:= rl.channels[rcpt]
 			rl.mu.RUnlock()
 
 			if !exists {
@@ -466,7 +466,7 @@ func (grl *GuaranteedRecipientList[T]) DistributeWithRetry(
 	var lastResult *DistributionResult
 	var err error
 
-	for attempt := 0; attempt < grl.maxRetries; attempt++ {
+	for attempt:= 0; attempt < grl.maxRetries; attempt++ {
 		lastResult, err = grl.recipientList.Distribute(ctx, message)
 		if err != nil {
 			return fmt.Errorf("distribution failed: %w", err)
@@ -492,14 +492,14 @@ func (grl *GuaranteedRecipientList[T]) DistributeWithRetry(
 }
 ```
 
-**Quand :** Multicast, notifications multiples, fan-out.
-**Lie a :** Publish-Subscribe, Scatter-Gather.
+**When:** Multicast, multiple notifications, fan-out.
+**Related to:** Publish-Subscribe, Scatter-Gather.
 
 ---
 
 ## Resilient Router
 
-> Router avec fallback et dead letter channel.
+> Router with fallback and dead letter channel.
 
 ```go
 package resilient
@@ -542,7 +542,7 @@ func NewResilientRouter[T any](
 // RouteWithFallback routes with fallback logic.
 func (rr *ResilientRouter[T]) RouteWithFallback(ctx context.Context, message T) error {
 	// Try dynamic routing first
-	err := rr.dynamicRouter.Route(ctx, message)
+	err:= rr.dynamicRouter.Route(ctx, message)
 	if err == nil {
 		return nil
 	}
@@ -550,7 +550,7 @@ func (rr *ResilientRouter[T]) RouteWithFallback(ctx context.Context, message T) 
 	// Check error type and apply fallback
 	if errors.Is(err, ErrRoutingConfigFailed) {
 		// Fallback to static routing
-		destination := rr.staticRouter.Route(ctx, message)
+		destination:= rr.staticRouter.Route(ctx, message)
 		// Send to static destination (implementation specific)
 		_ = destination
 		return nil
@@ -578,34 +578,34 @@ func (rr *ResilientRouter[T]) RouteWithFallback(ctx context.Context, message T) 
 
 ---
 
-## Tableau de decision
+## Decision Table
 
-| Pattern | Cas d'usage | Flexibilite | Complexite |
+| Pattern | Use Case | Flexibility | Complexity |
 |---------|-------------|-------------|------------|
-| Content-Based | Regles fixes | Moyenne | Basse |
-| Dynamic | Regles changeantes | Haute | Moyenne |
-| Recipient List | Multi-dest | Haute | Moyenne |
+| Content-Based | Fixed rules | Medium | Low |
+| Dynamic | Changing rules | High | Medium |
+| Recipient List | Multi-dest | High | Medium |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Routage conditionnel base sur le contenu ou les headers du message
-- Distribution de messages vers differentes destinations selon des regles metier
-- A/B testing ou feature flags avec routage dynamique
-- Multicast vers plusieurs destinataires simultanement
-- Segregation de charge entre differentes queues de traitement
+- Conditional routing based on message content or headers
+- Message distribution to different destinations based on business rules
+- A/B testing or feature flags with dynamic routing
+- Multicast to multiple recipients simultaneously
+- Load segregation between different processing queues
 
-## Patterns lies
+## Related Patterns
 
-- [Message Channel](./message-channel.md) - Canaux de communication cibles
-- [Pipes and Filters](./pipes-filters.md) - Routage dans un pipeline
-- [Scatter-Gather](./scatter-gather.md) - Router puis collecter les reponses
-- [Dead Letter Channel](./dead-letter.md) - Gestion des echecs de routage
+- [Message Channel](./message-channel.md) - Target communication channels
+- [Pipes and Filters](./pipes-filters.md) - Routing in a pipeline
+- [Scatter-Gather](./scatter-gather.md) - Route then collect responses
+- [Dead Letter Channel](./dead-letter.md) - Routing failure handling
 
-## Patterns complementaires
+## Complementary Patterns
 
-- **Message Filter** - Filtrer avant routage
-- **Scatter-Gather** - Router puis collecter
-- **Process Manager** - Orchestrer le routage
-- **Dead Letter Channel** - Gerer echecs de routage
+- **Message Filter** - Filter before routing
+- **Scatter-Gather** - Route then collect
+- **Process Manager** - Orchestrate routing
+- **Dead Letter Channel** - Handle routing failures

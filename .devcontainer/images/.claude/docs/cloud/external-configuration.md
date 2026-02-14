@@ -1,8 +1,8 @@
 # External Configuration Pattern
 
-> Externaliser la configuration hors du code deploye.
+> Externalize configuration outside of deployed code.
 
-## Principe
+## Principle
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -31,19 +31,19 @@
        └─────────┘       └─────────┘       └─────────┘
 ```
 
-## Sources de configuration
+## Configuration Sources
 
-| Source | Usage | Dynamique | Securise |
-|--------|-------|-----------|----------|
-| **Environment Vars** | Runtime, secrets | Non | Moyen |
-| **Config Files** | Settings statiques | Non | Non |
-| **Consul/etcd** | Config distribuee | Oui | Moyen |
-| **Vault** | Secrets | Oui | Oui |
-| **AWS SSM** | Cloud params | Oui | Oui |
-| **Kubernetes ConfigMaps** | K8s config | Oui | Non |
-| **Kubernetes Secrets** | K8s secrets | Oui | Oui |
+| Source | Usage | Dynamic | Secure |
+|--------|-------|---------|--------|
+| **Environment Vars** | Runtime, secrets | No | Medium |
+| **Config Files** | Static settings | No | No |
+| **Consul/etcd** | Distributed config | Yes | Medium |
+| **Vault** | Secrets | Yes | Yes |
+| **AWS SSM** | Cloud params | Yes | Yes |
+| **Kubernetes ConfigMaps** | K8s config | Yes | No |
+| **Kubernetes Secrets** | K8s secrets | Yes | Yes |
 
-## Exemple Go
+## Go Example
 
 ```go
 package externalconfig
@@ -86,9 +86,9 @@ func NewConfigurationManager() *ConfigurationManager {
 func (cm *ConfigurationManager) AddSource(source ConfigSource) *ConfigurationManager {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	
+
 	cm.sources = append(cm.sources, source)
-	
+
 	// Sort by priority (highest first)
 	for i := 0; i < len(cm.sources); i++ {
 		for j := i + 1; j < len(cm.sources); j++ {
@@ -97,7 +97,7 @@ func (cm *ConfigurationManager) AddSource(source ConfigSource) *ConfigurationMan
 			}
 		}
 	}
-	
+
 	return cm
 }
 
@@ -105,7 +105,7 @@ func (cm *ConfigurationManager) AddSource(source ConfigSource) *ConfigurationMan
 func (cm *ConfigurationManager) Load(ctx context.Context) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	
+
 	for _, source := range cm.sources {
 		values, err := source.Load(ctx)
 		if err != nil {
@@ -113,14 +113,14 @@ func (cm *ConfigurationManager) Load(ctx context.Context) error {
 ", source.Name(), err)
 			continue
 		}
-		
+
 		// Only set if not already set (higher priority sources win)
 		for key, value := range values {
 			if _, exists := cm.config[key]; !exists {
 				cm.config[key] = value
 			}
 		}
-		
+
 		// Setup watching if supported
 		go func(s ConfigSource) {
 			s.Watch(ctx, func(key string, value interface{}) {
@@ -131,7 +131,7 @@ func (cm *ConfigurationManager) Load(ctx context.Context) error {
 			})
 		}(source)
 	}
-	
+
 	return nil
 }
 
@@ -139,7 +139,7 @@ func (cm *ConfigurationManager) Load(ctx context.Context) error {
 func (cm *ConfigurationManager) Get(key string, defaultValue interface{}) interface{} {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	
+
 	if value, exists := cm.config[key]; exists {
 		return value
 	}
@@ -150,7 +150,7 @@ func (cm *ConfigurationManager) Get(key string, defaultValue interface{}) interf
 func (cm *ConfigurationManager) GetRequired(key string) interface{} {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	
+
 	value, exists := cm.config[key]
 	if !exists {
 		panic(fmt.Sprintf("Required config key missing: %s", key))
@@ -170,7 +170,7 @@ func (cm *ConfigurationManager) notifyWatchers(key string, value interface{}) {
 	watchers := make([]WatchCallback, len(cm.watchers))
 	copy(watchers, cm.watchers)
 	cm.mu.RUnlock()
-	
+
 	for _, watcher := range watchers {
 		watcher(key, value)
 	}
@@ -180,16 +180,16 @@ func (cm *ConfigurationManager) notifyWatchers(key string, value interface{}) {
 ## Usage
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
-## Configuration Kubernetes
+## Kubernetes Configuration
 
 ```yaml
-# ConfigMap pour config non-sensible
+# ConfigMap for non-sensitive config
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -200,7 +200,7 @@ data:
   FEATURE_FLAG_NEW_UI: "true"
 
 ---
-# Secret pour donnees sensibles
+# Secret for sensitive data
 apiVersion: v1
 kind: Secret
 metadata:
@@ -211,42 +211,42 @@ data:
   API_KEY: c2VjcmV0LWtleQ==
 ```
 
-## Bonnes pratiques
+## Best Practices
 
-| Pratique | Description |
+| Practice | Description |
 |----------|-------------|
-| **Hierarchie** | Priorite: secrets > env > files |
-| **Validation** | Schema validation au demarrage |
-| **Defaults** | Valeurs par defaut raisonnables |
-| **Hot Reload** | Rechargement sans redemarrage |
-| **Audit** | Log des acces aux secrets |
-| **Rotation** | Rotation automatique des credentials |
+| **Hierarchy** | Priority: secrets > env > files |
+| **Validation** | Schema validation at startup |
+| **Defaults** | Reasonable default values |
+| **Hot Reload** | Reload without restart |
+| **Audit** | Log secret access |
+| **Rotation** | Automatic credential rotation |
 
 ## Anti-patterns
 
-| Anti-pattern | Probleme | Solution |
-|--------------|----------|----------|
-| Secrets dans le code | Exposition | Vault/SSM |
-| Config hardcodee | Redeploy pour changer | External config |
-| Sans validation | Erreurs runtime | Schema validation |
-| Config trop granulaire | Complexite | Grouper par domaine |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| Secrets in code | Exposure | Vault/SSM |
+| Hardcoded config | Redeploy to change | External config |
+| No validation | Runtime errors | Schema validation |
+| Too granular config | Complexity | Group by domain |
 
-## Quand utiliser
+## When to Use
 
-- Applications deployees dans plusieurs environnements (dev, staging, prod)
-- Configuration devant changer sans redeploiement
-- Secrets et credentials necessitant une gestion securisee
-- Microservices partageant une configuration commune
-- Feature flags et toggles pour le deploiement progressif
+- Applications deployed across multiple environments (dev, staging, prod)
+- Configuration that must change without redeployment
+- Secrets and credentials requiring secure management
+- Microservices sharing common configuration
+- Feature flags and toggles for progressive deployment
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Secrets Management | Sous-ensemble securise |
-| Feature Toggles | Cas d'usage specifique |
-| Service Discovery | Config dynamique endpoints |
-| 12-Factor App | Principe III |
+| Secrets Management | Secure subset |
+| Feature Toggles | Specific use case |
+| Service Discovery | Dynamic endpoint config |
+| 12-Factor App | Principle III |
 
 ## Sources
 

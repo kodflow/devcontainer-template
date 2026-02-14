@@ -1,21 +1,21 @@
 # Leader Election Pattern
 
-> Coordonner les actions en elisant un leader parmi les instances distribuees.
+> Coordinate actions by electing a leader among distributed instances.
 
-## Principe
+## Principle
 
 ```
                     ┌─────────────────────────────────────────────┐
                     │              LEADER ELECTION                 │
                     └─────────────────────────────────────────────┘
 
-  SANS LEADER (chaos):
+  WITHOUT LEADER (chaos):
   ┌─────────┐  ┌─────────┐  ┌─────────┐
   │ Node 1  │  │ Node 2  │  │ Node 3  │
-  │ Process │  │ Process │  │ Process │  <-- Tous executent = duplication
+  │ Process │  │ Process │  │ Process │  <-- All execute = duplication
   └─────────┘  └─────────┘  └─────────┘
 
-  AVEC LEADER:
+  WITH LEADER:
   ┌─────────┐  ┌─────────┐  ┌─────────┐
   │ Node 1  │  │ Node 2  │  │ Node 3  │
   │ LEADER  │  │Follower │  │Follower │
@@ -30,12 +30,12 @@
             └───────────────┘
 ```
 
-## Mecanismes d'election
+## Election Mechanisms
 
 ```
 1. BULLY ALGORITHM
-   - Plus haute ID devient leader
-   - Simple mais pas tolerant aux partitions
+   - Highest ID becomes leader
+   - Simple but not partition tolerant
 
 2. RAFT CONSENSUS
    ┌─────────────────────────────────────────┐
@@ -48,13 +48,13 @@
    │              heartbeat                  │
    └─────────────────────────────────────────┘
 
-3. LEASE-BASED (lock distribue)
-   - Acquiert un lock avec TTL
-   - Renouvelle avant expiration
-   - Lock expire = nouvelle election
+3. LEASE-BASED (distributed lock)
+   - Acquires a lock with TTL
+   - Renews before expiration
+   - Lock expires = new election
 ```
 
-## Exemple Go avec Redis
+## Go Example with Redis
 
 ```go
 package leaderelection
@@ -126,7 +126,7 @@ func (rle *RedisLeaderElection) TryBecomeLeader(ctx context.Context) (bool, erro
 		rle.mu.Lock()
 		rle.isLeader = true
 		rle.mu.Unlock()
-		
+
 		rle.startRenewal()
 		rle.notifyListeners(true)
 		return true, nil
@@ -172,7 +172,7 @@ func (rle *RedisLeaderElection) Resign(ctx context.Context) error {
 			return 0
 		end
 	`
-	
+
 	_, err := rle.redis.Eval(ctx, script, []string{rle.lockKey}, rle.nodeID)
 	if err != nil {
 		return fmt.Errorf("resigning leadership: %w", err)
@@ -181,7 +181,7 @@ func (rle *RedisLeaderElection) Resign(ctx context.Context) error {
 	rle.mu.Lock()
 	rle.isLeader = false
 	rle.mu.Unlock()
-	
+
 	rle.notifyListeners(false)
 	return nil
 }
@@ -208,11 +208,11 @@ func (rle *RedisLeaderElection) startRenewal() {
 				if err := rle.renewLease(context.Background()); err != nil {
 					fmt.Printf("Lease renewal failed: %v
 ", err)
-					
+
 					rle.mu.Lock()
 					rle.isLeader = false
 					rle.mu.Unlock()
-					
+
 					rle.notifyListeners(false)
 					return
 				}
@@ -232,7 +232,7 @@ func (rle *RedisLeaderElection) renewLease(ctx context.Context) error {
 			return 0
 		end
 	`
-	
+
 	result, err := rle.redis.Eval(
 		ctx,
 		script,
@@ -263,43 +263,43 @@ func (rle *RedisLeaderElection) notifyListeners(isLeader bool) {
 }
 ```
 
-## Usage avec tache periodique (Go)
+## Usage with periodic task (Go)
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Solutions cloud natives
+## Cloud native solutions
 
 | Service | Usage |
 |---------|-------|
-| **etcd** | Kubernetes, consensus Raft |
-| **Consul** | HashiCorp, sessions et locks |
-| **ZooKeeper** | Apache, znodes ephemeres |
+| **etcd** | Kubernetes, Raft consensus |
+| **Consul** | HashiCorp, sessions and locks |
+| **ZooKeeper** | Apache, ephemeral znodes |
 | **Redis** | Redlock algorithm |
 | **DynamoDB** | Conditional writes |
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
-|-----------|------------|
-| Taches cron distribuees | Oui |
-| Coordination cluster | Oui |
-| Master/Replica database | Oui |
-| Toutes les instances equivalentes | Non (pas besoin) |
-| Stateless pur | Non |
+| Situation | Recommended |
+|-----------|-------------|
+| Distributed cron tasks | Yes |
+| Cluster coordination | Yes |
+| Master/Replica database | Yes |
+| All instances equivalent | No (not needed) |
+| Pure stateless | No |
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Singleton (distribue) | Garantir une seule instance |
-| Bulkhead | Isolation leader/followers |
-| Health Check | Detection leader defaillant |
-| Sharding | Leader par shard |
+| Singleton (distributed) | Guarantee a single instance |
+| Bulkhead | Leader/followers isolation |
+| Health Check | Failing leader detection |
+| Sharding | Leader per shard |
 
 ## Sources
 

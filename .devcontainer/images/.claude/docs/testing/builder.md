@@ -1,8 +1,8 @@
 # Test Data Builder
 
-> Construction fluide d'objets de test avec valeurs par defaut sensees.
+> Fluent construction of test objects with sensible default values.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -18,7 +18,7 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Implementation Go (Fluent Builder)
+## Go Implementation (Fluent Builder)
 
 ```go
 package testdata
@@ -147,7 +147,7 @@ func TestUserBuilder(t *testing.T) {
 		Build()
 
 	users := NewUserBuilder().BuildMany(5)
-	
+
 	// ...
 }
 ```
@@ -237,7 +237,7 @@ func TestFunctionalOptions(t *testing.T) {
 		WithUserName("John"),
 		WithUserEmail("john@test.com"),
 	)
-	
+
 	// ...
 }
 ```
@@ -435,7 +435,7 @@ func TestValidation(t *testing.T) {
 	// invalid := NewValidatingUserBuilder().
 	// 	WithEmail("invalid").
 	// 	MustBuild()
-	
+
 	_ = user
 }
 ```
@@ -555,43 +555,43 @@ func TestFactoryFunctions(t *testing.T) {
 	})
 
 	inactive := CreateInactiveUser(nil)
-	
+
 	// ...
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
 | `github.com/google/uuid` | UUID generation |
 | `github.com/brianvoe/gofakeit/v6` | Fake data |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Defaults mutables | State shared | Toujours copier dans Build() |
-| Trop de methodes | API complexe | Methodes semantiques |
-| Pas de randomisation | Collisions ID | UUID par defaut |
-| Builder sans Build() | Oubli d'appel | MustBuild() helper |
-| Validation dans tests | Tests fragiles | Validation optionnelle |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Mutable defaults | Shared state | Always copy in Build() |
+| Too many methods | Complex API | Semantic methods |
+| No randomization | ID collisions | UUID by default |
+| Builder without Build() | Forgotten call | MustBuild() helper |
+| Validation in tests | Fragile tests | Optional validation |
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Recommande |
+| Scenario | Recommended |
 |----------|------------|
-| Objets avec beaucoup de champs | Oui |
-| Variations frequentes | Oui |
-| Relations complexes | Oui |
-| Objets simples (2-3 champs) | Factory function suffit |
-| Donnees fixes | JSON fixtures |
+| Objects with many fields | Yes |
+| Frequent variations | Yes |
+| Complex relationships | Yes |
+| Simple objects (2-3 fields) | Factory function is enough |
+| Fixed data | JSON fixtures |
 
-## Patterns lies
+## Related Patterns
 
-- **Object Mother** : Factory pre-configurees basees sur Builders
-- **Fixture** : Builders populant les fixtures
-- **Factory** : Pattern de creation sous-jacent
+- **Object Mother**: Pre-configured factories based on Builders
+- **Fixture**: Builders populating fixtures
+- **Factory**: Underlying creation pattern
 
 ## Sources
 

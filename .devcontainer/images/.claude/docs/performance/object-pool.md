@@ -1,12 +1,12 @@
 # Object Pool
 
-Pattern de gestion de ressources reutilisant des objets couteux au lieu de les recreer.
+Resource management pattern reusing expensive objects instead of recreating them.
 
 ---
 
-## Qu'est-ce que l'Object Pool ?
+## What is the Object Pool?
 
-> Pre-allouer et reutiliser des objets pour eviter le cout de creation/destruction.
+> Pre-allocate and reuse objects to avoid the cost of creation/destruction.
 
 ```
 +-------------------------------------------------------------+
@@ -27,15 +27,15 @@ Pattern de gestion de ressources reutilisant des objets couteux au lieu de les r
 +-------------------------------------------------------------+
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Eviter les allocations couteuses (GC pressure)
-- Limiter les ressources systeme (connexions, threads)
-- Reduire la latence d'acquisition
+- Avoid expensive allocations (GC pressure)
+- Limit system resources (connections, threads)
+- Reduce acquisition latency
 
 ---
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package pool
@@ -131,7 +131,7 @@ func (op *ObjectPool[T]) Stats() (inUse, total int) {
 
 ---
 
-## Exemple d'utilisation
+## Usage Example
 
 ```go
 package main
@@ -193,48 +193,48 @@ func main() {
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
-| Aspect | Valeur |
-|--------|--------|
-| Complexite temps acquire | O(1) |
-| Complexite temps release | O(1) |
-| Memoire | O(maxSize) pre-allouee |
+| Aspect | Value |
+|--------|-------|
+| Acquire time complexity | O(1) |
+| Release time complexity | O(1) |
+| Memory | O(maxSize) pre-allocated |
 
-### Avantages
+### Advantages
 
-- Reduction allocations/GC
-- Latence predictible
-- Controle des ressources
+- Reduced allocations/GC
+- Predictable latency
+- Resource control
 
-### Inconvenients
+### Disadvantages
 
-- Memoire reservee meme si non utilisee
-- Complexite de gestion du cycle de vie
-- Risque de fuite si release oublie
+- Memory reserved even if unused
+- Lifecycle management complexity
+- Leak risk if release is forgotten
 
 ---
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
+| Situation | Recommended |
 |-----------|------------|
-| Objets couteux a creer | Oui |
-| Haute frequence creation/destruction | Oui |
-| Ressources systeme limitees | Oui |
-| Objets legers et simples | Non |
-| Objets avec etat complexe | Prudence |
+| Expensive objects to create | Yes |
+| High frequency creation/destruction | Yes |
+| Limited system resources | Yes |
+| Lightweight and simple objects | No |
+| Objects with complex state | Caution |
 
 ---
 
-## Patterns connexes
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Flyweight** | Partage d'etat, pas de cycle acquire/release |
-| **Singleton** | Instance unique vs pool d'instances |
-| **Connection Pool** | Specialisation pour connexions |
-| **Factory** | Creation des objets du pool |
+| **Flyweight** | State sharing, no acquire/release cycle |
+| **Singleton** | Single instance vs pool of instances |
+| **Connection Pool** | Specialization for connections |
+| **Factory** | Creates pool objects |
 
 ---
 

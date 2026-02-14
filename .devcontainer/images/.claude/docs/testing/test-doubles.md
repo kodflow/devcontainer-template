@@ -1,8 +1,8 @@
 # Test Doubles
 
-> Objets de substitution pour isoler le code sous test.
+> Substitution objects to isolate the code under test.
 
-## Types de Test Doubles
+## Types of Test Doubles
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -16,13 +16,13 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-| Type | Retourne | Verifie | Comportement |
-|------|----------|---------|--------------|
-| **Dummy** | Rien | Non | Remplit un parametre |
-| **Stub** | Valeurs fixes | Non | Controle indirect input |
-| **Spy** | Vraies valeurs | Appels | Observe sans remplacer |
-| **Mock** | Configure | Interactions | Verifie comportement |
-| **Fake** | Vraies valeurs | Non | Implementation simplifiee |
+| Type | Returns | Verifies | Behavior |
+|------|---------|----------|----------|
+| **Dummy** | Nothing | No | Fills a parameter |
+| **Stub** | Fixed values | No | Indirect input control |
+| **Spy** | Real values | Calls | Observes without replacing |
+| **Mock** | Configured | Interactions | Verifies behavior |
+| **Fake** | Real values | No | Simplified implementation |
 
 ## Dummy
 
@@ -423,7 +423,7 @@ func TestCreateAndRetrieveUser(t *testing.T) {
 }
 ```
 
-## Comparaison avec testify
+## Comparison with testify
 
 ```go
 package order_test
@@ -482,7 +482,7 @@ func TestOrderService(t *testing.T) {
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
@@ -492,31 +492,31 @@ func TestOrderService(t *testing.T) {
 | `github.com/golang/mock/gomock` | Code generation for mocks |
 | `github.com/maxbrunsfeld/counterfeiter/v6` | Interface fake generator |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Trop de mocks | Tests fragiles | Preferer fakes pour integration |
-| Mock implementation details | Couplage fort | Mocker interfaces, pas implementations |
-| Oublier verify() | Faux positifs | Toujours verifier expectations |
-| Stub sans assertion | Test inutile | Verifier le resultat |
-| Fake trop complexe | Maintenance lourde | Garder simple, pas de bugs |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Too many mocks | Fragile tests | Prefer fakes for integration |
+| Mock implementation details | Tight coupling | Mock interfaces, not implementations |
+| Forgetting verify() | False positives | Always verify expectations |
+| Stub without assertion | Useless test | Verify the result |
+| Overly complex fake | Heavy maintenance | Keep simple, no bugs |
 
-## Quand utiliser
+## When to Use
 
 | Situation | Test Double |
 |-----------|-------------|
-| Parametre requis non utilise | Dummy |
-| Controler les donnees d'entree | Stub |
-| Observer sans modifier | Spy |
-| Verifier les interactions | Mock |
-| Integration avec etat | Fake |
+| Required unused parameter | Dummy |
+| Control input data | Stub |
+| Observe without modifying | Spy |
+| Verify interactions | Mock |
+| Integration with state | Fake |
 
-## Patterns lies
+## Related Patterns
 
-- **Fixture** : Setup des test doubles
-- **Object Mother** : Factory de test doubles configures
-- **Dependency Injection** : Permet substitution facile
+- **Fixture**: Test doubles setup
+- **Object Mother**: Factory for configured test doubles
+- **Dependency Injection**: Enables easy substitution
 
 ## Sources
 

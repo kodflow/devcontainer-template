@@ -1,10 +1,10 @@
 # Event Sourcing
 
-> Persister l'état comme une séquence d'événements au lieu d'un snapshot.
+> Persist state as a sequence of events instead of a snapshot.
 
-**Auteur :** Martin Fowler, Greg Young
+**Authors:** Martin Fowler, Greg Young
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -20,9 +20,9 @@
 │  │                 │            │  [MoneyDeposited: +$20]     │ │
 │  │                 │            │  [MoneyWithdrawn: -$20]     │ │
 │  └─────────────────┘            │                              │ │
-│                                 │  → Replay = Balance: $100   │ │
-│  Pas d'historique               └─────────────────────────────┘ │
-│                                  Historique complet             │
+│                                 │  -> Replay = Balance: $100   │ │
+│  No history                     └─────────────────────────────┘ │
+│                                  Complete history                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -57,9 +57,9 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Implémentation
+## Implementation
 
-### Événements
+### Events
 
 ```go
 package events
@@ -594,36 +594,36 @@ func (p *OrderProjection) Rebuild(ctx context.Context) error {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-| Utiliser | Eviter |
+| Use | Avoid |
 |----------|--------|
-| Audit trail requis | CRUD simple |
-| Compliance (finance, santé) | Pas de besoin historique |
-| Debug / Replay | Équipe inexpérimentée |
-| Analytics temporelles | Performance critique |
-| Undo/Redo nécessaire | Volume énorme |
+| Audit trail required | Simple CRUD |
+| Compliance (finance, health) | No history needed |
+| Debug / Replay | Inexperienced team |
+| Temporal analytics | Critical performance |
+| Undo/Redo needed | Enormous volume |
 
-## Avantages
+## Advantages
 
-- **Audit complet** : Chaque changement tracé
-- **Replay** : Reconstruire état à tout moment
-- **Debug** : Comprendre ce qui s'est passé
-- **Projections multiples** : Vues optimisées
-- **Temporal queries** : "État à date X ?"
-- **Event-driven** : Réagir aux changements
+- **Complete audit**: Every change tracked
+- **Replay**: Reconstruct state at any time
+- **Debug**: Understand what happened
+- **Multiple projections**: Optimized views
+- **Temporal queries**: "State at date X?"
+- **Event-driven**: React to changes
 
-## Inconvénients
+## Disadvantages
 
-- **Complexité** : Pattern avancé
-- **Volume** : Beaucoup d'événements
-- **Schéma évolution** : Événements immuables
-- **Eventual consistency** : Projections asynchrones
-- **Courbe d'apprentissage** : Paradigme différent
+- **Complexity**: Advanced pattern
+- **Volume**: Many events
+- **Schema evolution**: Immutable events
+- **Eventual consistency**: Asynchronous projections
+- **Learning curve**: Different paradigm
 
-## Exemples réels
+## Real-world Examples
 
-| Entreprise | Usage |
+| Company | Usage |
 |------------|-------|
 | **LMAX** | Trading (millions events/sec) |
 | **Microsoft** | Azure (Event Grid) |
@@ -631,9 +631,9 @@ func (p *OrderProjection) Rebuild(ctx context.Context) error {
 | **Netflix** | Zuul (request events) |
 | **Uber** | Trip events |
 
-## Migration path
+## Migration Path
 
-### Depuis CRUD
+### From CRUD
 
 ```
 Phase 1: Dual-write (CRUD + Events)
@@ -641,24 +641,24 @@ Phase 2: Event-first (CRUD from projection)
 Phase 3: Pure Event Sourcing
 ```
 
-### Patterns complémentaires
+### Complementary Patterns
 
 ```
 Event Sourcing + CQRS
          │
-         ├── Commands → Write side → Events
+         ├── Commands -> Write side -> Events
          │
-         └── Queries → Read side ← Projections
+         └── Queries -> Read side <- Projections
 ```
 
-## Patterns liés
+## Related Patterns
 
-| Pattern | Relation |
+| Pattern | Relationship |
 |---------|----------|
-| CQRS | Souvent combiné |
-| Saga | Transactions distribuées |
-| Event-Driven | Architecture sous-jacente |
-| Snapshot | Optimisation performance |
+| CQRS | Often combined |
+| Saga | Distributed transactions |
+| Event-Driven | Underlying architecture |
+| Snapshot | Performance optimization |
 
 ## Sources
 

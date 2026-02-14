@@ -1,10 +1,10 @@
 # A/B Testing
 
-> Expérimentation contrôlée pour valider des hypothèses avec des métriques.
+> Controlled experimentation to validate hypotheses with metrics.
 
-**Lié à :** [Feature Toggles](feature-toggles.md) (implémentation technique)
+**Related to:** [Feature Toggles](feature-toggles.md) (technical implementation)
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -73,9 +73,9 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Implémentation
+## Implementation
 
-### Service d'expérimentation
+### Experimentation Service
 
 ```go
 package experiment
@@ -169,7 +169,7 @@ func NewService() *Service {
 // GetVariant returns the assigned variant for a user in an experiment.
 func (s *Service) GetVariant(ctx context.Context, userID, experimentID string) (string, error) {
 	s.mu.RLock()
-	experiment, exists := s.experiments[experimentID]
+	experiment, exists:= s.experiments[experimentID]
 	s.mu.RUnlock()
 
 	if !exists || experiment.Status != StatusRunning {
@@ -182,13 +182,13 @@ func (s *Service) GetVariant(ctx context.Context, userID, experimentID string) (
 	}
 
 	// Check for existing assignment (sticky)
-	if cached := s.getAssignment(userID, experimentID); cached != "" {
+	if cached:= s.getAssignment(userID, experimentID); cached != "" {
 		return cached, nil
 	}
 
 	// Hash-based deterministic assignment
-	hash := s.hashUserID(userID, experimentID)
-	variant := s.selectVariant(hash, experiment.Variants)
+	hash:= s.hashUserID(userID, experimentID)
+	variant:= s.selectVariant(hash, experiment.Variants)
 
 	s.saveAssignment(userID, experimentID, variant)
 	s.trackExposure(ctx, userID, experimentID, variant)
@@ -198,7 +198,7 @@ func (s *Service) GetVariant(ctx context.Context, userID, experimentID string) (
 
 // hashUserID generates a deterministic hash for user assignment.
 func (s *Service) hashUserID(userID, experimentID string) uint32 {
-	h := fnv.New32a()
+	h:= fnv.New32a()
 	_, _ = h.Write([]byte(userID + ":" + experimentID))
 	return h.Sum32()
 }
@@ -209,10 +209,10 @@ func (s *Service) selectVariant(hash uint32, variants []Variant) string {
 		return ""
 	}
 
-	bucket := int(hash % 100)
-	cumulative := 0
+	bucket:= int(hash % 100)
+	cumulative:= 0
 
-	for _, variant := range variants {
+	for _, variant:= range variants {
 		cumulative += variant.Weight
 		if bucket < cumulative {
 			return variant.Name
@@ -227,7 +227,7 @@ func (s *Service) getAssignment(userID, experimentID string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if userAssignments, ok := s.assignments[userID]; ok {
+	if userAssignments, ok:= s.assignments[userID]; ok {
 		return userAssignments[experimentID]
 	}
 	return ""
@@ -238,7 +238,7 @@ func (s *Service) saveAssignment(userID, experimentID, variant string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, ok := s.assignments[userID]; !ok {
+	if _, ok:= s.assignments[userID]; !ok {
 		s.assignments[userID] = make(map[string]string)
 	}
 	s.assignments[userID][experimentID] = variant
@@ -257,7 +257,7 @@ func (s *Service) trackExposure(ctx context.Context, userID, experimentID, varia
 }
 ```
 
-### Tracking des métriques
+### Metrics Tracking
 
 ```go
 package analytics
@@ -343,21 +343,21 @@ func (s *Service) GetExperimentResults(ctx context.Context, experimentID string)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	byVariant := s.groupByVariant(experimentID)
+	byVariant:= s.groupByVariant(experimentID)
 
-	results := &ExperimentResults{
+	results:= &ExperimentResults{
 		Variants: make([]VariantResults, 0, len(byVariant)),
 	}
 
-	controlData, hasControl := byVariant["control"]
+	controlData, hasControl:= byVariant["control"]
 
-	for variant, data := range byVariant {
-		convRate := 0.0
+	for variant, data:= range byVariant {
+		convRate:= 0.0
 		if data.Exposures > 0 {
 			convRate = float64(data.Conversions) / float64(data.Exposures)
 		}
 
-		confidence := 0.0
+		confidence:= 0.0
 		if hasControl && variant != "control" {
 			confidence = s.calculateConfidence(data, controlData)
 		}
@@ -379,14 +379,14 @@ func (s *Service) GetExperimentResults(ctx context.Context, experimentID string)
 
 // groupByVariant aggregates events by variant.
 func (s *Service) groupByVariant(experimentID string) map[string]VariantData {
-	grouped := make(map[string]VariantData)
+	grouped:= make(map[string]VariantData)
 
-	for _, event := range s.events {
+	for _, event:= range s.events {
 		if event.ExperimentID != experimentID {
 			continue
 		}
 
-		data := grouped[event.Variant]
+		data:= grouped[event.Variant]
 
 		if event.EventType == EventExposure {
 			data.Exposures++
@@ -406,26 +406,26 @@ func (s *Service) calculateConfidence(variant, control VariantData) float64 {
 		return 0.0
 	}
 
-	p1 := float64(variant.Conversions) / float64(variant.Exposures)
-	p2 := float64(control.Conversions) / float64(control.Exposures)
-	n1 := float64(variant.Exposures)
-	n2 := float64(control.Exposures)
+	p1:= float64(variant.Conversions) / float64(variant.Exposures)
+	p2:= float64(control.Conversions) / float64(control.Exposures)
+	n1:= float64(variant.Exposures)
+	n2:= float64(control.Exposures)
 
-	pooledP := (float64(variant.Conversions) + float64(control.Conversions)) / (n1 + n2)
-	se := math.Sqrt(pooledP * (1 - pooledP) * (1/n1 + 1/n2))
+	pooledP:= (float64(variant.Conversions) + float64(control.Conversions)) / (n1 + n2)
+	se:= math.Sqrt(pooledP * (1 - pooledP) * (1/n1 + 1/n2))
 
 	if se == 0 {
 		return 0.0
 	}
 
-	z := (p1 - p2) / se
+	z:= (p1 - p2) / se
 	return s.zToConfidence(z)
 }
 
 // zToConfidence converts z-score to confidence level.
 func (s *Service) zToConfidence(z float64) float64 {
 	// Simplified - use proper statistical library for production
-	absZ := math.Abs(z)
+	absZ:= math.Abs(z)
 	if absZ > 2.58 {
 		return 0.99
 	} else if absZ > 1.96 {
@@ -438,14 +438,14 @@ func (s *Service) zToConfidence(z float64) float64 {
 
 // determineWinner identifies the winning variant.
 func (s *Service) determineWinner(byVariant map[string]VariantData) string {
-	winner := ""
-	maxRate := 0.0
+	winner:= ""
+	maxRate:= 0.0
 
-	for variant, data := range byVariant {
+	for variant, data:= range byVariant {
 		if data.Exposures == 0 {
 			continue
 		}
-		rate := float64(data.Conversions) / float64(data.Exposures)
+		rate:= float64(data.Conversions) / float64(data.Exposures)
 		if rate > maxRate {
 			maxRate = rate
 			winner = variant
@@ -457,16 +457,16 @@ func (s *Service) determineWinner(byVariant map[string]VariantData) string {
 
 // isSignificant determines if results are statistically significant.
 func (s *Service) isSignificant(byVariant map[string]VariantData) bool {
-	controlData, hasControl := byVariant["control"]
+	controlData, hasControl:= byVariant["control"]
 	if !hasControl {
 		return false
 	}
 
-	for variant, data := range byVariant {
+	for variant, data:= range byVariant {
 		if variant == "control" {
 			continue
 		}
-		confidence := s.calculateConfidence(data, controlData)
+		confidence:= s.calculateConfidence(data, controlData)
 		if confidence >= 0.95 {
 			return true
 		}
@@ -476,7 +476,7 @@ func (s *Service) isSignificant(byVariant map[string]VariantData) bool {
 }
 ```
 
-### Usage côté client
+### Client-Side Usage
 
 ```go
 package client
@@ -505,30 +505,30 @@ func NewExperimentClient(service ExperimentService) *ExperimentClient {
 
 // UseExperiment fetches the variant for a user.
 func (c *ExperimentClient) UseExperiment(ctx context.Context, userID, experimentID string) (string, bool, error) {
-	variant, err := c.service.GetVariant(ctx, userID, experimentID)
+	variant, err:= c.service.GetVariant(ctx, userID, experimentID)
 	if err != nil {
 		return "", false, fmt.Errorf("getting variant: %w", err)
 	}
 
-	isLoading := variant == ""
-	isControl := variant == "control"
+	isLoading:= variant == ""
+	isControl:= variant == "control"
 
 	return variant, isControl && !isLoading, nil
 }
 
 // Example usage in HTTP handler
 func CheckoutButtonHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	userID := getUserID(r) // Your auth logic
+	ctx:= r.Context()
+	userID:= getUserID(r) // Your auth logic
 
-	client := NewExperimentClient(experimentService)
-	variant, isControl, err := client.UseExperiment(ctx, userID, "checkout-button-color")
+	client:= NewExperimentClient(experimentService)
+	variant, isControl, err:= client.UseExperiment(ctx, userID, "checkout-button-color")
 	if err != nil {
 		// Handle error, fallback to control
 		variant = "control"
 	}
 
-	color := "blue"
+	color:= "blue"
 	if variant == "green_button" {
 		color = "green"
 	}
@@ -538,7 +538,7 @@ func CheckoutButtonHandler(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-## Calcul de taille d'échantillon
+## Sample Size Calculation
 
 ```go
 package stats
@@ -561,20 +561,20 @@ func CalculateSampleSize(
 		significance = 0.05
 	}
 
-	p1 := baselineConversion
-	p2 := baselineConversion * (1 + minimumDetectableEffect)
+	p1:= baselineConversion
+	p2:= baselineConversion * (1 + minimumDetectableEffect)
 
-	zAlpha := 1.96 // 95% significance
-	zBeta := 0.84  // 80% power
+	zAlpha:= 1.96 // 95% significance
+	zBeta:= 0.84  // 80% power
 
-	pooledP := (p1 + p2) / 2
-	effect := math.Abs(p2 - p1)
+	pooledP:= (p1 + p2) / 2
+	effect:= math.Abs(p2 - p1)
 
 	if effect == 0 {
 		return 0
 	}
 
-	n := 2 * pooledP * (1 - pooledP) *
+	n:= 2 * pooledP * (1 - pooledP) *
 		math.Pow((zAlpha+zBeta)/effect, 2)
 
 	return int(math.Ceil(n))
@@ -584,68 +584,68 @@ func CalculateSampleSize(
 // CalculateSampleSize(0.02, 0.10, 0.8, 0.05) ≈ 15,000 users per variant
 ```
 
-## Quand utiliser
+## When to Use
 
-| Utiliser | Eviter |
-|----------|--------|
-| Trafic suffisant (>1000/variante) | Faible trafic |
-| Hypothèse claire | Exploration vague |
-| Métriques définies | Pas de tracking |
-| Durée suffisante (1-4 semaines) | Besoin résultat immédiat |
-| Changements UI/UX | Changements techniques |
+| Use | Avoid |
+|-----|-------|
+| Sufficient traffic (>1000/variant) | Low traffic |
+| Clear hypothesis | Vague exploration |
+| Defined metrics | No tracking |
+| Sufficient duration (1-4 weeks) | Need immediate results |
+| UI/UX changes | Technical changes |
 
-## Avantages
+## Advantages
 
-- **Données réelles** : Décisions basées sur faits
-- **Réduction risque** : Valider avant déploiement complet
-- **Apprentissage continu** : Culture data-driven
-- **ROI mesurable** : Impact quantifiable
-- **Évite opinions** : Données vs intuition
+- **Real data**: Decisions based on facts
+- **Risk reduction**: Validate before full deployment
+- **Continuous learning**: Data-driven culture
+- **Measurable ROI**: Quantifiable impact
+- **Avoids opinions**: Data vs intuition
 
-## Inconvénients
+## Disadvantages
 
-- **Temps** : Semaines pour résultats significatifs
-- **Volume** : Besoin de trafic important
-- **Complexité** : Infrastructure dédiée
-- **Faux positifs** : Risque statistique
-- **Pollution** : Interactions entre tests
+- **Time**: Weeks for significant results
+- **Volume**: Need substantial traffic
+- **Complexity**: Dedicated infrastructure
+- **False positives**: Statistical risk
+- **Pollution**: Interactions between tests
 
-## Exemples réels
+## Real-World Examples
 
-| Entreprise | Exemple célèbre |
-|------------|-----------------|
-| **Google** | 41 nuances de bleu (liens) |
-| **Netflix** | Thumbnails personnalisées |
+| Company | Famous Example |
+|---------|----------------|
+| **Google** | 41 shades of blue (links) |
+| **Netflix** | Personalized thumbnails |
 | **Amazon** | One-click checkout |
 | **Booking** | FOMO messages |
-| **Airbnb** | Design du search |
+| **Airbnb** | Search design |
 
-## Outils
+## Tools
 
-| Outil | Type | Caractéristiques |
-|-------|------|------------------|
+| Tool | Type | Features |
+|------|------|----------|
 | **Optimizely** | SaaS | Full-stack, enterprise |
 | **LaunchDarkly** | SaaS | Feature flags + A/B |
 | **Split.io** | SaaS | Focus experimentation |
 | **Google Optimize** | Free | GA integration |
 | **Growthbook** | Open-source | Self-hosted |
-| **Statsig** | SaaS | Stats avancées |
+| **Statsig** | SaaS | Advanced stats |
 
 ## Best Practices
 
-1. **Une hypothèse par test** : Pas de changements multiples
-2. **Taille échantillon** : Calculer avant de lancer
-3. **Durée fixe** : Ne pas arrêter prématurément
-4. **Segmentation** : Analyser par segment
-5. **Documentation** : Hypothèse, résultats, learnings
+1. **One hypothesis per test**: No multiple changes
+2. **Sample size**: Calculate before launching
+3. **Fixed duration**: Do not stop prematurely
+4. **Segmentation**: Analyze by segment
+5. **Documentation**: Hypothesis, results, learnings
 
-## Patterns liés
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Feature Toggles | Implémentation technique |
-| Canary | A/B sur infrastructure |
-| Multivariate Testing | Extension avec combinaisons |
+| Feature Toggles | Technical implementation |
+| Canary | A/B on infrastructure |
+| Multivariate Testing | Extension with combinations |
 | Personalization | A/B + ML |
 
 ## Sources

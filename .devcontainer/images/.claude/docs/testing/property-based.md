@@ -1,8 +1,8 @@
 # Property-Based Testing
 
-> Tests generatifs qui verifient des proprietes sur des donnees aleatoires.
+> Generative tests that verify properties on random data.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -375,7 +375,7 @@ func TestOrderTotal(t *testing.T) {
 			}
 
 			orderTotal := CalculateOrderTotal(order)
-			
+
 			// Allow small floating point differences
 			diff := calculatedTotal - orderTotal
 			if diff < 0 {
@@ -491,7 +491,7 @@ func TestDatabaseRoundtrip(t *testing.T) {
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
@@ -499,32 +499,32 @@ func TestDatabaseRoundtrip(t *testing.T) {
 | `pgregory.net/rapid` | Alternative, simpler API |
 | `github.com/flyingmutant/rapid` | Another alternative |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Generateurs trop larges | Tests lents, faux positifs | Constraindre les domaines |
-| Ignorer shrinking | Debug difficile | Analyser minimal cases |
-| Trop de tests | Tests lents | 100-1000 suffit souvent |
-| Proprietes triviales | Tests inutiles | Tester vraies invariantes |
-| Oublier edge cases | Bugs manques | Combiner avec example-based |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Too broad generators | Slow tests, false positives | Constrain the domains |
+| Ignoring shrinking | Difficult debugging | Analyze minimal cases |
+| Too many tests | Slow tests | 100-1000 is often enough |
+| Trivial properties | Useless tests | Test real invariants |
+| Forgetting edge cases | Missed bugs | Combine with example-based |
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Recommande |
+| Scenario | Recommended |
 |----------|------------|
-| Algorithmes purs | Oui |
-| Serialization/parsing | Oui |
-| Transformations de donnees | Oui |
-| Business logic complexe | Oui |
-| UI testing | Non |
-| Integration avec external | Avec prudence |
+| Pure algorithms | Yes |
+| Serialization/parsing | Yes |
+| Data transformations | Yes |
+| Complex business logic | Yes |
+| UI testing | No |
+| Integration with external | With caution |
 
-## Patterns lies
+## Related Patterns
 
-- **Parameterized Tests** : Version manuelle
-- **Fuzzing** : Security testing similaire
-- **Snapshot Testing** : Complementaire pour regression
+- **Parameterized Tests**: Manual version
+- **Fuzzing**: Similar security testing
+- **Snapshot Testing**: Complementary for regression
 
 ## Sources
 

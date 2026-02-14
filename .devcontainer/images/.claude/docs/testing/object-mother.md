@@ -1,8 +1,8 @@
 # Object Mother
 
-> Factory centralisee pour objets de test pre-configures.
+> Centralized factory for pre-configured test objects.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -17,7 +17,7 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package testdata
@@ -328,7 +328,7 @@ func TestWithCustomUser(t *testing.T) {
 		WithEmail("custom@test.com").
 		AsAdmin().
 		Build()
-	
+
 	// ...
 }
 ```
@@ -481,7 +481,7 @@ func (s *TestDatabaseSeeder) SeedStressTest(ctx context.Context) error {
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
@@ -489,31 +489,31 @@ func (s *TestDatabaseSeeder) SeedStressTest(ctx context.Context) error {
 | `github.com/brianvoe/gofakeit/v6` | Fake data generation |
 | `github.com/icrowley/fake` | Alternative faker |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| IDs dupliques | Conflits en DB | UUIDs ou IDs uniques par scenario |
-| Donnees mutables | Tests dependants | Toujours retourner nouvelles instances |
-| Mothers trop specifiques | Explosion de methodes | Combiner avec Builder |
-| Pas de scenarios | Setup repete | Ajouter ScenarioMother |
-| Donnees irrealistes | Bugs non detectes | Faker pour donnees valides |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Duplicate IDs | DB conflicts | UUIDs or unique IDs per scenario |
+| Mutable data | Dependent tests | Always return new instances |
+| Too specific Mothers | Method explosion | Combine with Builder |
+| No scenarios | Repeated setup | Add ScenarioMother |
+| Unrealistic data | Undetected bugs | Faker for valid data |
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Recommande |
+| Scenario | Recommended |
 |----------|------------|
-| Personas recurrentes (John, Jane) | Oui |
-| Scenarios metier types | Oui |
-| Donnees de test coherentes | Oui |
-| Objets tres variables | Builder prefere |
-| Donnees uniques par test | Random() methods |
+| Recurring personas (John, Jane) | Yes |
+| Typical business scenarios | Yes |
+| Consistent test data | Yes |
+| Highly variable objects | Builder preferred |
+| Unique data per test | Random() methods |
 
-## Patterns lies
+## Related Patterns
 
-- **Test Data Builder** : Flexibilite complementaire
-- **Fixture** : Object Mothers peuplent les fixtures
-- **Factory** : Pattern sous-jacent
+- **Test Data Builder**: Complementary flexibility
+- **Fixture**: Object Mothers populate fixtures
+- **Factory**: Underlying pattern
 
 ## Sources
 

@@ -1,8 +1,8 @@
 # Compensating Transaction Pattern
 
-> Annuler les effets d'operations deja executees dans un workflow distribue.
+> Undo the effects of already-executed operations in a distributed workflow.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -27,16 +27,16 @@
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Difference avec Rollback ACID
+## Difference with ACID Rollback
 
 | Aspect | ACID Rollback | Compensation |
 |--------|---------------|--------------|
-| **Scope** | Transaction unique | Transactions distribuees |
-| **Mecanisme** | Undo log DB | Logique metier explicite |
-| **Atomicite** | Garantie | Best effort |
-| **Visibility** | Invisible | Peut etre visible |
+| **Scope** | Single transaction | Distributed transactions |
+| **Mechanism** | DB undo log | Explicit business logic |
+| **Atomicity** | Guaranteed | Best effort |
+| **Visibility** | Invisible | May be visible |
 
-## Exemple Go
+## Go Example
 
 ```go
 package compensation
@@ -79,7 +79,7 @@ func NewCompensatingTransaction() *CompensatingTransaction {
 func (ct *CompensatingTransaction) Execute(ctx context.Context, operations []CompensableOperation[interface{}]) error {
 	for _, op := range operations {
 		log.Printf("Executing: %s", op.Name)
-		
+
 		result, err := op.Execute(ctx)
 		if err != nil {
 			log.Printf("Failed at: %s - %v", op.Name, err)
@@ -109,7 +109,7 @@ func (ct *CompensatingTransaction) compensate(ctx context.Context) error {
 	// Compensate in reverse order
 	for i := len(ct.executedOperations) - 1; i >= 0; i-- {
 		op := ct.executedOperations[i]
-		
+
 		if !op.IsCompensable {
 			continue
 		}
@@ -132,69 +132,69 @@ func (ct *CompensatingTransaction) handleCompensationFailure(ctx context.Context
 }
 ```
 
-## Exemple: Reservation de voyage (Go)
+## Example: Travel Booking (Go)
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
-## Patterns de compensation
+## Compensation Patterns
 
-### 1. Compensation immediate
+### 1. Immediate Compensation
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
-### 2. Compensation differee
+### 2. Deferred Compensation
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
-### 3. Compensation avec retry
+### 3. Compensation with Retry
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
 ## Anti-patterns
 
-| Anti-pattern | Probleme | Solution |
-|--------------|----------|----------|
-| Compensation non-idempotente | Double compensation | Idempotency keys |
-| Sans timeout | Blocage indefini | Timeout + escalation |
-| Compensation partielle ignoree | Etat inconsistant | Retry + alerting |
-| Ordre incorrect | Dependances cassees | Compensation en ordre inverse |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| Non-idempotent compensation | Double compensation | Idempotency keys |
+| No timeout | Indefinite blocking | Timeout + escalation |
+| Ignored partial compensation | Inconsistent state | Retry + alerting |
+| Incorrect order | Broken dependencies | Compensate in reverse order |
 
-## Quand utiliser
+## When to Use
 
-- Workflows distribues impliquant plusieurs services ou bases de donnees
-- Operations ne pouvant pas utiliser de transactions ACID distribuees
-- Systemes necessitant un rollback semantique plutot que technique
-- Reservation de ressources multi-systemes (voyages, e-commerce)
-- Processus metier long necessitant une annulation partielle
+- Distributed workflows involving multiple services or databases
+- Operations that cannot use distributed ACID transactions
+- Systems requiring semantic rollback rather than technical rollback
+- Multi-system resource reservation (travel, e-commerce)
+- Long-running business processes requiring partial cancellation
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Saga | Utilise compensating transactions |
-| Outbox | Fiabilite des compensations |
-| Retry | Resilience des compensations |
-| Dead Letter | Compensations echouees |
+| Saga | Uses compensating transactions |
+| Outbox | Compensation reliability |
+| Retry | Compensation resilience |
+| Dead Letter | Failed compensations |
 
 ## Sources
 

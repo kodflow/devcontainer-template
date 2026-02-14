@@ -1,12 +1,12 @@
 # Compute Resource Consolidation Pattern
 
-> Optimiser l'utilisation des ressources en consolidant les workloads.
+> Optimize resource utilization by consolidating workloads.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                 AVANT: Resources sous-utilisees                          │
+│                 BEFORE: Underutilized resources                          │
 │                                                                          │
 │   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐         │
 │   │    VM 1         │  │    VM 2         │  │    VM 3         │         │
@@ -18,8 +18,8 @@
 │   │   4 CPU, 16GB   │  │   4 CPU, 16GB   │  │   4 CPU, 16GB   │         │
 │   └─────────────────┘  └─────────────────┘  └─────────────────┘         │
 │                                                                          │
-│   Total: 12 CPU, 48GB RAM - Utilisation: ~10%                           │
-│   Cout: $$$                                                              │
+│   Total: 12 CPU, 48GB RAM - Utilization: ~10%                           │
+│   Cost: $$$                                                              │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 
@@ -27,7 +27,7 @@
                                    ▼
 
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                 APRES: Resources consolidees                             │
+│                 AFTER: Consolidated resources                             │
 │                                                                          │
 │              ┌─────────────────────────────────────┐                    │
 │              │            Shared Node              │                    │
@@ -37,25 +37,25 @@
 │              │  │ RAM: 20%  │ RAM: 25%  │RAM:10%│  │                    │
 │              │  └───────────┴───────────┴───────┘  │                    │
 │              │        4 CPU, 16GB RAM              │                    │
-│              │     Utilisation: ~50%               │                    │
+│              │     Utilization: ~50%               │                    │
 │              └─────────────────────────────────────┘                    │
 │                                                                          │
-│   Total: 4 CPU, 16GB RAM - Utilisation: ~50%                            │
-│   Cout: $                                                                │
+│   Total: 4 CPU, 16GB RAM - Utilization: ~50%                            │
+│   Cost: $                                                                │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Strategies de consolidation
+## Consolidation Strategies
 
-| Strategie | Description | Cas d'usage |
-|-----------|-------------|-------------|
-| **Bin Packing** | Remplir les nodes au maximum | Workloads stables |
-| **Spreading** | Distribuer pour resilience | Workloads critiques |
-| **Time-based** | Partager selon horaires | Batch + interactive |
-| **Resource Ratio** | Equilibrer CPU/RAM | Mix workloads |
+| Strategy | Description | Use Case |
+|----------|-------------|----------|
+| **Bin Packing** | Fill nodes to maximum | Stable workloads |
+| **Spreading** | Distribute for resilience | Critical workloads |
+| **Time-based** | Share by schedule | Batch + interactive |
+| **Resource Ratio** | Balance CPU/RAM | Mixed workloads |
 
-## Exemple Go
+## Go Example
 
 ```go
 package consolidation
@@ -119,10 +119,10 @@ func (rc *ResourceConsolidator) Consolidate(nodes []Node, workloads []Workload) 
 
 	for _, workload := range sortedWorkloads {
 		targetNode := rc.findBestNode(workload, availableNodes)
-		
+
 		if targetNode != nil {
 			rc.allocate(targetNode, workload)
-			
+
 			nodeAlloc := allocation[targetNode.ID]
 			nodeAlloc = append(nodeAlloc, workload.ID)
 			allocation[targetNode.ID] = nodeAlloc
@@ -135,7 +135,7 @@ func (rc *ResourceConsolidator) Consolidate(nodes []Node, workloads []Workload) 
 func (rc *ResourceConsolidator) findBestNode(workload Workload, nodes []Node) *Node {
 	for i := range nodes {
 		node := &nodes[i]
-		
+
 		cpuAvail := node.CPUCapacity - node.CPUAllocated
 		memAvail := node.MemCapacity - node.MemAllocated
 
@@ -146,14 +146,14 @@ func (rc *ResourceConsolidator) findBestNode(workload Workload, nodes []Node) *N
 		projectedCPUUtil := float64(node.CPUAllocated+workload.CPURequest) / float64(node.CPUCapacity)
 		projectedMemUtil := float64(node.MemAllocated+workload.MemRequest) / float64(node.MemCapacity)
 
-		withinTarget := projectedCPUUtil <= rc.targetUtilization && 
+		withinTarget := projectedCPUUtil <= rc.targetUtilization &&
 		                projectedMemUtil <= rc.targetUtilization
 
 		if cpuFits && memFits && withinTarget {
 			return node
 		}
 	}
-	
+
 	return nil
 }
 
@@ -172,34 +172,34 @@ func (rc *ResourceConsolidator) getAvailableScore(node *Node) float64 {
 // RecommendScaleDown recommends nodes to remove.
 func (rc *ResourceConsolidator) RecommendScaleDown(nodes []Node) []Node {
 	var recommendations []Node
-	
+
 	// Empty nodes
 	for _, node := range nodes {
 		if len(node.Workloads) == 0 {
 			recommendations = append(recommendations, node)
 		}
 	}
-	
+
 	// Underutilized nodes
 	for _, node := range nodes {
 		cpuUtil := float64(node.CPUAllocated) / float64(node.CPUCapacity)
 		memUtil := float64(node.MemAllocated) / float64(node.MemCapacity)
-		
+
 		if cpuUtil < 0.2 && memUtil < 0.2 && len(node.Workloads) > 0 {
 			recommendations = append(recommendations, node)
 		}
 	}
-	
+
 	// Respect minimum nodes
 	maxRemove := len(nodes) - rc.minNodes
 	if maxRemove < 0 {
 		maxRemove = 0
 	}
-	
+
 	if len(recommendations) > maxRemove {
 		recommendations = recommendations[:maxRemove]
 	}
-	
+
 	return recommendations
 }
 ```
@@ -207,7 +207,7 @@ func (rc *ResourceConsolidator) RecommendScaleDown(nodes []Node) []Node {
 ## Kubernetes Resource Management
 
 ```yaml
-# Pod avec resource requests/limits
+# Pod with resource requests/limits
 apiVersion: v1
 kind: Pod
 metadata:
@@ -269,49 +269,49 @@ spec:
     updateMode: Auto
 ```
 
-## Metriques de consolidation
+## Consolidation Metrics
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
 ## Time-based Consolidation
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
 ## Anti-patterns
 
-| Anti-pattern | Probleme | Solution |
-|--------------|----------|----------|
-| Sur-consolidation | Contention resources | Target < 80% utilization |
-| Noisy neighbors | Performance degradee | Resource limits + QoS |
-| Sans isolation | Security risk | Namespaces, network policies |
-| Consolidation statique | Gaspillage off-peak | Autoscaling |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| Over-consolidation | Resource contention | Target < 80% utilization |
+| Noisy neighbors | Degraded performance | Resource limits + QoS |
+| No isolation | Security risk | Namespaces, network policies |
+| Static consolidation | Off-peak waste | Autoscaling |
 
-## Quand utiliser
+## When to Use
 
-- Workloads avec faible utilisation des ressources individuellement
-- Environnements de developpement et test non-critiques
-- Services complementaires en termes d'utilisation CPU/memoire
-- Reduction des couts d'infrastructure cloud
-- Applications conteneurisees avec des profils de charge previsibles
+- Workloads with low individual resource utilization
+- Non-critical development and test environments
+- Complementary services in terms of CPU/memory usage
+- Reducing cloud infrastructure costs
+- Containerized applications with predictable load profiles
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Autoscaling | Ajustement dynamique |
-| Throttling | Protection surcharge |
-| Bulkhead | Isolation workloads |
-| Queue-based Load Leveling | Lissage charge |
+| Autoscaling | Dynamic adjustment |
+| Throttling | Overload protection |
+| Bulkhead | Workload isolation |
+| Queue-based Load Leveling | Load smoothing |
 
 ## Sources
 

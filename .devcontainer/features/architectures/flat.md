@@ -1,20 +1,20 @@
 # Flat / Scripts
 
-> **DEFAULT** pour CLI tools, scripts, POC
+> **DEFAULT** for CLI tools, scripts, POC
 
 ## Concept
 
-Structure minimale, fichiers au même niveau.
+Minimal structure, files at the same level.
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Adaptation |
+| Language | Suitability |
 |---------|-----------|
 | **Go** | Excellent (single binary) |
 | **Python** | Excellent (scripts) |
 | **Rust** | Excellent (CLI) |
-| **Bash** | Bon (scripts système) |
-| **Node.js** | Bon |
+| **Bash** | Good (system scripts) |
+| **Node.js** | Good |
 
 ## Structure
 
@@ -27,7 +27,7 @@ Structure minimale, fichiers au même niveau.
 └── types.go             # Types/structs
 ```
 
-Ou avec sous-dossiers légers :
+Or with lightweight subdirectories:
 
 ```
 /src
@@ -36,48 +36,48 @@ Ou avec sous-dossiers légers :
 ├── internal/
 │   ├── config/
 │   └── utils/
-└── pkg/                 # Si réutilisable
+└── pkg/                 # If reusable
 ```
 
-## Avantages
+## Advantages
 
 - Simple
-- Rapide à démarrer
-- Facile à comprendre
-- Peu de boilerplate
-- Un fichier = visible
+- Quick to start
+- Easy to understand
+- Little boilerplate
+- One file = visible
 
-## Inconvénients
+## Disadvantages
 
-- Ne scale pas
-- Pas de séparation
-- Refactoring difficile
-- Tests limités
+- Does not scale
+- No separation
+- Difficult refactoring
+- Limited tests
 
-## Contraintes
+## Constraints
 
-- < 10 fichiers idéalement
-- < 1000 lignes par fichier
-- Pas de logique métier complexe
+- < 10 files ideally
+- < 1000 lines per file
+- No complex business logic
 
-## Règles
+## Rules
 
-1. Un fichier par responsabilité
-2. Nommage explicite
-3. Pas de dépendances complexes
-4. Migrate vers Clean si ça grossit
+1. One file per responsibility
+2. Explicit naming
+3. No complex dependencies
+4. Migrate to Clean if it grows
 
-## Quand utiliser
+## When to Use
 
 - CLI tools
-- Scripts système
+- System scripts
 - POC/Prototypes
-- Outils internes
+- Internal tools
 - Automation
 
-## Quand éviter
+## When to Avoid
 
-- Logique métier → Clean/Hexagonal
-- Web app → MVC
-- Scale prévu → Sliceable Monolith
-- >2000 lignes → Refactor
+- Business logic -> Clean/Hexagonal
+- Web app -> MVC
+- Planned scaling -> Sliceable Monolith
+- >2000 lines -> Refactor

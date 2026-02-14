@@ -1,8 +1,8 @@
 # Cache-Aside Pattern
 
-> Charger les donnees dans le cache a la demande depuis le data store.
+> Load data into the cache on demand from the data store.
 
-## Principe
+## Principle
 
 ```
                     ┌─────────────────────────────────────────────┐
@@ -40,16 +40,16 @@
                         └─────────┘
 ```
 
-## Variantes
+## Variants
 
-| Pattern | Description | Coherence |
-|---------|-------------|-----------|
-| **Cache-Aside** | App gere le cache manuellement | Eventuelle |
-| **Read-Through** | Cache charge depuis DB automatiquement | Eventuelle |
-| **Write-Through** | Ecriture synchrone cache + DB | Forte |
-| **Write-Behind** | Ecriture asynchrone vers DB | Eventuelle |
+| Pattern | Description | Consistency |
+|---------|-------------|-------------|
+| **Cache-Aside** | App manages the cache manually | Eventual |
+| **Read-Through** | Cache loads from DB automatically | Eventual |
+| **Write-Through** | Synchronous write to cache + DB | Strong |
+| **Write-Behind** | Asynchronous write to DB | Eventual |
 
-## Exemple Go
+## Go Example
 
 ```go
 package cache
@@ -163,43 +163,43 @@ func (r *UserRepository) Delete(ctx context.Context, id string) error {
 }
 ```
 
-## Implementation Redis (Go)
+## Redis Implementation (Go)
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on standard Go
+// interfaces and conventions.
 ```
 
-## Strategies TTL
+## TTL Strategies
 
-| Donnee | TTL recommande | Raison |
-|--------|----------------|--------|
-| Configuration | 5-15 min | Change rarement |
-| User profile | 1-24 h | Mise a jour rare |
-| Product catalog | 15-60 min | Updates reguliers |
-| Session | 30 min - 24h | Securite |
-| Real-time data | 1-60 sec | Fraicheur critique |
+| Data | Recommended TTL | Reason |
+|------|-----------------|--------|
+| Configuration | 5-15 min | Rarely changes |
+| User profile | 1-24 h | Rarely updated |
+| Product catalog | 15-60 min | Regular updates |
+| Session | 30 min - 24h | Security |
+| Real-time data | 1-60 sec | Critical freshness |
 
-## Quand utiliser
+## When to Use
 
-| Situation | Recommande |
-|-----------|------------|
-| Lectures >> Ecritures | Oui |
-| Donnees peu volatiles | Oui |
-| Tolerance a coherence eventuelle | Oui |
-| Donnees en temps reel strict | Non |
-| Ecritures frequentes | Non (invalidation excessive) |
+| Situation | Recommended |
+|-----------|-------------|
+| Reads >> Writes | Yes |
+| Low-volatility data | Yes |
+| Tolerant of eventual consistency | Yes |
+| Strict real-time data | No |
+| Frequent writes | No (excessive invalidation) |
 
-## Patterns lies
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Read-Through | Cache charge auto |
-| Write-Through | Coherence forte |
-| Refresh-Ahead | Pre-chargement proactif |
-| Circuit Breaker | Fallback si cache down |
+| Read-Through | Auto-loading cache |
+| Write-Through | Strong consistency |
+| Refresh-Ahead | Proactive pre-loading |
+| Circuit Breaker | Fallback if cache down |
 
 ## Sources
 

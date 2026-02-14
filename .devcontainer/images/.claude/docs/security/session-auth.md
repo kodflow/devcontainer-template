@@ -1,8 +1,8 @@
 # Session-Based Authentication
 
-> Authentification avec etat cote serveur et cookie de session.
+> Stateful server-side authentication with session cookies.
 
-## Principe
+## Principle
 
 ```
 ┌────────┐        ┌────────────┐        ┌──────────────┐
@@ -23,7 +23,7 @@
      │                  │                      │
 ```
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package session
@@ -144,7 +144,7 @@ func generateSessionID() (string, error) {
 }
 ```
 
-## Session Store Redis
+## Redis Session Store
 
 ```go
 package session
@@ -239,7 +239,7 @@ func (s *RedisStore) Touch(ctx context.Context, id string) error {
 }
 ```
 
-## Middleware HTTP
+## HTTP Middleware
 
 ```go
 package middleware
@@ -357,7 +357,7 @@ func GetUserID(ctx context.Context) string {
 }
 ```
 
-## Protection contre les attaques
+## Attack Protection
 
 ```go
 package session
@@ -432,41 +432,41 @@ func (m *SecureManager) ValidateWithIP(ctx context.Context, sessionID, ip string
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
-| `github.com/gorilla/sessions` | Session management standard |
+| `github.com/gorilla/sessions` | Standard session management |
 | `github.com/redis/go-redis/v9` | Redis client |
-| `github.com/alexedwards/scs/v2` | Session manager moderne |
+| `github.com/alexedwards/scs/v2` | Modern session manager |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Session ID previsible | Session hijacking | `crypto/rand` avec 32 bytes |
-| Pas de `httpOnly` | XSS peut voler cookie | Toujours `httpOnly: true` |
-| Pas de `secure` | MITM peut intercepter | Toujours `secure: true` en prod |
-| `sameSite: 'none'` | CSRF vulnerable | `strict` ou `lax` |
-| Store en memoire | Perte au restart | Redis, PostgreSQL, etc. |
-| Session ID dans URL | Leakage via Referer | Cookie only |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Predictable session ID | Session hijacking | `crypto/rand` with 32 bytes |
+| No `httpOnly` | XSS can steal cookie | Always `httpOnly: true` |
+| No `secure` | MITM can intercept | Always `secure: true` in prod |
+| `sameSite: 'none'` | CSRF vulnerable | `strict` or `lax` |
+| In-memory store | Loss on restart | Redis, PostgreSQL, etc. |
+| Session ID in URL | Leakage via Referer | Cookie only |
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Recommande |
+| Scenario | Recommended |
 |----------|------------|
-| Application monolithique | Oui |
-| Besoin de revocation instantanee | Oui |
-| Multi-page apps traditionnelles | Oui |
-| APIs stateless | Non (preferer JWT) |
-| Microservices | Non (preferer JWT) |
-| SPAs avec backend BFF | Oui |
+| Monolithic application | Yes |
+| Need for instant revocation | Yes |
+| Traditional multi-page apps | Yes |
+| Stateless APIs | No (prefer JWT) |
+| Microservices | No (prefer JWT) |
+| SPAs with backend BFF | Yes |
 
-## Patterns lies
+## Related Patterns
 
-- **JWT** : Alternative stateless
-- **OAuth 2.0** : Combine souvent sessions + OAuth
-- **CSRF Protection** : Necessaire avec sessions
+- **JWT**: Stateless alternative
+- **OAuth 2.0**: Often combines sessions + OAuth
+- **CSRF Protection**: Necessary with sessions
 
 ## Sources
 

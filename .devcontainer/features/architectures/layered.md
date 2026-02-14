@@ -1,20 +1,20 @@
 # Layered / N-Tier
 
-> Architecture traditionnelle en couches horizontales
+> Traditional horizontal layered architecture
 
 ## Concept
 
-Couches empilées : présentation → business → data. Chaque couche ne communique qu'avec celle du dessous.
+Stacked layers: presentation -> business -> data. Each layer only communicates with the one below.
 
-## Langages recommandés
+## Recommended Languages
 
-| Langage | Adaptation |
+| Language | Suitability |
 |---------|-----------|
-| **Java** | Excellent (classique) |
+| **Java** | Excellent (classic) |
 | **C#** | Excellent (.NET) |
-| **Python** | Bon |
-| **PHP** | Bon |
-| **Node.js** | Bon |
+| **Python** | Good |
+| **PHP** | Good |
+| **Node.js** | Good |
 
 ## Structure
 
@@ -23,50 +23,50 @@ Couches empilées : présentation → business → data. Chaque couche ne commun
 ├── presentation/        # UI, API controllers
 │   ├── controllers/
 │   └── views/
-├── business/            # Logique métier
+├── business/            # Business logic
 │   ├── services/
 │   └── validators/
-└── data/                # Accès données
+└── data/                # Data access
     ├── repositories/
     └── entities/
 ```
 
-## Avantages
+## Advantages
 
-- Simple à comprendre
-- Bien connu (classique)
-- Séparation claire
-- Facile à debugger
+- Easy to understand
+- Well known (classic)
+- Clear separation
+- Easy to debug
 
-## Inconvénients
+## Disadvantages
 
-- Rigide (changes traversent toutes les couches)
-- DB-centric (data drive tout)
-- Logique métier diluée
-- Testabilité moyenne
+- Rigid (changes traverse all layers)
+- DB-centric (data drives everything)
+- Diluted business logic
+- Average testability
 
-## Contraintes
+## Constraints
 
-- Couche N appelle couche N-1 uniquement
-- Pas de saut de couche
-- Pas de référence inverse
+- Layer N calls layer N-1 only
+- No layer skipping
+- No reverse references
 
-## Règles
+## Rules
 
-1. Présentation → Business → Data
-2. Pas de logique métier en présentation
-3. Pas d'accès DB en présentation
-4. Business ne connaît pas la présentation
+1. Presentation -> Business -> Data
+2. No business logic in presentation
+3. No DB access in presentation
+4. Business does not know about presentation
 
-## Quand utiliser
+## When to Use
 
-- Apps CRUD traditionnelles
-- Équipes junior
-- Migration d'ancien code
-- Contraintes entreprise
+- Traditional CRUD apps
+- Junior teams
+- Legacy code migration
+- Enterprise constraints
 
-## Quand éviter
+## When to Avoid
 
-- Logique métier complexe → Clean/Hexagonal
-- Besoin de flexibilité → Hexagonal
-- Scale → Sliceable Monolith
+- Complex business logic -> Clean/Hexagonal
+- Need for flexibility -> Hexagonal
+- Scaling -> Sliceable Monolith

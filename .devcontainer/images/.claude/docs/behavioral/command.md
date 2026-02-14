@@ -1,12 +1,12 @@
 # Command Pattern
 
-> Encapsuler une requete comme un objet pour parametrer, journaliser ou annuler.
+> Encapsulate a request as an object to parameterize, log, or undo.
 
-## Intention
+## Intent
 
-Encapsuler une requete en tant qu'objet, permettant de parametrer les clients
-avec differentes requetes, mettre en file d'attente, journaliser les requetes,
-et supporter les operations reversibles (undo).
+Encapsulate a request as an object, allowing parameterization of clients
+with different requests, queue, log requests,
+and support reversible operations (undo).
 
 ## Structure
 
@@ -43,7 +43,7 @@ func (e *TextEditor) DeleteRange(start, end int) string {
 	if end > len(e.content) {
 		end = len(e.content)
 	}
-	deleted := e.content[start:end]
+	deleted:= e.content[start:end]
 	e.content = e.content[:start] + e.content[end:]
 	e.cursorPosition = start
 	return deleted
@@ -130,7 +130,7 @@ type CommandHistory struct {
 
 // Execute executes a command and adds it to history.
 func (h *CommandHistory) Execute(command Command) error {
-	if err := command.Execute(); err != nil {
+	if err:= command.Execute(); err != nil {
 		return err
 	}
 	h.undoStack = append(h.undoStack, command)
@@ -144,10 +144,10 @@ func (h *CommandHistory) Undo() error {
 		return fmt.Errorf("nothing to undo")
 	}
 
-	command := h.undoStack[len(h.undoStack)-1]
+	command:= h.undoStack[len(h.undoStack)-1]
 	h.undoStack = h.undoStack[:len(h.undoStack)-1]
 
-	if err := command.Undo(); err != nil {
+	if err:= command.Undo(); err != nil {
 		return err
 	}
 
@@ -161,10 +161,10 @@ func (h *CommandHistory) Redo() error {
 		return fmt.Errorf("nothing to redo")
 	}
 
-	command := h.redoStack[len(h.redoStack)-1]
+	command:= h.redoStack[len(h.redoStack)-1]
 	h.redoStack = h.redoStack[:len(h.redoStack)-1]
 
-	if err := command.Execute(); err != nil {
+	if err:= command.Execute(); err != nil {
 		return err
 	}
 
@@ -187,8 +187,8 @@ func (h *CommandHistory) CanRedo() bool {
 
 ```go
 func main() {
-	editor := &TextEditor{}
-	history := &CommandHistory{}
+	editor:= &TextEditor{}
+	history:= &CommandHistory{}
 
 	// Execute commands
 	history.Execute(NewInsertTextCommand(editor, "Hello"))
@@ -230,8 +230,8 @@ func (m *MacroCommand) Add(command Command) {
 
 // Execute executes all commands in order.
 func (m *MacroCommand) Execute() error {
-	for _, command := range m.commands {
-		if err := command.Execute(); err != nil {
+	for _, command:= range m.commands {
+		if err:= command.Execute(); err != nil {
 			return err
 		}
 	}
@@ -240,31 +240,31 @@ func (m *MacroCommand) Execute() error {
 
 // Undo undoes all commands in reverse order.
 func (m *MacroCommand) Undo() error {
-	for i := len(m.commands) - 1; i >= 0; i-- {
-		if err := m.commands[i].Undo(); err != nil {
+	for i:= len(m.commands) - 1; i >= 0; i-- {
+		if err:= m.commands[i].Undo(); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// Usage - formater un bloc de texte
+// Usage - format a text block
 func macroExample() {
-	editor := &TextEditor{}
-	history := &CommandHistory{}
+	editor:= &TextEditor{}
+	history:= &CommandHistory{}
 
-	formatMacro := NewMacroCommand()
+	formatMacro:= NewMacroCommand()
 	// formatMacro.Add(NewSelectAllCommand(editor))
 	// formatMacro.Add(NewUppercaseCommand(editor))
 	// formatMacro.Add(NewBoldCommand(editor))
 
 	history.Execute(formatMacro)
-	// Tout est annule en une seule operation undo
+	// Everything is undone in a single undo operation
 	history.Undo()
 }
 ```
 
-## Command Queue (Asynchrone)
+## Command Queue (Asynchronous)
 
 ```go
 import "context"
@@ -295,12 +295,12 @@ func (q *CommandQueue) processQueue(ctx context.Context) error {
 	defer func() { q.isProcessing = false }()
 
 	for len(q.queue) > 0 {
-		command := q.queue[0]
+		command:= q.queue[0]
 		q.queue = q.queue[1:]
 
-		if err := command.Execute(ctx); err != nil {
+		if err:= command.Execute(ctx); err != nil {
 			fmt.Printf("Command failed: %v\n", err)
-			// Optionnel: rollback des commandes precedentes
+			// Optional: rollback previous commands
 		}
 	}
 
@@ -337,7 +337,7 @@ func (c *SendEmailCommand) Execute(ctx context.Context) error {
 
 // Undo sends a cancellation email.
 func (c *SendEmailCommand) Undo(ctx context.Context) error {
-	// Les emails ne peuvent pas etre annules, mais on peut envoyer un rappel
+	// Emails cannot be undone, but we can send a follow-up
 	return c.emailService.Send(
 		ctx,
 		c.to,
@@ -372,17 +372,17 @@ func (t *TransactionManager) Add(command TransactionalCommand) {
 // ExecuteAll executes all commands in a transaction.
 func (t *TransactionManager) ExecuteAll() error {
 	// Validation phase
-	for _, command := range t.commands {
-		if err := command.Validate(); err != nil {
+	for _, command:= range t.commands {
+		if err:= command.Validate(); err != nil {
 			return fmt.Errorf("validation failed: %w", err)
 		}
 	}
 
 	// Execution phase
-	for _, command := range t.commands {
-		if err := command.Execute(); err != nil {
+	for _, command:= range t.commands {
+		if err:= command.Execute(); err != nil {
 			// Rollback phase
-			for i := len(t.executed) - 1; i >= 0; i-- {
+			for i:= len(t.executed) - 1; i >= 0; i-- {
 				t.executed[i].Rollback()
 			}
 			return fmt.Errorf("execution failed: %w", err)
@@ -391,8 +391,8 @@ func (t *TransactionManager) ExecuteAll() error {
 	}
 
 	// Commit phase
-	for _, command := range t.executed {
-		if err := command.Commit(); err != nil {
+	for _, command:= range t.executed {
+		if err:= command.Commit(); err != nil {
 			return fmt.Errorf("commit failed: %w", err)
 		}
 	}
@@ -404,11 +404,11 @@ func (t *TransactionManager) ExecuteAll() error {
 ## Anti-patterns
 
 ```go
-// MAUVAIS: Command qui fait trop
+// BAD: Command that does too much
 type GodCommand struct{}
 
 func (c *GodCommand) Execute() error {
-	// Devrait etre plusieurs commands
+	// Should be multiple commands
 	c.validateInput()
 	c.processData()
 	c.saveToDatabase()
@@ -418,7 +418,7 @@ func (c *GodCommand) Execute() error {
 }
 
 func (c *GodCommand) Undo() error {
-	// Comment annuler tout ca proprement?
+	// How to undo all this properly?
 	return nil
 }
 
@@ -428,7 +428,7 @@ func (c *GodCommand) saveToDatabase()   {}
 func (c *GodCommand) sendNotification() {}
 func (c *GodCommand) updateCache()      {}
 
-// MAUVAIS: Command avec etat externe
+// BAD: Command with external state
 type StatefulCommand struct {
 	lastResult interface{} // Etat partage = problemes
 }
@@ -446,7 +446,7 @@ func (c *StatefulCommand) doSomething() interface{} {
 	return nil
 }
 
-// MAUVAIS: Undo incomplet
+// BAD: Incomplete undo
 type IncompleteUndoCommand struct {
 	previousState *State
 }
@@ -454,13 +454,13 @@ type IncompleteUndoCommand struct {
 type State struct{}
 
 func (c *IncompleteUndoCommand) Execute() error {
-	// Oublie de sauvegarder l'etat avant modification
+	// Forgot to save state before modification
 	c.modify()
 	return nil
 }
 
 func (c *IncompleteUndoCommand) Undo() error {
-	// previousState est nil!
+	// previousState is nil!
 	c.restore(c.previousState)
 	return nil
 }
@@ -469,7 +469,7 @@ func (c *IncompleteUndoCommand) modify()          {}
 func (c *IncompleteUndoCommand) restore(s *State) {}
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```go
 package main
@@ -480,8 +480,8 @@ import (
 
 func TestInsertTextCommand(t *testing.T) {
 	t.Run("should insert text at cursor", func(t *testing.T) {
-		editor := &TextEditor{}
-		history := &CommandHistory{}
+		editor:= &TextEditor{}
+		history:= &CommandHistory{}
 
 		history.Execute(NewInsertTextCommand(editor, "Hello"))
 
@@ -491,8 +491,8 @@ func TestInsertTextCommand(t *testing.T) {
 	})
 
 	t.Run("should support undo", func(t *testing.T) {
-		editor := &TextEditor{}
-		history := &CommandHistory{}
+		editor:= &TextEditor{}
+		history:= &CommandHistory{}
 
 		history.Execute(NewInsertTextCommand(editor, "Hello"))
 		history.Undo()
@@ -505,8 +505,8 @@ func TestInsertTextCommand(t *testing.T) {
 
 func TestDeleteTextCommand(t *testing.T) {
 	t.Run("should delete text", func(t *testing.T) {
-		editor := &TextEditor{}
-		history := &CommandHistory{}
+		editor:= &TextEditor{}
+		history:= &CommandHistory{}
 
 		history.Execute(NewInsertTextCommand(editor, "Hello World"))
 		editor.SetCursor(5)
@@ -518,8 +518,8 @@ func TestDeleteTextCommand(t *testing.T) {
 	})
 
 	t.Run("should restore deleted text on undo", func(t *testing.T) {
-		editor := &TextEditor{}
-		history := &CommandHistory{}
+		editor:= &TextEditor{}
+		history:= &CommandHistory{}
 
 		history.Execute(NewInsertTextCommand(editor, "Hello World"))
 		editor.SetCursor(5)
@@ -534,8 +534,8 @@ func TestDeleteTextCommand(t *testing.T) {
 
 func TestCommandHistory(t *testing.T) {
 	t.Run("should support multiple undo/redo", func(t *testing.T) {
-		editor := &TextEditor{}
-		history := &CommandHistory{}
+		editor:= &TextEditor{}
+		history:= &CommandHistory{}
 
 		history.Execute(NewInsertTextCommand(editor, "A"))
 		history.Execute(NewInsertTextCommand(editor, "B"))
@@ -562,8 +562,8 @@ func TestCommandHistory(t *testing.T) {
 	})
 
 	t.Run("should clear redo stack after new command", func(t *testing.T) {
-		editor := &TextEditor{}
-		history := &CommandHistory{}
+		editor:= &TextEditor{}
+		history:= &CommandHistory{}
 
 		history.Execute(NewInsertTextCommand(editor, "A"))
 		history.Undo()
@@ -577,9 +577,9 @@ func TestCommandHistory(t *testing.T) {
 
 func TestMacroCommand(t *testing.T) {
 	t.Run("should execute all commands", func(t *testing.T) {
-		editor := &TextEditor{}
+		editor:= &TextEditor{}
 
-		macro := NewMacroCommand()
+		macro:= NewMacroCommand()
 		macro.Add(NewInsertTextCommand(editor, "Hello"))
 		macro.Add(NewInsertTextCommand(editor, " World"))
 
@@ -591,10 +591,10 @@ func TestMacroCommand(t *testing.T) {
 	})
 
 	t.Run("should undo all commands in reverse order", func(t *testing.T) {
-		editor := &TextEditor{}
-		history := &CommandHistory{}
+		editor:= &TextEditor{}
+		history:= &CommandHistory{}
 
-		macro := NewMacroCommand()
+		macro:= NewMacroCommand()
 		macro.Add(NewInsertTextCommand(editor, "Hello"))
 		macro.Add(NewInsertTextCommand(editor, " World"))
 
@@ -608,19 +608,19 @@ func TestMacroCommand(t *testing.T) {
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-- Operations reversibles (Undo/Redo)
-- File d'attente de requetes
-- Journalisation d'operations
+- Reversible operations (Undo/Redo)
+- Request queuing
+- Operation logging
 - Transactions
-- Callbacks structures
+- Structured callbacks
 
-## Patterns lies
+## Related Patterns
 
-- **Memento** : Sauvegarde l'etat pour undo
-- **Strategy** : Algorithmes vs operations
-- **Composite** : Macro commands
+- **Memento**: Saves state for undo
+- **Strategy**: Algorithms vs operations
+- **Composite**: Macro commands
 
 ## Sources
 

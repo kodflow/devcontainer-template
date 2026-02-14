@@ -1,16 +1,16 @@
 # OAuth 2.0 Flows
 
-> Protocole d'autorisation pour l'accès delegue aux ressources.
+> Authorization protocol for delegated access to resources.
 
-## Flows disponibles
+## Available Flows
 
 | Flow | Client | Usage |
 |------|--------|-------|
-| **Authorization Code** | Web apps (backend) | Standard securise |
+| **Authorization Code** | Web apps (backend) | Secure standard |
 | **Authorization Code + PKCE** | SPAs, Mobile | Public clients |
 | **Client Credentials** | Machine-to-machine | Services, APIs |
 | **Device Code** | CLI, TV, IoT | Input-limited devices |
-| **Implicit** | -- | DEPRECIE (utiliser PKCE) |
+| **Implicit** | -- | DEPRECATED (use PKCE) |
 
 ## Authorization Code Flow
 
@@ -79,7 +79,7 @@ func (a *AuthorizationCode) ExchangeCode(ctx context.Context, code string) (*Tok
 	data.Set("client_id", a.config.ClientID)
 	data.Set("client_secret", a.config.ClientSecret)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", a.config.TokenEndpoint, 
+	req, err := http.NewRequestWithContext(ctx, "POST", a.config.TokenEndpoint,
 		strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -268,40 +268,40 @@ func (c *ClientCredentials) GetToken(ctx context.Context, scopes []string) (*Tok
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
-| `golang.org/x/oauth2` | Client OAuth2 complet |
-| `github.com/go-oauth2/oauth2/v4` | Serveur OAuth2 |
+| `golang.org/x/oauth2` | Complete OAuth2 client |
+| `github.com/go-oauth2/oauth2/v4` | OAuth2 server |
 | `github.com/coreos/go-oidc/v3` | OpenID Connect client |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Pas de state parameter | CSRF attacks | Toujours generer un state unique |
-| Stocker tokens en localStorage | XSS exposure | HttpOnly cookies ou memory |
-| Implicit flow en 2024 | Insecure | Migrer vers PKCE |
-| Client secret en frontend | Secret expose | PKCE pour public clients |
-| Pas de token refresh | UX degradee | Implementer refresh_token flow |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| No state parameter | CSRF attacks | Always generate a unique state |
+| Store tokens in localStorage | XSS exposure | HttpOnly cookies or memory |
+| Implicit flow in 2024 | Insecure | Migrate to PKCE |
+| Client secret in frontend | Secret exposed | PKCE for public clients |
+| No token refresh | Degraded UX | Implement refresh_token flow |
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Flow recommande |
+| Scenario | Recommended Flow |
 |----------|-----------------|
-| Web app avec backend | Authorization Code |
+| Web app with backend | Authorization Code |
 | SPA (React, Vue, Angular) | Authorization Code + PKCE |
 | Mobile app | Authorization Code + PKCE |
 | CLI tool | Device Code |
 | Microservice to microservice | Client Credentials |
 | Backend batch jobs | Client Credentials |
 
-## Patterns lies
+## Related Patterns
 
-- **JWT** : Format typique des access tokens
-- **Session-Auth** : Alternative pour apps monolithiques
-- **RBAC/ABAC** : Gestion des permissions post-auth
+- **JWT**: Typical format for access tokens
+- **Session-Auth**: Alternative for monolithic apps
+- **RBAC/ABAC**: Post-auth permission management
 
 ## Sources
 

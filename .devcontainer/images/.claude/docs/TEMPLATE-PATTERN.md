@@ -1,15 +1,15 @@
-# [Nom du Pattern]
+# [Pattern Name]
 
-> [Description courte en une ligne - ce que fait le pattern]
+> [Short one-line description - what the pattern does]
 
 ---
 
-## Principe
+## Principle
 
-[Explication du concept en 2-3 paragraphes]
+[Explanation of the concept in 2-3 paragraphs]
 
 ```
-[Diagramme ASCII si applicable]
+[ASCII diagram if applicable]
 
 ┌─────────┐         ┌─────────┐
 │ Client  │ ──────► │ Pattern │
@@ -18,19 +18,19 @@
 
 ---
 
-## Problème résolu
+## Problem Solved
 
-[Quel problème ce pattern résout-il ?]
+[What problem does this pattern solve?]
 
-- Problème 1
-- Problème 2
-- Problème 3
+- Problem 1
+- Problem 2
+- Problem 3
 
 ---
 
 ## Solution
 
-[Comment le pattern résout-il ce problème ?]
+[How does the pattern solve this problem?]
 
 ```go
 // [PatternInterface] defines the main abstraction.
@@ -61,81 +61,81 @@ func New[ConcreteImplementation]() *[ConcreteImplementation] {
 
 ---
 
-## Exemple complet
+## Complete Example
 
 ```go
-// Exemple réaliste et fonctionnel
+// Realistic and functional example
 
-// 1. Définition
-[code complet]
+// 1. Definition
+[complete code]
 
 // 2. Usage
-[exemple d'utilisation]
+[usage example]
 
-// 3. Output attendu
-// > [résultat]
+// 3. Expected output
+// > [result]
 ```
 
 ---
 
-## Variantes
+## Variants
 
-| Variante | Description | Cas d'usage |
-|----------|-------------|-------------|
-| [Variante1] | [Description] | [Quand l'utiliser] |
-| [Variante2] | [Description] | [Quand l'utiliser] |
-
----
-
-## Quand utiliser
-
-- ✅ [Cas d'usage 1]
-- ✅ [Cas d'usage 2]
-- ✅ [Cas d'usage 3]
-
-## Quand NE PAS utiliser
-
-- ❌ [Anti-cas 1]
-- ❌ [Anti-cas 2]
-- ❌ [Anti-cas 3]
+| Variant | Description | Use Case |
+|---------|-------------|----------|
+| [Variant1] | [Description] | [When to use] |
+| [Variant2] | [Description] | [When to use] |
 
 ---
 
-## Avantages / Inconvénients
+## When to Use
 
-| Avantages | Inconvénients |
-|-----------|---------------|
-| [Avantage 1] | [Inconvénient 1] |
-| [Avantage 2] | [Inconvénient 2] |
-| [Avantage 3] | [Inconvénient 3] |
+- ✅ [Use case 1]
+- ✅ [Use case 2]
+- ✅ [Use case 3]
+
+## When NOT to Use
+
+- ❌ [Anti-case 1]
+- ❌ [Anti-case 2]
+- ❌ [Anti-case 3]
 
 ---
 
-## Patterns liés
+## Advantages / Disadvantages
+
+| Advantages | Disadvantages |
+|------------|---------------|
+| [Advantage 1] | [Disadvantage 1] |
+| [Advantage 2] | [Disadvantage 2] |
+| [Advantage 3] | [Disadvantage 3] |
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| [Pattern1] | [Complémentaire / Alternative / Composable avec] |
-| [Pattern2] | [Souvent utilisé ensemble] |
-| [Pattern3] | [Similaire mais pour X] |
+| [Pattern1] | [Complementary / Alternative / Composable with] |
+| [Pattern2] | [Often used together] |
+| [Pattern3] | [Similar but for X] |
 
 ---
 
-## Implémentation dans les frameworks
+## Framework Implementations
 
-| Framework/Lib | Implémentation |
+| Framework/Lib | Implementation |
 |---------------|----------------|
-| [Framework1] | [Comment c'est implémenté] |
-| [Framework2] | [Comment c'est implémenté] |
+| [Framework1] | [How it's implemented] |
+| [Framework2] | [How it's implemented] |
 
 ---
 
-## Anti-patterns à éviter
+## Anti-patterns to Avoid
 
-| Anti-pattern | Problème | Solution |
-|--------------|----------|----------|
-| [Anti1] | [Ce qui ne va pas] | [Comment corriger] |
-| [Anti2] | [Ce qui ne va pas] | [Comment corriger] |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| [Anti1] | [What's wrong] | [How to fix] |
+| [Anti2] | [What's wrong] | [How to fix] |
 
 ---
 
@@ -175,6 +175,6 @@ func Test[PatternName](t *testing.T) {
 
 ## Sources
 
-- [Titre Source 1](https://url1)
-- [Titre Source 2](https://url2)
-- [Livre/Article de référence]
+- [Source Title 1](https://url1)
+- [Source Title 2](https://url2)
+- [Reference book/article]

@@ -1,35 +1,35 @@
 # Feature Toggles / Feature Flags
 
-Techniques pour activer/désactiver des fonctionnalités sans déploiement.
+Techniques for enabling/disabling features without deployment.
 
 ---
 
-## Qu'est-ce qu'un Feature Toggle ?
+## What is a Feature Toggle?
 
-> Un mécanisme pour modifier le comportement d'un système sans changer son code.
+> A mechanism to modify system behavior without changing its code.
 
 ```go
-// Principe de base
+// Basic principle
 if featureFlags.IsEnabled("new-checkout") {
 	return newCheckoutFlow(cart)
 }
 return legacyCheckoutFlow(cart)
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Déployer du code inactif (deploy ≠ release)
-- Tester en production avec subset d'utilisateurs
-- Rollback instantané sans redéploiement
+- Deploy inactive code (deploy ≠ release)
+- Test in production with user subset
+- Instant rollback without redeployment
 - A/B testing
 
 ---
 
 ## Types de Feature Toggles
 
-### 1. Release Toggles (Court terme)
+### 1. Release Toggles (Short term)
 
-> Cacher des features incomplètes en production.
+> Hide incomplete features in production.
 
 ```go
 package payment
@@ -81,14 +81,14 @@ func (s *Service) Process(ctx context.Context, order *Order) error {
 }
 ```
 
-**Durée :** Jours à semaines
-**À supprimer :** Dès que feature stable
+**Duration:** Days to weeks
+**Remove:** As soon as feature is stable
 
 ---
 
 ### 2. Experiment Toggles (A/B Testing)
 
-> Tester différentes variantes sur des segments d'utilisateurs.
+> Test different variants on user segments.
 
 ```go
 package experiment
@@ -124,14 +124,14 @@ func NewService() *Service {
 
 // GetVariant returns the variant for a user.
 func (s *Service) GetVariant(userID, experiment string) string {
-	config, exists := s.experiments[experiment]
+	config, exists:= s.experiments[experiment]
 	if !exists {
 		return "control"
 	}
 
 	// Deterministic hash for consistency
-	hash := s.hash(userID + ":" + experiment)
-	bucket := int(hash % 100)
+	hash:= s.hash(userID + ":" + experiment)
+	bucket:= int(hash % 100)
 
 	if bucket >= config.Allocation {
 		return "control"
@@ -143,7 +143,7 @@ func (s *Service) GetVariant(userID, experiment string) string {
 
 // hash generates a deterministic hash.
 func (s *Service) hash(key string) uint32 {
-	h := fnv.New32a()
+	h:= fnv.New32a()
 	_, _ = h.Write([]byte(key))
 	return h.Sum32()
 }
@@ -154,10 +154,10 @@ func (s *Service) selectVariant(hash uint32, variants []Variant) string {
 		return "control"
 	}
 
-	bucket := int(hash % 100)
-	cumulative := 0
+	bucket:= int(hash % 100)
+	cumulative:= 0
 
-	for _, variant := range variants {
+	for _, variant:= range variants {
 		cumulative += variant.Weight
 		if bucket < cumulative {
 			return variant.Name
@@ -169,7 +169,7 @@ func (s *Service) selectVariant(hash uint32, variants []Variant) string {
 
 // Example usage
 func ExampleCheckoutVariant(userID string, experiments *Service) string {
-	variant := experiments.GetVariant(userID, "checkout-redesign")
+	variant:= experiments.GetVariant(userID, "checkout-redesign")
 	
 	switch variant {
 	case "control":
@@ -184,14 +184,14 @@ func ExampleCheckoutVariant(userID string, experiments *Service) string {
 }
 ```
 
-**Durée :** Semaines à mois
-**Métriques :** Conversion, engagement, revenue
+**Duration:** Weeks to months
+**Metrics:** Conversion, engagement, revenue
 
 ---
 
 ### 3. Ops Toggles (Kill Switches)
 
-> Désactiver des features en cas de problème.
+> Disable features in case of problems.
 
 ```go
 package ops
@@ -274,7 +274,7 @@ func (s *RecommendationService) GetRecommendations(ctx context.Context, userID s
 		return s.getFallbackRecommendations(userID), nil
 	}
 
-	recommendations, err := s.mlService.Predict(ctx, userID)
+	recommendations, err:= s.mlService.Predict(ctx, userID)
 	if err != nil {
 		// Auto-disable if too many errors
 		s.mu.Lock()
@@ -299,14 +299,14 @@ func (s *RecommendationService) getFallbackRecommendations(userID string) []Reco
 }
 ```
 
-**Durée :** Permanent
-**Activation :** Via dashboard ou API
+**Duration:** Permanent
+**Activation:** Via dashboard or API
 
 ---
 
 ### 4. Permission Toggles
 
-> Features disponibles selon le plan/rôle utilisateur.
+> Features available based on user plan/role.
 
 ```go
 package feature
@@ -352,7 +352,7 @@ func NewGate(userPlan UserPlan, globalToggles GlobalToggles) *Gate {
 // CanAccess checks if user can access a feature.
 func (g *Gate) CanAccess(ctx context.Context, feature string) bool {
 	// Check user plan features
-	for _, f := range g.userPlan.Features {
+	for _, f:= range g.userPlan.Features {
 		if f == feature {
 			return true
 		}
@@ -377,7 +377,7 @@ func ExampleDashboardAccess(gate *Gate) string {
 
 ---
 
-## Implémentation
+## Implementation
 
 ### Architecture
 
@@ -436,7 +436,7 @@ func NewConfigFeatureFlags(config map[string]bool) *ConfigFeatureFlags {
 
 // IsEnabled checks if a flag is enabled.
 func (f *ConfigFeatureFlags) IsEnabled(flag string) bool {
-	enabled, ok := f.config[flag]
+	enabled, ok:= f.config[flag]
 	return ok && enabled
 }
 
@@ -455,7 +455,7 @@ type FlagService interface {
 
 // NewRemoteFeatureFlags creates a remote feature flags service.
 func NewRemoteFeatureFlags(api FlagService) *RemoteFeatureFlags {
-	f := &RemoteFeatureFlags{
+	f:= &RemoteFeatureFlags{
 		cache:           make(map[string]FlagValue),
 		api:             api,
 		refreshInterval: 30 * time.Second,
@@ -467,7 +467,7 @@ func NewRemoteFeatureFlags(api FlagService) *RemoteFeatureFlags {
 // IsEnabledWithContext checks if a flag is enabled with context.
 func (f *RemoteFeatureFlags) IsEnabledWithContext(flag string, ctx Context) bool {
 	f.mu.RLock()
-	value, ok := f.cache[flag]
+	value, ok:= f.cache[flag]
 	f.mu.RUnlock()
 
 	if !ok {
@@ -481,7 +481,7 @@ func (f *RemoteFeatureFlags) IsEnabledWithContext(flag string, ctx Context) bool
 func (f *RemoteFeatureFlags) evaluate(value FlagValue, ctx Context) bool {
 	// Apply targeting rules
 	if value.Rules != nil {
-		for _, rule := range value.Rules {
+		for _, rule:= range value.Rules {
 			if f.matchesRule(rule, ctx) {
 				return rule.Enabled
 			}
@@ -490,7 +490,7 @@ func (f *RemoteFeatureFlags) evaluate(value FlagValue, ctx Context) bool {
 
 	// Percentage rollout
 	if value.Percentage > 0 && ctx.UserID != "" {
-		hash := f.hash(ctx.UserID)
+		hash:= f.hash(ctx.UserID)
 		if int(hash%100) < value.Percentage {
 			return true
 		}
@@ -515,7 +515,7 @@ func (f *RemoteFeatureFlags) matchesRule(rule Rule, ctx Context) bool {
 
 // hash generates a deterministic hash.
 func (f *RemoteFeatureFlags) hash(key string) uint32 {
-	h := fnv.New32a()
+	h:= fnv.New32a()
 	_, _ = h.Write([]byte(key))
 	return h.Sum32()
 }
@@ -523,12 +523,12 @@ func (f *RemoteFeatureFlags) hash(key string) uint32 {
 // startPolling starts background polling for flag updates.
 func (f *RemoteFeatureFlags) startPolling() {
 	go func() {
-		ticker := time.NewTicker(f.refreshInterval)
+		ticker:= time.NewTicker(f.refreshInterval)
 		defer ticker.Stop()
 
 		for range ticker.C {
-			ctx := context.Background()
-			flags, err := f.api.FetchFlags(ctx)
+			ctx:= context.Background()
+			flags, err:= f.api.FetchFlags(ctx)
 			if err != nil {
 				continue
 			}
@@ -541,37 +541,37 @@ func (f *RemoteFeatureFlags) startPolling() {
 }
 ```
 
-### Configuration déclarative
+### Declarative Configuration
 
 ```yaml
 # feature-flags.yaml
 flags:
   new-checkout:
     enabled: true
-    percentage: 50  # 50% des utilisateurs
+    percentage: 50  # 50% of users
     rules:
       - if:
           plan: enterprise
-        then: true   # 100% pour enterprise
+        then: true   # 100% for enterprise
       - if:
           country: FR
-        then: false  # Pas encore en France
+        then: false  # Not yet in France
 
   dark-mode:
     enabled: true
-    # Pas de règles = tout le monde
+    # No rules = everyone
 
   beta-features:
     enabled: false
     rules:
       - if:
           email_ends_with: "@company.com"
-        then: true  # Employés seulement
+        then: true  # Employees only
 ```
 
 ---
 
-## Stratégies de Rollout
+## Rollout Strategies
 
 ### 1. Canary Release
 
@@ -617,7 +617,7 @@ func NewDeployment(config CanaryConfig) *Deployment {
 
 // ProgressStage advances to the next rollout stage.
 func (d *Deployment) ProgressStage(ctx context.Context) error {
-	metrics, err := d.getMetrics(ctx)
+	metrics, err:= d.getMetrics(ctx)
 	if err != nil {
 		return err
 	}
@@ -709,12 +709,12 @@ type FlagConfig struct {
 
 // IsEnabled checks if flag is enabled for user.
 func IsEnabled(flag string, user User, configs map[string]FlagConfig) bool {
-	config, exists := configs[flag]
+	config, exists:= configs[flag]
 	if !exists {
 		return false
 	}
 
-	userRing := GetUserRing(user)
+	userRing:= GetUserRing(user)
 	return userRing <= config.EnabledRing
 }
 ```
@@ -723,14 +723,14 @@ func IsEnabled(flag string, user User, configs map[string]FlagConfig) bool {
 
 ## Toggle Cleanup
 
-### Le problème du toggle debt
+### The problem of toggle debt
 
 ```go
 // Bad example - nested toggles create complexity
 // Do not implement this pattern
 ```
 
-### Solution : Toggle avec expiration
+### Solution: Toggle with expiration
 
 ```go
 package managed
@@ -765,7 +765,7 @@ func NewManagedFeatureFlags() *ManagedFeatureFlags {
 
 // IsEnabled checks if flag is enabled and alerts if expired.
 func (m *ManagedFeatureFlags) IsEnabled(ctx context.Context, flag string) bool {
-	config, exists := m.flags[flag]
+	config, exists:= m.flags[flag]
 	if !exists {
 		return false
 	}
@@ -780,9 +780,9 @@ func (m *ManagedFeatureFlags) IsEnabled(ctx context.Context, flag string) bool {
 
 // CleanupExpired identifies expired flags.
 func (m *ManagedFeatureFlags) CleanupExpired(ctx context.Context) []FlagConfig {
-	expired := make([]FlagConfig, 0)
+	expired:= make([]FlagConfig, 0)
 
-	for _, flag := range m.flags {
+	for _, flag:= range m.flags {
 		if flag.ExpiresAt.Before(time.Now()) {
 			expired = append(expired, flag)
 			fmt.Printf("Expired: %s\n", flag.Name)
@@ -804,38 +804,38 @@ func (m *ManagedFeatureFlags) alert(ctx context.Context, message string) {
 
 ---
 
-## Patterns connexes
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Strategy** | Toggle sélectionne la stratégie |
-| **Circuit Breaker** | Ops toggle automatique |
-| **Branch by Abstraction** | Migration progressive |
-| **Canary Release** | Rollout progressif |
+| **Strategy** | Toggle selects the strategy |
+| **Circuit Breaker** | Automatic ops toggle |
+| **Branch by Abstraction** | Progressive migration |
+| **Canary Release** | Progressive rollout |
 
 ---
 
-## Outils populaires
+## Popular Tools
 
-| Outil | Type | Features |
-|-------|------|----------|
+| Tool | Type | Features |
+|------|------|----------|
 | LaunchDarkly | SaaS | Full-featured, SDKs |
 | Split.io | SaaS | A/B testing focus |
 | Unleash | Open-source | Self-hosted |
-| ConfigCat | SaaS | Simple, abordable |
+| ConfigCat | SaaS | Simple, affordable |
 | Flagsmith | Open-source | Self-hosted/Cloud |
 
 ---
 
 ## Anti-patterns
 
-| Anti-pattern | Problème | Solution |
-|--------------|----------|----------|
-| Toggle permanent | Code mort | Expiration dates |
-| Nested toggles | Complexité | Refactor, un toggle par feature |
-| Toggle dans toggle | Illisible | Combiner en un seul |
-| Pas de default | Crash si absent | Toujours un fallback |
-| Pas de monitoring | Aveugle | Dashboard de toggles |
+| Anti-pattern | Problem | Solution |
+|--------------|---------|----------|
+| Permanent toggle | Dead code | Expiration dates |
+| Nested toggles | Complexity | Refactor, one toggle per feature |
+| Toggle within toggle | Unreadable | Combine into one |
+| No default | Crash if missing | Always a fallback |
+| No monitoring | Blind | Toggle dashboard |
 
 ---
 

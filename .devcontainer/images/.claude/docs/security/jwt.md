@@ -1,6 +1,6 @@
 # JSON Web Tokens (JWT)
 
-> Tokens signes et auto-contenus pour l'authentification stateless.
+> Signed and self-contained tokens for stateless authentication.
 
 ## Structure
 
@@ -12,19 +12,19 @@ eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.
 SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
 ```
 
-## Claims standards
+## Standard Claims
 
-| Claim | Nom | Description |
-|-------|-----|-------------|
-| `iss` | Issuer | Emetteur du token |
-| `sub` | Subject | Identifiant unique user |
-| `aud` | Audience | Destinataires autorises |
-| `exp` | Expiration | Timestamp d'expiration |
-| `nbf` | Not Before | Valide a partir de |
-| `iat` | Issued At | Date de creation |
-| `jti` | JWT ID | Identifiant unique token |
+| Claim | Name | Description |
+|-------|------|-------------|
+| `iss` | Issuer | Token issuer |
+| `sub` | Subject | Unique user identifier |
+| `aud` | Audience | Authorized recipients |
+| `exp` | Expiration | Expiration timestamp |
+| `nbf` | Not Before | Valid from |
+| `iat` | Issued At | Creation date |
+| `jti` | JWT ID | Unique token identifier |
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package jwt
@@ -200,7 +200,7 @@ func (s *Service) RefreshTokens(ctx context.Context, refreshToken string, userRe
 }
 ```
 
-## Middleware HTTP
+## HTTP Middleware
 
 ```go
 package middleware
@@ -257,7 +257,7 @@ func GetClaims(ctx context.Context) *jwt.Claims {
 }
 ```
 
-## Rotation des Refresh Tokens
+## Refresh Token Rotation
 
 ```go
 package jwt
@@ -321,55 +321,55 @@ func (r *RefreshTokenRotation) revokeAllUserTokens(ctx context.Context, token st
 }
 ```
 
-## Algorithmes de signature
+## Signing Algorithms
 
-| Algo | Type | Recommandation |
+| Algo | Type | Recommendation |
 |------|------|----------------|
-| HS256 | Symetrique (HMAC) | Dev/simple apps |
-| RS256 | Asymetrique (RSA) | Production, microservices |
-| ES256 | Asymetrique (ECDSA) | Meilleure perf que RSA |
-| EdDSA | Asymetrique (Ed25519) | Modern, fast |
+| HS256 | Symmetric (HMAC) | Dev/simple apps |
+| RS256 | Asymmetric (RSA) | Production, microservices |
+| ES256 | Asymmetric (ECDSA) | Better performance than RSA |
+| EdDSA | Asymmetric (Ed25519) | Modern, fast |
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
 | `github.com/golang-jwt/jwt/v5` | Standard JWT library |
 | `github.com/lestrrat-go/jwx/v2` | Complete JWT/JWS/JWE/JWK |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Secret trop court | Brute force possible | Min 256 bits (32 bytes) |
-| Token dans localStorage | XSS vulnerability | HttpOnly cookie ou memory |
-| Pas d'expiration | Token eternel si vole | Toujours `exp` claim |
-| Donnees sensibles dans payload | Data exposure | Payload = public, min data |
-| Verification sans `aud`/`iss` | Token confusion | Toujours verifier claims |
-| HS256 avec secret previsible | Token forgery | Secrets aleatoires cryptographiques |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Secret too short | Brute force possible | Min 256 bits (32 bytes) |
+| Token in localStorage | XSS vulnerability | HttpOnly cookie or memory |
+| No expiration | Eternal token if stolen | Always use `exp` claim |
+| Sensitive data in payload | Data exposure | Payload = public, min data |
+| Verification without `aud`/`iss` | Token confusion | Always verify claims |
+| HS256 with predictable secret | Token forgery | Cryptographic random secrets |
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Recommande |
+| Scenario | Recommended |
 |----------|------------|
-| APIs stateless | Oui |
-| Microservices | Oui (avec RS256/ES256) |
-| SPAs | Oui (avec refresh rotation) |
-| Mobile apps | Oui |
-| Sessions longues | Non (preferer sessions) |
-| Donnees sensibles dans token | Non |
+| Stateless APIs | Yes |
+| Microservices | Yes (with RS256/ES256) |
+| SPAs | Yes (with refresh rotation) |
+| Mobile apps | Yes |
+| Long-lived sessions | No (prefer sessions) |
+| Sensitive data in token | No |
 
-## Bonnes pratiques
+## Best Practices
 
 ```go
 package jwt
 
 // Best practices configuration
 const (
-	// 1. Access token court-lived
+	// 1. Short-lived access token
 	AccessTokenTTL = 15 * time.Minute // Max 1h
 
-	// 2. Refresh token long-lived avec rotation
+	// 2. Long-lived refresh token with rotation
 	RefreshTokenTTL = 7 * 24 * time.Hour
 
 	// Minimum secret length
@@ -385,11 +385,11 @@ type TokenBlacklist struct {
 func (b *TokenBlacklist) Revoke(ctx context.Context, jti string, exp time.Time) error {
 	key := "blacklist:" + jti
 	ttl := time.Until(exp)
-	
+
 	if err := b.redis.Set(ctx, key, "1", ttl).Err(); err != nil {
 		return fmt.Errorf("setting blacklist: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -400,7 +400,7 @@ func (b *TokenBlacklist) IsRevoked(ctx context.Context, jti string) (bool, error
 	if err != nil {
 		return false, fmt.Errorf("checking blacklist: %w", err)
 	}
-	
+
 	return exists == 1, nil
 }
 
@@ -412,11 +412,11 @@ type MinimalClaims struct {
 }
 ```
 
-## Patterns lies
+## Related Patterns
 
-- **OAuth 2.0** : JWT souvent utilise comme access token
-- **Session-Auth** : Alternative avec etat serveur
-- **RBAC** : Permissions dans claims
+- **OAuth 2.0**: JWT often used as access token
+- **Session-Auth**: Alternative with server state
+- **RBAC**: Permissions in claims
 
 ## Sources
 

@@ -1,6 +1,6 @@
 # Value Object Pattern
 
-> Objet domaine immuable défini entièrement par ses attributs, sans identité conceptuelle.
+> Immutable domain object defined entirely by its attributes, with no conceptual identity.
 
 ## Definition
 
@@ -296,7 +296,7 @@ func MoneyEqual(m1, m2 Money) bool {
    type Email struct {
        value string
    }
-   
+
    func (e *Email) SetValue(v string) { // Mutation!
        e.value = v
    }
@@ -307,7 +307,7 @@ func MoneyEqual(m1, m2 Money) bool {
    ```go
    // BAD - No validation
    email := Email{value: "not-an-email"}
-   
+
    // GOOD - Factory with validation
    email, err := NewEmail("user@example.com")
    if err != nil {
@@ -320,7 +320,7 @@ func MoneyEqual(m1, m2 Money) bool {
    ```go
    // BAD
    func SendEmail(to string, amount float64, currency string) {}
-   
+
    // GOOD
    func SendEmail(to Email, amount Money) error {}
    ```
@@ -330,19 +330,19 @@ func MoneyEqual(m1, m2 Money) bool {
    ```go
    // BAD - Pointer comparison
    &email1 == &email2
-   
+
    // GOOD - Value comparison
    email1.Equals(email2)
    ```
 
-## Quand utiliser
+## When to Use
 
-- Combinaisons d'attributs qui apparaissent ensemble (Email, Money, Address)
-- Concepts définis par leurs valeurs, pas leur identité
-- Mesures, quantités, descripteurs
-- Quand vous avez besoin de garanties d'immuabilité
+- Attribute combinations that appear together (Email, Money, Address)
+- Concepts defined by their values, not their identity
+- Measures, quantities, descriptors
+- When you need immutability guarantees
 
-## Patterns liés
+## Related Patterns
 
 - [Entity](./entity.md) - For objects with identity
 - [Aggregate](./aggregate.md) - Contains Value Objects

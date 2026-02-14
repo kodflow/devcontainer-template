@@ -1,23 +1,23 @@
 # Saga Pattern
 
-> Gérer les transactions distribuées sans 2PC.
+> Manage distributed transactions without 2PC.
 
-## Problème
+## Problem Solved
 
 ```
-❌ Transaction ACID impossible en distribué
+Transaction ACID impossible in distributed systems
 
 ┌─────────┐     ┌─────────┐     ┌─────────┐
 │ Order   │     │ Payment │     │ Stock   │
 │ Service │     │ Service │     │ Service │
 └────┬────┘     └────┬────┘     └────┬────┘
      │               │               │
-     └───── Pas de transaction commune ─────┘
+     └───── No common transaction ────┘
 ```
 
-## Solution : Saga
+## Solution: Saga
 
-Séquence de transactions locales avec compensations.
+Sequence of local transactions with compensations.
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -25,16 +25,16 @@ Séquence de transactions locales avec compensations.
 │                                                                 │
 │  T1 ──▶ T2 ──▶ T3 ──▶ T4                                      │
 │  │      │      │      │                                        │
-│  C1 ◀── C2 ◀── C3 ◀── (échec)                                 │
+│  C1 ◀── C2 ◀── C3 ◀── (failure)                               │
 │                                                                 │
-│  T = Transaction locale                                         │
+│  T = Local transaction                                          │
 │  C = Compensation (rollback)                                    │
 └────────────────────────────────────────────────────────────────┘
 ```
 
-## Deux approches
+## Two Approaches
 
-### 1. Choreography (événements)
+### 1. Choreography (events)
 
 ```
 ┌─────────┐   OrderCreated   ┌─────────┐   PaymentDone   ┌─────────┐
@@ -87,41 +87,41 @@ func (s *Saga) Execute(ctx context.Context) error {
 	for _, step := range s.steps {
 		if err := step.Action(ctx); err != nil {
 			log.Printf("Saga step failed: %v", err)
-			
+
 			// Compensate all completed steps
 			if compErr := s.Compensate(ctx); compErr != nil {
 				return fmt.Errorf("compensation failed: %w (original error: %v)", compErr, err)
 			}
-			
+
 			return fmt.Errorf("saga execution failed: %w", err)
 		}
-		
+
 		s.completedSteps = append(s.completedSteps, step)
 	}
-	
+
 	return nil
 }
 
 // Compensate compensates all completed steps in reverse order.
 func (s *Saga) Compensate(ctx context.Context) error {
 	log.Println("Starting saga compensation...")
-	
+
 	// Compensate in reverse order
 	for i := len(s.completedSteps) - 1; i >= 0; i-- {
 		step := s.completedSteps[i]
-		
+
 		if err := step.Compensation(ctx); err != nil {
 			// Log but continue compensating others
 			log.Printf("Compensation step %d failed: %v", i, err)
 			// In production, this should be queued for manual intervention
 		}
 	}
-	
+
 	return nil
 }
 ```
 
-### 2. Orchestration (coordinateur)
+### 2. Orchestration (coordinator)
 
 ```
                     ┌─────────────────┐
@@ -139,46 +139,46 @@ func (s *Saga) Compensate(ctx context.Context) error {
 ```
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Comparaison
+## Comparison
 
 | Aspect | Choreography | Orchestration |
 |--------|--------------|---------------|
-| Couplage | Faible | Centralisé |
-| Complexité | Distribuée | Dans l'orchestrateur |
-| Debugging | Difficile | Plus facile |
-| Scalabilité | Meilleure | Orchestrateur = SPOF |
-| Recommandé | Sagas simples | Sagas complexes |
+| Coupling | Low | Centralized |
+| Complexity | Distributed | In the orchestrator |
+| Debugging | Difficult | Easier |
+| Scalability | Better | Orchestrator = SPOF |
+| Recommended | Simple sagas | Complex sagas |
 
-## Quand utiliser
+## When to Use
 
-- Transactions impliquant plusieurs microservices independants
-- Impossibilite d'utiliser des transactions distribuees (2PC)
-- Processus metier longs avec etapes compensables
-- Systemes event-driven necessitant une coherence eventuelle
-- E-commerce, reservations, workflows financiers multi-etapes
+- Transactions involving multiple independent microservices
+- Impossibility of using distributed transactions (2PC)
+- Long-running business processes with compensable steps
+- Event-driven systems requiring eventual consistency
+- E-commerce, reservations, multi-step financial workflows
 
-## Implémentation Saga Class
+## Saga Class Implementation
 
 ```go
-// Cet exemple suit les mêmes patterns Go idiomatiques
-// que l'exemple principal ci-dessus.
-// Implémentation spécifique basée sur les interfaces et
-// les conventions Go standard.
+// This example follows the same idiomatic Go patterns
+// as the main example above.
+// Specific implementation based on interfaces and
+// standard Go conventions.
 ```
 
-## Patterns liés
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Event Sourcing | Historique des états |
-| CQRS | Modèle read pour suivi |
-| Outbox | Fiabilité des événements |
+| Event Sourcing | State history |
+| CQRS | Read model for tracking |
+| Outbox | Event reliability |
 
 ## Sources
 

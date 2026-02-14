@@ -4,16 +4,16 @@
 
 ## Concept
 
-Identity Map est un cache qui stocke tous les objets charges depuis la base de donnees, indexes par leur identite. Il garantit qu'il n'y a qu'une seule instance de chaque objet en memoire pendant une session.
+Identity Map is a cache that stores all objects loaded from the database, indexed by their identity. It guarantees that there is only one instance of each object in memory during a session.
 
-## Objectifs
+## Objectives
 
-1. **Unicite** : Une seule instance par entite
-2. **Performance** : Eviter les requetes repetees
-3. **Coherence** : Modifications visibles partout
-4. **Integration** : Fonctionne avec Unit of Work
+1. **Uniqueness**: A single instance per entity
+2. **Performance**: Avoid repeated queries
+3. **Consistency**: Modifications visible everywhere
+4. **Integration**: Works with Unit of Work
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package identitymap
@@ -192,7 +192,7 @@ func (m *TypedIdentityMap) ClearType(typeName string) {
 }
 ```
 
-## Integration avec Repository
+## Integration with Repository
 
 ```go
 package repository
@@ -389,39 +389,39 @@ func HandleRequest(req *Request, res *Response) error {
 }
 ```
 
-## Comparaison avec alternatives
+## Comparison with Alternatives
 
 | Aspect | Identity Map | Simple Cache | No Cache |
 |--------|--------------|--------------|----------|
-| Unicite garantie | Oui | Non | Non |
-| Coherence | Oui | Non | Oui (DB) |
-| Performance | Bonne | Bonne | Mauvaise |
-| Memoire | Session-bound | Configurable | Minimale |
-| Complexite | Moyenne | Faible | Aucune |
+| Guaranteed uniqueness | Yes | No | No |
+| Consistency | Yes | No | Yes (DB) |
+| Performance | Good | Good | Poor |
+| Memory | Session-bound | Configurable | Minimal |
+| Complexity | Medium | Low | None |
 
-## Quand utiliser
+## When to Use
 
-**Utiliser Identity Map quand :**
+**Use Identity Map when:**
 
-- ORM avec Domain Model
-- Relations entre entites
-- Modifications multiples de memes objets
-- Besoin de coherence en memoire
+- ORM with Domain Model
+- Relations between entities
+- Multiple modifications of the same objects
+- Need for in-memory consistency
 - Unit of Work
 
-**Eviter Identity Map quand :**
+**Avoid Identity Map when:**
 
-- CRUD simple sans relations
-- Requetes read-only pures
-- Objets immutables (Value Objects)
-- Long-running processes (memoire)
+- Simple CRUD without relations
+- Pure read-only queries
+- Immutable objects (Value Objects)
+- Long-running processes (memory)
 
-## Patterns liés
+## Related Patterns
 
-- [Unit of Work](./unit-of-work.md) - Gestion transactionnelle avec Identity Map
-- [Repository](./repository.md) - Utilise Identity Map pour le cache
-- [Data Mapper](./data-mapper.md) - Charge les entites dans Identity Map
-- [Lazy Load](./lazy-load.md) - Chargement differe avec cache Identity Map
+- [Unit of Work](./unit-of-work.md) - Transactional management with Identity Map
+- [Repository](./repository.md) - Uses Identity Map for caching
+- [Data Mapper](./data-mapper.md) - Loads entities into Identity Map
+- [Lazy Load](./lazy-load.md) - Deferred loading with Identity Map cache
 
 ## Sources
 

@@ -1,12 +1,12 @@
 # Facade Pattern
 
-> Fournir une interface simplifiee a un ensemble de classes complexes.
+> Provide a simplified interface to a set of complex classes.
 
-## Intention
+## Intent
 
-Fournir une interface unifiee a un ensemble d'interfaces d'un sous-systeme.
-La facade definit une interface de plus haut niveau qui rend le sous-systeme
-plus facile a utiliser.
+Provide a unified interface to a set of interfaces of a subsystem.
+The facade defines a higher-level interface that makes the subsystem
+easier to use.
 
 ## Structure
 
@@ -19,7 +19,7 @@ import (
 	"strings"
 )
 
-// 1. Sous-systeme complexe
+// 1. Complex subsystem
 type VideoFile struct {
 	Filename string
 }
@@ -96,16 +96,16 @@ func (v *VideoConverter) Convert(filename, format string) {
 	fmt.Println("Conversion complete!")
 }
 
-// Usage simplifie
+// Simplified usage
 func main() {
 	converter := NewVideoConverter()
 	converter.Convert("movie.avi", "mp4")
 }
 ```
 
-## Cas d'usage concrets
+## Concrete Use Cases
 
-### Facade pour E-commerce
+### E-commerce Facade
 
 ```go
 package main
@@ -115,7 +115,7 @@ import (
 	"fmt"
 )
 
-// Types de donnees
+// Data types
 type Card struct {
 	Number string
 	CVV    string
@@ -158,7 +158,7 @@ type OrderStatus struct {
 	Status string
 }
 
-// Sous-systemes
+// Subsystems
 type InventoryService struct{}
 
 func (i *InventoryService) CheckStock(productID string) bool { return true }
@@ -221,19 +221,19 @@ func NewOrderFacade(
 }
 
 func (o *OrderFacade) PlaceOrder(ctx context.Context, order *Order) (*OrderResult, error) {
-	// 1. Verifier stock
+	// 1. Check stock
 	for _, item := range order.Items {
 		if !o.inventory.CheckStock(item.ProductID) {
 			return nil, fmt.Errorf("out of stock: %s", item.ProductID)
 		}
 	}
 
-	// 2. Reserver stock
+	// 2. Reserve stock
 	for _, item := range order.Items {
 		o.inventory.ReserveStock(item.ProductID, item.Quantity)
 	}
 
-	// 3. Paiement
+	// 3. Payment
 	authID := o.payment.Authorize(order.Total, order.Card)
 	if authID == "" {
 		// Rollback
@@ -244,9 +244,9 @@ func (o *OrderFacade) PlaceOrder(ctx context.Context, order *Order) (*OrderResul
 	}
 	o.payment.Capture(authID)
 
-	// 4. Livraison
+	// 4. Shipping
 	shippingCost := o.shipping.CalculateCost(order.Address)
-	_ = shippingCost // Utilise si necessaire
+	_ = shippingCost // Used if necessary
 	labelID := o.shipping.CreateLabel(order)
 	o.shipping.SchedulePickup(labelID)
 
@@ -268,17 +268,17 @@ func (o *OrderFacade) PlaceOrder(ctx context.Context, order *Order) (*OrderResul
 }
 
 func (o *OrderFacade) CancelOrder(ctx context.Context, orderID string) error {
-	// Logique complexe simplifiee
+	// Simplified complex logic
 	return nil
 }
 
 func (o *OrderFacade) GetOrderStatus(ctx context.Context, orderID string) (*OrderStatus, error) {
-	// Agregation de plusieurs services
+	// Aggregation of multiple services
 	return &OrderStatus{Status: "processing"}, nil
 }
 ```
 
-### Facade pour API Client
+### API Client Facade
 
 ```go
 package main
@@ -292,7 +292,7 @@ import (
 	"strings"
 )
 
-// Sous-systemes
+// Subsystems
 type AuthClient struct {
 	token string
 }
@@ -332,14 +332,14 @@ func (h *HTTPClient) Request(ctx context.Context, config RequestConfig) (*http.R
 type RetryPolicy struct{}
 
 func (r *RetryPolicy) Execute(ctx context.Context, fn func() error) error {
-	// Logique de retry
+	// Retry logic
 	return fn()
 }
 
 type CircuitBreaker struct{}
 
 func (c *CircuitBreaker) Execute(ctx context.Context, fn func() error) error {
-	// Logique circuit breaker
+	// Circuit breaker logic
 	return fn()
 }
 
@@ -409,7 +409,7 @@ func (a *APIClient) request(ctx context.Context, method, path string, body io.Re
 	})
 }
 
-// Usage simple
+// Simple usage
 type User struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -424,9 +424,9 @@ func main() {
 }
 ```
 
-## Variantes
+## Variants
 
-### Facade avec options
+### Facade with Options
 
 ```go
 package main
@@ -450,7 +450,7 @@ type ConfigurableVideoConverter struct {
 }
 
 func NewConfigurableVideoConverter(opts ConverterOptions) *ConfigurableVideoConverter {
-	// Valeurs par defaut
+	// Default values
 	if opts.Quality == "" {
 		opts.Quality = QualityMedium
 	}
@@ -464,21 +464,21 @@ func NewConfigurableVideoConverter(opts ConverterOptions) *ConfigurableVideoConv
 }
 
 func (c *ConfigurableVideoConverter) Convert(filename, format string) {
-	// Utilise c.options
+	// Uses c.options
 }
 ```
 
-### Facade avec acces aux sous-systemes
+### Facade with Subsystem Access
 
 ```go
 package main
 
 type VideoConverter2 struct {
-	// Sous-systemes exposes pour cas avances
+	// Subsystems exposed for advanced cases
 	Encoder *Encoder
 	Mixer   *VideoMixer
 
-	// Prives
+	// Private
 	videoCodec *VideoCodec
 	audioCodec *AudioCodec
 	writer     *FileWriter
@@ -494,21 +494,21 @@ func NewVideoConverter2() *VideoConverter2 {
 	}
 }
 
-// Methodes simplifiees pour cas courants
+// Simplified methods for common cases
 func (v *VideoConverter2) Convert(filename, format string) {
 	// ...
 }
 
-// Les utilisateurs avances peuvent acceder directement
-// aux sous-systemes si necessaire
+// Advanced users can directly access
+// subsystems if needed
 ```
 
 ## Anti-patterns
 
 ```go
-// MAUVAIS: Facade qui devient God Object
+// BAD: Facade that becomes a God Object
 type GodFacade struct {
-	// Trop de responsabilites
+	// Too many responsibilities
 }
 
 func (g *GodFacade) CreateUser() {}
@@ -516,18 +516,18 @@ func (g *GodFacade) ProcessPayment() {}
 func (g *GodFacade) SendNotification() {}
 func (g *GodFacade) GenerateReport() {}
 func (g *GodFacade) BackupDatabase() {}
-// ...50 autres methodes
+// ...50 other methods
 
-// MAUVAIS: Facade qui expose trop de details
+// BAD: Facade that exposes too many details
 type LeakyFacade struct {
 	inventory *InventoryService
 }
 
 func (l *LeakyFacade) GetInventoryService() *InventoryService {
-	return l.inventory // Fuite d'abstraction
+	return l.inventory // Abstraction leak
 }
 
-// MAUVAIS: Facade sans valeur ajoutee
+// BAD: Facade without added value
 type UselessFacade struct {
 	service *SomeService
 }
@@ -537,7 +537,7 @@ func (u *UselessFacade) DoSomething() {
 }
 ```
 
-## Tests unitaires
+## Unit Tests
 
 ```go
 package main
@@ -578,22 +578,22 @@ func TestOrderFacade_PlaceOrder(t *testing.T) {
 func TestVideoConverter_Convert(t *testing.T) {
 	converter := NewVideoConverter()
 	converter.Convert("test.avi", "mp4")
-	// Verifier les logs ou le comportement
+	// Verify logs or behavior
 }
 ```
 
-## Quand utiliser
+## When to Use
 
-- Simplifier l'acces a un sous-systeme complexe
-- Reduire le couplage entre client et sous-systeme
-- Definir des points d'entree dans les couches
-- Orchestrer plusieurs services
+- Simplify access to a complex subsystem
+- Reduce coupling between client and subsystem
+- Define entry points into layers
+- Orchestrate multiple services
 
-## Patterns lies
+## Related Patterns
 
-- **Adapter** : Interface differente vs interface simplifiee
-- **Mediator** : Centralise communication entre composants
-- **Singleton** : Facade souvent en instance unique
+- **Adapter**: Different interface vs simplified interface
+- **Mediator**: Centralizes communication between components
+- **Singleton**: Facade often as a single instance
 
 ## Sources
 

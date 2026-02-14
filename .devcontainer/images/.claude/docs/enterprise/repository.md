@@ -4,16 +4,16 @@
 
 ## Concept
 
-Le Repository agit comme une collection en memoire d'objets du domaine. Il cache les details de l'acces aux donnees et fournit une interface orientee domaine pour la persistance.
+The Repository acts as an in-memory collection of domain objects. It hides data access details and provides a domain-oriented interface for persistence.
 
-## Principes cles
+## Key Principles
 
-1. **Collection-like** : Interface comme une collection (add, remove, find)
-2. **Domain-centric** : Methodes de recherche basees sur le domaine
-3. **Encapsulation** : Cache les details de persistance
-4. **Un par Aggregate** : En DDD, un Repository par Aggregate Root
+1. **Collection-like**: Interface like a collection (add, remove, find)
+2. **Domain-centric**: Search methods based on the domain
+3. **Encapsulation**: Hides persistence details
+4. **One per Aggregate**: In DDD, one Repository per Aggregate Root
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package repository
@@ -316,38 +316,38 @@ func (r *InMemoryOrderRepository) Count() int {
 }
 ```
 
-## Comparaison avec alternatives
+## Comparison with Alternatives
 
 | Aspect | Repository | DAO | Active Record |
 |--------|------------|-----|---------------|
 | Abstraction | Collection | CRUD table | Self-persisting |
-| Focus | Domaine | Donnees | Commodite |
+| Focus | Domain | Data | Convenience |
 | Queries | Domain-centric | SQL-centric | Mixed |
-| Testabilite | Excellente | Moyenne | Moyenne |
-| DDD compatible | Oui | Non | Non |
+| Testability | Excellent | Medium | Medium |
+| DDD compatible | Yes | No | No |
 
-## Quand utiliser
+## When to Use
 
-**Utiliser Repository quand :**
+**Use Repository when:**
 
-- Domain Model avec agregats
-- Besoin de testabilite (in-memory repos)
-- Queries orientees domaine
-- Multiple sources de donnees possibles
+- Domain Model with aggregates
+- Need for testability (in-memory repos)
+- Domain-oriented queries
+- Multiple possible data sources
 - DDD architecture
 
-**Eviter Repository quand :**
+**Avoid Repository when:**
 
-- CRUD simple (overkill)
-- Queries complexes SQL (utiliser Query Objects)
-- Pas de Domain Model
+- Simple CRUD (overkill)
+- Complex SQL queries (use Query Objects)
+- No Domain Model
 
-## Patterns liés
+## Related Patterns
 
-- [Data Mapper](./data-mapper.md) - Mapping entre domaine et base de donnees
-- [Unit of Work](./unit-of-work.md) - Gestion transactionnelle avec Repository
-- [Identity Map](./identity-map.md) - Cache des entites chargees
-- [Domain Model](./domain-model.md) - Agregats accedes via Repository
+- [Data Mapper](./data-mapper.md) - Mapping between domain and database
+- [Unit of Work](./unit-of-work.md) - Transactional management with Repository
+- [Identity Map](./identity-map.md) - Cache of loaded entities
+- [Domain Model](./domain-model.md) - Aggregates accessed via Repository
 
 ## Sources
 

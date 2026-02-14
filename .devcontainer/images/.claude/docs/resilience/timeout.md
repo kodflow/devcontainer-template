@@ -1,10 +1,10 @@
 # Timeout Pattern
 
-> Limiter le temps d'attente d'une operation pour eviter le blocage des ressources.
+> Limit the wait time of an operation to prevent resource blocking.
 
 ---
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -25,20 +25,20 @@
 
 ---
 
-## Types de timeouts
+## Types of Timeouts
 
 | Type | Description | Usage |
 |------|-------------|-------|
-| **Connection timeout** | Temps pour etablir la connexion | HTTP, TCP, DB |
-| **Read timeout** | Temps pour recevoir les donnees | APIs, streams |
-| **Request timeout** | Temps total de la requete | End-to-end |
-| **Idle timeout** | Temps d'inactivite accepte | Connexions persistantes |
+| **Connection timeout** | Time to establish the connection | HTTP, TCP, DB |
+| **Read timeout** | Time to receive data | APIs, streams |
+| **Request timeout** | Total request time | End-to-end |
+| **Idle timeout** | Acceptable inactivity time | Persistent connections |
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### Timeout basique avec context.Context
+### Basic Timeout with context.Context
 
 ```go
 package timeout
@@ -94,7 +94,7 @@ func WithTimeout[T any](ctx context.Context, timeout time.Duration, fn func(cont
 // Usage
 func example() error {
 	ctx := context.Background()
-	
+
 	result, err := WithTimeout(ctx, 5*time.Second, func(ctx context.Context) (string, error) {
 		// Simulated API call
 		return fetchData(ctx, "https://api.example.com/data")
@@ -106,7 +106,7 @@ func example() error {
 		}
 		return err
 	}
-	
+
 	fmt.Println("Result:", result)
 	return nil
 }
@@ -114,7 +114,7 @@ func example() error {
 
 ---
 
-### HTTP Client avec timeout
+### HTTP Client with Timeout
 
 ```go
 package timeout
@@ -195,7 +195,7 @@ func fetchWithTimeout() error {
 
 ---
 
-### Timeout avec deadline propagation
+### Timeout with Deadline Propagation
 
 ```go
 package timeout
@@ -256,7 +256,7 @@ func example() error {
 
 ---
 
-### Timeout hierarchique
+### Hierarchical Timeout
 
 ```go
 package timeout
@@ -356,7 +356,7 @@ func processOrder(ctx context.Context, order *Order) error {
 
 ---
 
-### Timeout avec cleanup
+### Timeout with Cleanup
 
 ```go
 package timeout
@@ -382,7 +382,7 @@ func WithTimeoutAndCleanup[T Cleaner](ctx context.Context, timeout time.Duration
 		// Cleanup on error (with a separate timeout)
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cleanupCancel()
-		
+
 		if cleanupErr := result.Cleanup(cleanupCtx); cleanupErr != nil {
 			return result, fmt.Errorf("operation failed: %w; cleanup failed: %v", err, cleanupErr)
 		}
@@ -434,49 +434,49 @@ func executeTransaction(ctx context.Context) error {
 
 ---
 
-## Configuration recommandee
+## Recommended Configuration
 
 | Operation | Timeout | Justification |
 |-----------|---------|---------------|
-| Health check | 1-2s | Doit etre rapide |
-| Cache lookup | 100-500ms | En memoire |
-| Database query | 3-10s | Selon complexite |
-| API interne | 5-10s | Meme reseau |
-| API externe | 10-30s | Latence variable |
-| File upload | 60-300s | Selon taille |
+| Health check | 1-2s | Must be fast |
+| Cache lookup | 100-500ms | In memory |
+| Database query | 3-10s | Depends on complexity |
+| Internal API | 5-10s | Same network |
+| External API | 10-30s | Variable latency |
+| File upload | 60-300s | Depends on size |
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Tout appel reseau (HTTP, gRPC, TCP)
-- Requetes base de donnees
-- Operations de fichiers distants
-- Appels a des services tiers
-- Toute operation pouvant bloquer indefiniment
+- Any network call (HTTP, gRPC, TCP)
+- Database queries
+- Remote file operations
+- Third-party service calls
+- Any operation that could block indefinitely
 
 ---
 
-## Bonnes pratiques
+## Best Practices
 
-| Pratique | Raison |
+| Practice | Reason |
 |----------|--------|
-| Toujours definir un timeout | Eviter les blocages infinis |
-| Propager les deadlines | Coherence end-to-end |
-| Timeout < keep-alive | Eviter les connexions zombies |
-| Cleanup sur timeout | Liberer les ressources |
-| Logger les timeouts | Debugging et alerting |
+| Always set a timeout | Avoid infinite blocking |
+| Propagate deadlines | End-to-end consistency |
+| Timeout < keep-alive | Avoid zombie connections |
+| Cleanup on timeout | Release resources |
+| Log timeouts | Debugging and alerting |
 
 ---
 
-## Lie a
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| [Circuit Breaker](circuit-breaker.md) | Timeout contribue aux failures |
-| [Retry](retry.md) | Timeout par tentative |
-| [Bulkhead](bulkhead.md) | Limiter les threads bloques |
-| Graceful Degradation | Fallback sur timeout |
+| [Circuit Breaker](circuit-breaker.md) | Timeout contributes to failures |
+| [Retry](retry.md) | Timeout per attempt |
+| [Bulkhead](bulkhead.md) | Limit blocked threads |
+| Graceful Degradation | Fallback on timeout |
 
 ---
 

@@ -1,6 +1,6 @@
 # Either / Result Pattern
 
-> Type représentant une valeur de succès (Right) ou une valeur d'erreur (Left), fournissant une gestion des erreurs type-safe sans exceptions.
+> Type representing a success value (Right) or an error value (Left), providing type-safe error handling without exceptions.
 
 ## Definition
 
@@ -77,14 +77,14 @@ func NewErr[T, E any](err E) Result[T, E] {
 // Combine combines multiple Results into one
 func Combine[T any, E any](results []Result[T, E]) Result[[]T, E] {
 	values := make([]T, 0, len(results))
-	
+
 	for _, result := range results {
 		if result.IsErr() {
 			return NewErr[[]T, E](result.UnwrapErr())
 		}
 		values = append(values, result.Unwrap())
 	}
-	
+
 	return NewOk[[]T, E](values)
 }
 ```
@@ -186,17 +186,17 @@ func createUser(email, password string, age int) Result[User, ValidationError] {
 	if emailResult.IsErr() {
 		return NewErr[User, ValidationError](emailResult.UnwrapErr())
 	}
-	
+
 	passwordResult := validatePassword(password)
 	if passwordResult.IsErr() {
 		return NewErr[User, ValidationError](passwordResult.UnwrapErr())
 	}
-	
+
 	ageResult := validateAge(age)
 	if ageResult.IsErr() {
 		return NewErr[User, ValidationError](ageResult.UnwrapErr())
 	}
-	
+
 	return NewOk[User, ValidationError](User{
 		email:    emailResult.Unwrap(),
 		password: passwordResult.Unwrap(),
@@ -209,9 +209,9 @@ func createUserValidated(email, password string, age int) Result[User, []Validat
 	emailResult := validateEmail(email)
 	passwordResult := validatePassword(password)
 	ageResult := validateAge(age)
-	
+
 	errors := []ValidationError{}
-	
+
 	if emailResult.IsErr() {
 		errors = append(errors, emailResult.UnwrapErr())
 	}
@@ -221,11 +221,11 @@ func createUserValidated(email, password string, age int) Result[User, []Validat
 	if ageResult.IsErr() {
 		errors = append(errors, ageResult.UnwrapErr())
 	}
-	
+
 	if len(errors) > 0 {
 		return NewErr[User, []ValidationError](errors)
 	}
-	
+
 	return NewOk[User, []ValidationError](User{
 		email:    emailResult.Unwrap(),
 		password: passwordResult.Unwrap(),
@@ -265,20 +265,20 @@ func (s *UserService) UpdateEmail(
 	if userResult.IsErr() {
 		return NewErr[*User, DomainError](userResult.UnwrapErr())
 	}
-	
+
 	user := userResult.Unwrap()
-	
+
 	if !user.canUpdateEmail {
 		return NewErr[*User, DomainError](AuthorizationError{
 			Action: "update email",
 		})
 	}
-	
+
 	emailResult := validateEmail(newEmail)
 	if emailResult.IsErr() {
 		return NewErr[*User, DomainError](emailResult.UnwrapErr())
 	}
-	
+
 	user.email = emailResult.Unwrap()
 	return NewOk[*User, DomainError](user)
 }
@@ -316,12 +316,12 @@ func calculate(a, b string) Result[int, string] {
 	if numAResult.IsErr() {
 		return NewErr[int, string](numAResult.UnwrapErr())
 	}
-	
+
 	numBResult := parseNumber(b)
 	if numBResult.IsErr() {
 		return NewErr[int, string](numBResult.UnwrapErr())
 	}
-	
+
 	return divide(numAResult.Unwrap(), numBResult.Unwrap())
 }
 
@@ -356,10 +356,10 @@ func fetchAndUpdate(id, email string) TaskResult[User, error] {
 		if userResult.IsErr() {
 			return NewErr[User, error](userResult.UnwrapErr())
 		}
-		
+
 		user := userResult.Unwrap()
 		user.email = Email{value: email}
-		
+
 		return updateUserHTTP(user)()
 	}
 }
@@ -428,12 +428,12 @@ func calculateEffect(a, b string) Effect[int] {
 			if err != nil {
 				return 0, err
 			}
-			
+
 			numB, err := parseNumberEffect(b).run(ctx)
 			if err != nil {
 				return 0, err
 			}
-			
+
 			return divideEffect(numA, numB).run(ctx)
 		},
 	}
@@ -443,7 +443,7 @@ func calculateEffect(a, b string) Effect[int] {
 func handleCalculation(a, b string) string {
 	ctx := context.Background()
 	result, err := calculateEffect(a, b).run(ctx)
-	
+
 	if err != nil {
 		switch e := err.(type) {
 		case ParseError:
@@ -454,7 +454,7 @@ func handleCalculation(a, b string) string {
 			return "Unknown error"
 		}
 	}
-	
+
 	return fmt.Sprintf("Result: %d", result)
 }
 ```
@@ -491,11 +491,11 @@ func processOrderFP(order Order) Result[Order, OrderError] {
 			Message: "Invalid order",
 		})
 	}
-	
+
 	if !inventory.hasStock(order) {
 		return NewErr[Order, OrderError](StockError{Message: "Out of stock"})
 	}
-	
+
 	return NewOk[Order, OrderError](order.process())
 }
 ```
@@ -517,7 +517,7 @@ func processOrderFP(order Order) Result[Order, OrderError] {
    ```go
    // BAD
    user := result.Unwrap() // Panics on Err!
-   
+
    // GOOD
    if result.IsOk() {
    	user := result.Unwrap()
@@ -542,20 +542,20 @@ func processOrderFP(order Order) Result[Order, OrderError] {
    ```go
    // BAD
    Result[User, error] // Too broad
-   
+
    // GOOD
    Result[User, DomainError] // Specific error types
    ```
 
-## Quand utiliser
+## When to Use
 
-- Fonctions qui peuvent échouer de manière prévisible
-- Logique de validation
-- Réponses API
-- Opérations du domaine avec erreurs métier
-- Partout où les exceptions seraient interceptées
+- Functions that can fail predictably
+- Validation logic
+- API responses
+- Domain operations with business errors
+- Anywhere exceptions would be caught
 
-## Patterns liés
+## Related Patterns
 
 - [Monad](./monad.md) - Either is a monad
 - [Option](./option.md) - For optional values (no error info)

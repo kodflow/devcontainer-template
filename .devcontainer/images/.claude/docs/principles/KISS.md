@@ -1,24 +1,24 @@
 # KISS - Keep It Simple, Stupid
 
-> La simplicité doit être un objectif clé dans la conception.
+> Simplicity should be a key goal in design.
 
-**Origine :** Kelly Johnson, ingénieur Lockheed (années 1960)
+**Origin:** Kelly Johnson, Lockheed engineer (1960s)
 
-## Principe
+## Principle
 
-La complexité est l'ennemi de la fiabilité. Le code simple est :
+Complexity is the enemy of reliability. Simple code is:
 
-- Plus facile à lire
-- Plus facile à maintenir
-- Plus facile à tester
-- Moins sujet aux bugs
+- Easier to read
+- Easier to maintain
+- Easier to test
+- Less prone to bugs
 
-## Exemples
+## Examples
 
-### Logique conditionnelle
+### Conditional Logic
 
 ```go
-// ❌ Complexe
+// ❌ Complex
 func GetDiscount(user *User) float64 {
 	if user.IsPremium {
 		if user.Years > 5 {
@@ -56,7 +56,7 @@ func GetDiscount(user *User) float64 {
 	return 0.05
 }
 
-// ✅✅ Encore plus simple avec une table
+// ✅✅ Even simpler with a table
 type DiscountRule struct {
 	Condition func(*User) bool
 	Discount  float64
@@ -82,7 +82,7 @@ func GetDiscount(user *User) float64 {
 ### Architecture
 
 ```
-❌ Complexe (prématuré)
+❌ Complex (premature)
 ┌─────────┐    ┌─────────┐    ┌─────────┐
 │ Gateway │───▶│ Service │───▶│   DB    │
 └─────────┘    └─────────┘    └─────────┘
@@ -92,16 +92,16 @@ func GetDiscount(user *User) float64 {
 │  Cache  │    │  Queue  │    │ Replica │
 └─────────┘    └─────────┘    └─────────┘
 
-✅ Simple (pour commencer)
+✅ Simple (to start with)
 ┌─────────┐    ┌─────────┐
 │   App   │───▶│   DB    │
 └─────────┘    └─────────┘
 ```
 
-### Fonctions
+### Functions
 
 ```go
-// ❌ Fonction trop "intelligente"
+// ❌ Overly "smart" function
 type ProcessOptions struct {
 	Validate  bool
 	Transform bool
@@ -111,15 +111,15 @@ type ProcessOptions struct {
 }
 
 func ProcessData(data interface{}, options *ProcessOptions) (interface{}, error) {
-	// 100 lignes de code avec tous les cas
+	// 100 lines of code covering all cases
 	if options == nil {
 		options = &ProcessOptions{}
 	}
-	// ... complexité
+	// ... complexity
 	return nil, nil
 }
 
-// ✅ Fonctions simples et composables
+// ✅ Simple and composable functions
 func ValidateData(data interface{}) error {
 	// Simple validation
 	return nil
@@ -135,73 +135,73 @@ func CacheData(data interface{}) error {
 	return nil
 }
 
-// Composition claire
+// Clear composition
 func ProcessDataSimple(data interface{}) (interface{}, error) {
 	if err := ValidateData(data); err != nil {
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
-	
+
 	transformed, err := TransformData(data)
 	if err != nil {
 		return nil, fmt.Errorf("transformation failed: %w", err)
 	}
-	
+
 	if err := CacheData(transformed); err != nil {
 		return nil, fmt.Errorf("caching failed: %w", err)
 	}
-	
+
 	return transformed, nil
 }
 ```
 
-## Signaux de complexité
+## Complexity Signals
 
 | Signal | Action |
 |--------|--------|
-| Fonction > 20 lignes | Diviser |
-| Plus de 3 niveaux d'indentation | Extraire |
-| Commentaire "c'est compliqué" | Simplifier |
-| Difficile à expliquer | Repenser |
-| Beaucoup de paramètres (>3) | Créer une struct config |
+| Function > 20 lines | Split |
+| More than 3 indentation levels | Extract |
+| Comment saying "it's complicated" | Simplify |
+| Hard to explain | Rethink |
+| Too many parameters (>3) | Create a config struct |
 
-## Quand la complexité est nécessaire
+## When Complexity Is Necessary
 
-KISS ne veut pas dire "pas de complexité". Parfois elle est justifiée :
+KISS does not mean "no complexity". Sometimes it is justified:
 
-- Optimisation de performance prouvée par benchmarks
-- Exigences métier réellement complexes
-- Contraintes techniques inévitables
+- Performance optimization proven by benchmarks
+- Genuinely complex business requirements
+- Unavoidable technical constraints
 
-Dans ces cas, **documenter le pourquoi**.
+In those cases, **document the why**.
 
-## Relation avec autres principes
+## Relationship with Other Principles
 
-| Principe | Relation |
-|----------|----------|
-| YAGNI | Ne pas ajouter de complexité inutile |
-| DRY | Mais pas au prix de la lisibilité |
-| SOLID | Peut ajouter de la complexité structurelle |
+| Principle | Relationship |
+|-----------|--------------|
+| YAGNI | Don't add unnecessary complexity |
+| DRY | But not at the cost of readability |
+| SOLID | Can add structural complexity |
 
 ## Checklist
 
-- [ ] Quelqu'un peut-il comprendre en 5 minutes ?
-- [ ] Peut-on expliquer sans dire "c'est compliqué" ?
-- [ ] Y a-t-il une solution plus simple ?
-- [ ] Cette abstraction est-elle vraiment nécessaire ?
+- [ ] Can someone understand it in 5 minutes?
+- [ ] Can you explain it without saying "it's complicated"?
+- [ ] Is there a simpler solution?
+- [ ] Is this abstraction really necessary?
 
-## Quand utiliser
+## When to Use
 
-- Lors de la conception initiale d'un module ou d'une fonctionnalite
-- Quand le code devient difficile a expliquer ou a comprendre
-- Lors de revues de code pour identifier la complexite accidentelle
-- Avant d'ajouter une abstraction ou un niveau d'indirection
-- Quand on refactorise du code legacy trop complexe
+- During initial design of a module or feature
+- When code becomes hard to explain or understand
+- During code reviews to identify accidental complexity
+- Before adding an abstraction or indirection level
+- When refactoring overly complex legacy code
 
-## Patterns liés
+## Related Patterns
 
-- [YAGNI](./YAGNI.md) - Complementaire : eviter la complexite inutile
-- [DRY](./DRY.md) - Attention a ne pas sur-abstraire au nom de DRY
-- [Defensive Programming](./defensive.md) - Guard clauses simplifient les conditions
+- [YAGNI](./YAGNI.md) - Complementary: avoid unnecessary complexity
+- [DRY](./DRY.md) - Be careful not to over-abstract in the name of DRY
+- [Defensive Programming](./defensive.md) - Guard clauses simplify conditions
 
 ## Sources
 

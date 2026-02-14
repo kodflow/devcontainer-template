@@ -1,27 +1,27 @@
 # DevOps Patterns
 
-Stratégies de déploiement et pratiques d'infrastructure moderne.
+Deployment strategies and modern infrastructure practices.
 
 ---
 
-## Fichiers
+## Files
 
-### Stratégies de déploiement
+### Deployment Strategies
 
-| Fichier | Contenu | Usage |
+| File | Content | Usage |
 |---------|---------|-------|
-| [gitops.md](gitops.md) | Git comme source de vérité | Déploiement déclaratif |
-| [iac.md](iac.md) | Infrastructure as Code | Gestion infrastructure |
-| [feature-toggles.md](feature-toggles.md) | Feature Flags | Activation dynamique |
+| [gitops.md](gitops.md) | Git as source of truth | Declarative deployment |
+| [iac.md](iac.md) | Infrastructure as Code | Infrastructure management |
+| [feature-toggles.md](feature-toggles.md) | Feature Flags | Dynamic activation |
 | [blue-green.md](blue-green.md) | Blue-Green Deployment | Zero-downtime |
-| [canary.md](canary.md) | Canary Deployment | Rollout progressif |
-| [rolling-update.md](rolling-update.md) | Rolling Update | Mise à jour progressive |
-| [immutable-infrastructure.md](immutable-infrastructure.md) | Infrastructure immuable | Serveurs jetables |
-| [ab-testing.md](ab-testing.md) | A/B Testing | Expérimentation |
+| [canary.md](canary.md) | Canary Deployment | Progressive rollout |
+| [rolling-update.md](rolling-update.md) | Rolling Update | Progressive update |
+| [immutable-infrastructure.md](immutable-infrastructure.md) | Immutable infrastructure | Disposable servers |
+| [ab-testing.md](ab-testing.md) | A/B Testing | Experimentation |
 
-### Infrastructure & Outils
+### Infrastructure & Tools
 
-| Fichier | Contenu | Usage |
+| File | Content | Usage |
 |---------|---------|-------|
 | [vault-patterns.md](vault-patterns.md) | HashiCorp Vault | PKI, VSO, AppRole |
 | [terragrunt-patterns.md](terragrunt-patterns.md) | Terragrunt | Multi-environment IaC |
@@ -32,23 +32,23 @@ Stratégies de déploiement et pratiques d'infrastructure moderne.
 
 ---
 
-## Tableau de décision - Stratégies de déploiement
+## Decision Table - Deployment Strategies
 
-| Stratégie | Downtime | Risque | Rollback | Coût Infra | Complexité |
+| Strategy | Downtime | Risk | Rollback | Infra Cost | Complexity |
 |-----------|----------|--------|----------|------------|------------|
-| **Recreate** | Oui | Haut | Lent | Bas | Simple |
-| **Rolling Update** | Non | Moyen | Moyen | Bas | Simple |
-| **Blue-Green** | Non | Bas | Instantané | Double | Moyen |
-| **Canary** | Non | Très Bas | Rapide | +10-20% | Élevé |
-| **A/B Testing** | Non | Bas | Rapide | +10-20% | Élevé |
+| **Recreate** | Yes | High | Slow | Low | Simple |
+| **Rolling Update** | No | Medium | Medium | Low | Simple |
+| **Blue-Green** | No | Low | Instant | Double | Medium |
+| **Canary** | No | Very Low | Fast | +10-20% | High |
+| **A/B Testing** | No | Low | Fast | +10-20% | High |
 
 ---
 
-## Vue d'ensemble
+## Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    STRATÉGIES DE DÉPLOIEMENT                     │
+│                    DEPLOYMENT STRATEGIES                          │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  Recreate     Rolling      Blue-Green    Canary      A/B Test  │
@@ -58,31 +58,31 @@ Stratégies de déploiement et pratiques d'infrastructure moderne.
 │  │new│        │n│n│n│      │   │   │    └───┴─┘    └───┴───┘  │
 │  └───┘        └─┴─┴─┘      └───┴───┘                           │
 │                                                                  │
-│  Simple       Progressif   Instantané   Progressif  Expérience │
-│  Downtime     Pas de down  Rollback     Métriques   Métriques  │
+│  Simple       Progressive  Instant      Progressive Experience │
+│  Downtime     No downtime  Rollback     Metrics     Metrics    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Quand utiliser quelle stratégie
+## When to Use Which Strategy
 
-| Besoin | Stratégie recommandée |
+| Need | Recommended Strategy |
 |--------|----------------------|
 | MVP / Dev environment | Recreate |
 | Production standard | Rolling Update |
-| Zero-downtime critique | Blue-Green |
-| Validation métriques avant rollout | Canary |
-| Tester UX / Conversion | A/B Testing |
-| Changements d'infrastructure | Immutable Infrastructure |
-| Gestion déclarative | GitOps + IaC |
-| Activation/Désactivation dynamique | Feature Toggles |
+| Zero-downtime critical | Blue-Green |
+| Metrics validation before rollout | Canary |
+| Test UX / Conversion | A/B Testing |
+| Infrastructure changes | Immutable Infrastructure |
+| Declarative management | GitOps + IaC |
+| Dynamic activation/deactivation | Feature Toggles |
 
 ---
 
-## Combinaisons recommandées
+## Recommended Combinations
 
-### Stack moderne (recommandé)
+### Modern Stack (recommended)
 
 ```
 GitOps + IaC + Canary + Feature Toggles
@@ -96,46 +96,46 @@ GitOps + IaC + Canary + Feature Toggles
 └─────────────────────────────────────┘
 ```
 
-### Par taille d'équipe
+### By Team Size
 
-| Taille équipe | Stratégie |
+| Team Size | Strategy |
 |---------------|-----------|
 | Solo / Startup | Recreate + Feature Toggles |
-| Petite (5-10) | Rolling Update + GitOps |
-| Moyenne (10-50) | Blue-Green + IaC |
-| Grande (50+) | Canary + A/B + Full GitOps |
+| Small (5-10) | Rolling Update + GitOps |
+| Medium (10-50) | Blue-Green + IaC |
+| Large (50+) | Canary + A/B + Full GitOps |
 
 ---
 
-## Flux de décision
+## Decision Flow
 
 ```
-                    Besoin de déployer
+                    Need to deploy
                            │
                            ▼
-              ┌─── Tolérance downtime? ───┐
+              ┌─── Downtime tolerance? ───┐
               │                            │
-            Oui                          Non
+            Yes                           No
               │                            │
               ▼                            ▼
-          Recreate              ┌── Rollback rapide? ──┐
-                                │                       │
-                              Oui                     Non
-                                │                       │
-                                ▼                       ▼
-                ┌── Validation métriques? ──┐    Rolling Update
-                │                            │
-              Oui                          Non
-                │                            │
-                ▼                            ▼
-            Canary                      Blue-Green
+          Recreate              ┌── Fast rollback? ──┐
+                                │                     │
+                              Yes                    No
+                                │                     │
+                                ▼                     ▼
+                ┌── Metrics validation? ──┐    Rolling Update
+                │                          │
+              Yes                         No
+                │                          │
+                ▼                          ▼
+            Canary                    Blue-Green
 ```
 
 ---
 
-## Outils par stratégie
+## Tools by Strategy
 
-| Stratégie | Outils |
+| Strategy | Tools |
 |-----------|--------|
 | Blue-Green | AWS CodeDeploy, Kubernetes, Istio |
 | Canary | Argo Rollouts, Flagger, Spinnaker |
@@ -146,14 +146,14 @@ GitOps + IaC + Canary + Feature Toggles
 
 ---
 
-## Patterns liés
+## Related Patterns
 
-| Pattern | Catégorie | Relation |
+| Pattern | Category | Relation |
 |---------|-----------|----------|
-| Circuit Breaker | cloud/ | Protection services |
-| Saga | cloud/ | Transactions distribuées |
-| Feature Toggles | devops/ | Activation features |
-| Immutable Infrastructure | devops/ | Serveurs jetables |
+| Circuit Breaker | cloud/ | Service protection |
+| Saga | cloud/ | Distributed transactions |
+| Feature Toggles | devops/ | Feature activation |
+| Immutable Infrastructure | devops/ | Disposable servers |
 
 ---
 

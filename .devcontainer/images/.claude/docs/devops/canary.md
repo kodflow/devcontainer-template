@@ -1,10 +1,10 @@
 # Canary Deployment
 
-> Déploiement progressif vers un sous-ensemble d'utilisateurs pour validation.
+> Progressive deployment to a subset of users for validation.
 
-**Origine :** Canaris dans les mines de charbon (alerte précoce)
+**Origin:** Canaries in coal mines (early warning)
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -24,13 +24,13 @@
 │     └─────────────┘                 └─────────────┘            │
 │                                            │                    │
 │                                     ┌──────┴──────┐            │
-│                                     │  Métriques  │            │
+│                                     │   Metrics   │            │
 │                                     │  Monitoring │            │
 │                                     └─────────────┘            │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Phases de rollout
+## Rollout Phases
 
 ```
 Phase 1: Canary 1%          Phase 2: Canary 10%
@@ -51,7 +51,7 @@ Phase 3: Canary 50%          Phase 4: Full rollout
 └──────────────────┘        └──────────────────┘
 ```
 
-## Implémentation avec Argo Rollouts
+## Implementation with Argo Rollouts
 
 ```yaml
 # rollout.yaml
@@ -78,13 +78,13 @@ spec:
 
       # Phase 4: 100% (automatic)
 
-      # Analyse automatique
+      # Automatic analysis
       analysis:
         templates:
         - templateName: success-rate
         startingStep: 1
 
-      # Anti-affinity pour résilience
+      # Anti-affinity for resilience
       canaryMetadata:
         labels:
           role: canary
@@ -126,7 +126,7 @@ spec:
           sum(rate(http_requests_total{app="myapp",role="canary"}[5m]))
 ```
 
-## Métriques de décision
+## Decision Metrics
 
 ```go
 package canary
@@ -170,9 +170,9 @@ func EvaluateCanary(canaryMetrics, baselineMetrics CanaryMetrics) Decision {
 	}
 
 	// Pause if latency degraded significantly
-	threshold := baselineMetrics.LatencyP99 * 1.2
+	threshold:= baselineMetrics.LatencyP99 * 1.2
 	if canaryMetrics.LatencyP99 > threshold {
-		degradation := ((canaryMetrics.LatencyP99 - baselineMetrics.LatencyP99) / baselineMetrics.LatencyP99) * 100
+		degradation:= ((canaryMetrics.LatencyP99 - baselineMetrics.LatencyP99) / baselineMetrics.LatencyP99) * 100
 		return Decision{
 			Action: ActionPause,
 			Reason: fmt.Sprintf("Latency degraded %.1f%% (threshold: 20%%)", degradation),
@@ -195,9 +195,9 @@ func EvaluateCanary(canaryMetrics, baselineMetrics CanaryMetrics) Decision {
 }
 ```
 
-## Stratégies de routage
+## Routing Strategies
 
-### Par pourcentage (standard)
+### By percentage (standard)
 
 ```yaml
 # Istio VirtualService
@@ -220,7 +220,7 @@ spec:
       weight: 5
 ```
 
-### Par header (testing interne)
+### By header (internal testing)
 
 ```yaml
 http:
@@ -238,7 +238,7 @@ http:
       subset: stable
 ```
 
-### Par région géographique
+### By geographic region
 
 ```yaml
 http:
@@ -252,37 +252,37 @@ http:
       subset: canary
 ```
 
-## Quand utiliser
+## When to Use
 
-| Utiliser | Eviter |
-|----------|--------|
-| Applications à fort trafic | Faible volume (pas assez de data) |
-| Changements risqués | Changements triviaux |
-| Validation métriques nécessaire | Pas de monitoring |
-| Équipes DevOps matures | Équipes sans observabilité |
-| Services critiques | Prototypes/MVPs |
+| Use | Avoid |
+|-----|-------|
+| High-traffic applications | Low volume (not enough data) |
+| Risky changes | Trivial changes |
+| Metrics validation needed | No monitoring |
+| Mature DevOps teams | Teams without observability |
+| Critical services | Prototypes/MVPs |
 
-## Avantages
+## Advantages
 
-- **Risque minimisé** : Impact limité si problème
-- **Validation réelle** : Métriques en production
-- **Rollback automatique** : Basé sur métriques
-- **Confiance graduelle** : Augmentation progressive
-- **A/B testing implicite** : Comparaison versions
+- **Minimized risk**: Limited impact if problem occurs
+- **Real validation**: Metrics in production
+- **Automatic rollback**: Based on metrics
+- **Gradual confidence**: Progressive increase
+- **Implicit A/B testing**: Version comparison
 
-## Inconvénients
+## Disadvantages
 
-- **Complexité** : Infrastructure de routage
-- **Observabilité requise** : Métriques essentielles
-- **Temps de déploiement** : Plus long que Blue-Green
-- **Volume minimum** : Besoin de trafic significatif
-- **État partagé** : Complexe avec données
+- **Complexity**: Routing infrastructure
+- **Observability required**: Essential metrics
+- **Deployment time**: Longer than Blue-Green
+- **Minimum volume**: Need significant traffic
+- **Shared state**: Complex with data
 
-## Exemples réels
+## Real-World Examples
 
-| Entreprise | Implémentation |
-|------------|----------------|
-| **Google** | Rollout progressif GKE |
+| Company | Implementation |
+|---------|----------------|
+| **Google** | Progressive rollout GKE |
 | **Netflix** | Spinnaker + Kayenta |
 | **LinkedIn** | LiX (A/B + Canary) |
 | **Facebook** | Gatekeeper system |
@@ -290,41 +290,41 @@ http:
 
 ## Migration path
 
-### Depuis Blue-Green
+### From Blue-Green
 
 ```
-1. Implémenter split traffic (Istio, NGINX, etc.)
-2. Ajouter métriques Prometheus/Datadog
-3. Configurer seuils de décision
-4. Automatiser promote/rollback
+1. Implement split traffic (Istio, NGINX, etc.)
+2. Add Prometheus/Datadog metrics
+3. Configure decision thresholds
+4. Automate promote/rollback
 ```
 
-### Vers Progressive Delivery
+### To Progressive Delivery
 
 ```
-1. Intégrer feature flags
-2. Ajouter A/B testing
-3. Automatiser analyse métriques
-4. GitOps pour configuration
+1. Integrate feature flags
+2. Add A/B testing
+3. Automate metrics analysis
+4. GitOps for configuration
 ```
 
-## Patterns liés
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| Blue-Green | Prédécesseur, switch binaire |
-| A/B Testing | Canary + expérimentation |
-| Feature Toggles | Alternative granulaire |
-| Circuit Breaker | Protection automatique |
+| Blue-Green | Predecessor, binary switch |
+| A/B Testing | Canary + experimentation |
+| Feature Toggles | Granular alternative |
+| Circuit Breaker | Automatic protection |
 
 ## Checklist
 
-- [ ] Métriques définies (SLI/SLO)
-- [ ] Seuils de rollback configurés
-- [ ] Alerting en place
-- [ ] Runbook rollback documenté
-- [ ] Traffic splitting configuré
-- [ ] Dashboard canary vs stable
+- [ ] Metrics defined (SLI/SLO)
+- [ ] Rollback thresholds configured
+- [ ] Alerting in place
+- [ ] Rollback runbook documented
+- [ ] Traffic splitting configured
+- [ ] Canary vs stable dashboard
 
 ## Sources
 

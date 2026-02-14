@@ -1,30 +1,30 @@
 # Architectures
 
-## Choix par défaut
+## Default Choices
 
-| Type de projet | Architecture par défaut |
+| Project Type | Default Architecture |
 |----------------|------------------------|
-| API/Backend scalable | **Sliceable Monolith** |
+| API/Scalable Backend | **Sliceable Monolith** |
 | Web scripting (PHP, Ruby) | **MVC** |
 | CLI/Tools | **Flat** |
 | Library/Package | **Package** |
 | Mobile (Flutter) | **MVVM** |
 
-## Liste des architectures
+## Architecture List
 
-| Architecture | Fichier | Cas d'usage |
+| Architecture | File | Use Case |
 |--------------|---------|-------------|
 | MVC | `mvc.md` | Web apps, PHP, Ruby, Django |
 | MVP | `mvp.md` | Desktop, Android legacy |
-| MVVM | `mvvm.md` | Mobile, Frontend reactif |
-| Layered | `layered.md` | Apps traditionnelles |
-| Clean | `clean.md` | Apps complexes, testabilité |
+| MVVM | `mvvm.md` | Mobile, Reactive Frontend |
+| Layered | `layered.md` | Traditional apps |
+| Clean | `clean.md` | Complex apps, testability |
 | Hexagonal | `hexagonal.md` | Domain-centric, ports & adapters |
 | Onion | `onion.md` | Enterprise, .NET |
-| DDD | `ddd.md` | Domaines complexes |
-| Microservices | `microservices.md` | Grande équipe, scale indépendant |
-| Sliceable Monolith | `sliceable-monolith.md` | **Recommandé** - Meilleur des deux mondes |
-| Event-Driven | `event-driven.md` | Async, découplage fort |
+| DDD | `ddd.md` | Complex domains |
+| Microservices | `microservices.md` | Large team, independent scaling |
+| Sliceable Monolith | `sliceable-monolith.md` | **Recommended** - Best of both worlds |
+| Event-Driven | `event-driven.md` | Async, strong decoupling |
 | Serverless | `serverless.md` | Functions, pay-per-use |
 | Flat | `flat.md` | Scripts, CLI, POC |
-| Package | `package.md` | Libraries réutilisables |
+| Package | `package.md` | Reusable libraries |

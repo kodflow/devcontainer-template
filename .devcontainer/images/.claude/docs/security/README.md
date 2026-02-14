@@ -1,12 +1,12 @@
 # Security Patterns
 
-Patterns de sécurité applicative.
+Application security patterns.
 
 ## Authentication Patterns
 
 ### 1. Session-Based Authentication
 
-> Authentification avec session côté serveur.
+> Authentication with server-side session.
 
 ```go
 package auth
@@ -147,15 +147,15 @@ func UserFromContext(ctx context.Context) (*User, bool) {
 }
 ```
 
-**Avantages :** Révocation immédiate, contrôle serveur.
-**Inconvénients :** État serveur, scaling complexe.
-**Quand :** Applications monolithiques, besoin de révocation.
+**Advantages:** Immediate revocation, server control.
+**Disadvantages:** Server state, complex scaling.
+**When:** Monolithic applications, need for revocation.
 
 ---
 
 ### 2. Token-Based Authentication (JWT)
 
-> Authentification stateless avec tokens signés.
+> Stateless authentication with signed tokens.
 
 ```go
 package auth
@@ -339,15 +339,15 @@ func (r *RefreshTokenStore) RevokeAllForUser(userID string) {
 }
 ```
 
-**Avantages :** Stateless, scalable, microservices.
-**Inconvénients :** Révocation complexe, taille token.
-**Quand :** APIs, SPAs, microservices.
+**Advantages:** Stateless, scalable, microservices.
+**Disadvantages:** Complex revocation, token size.
+**When:** APIs, SPAs, microservices.
 
 ---
 
 ### 3. OAuth 2.0 / OpenID Connect
 
-> Authentification déléguée via provider externe.
+> Delegated authentication via external provider.
 
 ```go
 package auth
@@ -497,18 +497,18 @@ func base64URLEncode(data []byte) string {
 
 **Flows :**
 
-- **Authorization Code** : Web apps avec backend
-- **Authorization Code + PKCE** : SPAs, mobile
-- **Client Credentials** : Machine-to-machine
-- **Implicit** : Déprécié
+- **Authorization Code**: Web apps with backend
+- **Authorization Code + PKCE**: SPAs, mobile
+- **Client Credentials**: Machine-to-machine
+- **Implicit**: Deprecated
 
-**Quand :** Login social, SSO, APIs tierces.
+**When:** Social login, SSO, third-party APIs.
 
 ---
 
 ### 4. API Key Authentication
 
-> Authentification simple par clé API.
+> Simple authentication by API key.
 
 ```go
 package auth
@@ -653,8 +653,8 @@ func (r *RateLimitedApiKey) CheckLimit(apiKey string, limit int, windowMs int) b
 }
 ```
 
-**Quand :** APIs publiques, intégrations simples.
-**Lié à :** Rate Limiting.
+**When:** Public APIs, simple integrations.
+**Related to:** Rate Limiting.
 
 ---
 
@@ -662,7 +662,7 @@ func (r *RateLimitedApiKey) CheckLimit(apiKey string, limit int, windowMs int) b
 
 ### 5. Role-Based Access Control (RBAC)
 
-> Permissions basées sur les rôles.
+> Role-based permissions.
 
 ```go
 package auth
@@ -776,15 +776,15 @@ func (r *RBAC) RequireRole(role Role) func(http.Handler) http.Handler {
 // http.Handle("/articles", rbac.RequirePermission(PermWrite)(articleHandler))
 ```
 
-**Avantages :** Simple, compréhensible.
-**Inconvénients :** Granularité limitée.
-**Quand :** Applications avec rôles clairs.
+**Advantages:** Simple, understandable.
+**Disadvantages:** Limited granularity.
+**When:** Applications with clear roles.
 
 ---
 
 ### 6. Attribute-Based Access Control (ABAC)
 
-> Permissions basées sur attributs et contexte.
+> Attribute and context-based permissions.
 
 ```go
 package auth
@@ -938,15 +938,15 @@ policies := []Policy{
 */
 ```
 
-**Avantages :** Flexible, contextuel.
-**Inconvénients :** Complexe, performance.
-**Quand :** Règles complexes, multi-tenant, compliance.
+**Advantages:** Flexible, contextual.
+**Disadvantages:** Complex, performance.
+**When:** Complex rules, multi-tenant, compliance.
 
 ---
 
 ### 7. Policy-Based Access Control
 
-> Politiques déclaratives.
+> Declarative policies.
 
 ```go
 package auth
@@ -1081,8 +1081,8 @@ policy := PolicyDocument{
 */
 ```
 
-**Quand :** Multi-tenant, cloud resources, fine-grained.
-**Lié à :** ABAC.
+**When:** Multi-tenant, cloud resources, fine-grained.
+**Related to:** ABAC.
 
 ---
 
@@ -1090,7 +1090,7 @@ policy := PolicyDocument{
 
 ### 8. Input Validation & Sanitization
 
-> Valider et nettoyer toutes les entrées.
+> Validate and sanitize all inputs.
 
 ```go
 package security
@@ -1203,13 +1203,13 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*User, 
 }
 ```
 
-**Quand :** TOUJOURS pour les entrées utilisateur.
+**When:** ALWAYS for user input.
 
 ---
 
 ### 9. Password Hashing
 
-> Stockage sécurisé des mots de passe.
+> Secure password storage.
 
 ```go
 package security
@@ -1300,14 +1300,14 @@ func (p *PasswordService) ValidateStrength(password string) *PasswordStrength {
 }
 ```
 
-**Algorithmes recommandés :** Argon2id > bcrypt > PBKDF2.
-**Quand :** TOUJOURS pour les mots de passe.
+**Recommended algorithms:** Argon2id > bcrypt > PBKDF2.
+**When:** ALWAYS for passwords.
 
 ---
 
 ### 10. CSRF Protection
 
-> Protection contre Cross-Site Request Forgery.
+> Protection against Cross-Site Request Forgery.
 
 ```go
 package security
@@ -1427,13 +1427,13 @@ func SetSessionCookie(w http.ResponseWriter, sessionID string) {
 }
 ```
 
-**Quand :** Forms, state-changing requests.
+**When:** Forms, state-changing requests.
 
 ---
 
 ### 11. Rate Limiting
 
-> Limiter le nombre de requêtes.
+> Limit the number of requests.
 
 ```go
 package security
@@ -1566,14 +1566,14 @@ func (r *RedisRateLimiter) Check(ctx context.Context, key string, limit int, win
 }
 ```
 
-**Quand :** APIs, login, resource protection.
-**Lié à :** Circuit Breaker.
+**When:** APIs, login, resource protection.
+**Related to:** Circuit Breaker.
 
 ---
 
 ### 12. Secrets Management
 
-> Gestion sécurisée des secrets.
+> Secure secrets management.
 
 ```go
 package security
@@ -1752,29 +1752,29 @@ func generateSecurePassword(length int) (string, error) {
 }
 ```
 
-**Best practices :**
+**Best practices:**
 
-- Ne jamais commit de secrets
-- Rotation régulière
+- Never commit secrets
+- Regular rotation
 - Least privilege
 - Audit logging
 
 ---
 
-## Tableau de décision
+## Decision Table
 
-| Besoin | Pattern |
-|--------|---------|
-| Login utilisateur | Session / JWT |
-| Login social | OAuth 2.0 |
+| Need | Pattern |
+|------|---------|
+| User login | Session / JWT |
+| Social login | OAuth 2.0 |
 | API authentication | API Keys / JWT |
-| Permissions simples | RBAC |
-| Permissions complexes | ABAC / Policy |
-| Validation entrées | Schema validation |
-| Stockage passwords | Argon2 / bcrypt |
-| Protection forms | CSRF tokens |
-| Limite requêtes | Rate Limiting |
-| Gestion secrets | Vault / Env vars |
+| Simple permissions | RBAC |
+| Complex permissions | ABAC / Policy |
+| Input validation | Schema validation |
+| Password storage | Argon2 / bcrypt |
+| Form protection | CSRF tokens |
+| Request limiting | Rate Limiting |
+| Secrets management | Vault / Env vars |
 
 ## Sources
 

@@ -1,12 +1,12 @@
 # Actor Model
 
-Pattern de concurrence base sur des entites isolees communiquant par messages.
+Concurrency pattern based on isolated entities communicating via messages.
 
 ---
 
-## Qu'est-ce que l'Actor Model ?
+## What is the Actor Model?
 
-> Chaque actor est une unite independante avec son etat prive, traitant les messages sequentiellement.
+> Each actor is an independent unit with its own private state, processing messages sequentially.
 
 ```
 +--------------------------------------------------------------+
@@ -30,24 +30,24 @@ Pattern de concurrence base sur des entites isolees communiquant par messages.
 |           |<----------------------------+                     |
 |                    reply(result)                              |
 |                                                               |
-|  Garanties:                                                   |
-|  - Pas de shared state                                        |
-|  - Messages traites un par un                                 |
-|  - Communication asynchrone                                   |
+|  Guarantees:                                                  |
+|  - No shared state                                            |
+|  - Messages processed one at a time                           |
+|  - Asynchronous communication                                 |
 +--------------------------------------------------------------+
 ```
 
-**Pourquoi :**
+**Why:**
 
-- Elimine les race conditions (pas de shared state)
-- Scalabilite naturelle (actors distribues)
+- Eliminates race conditions (no shared state)
+- Natural scalability (distributed actors)
 - Fault tolerance (supervision)
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### Actor de base avec channels
+### Basic Actor with channels
 
 ```go
 package actor
@@ -162,7 +162,7 @@ func (a *Actor[S, M]) Stop() {
 
 ---
 
-### Exemple: Counter Actor
+### Example: Counter Actor
 
 ```go
 package main
@@ -313,7 +313,7 @@ func (s *System) Shutdown() {
 
 ---
 
-## Typed Actor (meilleure type-safety)
+## Typed Actor (better type-safety)
 
 ```go
 package actor
@@ -521,50 +521,50 @@ func (s *Supervisor) Spawn(ctx context.Context, name string, actor ActorRef) err
 
 ---
 
-## Complexite et Trade-offs
+## Complexity and Trade-offs
 
-| Aspect | Valeur |
-|--------|--------|
-| Envoi message | O(1) |
-| Traitement | Sequentiel par actor |
-| Memoire | O(actors * mailbox_size) |
+| Aspect | Value |
+|--------|-------|
+| Message send | O(1) |
+| Processing | Sequential per actor |
+| Memory | O(actors * mailbox_size) |
 
-### Avantages
+### Advantages
 
-- Pas de locks / race conditions
-- Isolation des erreurs
-- Scalabilite horizontale
-- Modele mental simple
-- Channels natifs Go
+- No locks / race conditions
+- Error isolation
+- Horizontal scalability
+- Simple mental model
+- Native Go channels
 
-### Inconvenients
+### Disadvantages
 
-- Overhead messages vs appels directs
-- Debugging plus complexe
-- Latence (asynchrone)
-- Mailbox peut deborder
-
----
-
-## Quand utiliser
-
-| Situation | Recommande |
-|-----------|------------|
-| Etat partage concurrent | Oui |
-| Systemes distribues | Oui |
-| Haute resilience requise | Oui |
-| Latence minimale critique | Non |
-| Logique simple sans concurrence | Non |
+- Message overhead vs direct calls
+- More complex debugging
+- Latency (asynchronous)
+- Mailbox can overflow
 
 ---
 
-## Patterns connexes
+## When to Use
+
+| Situation | Recommended |
+|-----------|-------------|
+| Concurrent shared state | Yes |
+| Distributed systems | Yes |
+| High resilience required | Yes |
+| Minimal latency critical | No |
+| Simple logic without concurrency | No |
+
+---
+
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| **Message Queue** | Infrastructure de messaging |
-| **Event Sourcing** | Actors peuvent logger messages |
-| **CQRS** | Actors pour read/write |
+| **Message Queue** | Messaging infrastructure |
+| **Event Sourcing** | Actors can log messages |
+| **CQRS** | Actors for read/write |
 | **CSP** | Go channels = CSP |
 
 ---

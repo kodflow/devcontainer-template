@@ -1,8 +1,8 @@
 # Test Containers
 
-> Infrastructure reelle dans des containers Docker pour les tests d'integration.
+> Real infrastructure in Docker containers for integration tests.
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -623,7 +623,7 @@ func TestUserService(t *testing.T) {
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
@@ -633,25 +633,25 @@ func TestUserService(t *testing.T) {
 | `github.com/testcontainers/testcontainers-go/modules/kafka` | Kafka module |
 | `github.com/testcontainers/testcontainers-go/modules/mongodb` | MongoDB module |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Timeout trop court | Tests fail au startup | Augmenter timeout wait strategy |
-| Pas de cleanup | Resources leak | defer container.Terminate() |
-| Port conflicts | Tests fail | Utiliser ports dynamiques |
-| Slow tests | CI lent | Container reuse |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Too short timeout | Tests fail at startup | Increase wait strategy timeout |
+| No cleanup | Resource leak | defer container.Terminate() |
+| Port conflicts | Tests fail | Use dynamic ports |
+| Slow tests | Slow CI | Container reuse |
 | No wait strategy | Connection errors | Proper wait strategies |
 
-## Quand utiliser
+## When to Use
 
-| Scenario | Recommande |
+| Scenario | Recommended |
 |----------|------------|
-| Tests d'integration DB | Oui |
-| Tests avec message queues | Oui |
-| Tests E2E local | Oui |
-| Tests unitaires | Non (overkill) |
-| CI sans Docker | Non possible |
+| DB integration tests | Yes |
+| Tests with message queues | Yes |
+| Local E2E tests | Yes |
+| Unit tests | No (overkill) |
+| CI without Docker | Not possible |
 
 ## CI Configuration
 
@@ -682,11 +682,11 @@ jobs:
           TESTCONTAINERS_RYUK_DISABLED: false
 ```
 
-## Patterns lies
+## Related Patterns
 
-- **Fixture** : Setup des donnees dans containers
-- **Contract Testing** : Verification des APIs
-- **Fake** : Alternative plus legere
+- **Fixture**: Data setup in containers
+- **Contract Testing**: API verification
+- **Fake**: Lighter alternative
 
 ## Sources
 

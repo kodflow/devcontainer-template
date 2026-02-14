@@ -4,46 +4,46 @@
 
 ## Concept
 
-Le DTO est un objet simple qui transporte des donnees entre les couches ou les processus. Il n'a pas de logique metier, seulement des donnees et eventuellement des methodes de serialisation.
+The DTO is a simple object that transports data between layers or processes. It has no business logic, only data and optionally serialization methods.
 
-## Objectifs
+## Objectives
 
-1. **Reduire les appels** : Agreger les donnees en un seul objet
-2. **Decoupler** : Separer le modele de domaine de l'API
-3. **Serialisation** : Format adapte au transfert (JSON, XML)
-4. **Securite** : Ne pas exposer les details internes
-5. **Groupement** : Permettre plusieurs DTOs dans un meme fichier
+1. **Reduce calls**: Aggregate data into a single object
+2. **Decouple**: Separate the domain model from the API
+3. **Serialization**: Format suited for transfer (JSON, XML)
+4. **Security**: Do not expose internal details
+5. **Grouping**: Allow multiple DTOs in a single file
 
-## Convention Tags
+## Tag Convention
 
-**Format obligatoire :** `dto:"<direction>,<context>,<security>"`
+**Required format:** `dto:"<direction>,<context>,<security>"`
 
-Le tag `dto:` permet de :
+The `dto:` tag allows:
 
-- Exempter les structs de KTN-STRUCT-ONEFILE (groupement)
-- Exempter les structs de KTN-STRUCT-CTOR (pas de constructeur requis)
-- Documenter le flux et la sensibilite des donnees
+- Exempting structs from KTN-STRUCT-ONEFILE (grouping)
+- Exempting structs from KTN-STRUCT-CTOR (no constructor required)
+- Documenting the flow and data sensitivity
 
-### Valeurs
+### Values
 
-| Position | Valeurs | Description |
-|----------|---------|-------------|
-| direction | `in`, `out`, `inout` | Sens du flux |
-| context | `api`, `cmd`, `query`, `event`, `msg`, `priv` | Type DTO |
+| Position | Values | Description |
+|----------|--------|-------------|
+| direction | `in`, `out`, `inout` | Flow direction |
+| context | `api`, `cmd`, `query`, `event`, `msg`, `priv` | DTO type |
 | security | `pub`, `priv`, `pii`, `secret` | Classification |
 
-### Classification Securite
+### Security Classification
 
-| Valeur | Description | Logging | Marshaling |
-|--------|-------------|---------|------------|
-| `pub` | Donnees publiques | Affiche | Inclus |
-| `priv` | Interne (IDs, timestamps) | Affiche | Inclus |
-| `pii` | RGPD (email, nom, adresse) | Masque | Conditionnel |
-| `secret` | Credentials (password, token) | REDACTED | Omis |
+| Value | Description | Logging | Marshaling |
+|-------|-------------|---------|------------|
+| `pub` | Public data | Displayed | Included |
+| `priv` | Internal (IDs, timestamps) | Displayed | Included |
+| `pii` | GDPR (email, name, address) | Masked | Conditional |
+| `secret` | Credentials (password, token) | REDACTED | Omitted |
 
-**Reference :** [conventions/dto-tags.md](../conventions/dto-tags.md)
+**Reference:** [conventions/dto-tags.md](../conventions/dto-tags.md)
 
-## Implementation Go
+## Go Implementation
 
 ```go
 package dto
@@ -52,8 +52,8 @@ import (
 	"time"
 )
 
-// Fichier: order_dto.go
-// PLUSIEURS DTOs groupes grace au tag dto:"..."
+// File: order_dto.go
+// MULTIPLE DTOs grouped thanks to dto:"..." tag
 
 // CreateOrderRequest is an input DTO for order creation.
 type CreateOrderRequest struct {
@@ -204,7 +204,7 @@ func (a *OrderAssembler) ToDomain(dto *CreateOrderRequest) *OrderCreationParams 
 ## DTOs vs Domain Objects
 
 ```go
-// Domain Object - Business logic, invariants (PAS de tags)
+// Domain Object - Business logic, invariants (NO tags)
 type DomainOrder struct {
     status OrderStatus
     items  []*OrderItem
@@ -226,7 +226,7 @@ func (o *DomainOrder) Total() float64 {
     return total
 }
 
-// DTO - No logic, just data (AVEC dto:"..." tags)
+// DTO - No logic, just data (WITH dto:"..." tags)
 type OrderDTO struct {
     ID     string         `dto:"out,api,pub" json:"id"`
     Status string         `dto:"out,api,pub" json:"status"`
@@ -236,67 +236,67 @@ type OrderDTO struct {
 }
 ```
 
-## Guide de Decision
+## Decision Guide
 
 ```text
 DIRECTION:
-  - Entree utilisateur → in
-  - Sortie vers client → out
-  - Update/Patch → inout
+  - User input -> in
+  - Output to client -> out
+  - Update/Patch -> inout
 
 CONTEXT:
-  - API REST/GraphQL → api
-  - Commande CQRS → cmd
-  - Query CQRS → query
-  - Event sourcing → event
-  - Message queue → msg
-  - Interne → priv
+  - REST/GraphQL API -> api
+  - CQRS Command -> cmd
+  - CQRS Query -> query
+  - Event sourcing -> event
+  - Message queue -> msg
+  - Internal -> priv
 
 SECURITY:
-  - Nom produit, status → pub
-  - IDs, timestamps → priv
-  - Email, nom, adresse → pii
-  - Password, token, cle → secret
+  - Product name, status -> pub
+  - IDs, timestamps -> priv
+  - Email, name, address -> pii
+  - Password, token, key -> secret
 ```
 
-## Comparaison avec alternatives
+## Comparison with Alternatives
 
 | Aspect | DTO | Domain Object | Map/Record |
 |--------|-----|---------------|------------|
-| Type safety | Forte | Forte | Faible |
-| Serialisation | Facile | Complexe | Native |
-| Validation | Explicite | Invariants | Manuelle |
-| Logique | Aucune | Riche | Aucune |
-| Versioning | Facile | Difficile | Facile |
-| Groupement | Oui (dto:) | Non | N/A |
+| Type safety | Strong | Strong | Weak |
+| Serialization | Easy | Complex | Native |
+| Validation | Explicit | Invariants | Manual |
+| Logic | None | Rich | None |
+| Versioning | Easy | Difficult | Easy |
+| Grouping | Yes (dto:) | No | N/A |
 
-## Quand utiliser
+## When to Use
 
-**Utiliser DTO quand :**
+**Use DTO when:**
 
-- API REST/GraphQL (input/output)
-- Communication entre services
-- Separation domaine/presentation
-- Versioning d'API
-- Serialisation specifique
-- Groupement de structs liees
+- REST/GraphQL API (input/output)
+- Communication between services
+- Domain/presentation separation
+- API versioning
+- Specific serialization
+- Grouping related structs
 
-**Eviter DTO quand :**
+**Avoid DTO when:**
 
-- Duplication excessive (1:1 avec domain)
-- Applications simples/CRUD
-- Performance critique (overhead mapping)
+- Excessive duplication (1:1 with domain)
+- Simple/CRUD applications
+- Critical performance (mapping overhead)
 
-## Patterns lies
+## Related Patterns
 
-- [Remote Facade](./remote-facade.md) - Utilise DTO pour transfert coarse-grained
-- [Service Layer](./service-layer.md) - Convertit domaine en DTO
-- [Domain Model](./domain-model.md) - Modele source des DTOs
-- [Data Mapper](./data-mapper.md) - Similaire mais pour persistance
-- [CQRS](../architectural/cqrs.md) - DTOs separes pour Command/Query
+- [Remote Facade](./remote-facade.md) - Uses DTO for coarse-grained transfer
+- [Service Layer](./service-layer.md) - Converts domain to DTO
+- [Domain Model](./domain-model.md) - Source model for DTOs
+- [Data Mapper](./data-mapper.md) - Similar but for persistence
+- [CQRS](../architectural/cqrs.md) - Separate DTOs for Command/Query
 
 ## Sources
 
 - Martin Fowler, PoEAA, Chapter 15
 - [Data Transfer Object - martinfowler.com](https://martinfowler.com/eaaCatalog/dataTransferObject.html)
-- [conventions/dto-tags.md](../conventions/dto-tags.md) - Convention interne
+- [conventions/dto-tags.md](../conventions/dto-tags.md) - Internal convention

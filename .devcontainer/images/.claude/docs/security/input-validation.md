@@ -1,8 +1,8 @@
 # Input Validation & Sanitization
 
-> Valider et nettoyer toutes les entrees utilisateur pour prevenir les injections.
+> Validate and sanitize all user input to prevent injections.
 
-## Principe
+## Principle
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -422,39 +422,39 @@ func SetupRoutes(mux *http.ServeMux, validator *validation.Validator) {
 }
 ```
 
-## Librairies recommandees
+## Recommended Libraries
 
 | Package | Usage |
 |---------|-------|
-| `github.com/go-playground/validator/v10` | Struct validation avec tags |
+| `github.com/go-playground/validator/v10` | Struct validation with tags |
 | `github.com/microcosm-cc/bluemonday` | HTML sanitization |
 | `github.com/asaskevich/govalidator` | String validation utilities |
 
-## Erreurs communes
+## Common Mistakes
 
-| Erreur | Impact | Solution |
-|--------|--------|----------|
-| Validation cote client seulement | Bypass facile | Toujours valider serveur |
-| Blacklist au lieu de whitelist | Bypass possible | Whitelist stricte |
-| Sanitize sans valider | Donnees corrompues | Valider puis sanitizer |
-| Echapper trop tard | Injection avant escape | Echapper a la sortie |
-| Trust Content-Type | Body parsing attack | Verifier et valider |
+| Mistake | Impact | Solution |
+|---------|--------|----------|
+| Client-side validation only | Easy bypass | Always validate server-side |
+| Blacklist instead of whitelist | Possible bypass | Strict whitelist |
+| Sanitize without validating | Corrupted data | Validate then sanitize |
+| Escape too late | Injection before escape | Escape at output |
+| Trust Content-Type | Body parsing attack | Verify and validate |
 
-## Quand utiliser
+## When to Use
 
-| Technique | Quand |
-|-----------|-------|
-| Schema validation | Toute entree structuree |
-| HTML sanitization | Contenu HTML utilisateur |
-| SQL parameterization | TOUJOURS pour SQL |
+| Technique | When |
+|-----------|------|
+| Schema validation | All structured input |
+| HTML sanitization | User HTML content |
+| SQL parameterization | ALWAYS for SQL |
 | Path sanitization | Upload, file access |
-| URL validation | Liens utilisateur |
+| URL validation | User links |
 
-## Patterns lies
+## Related Patterns
 
-- **CSRF Protection** : Valider origine des requetes
-- **Rate Limiting** : Limiter abuse
-- **Content Security Policy** : Defense XSS supplementaire
+- **CSRF Protection**: Validate request origin
+- **Rate Limiting**: Limit abuse
+- **Content Security Policy**: Additional XSS defense
 
 ## Sources
 

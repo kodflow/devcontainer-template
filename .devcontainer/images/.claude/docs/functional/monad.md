@@ -1,6 +1,6 @@
 # Monad Pattern
 
-> Design pattern permettant de structurer des programmes génériquement tout en enchaînant des opérations avec contexte (optionalité, erreurs, async).
+> Design pattern for structuring programs generically while chaining operations with context (optionality, errors, async).
 
 ## Definition
 
@@ -289,14 +289,14 @@ func registerUser(email string, age int) Either[ValidationError, User] {
 			emailResult.(Left[ValidationError, Email]).error,
 		)
 	}
-	
+
 	ageResult := validateAge(age)
 	if ageResult.IsLeft() {
 		return NewLeft[ValidationError, User](
 			ageResult.(Left[ValidationError, int]).error,
 		)
 	}
-	
+
 	// Create user with validated data
 	return NewRight[ValidationError, User](User{})
 }
@@ -322,7 +322,7 @@ func ioExample() {
 		FlatMap(func(upper string) IO[struct{}] {
 			return writeFile("output.txt", upper)
 		})
-	
+
 	// Nothing happens until we run
 	program.Run()
 }
@@ -384,7 +384,7 @@ func fetchUser(id string) TaskEither[error, User] {
 func taskExample() {
 	ctx := context.Background()
 	result := fetchUser("123").run(ctx)
-	
+
 	if result.IsRight() {
 		user := result.(Right[error, User]).value
 		fmt.Println(user)
@@ -461,7 +461,7 @@ func effectExample() {
 			}
 			return Succeed[any, error, int](n)
 		})
-	
+
 	ctx := context.Background()
 	result, err := program.run(ctx, nil)
 	if err != nil {
@@ -516,7 +516,7 @@ func getUserName(id string) Effect[Dependencies, error, string] {
    		})
    	})
    })
-   
+
    // GOOD - Use sequential composition
    bMaybe := a
    cMaybe := bMaybe.FlatMap(funcB)
@@ -531,7 +531,7 @@ func getUserName(id string) Effect[Dependencies, error, string] {
    if value != nil {
    	// ...
    }
-   
+
    // GOOD - Stay in monad
    maybe.Map(func(value V) V {
    	// Work with value safely
@@ -545,7 +545,7 @@ func getUserName(id string) Effect[Dependencies, error, string] {
    // BAD
    result := either.FlatMap(/* ... */)
    // Never checks if Left
-   
+
    // GOOD
    if result.IsRight() {
    	handleSuccess(result.(Right[E, A]).value)
@@ -554,15 +554,15 @@ func getUserName(id string) Effect[Dependencies, error, string] {
    }
    ```
 
-## Quand utiliser
+## When to Use
 
-- Opérations séquentielles pouvant échouer
-- Gestion sécurisée de null/undefined
-- Gestion explicite des effets de bord
-- Composition d'opérations asynchrones
-- Injection de dépendances (Reader)
+- Sequential operations that can fail
+- Safe null/undefined handling
+- Explicit side effect management
+- Async operation composition
+- Dependency injection (Reader)
 
-## Patterns liés
+## Related Patterns
 
 - [Either](./either.md) - Error handling monad
 - [Option](./option.md) - Optional value monad

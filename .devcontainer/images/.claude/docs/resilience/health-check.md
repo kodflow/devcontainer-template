@@ -1,10 +1,10 @@
 # Health Check Pattern
 
-> Verifier l'etat de sante d'un service pour permettre la detection et la recuperation automatique.
+> Verify a service's health to enable automatic detection and recovery.
 
 ---
 
-## Principe
+## Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -26,19 +26,19 @@
 
 ---
 
-## Types de probes
+## Types of Probes
 
-| Type | Question | Action si echec | Usage |
-|------|----------|-----------------|-------|
-| **Liveness** | Le processus fonctionne? | Restart container | Deadlocks, crashes |
-| **Readiness** | Peut recevoir du trafic? | Retirer du load balancer | Warmup, dependencies |
-| **Startup** | A demarre correctement? | Attendre ou restart | Slow startup |
+| Type | Question | Action on Failure | Usage |
+|------|----------|-------------------|-------|
+| **Liveness** | Is the process running? | Restart container | Deadlocks, crashes |
+| **Readiness** | Can it receive traffic? | Remove from load balancer | Warmup, dependencies |
+| **Startup** | Has it started correctly? | Wait or restart | Slow startup |
 
 ---
 
-## Implementation Go
+## Go Implementation
 
-### Interface Health Check
+### Health Check Interface
 
 ```go
 package healthcheck
@@ -190,7 +190,7 @@ func (m *Manager) Stop() {
 
 ---
 
-### Health Checks specifiques
+### Specific Health Checks
 
 ```go
 package healthcheck
@@ -421,7 +421,7 @@ func (m *MemoryHealthCheck) Check(ctx context.Context) ComponentHealth {
 
 ---
 
-### Endpoints HTTP
+### HTTP Endpoints
 
 ```go
 package healthcheck
@@ -506,7 +506,7 @@ spec:
       ports:
         - containerPort: 3000
 
-      # Liveness: restart si echec
+      # Liveness: restart on failure
       livenessProbe:
         httpGet:
           path: /health/live
@@ -516,7 +516,7 @@ spec:
         timeoutSeconds: 5
         failureThreshold: 3
 
-      # Readiness: retirer du service si echec
+      # Readiness: remove from service on failure
       readinessProbe:
         httpGet:
           path: /health/ready
@@ -526,7 +526,7 @@ spec:
         timeoutSeconds: 3
         failureThreshold: 3
 
-      # Startup: pour les slow starts
+      # Startup: for slow starts
       startupProbe:
         httpGet:
           path: /health/startup
@@ -539,7 +539,7 @@ spec:
 
 ---
 
-## Configuration recommandee
+## Recommended Configuration
 
 | Probe | initialDelay | period | timeout | failureThreshold |
 |-------|--------------|--------|---------|------------------|
@@ -549,36 +549,36 @@ spec:
 
 ---
 
-## Quand utiliser
+## When to Use
 
-- Orchestration Kubernetes
+- Kubernetes orchestration
 - Load balancers (AWS ALB, nginx)
 - Service mesh (Istio, Linkerd)
-- Monitoring et alerting
+- Monitoring and alerting
 - Auto-scaling decisions
 
 ---
 
-## Bonnes pratiques
+## Best Practices
 
-| Pratique | Raison |
+| Practice | Reason |
 |----------|--------|
-| Liveness = simple | Eviter les false positives |
-| Readiness = dependencies | Verifier vraie disponibilite |
-| Startup pour slow init | Eviter kill premature |
-| Cache les checks | Performance |
-| Timeout < period | Eviter accumulation |
+| Liveness = simple | Avoid false positives |
+| Readiness = dependencies | Verify true availability |
+| Startup for slow init | Avoid premature kill |
+| Cache the checks | Performance |
+| Timeout < period | Avoid accumulation |
 
 ---
 
-## Lie a
+## Related Patterns
 
 | Pattern | Relation |
 |---------|----------|
-| [Circuit Breaker](circuit-breaker.md) | Health influence le circuit |
-| [Retry](retry.md) | Health checks retryables |
-| Watchdog | Complementaire |
-| Self-healing | Base de la recuperation |
+| [Circuit Breaker](circuit-breaker.md) | Health influences the circuit |
+| [Retry](retry.md) | Retryable health checks |
+| Watchdog | Complementary |
+| Self-healing | Recovery foundation |
 
 ---
 
