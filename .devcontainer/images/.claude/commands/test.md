@@ -30,21 +30,21 @@ Fallback to Grep ONLY for exact string matches or regex patterns.
 
 ## Overview
 
-Tests E2E et debugging frontend avec patterns **RLM** :
+E2E tests and frontend debugging with **RLM** patterns:
 
-- **Peek** - Analyser la page avant interaction
-- **Decompose** - Diviser le test en étapes
-- **Parallelize** - Assertions et captures simultanées
-- **Synthesize** - Rapport de test consolidé
+- **Peek** - Analyze the page before interaction
+- **Decompose** - Split the test into steps
+- **Parallelize** - Simultaneous assertions and captures
+- **Synthesize** - Consolidated test report
 
-**Capacités Playwright MCP :**
+**Playwright MCP Capabilities:**
 
-- **Navigation** - Ouvrir URLs, naviguer, screenshots
+- **Navigation** - Open URLs, navigate, screenshots
 - **Interaction** - Click, type, select, hover, drag
-- **Assertions** - Vérifier texte, éléments, états
-- **Tracing** - Enregistrer les sessions pour debug
-- **PDF** - Générer des PDFs de pages
-- **Codegen** - Générer du code de test
+- **Assertions** - Verify text, elements, states
+- **Tracing** - Record sessions for debugging
+- **PDF** - Generate PDFs from pages
+- **Codegen** - Generate test code
 
 ---
 
@@ -52,14 +52,14 @@ Tests E2E et debugging frontend avec patterns **RLM** :
 
 | Pattern | Action |
 |---------|--------|
-| `<url>` | Ouvre l'URL et explore la page |
-| `--run` | Exécute les tests Playwright du projet |
-| `--debug <url>` | Mode debug interactif |
-| `--trace` | Active le tracing pour la session |
-| `--screenshot <url>` | Capture d'écran de la page |
-| `--pdf <url>` | Génère un PDF de la page |
-| `--codegen <url>` | Génère du code de test |
-| `--help` | Affiche l'aide |
+| `<url>` | Open the URL and explore the page |
+| `--run` | Run the project's Playwright tests |
+| `--debug <url>` | Interactive debug mode |
+| `--trace` | Enable tracing for the session |
+| `--screenshot <url>` | Screenshot the page |
+| `--pdf <url>` | Generate a PDF of the page |
+| `--codegen <url>` | Generate test code |
+| `--help` | Show help |
 
 ---
 
@@ -73,28 +73,28 @@ Tests E2E et debugging frontend avec patterns **RLM** :
 Usage: /test <url|action> [options]
 
 Actions:
-  <url>               Ouvre et explore la page
-  --run               Exécute les tests du projet
-  --debug <url>       Mode debug interactif
-  --trace             Active le tracing
-  --screenshot <url>  Capture d'écran
-  --pdf <url>         Génère un PDF
-  --codegen <url>     Génère du code de test
+  <url>               Open and explore the page
+  --run               Run project tests
+  --debug <url>       Interactive debug mode
+  --trace             Enable tracing
+  --screenshot <url>  Screenshot
+  --pdf <url>         Generate a PDF
+  --codegen <url>     Generate test code
 
 RLM Patterns:
-  1. Peek       - Analyser la page (snapshot)
-  2. Decompose  - Diviser en étapes de test
-  3. Parallelize - Assertions simultanées
-  4. Synthesize - Rapport consolidé
+  1. Peek       - Analyze the page (snapshot)
+  2. Decompose  - Split into test steps
+  3. Parallelize - Simultaneous assertions
+  4. Synthesize - Consolidated report
 
 MCP Tools:
-  browser_navigate    Ouvrir une URL
-  browser_click       Cliquer sur un élément
-  browser_type        Saisir du texte
-  browser_snapshot    Capturer l'état
+  browser_navigate    Open a URL
+  browser_click       Click element
+  browser_type        Type text
+  browser_snapshot    Capture state
   browser_expect      Assertions
 
-Exemples:
+Examples:
   /test https://example.com
   /test --screenshot https://myapp.com/login
   /test --run
@@ -105,9 +105,9 @@ Exemples:
 
 ---
 
-## Phase 1.0 : Peek (RLM Pattern)
+## Phase 1.0: Peek (RLM Pattern)
 
-**Analyser la page AVANT interaction :**
+**Analyze the page BEFORE interaction:**
 
 ```yaml
 peek_workflow:
@@ -118,10 +118,10 @@ peek_workflow:
 
   2_snapshot:
     tool: mcp__playwright__browser_snapshot
-    output: "Accessibility tree de la page"
+    output: "Accessibility tree of the page"
 
   3_analyze:
-    action: "Identifier les éléments interactifs"
+    action: "Identify interactive elements"
     extract:
       - forms: "input, select, textarea"
       - buttons: "button, [type=submit]"
@@ -129,7 +129,7 @@ peek_workflow:
       - content: "main content areas"
 ```
 
-**Output Phase 1 :**
+**Phase 1 Output:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -157,9 +157,9 @@ peek_workflow:
 
 ---
 
-## Phase 2.0 : Decompose (RLM Pattern)
+## Phase 2.0: Decompose (RLM Pattern)
 
-**Diviser le test en étapes :**
+**Split the test into steps:**
 
 ```yaml
 decompose_workflow:
@@ -190,9 +190,9 @@ decompose_workflow:
 
 ---
 
-## Phase 3.0 : Parallelize (RLM Pattern)
+## Phase 3.0: Parallelize (RLM Pattern)
 
-**Assertions et captures simultanées :**
+**Simultaneous assertions and captures:**
 
 ```yaml
 parallel_validation:
@@ -218,18 +218,18 @@ parallel_validation:
         fullPage: true
 ```
 
-**IMPORTANT** : Lancer TOUTES les assertions dans UN SEUL message.
+**IMPORTANT**: Launch ALL assertions in a SINGLE message.
 
 ---
 
-## Phase 4.0 : Synthesize (RLM Pattern)
+## Phase 4.0: Synthesize (RLM Pattern)
 
-**Rapport de test consolidé :**
+**Consolidated test report:**
 
 ```yaml
 synthesize_workflow:
   1_collect:
-    action: "Rassembler tous les résultats"
+    action: "Gather all results"
     data:
       - step_results
       - assertions_passed
@@ -237,13 +237,13 @@ synthesize_workflow:
       - timing
 
   2_analyze:
-    action: "Identifier échecs et causes"
+    action: "Identify failures and root causes"
 
   3_generate_report:
     format: "Structured test report"
 ```
 
-**Output Final :**
+**Final Output:**
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -342,54 +342,54 @@ codegen_workflow:
 
 | Tool | Description |
 |------|-------------|
-| `browser_navigate` | Ouvrir une URL |
-| `browser_go_back` | Page précédente |
-| `browser_go_forward` | Page suivante |
-| `browser_reload` | Rafraîchir |
+| `browser_navigate` | Open a URL |
+| `browser_go_back` | Previous page |
+| `browser_go_forward` | Next page |
+| `browser_reload` | Reload |
 
 ### Interaction
 
 | Tool | Description |
 |------|-------------|
-| `browser_click` | Cliquer sur élément |
-| `browser_type` | Saisir du texte |
-| `browser_fill` | Remplir un champ |
-| `browser_select_option` | Sélectionner option |
-| `browser_hover` | Survoler élément |
-| `browser_press_key` | Appuyer touche |
+| `browser_click` | Click element |
+| `browser_type` | Type text |
+| `browser_fill` | Fill a field |
+| `browser_select_option` | Select option |
+| `browser_hover` | Hover element |
+| `browser_press_key` | Press key |
 
 ### Capture
 
 | Tool | Description |
 |------|-------------|
 | `browser_snapshot` | Accessibility tree |
-| `browser_screenshot` | Capture d'écran |
-| `browser_pdf_save` | Générer PDF |
+| `browser_screenshot` | Screenshot |
+| `browser_pdf_save` | Generate PDF |
 
 ### Testing
 
 | Tool | Description |
 |------|-------------|
 | `browser_expect` | Assertions |
-| `browser_generate_locator` | Générer sélecteur |
-| `browser_start_tracing` | Démarrer trace |
-| `browser_stop_tracing` | Arrêter trace |
+| `browser_generate_locator` | Generate selector |
+| `browser_start_tracing` | Start trace |
+| `browser_stop_tracing` | Stop trace |
 
 ---
 
-## GARDE-FOUS (ABSOLUS)
+## Guardrails (ABSOLUTE)
 
-| Action | Status | Raison |
+| Action | Status | Reason |
 |--------|--------|--------|
-| Skip Phase 1 (Peek/Snapshot) | ❌ **INTERDIT** | Analyser page avant interaction |
-| Naviguer vers sites malveillants | ❌ **INTERDIT** | Sécurité |
-| Saisir des credentials réels | ⚠ **WARNING** | Utiliser fixtures |
-| Modifier données en production | ❌ **INTERDIT** | Environnement test only |
+| Skip Phase 1 (Peek/Snapshot) | ❌ **FORBIDDEN** | Analyze page before interaction |
+| Navigate to malicious sites | ❌ **FORBIDDEN** | Security |
+| Enter real credentials | ⚠ **WARNING** | Use fixtures |
+| Modify production data | ❌ **FORBIDDEN** | Test environment only |
 
-### Parallélisation légitime
+### Legitimate parallelization
 
-| Élément | Parallèle? | Raison |
-|---------|------------|--------|
-| Étapes E2E (navigate→fill→click) | ❌ Séquentiel | Ordre d'interaction requis |
-| Assertions finales indépendantes | ✅ Parallèle | Vérifications sans dépendance |
-| Screenshots + validations | ✅ Parallèle | Opérations indépendantes |
+| Element | Parallel? | Reason |
+|---------|-----------|--------|
+| E2E steps (navigate->fill->click) | ❌ Sequential | Interaction order required |
+| Independent final assertions | ✅ Parallel | No dependency between checks |
+| Screenshots + validations | ✅ Parallel | Independent operations |

@@ -2,40 +2,40 @@
 
 ## Description
 
-Amélioration continue automatique. Détecte le contexte et agit.
+Automatic continuous improvement. Detects context and acts.
 
 ```
 /improve
 ```
 
-**Pas d'arguments.** Le skill détecte automatiquement le mode.
+**No arguments.** The skill auto-detects the mode.
 
 ---
 
-## Modes (Auto-détectés)
+## Modes (Auto-detected)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                            /improve                                  │
 ├──────────────────────────────┬──────────────────────────────────────┤
-│  kodflow/devcontainer-template│  Autre projet                       │
+│  kodflow/devcontainer-template│  Other project                      │
 │  ══════════════════════════════│══════════════════════════════════  │
 │                               │                                      │
-│  → Améliorer ~/.claude/docs/    │  → Analyser le code                 │
-│    ├─ MAJ best practices      │    ├─ Détecter anti-patterns        │
-│    ├─ Corriger incohérences   │    ├─ Comparer avec ~/.claude/docs/   │
-│    ├─ Affiner exemples        │    ├─ Trouver bonnes pratiques      │
-│    └─ WebSearch validations   │    └─ Créer issues sur template     │
+│  → Improve ~/.claude/docs/    │  → Analyze the code                  │
+│    ├─ Update best practices   │    ├─ Detect anti-patterns           │
+│    ├─ Fix inconsistencies     │    ├─ Compare with ~/.claude/docs/   │
+│    ├─ Refine examples         │    ├─ Find best practices            │
+│    └─ WebSearch validations   │    └─ Create issues on template      │
 │                               │                                      │
-│  Output: Fichiers modifiés    │  Output: Issues GitHub créées       │
+│  Output: Modified files       │  Output: GitHub issues created       │
 └──────────────────────────────┴──────────────────────────────────────┘
 ```
 
 ---
 
-## Workflow RLM
+## RLM Workflow
 
-### Phase 1 : Détection du contexte
+### Phase 1: Context detection
 
 ```yaml
 detection:
@@ -45,18 +45,18 @@ detection:
     - if: "contains 'kodflow/devcontainer-template'"
       mode: "DOCS_IMPROVEMENT"
       scope: "~/.claude/docs/**/*.md"
-      action: "Améliorer la documentation patterns"
+      action: "Improve pattern documentation"
 
     - else:
       mode: "ANTI_PATTERN_DETECTION"
       scope: "**/*.{md,ts,js,py,go,rs,java,rb,php}"
-      action: "Détecter violations et créer issues"
+      action: "Detect violations and create issues"
       target: "github.com/kodflow/devcontainer-template/issues"
 ```
 
 ---
 
-### Phase 2 : Inventaire (Partition)
+### Phase 2: Inventory (Partition)
 
 ```yaml
 inventory:
@@ -73,9 +73,9 @@ inventory:
 
 ---
 
-### Phase 3 : Agents parallèles (Map)
+### Phase 3: Parallel agents (Map)
 
-**Lance 1 agent par fichier, max 20 en parallèle.**
+**Launches 1 agent per file, max 20 in parallel.**
 
 ```yaml
 parallel_execution:
@@ -84,17 +84,17 @@ parallel_execution:
 
   mode_docs:
     prompt_per_file: |
-      FICHIER: {path}
-      CATÉGORIE: {category}
+      FILE: {path}
+      CATEGORY: {category}
 
-      TÂCHES:
-      1. Lire le contenu actuel
-      2. Identifier améliorations possibles:
-         - Info obsolète
-         - Exemples manquants
-         - Incohérences
+      TASKS:
+      1. Read current content
+      2. Identify possible improvements:
+         - Outdated info
+         - Missing examples
+         - Inconsistencies
       3. WebSearch "{pattern} best practices 2024"
-      4. Proposer corrections
+      4. Propose fixes
 
       OUTPUT JSON:
       {
@@ -110,16 +110,16 @@ parallel_execution:
 
   mode_antipattern:
     prompt_per_file: |
-      FICHIER: {path}
-      RÉFÉRENCE: ~/.claude/docs/
+      FILE: {path}
+      REFERENCE: ~/.claude/docs/
 
-      TÂCHES:
-      1. Lire le code
-      2. Comparer avec patterns documentés
-      3. Détecter:
+      TASKS:
+      1. Read the code
+      2. Compare with documented patterns
+      3. Detect:
          - Violations (anti-patterns)
-         - Patterns manquants
-         - Bonnes pratiques à documenter
+         - Missing patterns
+         - Best practices worth documenting
 
       OUTPUT JSON:
       {
@@ -141,7 +141,7 @@ parallel_execution:
 
 ---
 
-### Phase 4 : Validation (WebSearch)
+### Phase 4: Validation (WebSearch)
 
 ```yaml
 validation:
@@ -161,19 +161,19 @@ validation:
 
 ---
 
-### Phase 5 : Application
+### Phase 5: Application
 
 ```yaml
 application:
   mode_docs:
     action: |
-      POUR chaque improvement VALIDATED:
+      FOR each VALIDATED improvement:
         Edit(file, old, new)
-      Afficher résumé modifications
+      Display modification summary
 
   mode_antipattern:
     action: |
-      POUR chaque violation HIGH/MEDIUM:
+      FOR each HIGH/MEDIUM violation:
         mcp__github__create_issue(
           owner: "kodflow",
           repo: "devcontainer-template",
@@ -182,18 +182,18 @@ application:
           labels: ["documentation", "improvement", "auto-generated"]
         )
 
-      POUR chaque positive worth_documenting:
+      FOR each positive worth_documenting:
         mcp__github__create_issue(
           title: "new-pattern: {description}",
           labels: ["new-pattern", "auto-generated"]
         )
 
-      Afficher liste issues créées
+      Display list of created issues
 ```
 
 ---
 
-### Phase 6 : Rapport
+### Phase 6: Report
 
 ```yaml
 report:
@@ -238,10 +238,10 @@ report:
 
 ---
 
-## Catégories patterns (~/.claude/docs/)
+## Pattern categories (~/.claude/docs/)
 
-| Catégorie | Scope |
-|-----------|-------|
+| Category | Scope |
+|----------|-------|
 | principles | SOLID, DRY, KISS, YAGNI |
 | creational | Factory, Builder, Singleton |
 | structural | Adapter, Decorator, Proxy |
@@ -261,24 +261,24 @@ report:
 
 ---
 
-## Détection violations
+## Violation detection
 
 | Type | Description |
 |------|-------------|
-| SOLID_VIOLATION | God class, mauvais couplage |
-| DRY_VIOLATION | Code dupliqué |
-| MISSING_PATTERN | Pattern absent mais nécessaire |
-| SECURITY | Failles, secrets hardcodés |
-| PERFORMANCE | N+1, cache manquant |
-| ERROR_HANDLING | Silent catch, retry manquant |
+| SOLID_VIOLATION | God class, poor coupling |
+| DRY_VIOLATION | Duplicated code |
+| MISSING_PATTERN | Missing but needed pattern |
+| SECURITY | Vulnerabilities, hardcoded secrets |
+| PERFORMANCE | N+1, missing cache |
+| ERROR_HANDLING | Silent catch, missing retry |
 
 ---
 
-## GARDE-FOUS
+## Guardrails (ABSOLUTE)
 
 | Action | Status |
 |--------|--------|
-| Modifier sans WebSearch validation | ❌ INTERDIT |
-| Créer issue sans code excerpt | ❌ INTERDIT |
-| Agents séquentiels (si parallélisable) | ❌ INTERDIT |
-| Issues sur repo autre que template | ❌ INTERDIT |
+| Modify without WebSearch validation | FORBIDDEN |
+| Create issue without code excerpt | FORBIDDEN |
+| Sequential agents (when parallelizable) | FORBIDDEN |
+| Issues on repo other than template | FORBIDDEN |
