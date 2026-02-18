@@ -325,6 +325,39 @@ How to rollback if issues
 
 ---
 
+## Phase 5.5: Complexity Check
+
+**Triggered automatically after Synthesize. NOT a blocker — just a question.**
+
+```yaml
+complexity_check:
+  trigger: "files_to_modify + files_to_create > 15"
+
+  action:
+    tool: AskUserQuestion
+    questions:
+      - question: "This plan touches {n} files. Beyond ~15 files in a single session, quality may degrade. How do you want to proceed?"
+        header: "Scope"
+        options:
+          - label: "Execute as-is"
+            description: "Proceed with the full plan in one session"
+          - label: "Split into phases"
+            description: "Claude will propose logical segments to execute separately"
+
+  on_execute_as_is:
+    action: "Continue to Phase 6.0 normally"
+
+  on_split:
+    action: |
+      Rewrite the plan into numbered phases (Phase A, B, C...)
+      Each phase: <= 15 files, independently testable
+      User approves each phase via /do
+```
+
+**If <= 15 files:** Skip this phase silently, proceed to Phase 6.0.
+
+---
+
 ## Phase 6.0: Validation Request
 
 **MANDATORY: Wait for user approval**

@@ -43,6 +43,32 @@ DONE:  All public routes throttled at 100 req/min per IP, existing tests pass, n
 
 ---
 
+## Interview Mode (Complex Features)
+
+When requirements are unclear or the feature is large, skip the template and ask Claude to challenge your thinking:
+
+```
+/plan "
+INTERVIEW: <brief description of what you want to build>
+"
+```
+
+Claude will:
+1. Ask targeted questions about implementation, edge cases, and tradeoffs
+2. Challenge assumptions you might not have considered
+3. Generate a spec from your answers before planning
+
+**When to use Interview vs Template:**
+
+| Situation | Use |
+|-----------|-----|
+| Clear scope, known files | Template (WHAT/WHY/WHERE/HOW/DONE) |
+| Fuzzy requirements, many unknowns | Interview mode |
+| Large feature (10+ files) | Interview mode |
+| Bug fix with known location | Template |
+
+---
+
 ## Dimension Guide
 
 | Dimension | Question it answers | Feeds /plan phase |
