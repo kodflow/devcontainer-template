@@ -68,6 +68,9 @@ for category in "$FEATURES_DIR"/*; do
     for feature in "$category"/*; do
         [ ! -d "$feature" ] && continue
 
+        # Skip utility directories (not actual features)
+        [ "$(basename "$feature")" = "shared" ] && continue
+
         feature_name="$(basename "$category")/$(basename "$feature")"
 
         # Check devcontainer-feature.json
