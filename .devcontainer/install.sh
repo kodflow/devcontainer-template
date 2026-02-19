@@ -448,7 +448,10 @@ download_tools() {
 
         local grepai_latest
         grepai_latest=$(curl -fsSL "https://api.github.com/repos/yoanbernabeu/grepai/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
-        grepai_latest="${grepai_latest:-v0.30.0}"
+        if [[ -z "$grepai_latest" ]]; then
+            echo "  ⚠ Failed to resolve latest grepai version (optional, skipping)"
+            return 0
+        fi
         local grepai_url="https://github.com/yoanbernabeu/grepai/releases/download/${grepai_latest}/grepai_${grepai_latest#v}_${OS}_${ARCH}.tar.gz"
         local grepai_tmp grepai_extract
         grepai_tmp=$(mktemp)

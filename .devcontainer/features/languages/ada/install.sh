@@ -8,11 +8,15 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
     ok() { echo -e "${GREEN}✓${NC} $*"; }
     warn() { echo -e "${YELLOW}⚠${NC} $*"; }
     get_github_latest_version() {
-        local repo="$1" fallback="$2" version
+        local repo="$1" version
         version=$(curl -s --connect-timeout 5 --max-time 10 \
             "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
             | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
-        echo "${version:-$fallback}"
+        if [[ -z "$version" ]]; then
+            echo -e "${RED}✗ Failed to resolve latest version for ${repo}${NC}" >&2
+            exit 1
+        fi
+        echo "$version"
     }
 }
 
@@ -51,7 +55,10 @@ echo -e "${YELLOW}Installing Alire (package manager)...${NC}"
 ALR_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
     "https://api.github.com/repos/alire-project/alire/releases/latest" \
     | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
-ALR_VERSION="${ALR_VERSION:-2.1.0}"
+if [ -z "$ALR_VERSION" ]; then
+    echo -e "${RED}✗ Failed to resolve latest Alire version${NC}"
+    exit 1
+fi
 
 ALR_URL="https://github.com/alire-project/alire/releases/download/v${ALR_VERSION}/alr-${ALR_VERSION}-bin-${ALR_ARCH}-linux.zip"
 if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/alr.zip "$ALR_URL"; then

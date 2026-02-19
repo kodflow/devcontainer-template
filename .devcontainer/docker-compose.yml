@@ -50,6 +50,7 @@ services:
     # Capabilities for VPN clients (OpenVPN, WireGuard, IPsec, PPTP)
     cap_add:
       - NET_ADMIN
+      - IPC_LOCK
     devices:
       - /dev/net/tun:/dev/net/tun
 

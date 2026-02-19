@@ -107,6 +107,56 @@ clean:
 	rm -rf __pycache__ .pytest_cache .mypy_cache dist *.egg-info
 {{/IF_PYTHON}}
 
+{{#IF_INFRA}}
+# Infrastructure targets (Terraform / Terragrunt / Ansible)
+TG := terragrunt
+
+.PHONY: plan
+plan:
+	$(TG) run-all plan
+
+.PHONY: apply
+apply:
+	$(TG) run-all apply
+
+.PHONY: test
+test:
+	go test -v -timeout 30m ./tests/...
+	molecule test
+
+.PHONY: lint
+lint:
+	terraform fmt -check -recursive
+	terraform validate
+	tflint --recursive
+	ansible-lint
+
+.PHONY: fmt
+fmt:
+	terraform fmt -recursive
+
+.PHONY: cost
+cost:
+	infracost breakdown --path .
+
+.PHONY: drift
+drift:
+	$(TG) run-all plan -detailed-exitcode
+
+.PHONY: configure
+configure:
+	ansible-playbook site.yml
+
+.PHONY: bootstrap
+bootstrap:
+	ansible-playbook bootstrap.yml
+
+.PHONY: clean
+clean:
+	find . -name ".terraform" -type d -exec rm -rf {} + 2>/dev/null || true
+	rm -f tfplan *.tfstate.backup
+{{/IF_INFRA}}
+
 # Common targets
 .PHONY: help
 help:

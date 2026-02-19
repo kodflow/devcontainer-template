@@ -9,11 +9,15 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
     warn() { echo -e "${YELLOW}⚠${NC} $*"; }
     err() { echo -e "${RED}✗${NC} $*" >&2; }
     get_github_latest_version() {
-        local repo="$1" fallback="$2" version
+        local repo="$1" version
         version=$(curl -s --connect-timeout 5 --max-time 10 \
             "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
             | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
-        echo "${version:-$fallback}"
+        if [[ -z "$version" ]]; then
+            echo -e "${RED}✗ Failed to resolve latest version for ${repo}${NC}" >&2
+            exit 1
+        fi
+        echo "$version"
     }
 }
 
@@ -147,10 +151,10 @@ install_go_tool() {
 }
 
 # Fetch latest versions (sequential, fast API calls with fallbacks)
-GOLANGCI_VERSION=$(get_github_latest_version "golangci/golangci-lint" "2.8.0")
-GOSEC_VERSION=$(get_github_latest_version "securego/gosec" "2.22.11")
-GOFUMPT_VERSION=$(get_github_latest_version "mvdan/gofumpt" "0.9.2")
-GOTESTSUM_VERSION=$(get_github_latest_version "gotestyourself/gotestsum" "1.13.0")
+GOLANGCI_VERSION=$(get_github_latest_version "golangci/golangci-lint")
+GOSEC_VERSION=$(get_github_latest_version "securego/gosec")
+GOFUMPT_VERSION=$(get_github_latest_version "mvdan/gofumpt")
+GOTESTSUM_VERSION=$(get_github_latest_version "gotestyourself/gotestsum")
 
 # gofumpt uses 'v' prefix in URLs
 [[ "$GOFUMPT_VERSION" != v* ]] && GOFUMPT_VERSION="v${GOFUMPT_VERSION}"
@@ -213,7 +217,7 @@ WAILS_PID=$!
 # TinyGo (WebAssembly Compiler)
 (
     echo -e "${YELLOW}Installing TinyGo (WASM/embedded compiler)...${NC}"
-    TINYGO_VERSION=$(get_github_latest_version "tinygo-org/tinygo" "0.34.0")
+    TINYGO_VERSION=$(get_github_latest_version "tinygo-org/tinygo")
     case "$GO_ARCH" in
         amd64) TINYGO_PKG="tinygo_${TINYGO_VERSION}_amd64.deb" ;;
         arm64) TINYGO_PKG="tinygo_${TINYGO_VERSION}_arm64.deb" ;;

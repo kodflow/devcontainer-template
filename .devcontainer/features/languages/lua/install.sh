@@ -42,7 +42,10 @@ echo -e "${YELLOW}Installing StyLua (formatter)...${NC}"
 STYLUA_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
     "https://api.github.com/repos/JohnnyMorganz/StyLua/releases/latest" \
     | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
-STYLUA_VERSION="${STYLUA_VERSION:-2.0.2}"
+if [ -z "$STYLUA_VERSION" ]; then
+    echo -e "${RED}✗ Failed to resolve latest StyLua version${NC}"
+    exit 1
+fi
 
 STYLUA_URL="https://github.com/JohnnyMorganz/StyLua/releases/download/v${STYLUA_VERSION}/stylua-v${STYLUA_VERSION}-linux-${GH_ARCH}.zip"
 if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/stylua.zip "$STYLUA_URL"; then

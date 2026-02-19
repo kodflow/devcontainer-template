@@ -103,8 +103,10 @@ GREPAI_EXT=""
 
 # Fetch latest version and download correct tar.gz asset
 GREPAI_LATEST=$(curl -fsSL "https://api.github.com/repos/yoanbernabeu/grepai/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
-GREPAI_LATEST="${GREPAI_LATEST:-v0.30.0}"
-GREPAI_URL="https://github.com/yoanbernabeu/grepai/releases/download/${GREPAI_LATEST}/grepai_${GREPAI_LATEST#v}_${GREPAI_OS}_${GREPAI_ARCH}.tar.gz"
+GREPAI_URL=""
+if [ -n "$GREPAI_LATEST" ]; then
+    GREPAI_URL="https://github.com/yoanbernabeu/grepai/releases/download/${GREPAI_LATEST}/grepai_${GREPAI_LATEST#v}_${GREPAI_OS}_${GREPAI_ARCH}.tar.gz"
+fi
 grepai_tmp="$(mktemp)"
 grepai_extract="$(mktemp -d)"
 if curl -fsL --retry 3 --retry-delay 1 --proto '=https' --tlsv1.2 "$GREPAI_URL" -o "$grepai_tmp" 2>/dev/null && \

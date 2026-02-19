@@ -35,11 +35,11 @@
     // "./features/languages/assembly": {},
     // ========== KUBERNETES ==========
     // Local Kubernetes development with kind (requires docker-outside-of-docker)
-    "./features/kubernetes": {
-      "kindVersion": "0.31.0",
-      "kubectlVersion": "1.35.0",
-      "helmVersion": "4.0.4"
-    },
+    "./features/kubernetes": {},
+    // ========== INFRASTRUCTURE ==========
+    // Infra tools: terragrunt, tflint, infracost, cfssl, ansible-lint, molecule
+    // Recommended companions: python (for ansible-lint/molecule), go (for Terratest)
+    // "./features/infrastructure": {},
     // ========== NETWORKING ==========
     // VPN clients (OpenVPN, WireGuard, IPsec, PPTP) are built into the base image
     // Configure credentials in .env with op:// references (see .env.example)
