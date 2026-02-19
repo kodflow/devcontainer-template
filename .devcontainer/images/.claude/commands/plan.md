@@ -264,6 +264,23 @@ pattern_consultation:
 
 ```yaml
 synthesize_workflow:
+  plan_audience:
+    rule: "Plan must be executable by a skilled developer with ZERO domain knowledge"
+    implications:
+      - "Chemins de fichiers EXACTS (pas 'the auth module')"
+      - "Code samples COMPLETS (pas 'implement the logic')"
+      - "Commandes CLI EXACTES avec outputs attendus"
+
+  step_granularity:
+    rule: "Each step = 1 TDD cycle (2-5 min)"
+    format: |
+      ### Step N: <Titre>
+      **Files:** `src/file.ts` (create), `tests/file.test.ts` (create)
+      **Test first:** Write failing test for {behavior}
+      **Implement:** Minimal code to pass
+      **Verify:** Run tests, confirm green
+      **Commit:** `feat(scope): description`
+
   1_collect:
     action: "Collect agent results"
 
