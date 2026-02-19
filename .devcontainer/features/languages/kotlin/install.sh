@@ -63,7 +63,10 @@ mkdir -p /home/vscode/.local/bin
 KTLINT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
     "https://api.github.com/repos/pinterest/ktlint/releases/latest" 2>/dev/null \
     | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
-KTLINT_VERSION="${KTLINT_VERSION:-1.5.0}"
+if [ -z "$KTLINT_VERSION" ]; then
+    echo -e "${RED}✗ Failed to resolve latest ktlint version${NC}"
+    exit 1
+fi
 
 if curl -fsSL --connect-timeout 10 --max-time 120 \
     "https://github.com/pinterest/ktlint/releases/download/${KTLINT_VERSION}/ktlint" \

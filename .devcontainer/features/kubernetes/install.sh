@@ -116,7 +116,6 @@ validate_port() {
 # Get latest version from GitHub
 get_github_version() {
     local repo=$1
-    local fallback=$2
     local version response
 
     response="$(curl -fsSL --connect-timeout 5 --max-time 10 \
@@ -128,7 +127,13 @@ get_github_version() {
         version="$(echo "$response" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)" || version=""
     fi
 
-    echo "${version:-$fallback}"
+    if [[ -z "$version" ]]; then
+        echo -e "${RED}✗ Failed to resolve latest version for ${repo}${NC}" >&2
+        echo -e "${RED}  GitHub API may be rate-limited. Try setting an explicit version.${NC}" >&2
+        exit 1
+    fi
+
+    echo "$version"
 }
 
 # Verify SHA256 checksum
@@ -181,7 +186,7 @@ verify_sha256() {
 echo -e "${YELLOW}Installing kind...${NC}"
 
 if [[ "$KIND_VERSION" == "latest" ]]; then
-    KIND_VERSION=$(get_github_version "kubernetes-sigs/kind" "v0.31.0")
+    KIND_VERSION=$(get_github_version "kubernetes-sigs/kind")
 fi
 # Ensure version starts with 'v'
 [[ "$KIND_VERSION" != v* ]] && KIND_VERSION="v${KIND_VERSION}"
@@ -209,7 +214,12 @@ echo -e "${YELLOW}Installing kubectl...${NC}"
 
 if [[ "$KUBECTL_VERSION" == "latest" ]]; then
     KUBECTL_VERSION="$(curl -fsSL --connect-timeout 5 --max-time 10 \
-        https://dl.k8s.io/release/stable.txt 2>/dev/null)" || KUBECTL_VERSION="v1.35.0"
+        https://dl.k8s.io/release/stable.txt 2>/dev/null)" || true
+    if [[ -z "$KUBECTL_VERSION" ]]; then
+        echo -e "${RED}✗ Failed to resolve latest kubectl version${NC}"
+        echo -e "${RED}  Try setting an explicit kubectlVersion.${NC}"
+        exit 1
+    fi
 fi
 [[ "$KUBECTL_VERSION" != v* ]] && KUBECTL_VERSION="v${KUBECTL_VERSION}"
 
@@ -236,7 +246,7 @@ if [[ "$ENABLE_HELM" == "true" ]]; then
     echo -e "${YELLOW}Installing Helm...${NC}"
 
     if [[ "$HELM_VERSION" == "latest" ]]; then
-        HELM_VERSION=$(get_github_version "helm/helm" "v4.0.4")
+        HELM_VERSION=$(get_github_version "helm/helm")
     fi
     [[ "$HELM_VERSION" != v* ]] && HELM_VERSION="v${HELM_VERSION}"
 
