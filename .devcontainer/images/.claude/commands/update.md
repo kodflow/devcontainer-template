@@ -484,6 +484,7 @@ download_tarball() {
     local tmp_tar="${tmp_dir}/template.tar.gz"
 
     echo "  Downloading $label tarball..."
+    local http_code
     http_code=$(curl -sL -w "%{http_code}" -o "$tmp_tar" "$tarball_url")
 
     if [ "$http_code" != "200" ]; then
@@ -498,18 +499,15 @@ download_tarball() {
         return 1
     fi
 
-    # Extract (GitHub adds prefix dir: owner-repo-sha/)
-    tar xzf "$tmp_tar" -C "$tmp_dir" 2>/dev/null
-    rm -f "$tmp_tar"
-
-    # Find the extracted directory
-    EXTRACT_DIR=$(find "$tmp_dir" -mindepth 1 -maxdepth 1 -type d | head -1)
-
-    if [ -z "$EXTRACT_DIR" ] || [ ! -d "$EXTRACT_DIR" ]; then
-        echo "  ✗ $label tarball extraction failed"
+    # Extract with --strip-components=1 (GitHub tarballs have owner-repo-sha/ prefix)
+    if ! tar xzf "$tmp_tar" --strip-components=1 -C "$tmp_dir"; then
+        echo "  ✗ $label extraction failed"
         rm -rf "$tmp_dir"
         return 1
     fi
+    rm -f "$tmp_tar"
+
+    EXTRACT_DIR="$tmp_dir"
 
     echo "  ✓ $label tarball downloaded and extracted"
     return 0
@@ -544,11 +542,12 @@ is_protected() {
     local file_path="$1"
     for protected in $PROTECTED_PATHS; do
         case "$file_path" in
-            ${protected}*) return 0 ;;
-            */${protected}) return 0 ;;
+            "$protected"*) return 0 ;;
+            */"$protected") return 0 ;;
         esac
-        local basename=$(basename "$file_path")
-        if [ "$basename" = "$protected" ]; then
+        local bn
+        bn=$(basename "$file_path")
+        if [ "$bn" = "$protected" ]; then
             return 0
         fi
     done
@@ -556,36 +555,50 @@ is_protected() {
 }
 
 # Copy devcontainer components from extracted tarball
+# Safe glob copy: copies matching files or silently skips if no match
+# Usage: safe_glob_copy <pattern> <dest_dir> [+x]
+safe_glob_copy() {
+    local pattern="$1" dest="$2" make_exec="${3:-}"
+    local found=0
+    # Use find to avoid glob expansion failures under set -e
+    local dir=$(dirname "$pattern")
+    local glob=$(basename "$pattern")
+    while IFS= read -r -d '' f; do
+        cp -f "$f" "$dest/"
+        [ "$make_exec" = "+x" ] && chmod +x "$dest/$(basename "$f")"
+        found=1
+    done < <(find "$dir" -maxdepth 1 -name "$glob" -type f -print0 2>/dev/null)
+    return 0
+}
+
 apply_devcontainer_tarball() {
     local src="$EXTRACT_DIR"
 
     # Scripts (hooks)
     if [ -d "$src/.devcontainer/images/.claude/scripts" ]; then
         mkdir -p "$UPDATE_TARGET/scripts"
-        cp -f "$src/.devcontainer/images/.claude/scripts/"*.sh "$UPDATE_TARGET/scripts/" 2>/dev/null
-        chmod +x "$UPDATE_TARGET/scripts/"*.sh 2>/dev/null
+        safe_glob_copy "$src/.devcontainer/images/.claude/scripts/*.sh" "$UPDATE_TARGET/scripts" "+x"
         echo "  ✓ hooks"
     fi
 
     # Commands
     if [ -d "$src/.devcontainer/images/.claude/commands" ]; then
         mkdir -p "$UPDATE_TARGET/commands"
-        cp -f "$src/.devcontainer/images/.claude/commands/"*.md "$UPDATE_TARGET/commands/" 2>/dev/null
+        safe_glob_copy "$src/.devcontainer/images/.claude/commands/*.md" "$UPDATE_TARGET/commands"
         echo "  ✓ commands"
     fi
 
     # Agents
     if [ -d "$src/.devcontainer/images/.claude/agents" ]; then
         mkdir -p "$UPDATE_TARGET/agents"
-        cp -f "$src/.devcontainer/images/.claude/agents/"*.md "$UPDATE_TARGET/agents/" 2>/dev/null
+        safe_glob_copy "$src/.devcontainer/images/.claude/agents/*.md" "$UPDATE_TARGET/agents"
         echo "  ✓ agents"
     fi
 
     # Lifecycle stubs (container only)
     if [ "$CONTEXT" = "container" ] && [ -d "$src/.devcontainer/hooks/lifecycle" ]; then
         mkdir -p ".devcontainer/hooks/lifecycle"
-        cp -f "$src/.devcontainer/hooks/lifecycle/"*.sh ".devcontainer/hooks/lifecycle/" 2>/dev/null
-        chmod +x ".devcontainer/hooks/lifecycle/"*.sh 2>/dev/null
+        safe_glob_copy "$src/.devcontainer/hooks/lifecycle/*.sh" ".devcontainer/hooks/lifecycle" "+x"
         echo "  ✓ lifecycle"
     fi
 
@@ -595,8 +608,7 @@ apply_devcontainer_tarball() {
         [ -f "$src/.devcontainer/images/hooks/shared/utils.sh" ] && \
             cp -f "$src/.devcontainer/images/hooks/shared/utils.sh" ".devcontainer/images/hooks/shared/utils.sh" && \
             chmod +x ".devcontainer/images/hooks/shared/utils.sh"
-        cp -f "$src/.devcontainer/images/hooks/lifecycle/"*.sh ".devcontainer/images/hooks/lifecycle/" 2>/dev/null
-        chmod +x ".devcontainer/images/hooks/lifecycle/"*.sh 2>/dev/null
+        safe_glob_copy "$src/.devcontainer/images/hooks/lifecycle/*.sh" ".devcontainer/images/hooks/lifecycle" "+x"
         echo "  ✓ image-hooks"
     fi
 
@@ -648,14 +660,12 @@ apply_infra_tarball() {
             continue
         fi
 
-        local files
-        files=$(find "$src/$component" -type f 2>/dev/null)
-
-        for src_file in $files; do
+        local comp_count=0
+        while IFS= read -r -d '' src_file; do
             local rel_path="${src_file#$src/}"
 
-            # Skip protected paths (only if local file exists)
-            if is_protected "$rel_path" && [ -f "$rel_path" ]; then
+            # Always skip protected paths (prevents restoring deleted files)
+            if is_protected "$rel_path"; then
                 skipped=$((skipped + 1))
                 continue
             fi
@@ -663,14 +673,14 @@ apply_infra_tarball() {
             mkdir -p "$(dirname "$rel_path")"
             cp -f "$src_file" "$rel_path"
             synced=$((synced + 1))
+            comp_count=$((comp_count + 1))
 
             case "$rel_path" in
                 *.sh) chmod +x "$rel_path" ;;
             esac
-        done
+        done < <(find "$src/$component" -type f -print0 2>/dev/null)
 
-        local count=$(echo "$files" | grep -c . 2>/dev/null || echo "0")
-        echo "    ✓ $component/ ($count files)"
+        echo "    ✓ $component/ ($comp_count files)"
     done
 
     echo "  Synced: $synced files, Protected: $skipped skipped"
@@ -730,7 +740,9 @@ update_compose_from_tarball() {
         return 0
     fi
 
-    local temp_custom=$(mktemp --suffix=.yaml)
+    local temp_services=$(mktemp --suffix=.yaml)
+    local temp_volumes=$(mktemp --suffix=.yaml)
+    local temp_networks=$(mktemp --suffix=.yaml)
     local backup_file="${compose_file}.backup"
 
     # Backup original
@@ -738,18 +750,34 @@ update_compose_from_tarball() {
 
     # Extract custom services (anything that's NOT devcontainer)
     yq '.services | to_entries | map(select(.key != "devcontainer")) | from_entries' \
-        "$compose_file" > "$temp_custom"
+        "$compose_file" > "$temp_services"
+
+    # Extract custom volumes and networks
+    yq '.volumes // {}' "$compose_file" > "$temp_volumes"
+    yq '.networks // {}' "$compose_file" > "$temp_networks"
 
     # Start fresh from template
     cp "$template_compose" "$compose_file"
 
     # Merge back custom services if any exist
-    if [ -s "$temp_custom" ] && [ "$(yq '. | length' "$temp_custom")" != "0" ]; then
-        yq -i ".services *= load(\"$temp_custom\")" "$compose_file"
+    if [ -s "$temp_services" ] && [ "$(yq '. | length' "$temp_services")" != "0" ]; then
+        yq -i ".services *= load(\"$temp_services\")" "$compose_file"
         echo "    - Preserved custom services"
     fi
 
-    rm -f "$temp_custom"
+    # Merge back custom volumes if any exist
+    if [ -s "$temp_volumes" ] && [ "$(yq '. | length' "$temp_volumes")" != "0" ]; then
+        yq -i ".volumes *= load(\"$temp_volumes\")" "$compose_file"
+        echo "    - Preserved custom volumes"
+    fi
+
+    # Merge back custom networks if any exist
+    if [ -s "$temp_networks" ] && [ "$(yq '. | length' "$temp_networks")" != "0" ]; then
+        yq -i ".networks *= load(\"$temp_networks\")" "$compose_file"
+        echo "    - Preserved custom networks"
+    fi
+
+    rm -f "$temp_services" "$temp_volumes" "$temp_networks"
 
     # Verify
     if [ -s "$compose_file" ] && yq '.services.devcontainer' "$compose_file" > /dev/null 2>&1; then
@@ -774,7 +802,7 @@ if [ "$PROFILE" = "infrastructure" ]; then
     apply_infra_tarball
 
     # Update infra version file
-    INFRA_COMMIT=$(cd "$INFRA_EXTRACT_DIR" && basename "$(pwd)" | grep -oE '[a-f0-9]{7,}$')
+    INFRA_COMMIT=$(git ls-remote "https://github.com/$INFRA_REPO.git" "$INFRA_BRANCH" | cut -c1-7)
     DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     echo "{\"commit\": \"$INFRA_COMMIT\", \"updated\": \"$DATE\"}" > .infra-template-version
     echo "  ✓ .infra-template-version updated"
@@ -807,8 +835,8 @@ done
 ### 5.7: Update devcontainer version file
 
 ```bash
-# Extract commit SHA from tarball directory name (owner-repo-SHA)
-DC_COMMIT=$(basename "$DEVCONTAINER_EXTRACT_DIR" | grep -oE '[a-f0-9]{7,}$')
+# Get commit SHA via git ls-remote (strip-components removes dir name)
+DC_COMMIT=$(git ls-remote "https://github.com/$DEVCONTAINER_REPO.git" "$DEVCONTAINER_BRANCH" | cut -c1-7)
 DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 if [ "$CONTEXT" = "container" ]; then
@@ -822,8 +850,8 @@ echo "  ✓ .template-version updated ($DC_COMMIT)"
 ### 5.8: Cleanup temp directories
 
 ```bash
-rm -rf "$(dirname "$DEVCONTAINER_EXTRACT_DIR")"
-[ -n "${INFRA_EXTRACT_DIR:-}" ] && rm -rf "$(dirname "$INFRA_EXTRACT_DIR")"
+# Temp directories are cleaned up automatically by trap EXIT
+# Registered via CLEANUP_DIRS during download phase
 ```
 
 ### 5.9: Consolidated report
@@ -1182,6 +1210,7 @@ download_tarball() {
     local tmp_tar="${tmp_dir}/template.tar.gz"
 
     echo "  Downloading $label tarball..."
+    local http_code
     http_code=$(curl -sL -w "%{http_code}" -o "$tmp_tar" "$tarball_url")
 
     if [ "$http_code" != "200" ]; then
@@ -1196,16 +1225,14 @@ download_tarball() {
         return 1
     fi
 
-    tar xzf "$tmp_tar" -C "$tmp_dir" 2>/dev/null
-    rm -f "$tmp_tar"
-
-    EXTRACT_DIR=$(find "$tmp_dir" -mindepth 1 -maxdepth 1 -type d | head -1)
-
-    if [ -z "$EXTRACT_DIR" ] || [ ! -d "$EXTRACT_DIR" ]; then
+    if ! tar xzf "$tmp_tar" --strip-components=1 -C "$tmp_dir"; then
         echo "  ✗ $label extraction failed"
         rm -rf "$tmp_dir"
         return 1
     fi
+    rm -f "$tmp_tar"
+
+    EXTRACT_DIR="$tmp_dir"
 
     echo "  ✓ $label downloaded and extracted"
     return 0
@@ -1216,15 +1243,28 @@ is_protected() {
     local file_path="$1"
     for protected in $PROTECTED_PATHS; do
         case "$file_path" in
-            ${protected}*) return 0 ;;
-            */${protected}) return 0 ;;
+            "$protected"*) return 0 ;;
+            */"$protected") return 0 ;;
         esac
-        local bn=$(basename "$file_path")
+        local bn
+        bn=$(basename "$file_path")
         if [ "$bn" = "$protected" ]; then
             return 0
         fi
     done
     return 1
+}
+
+# ═══ Safe glob copy (avoids set -e failures on empty globs) ═══
+safe_glob_copy() {
+    local pattern="$1" dest="$2" make_exec="${3:-}"
+    local dir=$(dirname "$pattern")
+    local glob=$(basename "$pattern")
+    while IFS= read -r -d '' f; do
+        cp -f "$f" "$dest/"
+        [ "$make_exec" = "+x" ] && chmod +x "$dest/$(basename "$f")"
+    done < <(find "$dir" -maxdepth 1 -name "$glob" -type f -print0 2>/dev/null)
+    return 0
 }
 
 # ═══ Apply devcontainer components from tarball ═══
@@ -1234,30 +1274,28 @@ apply_devcontainer_tarball() {
     # Scripts (hooks)
     if [ -d "$src/.devcontainer/images/.claude/scripts" ]; then
         mkdir -p "$UPDATE_TARGET/scripts"
-        cp -f "$src/.devcontainer/images/.claude/scripts/"*.sh "$UPDATE_TARGET/scripts/" 2>/dev/null
-        chmod +x "$UPDATE_TARGET/scripts/"*.sh 2>/dev/null
+        safe_glob_copy "$src/.devcontainer/images/.claude/scripts/*.sh" "$UPDATE_TARGET/scripts" "+x"
         echo "  ✓ hooks"
     fi
 
     # Commands
     if [ -d "$src/.devcontainer/images/.claude/commands" ]; then
         mkdir -p "$UPDATE_TARGET/commands"
-        cp -f "$src/.devcontainer/images/.claude/commands/"*.md "$UPDATE_TARGET/commands/" 2>/dev/null
+        safe_glob_copy "$src/.devcontainer/images/.claude/commands/*.md" "$UPDATE_TARGET/commands"
         echo "  ✓ commands"
     fi
 
     # Agents
     if [ -d "$src/.devcontainer/images/.claude/agents" ]; then
         mkdir -p "$UPDATE_TARGET/agents"
-        cp -f "$src/.devcontainer/images/.claude/agents/"*.md "$UPDATE_TARGET/agents/" 2>/dev/null
+        safe_glob_copy "$src/.devcontainer/images/.claude/agents/*.md" "$UPDATE_TARGET/agents"
         echo "  ✓ agents"
     fi
 
     # Lifecycle stubs (container only)
     if [ "$CONTEXT" = "container" ] && [ -d "$src/.devcontainer/hooks/lifecycle" ]; then
         mkdir -p ".devcontainer/hooks/lifecycle"
-        cp -f "$src/.devcontainer/hooks/lifecycle/"*.sh ".devcontainer/hooks/lifecycle/" 2>/dev/null
-        chmod +x ".devcontainer/hooks/lifecycle/"*.sh 2>/dev/null
+        safe_glob_copy "$src/.devcontainer/hooks/lifecycle/*.sh" ".devcontainer/hooks/lifecycle" "+x"
         echo "  ✓ lifecycle"
     fi
 
@@ -1267,8 +1305,7 @@ apply_devcontainer_tarball() {
         [ -f "$src/.devcontainer/images/hooks/shared/utils.sh" ] && \
             cp -f "$src/.devcontainer/images/hooks/shared/utils.sh" ".devcontainer/images/hooks/shared/utils.sh" && \
             chmod +x ".devcontainer/images/hooks/shared/utils.sh"
-        cp -f "$src/.devcontainer/images/hooks/lifecycle/"*.sh ".devcontainer/images/hooks/lifecycle/" 2>/dev/null
-        chmod +x ".devcontainer/images/hooks/lifecycle/"*.sh 2>/dev/null
+        safe_glob_copy "$src/.devcontainer/images/hooks/lifecycle/*.sh" ".devcontainer/images/hooks/lifecycle" "+x"
         echo "  ✓ image-hooks"
     fi
 
@@ -1318,18 +1355,36 @@ update_compose_from_tarball() {
         return 0
     fi
 
-    local temp_custom=$(mktemp --suffix=.yaml)
+    local temp_services=$(mktemp --suffix=.yaml)
+    local temp_volumes=$(mktemp --suffix=.yaml)
+    local temp_networks=$(mktemp --suffix=.yaml)
     local backup_file="${compose_file}.backup"
     cp "$compose_file" "$backup_file"
 
+    # Extract custom services, volumes, and networks
     yq '.services | to_entries | map(select(.key != "devcontainer")) | from_entries' \
-        "$compose_file" > "$temp_custom"
+        "$compose_file" > "$temp_services"
+    yq '.volumes // {}' "$compose_file" > "$temp_volumes"
+    yq '.networks // {}' "$compose_file" > "$temp_networks"
+
     cp "$template_compose" "$compose_file"
 
-    if [ -s "$temp_custom" ] && [ "$(yq '. | length' "$temp_custom")" != "0" ]; then
-        yq -i ".services *= load(\"$temp_custom\")" "$compose_file"
+    # Merge back custom services
+    if [ -s "$temp_services" ] && [ "$(yq '. | length' "$temp_services")" != "0" ]; then
+        yq -i ".services *= load(\"$temp_services\")" "$compose_file"
     fi
-    rm -f "$temp_custom"
+
+    # Merge back custom volumes
+    if [ -s "$temp_volumes" ] && [ "$(yq '. | length' "$temp_volumes")" != "0" ]; then
+        yq -i ".volumes *= load(\"$temp_volumes\")" "$compose_file"
+    fi
+
+    # Merge back custom networks
+    if [ -s "$temp_networks" ] && [ "$(yq '. | length' "$temp_networks")" != "0" ]; then
+        yq -i ".networks *= load(\"$temp_networks\")" "$compose_file"
+    fi
+
+    rm -f "$temp_services" "$temp_volumes" "$temp_networks"
 
     if [ -s "$compose_file" ] && yq '.services.devcontainer' "$compose_file" > /dev/null 2>&1; then
         rm -f "$backup_file"
@@ -1355,13 +1410,12 @@ apply_infra_tarball() {
     for component in $INFRA_COMPONENTS; do
         [ ! -d "$src/$component" ] && continue
 
-        local files
-        files=$(find "$src/$component" -type f 2>/dev/null)
-
-        for src_file in $files; do
+        local comp_count=0
+        while IFS= read -r -d '' src_file; do
             local rel_path="${src_file#$src/}"
 
-            if is_protected "$rel_path" && [ -f "$rel_path" ]; then
+            # Always skip protected paths (prevents restoring deleted files)
+            if is_protected "$rel_path"; then
                 skipped=$((skipped + 1))
                 continue
             fi
@@ -1369,14 +1423,14 @@ apply_infra_tarball() {
             mkdir -p "$(dirname "$rel_path")"
             cp -f "$src_file" "$rel_path"
             synced=$((synced + 1))
+            comp_count=$((comp_count + 1))
 
             case "$rel_path" in
                 *.sh) chmod +x "$rel_path" ;;
             esac
-        done
+        done < <(find "$src/$component" -type f -print0 2>/dev/null)
 
-        local count=$(echo "$files" | grep -c . 2>/dev/null || echo "0")
-        echo "    ✓ $component/ ($count files)"
+        echo "    ✓ $component/ ($comp_count files)"
     done
 
     echo "  Synced: $synced files, Protected: $skipped skipped"
@@ -1465,6 +1519,15 @@ validate_hook_scripts() {
 #   MAIN EXECUTION
 # ═══════════════════════════════════════════════
 
+# Cleanup temp directories on exit (normal or error)
+CLEANUP_DIRS=""
+cleanup() {
+    for d in $CLEANUP_DIRS; do
+        rm -rf "$d" 2>/dev/null
+    done
+}
+trap cleanup EXIT
+
 echo "═══════════════════════════════════════════════"
 echo "  /update - DevContainer Environment Update"
 echo "═══════════════════════════════════════════════"
@@ -1485,11 +1548,13 @@ echo "Phase 3.0: Download (git tarball)"
 DEVCONTAINER_TARBALL="https://api.github.com/repos/$DEVCONTAINER_REPO/tarball/$DEVCONTAINER_BRANCH"
 download_tarball "$DEVCONTAINER_TARBALL" "devcontainer-template"
 DEVCONTAINER_EXTRACT_DIR="$EXTRACT_DIR"
+CLEANUP_DIRS="$DEVCONTAINER_EXTRACT_DIR"
 
 if [ "$PROFILE" = "infrastructure" ]; then
     INFRA_TARBALL="https://api.github.com/repos/$INFRA_REPO/tarball/$INFRA_BRANCH"
     download_tarball "$INFRA_TARBALL" "infrastructure-template"
     INFRA_EXTRACT_DIR="$EXTRACT_DIR"
+    CLEANUP_DIRS="$CLEANUP_DIRS $INFRA_EXTRACT_DIR"
 fi
 echo ""
 
@@ -1530,9 +1595,9 @@ echo "Phase 7.0: Validating hook scripts..."
 validate_hook_scripts
 echo ""
 
-# Version tracking
+# Version tracking (use git ls-remote for commit SHA)
 echo "Updating version files..."
-DC_COMMIT=$(basename "$DEVCONTAINER_EXTRACT_DIR" | grep -oE '[a-f0-9]{7,}$')
+DC_COMMIT=$(git ls-remote "https://github.com/$DEVCONTAINER_REPO.git" "$DEVCONTAINER_BRANCH" | cut -c1-7)
 DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 if [ "$CONTEXT" = "container" ]; then
@@ -1543,7 +1608,7 @@ fi
 echo "  ✓ .template-version ($DC_COMMIT)"
 
 if [ "$PROFILE" = "infrastructure" ] && [ -n "${INFRA_EXTRACT_DIR:-}" ]; then
-    INFRA_COMMIT=$(basename "$INFRA_EXTRACT_DIR" | grep -oE '[a-f0-9]{7,}$')
+    INFRA_COMMIT=$(git ls-remote "https://github.com/$INFRA_REPO.git" "$INFRA_BRANCH" | cut -c1-7)
     echo "{\"commit\": \"$INFRA_COMMIT\", \"updated\": \"$DATE\"}" > .infra-template-version
     echo "  ✓ .infra-template-version ($INFRA_COMMIT)"
 fi
@@ -1551,9 +1616,7 @@ fi
 # Cleanup deprecated files
 [ -f ".coderabbit.yaml" ] && rm -f ".coderabbit.yaml" && echo "  Removed deprecated .coderabbit.yaml"
 
-# Cleanup temp directories
-rm -rf "$(dirname "$DEVCONTAINER_EXTRACT_DIR")"
-[ -n "${INFRA_EXTRACT_DIR:-}" ] && rm -rf "$(dirname "$INFRA_EXTRACT_DIR")"
+# Temp directories cleaned up automatically by trap EXIT
 
 echo ""
 echo "═══════════════════════════════════════════════"
