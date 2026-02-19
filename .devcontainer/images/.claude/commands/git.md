@@ -58,6 +58,7 @@ Git automation with **RLM** patterns:
 |---------|--------|
 | `--commit` | Full workflow: branch, commit, push, PR/MR |
 | `--merge` | Merge the PR/MR with CI validation |
+| `--finish` | Finish branch with 4 structured options |
 | `--help` | Display help |
 
 ### Options --commit
@@ -92,6 +93,7 @@ Usage: /git <action> [options]
 Actions:
   --commit          Full workflow (branch, commit, push, PR/MR)
   --merge           Merge with CI validation and auto-fix
+  --finish          Finish branch (merge/PR/keep/discard)
 
 RLM Patterns:
   0.5. Identity    - Verify/configure git user via .env
@@ -1498,6 +1500,15 @@ merge_workflow:
       gitlab: mcp__gitlab__get_merge_request
     condition: "ALL check_runs.conclusion == 'success'"
 
+  1.5_pre_merge_test:
+    action: "Test merge result BEFORE actual merge"
+    commands:
+      - "git fetch origin main"
+      - "git merge origin/main --no-commit --no-ff"
+      - "{test_command}"
+      - "git merge --abort"  # cleanup
+    on_failure: "ABORT merge, report conflicts/failures"
+
   2_merge:
     tools:
       github: mcp__github__merge_pull_request
@@ -1561,6 +1572,42 @@ merge_workflow:
     ✓ Pulled latest (now at abc1234)
 
 ═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Action: --finish
+
+**Structured branch finishing with 4 options:**
+
+```yaml
+action_finish:
+  trigger: "--finish"
+  workflow:
+    1_run_tests:
+      action: "Run test suite, block if tests fail"
+      command: "{test_command}"
+      on_failure: "ABORT: Fix tests before finishing"
+
+    2_determine_base:
+      command: "git merge-base HEAD origin/main"
+
+    3_present_options:
+      tool: AskUserQuestion
+      options:
+        - label: "Merge locally"
+          description: "Merge into main, push, delete branch"
+        - label: "Push + PR"
+          description: "Push and create PR for review"
+        - label: "Keep as-is"
+          description: "Keep the branch, no merge"
+        - label: "Discard"
+          description: "Delete the branch and its changes"
+
+    4_if_discard:
+      safety: "Typed confirmation: user must type 'discard' explicitly"
+
+    5_cleanup: "Delete worktree/branch according to choice"
 ```
 
 ---

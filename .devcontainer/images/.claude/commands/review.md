@@ -344,6 +344,13 @@ intent_analysis:
       ELSE:
         analysis_depth = "normal"
 
+    split_recommendation:
+      threshold: 400
+      action: |
+        SI lines_added > 400:
+          warning = "Consider splitting: this PR has {n} lines. PRs under 400 lines get better reviews."
+          include_in_output = true
+
   risk_model:
     goal: "Identify critical zones BEFORE heavy analysis"
 
@@ -645,7 +652,9 @@ question_handling:
 
     4_user_validates: "AskUserQuestion before posting"
     5_post:
-      github: "mcp__github__add_issue_comment (if validated)"
+      github_inline:
+        preferred: "gh api repos/{owner}/{repo}/pulls/{pr_number}/comments/{comment_id}/replies -f body='{answer}'"
+        fallback: "mcp__github__add_issue_comment"
       gitlab: "mcp__gitlab__create_merge_request_note (if validated)"
 ```
 
@@ -811,6 +820,9 @@ parallel_analysis:
           line: number
           in_modified_lines: boolean
 
+          # Label (enriches severity)
+          label: "blocking|important|nit|suggestion|learning|praise"  # optional
+
           # Description
           title: string (max 80 chars)
           evidence: string (MANDATORY, max 300 chars, NO SECRETS)
@@ -958,6 +970,7 @@ challenge_feedback:
       - "Pattern already implemented elsewhere?"
       - "Conscious trade-off?"
       - "Generic suggestion vs specific case?"
+      - "If suggestion = 'missing X' → Grep codebase for X. If never called → REJECT (YAGNI)"
 
   classify:
     KEEP:
@@ -1011,6 +1024,15 @@ output_generation:
     - findings_normalized: "Phase 4.7 output"
     - validated_suggestions: "Phase 5 KEEP items"
     - repo_profile: "Phase 0.5 output"
+
+  tone_directive:
+    rule: "Prefer question-based framing for HIGH/MEDIUM findings"
+    examples:
+      bad: "This will crash on null input"
+      good: "What happens when input is null here?"
+      bad: "Missing error handling"
+      good: "How does this behave if the API returns an error?"
+    exceptions: "CRITICAL findings remain declarative (urgency)"
 
   outputs:
     1_terminal_report:
