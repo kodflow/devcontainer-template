@@ -329,6 +329,13 @@ synthesize_workflow:
     → /review
     → /do <task>
 
+  Skill Discipline:
+    Red flags (NEVER rationalize these):
+    - "This is just a simple question" → Questions are tasks
+    - "I remember this skill" → Skills evolve, read current version
+    - "The skill is overkill" → Simple tasks become complex
+    - "I'll do one thing first" → Check skills BEFORE acting
+
 ═══════════════════════════════════════════════════════════════
 ```
 

@@ -96,6 +96,8 @@ Iterative loop using **Recursive Language Model** decomposition:
 
 ## Phase 1.0: Approved Plan Detection
 
+**Announce:** Always start with: "I'm using /do to {task_summary}"
+
 **ALWAYS execute first. Checks if /plan was used.**
 
 ```yaml
@@ -504,6 +506,19 @@ synthesize_iteration:
       condition: "Same errors 3 iterations in a row"
       action: "ABORT with blocker analysis"
 
+  verification_gate:
+    rule: "Evidence before claims. Previous runs don't count."
+    mandatory_steps:
+      1_IDENTIFY: "Quelle commande prouve le claim?"
+      2_RUN: "Exécuter FRESHLY (pas de cache)"
+      3_READ: "Lire output COMPLET + exit code"
+      4_VERIFY: "Output confirme le claim?"
+      5_CLAIM: "Seulement alors déclarer succès"
+    red_flags:
+      - "Hedging: 'should', 'probably', 'seems to'"
+      - "Satisfaction avant vérification"
+      - "Trust agent reports sans vérification indépendante"
+
   output: "Iteration summary"
 ```
 
@@ -611,6 +626,7 @@ synthesize_iteration:
 | **No progress** | 0 improvement over 3 iterations | ABORT + diagnostic |
 | **Scope creep** | Files outside scope modified | Rollback + warning |
 | **Overbaking** | Inconsistent changes after 15+ iter | ABORT + report |
+| **Architecture question** | 3+ failed fix attempts (same error category) | STOP + AskUserQuestion: "Is the architectural approach correct?" |
 
 ---
 
