@@ -62,6 +62,13 @@ Enforced by `commit-validate.sh` hook.
 | `/improve` | Docs QA |
 | `/prompt` | Better /plan descriptions |
 
+### Skill Classification
+
+| Type | Skills | Rule |
+|------|--------|------|
+| **Rigid** | `/review`, `/git`, hooks | Absolute discipline, no shortcuts |
+| **Flexible** | `/plan`, `/search`, `/do` | Adapt depth to context |
+
 ## 6.0 CONTEXT HIERARCHY
 
 ```
@@ -93,3 +100,9 @@ If interrupted task found, resume from last action.
 ## Quick Check
 
 Before any action: MCP available? Tokens in env? On feature branch? CLAUDE.md read?
+
+### Question Discipline
+
+- During exploratory phases (brainstorming, init): ask ONE question at a time
+- Configuration phases (/do Phase 0) may batch related questions
+- Prefer multiple choice over open-ended
