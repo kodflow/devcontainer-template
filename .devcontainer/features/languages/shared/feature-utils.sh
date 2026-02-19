@@ -59,16 +59,19 @@ detect_arch() {
 # =============================================================================
 # GitHub Latest Version
 # =============================================================================
-# Usage: get_github_latest_version "owner/repo" "fallback_version"
-# Returns version WITHOUT 'v' prefix
+# Usage: get_github_latest_version "owner/repo"
+# Returns version WITHOUT 'v' prefix. Fails if resolution fails.
 get_github_latest_version() {
     local repo="$1"
-    local fallback="$2"
     local version
     version=$(curl -s --connect-timeout 5 --max-time 10 \
         "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
         | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
-    echo "${version:-$fallback}"
+    if [[ -z "$version" ]]; then
+        err "Failed to resolve latest version for ${repo}. GitHub API may be rate-limited. Try setting an explicit version."
+        exit 1
+    fi
+    echo "$version"
 }
 
 # =============================================================================

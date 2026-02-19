@@ -9,11 +9,15 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
     warn() { echo -e "${YELLOW}⚠${NC} $*"; }
     err() { echo -e "${RED}✗${NC} $*" >&2; }
     get_github_latest_version() {
-        local repo="$1" fallback="$2" version
+        local repo="$1" version
         version=$(curl -s --connect-timeout 5 --max-time 10 \
             "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
             | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
-        echo "${version:-$fallback}"
+        if [[ -z "$version" ]]; then
+            echo -e "${RED}✗ Failed to resolve latest version for ${repo}${NC}" >&2
+            exit 1
+        fi
+        echo "$version"
     }
 }
 
@@ -120,7 +124,10 @@ mkdir -p /home/vscode/.local/bin
     # Google Java Format
     GOOGLE_JAVA_FORMAT_VERSION=$(curl -fsSL "https://api.github.com/repos/google/google-java-format/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
     GOOGLE_JAVA_FORMAT_VERSION="${GOOGLE_JAVA_FORMAT_VERSION#v}"
-    GOOGLE_JAVA_FORMAT_VERSION="${GOOGLE_JAVA_FORMAT_VERSION:-1.24.0}"
+    if [ -z "$GOOGLE_JAVA_FORMAT_VERSION" ]; then
+        echo -e "${RED}✗ Failed to resolve latest google-java-format version${NC}"
+        exit 1
+    fi
     echo -e "${YELLOW}Installing Google Java Format ${GOOGLE_JAVA_FORMAT_VERSION}...${NC}"
     GOOGLE_JAVA_FORMAT_JAR="/home/vscode/.local/share/java/google-java-format.jar"
     if curl -fsSL "https://github.com/google/google-java-format/releases/download/v${GOOGLE_JAVA_FORMAT_VERSION}/google-java-format-${GOOGLE_JAVA_FORMAT_VERSION}-all-deps.jar" \
@@ -137,7 +144,10 @@ GJF_PID=$!
     # Checkstyle
     CHECKSTYLE_TAG=$(curl -fsSL "https://api.github.com/repos/checkstyle/checkstyle/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
     CHECKSTYLE_VERSION="${CHECKSTYLE_TAG#checkstyle-}"
-    CHECKSTYLE_VERSION="${CHECKSTYLE_VERSION:-10.21.2}"
+    if [ -z "$CHECKSTYLE_VERSION" ]; then
+        echo -e "${RED}✗ Failed to resolve latest checkstyle version${NC}"
+        exit 1
+    fi
     echo -e "${YELLOW}Installing Checkstyle ${CHECKSTYLE_VERSION}...${NC}"
     CHECKSTYLE_JAR="/home/vscode/.local/share/java/checkstyle.jar"
     if curl -fsSL "https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CHECKSTYLE_VERSION}/checkstyle-${CHECKSTYLE_VERSION}-all.jar" \
@@ -153,7 +163,10 @@ CS_PID=$!
 (
     # SpotBugs
     SPOTBUGS_VERSION=$(curl -fsSL "https://api.github.com/repos/spotbugs/spotbugs/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
-    SPOTBUGS_VERSION="${SPOTBUGS_VERSION:-4.8.6}"
+    if [ -z "$SPOTBUGS_VERSION" ]; then
+        echo -e "${RED}✗ Failed to resolve latest spotbugs version${NC}"
+        exit 1
+    fi
     echo -e "${YELLOW}Installing SpotBugs ${SPOTBUGS_VERSION}...${NC}"
     SPOTBUGS_DIR="/home/vscode/.local/share/spotbugs"
     SPOTBUGS_TGZ="/tmp/spotbugs.tgz"
