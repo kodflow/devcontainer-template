@@ -2,7 +2,8 @@
 name: update
 description: |
   DevContainer Environment Update from official template.
-  Updates hooks, commands, agents, and settings from kodflow/devcontainer-template.
+  Profile-aware: auto-detects infrastructure projects and syncs from both templates.
+  Uses git tarball (1 API call per source) instead of per-file curl.
   Use when: syncing local devcontainer with latest template improvements.
 allowed-tools:
   - "Bash(curl:*)"
@@ -10,6 +11,12 @@ allowed-tools:
   - "Bash(jq:*)"
   - "Read(**/*)"
   - "Write(.devcontainer/**/*)"
+  - "Write(modules/**/*)"
+  - "Write(stacks/**/*)"
+  - "Write(ansible/**/*)"
+  - "Write(packer/**/*)"
+  - "Write(ci/**/*)"
+  - "Write(tests/**/*)"
   - "WebFetch(*)"
   - "Task(*)"
 ---
@@ -24,10 +31,13 @@ $ARGUMENTS
 
 Updates the DevContainer environment from the official template.
 
-**API-FIRST approach**: Uses the GitHub API to dynamically discover
-existing files instead of hardcoded lists.
+**GIT-TARBALL approach**: Downloads each template as a single tarball
+(1 API call per source) instead of per-file curl. Extracts locally.
 
-**Updated components:**
+**Profile-aware**: Auto-detects infrastructure projects when `modules/`,
+`stacks/`, or `ansible/` directories exist. No flags needed.
+
+**Updated components (devcontainer - always):**
 
 - **Hooks** - Claude scripts (format, lint, security, etc.)
 - **Commands** - Slash commands (/git, /search, etc.)
@@ -39,7 +49,18 @@ existing files instead of hardcoded lists.
 - **Compose** - docker-compose.yml (update devcontainer, preserve custom)
 - **Grepai** - Optimized grepai configuration
 
-**Source**: `github.com/kodflow/devcontainer-template`
+**Updated components (infrastructure - if profile detected):**
+
+- **Modules** - Terraform modules (cloud, services, base)
+- **Stacks** - Terragrunt stacks (management, edge, compute, vpn)
+- **Ansible** - Roles and playbooks
+- **Packer** - Machine images per provider
+- **CI** - GitHub Actions + GitLab CI pipelines
+- **Tests** - Terratest + Molecule tests
+
+**Sources:**
+- `github.com/kodflow/devcontainer-template` (always)
+- `github.com/kodflow/infrastructure-template` (infrastructure profile only)
 
 ---
 
@@ -66,6 +87,17 @@ existing files instead of hardcoded lists.
 | `settings` | `.../images/.claude/settings.json` | Claude config |
 | `compose` | `.devcontainer/docker-compose.yml` | Update devcontainer service |
 | `grepai` | `.devcontainer/images/grepai.config.yaml` | grepai config |
+
+### Available components (infrastructure - auto-detected)
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| `modules` | `modules/` | Terraform modules (cloud, services, base) |
+| `stacks` | `stacks/` | Terragrunt stacks |
+| `ansible` | `ansible/` | Roles and playbooks |
+| `packer` | `packer/` | Machine images per provider |
+| `ci` | `ci/` | GitHub Actions + GitLab CI pipelines |
+| `tests` | `tests/` | Terratest + Molecule tests |
 
 ---
 
@@ -96,12 +128,28 @@ Components:
   compose      docker-compose.yml (devcontainer service)
   grepai       grepai config (provider, model)
 
+Infrastructure (auto-detected):
+  modules      Terraform modules (cloud, services)
+  stacks       Terragrunt stacks
+  ansible      Roles and playbooks
+  packer       Machine images per provider
+  ci           CI/CD pipelines
+  tests        Terratest + Molecule tests
+
+Profile auto-detection:
+  modules/ OR stacks/ OR ansible/ exists -> infrastructure
+  Otherwise -> devcontainer (single source)
+
+Method: git tarball (1 API call per source)
+
 Examples:
   /update                       Update everything
   /update --check               Check for updates
   /update --component hooks     Hooks only
 
-Source: kodflow/devcontainer-template (main)
+Sources:
+  kodflow/devcontainer-template (main) - always
+  kodflow/infrastructure-template (main) - if infra detected
 ═══════════════════════════════════════════════
 ```
 
@@ -112,8 +160,9 @@ Source: kodflow/devcontainer-template (main)
 DevContainer environment update using **RLM** patterns:
 
 - **Peek** - Verify connectivity and versions
-- **Discover** - Dynamically discover files via GitHub API
-- **Validate** - Validate each download (no 404)
+- **Profile** - Auto-detect project profile (devcontainer or infrastructure)
+- **Download** - Download tarballs (1 API call per source)
+- **Extract** - Extract files to correct paths
 - **Synthesize** - Apply updates and consolidated report
 
 ---
@@ -121,10 +170,15 @@ DevContainer environment update using **RLM** patterns:
 ## Configuration
 
 ```yaml
+# DevContainer template (always - 1 API call)
 REPO: "kodflow/devcontainer-template"
 BRANCH: "main"
-BASE_URL: "https://raw.githubusercontent.com/${REPO}/${BRANCH}"
-API_URL: "https://api.github.com/repos/${REPO}/contents"
+TARBALL_URL: "https://api.github.com/repos/${REPO}/tarball/${BRANCH}"
+
+# Infrastructure template (auto-detected - 1 API call)
+INFRA_REPO: "kodflow/infrastructure-template"
+INFRA_BRANCH: "main"
+INFRA_TARBALL_URL: "https://api.github.com/repos/${INFRA_REPO}/tarball/${INFRA_BRANCH}"
 ```
 
 ---
@@ -273,6 +327,81 @@ Or in container:
 
 ---
 
+## Phase 1.5: Profile Detection
+
+**MANDATORY: Auto-detect project profile to determine sync sources. No flags.**
+
+```yaml
+profile_detection:
+  1_check_directories:
+    action: "Check for infrastructure markers"
+    checks:
+      - "[ -d modules/ ]"
+      - "[ -d stacks/ ]"
+      - "[ -d ansible/ ]"
+    result: "Any directory exists → INFRASTRUCTURE profile"
+
+  2_determine_profile:
+    infrastructure:
+      condition: "modules/ OR stacks/ OR ansible/ exists"
+      sources:
+        - "kodflow/devcontainer-template (always)"
+        - "kodflow/infrastructure-template (additional)"
+      version_files:
+        - ".devcontainer/.template-version"
+        - ".infra-template-version"
+
+    devcontainer:
+      condition: "No infrastructure markers found"
+      sources:
+        - "kodflow/devcontainer-template (only)"
+      version_files:
+        - ".devcontainer/.template-version"
+```
+
+**Implementation:**
+
+```bash
+detect_profile() {
+    PROFILE="devcontainer"
+    INFRA_DIRS_FOUND=""
+
+    for dir in modules stacks ansible; do
+        if [ -d "$dir/" ]; then
+            INFRA_DIRS_FOUND="${INFRA_DIRS_FOUND} $dir"
+            PROFILE="infrastructure"
+        fi
+    done
+
+    echo "Profile: $PROFILE"
+    if [ "$PROFILE" = "infrastructure" ]; then
+        echo "  Infrastructure dirs found:$INFRA_DIRS_FOUND"
+        echo "  Sources: devcontainer-template + infrastructure-template"
+    else
+        echo "  Source: devcontainer-template only"
+    fi
+}
+```
+
+**Output Phase 1.5 (infrastructure detected):**
+
+```
+═══════════════════════════════════════════════
+  /update - Profile Detection
+═══════════════════════════════════════════════
+
+  Profile: infrastructure
+  Detected dirs: modules stacks ansible
+
+  Sources:
+    - kodflow/devcontainer-template (always)
+    - kodflow/infrastructure-template
+
+═══════════════════════════════════════════════
+```
+
+---
+
 ## Phase 2.0: Peek (Version Check)
 
 ```yaml
@@ -306,433 +435,480 @@ peek_workflow:
 
 ---
 
-## Phase 3.0: Discover (API-FIRST - Dynamic Discovery)
+## Phase 3.0: Download (Git Tarball - Single API Call)
 
-**CRITICAL RULE: Always use the GitHub API to discover files.**
+**CRITICAL RULE: Download the full tarball in 1 API call.**
 
-NEVER use hardcoded lists. Files can be added,
-renamed, or deleted in the source template.
-
-```yaml
-discover_workflow:
-  strategy: "API-FIRST"
-
-  components:
-    hooks:
-      api: "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/images/.claude/scripts"
-      filter: "*.sh"
-      local_path: ".devcontainer/images/.claude/scripts/"
-
-    commands:
-      api: "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/images/.claude/commands"
-      filter: "*.md"
-      local_path: ".devcontainer/images/.claude/commands/"
-
-    agents:
-      api: "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/images/.claude/agents"
-      filter: "*.md"
-      local_path: ".devcontainer/images/.claude/agents/"
-
-    lifecycle:
-      api: "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/hooks/lifecycle"
-      filter: "*.sh"
-      local_path: ".devcontainer/hooks/lifecycle/"
-
-    image-hooks:
-      api: "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/images/hooks"
-      recursive: true
-      local_path: ".devcontainer/images/hooks/"
-      note: "Image-embedded lifecycle hooks (real logic)"
-
-    shared-utils:
-      raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/hooks/shared/utils.sh"
-      local_path: ".devcontainer/hooks/shared/utils.sh"
-      note: "Needed by initialize.sh (runs on host)"
-
-    p10k:
-      raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/images/.p10k.zsh"
-      local_path: ".devcontainer/images/.p10k.zsh"
-
-    settings:
-      raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/images/.claude/settings.json"
-      local_path: ".devcontainer/images/.claude/settings.json"
-
-    compose:
-      strategy: "REPLACE from template, PRESERVE custom services"
-      raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/docker-compose.yml"
-      local_path: ".devcontainer/docker-compose.yml"
-      note: |
-        - If file absent -> download complete
-        - If file exists:
-          1. Extract custom services (not devcontainer)
-          2. Replace entirely from template (preserves order/comments)
-          3. Merge extracted custom services back
-        - Order: devcontainer -> custom
-        - Backup created before modification, restored on failure
-        - Uses mikefarah/yq (Go version) for merge
-        - Note: Ollama runs on HOST (installed via initialize.sh)
-
-    grepai:
-      raw_url: "https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/images/grepai.config.yaml"
-      local_path: ".devcontainer/images/grepai.config.yaml"
-      note: "Optimized config with bge-m3 model (best accuracy)"
-```
-
-**Discover implementation:**
-
-```bash
-# Function to list files from a directory via GitHub API
-list_remote_files() {
-    local api_url="$1"
-    local filter="$2"
-
-    curl -sL "$api_url" | jq -r '.[].name' | grep -E "$filter" || true
-}
-
-# Example: discover scripts
-SCRIPTS=$(list_remote_files \
-    "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/images/.claude/scripts" \
-    '\.sh$')
-
-# Example: discover commands
-COMMANDS=$(list_remote_files \
-    "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/images/.claude/commands" \
-    '\.md$')
-
-# Example: discover agents
-AGENTS=$(list_remote_files \
-    "https://api.github.com/repos/kodflow/devcontainer-template/contents/.devcontainer/images/.claude/agents" \
-    '\.md$')
-```
-
----
-
-## Phase 4.0: Validate (Download with Verification)
-
-**CRITICAL RULE: Always validate downloads before writing.**
-
-NEVER write a file without verifying that the download succeeded.
-Detect 404 errors and other failures.
+One `curl` per source instead of N individual per-file calls.
+The tarball is extracted into a temp directory, then files are
+copied to their destinations.
 
 ```yaml
-validate_workflow:
-  rule: "NEVER write files without validation"
+download_workflow:
+  strategy: "GIT-TARBALL (1 API call per source)"
 
-  checks:
-    - "HTTP status 200 (not 404)"
-    - "Content is not empty"
-    - "Content is not HTML error page"
-    - "Content starts with expected pattern"
+  devcontainer_tarball:
+    url: "https://api.github.com/repos/kodflow/devcontainer-template/tarball/main"
+    method: "curl -sL -o /tmp/devcontainer-template.tar.gz"
+    extract: "tar xzf into /tmp/devcontainer-template/"
+    note: "GitHub returns tarball with prefix dir (owner-repo-sha/)"
 
-  on_failure:
-    - "Log error"
-    - "Skip file"
-    - "Continue with next file"
+  infrastructure_tarball:
+    condition: "PROFILE == infrastructure"
+    url: "https://api.github.com/repos/kodflow/infrastructure-template/tarball/main"
+    method: "curl -sL -o /tmp/infrastructure-template.tar.gz"
+    extract: "tar xzf into /tmp/infrastructure-template/"
+
+  protected_paths:
+    description: "NEVER overwritten - product-specific files"
+    paths:
+      - "inventory/"
+      - "terragrunt.hcl"
+      - ".env*"
+      - "CLAUDE.md"
+      - "AGENTS.md"
+      - "README.md"
+      - "Makefile"
+      - "docs/"
 ```
 
-**Validate implementation:**
+**Implementation:**
 
 ```bash
-# Secure download function with validation
-safe_download() {
-    local url="$1"
-    local output="$2"
-    local temp_file=$(mktemp)
+# Download and extract a GitHub tarball (1 API call)
+# Returns the extracted directory path via EXTRACT_DIR variable
+download_tarball() {
+    local tarball_url="$1"
+    local label="$2"
+    local tmp_dir=$(mktemp -d)
+    local tmp_tar="${tmp_dir}/template.tar.gz"
 
-    # Download with HTTP code
-    http_code=$(curl -sL -w "%{http_code}" -o "$temp_file" "$url")
+    echo "  Downloading $label tarball..."
+    local http_code
+    http_code=$(curl -sL -w "%{http_code}" -o "$tmp_tar" "$tarball_url")
 
-    # Validate the download
     if [ "$http_code" != "200" ]; then
-        echo "✗ $output (HTTP $http_code)"
-        rm -f "$temp_file"
+        echo "  ✗ $label tarball download failed (HTTP $http_code)"
+        rm -rf "$tmp_dir"
         return 1
     fi
 
-    # Check it is not a disguised 404 page
-    if head -1 "$temp_file" | grep -qE "^404|^<!DOCTYPE|^<html"; then
-        echo "✗ $output (invalid content)"
-        rm -f "$temp_file"
+    if [ ! -s "$tmp_tar" ]; then
+        echo "  ✗ $label tarball is empty"
+        rm -rf "$tmp_dir"
         return 1
     fi
 
-    # Check the file is not empty
-    if [ ! -s "$temp_file" ]; then
-        echo "✗ $output (empty)"
-        rm -f "$temp_file"
+    # Extract with --strip-components=1 (GitHub tarballs have owner-repo-sha/ prefix)
+    if ! tar xzf "$tmp_tar" --strip-components=1 -C "$tmp_dir"; then
+        echo "  ✗ $label extraction failed"
+        rm -rf "$tmp_dir"
         return 1
     fi
+    rm -f "$tmp_tar"
 
-    # All OK, move the file
-    mv "$temp_file" "$output"
-    echo "✓ $output"
+    EXTRACT_DIR="$tmp_dir"
+
+    echo "  ✓ $label tarball downloaded and extracted"
     return 0
 }
 ```
 
 ---
 
-## Phase 5.0: Synthesize (Apply Updates)
+## Phase 4.0: Extract & Apply (From Tarball)
 
-### 5.1: Download components
+**Copy files from extracted tarballs to their destinations.
+No per-file HTTP validation needed: the tarball is already validated.**
 
-**IMPORTANT**: Use `safe_download` for each file.
+```yaml
+extract_workflow:
+  rule: "Copy from extracted tarball, validate non-empty"
 
-#### Hooks (scripts)
+  devcontainer_extract:
+    strategy: "cp from extract dir to local paths"
+    compose_strategy: "REPLACE devcontainer service, PRESERVE custom"
 
-```bash
-BASE="https://raw.githubusercontent.com/kodflow/devcontainer-template/main"
-API="https://api.github.com/repos/kodflow/devcontainer-template/contents"
-
-# Discover and download scripts via API (zsh-compatible)
-curl -sL "$API/.devcontainer/images/.claude/scripts" | jq -r '.[].name' | grep '\.sh$' \
-| while IFS= read -r script; do
-    [ -z "$script" ] && continue
-    safe_download \
-        "$BASE/.devcontainer/images/.claude/scripts/$script" \
-        ".devcontainer/images/.claude/scripts/$script" \
-    && chmod +x ".devcontainer/images/.claude/scripts/$script"
-done
+  infra_extract:
+    strategy: "cp with protected path filtering"
+    skip_protected: true
 ```
 
-#### Commands
+**Implementation:**
 
 ```bash
-# Discover and download commands via API (zsh-compatible)
-curl -sL "$API/.devcontainer/images/.claude/commands" | jq -r '.[].name' | grep '\.md$' \
-| while IFS= read -r cmd; do
-    [ -z "$cmd" ] && continue
-    safe_download \
-        "$BASE/.devcontainer/images/.claude/commands/$cmd" \
-        ".devcontainer/images/.claude/commands/$cmd"
-done
-```
+# Check if a path is protected (for infra sync)
+is_protected() {
+    local file_path="$1"
+    for protected in $PROTECTED_PATHS; do
+        case "$file_path" in
+            "$protected"*) return 0 ;;
+            */"$protected") return 0 ;;
+        esac
+        local bn
+        bn=$(basename "$file_path")
+        if [ "$bn" = "$protected" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
 
-#### Agents
+# Copy devcontainer components from extracted tarball
+# Safe glob copy: copies matching files or silently skips if no match
+# Usage: safe_glob_copy <pattern> <dest_dir> [+x]
+safe_glob_copy() {
+    local pattern="$1" dest="$2" make_exec="${3:-}"
+    local found=0
+    # Use find to avoid glob expansion failures under set -e
+    local dir=$(dirname "$pattern")
+    local glob=$(basename "$pattern")
+    while IFS= read -r -d '' f; do
+        cp -f "$f" "$dest/"
+        [ "$make_exec" = "+x" ] && chmod +x "$dest/$(basename "$f")"
+        found=1
+    done < <(find "$dir" -maxdepth 1 -name "$glob" -type f -print0 2>/dev/null)
+    return 0
+}
 
-```bash
-# Discover and download agents via API (zsh-compatible)
-mkdir -p ".devcontainer/images/.claude/agents"
-curl -sL "$API/.devcontainer/images/.claude/agents" | jq -r '.[].name' | grep '\.md$' \
-| while IFS= read -r agent; do
-    [ -z "$agent" ] && continue
-    safe_download \
-        "$BASE/.devcontainer/images/.claude/agents/$agent" \
-        ".devcontainer/images/.claude/agents/$agent"
-done
-```
+apply_devcontainer_tarball() {
+    local src="$EXTRACT_DIR"
 
-#### Lifecycle Hooks
-
-```bash
-# Discover and download lifecycle hooks via API (zsh-compatible)
-mkdir -p ".devcontainer/hooks/lifecycle"
-curl -sL "$API/.devcontainer/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' \
-| while IFS= read -r hook; do
-    [ -z "$hook" ] && continue
-    safe_download \
-        "$BASE/.devcontainer/hooks/lifecycle/$hook" \
-        ".devcontainer/hooks/lifecycle/$hook" \
-    && chmod +x ".devcontainer/hooks/lifecycle/$hook"
-done
-```
-
-#### Image-Embedded Hooks
-
-```bash
-# Discover image hooks via API (recursive: shared/ + lifecycle/)
-mkdir -p ".devcontainer/images/hooks/shared" ".devcontainer/images/hooks/lifecycle"
-
-# shared/utils.sh
-safe_download \
-    "$BASE/.devcontainer/images/hooks/shared/utils.sh" \
-    ".devcontainer/images/hooks/shared/utils.sh" \
-&& chmod +x ".devcontainer/images/hooks/shared/utils.sh"
-
-# lifecycle hooks (zsh-compatible)
-curl -sL "$API/.devcontainer/images/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$' \
-| while IFS= read -r hook; do
-    [ -z "$hook" ] && continue
-    safe_download \
-        "$BASE/.devcontainer/images/hooks/lifecycle/$hook" \
-        ".devcontainer/images/hooks/lifecycle/$hook" \
-    && chmod +x ".devcontainer/images/hooks/lifecycle/$hook"
-done
-```
-
-#### Shared Utils (workspace copy for initialize.sh)
-
-```bash
-# Update workspace utils.sh (needed by initialize.sh on host)
-safe_download \
-    "$BASE/.devcontainer/hooks/shared/utils.sh" \
-    ".devcontainer/hooks/shared/utils.sh"
-```
-
-#### Migration: Old Full Hooks → Delegation Stubs
-
-```bash
-# Detect old full hooks (hooks without "Delegation stub" marker) and replace with stubs
-# Note: literal list works in zsh, no variable expansion needed
-for hook in onCreate postCreate postStart postAttach updateContent; do
-    hook_file=".devcontainer/hooks/lifecycle/${hook}.sh"
-    if [ -f "$hook_file" ] && ! grep -q "Delegation stub" "$hook_file"; then
-        echo "  Migrating ${hook}.sh to delegation stub..."
-        safe_download \
-            "$BASE/.devcontainer/hooks/lifecycle/${hook}.sh" \
-            "$hook_file" \
-        && chmod +x "$hook_file"
+    # Scripts (hooks)
+    if [ -d "$src/.devcontainer/images/.claude/scripts" ]; then
+        mkdir -p "$UPDATE_TARGET/scripts"
+        safe_glob_copy "$src/.devcontainer/images/.claude/scripts/*.sh" "$UPDATE_TARGET/scripts" "+x"
+        echo "  ✓ hooks"
     fi
-done
+
+    # Commands
+    if [ -d "$src/.devcontainer/images/.claude/commands" ]; then
+        mkdir -p "$UPDATE_TARGET/commands"
+        safe_glob_copy "$src/.devcontainer/images/.claude/commands/*.md" "$UPDATE_TARGET/commands"
+        echo "  ✓ commands"
+    fi
+
+    # Agents
+    if [ -d "$src/.devcontainer/images/.claude/agents" ]; then
+        mkdir -p "$UPDATE_TARGET/agents"
+        safe_glob_copy "$src/.devcontainer/images/.claude/agents/*.md" "$UPDATE_TARGET/agents"
+        echo "  ✓ agents"
+    fi
+
+    # Lifecycle stubs (container only)
+    if [ "$CONTEXT" = "container" ] && [ -d "$src/.devcontainer/hooks/lifecycle" ]; then
+        mkdir -p ".devcontainer/hooks/lifecycle"
+        safe_glob_copy "$src/.devcontainer/hooks/lifecycle/*.sh" ".devcontainer/hooks/lifecycle" "+x"
+        echo "  ✓ lifecycle"
+    fi
+
+    # Image-embedded hooks (container only)
+    if [ "$CONTEXT" = "container" ] && [ -d "$src/.devcontainer/images/hooks" ]; then
+        mkdir -p ".devcontainer/images/hooks/shared" ".devcontainer/images/hooks/lifecycle"
+        [ -f "$src/.devcontainer/images/hooks/shared/utils.sh" ] && \
+            cp -f "$src/.devcontainer/images/hooks/shared/utils.sh" ".devcontainer/images/hooks/shared/utils.sh" && \
+            chmod +x ".devcontainer/images/hooks/shared/utils.sh"
+        safe_glob_copy "$src/.devcontainer/images/hooks/lifecycle/*.sh" ".devcontainer/images/hooks/lifecycle" "+x"
+        echo "  ✓ image-hooks"
+    fi
+
+    # Shared utils (container only - needed by initialize.sh on host)
+    if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/hooks/shared/utils.sh" ]; then
+        cp -f "$src/.devcontainer/hooks/shared/utils.sh" ".devcontainer/hooks/shared/utils.sh"
+        echo "  ✓ shared-utils"
+    fi
+
+    # p10k (container only)
+    if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/images/.p10k.zsh" ]; then
+        cp -f "$src/.devcontainer/images/.p10k.zsh" ".devcontainer/images/.p10k.zsh"
+        echo "  ✓ p10k"
+    fi
+
+    # settings.json
+    if [ -f "$src/.devcontainer/images/.claude/settings.json" ]; then
+        cp -f "$src/.devcontainer/images/.claude/settings.json" "$UPDATE_TARGET/settings.json"
+        echo "  ✓ settings"
+    fi
+
+    # grepai config (container only)
+    if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/images/grepai.config.yaml" ]; then
+        cp -f "$src/.devcontainer/images/grepai.config.yaml" ".devcontainer/images/grepai.config.yaml"
+        echo "  ✓ grepai"
+    fi
+
+    # docker-compose.yml (container only, preserve custom services)
+    if [ "$CONTEXT" = "container" ]; then
+        update_compose_from_tarball "$src"
+    fi
+}
+
+# Copy infrastructure components with protected path filtering
+apply_infra_tarball() {
+    if [ "$PROFILE" != "infrastructure" ]; then
+        return 0
+    fi
+
+    local src="$INFRA_EXTRACT_DIR"
+    local synced=0
+    local skipped=0
+
+    echo ""
+    echo "  Infrastructure components:"
+
+    for component in $INFRA_COMPONENTS; do
+        if [ ! -d "$src/$component" ]; then
+            continue
+        fi
+
+        local comp_count=0
+        while IFS= read -r -d '' src_file; do
+            local rel_path="${src_file#$src/}"
+
+            # Always skip protected paths (prevents restoring deleted files)
+            if is_protected "$rel_path"; then
+                skipped=$((skipped + 1))
+                continue
+            fi
+
+            mkdir -p "$(dirname "$rel_path")"
+            cp -f "$src_file" "$rel_path"
+            synced=$((synced + 1))
+            comp_count=$((comp_count + 1))
+
+            case "$rel_path" in
+                *.sh) chmod +x "$rel_path" ;;
+            esac
+        done < <(find "$src/$component" -type f -print0 2>/dev/null)
+
+        echo "    ✓ $component/ ($comp_count files)"
+    done
+
+    echo "  Synced: $synced files, Protected: $skipped skipped"
+}
 ```
 
-#### Config Files (p10k, settings, compose, grepai)
+---
+
+## Phase 5.0: Synthesize (Tarball Orchestration)
+
+**Orchestrates the full update using tarball downloads.**
+
+### 5.1: Download tarballs
 
 ```bash
-# p10k
-safe_download \
-    "$BASE/.devcontainer/images/.p10k.zsh" \
-    ".devcontainer/images/.p10k.zsh"
+# 1. Always: devcontainer template tarball (1 API call)
+DEVCONTAINER_TARBALL_URL="https://api.github.com/repos/kodflow/devcontainer-template/tarball/main"
+download_tarball "$DEVCONTAINER_TARBALL_URL" "devcontainer-template"
+DEVCONTAINER_EXTRACT_DIR="$EXTRACT_DIR"
 
-# settings.json
-safe_download \
-    "$BASE/.devcontainer/images/.claude/settings.json" \
-    ".devcontainer/images/.claude/settings.json"
+# 2. If infrastructure profile: infrastructure template tarball (1 API call)
+if [ "$PROFILE" = "infrastructure" ]; then
+    INFRA_TARBALL_URL="https://api.github.com/repos/kodflow/infrastructure-template/tarball/main"
+    download_tarball "$INFRA_TARBALL_URL" "infrastructure-template"
+    INFRA_EXTRACT_DIR="$EXTRACT_DIR"
+fi
+```
 
-# docker-compose.yml (update devcontainer service, PRESERVE custom services)
-# Note: Uses mikefarah/yq (Go version) - simpler syntax with -i for in-place
-# Strategy: Start fresh from template, merge back custom services
-# Note: Ollama runs on HOST (installed via initialize.sh), not in container
-update_compose_services() {
+### 5.2: Apply devcontainer components
+
+```bash
+echo ""
+echo "Applying devcontainer components..."
+EXTRACT_DIR="$DEVCONTAINER_EXTRACT_DIR"
+apply_devcontainer_tarball
+```
+
+### 5.3: docker-compose.yml merge (from tarball)
+
+```bash
+# Update compose from tarball (REPLACE devcontainer service, PRESERVE custom services)
+# Note: Uses mikefarah/yq (Go version)
+# Ollama runs on HOST (installed via initialize.sh), not in container
+update_compose_from_tarball() {
+    local src="$1"
     local compose_file=".devcontainer/docker-compose.yml"
-    local temp_template=$(mktemp --suffix=.yaml)
-    local temp_custom=$(mktemp --suffix=.yaml)
+    local template_compose="$src/.devcontainer/docker-compose.yml"
+
+    if [ ! -f "$template_compose" ]; then
+        echo "  ⚠ No docker-compose.yml in tarball"
+        return 1
+    fi
+
+    if [ ! -f "$compose_file" ]; then
+        cp "$template_compose" "$compose_file"
+        echo "  ✓ docker-compose.yml created from template"
+        return 0
+    fi
+
+    local temp_services=$(mktemp --suffix=.yaml)
+    local temp_volumes=$(mktemp --suffix=.yaml)
+    local temp_networks=$(mktemp --suffix=.yaml)
     local backup_file="${compose_file}.backup"
-
-    # Download template
-    if ! curl -sL -o "$temp_template" "$BASE/.devcontainer/docker-compose.yml"; then
-        echo "  ✗ Failed to download template"
-        rm -f "$temp_template"
-        return 1
-    fi
-
-    # Validate downloaded template is not empty and contains expected content
-    if [ ! -s "$temp_template" ] || ! grep -q "^services:" "$temp_template"; then
-        echo "  ✗ Downloaded template is empty or invalid (check network/rate limit)"
-        rm -f "$temp_template"
-        return 1
-    fi
 
     # Backup original
     cp "$compose_file" "$backup_file"
 
     # Extract custom services (anything that's NOT devcontainer)
-    yq '.services | to_entries | map(select(.key != "devcontainer")) | from_entries' "$compose_file" > "$temp_custom"
+    yq '.services | to_entries | map(select(.key != "devcontainer")) | from_entries' \
+        "$compose_file" > "$temp_services"
 
-    # Start fresh from template (devcontainer service)
-    cp "$temp_template" "$compose_file"
+    # Extract custom volumes and networks
+    yq '.volumes // {}' "$compose_file" > "$temp_volumes"
+    yq '.networks // {}' "$compose_file" > "$temp_networks"
+
+    # Start fresh from template
+    cp "$template_compose" "$compose_file"
 
     # Merge back custom services if any exist
-    if [ -s "$temp_custom" ] && [ "$(yq '. | length' "$temp_custom")" != "0" ]; then
-        yq -i ".services *= load(\"$temp_custom\")" "$compose_file"
+    if [ -s "$temp_services" ] && [ "$(yq '. | length' "$temp_services")" != "0" ]; then
+        yq -i ".services *= load(\"$temp_services\")" "$compose_file"
         echo "    - Preserved custom services"
     fi
 
-    # Cleanup temp files
-    rm -f "$temp_template" "$temp_custom"
-
-    # Verify file is not empty and contains required structure
-    if [ ! -s "$compose_file" ] || ! grep -q "^services:" "$compose_file"; then
-        # File is empty or missing services - restore backup
-        mv "$backup_file" "$compose_file"
-        echo "  ✗ Result file is empty or invalid, restored backup"
-        return 1
+    # Merge back custom volumes if any exist
+    if [ -s "$temp_volumes" ] && [ "$(yq '. | length' "$temp_volumes")" != "0" ]; then
+        yq -i ".volumes *= load(\"$temp_volumes\")" "$compose_file"
+        echo "    - Preserved custom volumes"
     fi
 
-    # Verify YAML is valid and has expected content
-    if yq '.services.devcontainer' "$compose_file" > /dev/null 2>&1; then
+    # Merge back custom networks if any exist
+    if [ -s "$temp_networks" ] && [ "$(yq '. | length' "$temp_networks")" != "0" ]; then
+        yq -i ".networks *= load(\"$temp_networks\")" "$compose_file"
+        echo "    - Preserved custom networks"
+    fi
+
+    rm -f "$temp_services" "$temp_volumes" "$temp_networks"
+
+    # Verify
+    if [ -s "$compose_file" ] && yq '.services.devcontainer' "$compose_file" > /dev/null 2>&1; then
         rm -f "$backup_file"
-        echo "  ✓ docker-compose.yml updated"
-        echo "    - REPLACED: devcontainer from template"
-        echo "    - PRESERVED: custom services (if any)"
+        echo "  ✓ docker-compose.yml updated (devcontainer replaced, custom preserved)"
         return 0
     else
-        # Restore backup on failure
         mv "$backup_file" "$compose_file"
-        echo "  ✗ YAML validation failed (missing devcontainer service), restored backup"
+        echo "  ✗ Compose validation failed, restored backup"
         return 1
     fi
 }
+```
 
-if [ ! -f ".devcontainer/docker-compose.yml" ]; then
-    # No file exists - download full template
-    safe_download \
-        "$BASE/.devcontainer/docker-compose.yml" \
-        ".devcontainer/docker-compose.yml"
-    echo "  ✓ docker-compose.yml created from template"
-else
-    # File exists - update devcontainer service
-    echo "  Updating devcontainer service..."
-    update_compose_services
+### 5.4: Apply infrastructure components
+
+```bash
+# If infrastructure profile, apply infra tarball with protected path filtering
+if [ "$PROFILE" = "infrastructure" ]; then
+    echo ""
+    echo "Applying infrastructure components..."
+    apply_infra_tarball
+
+    # Update infra version file
+    INFRA_COMMIT=$(git ls-remote "https://github.com/$INFRA_REPO.git" "$INFRA_BRANCH" | cut -c1-7)
+    DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    echo "{\"commit\": \"$INFRA_COMMIT\", \"updated\": \"$DATE\"}" > .infra-template-version
+    echo "  ✓ .infra-template-version updated"
 fi
-
-# grepai config (optimized with bge-m3)
-safe_download \
-    "$BASE/.devcontainer/images/grepai.config.yaml" \
-    ".devcontainer/images/grepai.config.yaml"
 ```
 
-### 5.2: Cleanup deprecated files
+### 5.5: Migration: old full hooks to delegation stubs
 
 ```bash
-# Remove deprecated configuration files
-[ -f ".coderabbit.yaml" ] && rm -f ".coderabbit.yaml" \
-    && echo "Removed deprecated .coderabbit.yaml"
+# Detect old full hooks (without "Delegation stub" marker) and replace with stubs
+for hook in onCreate postCreate postStart postAttach updateContent; do
+    hook_file=".devcontainer/hooks/lifecycle/${hook}.sh"
+    if [ -f "$hook_file" ] && ! grep -q "Delegation stub" "$hook_file"; then
+        src_stub="$DEVCONTAINER_EXTRACT_DIR/.devcontainer/hooks/lifecycle/${hook}.sh"
+        if [ -f "$src_stub" ]; then
+            cp -f "$src_stub" "$hook_file"
+            chmod +x "$hook_file"
+            echo "  Migrated ${hook}.sh to delegation stub"
+        fi
+    fi
+done
 ```
 
-### 5.3: Update version file
+### 5.6: Cleanup deprecated files
 
 ```bash
-COMMIT=$(curl -sL "https://api.github.com/repos/kodflow/devcontainer-template/commits/main" | jq -r '.sha[:7]')
+[ -f ".coderabbit.yaml" ] && rm -f ".coderabbit.yaml" && echo "  Removed deprecated .coderabbit.yaml"
+```
+
+### 5.7: Update devcontainer version file
+
+```bash
+# Get commit SHA via git ls-remote (strip-components removes dir name)
+DC_COMMIT=$(git ls-remote "https://github.com/$DEVCONTAINER_REPO.git" "$DEVCONTAINER_BRANCH" | cut -c1-7)
 DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.template-version
+
+if [ "$CONTEXT" = "container" ]; then
+    echo "{\"commit\": \"$DC_COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.template-version
+else
+    echo "{\"commit\": \"$DC_COMMIT\", \"updated\": \"$DATE\"}" > "$UPDATE_TARGET/.template-version"
+fi
+echo "  ✓ .template-version updated ($DC_COMMIT)"
 ```
 
-### 5.4: Consolidated report
+### 5.8: Cleanup temp directories
 
-**Final output:**
+```bash
+# Temp directories are cleaned up automatically by trap EXIT
+# Registered via CLEANUP_DIRS during download phase
+```
+
+### 5.9: Consolidated report
+
+**Output (devcontainer only):**
 
 ```
 ═══════════════════════════════════════════════
   ✓ DevContainer updated successfully
 ═══════════════════════════════════════════════
 
-  Template: kodflow/devcontainer-template
-  Version : def5678 (2024-01-20)
+  Profile : devcontainer
+  Method  : git tarball (1 API call)
+  Source  : kodflow/devcontainer-template
+  Version : def5678
 
   Updated components:
-    ✓ hooks        (10 scripts)
-    ✓ commands     (10 commands)
-    ✓ agents       (35 agents)
-    ✓ lifecycle    (6 delegation stubs)
-    ✓ image-hooks  (6 image-embedded hooks)
-    ✓ shared-utils (1 file)
-    ✓ p10k         (1 file)
-    ✓ settings     (1 file)
-    ✓ compose      (devcontainer service updated)
-    ✓ grepai       (1 file - bge-m3 config)
-    ✓ user-hooks   (synchronized with template)
-    ✓ validation   (all scripts exist)
+    ✓ hooks        (scripts)
+    ✓ commands     (slash commands)
+    ✓ agents       (agent definitions)
+    ✓ lifecycle    (delegation stubs)
+    ✓ image-hooks  (image-embedded hooks)
+    ✓ shared-utils (utils.sh)
+    ✓ p10k         (powerlevel10k)
+    ✓ settings     (settings.json)
+    ✓ compose      (devcontainer service)
+    ✓ grepai       (bge-m3 config)
 
-  Grepai config:
-    provider: ollama
-    model: bge-m3
-    endpoint: host.docker.internal:11434 (GPU-accelerated)
+═══════════════════════════════════════════════
+```
 
-  Cleanup:
-    ✓ .coderabbit.yaml removed (if existed)
+**Output (infrastructure profile):**
 
-  Note: Restart terminal to apply p10k changes.
+```
+═══════════════════════════════════════════════
+  ✓ DevContainer updated successfully
+═══════════════════════════════════════════════
+
+  Profile : infrastructure
+  Method  : git tarball (2 API calls)
+  Sources :
+    - kodflow/devcontainer-template (def5678)
+    - kodflow/infrastructure-template (abc1234)
+
+  DevContainer components:
+    ✓ hooks, commands, agents, lifecycle
+    ✓ image-hooks, shared-utils, p10k, settings
+    ✓ compose, grepai
+
+  Infrastructure components:
+    ✓ modules/ (12 files)
+    ✓ stacks/ (8 files)
+    ✓ ansible/ (15 files)
+    ✓ packer/ (4 files)
+    ✓ ci/ (6 files)
+    ✓ tests/ (9 files)
+    Protected: 3 skipped (inventory/, terragrunt.hcl)
 
 ═══════════════════════════════════════════════
 ```
@@ -895,13 +1071,15 @@ validate_hook_scripts() {
 
 | Action | Status | Reason |
 |--------|--------|--------|
-| Use hardcoded lists | **FORBIDDEN** | API-FIRST MANDATORY |
+| Per-file curl instead of tarball | **FORBIDDEN** | Use git tarball (1 API call) |
+| Add CLI flags for profile | **FORBIDDEN** | Auto-detect only, no flags |
+| Overwrite protected paths | **FORBIDDEN** | inventory/, terragrunt.hcl, .env*, CLAUDE.md, etc. |
 | Write without validation | **FORBIDDEN** | Corruption risk |
-| Skip HTTP verification | **FORBIDDEN** | 404 files possible |
 | Non-official source | **FORBIDDEN** | Security |
 | Hook sync without backup | **FORBIDDEN** | Always backup first |
 | Delete user settings | **FORBIDDEN** | Only merge hooks |
 | Skip script validation | **FORBIDDEN** | Error detection MANDATORY |
+| Skip profile detection | **FORBIDDEN** | Must auto-detect before sync |
 | `for x in $VAR` pattern | **FORBIDDEN** | Breaks in zsh ($SHELL=zsh) |
 | Inline execution without bash | **FORBIDDEN** | Always `bash /tmp/script.sh` |
 
@@ -909,7 +1087,7 @@ validate_hook_scripts() {
 
 ## Affected files
 
-**Updated by /update:**
+**Updated by /update (devcontainer - always):**
 ```
 .devcontainer/
 ├── docker-compose.yml            # Update devcontainer service
@@ -930,11 +1108,27 @@ validate_hook_scripts() {
 └── .template-version
 ```
 
-**In the Docker image (restored at startup):**
+**Updated by /update (infrastructure - if profile detected):**
 ```
-/etc/grepai/config.yaml            # GrepAI config template
-/etc/mcp/mcp.json.tpl              # MCP template
-/etc/claude-defaults/*             # Claude defaults
+modules/                          # Terraform modules
+stacks/                           # Terragrunt stacks
+ansible/                          # Roles and playbooks
+packer/                           # Machine images
+ci/                               # CI/CD pipelines
+tests/                            # Terratest + Molecule
+.infra-template-version           # Infrastructure version
+```
+
+**Protected paths (NEVER overwritten if they exist):**
+```
+inventory/                        # Ansible inventory (project-specific)
+terragrunt.hcl                    # Root terragrunt config
+.env*                             # Environment files
+CLAUDE.md                         # Project documentation
+AGENTS.md                         # Agent configuration
+README.md                         # Project readme
+Makefile                          # Build configuration
+docs/                             # Documentation
 ```
 
 **NEVER modified:**
@@ -958,71 +1152,291 @@ bash /tmp/update-devcontainer.sh && rm -f /tmp/update-devcontainer.sh
 
 ```bash
 #!/bin/bash
-# /update implementation - API-FIRST with validation + Environment Detection
+# /update implementation - Git Tarball + Profile-Aware Sync
+# Downloads full tarballs (1 API call per source) instead of per-file curl.
+# Auto-detects infrastructure profile (modules/, stacks/, ansible/).
 # NOTE: Must be executed with bash (not zsh) due to word splitting in for loops.
-# If running from Claude Code (zsh), write to temp file first: bash /tmp/script.sh
 
 set -uo pipefail
-set +H 2>/dev/null || true  # Disable bash history expansion (! in YAML causes errors)
+set +H 2>/dev/null || true  # Disable bash history expansion
 
-BASE="https://raw.githubusercontent.com/kodflow/devcontainer-template/main"
-API="https://api.github.com/repos/kodflow/devcontainer-template/contents"
+# Configuration
+DEVCONTAINER_REPO="kodflow/devcontainer-template"
+DEVCONTAINER_BRANCH="main"
+INFRA_REPO="kodflow/infrastructure-template"
+INFRA_BRANCH="main"
+INFRA_COMPONENTS="modules stacks ansible packer ci tests"
+PROTECTED_PATHS="inventory/ terragrunt.hcl .env CLAUDE.md AGENTS.md README.md Makefile docs/"
 
-# Environment detection function (Phase 0)
+# ═══ Phase 1.0: Environment Detection ═══
 detect_context() {
-    # Check if running inside container
     if [ -f /.dockerenv ]; then
         CONTEXT="container"
         UPDATE_TARGET="/workspace/.devcontainer/images/.claude"
-        echo "Detected: Container environment"
+        echo "  Environment: Container"
     else
         CONTEXT="host"
         UPDATE_TARGET="$HOME/.claude"
-        echo "Detected: Host machine"
+        echo "  Environment: Host machine"
     fi
-
-    # Additional checks
-    if [ -n "${DEVCONTAINER:-}" ]; then
-        echo "  (DevContainer detected via DEVCONTAINER env var)"
-    fi
-
-    echo "Update target: $UPDATE_TARGET"
-    echo "Mode: $CONTEXT"
+    [ -n "${DEVCONTAINER:-}" ] && echo "  (DevContainer env var detected)"
+    echo "  Target: $UPDATE_TARGET"
 }
 
-# Safe download function
-safe_download() {
-    local url="$1"
-    local output="$2"
-    local temp_file=$(mktemp)
+# ═══ Phase 1.5: Profile Detection ═══
+detect_profile() {
+    PROFILE="devcontainer"
+    INFRA_DIRS_FOUND=""
+    for dir in modules stacks ansible; do
+        if [ -d "$dir/" ]; then
+            INFRA_DIRS_FOUND="${INFRA_DIRS_FOUND} $dir"
+            PROFILE="infrastructure"
+        fi
+    done
+    echo "  Profile: $PROFILE"
+    if [ "$PROFILE" = "infrastructure" ]; then
+        echo "  Infrastructure dirs:$INFRA_DIRS_FOUND"
+        echo "  Sources: devcontainer-template + infrastructure-template"
+    else
+        echo "  Source: devcontainer-template only"
+    fi
+}
 
-    http_code=$(curl -sL -w "%{http_code}" -o "$temp_file" "$url")
+# ═══ Download & Extract Tarball (1 API call) ═══
+download_tarball() {
+    local tarball_url="$1"
+    local label="$2"
+    local tmp_dir=$(mktemp -d)
+    local tmp_tar="${tmp_dir}/template.tar.gz"
+
+    echo "  Downloading $label tarball..."
+    local http_code
+    http_code=$(curl -sL -w "%{http_code}" -o "$tmp_tar" "$tarball_url")
 
     if [ "$http_code" != "200" ]; then
-        echo "✗ $(basename "$output") (HTTP $http_code)"
-        rm -f "$temp_file"
+        echo "  ✗ $label download failed (HTTP $http_code)"
+        rm -rf "$tmp_dir"
         return 1
     fi
 
-    if head -1 "$temp_file" | grep -qE "^404|^<!DOCTYPE|^<html"; then
-        echo "✗ $(basename "$output") (invalid content)"
-        rm -f "$temp_file"
+    if [ ! -s "$tmp_tar" ]; then
+        echo "  ✗ $label tarball is empty"
+        rm -rf "$tmp_dir"
         return 1
     fi
 
-    if [ ! -s "$temp_file" ]; then
-        echo "✗ $(basename "$output") (empty)"
-        rm -f "$temp_file"
+    if ! tar xzf "$tmp_tar" --strip-components=1 -C "$tmp_dir"; then
+        echo "  ✗ $label extraction failed"
+        rm -rf "$tmp_dir"
         return 1
     fi
+    rm -f "$tmp_tar"
 
-    mkdir -p "$(dirname "$output")"
-    mv "$temp_file" "$output"
-    echo "✓ $(basename "$output")"
+    EXTRACT_DIR="$tmp_dir"
+
+    echo "  ✓ $label downloaded and extracted"
     return 0
 }
 
-# Hook synchronization function (Phase 5)
+# ═══ Protected path check (for infra sync) ═══
+is_protected() {
+    local file_path="$1"
+    for protected in $PROTECTED_PATHS; do
+        case "$file_path" in
+            "$protected"*) return 0 ;;
+            */"$protected") return 0 ;;
+        esac
+        local bn
+        bn=$(basename "$file_path")
+        if [ "$bn" = "$protected" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# ═══ Safe glob copy (avoids set -e failures on empty globs) ═══
+safe_glob_copy() {
+    local pattern="$1" dest="$2" make_exec="${3:-}"
+    local dir=$(dirname "$pattern")
+    local glob=$(basename "$pattern")
+    while IFS= read -r -d '' f; do
+        cp -f "$f" "$dest/"
+        [ "$make_exec" = "+x" ] && chmod +x "$dest/$(basename "$f")"
+    done < <(find "$dir" -maxdepth 1 -name "$glob" -type f -print0 2>/dev/null)
+    return 0
+}
+
+# ═══ Apply devcontainer components from tarball ═══
+apply_devcontainer_tarball() {
+    local src="$DEVCONTAINER_EXTRACT_DIR"
+
+    # Scripts (hooks)
+    if [ -d "$src/.devcontainer/images/.claude/scripts" ]; then
+        mkdir -p "$UPDATE_TARGET/scripts"
+        safe_glob_copy "$src/.devcontainer/images/.claude/scripts/*.sh" "$UPDATE_TARGET/scripts" "+x"
+        echo "  ✓ hooks"
+    fi
+
+    # Commands
+    if [ -d "$src/.devcontainer/images/.claude/commands" ]; then
+        mkdir -p "$UPDATE_TARGET/commands"
+        safe_glob_copy "$src/.devcontainer/images/.claude/commands/*.md" "$UPDATE_TARGET/commands"
+        echo "  ✓ commands"
+    fi
+
+    # Agents
+    if [ -d "$src/.devcontainer/images/.claude/agents" ]; then
+        mkdir -p "$UPDATE_TARGET/agents"
+        safe_glob_copy "$src/.devcontainer/images/.claude/agents/*.md" "$UPDATE_TARGET/agents"
+        echo "  ✓ agents"
+    fi
+
+    # Lifecycle stubs (container only)
+    if [ "$CONTEXT" = "container" ] && [ -d "$src/.devcontainer/hooks/lifecycle" ]; then
+        mkdir -p ".devcontainer/hooks/lifecycle"
+        safe_glob_copy "$src/.devcontainer/hooks/lifecycle/*.sh" ".devcontainer/hooks/lifecycle" "+x"
+        echo "  ✓ lifecycle"
+    fi
+
+    # Image-embedded hooks (container only)
+    if [ "$CONTEXT" = "container" ] && [ -d "$src/.devcontainer/images/hooks" ]; then
+        mkdir -p ".devcontainer/images/hooks/shared" ".devcontainer/images/hooks/lifecycle"
+        [ -f "$src/.devcontainer/images/hooks/shared/utils.sh" ] && \
+            cp -f "$src/.devcontainer/images/hooks/shared/utils.sh" ".devcontainer/images/hooks/shared/utils.sh" && \
+            chmod +x ".devcontainer/images/hooks/shared/utils.sh"
+        safe_glob_copy "$src/.devcontainer/images/hooks/lifecycle/*.sh" ".devcontainer/images/hooks/lifecycle" "+x"
+        echo "  ✓ image-hooks"
+    fi
+
+    # Shared utils (container only)
+    if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/hooks/shared/utils.sh" ]; then
+        cp -f "$src/.devcontainer/hooks/shared/utils.sh" ".devcontainer/hooks/shared/utils.sh"
+        echo "  ✓ shared-utils"
+    fi
+
+    # p10k (container only)
+    if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/images/.p10k.zsh" ]; then
+        cp -f "$src/.devcontainer/images/.p10k.zsh" ".devcontainer/images/.p10k.zsh"
+        echo "  ✓ p10k"
+    fi
+
+    # settings.json
+    if [ -f "$src/.devcontainer/images/.claude/settings.json" ]; then
+        cp -f "$src/.devcontainer/images/.claude/settings.json" "$UPDATE_TARGET/settings.json"
+        echo "  ✓ settings"
+    fi
+
+    # grepai config (container only)
+    if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/images/grepai.config.yaml" ]; then
+        cp -f "$src/.devcontainer/images/grepai.config.yaml" ".devcontainer/images/grepai.config.yaml"
+        echo "  ✓ grepai"
+    fi
+
+    # docker-compose.yml (container only)
+    if [ "$CONTEXT" = "container" ]; then
+        update_compose_from_tarball "$src"
+    fi
+}
+
+# ═══ Compose merge from tarball ═══
+update_compose_from_tarball() {
+    local src="$1"
+    local compose_file=".devcontainer/docker-compose.yml"
+    local template_compose="$src/.devcontainer/docker-compose.yml"
+
+    if [ ! -f "$template_compose" ]; then
+        return 0
+    fi
+
+    if [ ! -f "$compose_file" ]; then
+        cp "$template_compose" "$compose_file"
+        echo "  ✓ compose (created from template)"
+        return 0
+    fi
+
+    local temp_services=$(mktemp --suffix=.yaml)
+    local temp_volumes=$(mktemp --suffix=.yaml)
+    local temp_networks=$(mktemp --suffix=.yaml)
+    local backup_file="${compose_file}.backup"
+    cp "$compose_file" "$backup_file"
+
+    # Extract custom services, volumes, and networks
+    yq '.services | to_entries | map(select(.key != "devcontainer")) | from_entries' \
+        "$compose_file" > "$temp_services"
+    yq '.volumes // {}' "$compose_file" > "$temp_volumes"
+    yq '.networks // {}' "$compose_file" > "$temp_networks"
+
+    cp "$template_compose" "$compose_file"
+
+    # Merge back custom services
+    if [ -s "$temp_services" ] && [ "$(yq '. | length' "$temp_services")" != "0" ]; then
+        yq -i ".services *= load(\"$temp_services\")" "$compose_file"
+    fi
+
+    # Merge back custom volumes
+    if [ -s "$temp_volumes" ] && [ "$(yq '. | length' "$temp_volumes")" != "0" ]; then
+        yq -i ".volumes *= load(\"$temp_volumes\")" "$compose_file"
+    fi
+
+    # Merge back custom networks
+    if [ -s "$temp_networks" ] && [ "$(yq '. | length' "$temp_networks")" != "0" ]; then
+        yq -i ".networks *= load(\"$temp_networks\")" "$compose_file"
+    fi
+
+    rm -f "$temp_services" "$temp_volumes" "$temp_networks"
+
+    if [ -s "$compose_file" ] && yq '.services.devcontainer' "$compose_file" > /dev/null 2>&1; then
+        rm -f "$backup_file"
+        echo "  ✓ compose (devcontainer replaced, custom preserved)"
+    else
+        mv "$backup_file" "$compose_file"
+        echo "  ✗ compose validation failed, restored backup"
+        return 1
+    fi
+}
+
+# ═══ Apply infrastructure components with protected paths ═══
+apply_infra_tarball() {
+    if [ "$PROFILE" != "infrastructure" ]; then
+        return 0
+    fi
+
+    local src="$INFRA_EXTRACT_DIR"
+    local synced=0
+    local skipped=0
+
+    echo "  Infrastructure components:"
+    for component in $INFRA_COMPONENTS; do
+        [ ! -d "$src/$component" ] && continue
+
+        local comp_count=0
+        while IFS= read -r -d '' src_file; do
+            local rel_path="${src_file#$src/}"
+
+            # Always skip protected paths (prevents restoring deleted files)
+            if is_protected "$rel_path"; then
+                skipped=$((skipped + 1))
+                continue
+            fi
+
+            mkdir -p "$(dirname "$rel_path")"
+            cp -f "$src_file" "$rel_path"
+            synced=$((synced + 1))
+            comp_count=$((comp_count + 1))
+
+            case "$rel_path" in
+                *.sh) chmod +x "$rel_path" ;;
+            esac
+        done < <(find "$src/$component" -type f -print0 2>/dev/null)
+
+        echo "    ✓ $component/ ($comp_count files)"
+    done
+
+    echo "  Synced: $synced files, Protected: $skipped skipped"
+}
+
+# ═══ Hook synchronization (Phase 6.0) ═══
 sync_user_hooks() {
     local user_settings="$HOME/.claude/settings.json"
     local template_settings=".devcontainer/images/.claude/settings.json"
@@ -1060,7 +1474,7 @@ sync_user_hooks() {
     fi
 }
 
-# Script validation function (Phase 6)
+# ═══ Script validation (Phase 7.0) ═══
 validate_hook_scripts() {
     local settings_file="$HOME/.claude/settings.json"
     local missing_count=0
@@ -1094,7 +1508,6 @@ validate_hook_scripts() {
 
     if [ $missing_count -gt 0 ]; then
         echo "  ⚠ $missing_count missing script(s)!"
-        echo "  → Run: /update --component hooks"
         return 1
     fi
 
@@ -1102,216 +1515,119 @@ validate_hook_scripts() {
     return 0
 }
 
+# ═══════════════════════════════════════════════
+#   MAIN EXECUTION
+# ═══════════════════════════════════════════════
+
+# Cleanup temp directories on exit (normal or error)
+CLEANUP_DIRS=""
+cleanup() {
+    for d in $CLEANUP_DIRS; do
+        rm -rf "$d" 2>/dev/null
+    done
+}
+trap cleanup EXIT
+
 echo "═══════════════════════════════════════════════"
 echo "  /update - DevContainer Environment Update"
 echo "═══════════════════════════════════════════════"
 echo ""
 
 # Phase 1.0: Environment Detection
+echo "Phase 1.0: Environment Detection"
 detect_context
 echo ""
 
-# Hooks
-echo "Updating hooks..."
-hook_count=0
-while IFS= read -r script; do
-    [ -z "$script" ] && continue
-    if safe_download "$BASE/.devcontainer/images/.claude/scripts/$script" \
-                     "$UPDATE_TARGET/scripts/$script"; then
-        chmod +x "$UPDATE_TARGET/scripts/$script"
-        hook_count=$((hook_count + 1))
-    fi
-done < <(curl -sL "$API/.devcontainer/images/.claude/scripts" | jq -r '.[].name' | grep '\.sh$')
-echo "  ($hook_count scripts)"
-
-# Commands
+# Phase 1.5: Profile Detection
+echo "Phase 1.5: Profile Detection"
+detect_profile
 echo ""
-echo "Updating commands..."
-cmd_count=0
-while IFS= read -r cmd; do
-    [ -z "$cmd" ] && continue
-    if safe_download "$BASE/.devcontainer/images/.claude/commands/$cmd" \
-                     "$UPDATE_TARGET/commands/$cmd"; then
-        cmd_count=$((cmd_count + 1))
-    fi
-done < <(curl -sL "$API/.devcontainer/images/.claude/commands" | jq -r '.[].name' | grep '\.md$')
-echo "  ($cmd_count commands)"
 
-# Agents
+# Phase 3.0: Download tarballs
+echo "Phase 3.0: Download (git tarball)"
+DEVCONTAINER_TARBALL="https://api.github.com/repos/$DEVCONTAINER_REPO/tarball/$DEVCONTAINER_BRANCH"
+download_tarball "$DEVCONTAINER_TARBALL" "devcontainer-template"
+DEVCONTAINER_EXTRACT_DIR="$EXTRACT_DIR"
+CLEANUP_DIRS="$DEVCONTAINER_EXTRACT_DIR"
+
+if [ "$PROFILE" = "infrastructure" ]; then
+    INFRA_TARBALL="https://api.github.com/repos/$INFRA_REPO/tarball/$INFRA_BRANCH"
+    download_tarball "$INFRA_TARBALL" "infrastructure-template"
+    INFRA_EXTRACT_DIR="$EXTRACT_DIR"
+    CLEANUP_DIRS="$CLEANUP_DIRS $INFRA_EXTRACT_DIR"
+fi
 echo ""
-echo "Updating agents..."
-mkdir -p "$UPDATE_TARGET/agents"
-agent_count=0
-while IFS= read -r agent; do
-    [ -z "$agent" ] && continue
-    if safe_download "$BASE/.devcontainer/images/.claude/agents/$agent" \
-                     "$UPDATE_TARGET/agents/$agent"; then
-        agent_count=$((agent_count + 1))
-    fi
-done < <(curl -sL "$API/.devcontainer/images/.claude/agents" | jq -r '.[].name' | grep '\.md$')
-echo "  ($agent_count agents)"
 
-# Lifecycle stubs (only in container mode - skip on host)
+# Phase 4.0: Extract & Apply
+echo "Phase 4.0: Apply devcontainer components"
+apply_devcontainer_tarball
+
+# Migration: old full hooks to delegation stubs
 if [ "$CONTEXT" = "container" ]; then
-    echo ""
-    echo "Updating lifecycle hooks (delegation stubs)..."
-    mkdir -p ".devcontainer/hooks/lifecycle"
-    lifecycle_count=0
-    while IFS= read -r hook; do
-        [ -z "$hook" ] && continue
-        if safe_download "$BASE/.devcontainer/hooks/lifecycle/$hook" \
-                         ".devcontainer/hooks/lifecycle/$hook"; then
-            chmod +x ".devcontainer/hooks/lifecycle/$hook"
-            lifecycle_count=$((lifecycle_count + 1))
-        fi
-    done < <(curl -sL "$API/.devcontainer/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$')
-    echo "  ($lifecycle_count stubs)"
-
-    # Image-embedded hooks (real logic)
-    echo ""
-    echo "Updating image-embedded hooks..."
-    mkdir -p ".devcontainer/images/hooks/shared" ".devcontainer/images/hooks/lifecycle"
-    safe_download "$BASE/.devcontainer/images/hooks/shared/utils.sh" \
-                  ".devcontainer/images/hooks/shared/utils.sh" \
-    && chmod +x ".devcontainer/images/hooks/shared/utils.sh"
-    while IFS= read -r hook; do
-        [ -z "$hook" ] && continue
-        safe_download "$BASE/.devcontainer/images/hooks/lifecycle/$hook" \
-                      ".devcontainer/images/hooks/lifecycle/$hook" \
-        && chmod +x ".devcontainer/images/hooks/lifecycle/$hook"
-    done < <(curl -sL "$API/.devcontainer/images/hooks/lifecycle" | jq -r '.[].name' | grep '\.sh$')
-
-    # Shared utils (workspace copy for initialize.sh on host)
-    echo ""
-    echo "Updating shared utilities..."
-    safe_download "$BASE/.devcontainer/hooks/shared/utils.sh" \
-                  ".devcontainer/hooks/shared/utils.sh"
-
-    # Migration: detect old full hooks and replace with stubs
-    for h in onCreate postCreate postStart postAttach updateContent; do
-        hook_file=".devcontainer/hooks/lifecycle/${h}.sh"
+    for hook in onCreate postCreate postStart postAttach updateContent; do
+        hook_file=".devcontainer/hooks/lifecycle/${hook}.sh"
         if [ -f "$hook_file" ] && ! grep -q "Delegation stub" "$hook_file"; then
-            echo "  Migrating ${h}.sh to delegation stub..."
-            safe_download "$BASE/.devcontainer/hooks/lifecycle/${h}.sh" "$hook_file" \
-            && chmod +x "$hook_file"
+            src_stub="$DEVCONTAINER_EXTRACT_DIR/.devcontainer/hooks/lifecycle/${hook}.sh"
+            if [ -f "$src_stub" ]; then
+                cp -f "$src_stub" "$hook_file"
+                chmod +x "$hook_file"
+                echo "  Migrated ${hook}.sh to delegation stub"
+            fi
         fi
     done
 fi
 
-# Config files
-echo ""
-echo "Updating config files..."
-if [ "$CONTEXT" = "container" ]; then
-    safe_download "$BASE/.devcontainer/images/.p10k.zsh" ".devcontainer/images/.p10k.zsh"
+# Infrastructure components
+if [ "$PROFILE" = "infrastructure" ]; then
+    echo ""
+    echo "Phase 4.1: Apply infrastructure components"
+    apply_infra_tarball
 fi
-safe_download "$BASE/.devcontainer/images/.claude/settings.json" "$UPDATE_TARGET/settings.json"
-
-# Docker compose (only in container mode - not applicable on host)
-if [ "$CONTEXT" = "container" ]; then
-    # Note: Uses mikefarah/yq (Go version) - simpler syntax with -i for in-place
-    # Ollama runs on HOST (installed via initialize.sh), not in container
-    echo ""
-    echo "Updating docker-compose.yml..."
-
-    update_compose_services() {
-    local compose_file=".devcontainer/docker-compose.yml"
-    local temp_template=$(mktemp --suffix=.yaml)
-    local temp_custom=$(mktemp --suffix=.yaml)
-    local backup_file="${compose_file}.backup"
-
-    # Download template
-    if ! curl -sL -o "$temp_template" "$BASE/.devcontainer/docker-compose.yml"; then
-        echo "  ✗ Failed to download template"
-        rm -f "$temp_template"
-        return 1
-    fi
-
-    # Validate downloaded template is not empty and contains expected content
-    if [ ! -s "$temp_template" ] || ! grep -q "^services:" "$temp_template"; then
-        echo "  ✗ Downloaded template is empty or invalid (check network/rate limit)"
-        rm -f "$temp_template"
-        return 1
-    fi
-
-    # Backup original
-    cp "$compose_file" "$backup_file"
-
-    # Extract custom services (anything that's NOT devcontainer)
-    yq '.services | to_entries | map(select(.key != "devcontainer")) | from_entries' "$compose_file" > "$temp_custom"
-
-    # Extract custom volumes (anything that's NOT in template)
-    local template_volumes=$(yq '.volumes | keys | .[]' "$temp_template" 2>/dev/null | tr '\n' '|')
-
-    # Start fresh from template (devcontainer service)
-    cp "$temp_template" "$compose_file"
-
-    # Merge back custom services if any exist
-    if [ -s "$temp_custom" ] && [ "$(yq '. | length' "$temp_custom")" != "0" ]; then
-        yq -i ".services *= load(\"$temp_custom\")" "$compose_file"
-        echo "    - Preserved custom services"
-    fi
-
-    # Cleanup temp files
-    rm -f "$temp_template" "$temp_custom"
-
-    # Verify file is not empty and contains required structure
-    if [ ! -s "$compose_file" ] || ! grep -q "^services:" "$compose_file"; then
-        # File is empty or missing services - restore backup
-        mv "$backup_file" "$compose_file"
-        echo "  ✗ Result file is empty or invalid, restored backup"
-        return 1
-    fi
-
-    # Verify YAML is valid and has expected content
-    if yq '.services.devcontainer' "$compose_file" > /dev/null 2>&1; then
-        rm -f "$backup_file"
-        echo "  ✓ devcontainer service updated"
-        return 0
-    else
-        mv "$backup_file" "$compose_file"
-        echo "  ✗ YAML validation failed (missing devcontainer service), restored backup"
-        return 1
-    fi
-}
-
-    if [ ! -f ".devcontainer/docker-compose.yml" ]; then
-        echo "  No docker-compose.yml found, downloading template..."
-        safe_download "$BASE/.devcontainer/docker-compose.yml" ".devcontainer/docker-compose.yml"
-    else
-        echo "  Updating devcontainer service..."
-        update_compose_services
-    fi
-
-    # Grepai config
-    echo ""
-    echo "Updating grepai config..."
-    safe_download "$BASE/.devcontainer/images/grepai.config.yaml" ".devcontainer/images/grepai.config.yaml"
-fi  # End container-only updates
-
-# Phase 6.0: Synchronize user hooks (both container and host)
 echo ""
+
+# Phase 6.0: Synchronize user hooks
 echo "Phase 6.0: Synchronizing user hooks..."
 sync_user_hooks
+echo ""
 
 # Phase 7.0: Validate hook scripts
-echo ""
 echo "Phase 7.0: Validating hook scripts..."
 validate_hook_scripts
+echo ""
 
-# Version
-COMMIT=$(curl -sL "https://api.github.com/repos/kodflow/devcontainer-template/commits/main" | jq -r '.sha[:7]')
+# Version tracking (use git ls-remote for commit SHA)
+echo "Updating version files..."
+DC_COMMIT=$(git ls-remote "https://github.com/$DEVCONTAINER_REPO.git" "$DEVCONTAINER_BRANCH" | cut -c1-7)
 DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 if [ "$CONTEXT" = "container" ]; then
-    echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.template-version
+    echo "{\"commit\": \"$DC_COMMIT\", \"updated\": \"$DATE\"}" > .devcontainer/.template-version
 else
-    echo "{\"commit\": \"$COMMIT\", \"updated\": \"$DATE\"}" > "$UPDATE_TARGET/.template-version"
+    echo "{\"commit\": \"$DC_COMMIT\", \"updated\": \"$DATE\"}" > "$UPDATE_TARGET/.template-version"
 fi
+echo "  ✓ .template-version ($DC_COMMIT)"
+
+if [ "$PROFILE" = "infrastructure" ] && [ -n "${INFRA_EXTRACT_DIR:-}" ]; then
+    INFRA_COMMIT=$(git ls-remote "https://github.com/$INFRA_REPO.git" "$INFRA_BRANCH" | cut -c1-7)
+    echo "{\"commit\": \"$INFRA_COMMIT\", \"updated\": \"$DATE\"}" > .infra-template-version
+    echo "  ✓ .infra-template-version ($INFRA_COMMIT)"
+fi
+
+# Cleanup deprecated files
+[ -f ".coderabbit.yaml" ] && rm -f ".coderabbit.yaml" && echo "  Removed deprecated .coderabbit.yaml"
+
+# Temp directories cleaned up automatically by trap EXIT
 
 echo ""
 echo "═══════════════════════════════════════════════"
-echo "  ✓ Update complete - version: $COMMIT"
-echo "  Context: $CONTEXT"
-echo "  Target: $UPDATE_TARGET"
+echo "  ✓ Update complete"
+echo "  Profile: $PROFILE"
+echo "  Method: git tarball"
+if [ "$PROFILE" = "infrastructure" ]; then
+    echo "  Sources: $DEVCONTAINER_REPO + $INFRA_REPO"
+else
+    echo "  Source: $DEVCONTAINER_REPO"
+fi
+echo "  Version: $DC_COMMIT"
 echo "═══════════════════════════════════════════════"
 ```
