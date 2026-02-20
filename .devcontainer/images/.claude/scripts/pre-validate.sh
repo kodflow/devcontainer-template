@@ -53,6 +53,7 @@ EXCEPTIONS=(
     "*.md"
     "README*"
     "CHANGELOG*"
+    ".claude/contexts/"
     ".claude/plans/"
     ".claude/sessions/"
 )

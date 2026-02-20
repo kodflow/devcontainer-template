@@ -96,13 +96,13 @@ Claude will:
 ## When to Use Each Command
 
 ```
-Need research first?  ->  /search <topic>  ->  generates .context.md
+Need research first?  ->  /search <topic>  ->  generates .claude/contexts/{slug}.context.md
 Ready to plan?        ->  /prompt           ->  helps write the description
-Have the description? ->  /plan "..."       ->  creates implementation plan
-Plan approved?        ->  /do               ->  executes the plan
+Have the description? ->  /plan "..."       ->  creates plan + persists to .claude/plans/{slug}.plan.md
+Plan approved?        ->  /do               ->  executes the plan (from conversation or disk)
 ```
 
-**Rule of thumb:** If your /plan description exceeds 10 lines, run /search first to offload context into .context.md, then keep the /plan description focused on WHAT/WHY/WHERE/HOW/DONE.
+**Rule of thumb:** If your /plan description exceeds 10 lines, run /search first to offload context into `.claude/contexts/{slug}.context.md`, then keep the /plan description focused on WHAT/WHY/WHERE/HOW/DONE.
 
 ---
 
