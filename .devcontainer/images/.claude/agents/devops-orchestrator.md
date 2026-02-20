@@ -99,24 +99,51 @@ devops-orchestrator (opus)
     │   └─→ devops-specialist-azure
     │         Focus: VMs, AKS, RBAC, Key Vault
     │
-    └─→ Executors (haiku, context: fork):
-        ├─→ devops-executor-linux
-        │     Focus: systemd, networking, security
-        │
-        ├─→ devops-executor-bsd
-        │     Focus: FreeBSD, OpenBSD, jails, ZFS, pf
-        │
-        ├─→ devops-executor-osx
-        │     Focus: macOS, launchd, Homebrew, security
-        │
-        ├─→ devops-executor-windows
-        │     Focus: PowerShell, AD, GPO, IIS, Hyper-V
-        │
-        ├─→ devops-executor-qemu
-        │     Focus: QEMU/KVM, libvirt, cloud-init
-        │
-        └─→ devops-executor-vmware
-              Focus: vSphere, ESXi, vCenter
+    ├─→ Executors / Routers (haiku, context: fork):
+    │   ├─→ devops-executor-linux → routes to OS specialist
+    │   │     Detects: /etc/os-release → os-specialist-{distro}
+    │   │
+    │   ├─→ devops-executor-bsd → routes to BSD specialist
+    │   │     Detects: uname -s → os-specialist-{variant}
+    │   │
+    │   ├─→ devops-executor-osx → routes to macOS specialist
+    │   │     Dispatches: os-specialist-macos
+    │   │
+    │   ├─→ devops-executor-windows → routes to Windows specialist
+    │   │     Detects: ProductType → os-specialist-windows-{server|desktop}
+    │   │
+    │   ├─→ devops-executor-qemu
+    │   │     Focus: QEMU/KVM, libvirt, cloud-init
+    │   │
+    │   └─→ devops-executor-vmware
+    │         Focus: vSphere, ESXi, vCenter
+    │
+    └─→ OS Specialists (haiku, context: fork):
+        ├─→ Linux:
+        │   ├─→ os-specialist-debian      (apt, systemd, AppArmor)
+        │   ├─→ os-specialist-ubuntu      (apt/snap, systemd, UFW)
+        │   ├─→ os-specialist-fedora      (dnf5, systemd, SELinux)
+        │   ├─→ os-specialist-rhel        (dnf/yum, systemd, SELinux)
+        │   ├─→ os-specialist-arch        (pacman, systemd, AUR)
+        │   ├─→ os-specialist-alpine      (apk, OpenRC/s6, musl)
+        │   ├─→ os-specialist-opensuse    (zypper, systemd, Btrfs)
+        │   ├─→ os-specialist-void        (xbps, runit, musl/glibc)
+        │   ├─→ os-specialist-devuan      (apt, sysvinit, systemd-free)
+        │   ├─→ os-specialist-artix       (pacman, dinit/runit/s6)
+        │   ├─→ os-specialist-gentoo      (portage, OpenRC, USE flags)
+        │   ├─→ os-specialist-nixos       (nix, declarative, flakes)
+        │   ├─→ os-specialist-manjaro     (pacman/pamac, systemd, MHWD)
+        │   ├─→ os-specialist-kali        (apt, systemd, security tools)
+        │   └─→ os-specialist-slackware   (slackpkg, BSD rc, minimal)
+        ├─→ BSD:
+        │   ├─→ os-specialist-freebsd     (pkg, rc.d, ZFS, jails)
+        │   ├─→ os-specialist-openbsd     (pkg_add, rcctl, pledge)
+        │   ├─→ os-specialist-netbsd      (pkgsrc, rc.d, NPF)
+        │   └─→ os-specialist-dragonflybsd (pkg, rc.d, HAMMER2)
+        └─→ Other:
+            ├─→ os-specialist-macos           (brew, launchd, APFS)
+            ├─→ os-specialist-windows-server  (winget, SCM, AD, IIS)
+            └─→ os-specialist-windows-desktop (winget/scoop, SCM, WSL2)
 ```
 
 ## RLM Strategy
@@ -169,8 +196,10 @@ strategy:
 | VM provision | qemu/vmware | infrastructure |
 | Security audit | devsecops | infrastructure |
 | Cost analysis | finops | infrastructure |
-| Linux setup | linux | devsecops |
-| Windows config | windows | devsecops |
+| Linux setup | linux (→ os-specialist) | devsecops |
+| BSD setup | bsd (→ os-specialist) | devsecops |
+| macOS setup | osx (→ os-specialist-macos) | devsecops |
+| Windows config | windows (→ os-specialist) | devsecops |
 | AWS infra | aws | infrastructure, finops |
 | GCP infra | gcp | infrastructure, finops |
 | Azure infra | azure | infrastructure, finops |
@@ -202,16 +231,24 @@ Task:
     Return JSON: {issues: [...], recommendations: [...]}
 ```
 
-### SysAdmin Task
+### SysAdmin Task (Router → OS Specialist)
 
 ```yaml
+# Step 1: Dispatch to executor/router
 Task:
-  subagent_type: Explore
-  model: haiku
+  subagent_type: "devops-executor-linux"  # or bsd, osx, windows
   prompt: |
-    You are the {linux|bsd|osx|windows} agent.
     System task: {task_description}
+    Target OS info: {os_release_or_context}
+    The executor will auto-detect the distro and route to the
+    appropriate os-specialist-{distro} agent.
     Return JSON: {health: {...}, issues: [...], commands: [...]}
+
+# The executor routes internally:
+#   devops-executor-linux → os-specialist-{debian|ubuntu|fedora|...}
+#   devops-executor-bsd   → os-specialist-{freebsd|openbsd|netbsd|dragonflybsd}
+#   devops-executor-osx   → os-specialist-macos
+#   devops-executor-windows → os-specialist-windows-{server|desktop}
 ```
 
 ### Cloud Task
