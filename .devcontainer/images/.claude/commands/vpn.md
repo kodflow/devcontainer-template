@@ -21,6 +21,7 @@ allowed-tools:
   - "mcp__grepai__*"
   - "Grep(**/*)"
   - "AskUserQuestion(*)"
+  - "Task(*)"
 ---
 
 # /vpn - Multi-Protocol VPN Management (1Password)
@@ -195,6 +196,62 @@ peek_workflow:
   VPN State    : DISCONNECTED
 
 ═══════════════════════════════════════════════════════════════════
+```
+
+---
+
+## Phase 1.5: OS Agent Dispatch (Parallel)
+
+**After Peek completes, dispatch to the appropriate OS specialist for client validation:**
+
+```yaml
+os_dispatch:
+  trigger: "After Phase 1.0 Peek completes"
+
+  1_detect_os:
+    linux:
+      command: "cat /etc/os-release 2>/dev/null | grep -E '^ID=' | cut -d= -f2 | tr -d '\"'"
+      routing_table:
+        debian: os-specialist-debian
+        ubuntu: os-specialist-ubuntu
+        fedora: os-specialist-fedora
+        rhel|centos|rocky|almalinux: os-specialist-rhel
+        arch|manjaro: os-specialist-arch
+        alpine: os-specialist-alpine
+        opensuse-leap|opensuse-tumbleweed: os-specialist-opensuse
+        void: os-specialist-void
+        devuan: os-specialist-devuan
+        artix: os-specialist-artix
+        gentoo: os-specialist-gentoo
+        nixos: os-specialist-nixos
+        kali: os-specialist-kali
+        slackware: os-specialist-slackware
+    bsd:
+      command: "uname -s"
+      routing_table:
+        FreeBSD: os-specialist-freebsd
+        OpenBSD: os-specialist-openbsd
+        NetBSD: os-specialist-netbsd
+        DragonFly: os-specialist-dragonflybsd
+    darwin: os-specialist-macos
+    fallback: "devops-executor-linux (generic)"
+
+  2_dispatch:
+    mode: "single Task call"
+    prompt: |
+      Validate VPN client installation and configuration for {protocol}:
+      - Is {vpn_client} installed? If not, provide install command.
+      - Check firewall rules for VPN traffic (UDP 1194, UDP 51820, UDP 500/4500).
+      - Verify TUN/TAP device availability.
+      - Check DNS resolver configuration.
+      Return condensed JSON with install commands and config recommendations.
+
+  3_use_result:
+    action: "Integrate OS-specific commands into connect/disconnect workflows"
+    example: |
+      # Agent returns:
+      {"commands": [{"description": "Install WireGuard", "command": "apk add wireguard-tools", "sudo": true}]}
+      # Skill uses the exact command for the detected OS
 ```
 
 ---

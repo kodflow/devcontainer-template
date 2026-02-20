@@ -65,6 +65,7 @@ Iterative loop using **Recursive Language Model** decomposition:
   USAGE
     /do <task>              Launch the interactive workflow
     /do                     Execute the approved plan (if exists)
+    /do --plan <path>       Execute a specific plan file
     /do --help              Display this help
 
   RLM PATTERNS
@@ -102,16 +103,34 @@ Iterative loop using **Recursive Language Model** decomposition:
 
 ```yaml
 plan_detection:
-  check: "Does an approved plan exist in the context?"
+  check: "Does an approved plan exist in context or on disk?"
 
   sources:
     - "Recent conversation (plan validated by user)"
     - "Claude session memory"
+    - ".claude/plans/*.plan.md (disk-persisted plans)"
 
-  detection_signals:
-    - "User said 'yes', 'ok', 'go', 'approved' after a /plan"
-    - "Structured plan with numbered steps visible"
-    - "ExitPlanMode was called successfully"
+  detection_workflow:
+    1_check_explicit_flag:
+      condition: "--plan <path> argument provided"
+      action: "Read the specified plan file directly"
+      priority: "HIGHEST"
+
+    2_check_conversation:
+      condition: "Plan visible in conversation context"
+      action: "Use plan from conversation"
+      priority: "HIGH"
+      signals:
+        - "User said 'yes', 'ok', 'go', 'approved' after a /plan"
+        - "Structured plan with numbered steps visible"
+        - "ExitPlanMode was called successfully"
+
+    3_check_disk_plans:
+      condition: "No plan found in conversation context"
+      action: "Glob .claude/plans/*.plan.md, read most recent"
+      priority: "MEDIUM (conversation is fresher than disk)"
+
+  priority_rule: "Explicit flag > Conversation > Disk"
 
   if_plan_found:
     mode: "PLAN_EXECUTION"
@@ -136,6 +155,7 @@ plan_detection:
 
   ✓ Approved plan detected!
 
+  Source : conversation | .claude/plans/{slug}.plan.md
   Plan   : "Add JWT authentication to API"
   Steps  : 4
   Scope  : src/auth/, src/middleware/
@@ -798,6 +818,39 @@ review_integration:
 | `.asm`, `.s` | `developer-specialist-assembly` |
 | `.scala` | `developer-specialist-scala` |
 | `.dart` | `developer-specialist-dart` |
+
+**Infrastructure/SysAdmin Task Routing:**
+
+When the task involves infrastructure, system administration, or OS-level operations,
+dispatch to the appropriate DevOps agents:
+
+| Task Pattern | Agent | Dispatch |
+|-------------|-------|----------|
+| Terraform, IaC, cloud resources | `devops-orchestrator` | Coordinates infra specialists |
+| Docker, containers, images | `devops-specialist-docker` | Container optimization |
+| Kubernetes, Helm, K8s | `devops-specialist-kubernetes` | K8s orchestration |
+| Security scanning, CVEs | `devops-specialist-security` | Vulnerability detection |
+| Cost optimization, FinOps | `devops-specialist-finops` | Cloud cost analysis |
+| AWS services | `devops-specialist-aws` | AWS best practices |
+| GCP services | `devops-specialist-gcp` | GCP best practices |
+| Azure services | `devops-specialist-azure` | Azure best practices |
+| HashiCorp (Vault, Consul) | `devops-specialist-hashicorp` | HashiCorp stack |
+| Linux sysadmin | `devops-executor-linux` | Routes to OS specialist |
+| BSD sysadmin | `devops-executor-bsd` | Routes to BSD specialist |
+| macOS sysadmin | `devops-executor-osx` | Routes to macOS specialist |
+| Windows sysadmin | `devops-executor-windows` | Routes to Windows specialist |
+| QEMU/KVM VMs | `devops-executor-qemu` | VM management |
+| VMware vSphere | `devops-executor-vmware` | VMware operations |
+
+**OS Executor Routing Chain:**
+
+```
+Task detected as OS-level
+  → devops-executor-{linux|bsd|osx|windows}  (router)
+    → os-specialist-{distro}                   (specialist)
+      → Returns condensed JSON
+    ← Merged into task result
+```
 
 ---
 

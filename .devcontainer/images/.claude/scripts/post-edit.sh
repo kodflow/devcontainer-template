@@ -13,7 +13,8 @@ if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
 fi
 
 # Skip format/lint for documentation and config files
-if [[ "$FILE" == *".claude/plans/"* ]] || \
+if [[ "$FILE" == *".claude/contexts/"* ]] || \
+   [[ "$FILE" == *".claude/plans/"* ]] || \
    [[ "$FILE" == *".claude/sessions/"* ]] || \
    [[ "$FILE" == */plans/* ]] || \
    [[ "$FILE" == *.md ]] || \

@@ -96,7 +96,7 @@ step_restore_claude_config() {
 
 # Ensure Claude directories exist (volume mount point)
 step_init_claude_dirs() {
-    mkdir -p "$HOME/.claude/sessions" "$HOME/.claude/plans"
+    mkdir -p "$HOME/.claude/sessions" "$HOME/.claude/plans" "$HOME/.claude/contexts"
     log_success "Claude directories initialized"
 }
 

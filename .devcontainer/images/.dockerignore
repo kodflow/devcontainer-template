@@ -5,6 +5,7 @@
 # Claude Code session/runtime artifacts (not needed in image)
 .claude/.context.md
 .claude/.claude.json
+.claude/contexts/
 .claude/plans/
 .claude/sessions/
 
