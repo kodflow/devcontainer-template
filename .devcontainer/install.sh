@@ -275,7 +275,7 @@ download_agents() {
     done
 
     echo "  ✓ Downloaded $count agents"
-    [ $failed -gt 0 ] && echo "  ⚠ Failed: $failed agents"
+    [ $failed -gt 0 ] && echo "  ⚠ Failed: $failed agents" || true
 }
 
 # ============================================================================
@@ -308,7 +308,7 @@ download_commands() {
     done
 
     echo "  ✓ Downloaded $count commands"
-    [ $failed -gt 0 ] && echo "  ⚠ Failed: $failed commands"
+    [ $failed -gt 0 ] && echo "  ⚠ Failed: $failed commands" || true
 }
 
 # ============================================================================
@@ -342,7 +342,7 @@ download_scripts() {
     done
 
     echo "  ✓ Downloaded $count scripts"
-    [ $failed -gt 0 ] && echo "  ⚠ Failed: $failed scripts"
+    [ $failed -gt 0 ] && echo "  ⚠ Failed: $failed scripts" || true
 }
 
 # ============================================================================
@@ -400,7 +400,7 @@ download_docs() {
 
     echo "  ✓ Downloaded $root_count root files"
     echo "  ✓ Downloaded $pattern_count pattern files"
-    [ $failed -gt 0 ] && echo "  ⚠ Failed: $failed files"
+    [ $failed -gt 0 ] && echo "  ⚠ Failed: $failed files" || true
 }
 
 # ============================================================================
