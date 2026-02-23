@@ -671,14 +671,14 @@ fetch_1password_tokens() {
     op_gitlab=$(get_1password_field "mcp-gitlab" "credential")
 
     # Use 1Password tokens if found
-    [ -n "$op_github" ] && export GITHUB_TOKEN="$op_github" && echo "    ✓ mcp-github"
-    [ -n "$op_codacy" ] && export CODACY_TOKEN="$op_codacy" && echo "    ✓ mcp-codacy"
-    [ -n "$op_gitlab" ] && export GITLAB_TOKEN="$op_gitlab" && echo "    ✓ mcp-gitlab"
+    [ -n "$op_github" ] && export GITHUB_TOKEN="$op_github" && echo "    ✓ mcp-github" || true
+    [ -n "$op_codacy" ] && export CODACY_TOKEN="$op_codacy" && echo "    ✓ mcp-codacy" || true
+    [ -n "$op_gitlab" ] && export GITLAB_TOKEN="$op_gitlab" && echo "    ✓ mcp-gitlab" || true
 
     # Report what wasn't found
-    [ -z "$op_github" ] && echo "    ⚠ mcp-github not found"
-    [ -z "$op_codacy" ] && echo "    ⚠ mcp-codacy not found"
-    [ -z "$op_gitlab" ] && echo "    ⚠ mcp-gitlab not found"
+    [ -z "$op_github" ] && echo "    ⚠ mcp-github not found" || true
+    [ -z "$op_codacy" ] && echo "    ⚠ mcp-codacy not found" || true
+    [ -z "$op_gitlab" ] && echo "    ⚠ mcp-gitlab not found" || true
 }
 
 # ============================================================================
