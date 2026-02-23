@@ -126,6 +126,7 @@ out/
 # ============================================
 .devcontainer/docs/
 .devcontainer/.template-version
+.devcontainer/claude-assets.tar.gz
 
 # ============================================
 # Ignore vscode AI rules

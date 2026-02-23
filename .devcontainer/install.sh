@@ -201,24 +201,24 @@ install_claude_cli() {
 # Priority method: download pre-built tar.gz instead of 20+ API calls
 download_assets_archive() {
     local target_dir="$1"
-    local archive_url="$BASE/.devcontainer/claude-assets.tar.gz"
+    local release_url="https://github.com/${REPO}/releases/latest/download/claude-assets.tar.gz"
     local temp_archive
     temp_archive=$(mktemp)
 
     echo "→ Trying assets archive (faster)..."
 
-    # Download archive
+    # Try GitHub Releases first (faster CDN, versioned)
     local http_code
-    http_code=$(curl -sL -w "%{http_code}" -o "$temp_archive" "$archive_url" 2>/dev/null || echo "000")
+    http_code=$(curl -sL -w "%{http_code}" -o "$temp_archive" "$release_url" 2>/dev/null || echo "000")
 
     if [ "$http_code" != "200" ]; then
-        echo "  ⚠ Archive not available, will use API discovery"
+        echo "  ⚠ Release archive not available, will use API discovery"
         rm -f "$temp_archive"
         return 1
     fi
 
-    # Validate it's a gzip file
-    if ! file "$temp_archive" 2>/dev/null | grep -q "gzip"; then
+    # Validate archive (tar -tzf works on all POSIX systems, unlike `file`)
+    if ! tar -tzf "$temp_archive" >/dev/null 2>&1; then
         echo "  ⚠ Invalid archive format"
         rm -f "$temp_archive"
         return 1

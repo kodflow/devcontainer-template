@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-12T17:00:00Z -->
+<!-- updated: 2026-02-23T12:00:00Z -->
 # DevContainer Configuration
 
 ## Purpose
@@ -13,7 +13,6 @@ Development container setup for consistent dev environments across languages.
 ├── docker-compose.yml   # Multi-service setup
 ├── Dockerfile           # Extends images/ base
 ├── install.sh           # Standalone Claude installer
-├── claude-assets.tar.gz # Pre-built Claude assets
 ├── scripts/             # Build utilities
 │   └── generate-assets-archive.sh
 ├── features/            # Language & tool features
@@ -30,7 +29,7 @@ Development container setup for consistent dev environments across languages.
 - `devcontainer.json`: VS Code devcontainer config
 - `docker-compose.yml`: Services (app, MCP servers)
 - `.env`: Environment variables (git-ignored)
-- `scripts/generate-assets-archive.sh`: Regenerates `claude-assets.tar.gz`
+- `scripts/generate-assets-archive.sh`: Generates `claude-assets.tar.gz` (published via GitHub Releases)
 
 ## Usage
 

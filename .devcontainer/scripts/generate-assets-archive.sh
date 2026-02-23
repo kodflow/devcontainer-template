@@ -2,8 +2,12 @@
 # ============================================================================
 # generate-assets-archive.sh - Creates tar.gz of Claude Code assets
 # ============================================================================
-# Run before commit to bundle all assets into a single downloadable archive.
-# This reduces GitHub API calls from 20+ to 1 during installation.
+# Bundles all assets into a single downloadable archive.
+# Used by CI (release-please) to attach assets to GitHub Releases.
+#
+# Usage:
+#   ./generate-assets-archive.sh                    # Default output path
+#   ./generate-assets-archive.sh --output out.tar.gz # Custom output path
 # ============================================================================
 
 set -euo pipefail
@@ -12,6 +16,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CLAUDE_DIR="$REPO_ROOT/.devcontainer/images/.claude"
 OUTPUT_FILE="$REPO_ROOT/.devcontainer/claude-assets.tar.gz"
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --output)
+            OUTPUT_FILE="$2"
+            # Resolve relative paths from caller's working directory
+            if [[ "$OUTPUT_FILE" != /* ]]; then
+                OUTPUT_FILE="$(pwd)/$OUTPUT_FILE"
+            fi
+            shift 2
+            ;;
+        *)
+            echo "Usage: $0 [--output <path>]"
+            exit 1
+            ;;
+    esac
+done
 
 # Check if source directory exists
 if [ ! -d "$CLAUDE_DIR" ]; then
@@ -46,11 +68,5 @@ FILE_COUNT=$(tar -tzf "$OUTPUT_FILE" | wc -l)
 echo "  ✓ Archive created: $OUTPUT_FILE"
 echo "  ✓ Size: $ARCHIVE_SIZE"
 echo "  ✓ Files: $FILE_COUNT"
-
-# Add to git staging if in a git repo
-if git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
-    git -C "$REPO_ROOT" add "$OUTPUT_FILE"
-    echo "  ✓ Added to git staging"
-fi
 
 echo "→ Done"

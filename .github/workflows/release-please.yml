@@ -1,0 +1,63 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+# Cancel in-progress runs when a new run is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # =============================================================================
+  # Release Please: version management + changelog generation
+  # =============================================================================
+  release-please:
+    # Only run on the original template repository, not on forks/copies
+    if: github.repository == 'kodflow/devcontainer-template'
+    runs-on: ubuntu-latest
+
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4.4.0
+        with:
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # =============================================================================
+  # Publish assets: generate and upload claude-assets.tar.gz to the release
+  # =============================================================================
+  publish-assets:
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    needs: release-please
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Generate assets archive
+        run: |
+          chmod +x .devcontainer/scripts/generate-assets-archive.sh
+          .devcontainer/scripts/generate-assets-archive.sh --output claude-assets.tar.gz
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ needs.release-please.outputs.tag_name }}" \
+            claude-assets.tar.gz \
+            --clobber
