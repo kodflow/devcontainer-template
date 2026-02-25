@@ -26,10 +26,16 @@ else
     sudo apt-get update && sudo apt-get install -y \
         curl wget apt-transport-https ca-certificates
 
-    # Add Microsoft package repository for Debian
+    # Add Microsoft package repository (detect Debian vs Ubuntu)
     echo -e "${YELLOW}Adding Microsoft package repository...${NC}"
-    DEBIAN_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
-    wget -q "https://packages.microsoft.com/config/debian/${DEBIAN_VERSION}/packages-microsoft-prod.deb" -O /tmp/packages-microsoft-prod.deb
+    DISTRO_ID=$(. /etc/os-release && echo "$ID")
+    DISTRO_VERSION=$(. /etc/os-release && echo "$VERSION_ID")
+    if [[ "$DISTRO_ID" == "ubuntu" ]]; then
+        REPO_URL="https://packages.microsoft.com/config/ubuntu/${DISTRO_VERSION}/packages-microsoft-prod.deb"
+    else
+        REPO_URL="https://packages.microsoft.com/config/debian/${DISTRO_VERSION}/packages-microsoft-prod.deb"
+    fi
+    wget -q --retry-connrefused --tries=3 "$REPO_URL" -O /tmp/packages-microsoft-prod.deb
     sudo dpkg -i /tmp/packages-microsoft-prod.deb
     rm -f /tmp/packages-microsoft-prod.deb
 

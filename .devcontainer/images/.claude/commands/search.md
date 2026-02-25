@@ -125,6 +125,21 @@ Workflow:
 | Rust | rust-lang.org, doc.rust-lang.org |
 | Java | docs.oracle.com, openjdk.org |
 | C/C++ | cppreference.com, isocpp.org |
+| C# / .NET | learn.microsoft.com, dotnet.microsoft.com |
+| Ruby | ruby-lang.org, ruby-doc.org |
+| PHP | php.net |
+| Elixir | elixir-lang.org, hexdocs.pm |
+| Kotlin | kotlinlang.org |
+| Swift | swift.org, developer.apple.com |
+| Scala | scala-lang.org, docs.scala-lang.org |
+| Dart/Flutter | dart.dev, api.flutter.dev |
+| Perl | perldoc.perl.org |
+| Lua | lua.org |
+| R | r-project.org, cran.r-project.org |
+| Fortran | fortran-lang.org |
+| Ada | ada-lang.io, learn.adacore.com |
+| COBOL | gnucobol.sourceforge.io |
+| Pascal | freepascal.org, lazarus-ide.org |
 
 ### Cloud & Infra
 

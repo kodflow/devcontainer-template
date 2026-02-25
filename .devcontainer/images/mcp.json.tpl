@@ -6,12 +6,12 @@
     },
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "args": ["-y", "@upstash/context7-mcp@0.x"],
       "env": {}
     },
     "codacy": {
       "command": "npx",
-      "args": ["-y", "@codacy/codacy-mcp@latest"],
+      "args": ["-y", "@codacy/codacy-mcp@0.x"],
       "env": {
         "CODACY_ACCOUNT_TOKEN": "{{CODACY_TOKEN}}"
       }
@@ -31,14 +31,14 @@
       "command": "npx",
       "args": [
         "-y",
-        "@playwright/mcp@latest",
+        "@playwright/mcp@0.x",
         "--headless",
         "--caps", "core,pdf,testing,tracing"
       ]
     },
     "gitlab": {
       "command": "npx",
-      "args": ["-y", "@zereight/mcp-gitlab"],
+      "args": ["-y", "@zereight/mcp-gitlab@1.x"],
       "env": {
         "GITLAB_PERSONAL_ACCESS_TOKEN": "{{GITLAB_TOKEN}}",
         "GITLAB_API_URL": "{{GITLAB_API_URL:-https://gitlab.com/api/v4}}"

@@ -79,7 +79,7 @@ jobs:
       - name: Generate cache bust value
         id: cachebust
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "repository_dispatch" ]; then
             echo "value=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
           else
             echo "value=stable" >> $GITHUB_OUTPUT
@@ -98,7 +98,6 @@ jobs:
           build-args: |
             CACHE_BUST_DYNAMIC=${{ steps.cachebust.outputs.value }}
           cache-from: type=gha,scope=build-${{ steps.platform.outputs.pair }}
-          cache-to: type=gha,mode=max,scope=build-${{ steps.platform.outputs.pair }}
 
       # Push events: Build and push by digest
       - name: Build and push by digest

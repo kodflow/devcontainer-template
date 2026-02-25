@@ -10,5 +10,11 @@
       "description": "Python version to install"
     }
   },
-  "installsAfter": []
+  "installsAfter": [],
+  "containerEnv": {
+    "PYENV_ROOT": "/home/vscode/.cache/pyenv",
+    "PIP_CACHE_DIR": "/home/vscode/.cache/pip",
+    "POETRY_CACHE_DIR": "/home/vscode/.cache/poetry",
+    "PATH": "/home/vscode/.cache/pyenv/bin:/home/vscode/.cache/pyenv/shims:${PATH}"
+  }
 }

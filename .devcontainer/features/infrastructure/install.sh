@@ -245,11 +245,11 @@ rm -rf "$DOWNLOAD_DIR"
 if [[ "$ENABLE_ANSIBLE_TOOLS" == "true" ]]; then
     echo -e "${YELLOW}Installing Python infra tools...${NC}"
     if command -v pip3 &>/dev/null; then
-        pip3 install --no-cache-dir ansible-lint molecule molecule-docker 2>/dev/null && \
+        pip3 install --no-cache-dir ansible-lint molecule molecule-docker && \
             echo -e "${GREEN}✓ ansible-lint, molecule installed${NC}" || \
             echo -e "${YELLOW}⚠ pip install failed - Python infra tools skipped${NC}"
     elif command -v pip &>/dev/null; then
-        pip install --no-cache-dir ansible-lint molecule molecule-docker 2>/dev/null && \
+        pip install --no-cache-dir ansible-lint molecule molecule-docker && \
             echo -e "${GREEN}✓ ansible-lint, molecule installed${NC}" || \
             echo -e "${YELLOW}⚠ pip install failed - Python infra tools skipped${NC}"
     else

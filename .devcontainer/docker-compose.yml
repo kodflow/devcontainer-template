@@ -27,9 +27,14 @@ services:
       # Commands/scripts are restored from image on each start
       - claude-config:/home/vscode/.claude
 
-      # 1Password CLI session persistence
-      - op-config:/home/vscode/.config/op
+      # Config persistence (1Password, cloud CLIs: aws, gcloud, azure, openvpn)
+      - cloud-config:/home/vscode/.config
+
+      # 1Password CLI cache persistence
       - op-cache:/home/vscode/.op
+
+      # Kubernetes config persistence
+      - kube-config:/home/vscode/.kube
 
       # Docker socket for Docker-from-Docker
       - /var/run/docker.sock:/var/run/docker.sock
@@ -129,7 +134,7 @@ services:
 
       # VPN configuration (previously set by openvpn feature containerEnv)
       - OPENVPN_CONFIG=/home/vscode/.config/openvpn/client.ovpn
-      - OPENVPN_AUTH=/tmp/vpn-auth.txt
+      - OPENVPN_AUTH=/home/vscode/.config/openvpn/auth.txt
 
       # Cloud CLIs (AWS / Google Cloud / Azure)
       - AWS_CONFIG_FILE=/home/vscode/.config/aws/config
@@ -144,7 +149,7 @@ services:
       - TF_PLUGIN_CACHE_DIR=/home/vscode/.cache/terraform
 
       # Kubernetes / Helm
-      - KUBECONFIG=/home/vscode/.config/kube/config
+      - KUBECONFIG=/home/vscode/.kube/config
       - HELM_CACHE_HOME=/home/vscode/.cache/helm
 
       # GPG configuration (for commit signing)
@@ -162,8 +167,9 @@ volumes:
   package-cache:
   npm-global:
   claude-config:
-  op-config:
   op-cache:
+  cloud-config:
+  kube-config:
 
 networks:
   default:

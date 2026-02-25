@@ -13,8 +13,8 @@ HOOKS_DIR="$(dirname "$SCRIPT_DIR")"
 DEVCONTAINER_DIR="$(dirname "$HOOKS_DIR")"
 ENV_FILE="$DEVCONTAINER_DIR/.env"
 
-# Extract project name from git remote URL
-REPO_NAME=$(basename "$(git config --get remote.origin.url)" .git)
+# Extract project name from git remote URL (with fallback if no remote)
+REPO_NAME=$(basename "$(git config --get remote.origin.url 2>/dev/null || echo "devcontainer")" .git)
 
 # Sanitize project name for Docker Compose requirements:
 # - Must start with a letter or number
@@ -221,7 +221,7 @@ pull_model() {
     local model="$1"
     echo "Checking for embedding model: $model..."
 
-    if curl -sf http://localhost:11434/api/tags 2>/dev/null | grep -q "$model"; then
+    if curl -sf http://localhost:11434/api/tags 2>/dev/null | grep -qw "$model"; then
         echo "Model $model already available"
     else
         echo "Pulling model $model (this may take a few minutes)..."
@@ -275,7 +275,7 @@ docker pull ghcr.io/kodflow/devcontainer-template:latest 2>/dev/null || echo "Wa
 # ============================================================================
 echo ""
 echo "Cleaning up existing devcontainer instances..."
-docker compose -f "$DEVCONTAINER_DIR/docker-compose.yml" --project-name "$REPO_NAME" down --remove-orphans --timeout 0 2>/dev/null || true
+docker compose -f "$DEVCONTAINER_DIR/docker-compose.yml" --project-name "$REPO_NAME" down --remove-orphans --timeout 5 2>/dev/null || true
 echo "Cleanup complete"
 
 echo ""

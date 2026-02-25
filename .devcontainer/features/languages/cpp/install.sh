@@ -123,7 +123,7 @@ if [ ! -d "$EMSDK_DIR" ]; then
         exit 1
     }
     # Use devcontainer user (REMOTE_USER), fallback to vscode
-    TARGET_USER="${REMOTE_USER:-vscode}"
+    TARGET_USER="${_REMOTE_USER:-vscode}"
     sudo chown -R "${TARGET_USER}:${TARGET_USER}" "$EMSDK_DIR"
 fi
 

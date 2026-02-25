@@ -203,6 +203,16 @@ step_mcp_configuration() {
     local MCP_TPL="/etc/mcp/mcp.json.tpl"
     local MCP_OUTPUT="/workspace/mcp.json"
 
+    # Skip regeneration if mcp.json exists and template hasn't changed
+    if [ -f "$MCP_OUTPUT" ] && [ -f "$MCP_TPL" ]; then
+        local tpl_hash output_marker="/tmp/.mcp-tpl-hash"
+        tpl_hash=$(md5sum "$MCP_TPL" 2>/dev/null | cut -d" " -f1)
+        if [ -f "$output_marker" ] && [ "$(cat "$output_marker" 2>/dev/null)" = "$tpl_hash" ]; then
+            log_info "mcp.json already up-to-date (template unchanged), skipping"
+            return 0
+        fi
+    fi
+
     # Helper function to get 1Password field (tries multiple field names)
     get_1password_field() {
         local item="$1"
@@ -329,6 +339,8 @@ step_mcp_configuration() {
                     chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
                     chmod 600 "$MCP_OUTPUT"
                     log_success "mcp.json generated successfully"
+                    # Save template hash to skip regeneration on next start
+                    md5sum "$MCP_TPL" 2>/dev/null | cut -d" " -f1 > /tmp/.mcp-tpl-hash 2>/dev/null || true
                 else
                     log_error "Generated mcp.json is invalid JSON, keeping original"
                 fi
@@ -391,10 +403,17 @@ step_git_credential_cleanup() {
 # Skipped in CI environment
 step_auto_init_check() {
     local INIT_LOG="$HOME/.devcontainer-init.log"
+    local INIT_MARKER="$HOME/.devcontainer-init-done"
+
+    # Only run /init on FIRST container start, not every restart
+    if [ -f "$INIT_MARKER" ]; then
+        log_info "Init already completed (marker: ~/.devcontainer-init-done), skipping"
+        return 0
+    fi
 
     if command -v claude &> /dev/null && [ -z "${CI:-}" ]; then
-        log_info "Running project initialization check..."
-        nohup bash -c "sleep 2 && claude \"/init\" || echo \"[\$(date -Iseconds)] Init check failed with exit code \$?\" >> \"$INIT_LOG\"" >> "$INIT_LOG" 2>&1 &
+        log_info "Running project initialization check (first start)..."
+        nohup bash -c "sleep 2 && claude \"/init\" && touch \"$INIT_MARKER\" || echo \"[\$(date -Iseconds)] Init check failed with exit code \$?\" >> \"$INIT_LOG\"" >> "$INIT_LOG" 2>&1 &
         log_success "Init check scheduled (logs: ~/.devcontainer-init.log)"
     elif [ -n "${CI:-}" ]; then
         log_info "CI environment detected, skipping init"
@@ -1066,15 +1085,30 @@ init_vpn() {
 run_step "Restore Claude config"    step_restore_claude_config
 run_step "Init Claude dirs"         step_init_claude_dirs
 run_step "Shell env repair"         step_shell_env_repair
-run_step "Reload environment"       step_reload_env
+# NOTE: Environment reload MUST NOT run inside run_step (which uses a subshell).
+# Variables sourced in a subshell are lost when it exits — tokens would never
+# reach step_mcp_configuration. Source .env directly in the main shell.
+_ENV_FILE="/workspace/.devcontainer/.env"
+if [ -f "$_ENV_FILE" ]; then
+    log_info "Reloading environment from .env..."
+    set -a
+    # shellcheck source=/dev/null
+    source "$_ENV_FILE"
+    set +a
+    log_success "Environment reloaded from .env"
+else
+    log_info "No .env file found, skipping environment reload"
+fi
 run_step "1Password permissions"    step_1password_permissions
 run_step "npm cache permissions"    step_npm_cache_permissions
 run_step "MCP configuration"        step_mcp_configuration
 run_step "Git credential cleanup"   step_git_credential_cleanup
 
-# Background tasks (have internal error handling, not tracked in summary)
+# Background tasks (tracked via PID files for diagnostics)
 init_semantic_search >> /tmp/grepai-init.log 2>&1 &
-init_vpn &
+echo $! > /tmp/.grepai-init.pid
+init_vpn >> /tmp/vpn-init.log 2>&1 &
+echo $! > /tmp/.vpn-init.pid
 
 # Export dynamic environment variables (appended to ~/.devcontainer-env.sh)
 # Note: ~/.devcontainer-env.sh is created by postCreate.sh with static content

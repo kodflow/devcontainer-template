@@ -30,7 +30,8 @@ sudo apt-get update && sudo apt-get install -y \
 # ─────────────────────────────────────────────────────────────────────────────
 # Install SDKMAN and Kotlin
 # ─────────────────────────────────────────────────────────────────────────────
-export SDKMAN_DIR="/home/vscode/.sdkman"
+# Align with java feature and docker-compose.yml (SDKMAN_DIR=/home/vscode/.cache/sdkman)
+export SDKMAN_DIR="${SDKMAN_DIR:-/home/vscode/.cache/sdkman}"
 
 if [ ! -d "$SDKMAN_DIR" ]; then
     echo -e "${YELLOW}Installing SDKMAN...${NC}"

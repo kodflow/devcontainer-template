@@ -92,7 +92,7 @@ Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.).
 
 ```
 CLAUDE.md                    # This overview
-├── AGENTS.md                # Specialist agents (57 agents)
+├── AGENTS.md                # Specialist agents (79 agents)
 ├── docs/vision.md           # Objectives, success criteria
 ├── docs/architecture.md     # System design, components
 ├── docs/workflows.md        # Detailed workflows
