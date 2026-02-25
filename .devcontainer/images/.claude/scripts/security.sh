@@ -13,6 +13,13 @@ scan_file() {
     local file="$1"
     local issues=0
 
+    # Skip this script itself (contains detection patterns that self-match)
+    local self_basename
+    self_basename=$(basename "${BASH_SOURCE[0]}" 2>/dev/null || echo "security.sh")
+    if [[ "$(basename "$file")" == "$self_basename" ]]; then
+        return 0
+    fi
+
     # Skip binary files
     if file "$file" 2>/dev/null | grep -q "binary"; then
         return 0
@@ -73,12 +80,17 @@ scan_file() {
 }
 
 # === Determine mode based on input ===
-INPUT=""
-FILE="${1:-}"
+# Always read stdin (Claude Code always provides JSON on stdin)
+INPUT="$(cat 2>/dev/null || true)"
 
-if [ ! -t 0 ]; then
-    # stdin has data, might be JSON from Claude hook
-    INPUT=$(cat)
+# Extract file_path from stdin JSON, fallback to argument
+FILE=""
+if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
+    FILE=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)
+fi
+FILE="${FILE:-${1:-}}"
+
+if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
     TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
     COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
 
@@ -91,9 +103,11 @@ if [ ! -t 0 ]; then
             CORRECTED="${COMMAND/--force/--force-with-lease}"
             echo "⚠️  Auto-corrected: --force → --force-with-lease" >&2
             if command -v jq &>/dev/null; then
-                jq -n --arg cmd "$CORRECTED" '{"decision":"allow","updatedInput":{"command":$cmd}}'
+                jq -n --arg cmd "$CORRECTED" \
+                    --arg reason "Auto-corrected: --force → --force-with-lease" \
+                    '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":$reason,"updatedInput":{"command":$cmd}}}'
             else
-                printf '{"decision":"allow","updatedInput":{"command":"%s"}}' "$CORRECTED"
+                printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"Auto-corrected: --force to --force-with-lease","updatedInput":{"command":"%s"}}}' "$CORRECTED"
             fi
             exit 0
         fi
@@ -128,13 +142,11 @@ if [ ! -t 0 ]; then
         echo "✓ Security scan passed" >&2
         exit 0
     fi
-    # Not a git commit/push command, nothing to do
-    exit 0
+    # Not a git commit/push command — fall through to file scan
 fi
 
 # === PostToolUse mode: single file ===
 if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
-    # No file to scan (stdin mode without git commit, or invalid file)
     exit 0
 fi
 
