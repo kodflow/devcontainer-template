@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-12T17:00:00Z -->
+<!-- updated: 2026-02-25T12:30:00Z -->
 # DevContainer Hooks
 
 ## Purpose
@@ -43,10 +43,13 @@ This ensures hooks auto-update when the Docker image is rebuilt.
 | postAttach | postAttach.sh | After VS Code attaches |
 | postStart | postStart.sh | After each start (MCP, grepai, VPN) |
 
-## postStart Background Services
+## postStart Services
 
-| Service | Function | Health Check |
+| Service | Function | Description |
 |---------|----------|-------------|
+| Shell env repair | `step_shell_env_repair` | v1→v3 upgrade, duplicate cleanup |
+| Completion cache | `step_cache_completions` | Pre-generate `~/.zsh_completions/` |
+| p10k segments | `step_generate_p10k_segments` | Dynamic `~/.p10k-segments.zsh` |
 | grepai watch | `init_semantic_search` | `.health-stamp` + watchdog (60s) |
 | VPN | `init_vpn` | 1Password profile detection |
 

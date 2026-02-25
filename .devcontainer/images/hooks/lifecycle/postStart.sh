@@ -114,25 +114,34 @@ step_shell_env_repair() {
         fi
     done
 
-    # Upgrade devcontainer-env.sh to two-phase loading (v2)
-    # v1 loaded heavy init (nvm.sh, eval pyenv/rbenv, 15+ completions) unconditionally,
-    # causing VS Code ptyHost to timeout resolving shell environment.
-    # v2 splits into: Phase 1 (fast PATH exports) + Phase 2 (heavy init, terminal only).
+    # Upgrade devcontainer-env.sh: v1→v2 (two-phase) or v2→v3 (lazy wrappers)
+    # v1: heavy init unconditionally (caused VS Code ptyHost timeout)
+    # v2: two-phase (Phase 1 fast, Phase 2 terminal-only) — still eager init
+    # v3: lazy wrappers + cached completions (no eager init, no source <(...))
     local DC_ENV="$HOME/.devcontainer-env.sh"
-    if [ -f "$DC_ENV" ] && ! grep -q "two-phase" "$DC_ENV" 2>/dev/null; then
-        log_info "Upgrading devcontainer-env.sh to two-phase loading (v2)..."
+    local need_regen=false
 
-        # Trigger postCreate.sh to regenerate the env file
-        # Remove the guard marker so postCreate regenerates, but preserve initialization state
+    # v1→v3: no two-phase marker at all
+    if [ -f "$DC_ENV" ] && ! grep -q "two-phase\|lazy wrappers" "$DC_ENV" 2>/dev/null; then
+        log_info "Upgrading devcontainer-env.sh from v1 to v3..."
+        need_regen=true
+    fi
+
+    # v2→v3: has two-phase but still uses source <(cmd completion)
+    if [ -f "$DC_ENV" ] && grep -q "two-phase" "$DC_ENV" 2>/dev/null && ! grep -q "lazy wrappers" "$DC_ENV" 2>/dev/null; then
+        log_info "Upgrading devcontainer-env.sh from v2 to v3 (lazy wrappers)..."
+        need_regen=true
+    fi
+
+    if [ "$need_regen" = true ]; then
         if [ -f /home/vscode/.devcontainer-initialized ]; then
             rm -f /home/vscode/.devcontainer-initialized
             if [ -f /workspace/.devcontainer/hooks/lifecycle/postCreate.sh ]; then
                 bash /workspace/.devcontainer/hooks/lifecycle/postCreate.sh 2>/dev/null || true
             fi
-            # Restore marker (postCreate.sh recreates it, but ensure it exists)
             touch /home/vscode/.devcontainer-initialized
         fi
-        log_success "devcontainer-env.sh upgraded to v2 (two-phase)"
+        log_success "devcontainer-env.sh upgraded to v3 (lazy wrappers + cached completions)"
     fi
 
     # Remove duplicate NVM from .zshrc (added by nodejs feature, already in env.sh)
@@ -142,11 +151,191 @@ step_shell_env_repair() {
         log_info "Removed duplicate NVM from .zshrc (handled by devcontainer-env.sh)"
     fi
 
+    # Remove duplicate pyenv init from .zshrc (added by python feature, handled by lazy wrapper)
+    if [ -f "$HOME/.zshrc" ] && grep -q "pyenv init" "$HOME/.zshrc" 2>/dev/null; then
+        sed -i '/^# Pyenv initialization$/,/^eval "\$(pyenv init -)"/d' "$HOME/.zshrc" 2>/dev/null || true
+        sed -i '/^eval "\$(pyenv virtualenv-init -)"/d' "$HOME/.zshrc" 2>/dev/null || true
+        sed -i '/^export PYENV_ROOT=.*$/d' "$HOME/.zshrc" 2>/dev/null || true
+        log_info "Removed duplicate pyenv init from .zshrc (handled by devcontainer-env.sh)"
+    fi
+
+    # Remove duplicate rbenv init from .zshrc (added by ruby feature, handled by lazy wrapper)
+    if [ -f "$HOME/.zshrc" ] && grep -q "rbenv init" "$HOME/.zshrc" 2>/dev/null; then
+        sed -i '/^# Rbenv initialization$/,/^eval "\$(rbenv init -)"/d' "$HOME/.zshrc" 2>/dev/null || true
+        sed -i '/^export RBENV_ROOT=.*$/d' "$HOME/.zshrc" 2>/dev/null || true
+        log_info "Removed duplicate rbenv init from .zshrc (handled by devcontainer-env.sh)"
+    fi
+
+    # Remove duplicate SDKMAN init from .zshrc (injected by get.sdkman.io installer)
+    if [ -f "$HOME/.zshrc" ] && grep -q "sdkman-init.sh" "$HOME/.zshrc" 2>/dev/null; then
+        sed -i '/^#THIS MUST BE AT THE END OF THE FILE/,/sdkman-init\.sh/d' "$HOME/.zshrc" 2>/dev/null || true
+        log_info "Removed duplicate SDKMAN init from .zshrc (handled by devcontainer-env.sh)"
+    fi
+
     # Ensure zsh is the default login shell
     if [ "$(getent passwd "$(whoami)" | cut -d: -f7)" != "/bin/zsh" ]; then
         sudo chsh -s /bin/zsh "$(whoami)" 2>/dev/null || true
         log_success "Default shell set to zsh"
     fi
+}
+
+
+# Pre-generate zsh completions to disk cache (~/.zsh_completions/)
+# Replaces expensive 'source <(cmd completion zsh)' calls at shell startup.
+# Each tool's completion is generated once per container start; stale files
+# regenerated when the tool binary is newer than the cache (mtime-based).
+step_cache_completions() {
+    local COMP_DIR="$HOME/.zsh_completions"
+    mkdir -p "$COMP_DIR"
+
+    # Helper: regenerate completion file if tool binary is newer than cache
+    cache_completion() {
+        local tool_cmd="$1"
+        local out_file="$2"
+        shift 2
+        local gen_cmd=("$@")
+
+        command -v "$tool_cmd" &>/dev/null || return 0
+
+        local tool_bin
+        tool_bin=$(command -v "$tool_cmd" 2>/dev/null)
+
+        # Regenerate if: file missing, tool newer than cache, or file empty
+        if [ ! -f "$out_file" ] || [ "$tool_bin" -nt "$out_file" ] || [ ! -s "$out_file" ]; then
+            if "${gen_cmd[@]}" > "$out_file" 2>/dev/null && [ -s "$out_file" ]; then
+                log_info "Cached completion: $(basename "$out_file")"
+            else
+                rm -f "$out_file"
+            fi
+        fi
+    }
+
+    cache_completion kubectl "$COMP_DIR/_kubectl" kubectl completion zsh
+    cache_completion helm "$COMP_DIR/_helm" helm completion zsh
+    cache_completion docker "$COMP_DIR/_docker" docker completion zsh
+    cache_completion gh "$COMP_DIR/_gh" gh completion -s zsh
+    cache_completion rustup "$COMP_DIR/_rustup" rustup completions zsh
+    cache_completion npm "$COMP_DIR/_npm" npm completion
+    cache_completion pnpm "$COMP_DIR/_pnpm" pnpm completion zsh
+
+    # Cargo completion via rustup (separate command)
+    if command -v rustup &>/dev/null; then
+        local rustup_bin
+        rustup_bin=$(command -v rustup 2>/dev/null)
+        if [ ! -f "$COMP_DIR/_cargo" ] || [ "$rustup_bin" -nt "$COMP_DIR/_cargo" ] || [ ! -s "$COMP_DIR/_cargo" ]; then
+            if rustup completions zsh cargo > "$COMP_DIR/_cargo" 2>/dev/null && [ -s "$COMP_DIR/_cargo" ]; then
+                log_info "Cached completion: _cargo"
+            else
+                rm -f "$COMP_DIR/_cargo"
+            fi
+        fi
+    fi
+
+    # Go completion: copy static file (no subprocess needed)
+    if command -v go &>/dev/null; then
+        local goroot
+        goroot=$(go env GOROOT 2>/dev/null)
+        if [ -f "$goroot/misc/zsh/go" ]; then
+            if [ ! -f "$COMP_DIR/_go" ] || [ "$goroot/misc/zsh/go" -nt "$COMP_DIR/_go" ]; then
+                cp "$goroot/misc/zsh/go" "$COMP_DIR/_go" 2>/dev/null && log_info "Cached completion: _go"
+            fi
+        fi
+    fi
+
+    local count
+    count=$(find "$COMP_DIR" -name '_*' -type f 2>/dev/null | wc -l)
+    log_success "ZSH completions cached ($count files in $COMP_DIR)"
+}
+
+# Generate dynamic p10k right-prompt segment list based on installed tools.
+# Writes ~/.p10k-segments.zsh sourced by .p10k.zsh to override the static
+# 47-segment RIGHT_PROMPT_ELEMENTS with only segments for present tools.
+step_generate_p10k_segments() {
+    local SEGMENTS_FILE="$HOME/.p10k-segments.zsh"
+    local segments=()
+
+    # Always-on utility segments
+    segments+=(status command_execution_time background_jobs)
+
+    # Python
+    if [ -d "$HOME/.cache/pyenv" ] || command -v python3 &>/dev/null; then
+        segments+=(virtualenv pyenv)
+    fi
+
+    # Node.js
+    if [ -d "/usr/local/share/nvm" ] || command -v node &>/dev/null; then
+        segments+=(nvm node_version)
+    fi
+
+    # Go
+    command -v go &>/dev/null && segments+=(go_version)
+
+    # Rust
+    command -v rustc &>/dev/null && segments+=(rust_version)
+
+    # .NET
+    command -v dotnet &>/dev/null && segments+=(dotnet_version)
+
+    # PHP
+    command -v php &>/dev/null && segments+=(php_version)
+
+    # Java/JVM
+    if [ -d "$HOME/.cache/sdkman/candidates" ] || command -v java &>/dev/null; then
+        segments+=(java_version)
+    fi
+
+    # Ruby
+    if [ -d "$HOME/.cache/rbenv" ] || command -v ruby &>/dev/null; then
+        segments+=(rbenv)
+    fi
+
+    # Flutter/Dart
+    if [ -d "$HOME/.cache/flutter" ] || command -v flutter &>/dev/null; then
+        segments+=(fvm)
+    fi
+
+    # Lua
+    command -v luaenv &>/dev/null && segments+=(luaenv)
+
+    # Scala
+    command -v scalaenv &>/dev/null && segments+=(scalaenv)
+
+    # Perl
+    if command -v plenv &>/dev/null || command -v perlbrew &>/dev/null; then
+        segments+=(plenv perlbrew)
+    fi
+
+    # Kubernetes (SHOW_ON_COMMAND guarded, lightweight)
+    command -v kubectl &>/dev/null && segments+=(kubecontext)
+
+    # Terraform (SHOW_ON_COMMAND guarded)
+    command -v terraform &>/dev/null && segments+=(terraform)
+
+    # Cloud CLIs (SHOW_ON_COMMAND guarded)
+    command -v aws &>/dev/null && segments+=(aws)
+    command -v az &>/dev/null && segments+=(azure)
+    command -v gcloud &>/dev/null && segments+=(gcloud)
+
+    # Always-on context and time
+    segments+=(context time)
+
+    # Line 2 separator
+    segments+=(newline)
+
+    # Write the override file (no console output — instant prompt constraint)
+    {
+        printf '# Auto-generated by postStart.sh — do not edit manually\n'
+        printf '# Regenerated on each container start based on installed tools\n'
+        printf 'typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(\n'
+        local seg
+        for seg in "${segments[@]}"; do
+            printf '    %s\n' "$seg"
+        done
+        printf ')\n'
+    } > "$SEGMENTS_FILE"
+
+    local count=${#segments[@]}
+    log_success "p10k segments: $count active → ~/.p10k-segments.zsh"
 }
 
 # Reload .env file to get updated tokens
@@ -1085,6 +1274,8 @@ init_vpn() {
 run_step "Restore Claude config"    step_restore_claude_config
 run_step "Init Claude dirs"         step_init_claude_dirs
 run_step "Shell env repair"         step_shell_env_repair
+run_step "Cache completions"        step_cache_completions
+run_step "p10k segments"            step_generate_p10k_segments
 # NOTE: Environment reload MUST NOT run inside run_step (which uses a subshell).
 # Variables sourced in a subshell are lost when it exits — tokens would never
 # reach step_mcp_configuration. Source .env directly in the main shell.

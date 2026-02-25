@@ -38,7 +38,7 @@ flowchart TB
 
         subgraph CLAUDE["Claude Code"]
             CMD[16 commandes<br/>/plan /do /review /git]
-            AGT[57 agents<br/>orchestrators → specialists → executors]
+            AGT[79 agents<br/>orchestrators → specialists → executors]
             HK[8 hooks Claude<br/>format, lint, test, security]
         end
 
@@ -95,15 +95,15 @@ flowchart TB
     │   └── lifecycle/         # onCreate, postCreate, postStart
     └── .claude/
         ├── commands/          # 16 commandes (markdown)
-        ├── agents/            # 57 agents (markdown)
+        ├── agents/            # 79 agents (markdown)
         ├── scripts/           # 15 scripts hooks Claude
-        ├── docs/              # 162 patterns de design
+        ├── docs/              # 170+ patterns de design
         └── settings.json      # Config Claude Code
 ```
 
 ## Système d'agents
 
-57 agents organisés en hiérarchie à 3 niveaux :
+79 agents organisés en hiérarchie à 3 niveaux :
 
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': {
@@ -170,5 +170,5 @@ exec /etc/devcontainer-hooks/lifecycle/postStart.sh "$@"
 Fichiers restaurés :
 - `~/.claude/commands/` (16 commandes)
 - `~/.claude/scripts/` (15 scripts hooks)
-- `~/.claude/agents/` (57 agents)
-- `~/.claude/docs/` (162 patterns)
+- `~/.claude/agents/` (79 agents)
+- `~/.claude/docs/` (170+ patterns)
