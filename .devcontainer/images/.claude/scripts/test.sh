@@ -12,7 +12,14 @@
 
 set +e  # Fail-open: hooks should never block unexpectedly
 
-FILE="${1:-}"
+# Read file_path from stdin JSON (preferred) or fallback to argument
+INPUT="$(cat 2>/dev/null || true)"
+FILE=""
+if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
+    FILE=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)
+fi
+FILE="${FILE:-${1:-}}"
+
 if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
     exit 0
 fi
@@ -20,6 +27,13 @@ fi
 EXT="${FILE##*.}"
 BASENAME=$(basename "$FILE")
 DIR=$(dirname "$FILE")
+
+# Pre-flight: skip files that never contain tests
+case "$BASENAME" in
+    *.md|*.json|*.yaml|*.yml|*.toml|*.lock|*.env|*.sh|*.css|*.scss|*.html|Dockerfile*|Makefile|*.gitignore)
+        exit 0
+        ;;
+esac
 
 # Source shared utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
