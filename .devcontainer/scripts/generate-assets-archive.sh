@@ -3,7 +3,7 @@
 # generate-assets-archive.sh - Creates tar.gz of Claude Code assets
 # ============================================================================
 # Bundles all assets into a single downloadable archive.
-# Used by CI (release-please) to attach assets to GitHub Releases.
+# Used by CI (release.yml) to attach assets to GitHub Releases.
 #
 # Usage:
 #   ./generate-assets-archive.sh                    # Default output path
