@@ -662,7 +662,16 @@ step_coderabbit_auth() {
     }
     trap 'rm -f "${cr_tmp:-}" 2>/dev/null || true' RETURN
 
-    if ! jq -n --arg token "$CR_TOKEN" '{"accessToken": $token, "expiresAt": "never"}' > "$cr_tmp" 2>/dev/null; then
+    # Detect provider from git remote (github or gitlab)
+    local cr_provider="github"
+    local remote_url
+    remote_url=$(git config --get remote.origin.url 2>/dev/null || echo "")
+    if echo "$remote_url" | grep -qi "gitlab"; then
+        cr_provider="gitlab"
+    fi
+
+    if ! jq -n --arg token "$CR_TOKEN" --arg provider "$cr_provider" \
+        '{"accessToken": $token, "provider": $provider}' > "$cr_tmp" 2>/dev/null; then
         log_warning "CodeRabbit: failed to generate auth.json"
         rm -f "$cr_tmp" 2>/dev/null || true
         return 0
