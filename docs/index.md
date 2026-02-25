@@ -1,7 +1,7 @@
-<!-- /docs-generated: {"date":"2026-02-19T21:05:00Z","commit":"ffd5c95","pages":14,"agents":9} -->
+<!-- /docs-generated: {"date":"2026-02-25T14:15:00Z","commit":"02bac1d","pages":14,"agents":9} -->
 # DevContainer Template
 
-**Un environnement de dev complet avec 57 agents IA, 16 commandes, et 25 langages — prêt en une commande.**
+**Un environnement de dev complet avec 79 agents IA, 16 commandes, et 25 langages — prêt en une commande.**
 
 [Commencer :material-arrow-right:](#quick-start){ .md-button .md-button--primary }
 
@@ -12,7 +12,7 @@
 | Fonctionnalité | Description |
 |----------------|-------------|
 | **25 langages** | Python, Go, Rust, Node.js, Java, C/C++, Ruby, PHP, et 17 autres — chacun avec linter, formatter et tests |
-| **57 agents IA** | Spécialistes par langage, DevOps, sécurité, architecture — orchestrés par Claude Code |
+| **79 agents IA** | Spécialistes par langage (26), DevOps (9), OS (22), orchestrateurs et exécuteurs — orchestrés par Claude Code |
 | **16 commandes** | `/plan`, `/do`, `/review`, `/git`, `/test`, `/lint`, `/docs`... couvrent tout le cycle de dev |
 | **Hooks automatiques** | Format, lint, tests, détection de secrets — déclenchés à chaque édition |
 | **6 serveurs MCP** | GitHub, GitLab, Codacy, Playwright, grepai, context7 — auth pré-configurée |
@@ -32,7 +32,7 @@
 flowchart LR
     A[VS Code] -->|"Reopen in Container"| B[DevContainer]
     B --> C[Base Image<br/>Ubuntu 24.04<br/>25 langages]
-    C --> D[Claude Code<br/>57 agents<br/>16 commandes]
+    C --> D[Claude Code<br/>79 agents<br/>16 commandes]
     D --> E[MCP Servers<br/>GitHub, Codacy<br/>grepai, Playwright]
     E --> F[Code produit<br/>testé, linté<br/>reviewé]
 ```
