@@ -52,7 +52,7 @@ flowchart TD
 | Commande | Arguments | Ce que ça fait |
 |----------|-----------|----------------|
 | `/search "query"` | requête en langage naturel | Cherche d'abord dans `~/.claude/docs/`, puis context7, puis le web |
-| `/docs` | `--update`, `--stop`, `--quick` | Génère la documentation MkDocs depuis l'analyse du codebase |
+| `/docs` | `--update`, `--stop`, `--serve`, `--quick` | Génère la documentation MkDocs depuis l'analyse du codebase |
 | `/warmup` | `--update` | Charge la hiérarchie CLAUDE.md en mémoire, met à jour si besoin |
 
 ### Infrastructure & Ops

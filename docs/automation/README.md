@@ -72,7 +72,7 @@ sequenceDiagram
 | `initialize.sh` | 1x (host) | Crée `.env`, valide les features, installe Ollama |
 | `onCreate.sh` | 1x | Crée les répertoires de cache |
 | `postCreate.sh` | 1x (gardé) | Configure git, GPG, crée `~/.devcontainer-env.sh` |
-| `postStart.sh` | Chaque démarrage | Restaure Claude depuis `/etc/claude-defaults/`, génère `mcp.json`, lance grepai, connecte VPN |
+| `postStart.sh` | Chaque démarrage | Restaure Claude depuis `/etc/claude-defaults/`, génère `mcp.json`, lance grepai, connecte VPN, cache les completions ZSH, génère les segments p10k dynamiques |
 | `postAttach.sh` | Chaque attach IDE | Affiche le message de bienvenue |
 
 !!! info "Non-bloquant"

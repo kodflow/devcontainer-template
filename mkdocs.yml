@@ -1,5 +1,5 @@
 site_name: "DevContainer Template"
-site_description: "Environnement de dev universel avec 57 agents IA, 16 commandes, et 25 langages"
+site_description: "Environnement de dev universel avec 79 agents IA, 16 commandes, et 25 langages"
 site_url: ""
 docs_dir: docs
 site_dir: site
@@ -56,23 +56,23 @@ markdown_extensions:
 
 nav:
   - Docs:
-    - Accueil: index.md
-    - Premiers pas:
-      - Installation: getting-started/README.md
-      - Configuration: getting-started/configuration.md
-      - Workflow quotidien: getting-started/workflow.md
-    - Commandes: commands/README.md
-    - Automatisation: automation/README.md
-    - Architecture: architecture/README.md
-    - Référence:
-      - Langages: reference/languages.md
-      - Conventions: reference/conventions.md
-      - Dépannage: reference/troubleshooting.md
+      - Accueil: index.md
+      - Premiers pas:
+          - Installation: getting-started/README.md
+          - Configuration: getting-started/configuration.md
+          - Workflow quotidien: getting-started/workflow.md
+      - Commandes: commands/README.md
+      - Automatisation: automation/README.md
+      - Architecture: architecture/README.md
+      - Référence:
+          - Langages: reference/languages.md
+          - Conventions: reference/conventions.md
+          - Dépannage: reference/troubleshooting.md
   - Projet:
-    - Vision: vision.md
-    - Architecture projet: architecture.md
-    - Workflows: workflows.md
-    - Guides: guides/README.md
+      - Vision: vision.md
+      - Architecture projet: architecture.md
+      - Workflows: workflows.md
+      - Guides: guides/README.md
   - Changelog: changelog.md
   - GitHub: https://github.com/kodflow/devcontainer-template
 

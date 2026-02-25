@@ -124,6 +124,7 @@ principles:
 |----------|--------|
 | (none) | Freshness check → incremental or full analysis → serve on :8080 |
 | `--update` | Force full re-analysis, ignore freshness (regenerate everything) |
+| `--serve` | (Re)start server with existing docs (kill + restart, no analysis) |
 | `--stop` | Stop running MkDocs server |
 | `--status` | Show freshness report, stale pages, server status |
 | `--port <n>` | Custom port (default: 8080) |
@@ -152,6 +153,7 @@ principles:
   OPTIONS
     (none)              Freshness check + incremental/full + serve
     --update            Force full regeneration (ignore freshness)
+    --serve             (Re)start server (kill existing + restart, no analysis)
     --stop              Stop running MkDocs server
     --status            Freshness report + stale pages + server status
     --port <n>          Custom port (default: 8080)
@@ -184,6 +186,7 @@ principles:
   EXAMPLES
     /docs                   # Freshness check → update stale pages → serve
     /docs --update          # Force full regeneration from scratch
+    /docs --serve           # (Re)start server after manual edits or --stop
     /docs --status          # Show what's stale without regenerating
     /docs --quick           # Serve existing docs immediately
     /docs --stop            # Stop server
@@ -1365,6 +1368,7 @@ phase_8_0_validate_and_serve:
 
         Commands:
           /docs --update      Re-analyze and regenerate
+          /docs --serve       (Re)start server
           /docs --stop        Stop server
           /docs --status      Show coverage stats
 
@@ -1373,12 +1377,44 @@ phase_8_0_validate_and_serve:
 
 ---
 
+## Mode --serve
+
+```yaml
+serve:
+  description: "(Re)start server with existing docs — no analysis, no regeneration"
+
+  workflow:
+    1_check_docs: "Verify docs/ exists with content (abort if empty)"
+    2_kill_existing: "pkill -f 'mkdocs serve' 2>/dev/null || true"
+    3_start_server: "mkdocs serve -a 0.0.0.0:{PORT}"
+
+  use_case: "Restart server after manual doc edits, --stop, or port change"
+
+  output_template: |
+    ═══════════════════════════════════════════════════════════════
+      /docs --serve - Server (Re)started
+    ═══════════════════════════════════════════════════════════════
+
+      URL: http://localhost:{PORT}
+
+      Commands:
+        /docs --update      Re-analyze and regenerate
+        /docs --stop        Stop server
+        /docs --status      Show coverage stats
+
+    ═══════════════════════════════════════════════════════════════
+```
+
+**IF `$ARGUMENTS` contains `--serve`**: Execute Mode --serve and STOP (do not run analysis phases).
+
+---
+
 ## Mode --stop
 
 ```yaml
 stop:
   command: "pkill -f 'mkdocs serve'"
-  output: "Server stopped. Restart: /docs"
+  output: "Server stopped. Restart: /docs --serve"
 ```
 
 ---
@@ -1427,14 +1463,17 @@ status:
 
 ## Mode --quick
 
+**Alias for `--serve`.** Both skip analysis and (re)start the server with existing docs.
+
 ```yaml
 quick:
-  description: "Skip deep analysis, use existing docs"
+  description: "Skip deep analysis, (re)start server with existing docs"
+  alias_for: "--serve"
 
   workflow:
-    1_check_cache: "Verify docs/ exists with content"
-    2_skip_analysis: "Don't launch analysis agents"
-    3_serve_directly: "Start MkDocs immediately"
+    1_check_docs: "Verify docs/ exists with content (abort if empty)"
+    2_kill_existing: "pkill -f 'mkdocs serve' 2>/dev/null || true"
+    3_start_server: "mkdocs serve -a 0.0.0.0:{PORT}"
 
   use_case: "Fast iteration when docs already generated"
 ```
