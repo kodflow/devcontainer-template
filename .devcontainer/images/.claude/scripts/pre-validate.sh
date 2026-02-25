@@ -6,7 +6,14 @@
 set -uo pipefail
 # Note: Removed -e (errexit) to fail-open on unexpected errors
 
-FILE="${1:-}"
+# Read file_path from stdin JSON (preferred) or fallback to argument
+INPUT="$(cat 2>/dev/null || true)"
+FILE=""
+if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
+    FILE=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)
+fi
+FILE="${FILE:-${1:-}}"
+
 if [ -z "$FILE" ]; then
     exit 0
 fi
@@ -96,22 +103,13 @@ if [[ "$USE_YQ" == "true" ]]; then
 
         # Check if the file matches the pattern
         if [[ "$FILE" == *"$pattern"* ]] || [[ "$FILE" == $pattern ]]; then
-            echo "═══════════════════════════════════════════════"
-            echo "  🚫 PROTECTED FILE"
-            echo "═══════════════════════════════════════════════"
-            echo ""
-            echo "  File: $FILE"
-            echo "  Pattern: $pattern"
-            echo ""
-            echo "  This file is protected against accidental"
-            echo "  modifications by .claude/protected-paths.yml"
-            echo ""
-            echo "  To modify this file:"
-            echo "    1. Request explicit user approval"
-            echo "    2. Enable: export ALLOW_PROTECTED_EDIT=1"
-            echo "    3. Provide a justification"
-            echo ""
-            echo "═══════════════════════════════════════════════"
+            REASON="Protected file: $FILE (pattern: $pattern). To modify: export ALLOW_PROTECTED_EDIT=1"
+            echo "🚫 $REASON" >&2
+            if command -v jq &>/dev/null; then
+                jq -n --arg reason "$REASON" \
+                    '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":$reason}}'
+                exit 0
+            fi
             exit 2
         fi
     done
@@ -119,9 +117,13 @@ else
     # Fallback: use hardcoded patterns
     for pattern in "${PROTECTED_PATTERNS[@]}"; do
         if [[ "$FILE" == *"$pattern"* ]]; then
-            echo "🚫 Protected file: $FILE"
-            echo "   Pattern: $pattern"
-            echo "   To force: export ALLOW_PROTECTED_EDIT=1"
+            REASON="Protected file: $FILE (pattern: $pattern). To modify: export ALLOW_PROTECTED_EDIT=1"
+            echo "🚫 $REASON" >&2
+            if command -v jq &>/dev/null; then
+                jq -n --arg reason "$REASON" \
+                    '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":$reason}}'
+                exit 0
+            fi
             exit 2
         fi
     done

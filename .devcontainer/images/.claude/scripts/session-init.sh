@@ -15,6 +15,15 @@ set +e  # Fail-open: never block
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
 
+# Read stdin for session metadata
+INPUT="$(cat 2>/dev/null || true)"
+SOURCE=""
+MODEL=""
+if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
+    SOURCE=$(printf '%s' "$INPUT" | jq -r '.source // ""' 2>/dev/null || echo "")
+    MODEL=$(printf '%s' "$INPUT" | jq -r '.model // ""' 2>/dev/null || echo "")
+fi
+
 # CLAUDE_ENV_FILE is set by Claude Code runtime; if not, we cannot write env vars
 ENV_FILE="${CLAUDE_ENV_FILE:-}"
 if [ -z "$ENV_FILE" ]; then
@@ -43,5 +52,21 @@ fi
     echo "GH_BRANCH=$GH_BRANCH"
     echo "GH_DEFAULT_BRANCH=$GH_DEFAULT_BRANCH"
 } >> "$ENV_FILE" 2>/dev/null || true
+
+# Log session start with source and model
+BRANCH_SAFE=$(printf '%s' "$GH_BRANCH" | tr '/ ' '__')
+LOG_DIR="$PROJECT_DIR/.claude/logs/$BRANCH_SAFE"
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+
+if command -v jq &>/dev/null; then
+    TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    jq -n -c \
+        --arg ts "$TIMESTAMP" \
+        --arg src "$SOURCE" \
+        --arg mdl "$MODEL" \
+        --arg branch "$GH_BRANCH" \
+        '{timestamp:$ts,source:$src,model:$mdl,branch:$branch,event:"SessionStart"}' \
+        >> "$LOG_DIR/session.jsonl" 2>/dev/null || true
+fi
 
 exit 0

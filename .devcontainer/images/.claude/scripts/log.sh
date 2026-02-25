@@ -54,7 +54,7 @@ redact_secrets() {
 set +o pipefail
 INPUT="$(cat 2>/dev/null)"
 set -o pipefail
-INPUT="${INPUT:-{\}}"
+INPUT="${INPUT:-{}}"
 
 # Fail gracefully if no input or empty
 if [[ -z "$INPUT" ]] || [[ "$INPUT" == "{}" ]]; then
