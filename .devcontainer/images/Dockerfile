@@ -56,6 +56,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Set to current date (YYYY-MM-DD) during scheduled builds to pull latest versions.
 # See: https://docs.docker.com/build/cache/invalidation/
 ARG CACHE_BUST_DYNAMIC=stable
+ARG GITHUB_TOKEN=
 
 # =============================================================================
 # PPA-Based Tools (HashiCorp, 1Password, Ansible) - consolidated
@@ -104,20 +105,18 @@ RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     echo "Installing kubectl ${KUBECTL_LATEST}..." && \
     curl -fsSL "https://dl.k8s.io/release/${KUBECTL_LATEST}/bin/linux/${ARCH}/kubectl" -o /usr/local/bin/kubectl && \
     chmod +x /usr/local/bin/kubectl && \
-    HELM_LATEST=$(curl -fsSL "https://api.github.com/repos/helm/helm/releases/latest" | jq -r '.tag_name') && \
+    HELM_LATEST=$(curl -fsSL ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} "https://api.github.com/repos/helm/helm/releases/latest" | jq -r '.tag_name') && \
     echo "Installing Helm ${HELM_LATEST}..." && \
     curl -fsSL "https://get.helm.sh/helm-${HELM_LATEST}-linux-${ARCH}.tar.gz" | tar xz -C /tmp && \
     mv /tmp/linux-${ARCH}/helm /usr/local/bin/helm && \
     rm -rf /tmp/linux-${ARCH} && \
-    BAZELISK_LATEST=$(curl -fsSL "https://api.github.com/repos/bazelbuild/bazelisk/releases/latest" | jq -r '.tag_name') && \
-    echo "Installing Bazelisk ${BAZELISK_LATEST}..." && \
-    curl -fsSL "https://github.com/bazelbuild/bazelisk/releases/download/${BAZELISK_LATEST}/bazelisk-linux-${ARCH}" -o /usr/local/bin/bazel && \
+    echo "Installing Bazelisk (latest)..." && \
+    curl -fsSL "https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${ARCH}" -o /usr/local/bin/bazel && \
     chmod +x /usr/local/bin/bazel && \
-    YQ_LATEST=$(curl -fsSL "https://api.github.com/repos/mikefarah/yq/releases/latest" | jq -r '.tag_name') && \
-    echo "Installing yq ${YQ_LATEST}..." && \
-    curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_LATEST}/yq_linux_${ARCH}" -o /usr/bin/yq && \
+    echo "Installing yq (latest)..." && \
+    curl -fsSL "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}" -o /usr/bin/yq && \
     chmod +x /usr/bin/yq && \
-    GREPAI_LATEST=$(curl -fsSL "https://api.github.com/repos/yoanbernabeu/grepai/releases/latest" | jq -r '.tag_name') && \
+    GREPAI_LATEST=$(curl -fsSL ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} "https://api.github.com/repos/yoanbernabeu/grepai/releases/latest" | jq -r '.tag_name') && \
     echo "Installing grepai ${GREPAI_LATEST}..." && \
     curl -fsSL "https://github.com/yoanbernabeu/grepai/releases/download/${GREPAI_LATEST}/grepai_${GREPAI_LATEST#v}_linux_${ARCH}.tar.gz" | \
     tar xz -C /usr/local/bin grepai
@@ -223,18 +222,16 @@ USER vscode
 # =============================================================================
 RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     mkdir -p ~/.local/bin && \
-    SL_VERSION=$(curl -fsSL "https://api.github.com/repos/kodflow/status-line/releases/latest" | jq -r '.tag_name') && \
-    echo "Installing status-line ${SL_VERSION}..." && \
-    curl -fsSL "https://github.com/kodflow/status-line/releases/download/${SL_VERSION}/status-line-linux-${ARCH}" \
+    echo "Installing status-line (latest)..." && \
+    curl -fsSL "https://github.com/kodflow/status-line/releases/latest/download/status-line-linux-${ARCH}" \
       -o ~/.local/bin/status-line && \
-    curl -fsSL "https://github.com/kodflow/status-line/releases/download/${SL_VERSION}/status-line-linux-${ARCH}.sha256" \
+    curl -fsSL "https://github.com/kodflow/status-line/releases/latest/download/status-line-linux-${ARCH}.sha256" \
       -o /tmp/status-line.sha256 && \
     sed -i "s|status-line-linux-${ARCH}|$HOME/.local/bin/status-line|" /tmp/status-line.sha256 && \
     sha256sum -c /tmp/status-line.sha256 && rm -f /tmp/status-line.sha256 && \
     chmod +x ~/.local/bin/status-line && \
-    KTN_LATEST=$(curl -fsSL "https://api.github.com/repos/kodflow/ktn-linter/releases/latest" | jq -r '.tag_name') && \
-    echo "Installing ktn-linter ${KTN_LATEST}..." && \
-    curl -fsSL "https://github.com/kodflow/ktn-linter/releases/download/${KTN_LATEST}/ktn-linter-linux-${ARCH}" \
+    echo "Installing ktn-linter (latest)..." && \
+    curl -fsSL "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${ARCH}" \
       -o ~/.local/bin/ktn-linter && \
     chmod +x ~/.local/bin/ktn-linter && \
     printf '%s\n' '#!/bin/sh' \
