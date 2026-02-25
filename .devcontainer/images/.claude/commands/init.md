@@ -24,6 +24,7 @@ allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
   - "mcp__grepai__*"
+  - "mcp__context7__*"
   - "Grep(**/*)"
   - "Task(*)"
   - "TaskCreate(*)"
@@ -43,6 +44,12 @@ $ARGUMENTS
 Use `grepai_search` for ALL semantic/meaning-based queries BEFORE Grep.
 Use `grepai_trace_callers`/`grepai_trace_callees` for impact analysis.
 Fallback to Grep ONLY for exact string matches or regex patterns.
+
+## CONTEXT7 (RECOMMENDED)
+
+Use `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` to:
+- Identify detected framework conventions and best practices
+- Fetch current stable versions and recommended configurations
 
 ---
 

@@ -25,6 +25,7 @@ allowed-tools:
   - "mcp__grepai__grepai_trace_callers"
   - "mcp__grepai__grepai_trace_callees"
   - "mcp__grepai__grepai_trace_graph"
+  - "mcp__context7__*"
   - "AskUserQuestion"
 ---
 
@@ -35,6 +36,12 @@ allowed-tools:
 Use `grepai_search` for ALL semantic/meaning-based queries BEFORE Grep.
 Use `grepai_trace_callers`/`grepai_trace_callees` for impact analysis.
 Fallback to Grep ONLY for exact string matches or regex patterns.
+
+## CONTEXT7 (RECOMMENDED)
+
+Use `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` to:
+- Fetch up-to-date API references for libraries used in the project
+- Verify framework documentation accuracy before generating docs
 
 Generate and serve **comprehensive** project documentation using MkDocs Material.
 

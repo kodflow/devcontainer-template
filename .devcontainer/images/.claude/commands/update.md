@@ -18,12 +18,21 @@ allowed-tools:
   - "Write(ci/**/*)"
   - "Write(tests/**/*)"
   - "WebFetch(*)"
+  - "Glob(**/*)"
+  - "Grep(**/*)"
+  - "mcp__grepai__*"
+  - "mcp__context7__*"
   - "Task(*)"
 ---
 
 # Update - DevContainer Environment Update
 
 $ARGUMENTS
+
+## GREPAI-FIRST (MANDATORY)
+
+Use `grepai_search` for ALL semantic/meaning-based queries BEFORE Grep.
+Fallback to Grep ONLY for exact string matches or regex patterns.
 
 ---
 

@@ -9,6 +9,7 @@ allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
   - "mcp__grepai__*"
+  - "mcp__context7__*"
   - "Grep(**/*)"
   - "Write(**/*)"
   - "Edit(**/*)"
@@ -31,6 +32,13 @@ $ARGUMENTS
 Use `grepai_search` for ALL semantic/meaning-based queries BEFORE Grep.
 Use `grepai_trace_callers`/`grepai_trace_callees` for impact analysis.
 Fallback to Grep ONLY for exact string matches or regex patterns.
+
+## CONTEXT7 (RECOMMENDED)
+
+Use `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` to:
+- Verify library API usage before writing implementation code
+- Check framework conventions when working on unfamiliar codebases
+- Resolve ambiguous patterns by consulting up-to-date documentation
 
 ---
 
@@ -108,7 +116,7 @@ plan_detection:
   sources:
     - "Recent conversation (plan validated by user)"
     - "Claude session memory"
-    - ".claude/plans/*.plan.md (disk-persisted plans)"
+    - ".claude/plans/*.md (disk-persisted plans)"
 
   detection_workflow:
     1_check_explicit_flag:
@@ -127,7 +135,7 @@ plan_detection:
 
     3_check_disk_plans:
       condition: "No plan found in conversation context"
-      action: "Glob .claude/plans/*.plan.md, read most recent"
+      action: "Glob .claude/plans/*.md, read most recent"
       priority: "MEDIUM (conversation is fresher than disk)"
 
   priority_rule: "Explicit flag > Conversation > Disk"
@@ -136,9 +144,24 @@ plan_detection:
     mode: "PLAN_EXECUTION"
     actions:
       - "Extract: title, steps[], scope, files[]"
+      - "Check for 'Context:' header line in plan"
+      - "If context path found → Read .claude/contexts/{slug}.md"
+      - "Load discoveries, relevant_files, implementation_notes into working memory"
       - "Skip Phase 0 (interactive questions)"
       - "Use plan steps as sub-objectives"
       - "Criteria = plan completed + tests/lint/build pass"
+
+  context_recovery:
+    trigger: "Plan file contains 'Context: .claude/contexts/{slug}.md' header"
+    workflow:
+      1_extract_path: "Parse 'Context:' line from plan header"
+      2_read_context: "Read .claude/contexts/{slug}.md if exists"
+      3_load_sections:
+        discoveries: "Key findings from planning phase"
+        relevant_files: "Files to focus on"
+        implementation_notes: "Technical decisions and constraints"
+      4_graceful_degradation: "If context file missing → warn and proceed without"
+    purpose: "Restore full planning context after 'clear context' or compaction"
 
   if_no_plan:
     mode: "ITERATIVE"
@@ -155,8 +178,9 @@ plan_detection:
 
   ✓ Approved plan detected!
 
-  Source : conversation | .claude/plans/{slug}.plan.md
+  Source : conversation | .claude/plans/{slug}.md
   Plan   : "Add JWT authentication to API"
+  Context: .claude/contexts/{slug}.md (loaded)
   Steps  : 4
   Scope  : src/auth/, src/middleware/
   Files  : 6 to modify, 2 to create
