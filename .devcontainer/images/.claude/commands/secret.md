@@ -459,7 +459,7 @@ list_workflow:
   (legacy items without path)
     ├─ mcp-github
     ├─ mcp-codacy
-    └─ Coderabbit TOKEN
+    └─ mcp-coderabbit
 
   Total: 8 items (5 with paths, 3 legacy)
 
