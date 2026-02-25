@@ -1,6 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
 echo "========================================="
 echo "Installing Kubernetes Development Tools"
 echo "========================================="
@@ -20,12 +26,6 @@ if command -v helm &>/dev/null; then
     echo -e "${GREEN}✓ Helm already installed: $(helm version --short 2>/dev/null || echo 'unknown')${NC}"
     HELM_PREINSTALLED=true
 fi
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Input validation helpers
