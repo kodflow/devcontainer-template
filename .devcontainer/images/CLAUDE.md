@@ -76,7 +76,7 @@ Lifecycle hooks delegate from workspace stubs to `/etc/devcontainer-hooks/` (ima
 | Container | Docker (via feature), kubectl, Helm |
 | Network | ping, dig, nmap, traceroute, mtr, tcpdump, netcat, whois, iperf3, net-tools |
 | VPN | OpenVPN, WireGuard, StrongSwan (IPsec), PPTP |
-| Code Quality | ShellCheck, ktn-linter, grepai |
+| Code Quality | ShellCheck, ktn-linter, grepai, CodeRabbit |
 | Shell | Zsh (default `$SHELL`) + Oh My Zsh + Powerlevel10k |
 
 ## Shell Startup Optimization (v3)

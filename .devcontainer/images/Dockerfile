@@ -218,6 +218,13 @@ RUN chmod -R 755 /etc/claude-defaults/ /home/vscode/.claude/scripts/ /etc/devcon
 USER vscode
 
 # =============================================================================
+# CodeRabbit CLI (AI-powered code review)
+# =============================================================================
+# Using official installer: https://cli.coderabbit.ai/install.sh
+# Provides: coderabbit (cr) - local AI code reviews
+RUN curl -fsSL https://cli.coderabbit.ai/install.sh | sh
+
+# =============================================================================
 # User Tools (status-line, ktn-linter, xdg-open) - consolidated
 # =============================================================================
 RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \

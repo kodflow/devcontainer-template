@@ -579,6 +579,106 @@ step_mcp_configuration() {
     fi
 }
 
+# CodeRabbit CLI authentication (inject token from 1Password)
+# Retrieves the API token from 1Password and writes ~/.coderabbit/auth.json
+# This enables `coderabbit review` and `cr review` without manual login
+# Graceful degradation: skips silently if 1Password/token/vault unavailable
+step_coderabbit_auth() {
+    local VAULT_ID="${OP_VAULT_ID:-ypahjj334ixtiyjkytu5hij2im}"
+    local CR_AUTH_DIR="$HOME/.coderabbit"
+    local CR_AUTH_FILE="$CR_AUTH_DIR/auth.json"
+
+    # Skip if CodeRabbit CLI not installed
+    if ! command -v coderabbit &> /dev/null; then
+        log_info "CodeRabbit CLI not installed, skipping auth"
+        return 0
+    fi
+
+    # Skip if already authenticated (with valid token)
+    if [ -f "$CR_AUTH_FILE" ]; then
+        if command -v jq >/dev/null 2>&1; then
+            local existing_token
+            existing_token=$(jq -r '.accessToken // ""' "$CR_AUTH_FILE" 2>/dev/null || echo "")
+            if [ -n "$existing_token" ]; then
+                log_success "CodeRabbit already authenticated"
+                return 0
+            fi
+        else
+            # No jq but auth file exists - assume valid (don't overwrite)
+            log_info "CodeRabbit auth file exists (cannot validate without jq)"
+            return 0
+        fi
+    fi
+
+    # Guard: 1Password CLI must be available
+    if ! command -v op &> /dev/null; then
+        log_info "CodeRabbit: op CLI not installed, skipping auto-auth"
+        return 0
+    fi
+
+    # Guard: OP_SERVICE_ACCOUNT_TOKEN must be set
+    if [ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]; then
+        log_info "CodeRabbit: OP_SERVICE_ACCOUNT_TOKEN not set, skipping auto-auth"
+        return 0
+    fi
+
+    # Guard: vault must be accessible (quick connectivity check)
+    if ! op vault get "$VAULT_ID" --format=json >/dev/null 2>&1; then
+        log_warning "CodeRabbit: 1Password vault inaccessible (vault: $VAULT_ID), skipping"
+        return 0
+    fi
+
+    # Retrieve token from 1Password (try multiple field names)
+    local CR_TOKEN=""
+    local fields=("credential" "password" "identifiant" "mot de passe")
+    for field in "${fields[@]}"; do
+        CR_TOKEN=$(op item get "mcp-coderabbit" --vault "$VAULT_ID" --fields "$field" --reveal 2>/dev/null || echo "")
+        [ -n "$CR_TOKEN" ] && break
+    done
+
+    if [ -z "$CR_TOKEN" ]; then
+        log_info "CodeRabbit: item 'mcp-coderabbit' not found in 1Password, skipping"
+        return 0
+    fi
+
+    # Guard: jq required for safe JSON generation
+    if ! command -v jq >/dev/null 2>&1; then
+        log_warning "CodeRabbit: jq not available, cannot generate auth.json safely"
+        return 0
+    fi
+
+    # Create auth directory (with error handling)
+    if ! mkdir -p "$CR_AUTH_DIR" 2>/dev/null; then
+        log_warning "CodeRabbit: cannot create $CR_AUTH_DIR, skipping"
+        return 0
+    fi
+    chmod 700 "$CR_AUTH_DIR" 2>/dev/null || true
+
+    # Write auth.json using jq for safe JSON escaping (handles special chars in token)
+    local cr_tmp
+    cr_tmp=$(mktemp "${CR_AUTH_FILE}.tmp.XXXXXX" 2>/dev/null) || {
+        log_warning "CodeRabbit: cannot create temp file, skipping"
+        return 0
+    }
+    trap 'rm -f "${cr_tmp:-}" 2>/dev/null || true' RETURN
+
+    if ! jq -n --arg token "$CR_TOKEN" '{"accessToken": $token, "expiresAt": "never"}' > "$cr_tmp" 2>/dev/null; then
+        log_warning "CodeRabbit: failed to generate auth.json"
+        rm -f "$cr_tmp" 2>/dev/null || true
+        return 0
+    fi
+
+    # Validate and install
+    if jq empty "$cr_tmp" 2>/dev/null; then
+        mv "$cr_tmp" "$CR_AUTH_FILE"
+        chmod 600 "$CR_AUTH_FILE" 2>/dev/null || true
+        log_success "CodeRabbit authenticated via 1Password"
+    else
+        log_warning "CodeRabbit: generated auth.json is invalid, skipping"
+        rm -f "$cr_tmp" 2>/dev/null || true
+    fi
+}
+
 # Clean git credential helpers (remove macOS-specific helpers)
 step_git_credential_cleanup() {
     log_info "Cleaning git credential helpers..."
@@ -1293,6 +1393,7 @@ fi
 run_step "1Password permissions"    step_1password_permissions
 run_step "npm cache permissions"    step_npm_cache_permissions
 run_step "MCP configuration"        step_mcp_configuration
+run_step "CodeRabbit auth"           step_coderabbit_auth
 run_step "Git credential cleanup"   step_git_credential_cleanup
 
 # Background tasks (tracked via PID files for diagnostics)
