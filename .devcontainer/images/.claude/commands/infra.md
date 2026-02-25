@@ -7,6 +7,7 @@ allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
   - "mcp__grepai__*"
+  - "mcp__context7__*"
   - "Grep(**/*)"
   - "Write(**/*)"
   - "Edit(**/*)"
@@ -16,6 +17,21 @@ allowed-tools:
 ---
 
 # /infra - Infrastructure Automation (Terraform/Terragrunt)
+
+## GREPAI-FIRST (MANDATORY)
+
+Use `grepai_search` for ALL semantic/meaning-based queries BEFORE Grep.
+Use `grepai_trace_callers`/`grepai_trace_callees` for impact analysis.
+Fallback to Grep ONLY for exact string matches or regex patterns.
+
+## CONTEXT7 (RECOMMENDED)
+
+Use `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` to:
+- Fetch Terraform provider documentation for resource configuration
+- Verify cloud service API references (AWS, GCP, Azure)
+- Check HashiCorp tool documentation (Vault, Consul, Nomad)
+
+---
 
 ## Overview
 

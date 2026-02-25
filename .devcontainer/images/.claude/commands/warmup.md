@@ -8,6 +8,7 @@ allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
   - "mcp__grepai__*"
+  - "mcp__context7__*"
   - "Grep(**/*)"
   - "Write(**/*)"
   - "Edit(**/*)"
@@ -22,6 +23,17 @@ allowed-tools:
 # /warmup - Project Context Pre-loading (RLM Architecture)
 
 $ARGUMENTS
+
+## GREPAI-FIRST (MANDATORY)
+
+Use `grepai_search` for ALL semantic/meaning-based queries BEFORE Grep.
+Fallback to Grep ONLY for exact string matches or regex patterns.
+
+## CONTEXT7 (RECOMMENDED)
+
+Use `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` to:
+- Validate CLAUDE.md conventions against current library documentation
+- Check for outdated API references in existing documentation
 
 ---
 
@@ -720,6 +732,67 @@ grepai_config_update:
 
 ---
 
+### Phase 7.0: Learn (Extract Conventions)
+
+**Extract non-obvious conventions from code into CLAUDE.md files.**
+
+```yaml
+learn_workflow:
+  trigger: "Always executed with --update (after all other phases)"
+  purpose: "Auto-discover implicit patterns and inject into CLAUDE.md hierarchy"
+
+  1_analyze_patterns:
+    action: "Scan codebase for implicit conventions not yet documented"
+    tools: [Grep, Glob, grepai_search]
+    targets:
+      - "Naming conventions (files, functions, variables)"
+      - "Error handling patterns (try/catch, Result, early return)"
+      - "Import ordering conventions"
+      - "File organization patterns (co-location, barrel exports)"
+      - "Hidden dependencies (env vars, config files)"
+      - "Configuration patterns (defaults, overrides)"
+
+  2_compare_with_documented:
+    action: "Read existing CLAUDE.md files and filter already-documented patterns"
+    rule: "Only keep patterns with 3+ occurrences AND not already in CLAUDE.md"
+    tools: [Read, Grep]
+
+  3_scope_learnings:
+    rules:
+      project_wide: "root CLAUDE.md (cross-cutting concerns)"
+      package_scope: "package/CLAUDE.md (package-specific conventions)"
+      feature_scope: "feature/CLAUDE.md (feature-specific patterns)"
+    principle: "Place learning at the narrowest applicable scope"
+
+  4_inject_learnings:
+    action: "Append learnings to appropriate CLAUDE.md under '## Learned Conventions' section"
+    constraints:
+      - "Max 5 learnings per CLAUDE.md per update"
+      - "Each learning = 1-2 lines max"
+      - "Respect line thresholds (150/200/250/300)"
+      - "If threshold exceeded → skip injection, warn user"
+    format: "- **{pattern_name}**: {description} ({n} occurrences)"
+
+  output: |
+    ═══════════════════════════════════════════════════════════
+      /warmup --update - Phase 7.0: Learn
+    ═══════════════════════════════════════════════════════════
+
+    Patterns analyzed: <n> source files
+
+    Conventions discovered:
+      ├─ {pattern_1} (5 occurrences) → src/CLAUDE.md
+      ├─ {pattern_2} (8 occurrences) → CLAUDE.md
+      └─ {pattern_3} (3 occurrences) → SKIPPED (already documented)
+
+    Injected: <n> learnings into <n> CLAUDE.md files
+    Skipped: <n> (already documented or below threshold)
+
+    ═══════════════════════════════════════════════════════════
+```
+
+---
+
 **Final Output (--update Mode):**
 
 ```
@@ -744,6 +817,9 @@ grepai_config_update:
 
   GrepAI config:
     ✓ Project-specific exclusions added
+
+  Learned conventions:
+    ✓ <n> patterns discovered, <n> injected
 
   Validation:
     ✓ Line thresholds: 0 FORBIDDEN, 0 CRITICAL, 0 WARNING

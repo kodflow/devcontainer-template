@@ -15,7 +15,8 @@ allowed-tools:
   - "WebSearch(*)"
   - "mcp__github__*"
   - "mcp__playwright__*"
-  - "Write(.claude/plans/*.plan.md)"
+  - "Write(.claude/plans/*.md)"
+  - "Write(.claude/contexts/*.md)"
 ---
 
 # /plan - Claude Code Planning Mode (RLM Architecture)
@@ -48,8 +49,8 @@ Planning mode with **RLM** patterns:
 | Pattern | Action |
 |---------|--------|
 | `<description>` | Plans the implementation of the feature/fix |
-| `--context` | Auto-detect most recent `.claude/contexts/*.context.md` |
-| `--context=<name>` | Load specific `.claude/contexts/{name}.context.md` |
+| `--context` | Auto-detect most recent `.claude/contexts/*.md` |
+| `--context=<name>` | Load specific `.claude/contexts/{name}.md` |
 | `--help` | Show help |
 
 ---
@@ -65,8 +66,8 @@ Usage: /plan <description> [options]
 
 Options:
   <description>     What to implement
-  --context         Load most recent .claude/contexts/*.context.md
-  --context=<name>  Load specific .claude/contexts/{name}.context.md
+  --context         Load most recent .claude/contexts/*.md
+  --context=<name>  Load specific .claude/contexts/{name}.md
   --help            Show this help
 
 RLM Patterns:
@@ -95,18 +96,18 @@ Examples:
 ```yaml
 peek_workflow:
   0_recover_context:
-    rule: "Before exploring, check .claude/contexts/*.context.md for related research"
-    action: "Glob .claude/contexts/*.context.md — read most recent or matching slug"
+    rule: "Before exploring, check .claude/contexts/*.md for related research"
+    action: "Glob .claude/contexts/*.md — read most recent or matching slug"
     importance: "CRITICAL after context compaction — research survives on disk"
 
   1_context_check:
-    action: "Check if .claude/contexts/*.context.md exists (--context flag or auto-detect)"
+    action: "Check if .claude/contexts/*.md exists (--context flag or auto-detect)"
     tool: [Glob, Read]
     output: "context_available"
     logic:
-      "--context=<name>": "Read .claude/contexts/{name}.context.md"
-      "--context (no value)": "Read most recent .claude/contexts/*.context.md"
-      "no flag": "Check if any .claude/contexts/*.context.md matches description keywords"
+      "--context=<name>": "Read .claude/contexts/{name}.md"
+      "--context (no value)": "Read most recent .claude/contexts/*.md"
+      "no flag": "Check if any .claude/contexts/*.md matches description keywords"
 
   2_structure_scan:
     action: "Scan project structure"
@@ -135,7 +136,7 @@ peek_workflow:
   Description: "Add user authentication with JWT"
 
   Context:
-    ✓ .claude/contexts/{slug}.context.md loaded (from /search)
+    ✓ .claude/contexts/{slug}.md loaded (from /search)
     ✓ 47 source files scanned
     ✓ 23 test files found
 
@@ -303,17 +304,38 @@ synthesize_workflow:
     format: "Structured plan document"
 
   4_persist_to_disk:
-    action: "Write plan to .claude/plans/{slug}.plan.md"
+    action: "Write plan to .claude/plans/{slug}.md"
     slug_rule: "Same as /search: lowercase, hyphens, max 40 chars from description"
     collision: "If file exists, append timestamp suffix (-YYYYMMDD-HHMM)"
     purpose: "Survives context compaction; /do can detect from disk"
     note: "This is IN ADDITION to ExitPlanMode (which shows plan to user)"
+
+  5_persist_context:
+    action: "Write context file to .claude/contexts/{slug}.md"
+    trigger: "Always after plan generation"
+    purpose: "Captures discoveries, relevant files, and implementation notes for /do recovery"
+    content:
+      header: |
+        # Context: {description}
+        Generated: {ISO8601}
+        Plan: .claude/plans/{slug}.md
+      sections:
+        discoveries: "Key findings from codebase analysis (patterns, conventions, gotchas)"
+        relevant_files: "Files examined during planning with brief role description"
+        implementation_notes: "Technical decisions, trade-offs, constraints discovered"
+        dependencies: "External libs, APIs, or services involved"
+    link_in_plan:
+      action: "Add 'Context: .claude/contexts/{slug}.md' line in plan header"
+      format: |
+        # Implementation Plan: {description}
+        Context: .claude/contexts/{slug}.md
 ```
 
 **Plan Output Format:**
 
 ```markdown
 # Implementation Plan: <description>
+Context: .claude/contexts/<slug>.md
 
 ## Overview
 <2-3 sentences summarizing the approach>
@@ -430,18 +452,18 @@ complexity_check:
 | Before /plan | After /plan |
 |-------------|-------------|
 | `/search <topic>` | `/do` |
-| Generates `.claude/contexts/{slug}.context.md` | Executes the plan (auto-detected from conversation or `.claude/plans/`) |
+| Generates `.claude/contexts/{slug}.md` | Executes the plan (auto-detected from conversation or `.claude/plans/`) |
 
 **Full workflow:**
 
 ```
 /search "JWT authentication best practices"
     ↓
-.claude/contexts/jwt-auth-best-practices.context.md generated
+.claude/contexts/jwt-auth-best-practices.md generated
     ↓
 /plan "Add JWT auth to API" --context
     ↓
-Plan created, displayed, AND persisted to .claude/plans/add-jwt-auth-api.plan.md
+Plan created, displayed, AND persisted to .claude/plans/add-jwt-auth-api.md
     ↓
 User: "OK, go ahead"
     ↓
@@ -451,7 +473,7 @@ Implementation executed
 ```
 
 **Note**: `/do` automatically detects the approved plan from conversation context
-or from `.claude/plans/*.plan.md` on disk (conversation takes priority).
+or from `.claude/plans/*.md` on disk (conversation takes priority).
 Plans persist across context compaction.
 
 ---

@@ -17,6 +17,7 @@ allowed-tools:
   - "mcp__gitlab__*"
   - "mcp__codacy__*"
   - "mcp__grepai__*"
+  - "mcp__context7__*"
   - "Task(*)"
   - "TaskCreate(*)"
   - "TaskUpdate(*)"
@@ -31,6 +32,15 @@ allowed-tools:
 Use `grepai_search` for ALL semantic/meaning-based queries BEFORE Grep.
 Use `grepai_trace_callers`/`grepai_trace_callees` for impact analysis.
 Fallback to Grep ONLY for exact string matches or regex patterns.
+
+## CONTEXT7 (RECOMMENDED)
+
+Use `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` to verify:
+- Library API usage correctness (design/correctness executors)
+- Security best practices for frameworks (security executor)
+- Deprecated API detection (quality executor)
+
+---
 
 ## Overview
 
@@ -843,11 +853,28 @@ parallel_analysis:
           fix_patch: string (MANDATORY for HIGH+)
           effort: "XS|S|M|L"
           confidence: "HIGH|MEDIUM|LOW"
+          confidence_pct: number  # 0-100, mandatory
 
       commendations: [string]
       metrics:
         files_scanned: number
         findings_count: number
+
+  confidence_gate:
+    directive: "MANDATORY for all 5 executor agents"
+    rules:
+      CRITICAL_severity:
+        min_confidence: 95
+        on_below: "Downgrade to HIGH or omit if < 75%"
+      HIGH_severity:
+        min_confidence: 85
+        on_below: "Downgrade to MEDIUM or omit if < 75%"
+      MEDIUM_severity:
+        min_confidence: 75
+        on_below: "Omit finding entirely"
+      below_75_percent:
+        action: "DO NOT REPORT - insufficient confidence"
+    rationale: "Reduce false positives. Only report findings the agent is confident about."
 
   severity_rubric:
     CRITICAL:
@@ -1079,6 +1106,33 @@ output_generation:
   no_github_gitlab:
     rule: "NEVER post comments to PR/MR"
     reason: "Reviews are local, fixes via /do"
+
+  post_review_action:
+    trigger: "NOT --loop mode AND findings with HIGH+ severity exist"
+    skip_conditions:
+      - "--loop mode (auto-fix cycle handles this)"
+      - "No findings (APPROVE verdict)"
+      - "Only LOW/MEDIUM severity findings"
+
+    workflow:
+      tool: AskUserQuestion
+      questions:
+        - question: "How do you want to proceed with the review findings?"
+          header: "Post-Review Action"
+          multiSelect: false
+          options:
+            - label: "Fix all issues"
+              description: "Generate a plan for all findings and run /do"
+              action: "Generate .claude/plans/review-fixes-{timestamp}.md with ALL findings → display 'Run /do to apply fixes'"
+            - label: "Fix critical/high only"
+              description: "Focus on HIGH+ severity findings"
+              action: "Filter findings to HIGH+, generate plan → display 'Run /do to apply fixes'"
+            - label: "Investigate unclear findings"
+              description: "Deep-dive into findings with < 85% confidence"
+              action: "Re-analyze low-confidence findings with extended context"
+            - label: "Done"
+              description: "End review without action"
+              action: "Exit review"
 ```
 
 ---
