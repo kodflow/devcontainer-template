@@ -29,20 +29,20 @@ scan_file() {
     if command -v detect-secrets &>/dev/null; then
         if detect-secrets scan "$file" 2>/dev/null | grep -q '"results":\s*{[^}]*}'; then
             echo "⚠️  Potential secret detected in $file"
-            issues=1
+            return 1
         fi
     fi
 
-    # Check for secrets with trivy
+    # Check for secrets with trivy (skip if already detected above)
     if command -v trivy &>/dev/null; then
         RESULT=$(trivy fs --scanners secret --quiet "$file" 2>/dev/null || true)
         if [ -n "$RESULT" ] && echo "$RESULT" | grep -qi "secret\|password\|token\|key"; then
             echo "⚠️  Trivy found potential secrets in $file"
-            issues=1
+            return 1
         fi
     fi
 
-    # Check for secrets with gitleaks
+    # Check for secrets with gitleaks (skip if already detected above)
     if command -v gitleaks &>/dev/null; then
         if ! gitleaks detect --source "$file" --no-git --quiet 2>/dev/null; then
             echo "⚠️  Gitleaks found potential secrets in $file"
@@ -100,7 +100,7 @@ if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
         if [[ "$COMMAND" =~ ^git[[:space:]]+push ]] && \
            [[ "$COMMAND" =~ --force ]] && \
            [[ ! "$COMMAND" =~ --force-with-lease ]]; then
-            CORRECTED="${COMMAND/--force/--force-with-lease}"
+            CORRECTED=$(echo "$COMMAND" | sed "s/--force\b/--force-with-lease/g")
             echo "⚠️  Auto-corrected: --force → --force-with-lease" >&2
             if command -v jq &>/dev/null; then
                 jq -n --arg cmd "$CORRECTED" \

@@ -131,7 +131,7 @@ mkdir -p /home/vscode/.local/bin
     echo -e "${YELLOW}Installing Google Java Format ${GOOGLE_JAVA_FORMAT_VERSION}...${NC}"
     GOOGLE_JAVA_FORMAT_JAR="/home/vscode/.local/share/java/google-java-format.jar"
     if curl -fsSL "https://github.com/google/google-java-format/releases/download/v${GOOGLE_JAVA_FORMAT_VERSION}/google-java-format-${GOOGLE_JAVA_FORMAT_VERSION}-all-deps.jar" \
-        -o "$GOOGLE_JAVA_FORMAT_JAR" && [ -f "$GOOGLE_JAVA_FORMAT_JAR" ]; then
+        -o "$GOOGLE_JAVA_FORMAT_JAR" && [ -f "$GOOGLE_JAVA_FORMAT_JAR" ] && [ -s "$GOOGLE_JAVA_FORMAT_JAR" ]; then
         echo -e "${GREEN}✓ Google Java Format installed${NC}"
     else
         echo -e "${RED}✗ Google Java Format download failed${NC}"
@@ -151,7 +151,7 @@ GJF_PID=$!
     echo -e "${YELLOW}Installing Checkstyle ${CHECKSTYLE_VERSION}...${NC}"
     CHECKSTYLE_JAR="/home/vscode/.local/share/java/checkstyle.jar"
     if curl -fsSL "https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CHECKSTYLE_VERSION}/checkstyle-${CHECKSTYLE_VERSION}-all.jar" \
-        -o "$CHECKSTYLE_JAR" && [ -f "$CHECKSTYLE_JAR" ]; then
+        -o "$CHECKSTYLE_JAR" && [ -f "$CHECKSTYLE_JAR" ] && [ -s "$CHECKSTYLE_JAR" ]; then
         echo -e "${GREEN}✓ Checkstyle installed${NC}"
     else
         echo -e "${RED}✗ Checkstyle download failed${NC}"

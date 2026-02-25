@@ -20,9 +20,17 @@ ARCH=$(uname -m)
 echo -e "${YELLOW}Detected architecture: ${ARCH}${NC}"
 
 # Install C development packages
+# Support version parameter from devcontainer-feature.json (GCC version)
+GCC_VERSION="${VERSION:-latest}"
 echo -e "${YELLOW}Installing C compilers and development tools...${NC}"
+if [ "$GCC_VERSION" != "latest" ]; then
+    echo -e "${YELLOW}Requested GCC version: ${GCC_VERSION}${NC}"
+    GCC_PKG="gcc-${GCC_VERSION}"
+else
+    GCC_PKG="gcc"
+fi
 sudo apt-get update && sudo apt-get install -y \
-    gcc \
+    ${GCC_PKG} \
     clang \
     clang-format \
     clang-tidy \

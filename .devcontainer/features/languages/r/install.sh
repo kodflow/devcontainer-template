@@ -38,10 +38,10 @@ echo -e "${YELLOW}Installing R packages (lintr, styler, testthat)...${NC}"
 install_r_package() {
     local pkg=$1
     echo -e "${YELLOW}Installing ${pkg}...${NC}"
-    if Rscript -e "install.packages('${pkg}', repos='https://cloud.r-project.org', quiet=TRUE)" 2>/dev/null; then
+    if Rscript -e "install.packages('${pkg}', repos='https://cloud.r-project.org', quiet=TRUE)"; then
         echo -e "${GREEN}${pkg} installed${NC}"
     else
-        echo -e "${RED}${pkg} failed to install${NC}"
+        echo -e "${YELLOW}⚠ ${pkg} failed to install (non-blocking)${NC}"
     fi
 }
 

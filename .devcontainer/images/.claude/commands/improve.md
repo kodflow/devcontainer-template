@@ -93,7 +93,7 @@ parallel_execution:
          - Outdated info
          - Missing examples
          - Inconsistencies
-      3. WebSearch "{pattern} best practices 2024"
+      3. WebSearch "{pattern} best practices {current_year}"
       4. Propose fixes
 
       OUTPUT JSON:
@@ -146,7 +146,7 @@ parallel_execution:
 ```yaml
 validation:
   for_each_improvement:
-    search: "{pattern} {year} best practices"
+    search: "{pattern} best practices" (use current year dynamically)
     sources:
       - Official docs (go.dev, docs.python.org, etc.)
       - martinfowler.com, refactoring.guru

@@ -553,15 +553,15 @@ synthesize_iteration:
   verification_gate:
     rule: "Evidence before claims. Previous runs don't count."
     mandatory_steps:
-      1_IDENTIFY: "Quelle commande prouve le claim?"
-      2_RUN: "Exécuter FRESHLY (pas de cache)"
+      1_IDENTIFY: "Which command proves the claim?"
+      2_RUN: "Execute FRESHLY (no cache)"
       3_READ: "Lire output COMPLET + exit code"
       4_VERIFY: "Output confirme le claim?"
       5_CLAIM: "Seulement alors déclarer succès"
     red_flags:
       - "Hedging: 'should', 'probably', 'seems to'"
-      - "Satisfaction avant vérification"
-      - "Trust agent reports sans vérification indépendante"
+      - "Satisfaction before verification"
+      - "Trust agent reports without independent verification"
 
   output: "Iteration summary"
 ```

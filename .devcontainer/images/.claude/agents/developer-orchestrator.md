@@ -64,11 +64,11 @@ developer-orchestrator (opus)
     │     Focus: Code review, PR analysis, best practices
     │     Decides: Review approach, priority issues
     │
-    ├─→ developer-executor-security (haiku)
+    ├─→ developer-executor-security (sonnet)
     │     Focus: SAST, secrets, OWASP patterns
-    │     Executes: Security scans, pattern detection
+    │     Executes: Security scans, taint analysis
     │
-    └─→ developer-executor-quality (haiku)
+    └─→ developer-executor-quality (sonnet)
           Focus: Linting, complexity, code smells
           Executes: Quality checks, metric analysis
 ```

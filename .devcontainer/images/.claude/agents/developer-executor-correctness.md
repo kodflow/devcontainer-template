@@ -20,7 +20,7 @@ tools:
   - mcp__context7__resolve-library-id
   - mcp__context7__query-docs
   - WebFetch
-model: opus
+model: sonnet
 context: fork
 allowed-tools:
   - "Bash(git diff:*)"

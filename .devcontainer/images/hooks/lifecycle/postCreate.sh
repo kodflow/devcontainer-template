@@ -40,10 +40,15 @@ step_git_safe_directory() {
     fi
 }
 
-# Disable SSL verification (for corporate proxies/self-signed certs)
+# Conditionally disable SSL verification (for corporate proxies/self-signed certs)
+# Only applies when GIT_SSL_NO_VERIFY=1 is set in .env or environment
 step_git_ssl_config() {
-    git config --global http.sslVerify false
-    log_success "Git SSL verification disabled"
+    if [ "${GIT_SSL_NO_VERIFY:-0}" = "1" ]; then
+        git config --global http.sslVerify false
+        log_success "Git SSL verification disabled (GIT_SSL_NO_VERIFY=1)"
+    else
+        log_info "Git SSL verification kept enabled (set GIT_SSL_NO_VERIFY=1 to disable)"
+    fi
 }
 
 # GPG commit signing configuration

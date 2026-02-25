@@ -42,7 +42,14 @@ echo -e "${GREEN}✓ ${SBT_VERSION}${NC}"
 
 # Install Coursier (Scala artifact fetcher)
 echo -e "${YELLOW}Installing Coursier...${NC}"
-curl -fL "https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-linux.gz" | gzip -d > /tmp/cs
+# Detect architecture for Coursier binary
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+    CS_ARCH="aarch64-pc-linux"
+else
+    CS_ARCH="x86_64-pc-linux"
+fi
+curl -fL "https://github.com/coursier/launchers/raw/master/cs-${CS_ARCH}.gz" | gzip -d > /tmp/cs
 chmod +x /tmp/cs
 sudo mv /tmp/cs /usr/local/bin/cs
 echo -e "${GREEN}✓ Coursier installed${NC}"

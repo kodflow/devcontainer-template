@@ -75,10 +75,52 @@ get_github_latest_version() {
 }
 
 # =============================================================================
+# APT Update (deduplicated across features)
+# =============================================================================
+# Skips apt-get update if it was already run within the last 60 seconds
+# (avoids 24x redundant network I/O during multi-feature builds)
+apt_update_once() {
+    local marker="/tmp/.apt-update-stamp"
+    local now
+    now=$(date +%s)
+    if [ -f "$marker" ]; then
+        local last
+        last=$(cat "$marker" 2>/dev/null || echo 0)
+        if [ $((now - last)) -lt 60 ]; then
+            log_info "apt-get update skipped (already run $((now - last))s ago)"
+            return 0
+        fi
+    fi
+    sudo apt-get update
+    echo "$now" > "$marker"
+}
+
+# =============================================================================
 # Tool Check
 # =============================================================================
 tool_installed() {
     command -v "$1" &>/dev/null
+}
+
+# =============================================================================
+# Binary Download Helper
+# =============================================================================
+# Usage: install_binary_from_url <url> <dest_path> [chmod_mode]
+# Downloads a binary from URL and installs it to dest_path
+install_binary_from_url() {
+    local url="$1"
+    local dest="$2"
+    local mode="${3:-0755}"
+    local tmp
+    tmp=$(mktemp)
+    if curl -fsSL --retry 3 --retry-delay 1 "$url" -o "$tmp" 2>/dev/null; then
+        install -m "$mode" "$tmp" "$dest"
+        rm -f "$tmp"
+        return 0
+    else
+        rm -f "$tmp"
+        return 1
+    fi
 }
 
 # =============================================================================

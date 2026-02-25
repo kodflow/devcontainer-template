@@ -22,7 +22,7 @@ Claude Code and MCP servers are included; languages added via features.
 └── .claude/            # Claude Code configuration
     ├── commands/       # Slash commands (16 skills)
     ├── scripts/        # Hook scripts (15 scripts)
-    ├── agents/         # Agent definitions (57 agents)
+    ├── agents/         # Agent definitions (79 agents)
     ├── docs/           # Design Patterns Knowledge Base (170+ patterns)
     ├── templates/      # Project/docs/terraform templates
     └── settings.json   # Claude settings

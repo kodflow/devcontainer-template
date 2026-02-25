@@ -23,7 +23,12 @@ cleanup() {
 trap cleanup EXIT
 
 # Environment variables
-export SWIFT_VERSION="${SWIFT_VERSION:-6.0.3}"
+# Auto-resolve latest Swift version if not specified
+if [ -z "${SWIFT_VERSION:-}" ] || [ "${SWIFT_VERSION}" = "latest" ]; then
+    SWIFT_VERSION=$(curl -s --connect-timeout 5 --max-time 10         "https://api.github.com/repos/swiftlang/swift/releases/latest" 2>/dev/null         | sed -n 's/.*"tag_name": *"swift-\([^-]*\)-RELEASE".*/\1/p' | head -n 1)
+    SWIFT_VERSION="${SWIFT_VERSION:-6.0.3}"
+fi
+export SWIFT_VERSION
 export SWIFT_HOME="${SWIFT_HOME:-/usr/share/swift}"
 
 # Install dependencies

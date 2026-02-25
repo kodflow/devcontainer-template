@@ -45,7 +45,7 @@ install_python_deadsnakes() {
             "python${PYTHON_VERSION}" \
             "python${PYTHON_VERSION}-venv" \
             "python${PYTHON_VERSION}-dev" \
-            "python${PYTHON_VERSION}-distutils" 2>/dev/null; then
+            "python${PYTHON_VERSION}-distutils" 2>/dev/null || true; then
 
             # Set as default python3
             sudo update-alternatives --install /usr/bin/python3 python3 "/usr/bin/python${PYTHON_VERSION}" 1 2>/dev/null || true

@@ -226,9 +226,13 @@ parallel_exploration:
 
 ---
 
-## Phase 4.0: Pattern Consultation (MANDATORY)
+## Phase 4.0: Pattern Consultation
 
-**Consult `~/.claude/docs/` for patterns:**
+**Consult `~/.claude/docs/` for patterns when applicable:**
+
+> **Escape clause:** For trivial tasks (single-file edits, config changes, version bumps),
+> skip pattern consultation and proceed directly to Phase 5.0 (Synthesize).
+> Apply this phase only when architecture or design decisions are involved.
 
 ```yaml
 pattern_consultation:
