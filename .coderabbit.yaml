@@ -98,11 +98,21 @@ reviews:
     - "!**/target/release/**"
     - "!**/.terraform/**"
     - "!**/coverage/**"
-    - "!**/*.lock"
-    - "!**/package-lock.json"
-    - "!**/go.sum"
-
-  path_instructions: []
+  path_instructions:
+    - path: "**/{*.lock,package-lock.json,go.sum,pnpm-lock.yaml,yarn.lock}"
+      instructions: |
+        Treat lockfiles as generated dependency snapshots.
+        Focus on high-signal changes only:
+        - New or removed direct dependencies
+        - Unexpected major version jumps
+        - Dependency source, registry, or resolution changes
+        Ignore formatting, ordering, or transitive reordering churn.
+    - path: "**/*.sh"
+      instructions: "Validate shell safety: strict mode, quoting, exit-on-error behavior, and command injection risks."
+    - path: "**/*.{yml,yaml}"
+      instructions: "Validate CI/CD workflow safety, least-privilege permissions, and secret handling."
+    - path: "**/Dockerfile*"
+      instructions: "Check image hardening, pinning strategy, non-root runtime, and multi-stage build hygiene."
 
   # Abort & Cache
   abort_on_close: true

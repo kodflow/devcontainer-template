@@ -461,13 +461,14 @@ coderabbit_config:
 
       ALSO add generic entries for:
         - path: "**/*.md" → "Check documentation accuracy"
+        - path: "**/*.sh" → "Validate shell safety: strict mode, quoting, error handling, and command injection risks"
         - path: "**/*.yml" → "Validate CI/CD configuration"
         - path: "**/Dockerfile*" → "Check hadolint compliance, multi-stage builds"
 
   4_build_labels:
     action: |
       Generate labeling_instructions from project context:
-        - ALWAYS include: "dependencies", "breaking-change", "security"
+        - ALWAYS include: "dependencies", "breaking-change", "security", "concurrency", "database", "performance", "shell", "correctness"
         - ADD project-specific labels based on architecture:
           - Microservices → "api", "service-{name}"
           - Monorepo → "package-{name}"
@@ -520,13 +521,22 @@ coderabbit_config:
 
   7_validate:
     action: |
-      python3 -c "import yaml; yaml.safe_load(open('.coderabbit.yaml')); print('valid')"
-    on_failure: "Fix YAML syntax and retry"
+      python3 - <<'PY'
+      import json, pathlib, urllib.request, yaml
+      from jsonschema import validate
+
+      cfg_path = pathlib.Path("/workspace/.coderabbit.yaml")
+      cfg = yaml.safe_load(cfg_path.read_text())
+      schema = json.load(urllib.request.urlopen("https://www.coderabbit.ai/integrations/schema.v2.json"))
+      validate(instance=cfg, schema=schema)
+      print("valid")
+      PY
+    on_failure: "Fix YAML syntax or schema violations and retry"
 ```
 
 **Output Phase 4.5 (generated):**
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   CodeRabbit Configuration
 ═══════════════════════════════════════════════════════════════
@@ -540,7 +550,7 @@ coderabbit_config:
 
   Customizations:
     ├─ 5 path_instructions (language-specific)
-    ├─ 4 labels (dependencies, breaking-change, security, api)
+    ├─ 8 labels (dependencies, breaking-change, security, concurrency, database, performance, shell, correctness)
     ├─ 3 filePatterns for code guidelines
     └─ Tone: "concise, technical, Go-idiomatic"
 
@@ -551,7 +561,7 @@ coderabbit_config:
 
 **Output Phase 4.5 (skipped):**
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   CodeRabbit Configuration
 ═══════════════════════════════════════════════════════════════
