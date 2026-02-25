@@ -1,6 +1,6 @@
 # Specialist Agents
 
-78 agents organized in 6 categories. All agents return condensed JSON to protect parent context.
+79 agents organized in 6 categories. All agents return condensed JSON to protect parent context.
 
 ## Orchestrators (2)
 

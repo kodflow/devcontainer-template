@@ -5,6 +5,22 @@ echo "========================================="
 echo "Installing Kubernetes Development Tools"
 echo "========================================="
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Pre-installed tool detection (base image may already include kubectl/Helm)
+# ─────────────────────────────────────────────────────────────────────────────
+KUBECTL_PREINSTALLED=false
+HELM_PREINSTALLED=false
+
+if command -v kubectl &>/dev/null; then
+    echo -e "${GREEN}✓ kubectl already installed: $(kubectl version --client --short 2>/dev/null || kubectl version --client 2>/dev/null | head -1)${NC}"
+    KUBECTL_PREINSTALLED=true
+fi
+
+if command -v helm &>/dev/null; then
+    echo -e "${GREEN}✓ Helm already installed: $(helm version --short 2>/dev/null || echo 'unknown')${NC}"
+    HELM_PREINSTALLED=true
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

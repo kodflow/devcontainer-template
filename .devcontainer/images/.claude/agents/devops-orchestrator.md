@@ -210,10 +210,9 @@ strategy:
 
 ```yaml
 Task:
-  subagent_type: Explore
-  model: haiku
+  subagent_type: devops-specialist-infrastructure
   prompt: |
-    You are the infrastructure agent.
+    Analyze infrastructure task.
     Task: {task_description}
     Files: {file_list}
     Return JSON: {plan: [...], warnings: [...], commands: [...]}
@@ -222,12 +221,12 @@ Task:
 ### Software Stack Task
 
 ```yaml
+# Select appropriate agent: devops-specialist-docker, devops-specialist-kubernetes, or devops-specialist-hashicorp
 Task:
-  subagent_type: Explore
-  model: haiku
+  subagent_type: devops-specialist-{docker|kubernetes|hashicorp}
   prompt: |
-    You are the {docker|kubernetes|hashicorp} agent.
-    Analyze: {files}
+    Analyze software stack.
+    Files: {files}
     Return JSON: {issues: [...], recommendations: [...]}
 ```
 
@@ -254,11 +253,10 @@ Task:
 ### Cloud Task
 
 ```yaml
+# Select appropriate agent: devops-specialist-aws, devops-specialist-gcp, or devops-specialist-azure
 Task:
-  subagent_type: Explore
-  model: haiku
+  subagent_type: devops-specialist-{aws|gcp|azure}
   prompt: |
-    You are the {aws|gcp|azure} specialist.
     Analyze cloud resources: {resources}
     Return JSON: {issues: [...], cost: {...}, recommendations: [...]}
 ```

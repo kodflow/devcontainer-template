@@ -21,12 +21,24 @@ echo "════════════════════════�
 echo ""
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 0. Read feature options from devcontainer-feature.json (passed as env vars)
+# ─────────────────────────────────────────────────────────────────────────────
+INSTALL_CLAUDE="${INSTALLCLAUDE:-true}"
+BUNDLE_LEVEL="${BUNDLE:-full}"
+INSTALL_STATUSLINE="${STATUSLINE:-true}"
+
+echo "  Options: claude=${INSTALL_CLAUDE}, bundle=${BUNDLE_LEVEL}, statusline=${INSTALL_STATUSLINE}"
+echo ""
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 1. Install Claude CLI (if not already installed)
 # ─────────────────────────────────────────────────────────────────────────────
-if ! command -v claude &>/dev/null; then
+if [ "$INSTALL_CLAUDE" = "true" ] && ! command -v claude &>/dev/null; then
     echo "→ Installing Claude CLI..."
     npm install -g @anthropic-ai/claude-code 2>/dev/null || \
     curl -fsSL https://claude.ai/install.sh | sh 2>/dev/null || true
+elif [ "$INSTALL_CLAUDE" != "true" ]; then
+    echo "→ Skipping Claude CLI installation (installClaude=false)"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -45,8 +57,11 @@ for cmd in git search prompt; do
 done
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4. Download scripts (hooks)
+# 4. Download scripts (hooks) - requires standard or full bundle
 # ─────────────────────────────────────────────────────────────────────────────
+if [ "$BUNDLE_LEVEL" = "minimal" ]; then
+    echo "→ Skipping scripts download (bundle=minimal)"
+else
 echo "→ Downloading scripts..."
 download_failed=0
 for script in format imports lint post-edit pre-validate security test bash-validate commit-validate post-compact on-stop notification session-init; do
@@ -60,6 +75,7 @@ for script in format imports lint post-edit pre-validate security test bash-vali
     rm -f "$script_tmp"
 done
 [ "$download_failed" -eq 0 ] && echo "  ✓ hooks (format, lint, security...)" || echo "  ⚠ Some hooks failed to download"
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Download settings.json
@@ -77,8 +93,11 @@ if [ ! -f "$TARGET/CLAUDE.md" ]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. Installer grepai (semantic code search MCP)
+# 7. Install grepai (semantic code search MCP) — skip if pre-installed
 # ─────────────────────────────────────────────────────────────────────────────
+if command -v grepai &>/dev/null; then
+    echo "  ✓ grepai already installed: $(grepai --version 2>/dev/null || echo 'pre-installed')"
+else
 echo "→ Installing grepai..."
 mkdir -p "$HOME/.local/bin"
 
@@ -134,10 +153,17 @@ else
 fi
 rm -f "$grepai_tmp"
 rm -rf "$grepai_extract"
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 8. Installer status-line (binaire officiel)
+# 8. Install status-line (official binary) - controlled by statusline option
 # ─────────────────────────────────────────────────────────────────────────────
+if [ "$INSTALL_STATUSLINE" != "true" ]; then
+    echo "→ Skipping status-line installation (statusline=false)"
+else
+if command -v status-line &>/dev/null; then
+    echo "  ✓ status-line already installed"
+else
 echo "→ Installing status-line..."
 mkdir -p "$HOME/.local/bin"
 
@@ -170,6 +196,9 @@ else
     echo "  ⚠ status-line download failed (optional)"
 fi
 rm -f "$status_tmp"
+
+fi
+fi
 
 # Add to PATH if needed
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then

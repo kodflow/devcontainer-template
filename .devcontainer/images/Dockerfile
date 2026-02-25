@@ -20,7 +20,6 @@ ARG BASE_IMAGE=mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 FROM ${BASE_IMAGE}
 
 ARG TARGETARCH
-ARG BUILDKIT_INLINE_CACHE=1
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=en_US.UTF-8 \
@@ -33,10 +32,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        curl ca-certificates gnupg gnupg2 lsb-release \
+        curl ca-certificates gnupg lsb-release \
         build-essential g++ gcc make cmake pkg-config \
         git jq zsh unzip zip tar xz-utils file \
-        libssl-dev libpam0g-dev software-properties-common apt-transport-https \
+        libssl-dev libpam0g-dev software-properties-common \
         libffi-dev libbz2-dev libreadline-dev libsqlite3-dev \
         libncurses5-dev libncursesw5-dev liblzma-dev zlib1g-dev \
         libgdbm-dev libyaml-dev \
@@ -50,7 +49,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libxdo-dev \
         libayatana-appindicator3-dev \
         librsvg2-dev && \
-    apt-get clean
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # CACHE_BUST_DYNAMIC: Forces cache invalidation for all dynamic installations.
 # Set to current date (YYYY-MM-DD) during scheduled builds to pull latest versions.
@@ -89,7 +89,12 @@ RUN ARCH_AWS=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") &
     apt-get update && \
     apt-get install -y --no-install-recommends google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin gh && \
     rm -rf /var/lib/apt/lists/* && \
-    curl -fsSL https://aka.ms/InstallAzureCLIDeb | bash
+    # Azure CLI: use official Microsoft apt repository (auditable, consistent with GCP/GitHub pattern)
+    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" > /etc/apt/sources.list.d/azure-cli.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends azure-cli && \
+    rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
 # Kubernetes + Binary Tools (kubectl, Helm, Bazelisk, yq, grepai) - consolidated

@@ -3,20 +3,24 @@ name: Release
 on:
   push:
     branches: [main]
+    paths:
+      - '.devcontainer/images/**'
+      - '.devcontainer/features/**'
+      - '.devcontainer/hooks/**'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: write
-
 jobs:
   release:
     # Only run on the original template repository, not on forks/copies
     if: github.repository == 'kodflow/devcontainer-template'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -24,7 +28,6 @@ jobs:
 
       - name: Generate assets archive
         run: |
-          chmod +x .devcontainer/scripts/generate-assets-archive.sh
           .devcontainer/scripts/generate-assets-archive.sh --output claude-assets.tar.gz
 
       - name: Create or update release

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Don't exit on error - we want to use our retry logic
-set +e
+# Use set -e for safety; retry logic handles expected failures internally
+set -e
 
 FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../shared/feature-utils.sh
@@ -199,6 +199,19 @@ log_info "Installing Node.js development tools..."
 
 npm install -g pnpm@latest typescript@latest eslint@latest prettier@latest tsx@latest
 log_success "Core tools installed (pnpm, typescript, eslint, prettier, tsx)"
+
+# Install additional global packages from devcontainer-feature.json option
+GLOBAL_PACKAGES="${GLOBALPACKAGES:-}"
+if [ -n "$GLOBAL_PACKAGES" ]; then
+    log_info "Installing additional global packages: ${GLOBAL_PACKAGES}"
+    IFS=',' read -ra PKGS <<< "$GLOBAL_PACKAGES"
+    for pkg in "${PKGS[@]}"; do
+        pkg=$(echo "$pkg" | xargs)  # trim whitespace
+        if [ -n "$pkg" ] && ! command -v "$pkg" &>/dev/null; then
+            npm install -g "$pkg" 2>/dev/null && log_success "Installed $pkg" || log_warning "Failed to install $pkg"
+        fi
+    done
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Install Desktop & WASM Tools — parallel

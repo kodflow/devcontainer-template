@@ -1,12 +1,12 @@
 #!/bin/bash
 # ============================================================================
-# postAttach.sh - Delegation stub (DO NOT add logic here)
+# Lifecycle delegation stub (DO NOT add logic here)
 # ============================================================================
-# Real logic: /etc/devcontainer-hooks/lifecycle/postAttach.sh (image-embedded)
+# Real logic: /etc/devcontainer-hooks/lifecycle/${HOOK}.sh (image-embedded)
 # This stub auto-updates behavior when the Docker image is rebuilt.
 # ============================================================================
 
-HOOK="postAttach"
+HOOK="$(basename "${BASH_SOURCE[0]}" .sh)"
 
 # Priority 1: Template dev source (only exists in template repo)
 DEV="/workspace/.devcontainer/images/hooks/lifecycle/${HOOK}.sh"
