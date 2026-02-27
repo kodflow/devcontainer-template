@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-25T01:00:00Z -->
+<!-- updated: 2026-02-27T13:00:00Z -->
 # GitHub Configuration
 
 ## Purpose
@@ -13,8 +13,9 @@ GitHub-specific configurations: workflows, templates, and instructions.
 │   ├── docker-images.yml
 │   ├── release.yml
 │   └── CLAUDE.md
-├── instructions/       # AI instructions
+├── instructions/       # AI instructions (gitignored)
 │   └── codacy.instructions.md
+├── dependabot.yml      # Dependency updates
 └── CLAUDE.md           # This file
 ```
 
@@ -25,7 +26,13 @@ GitHub-specific configurations: workflows, templates, and instructions.
 | docker-images.yml | push/PR | Build devcontainer images |
 | release.yml | push to main | Create release with claude-assets.tar.gz |
 
-## Instructions
+## Dependency Management
+
+| File | Description |
+|------|-------------|
+| dependabot.yml | Automated dependency update configuration |
+
+## Instructions (gitignored)
 
 | File | Description |
 |------|-------------|
