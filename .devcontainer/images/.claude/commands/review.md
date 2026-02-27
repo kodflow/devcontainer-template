@@ -631,10 +631,10 @@ ci_diagnostics:
 
 ---
 
-## Phase 6b: Taskmaster + Feature Findings (Conditional)
+## Phase 6.5: Taskmaster + Feature Findings (Conditional)
 
 ```yaml
-6b_taskmaster_findings:
+6_5_taskmaster_findings:
   condition: "mcp__taskmaster__ available AND CRITICAL/HIGH findings > 0"
   action: |
     For each CRITICAL or HIGH finding:
@@ -645,7 +645,7 @@ ci_diagnostics:
       )
   rationale: "Critical findings survive context reset for /do."
 
-6b_feature_findings:
+6_5_feature_findings:
   condition: ".claude/features.json exists AND feature identifiable"
   action: |
     For each feature with findings:

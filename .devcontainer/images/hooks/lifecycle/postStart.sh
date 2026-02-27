@@ -601,6 +601,8 @@ step_taskmaster_config() {
         has_ollama=true
     fi
 
+    local tmp="${TASKMASTER_CONFIG}.tmp"
+
     if [ "$has_ollama" = true ]; then
         jq -n --arg url "http://$ollama_url/api" '{
             models: {
@@ -609,7 +611,7 @@ step_taskmaster_config() {
                 fallback: { provider: "ollama", modelId: "llama3.2", baseURL: $url }
             },
             global: { projectRoot: "/workspace", logLevel: "info" }
-        }' > "$TASKMASTER_CONFIG"
+        }' > "$tmp" && mv "$tmp" "$TASKMASTER_CONFIG"
     else
         jq -n '{
             models: {
@@ -617,7 +619,7 @@ step_taskmaster_config() {
                 research: { provider: "mcp", modelId: "claude-code" }
             },
             global: { projectRoot: "/workspace", logLevel: "info" }
-        }' > "$TASKMASTER_CONFIG"
+        }' > "$tmp" && mv "$tmp" "$TASKMASTER_CONFIG"
     fi
 
     log_success "Taskmaster config generated"

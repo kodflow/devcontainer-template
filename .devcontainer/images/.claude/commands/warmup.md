@@ -18,8 +18,7 @@ allowed-tools:
   - "TaskList(*)"
   - "TaskGet(*)"
   - "Bash(git:*)"
-  - "mcp__taskmaster__get_tasks(*)"
-  - "mcp__taskmaster__next_task(*)"
+  - "mcp__taskmaster__*"
 ---
 
 # /warmup - Project Context Pre-loading (RLM Architecture)

@@ -146,7 +146,7 @@ edit_feature:
     If --status changed:
       { ts: now, action: "status_change", detail: "from → to" }
   4_compact: |
-    If journal has > 20 entries:
+    If journal has > 50 entries:
       Summarize oldest entries into single "compacted" entry
   5_write: "Save updated features.json"
 ```
@@ -311,7 +311,7 @@ checkup_workflow:
 | `checkup_pass` | --checkup | detail |
 | `checkup_fail` | --checkup | detail |
 | `plan_generated` | --checkup auto-plan | detail |
-| `compacted` | Journal > 20 entries | detail (N events) |
+| `compacted` | Journal > 50 entries | detail (N events) |
 
 ---
 
@@ -319,13 +319,13 @@ checkup_workflow:
 
 ```yaml
 compaction:
-  trigger: "journal.length > 20 for any feature"
+  trigger: "journal.length > 50 for any feature"
   action: |
-    Keep last 20 entries.
+    Keep last 50 entries.
     Summarize removed entries into:
       { ts: oldest_ts, action: "compacted", detail: "{N} events compacted" }
     Insert compacted entry at index 0.
-  result: "Journal always has <= 21 entries (1 compacted + 20 recent)"
+  result: "Journal always has <= 51 entries (1 compacted + 50 recent)"
 ```
 
 ---
@@ -364,10 +364,26 @@ compaction:
 | Action | Status | Reason |
 |--------|--------|--------|
 | Delete without confirmation | **FORBIDDEN** | Must use AskUserQuestion |
-| Journal > 20 entries | **AUTO-COMPACT** | Keeps DB manageable |
+| Journal > 50 entries | **AUTO-COMPACT** | Keeps DB manageable |
 | features.json > 500 features | **WARNING** | Consider archiving |
 | Modify features.json schema | **FORBIDDEN** | Version migration needed |
 | Store secrets in features.json | **FORBIDDEN** | Git-committed file |
+
+---
+
+## features.json vs Taskmaster
+
+| Aspect | features.json (RTM) | Taskmaster |
+|--------|---------------------|------------|
+| **Scope** | Product-level features | Session-level tasks |
+| **Persistence** | Git-committed, shared | Local `.taskmaster/`, gitignored |
+| **Lifecycle** | Long-lived (days/weeks) | Ephemeral (hours/session) |
+| **Purpose** | Track WHAT exists and WHY | Track HOW to implement NOW |
+| **Audit** | `--checkup` verifies conformity | `next_task` guides workflow |
+| **Example** | "JWT authentication" | "Write login endpoint test" |
+
+**Rule:** Features describe capabilities. Tasks decompose work.
+A feature spawns many tasks; a task belongs to at most one feature.
 
 ---
 

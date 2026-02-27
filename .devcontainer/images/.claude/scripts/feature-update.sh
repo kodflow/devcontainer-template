@@ -19,7 +19,7 @@ MATCHING=$(jq -r --arg f "$FILE" '
   select(.status != "archived") |
   select(.journal[]? | .files[]? == $f) |
   "\(.id): \(.title)"
-' "$FEATURES_DB" 2>/dev/null)
+' "$FEATURES_DB" 2>/dev/null) || exit 0
 
 if [ -n "$MATCHING" ]; then
     CONTEXT="File $FILE is linked to feature(s): $MATCHING. Consider updating the feature journal with /feature --edit after completing this change."

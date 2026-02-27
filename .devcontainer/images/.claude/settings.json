@@ -266,12 +266,7 @@
             "command": "/home/vscode/.claude/scripts/test.sh",
             "timeout": 60,
             "statusMessage": "Running tests..."
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
+          },
           {
             "type": "command",
             "command": "/home/vscode/.claude/scripts/feature-update.sh",

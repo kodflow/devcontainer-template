@@ -135,24 +135,7 @@ Configured in `mcp.json.tpl`:
 **Context7 usage:** Add "use context7" in prompts to fetch up-to-date documentation.
 
 **Taskmaster tools (standard tier - 15 tools):**
-
-| Tool | Description | Use Case |
-|------|-------------|----------|
-| `initialize_project` | Bootstrap .taskmaster/ | First-time setup |
-| `parse_prd` | PRD → structured tasks | Requirements breakdown |
-| `get_tasks` | List all tasks | Task overview |
-| `get_task` | Get task details | Inspection |
-| `add_task` | Create task | Ad-hoc creation |
-| `set_task_status` | Update status | Progress tracking |
-| `next_task` | Next actionable task | Workflow guidance |
-| `expand_task` | Task → subtasks (AI) | Decomposition |
-| `expand_all` | Expand all tasks | Bulk decomposition |
-| `add_subtask` | Add subtask | Granular tracking |
-| `update_subtask` | Update subtask | Detail updates |
-| `remove_task` | Delete task | Cleanup |
-| `analyze_project_complexity` | Complexity scoring | Sprint planning |
-| `complexity_report` | Generate report | Analysis |
-| `generate` | Generate code/content | AI generation |
+`initialize_project`, `parse_prd`, `get_tasks`, `get_task`, `add_task`, `set_task_status`, `next_task`, `expand_task`, `expand_all`, `add_subtask`, `update_subtask`, `remove_task`, `analyze_project_complexity`, `complexity_report`, `generate`
 
 **Playwright capabilities:** `core`, `pdf`, `testing`, `tracing` (headless mode)
 
