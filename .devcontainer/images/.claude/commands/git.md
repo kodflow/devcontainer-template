@@ -11,6 +11,7 @@ allowed-tools:
   - "Bash(glab:*)"
   - "mcp__github__*"
   - "mcp__gitlab__*"
+  - "mcp__codacy__*"
   - "Read(**/*)"
   - "Write(.env)"
   - "Edit(.env)"
@@ -1174,12 +1175,12 @@ review_triage:
 
     source_detection:
       coderabbit:
-        rule: "author.login contains 'coderabbitai'"
+        rule: "author.login == 'coderabbitai[bot]'"
       qodo:
         rule: |
-          author.login contains 'qodo' OR 'pr-agent'
-          OR (is_bot=true AND content matches Qodo format with P0/P1/P2)
-        alt_logins: ["qodo-merge-pro[bot]", "github-actions[bot]"]
+          author.login IN ['qodo-merge-pro[bot]', 'qodo-code-review[bot]', 'github-actions[bot]']
+          AND content matches Qodo format with P0/P1/P2
+        alt_logins: ["qodo-merge-pro[bot]", "qodo-code-review[bot]", "github-actions[bot]"]
       codacy:
         rule: "From mcp__codacy__codacy_list_pull_request_issues API"
       human:
@@ -1273,7 +1274,7 @@ review_triage:
 
 **Output Phase 3.5 (Triage Summary):**
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   /git --merge - Review Triage (Phase 3.5)
 ═══════════════════════════════════════════════════════════════
@@ -1292,7 +1293,7 @@ review_triage:
 
 **Output Phase 3.5 (Satisfaction Report):**
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   /git --merge - Reviews Satisfied (Phase 3.5)
 ═══════════════════════════════════════════════════════════════
@@ -1312,7 +1313,7 @@ review_triage:
 
 **Output Phase 3.5 (No Findings):**
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   /git --merge - Review Triage (Phase 3.5)
 ═══════════════════════════════════════════════════════════════
