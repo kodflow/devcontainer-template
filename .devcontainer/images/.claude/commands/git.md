@@ -15,6 +15,7 @@ allowed-tools:
   - "Read(**/*)"
   - "Write(.env)"
   - "Edit(.env)"
+  - "Edit(.codacy.yaml)"
   - "Glob(**/*)"
   - "mcp__grepai__*"
   - "Grep(**/*)"
@@ -1276,6 +1277,31 @@ review_triage:
           Option 1: "Continue fixing (raise iteration limit)"
           Option 2: "Merge anyway (override review findings)"
           Option 3: "Abort merge"
+
+    #---------------------------------------------------------------------------
+    # UNBLOCK: Reply to dismiss non-actionable findings
+    #---------------------------------------------------------------------------
+    # After all fixes are applied, if CodeRabbit still has CHANGES_REQUESTED
+    # due to dismissed suggestions (not bugs), post a structured reply on
+    # EACH unresolved thread explaining the decision. CodeRabbit will then
+    # re-evaluate and either resolve the thread or approve.
+    #---------------------------------------------------------------------------
+    unblock_stale_reviews:
+      trigger: "All actionable findings fixed but CHANGES_REQUESTED persists"
+      action: |
+        FOR each unresolved review thread:
+          IF finding was intentionally not fixed (design decision):
+            Post reply on the thread via mcp__github__add_issue_comment:
+              - Acknowledge the suggestion
+              - Explain why it was not applied (with justification)
+              - Reference the design decision or consistency argument
+          THEN:
+            Post "@coderabbitai resolve" to dismiss resolved threads
+            Post "@coderabbitai review" to trigger fresh evaluation
+      rule: |
+        NEVER ignore findings silently. Each dismissed finding MUST have
+        a justified reply on the thread. This unblocks CodeRabbit's
+        CHANGES_REQUESTED state for merge.
 ```
 
 **Output Phase 3.5 (Triage Summary):**
