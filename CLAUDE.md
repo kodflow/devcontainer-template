@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-14T12:00:00Z -->
+<!-- updated: 2026-02-27T13:00:00Z -->
 # devcontainer-template
 
 ## Purpose

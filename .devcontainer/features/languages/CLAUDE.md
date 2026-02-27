@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-12T17:00:00Z -->
+<!-- updated: 2026-02-27T13:00:00Z -->
 # Language Features
 
 ## Purpose
@@ -55,3 +55,10 @@ No static version files needed.
 - All code in /src regardless of language
 - Tests in /tests (except Go: alongside code)
 - Specialist agents enforce academic standards
+
+## Learned Conventions
+
+- **set -e in all scripts**: Every install.sh uses `set -e` (25 occurrences)
+- **FEATURE_DIR pattern**: All scripts start with `FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"` (25 occurrences)
+- **shellcheck directive**: All scripts include `# shellcheck source=../shared/feature-utils.sh` (25 occurrences)
+- **devcontainer-feature.json**: Every language directory has both `install.sh` and `devcontainer-feature.json` (25 occurrences)

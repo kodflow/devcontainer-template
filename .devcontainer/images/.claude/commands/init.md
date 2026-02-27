@@ -795,6 +795,178 @@ codacy_config:
 
 ---
 
+## Phase 4.8: GitHub Branch Protection (CI Gates)
+
+**Configure branch protection ruleset and tighten CI gates for merge quality.**
+**API docs:** https://docs.github.com/en/rest/repos/rules
+
+```yaml
+branch_protection_config:
+  trigger: "ALWAYS (after Codacy config)"
+  api: "https://docs.github.com/en/rest/repos/rules"
+
+  1_check_exists:
+    action: |
+      GITHUB_TOKEN=$(jq -r '.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN' /workspace/mcp.json 2>/dev/null)
+      REMOTE=$(git remote get-url origin 2>/dev/null)
+      OWNER=$(echo "$REMOTE" | sed 's|.*github.com[:/]\([^/]*\)/.*|\1|')
+      REPO=$(echo "$REMOTE" | sed 's|.*/\([^.]*\)\.git$|\1|; s|.*/\([^/]*\)$|\1|')
+      curl -fsSL \
+        -H "Authorization: Bearer $GITHUB_TOKEN" \
+        -H "Accept: application/vnd.github+json" \
+        "https://api.github.com/repos/$OWNER/$REPO/rulesets" \
+        | jq -e '.[] | select(.name == "main-protection")' > /dev/null 2>&1
+    if_exists:
+      status: "SKIP"
+      message: "Ruleset main-protection already exists."
+    if_missing:
+      status: "CONFIGURE"
+      steps: [2_extract_tokens, 3_detect_owner_repo, 4_configure_codacy_gate, 5_update_coderabbit, 6_create_ruleset, 7_validate]
+    if_no_token:
+      status: "SKIP"
+      message: "No GITHUB_TOKEN in mcp.json — cannot configure branch protection."
+
+  2_extract_tokens:
+    action: "Extract tokens from /workspace/mcp.json using jq"
+    github: "jq -r '.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN' /workspace/mcp.json"
+    codacy: "jq -r '.mcpServers.codacy.env.CODACY_ACCOUNT_TOKEN // empty' /workspace/mcp.json"
+    notes:
+      - "GITHUB_TOKEN must be non-empty — abort phase if empty"
+      - "CODACY_TOKEN may be empty — step 4 is conditional"
+
+  3_detect_owner_repo:
+    action: "Parse owner/repo from git remote origin"
+    command: |
+      REMOTE=$(git remote get-url origin 2>/dev/null)
+      OWNER=$(echo "$REMOTE" | sed 's|.*github.com[:/]\([^/]*\)/.*|\1|')
+      REPO=$(echo "$REMOTE" | sed 's|.*/\([^.]*\)\.git$|\1|; s|.*/\([^/]*\)$|\1|')
+    handles: "SSH (git@github.com:owner/repo.git) and HTTPS (https://github.com/owner/repo)"
+    on_failure: "Log warning, skip phase"
+
+  4_configure_codacy_gate:
+    action: "Set Codacy diff coverage gate to 80% via Codacy API v3"
+    condition: "CODACY_TOKEN is non-empty"
+    command: |
+      curl -fsSL -X PUT \
+        -H "api-token: $CODACY_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d '{"diffCoverageThreshold": 80}' \
+        "https://app.codacy.com/api/v3/organizations/gh/$OWNER/repositories/$REPO/settings/quality/pull-requests"
+    on_success: "Codacy diff coverage gate set to 80%"
+    on_failure: "Log warning, continue — Codacy gate is non-blocking for ruleset creation"
+    if_no_token: "SKIP silently — log: Codacy gate skipped (no CODACY_ACCOUNT_TOKEN)"
+
+  5_update_coderabbit:
+    action: "Edit .coderabbit.yaml — harden pre_merge_checks from warning to error"
+    condition: "Glob('/workspace/.coderabbit.yaml') returns a match"
+    edit:
+      target_keys:
+        - "reviews.pre_merge_checks.title.mode"
+        - "reviews.pre_merge_checks.description.mode"
+      from: "warning"
+      to: "error"
+    preserve:
+      - "reviews.request_changes_workflow: true (must remain true)"
+      - "All other keys unchanged"
+    if_file_missing: "SKIP — log: .coderabbit.yaml not found"
+
+  6_create_ruleset:
+    action: "POST to GitHub Rulesets API to create main-protection"
+    command: |
+      curl -fsSL -X POST \
+        -H "Authorization: Bearer $GITHUB_TOKEN" \
+        -H "Accept: application/vnd.github+json" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "name": "main-protection",
+          "target": "branch",
+          "enforcement": "active",
+          "conditions": {
+            "ref_name": {
+              "include": ["refs/heads/main"],
+              "exclude": []
+            }
+          },
+          "rules": [
+            {
+              "type": "required_status_checks",
+              "parameters": {
+                "strict_required_status_checks_policy": true,
+                "do_not_enforce_on_create": false,
+                "required_status_checks": [
+                  { "context": "Codacy Static Code Analysis" },
+                  { "context": "Codacy Diff Coverage" }
+                ]
+              }
+            },
+            {
+              "type": "pull_request",
+              "parameters": {
+                "required_approving_review_count": 1,
+                "dismiss_stale_reviews_on_push": true,
+                "require_last_push_approval": false,
+                "required_review_thread_resolution": true
+              }
+            }
+          ]
+        }' \
+        "https://api.github.com/repos/$OWNER/$REPO/rulesets"
+    on_failure: "Display HTTP error — may require GitHub Pro/Team plan for rulesets"
+
+  7_validate:
+    action: "Confirm ruleset is active"
+    command: |
+      curl -fsSL \
+        -H "Authorization: Bearer $GITHUB_TOKEN" \
+        -H "Accept: application/vnd.github+json" \
+        "https://api.github.com/repos/$OWNER/$REPO/rulesets" \
+        | jq -e '.[] | select(.name == "main-protection" and .enforcement == "active")'
+    on_success: "Ruleset confirmed active"
+    on_failure: "Log warning: could not verify ruleset"
+```
+
+**Output Phase 4.8 (configured):**
+
+```text
+═══════════════════════════════════════════════════════════════
+  GitHub Branch Protection (CI Gates)
+═══════════════════════════════════════════════════════════════
+
+  Status: CONFIGURED (ruleset created)
+
+  Ruleset: main-protection
+    ├─ Target  : refs/heads/main
+    ├─ Enforce : active
+    ├─ Reviews : 1 required approver (dismiss stale on push)
+    └─ Checks  : Codacy Static Code Analysis
+                 Codacy Diff Coverage
+
+  Codacy Gate:
+    └─ diffCoverageThreshold: 80% (set via API)
+
+  CodeRabbit:
+    └─ pre_merge_checks: title + description → mode: error
+
+  Qodo:
+    └─ No gate required
+
+═══════════════════════════════════════════════════════════════
+```
+
+**Output Phase 4.8 (skipped):**
+
+```text
+═══════════════════════════════════════════════════════════════
+  GitHub Branch Protection (CI Gates)
+═══════════════════════════════════════════════════════════════
+
+  Status: SKIPPED (ruleset main-protection already exists)
+
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
 ## Phase 5.0: Environment Validation
 
 **Verify the environment (parallel via Task agents).**
@@ -845,6 +1017,7 @@ parallel_checks:
     ✓ .coderabbit.yaml (generated if missing)
     ✓ .pr_agent.toml (generated if missing)
     ✓ .codacy.yaml (generated if missing)
+    ✓ Branch protection: main-protection ruleset (CI gates)
     {conditional files}
 
   Environment:

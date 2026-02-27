@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-12T17:00:00Z -->
+<!-- updated: 2026-02-27T13:00:00Z -->
 # Claude Code Core Rules
 
 ## 1.0 MCP-FIRST (MANDATORY)
@@ -78,7 +78,7 @@ Enforced by `commit-validate.sh` hook.
 └── src/CLAUDE.md            # Source
 ```
 
-Each file < 100 lines. Read at session start.
+Each file < 200 lines. Read at session start.
 
 ## 7.0 GIT WORKFLOW
 
