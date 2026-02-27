@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.4
+# syntax=docker/dockerfile:1
 # hadolint global ignore=DL3008
 # =============================================================================
 # Base Development Image
