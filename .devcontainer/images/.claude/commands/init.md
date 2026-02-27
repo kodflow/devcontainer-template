@@ -813,7 +813,7 @@ branch_protection_config:
       [ -z "$REMOTE" ] && { echo "No git remote — skipping"; exit 1; }
       OWNER=$(echo "$REMOTE" | sed 's|.*github.com[:/]\([^/]*\)/.*|\1|')
       REPO=$(echo "$REMOTE" | sed 's|.*/\([^.]*\)\.git$|\1|; s|.*/\([^/]*\)$|\1|')
-      [ -z "$OWNER" ] || [ -z "$REPO" ] && { echo "Cannot parse owner/repo from $REMOTE"; exit 1; }
+      if [ -z "$OWNER" ] || [ -z "$REPO" ]; then echo "Cannot parse owner/repo from $REMOTE"; exit 1; fi
       TMPFILE=$(mktemp)
       trap 'rm -f "$TMPFILE"' EXIT
       HTTP_CODE=$(curl -sS -w "%{http_code}" -o "$TMPFILE" \
@@ -860,7 +860,7 @@ branch_protection_config:
       [ -z "$REMOTE" ] && { echo "No git remote — skipping"; exit 1; }
       OWNER=$(echo "$REMOTE" | sed 's|.*github.com[:/]\([^/]*\)/.*|\1|')
       REPO=$(echo "$REMOTE" | sed 's|.*/\([^.]*\)\.git$|\1|; s|.*/\([^/]*\)$|\1|')
-      [ -z "$OWNER" ] || [ -z "$REPO" ] && { echo "Cannot parse owner/repo from $REMOTE"; exit 1; }
+      if [ -z "$OWNER" ] || [ -z "$REPO" ]; then echo "Cannot parse owner/repo from $REMOTE"; exit 1; fi
     handles: "SSH (git@github.com:owner/repo.git) and HTTPS (https://github.com/owner/repo)"
     on_failure: "Log warning, skip phase"
 
