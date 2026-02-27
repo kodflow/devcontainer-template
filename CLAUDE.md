@@ -25,7 +25,7 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 - **Cloud CLIs**: AWS v2, GCP SDK, Azure CLI
 - **IaC**: Terraform, Vault, Consul, Nomad, Packer, Ansible
 - **Containers**: Docker, kubectl, Helm
-- **AI**: Claude Code, MCP servers (GitHub, Codacy, Playwright, context7, grepai)
+- **AI**: Claude Code, MCP servers (GitHub, Codacy, Playwright, context7, grepai, Taskmaster)
 
 ## How to Work
 
@@ -100,7 +100,7 @@ CLAUDE.md                    # This overview
 │   ├── features/CLAUDE.md   # Language & tool features
 │   ├── hooks/CLAUDE.md      # Lifecycle hooks delegation
 │   └── images/CLAUDE.md     # Base image (170 lines)
-└── .claude/commands/        # Slash commands (16 skills)
+└── .claude/commands/        # Slash commands (17 skills)
 ```
 
 Principle: More detail deeper in tree. Target < 200 lines each.
@@ -124,6 +124,7 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/warmup` | Context pre-loading and CLAUDE.md update |
 | `/update` | DevContainer update from template |
 | `/improve` | Documentation QA for design patterns |
+| `/feature` | Feature tracking RTM (CRUD, audit, auto-learn) |
 | `/prompt` | Generate ideal prompt structure for /plan requests |
 
 ## Verification

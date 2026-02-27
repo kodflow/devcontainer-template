@@ -16,6 +16,8 @@ Thumbs.db
 /.claude/*
 # Exception: project-specific commands are committed
 !/.claude/commands/
+# Exception: feature tracking database (RTM) is committed
+!/.claude/features.json
 # CLAUDE.md files are now ALL committed (funnel documentation structure)
 
 # ============================================
@@ -135,6 +137,9 @@ out/
 .codacy/
 plans/
 .grepai/
+
+# Taskmaster AI (runtime config per-developer, not shared)
+.taskmaster/
 
 # ============================================
 # Claude Code session logs (context recovery)

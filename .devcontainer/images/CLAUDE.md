@@ -20,7 +20,7 @@ Claude Code and MCP servers are included; languages added via features.
 │   ├── shared/utils.sh # Shared utilities
 │   └── lifecycle/      # onCreate, postCreate, postStart, etc.
 └── .claude/            # Claude Code configuration
-    ├── commands/       # Slash commands (16 skills)
+    ├── commands/       # Slash commands (17 skills)
     ├── scripts/        # Hook scripts (27 scripts)
     ├── agents/         # Agent definitions (79 agents)
     ├── docs/           # Design Patterns Knowledge Base (170+ patterns)
@@ -107,6 +107,7 @@ Configured in `mcp.json.tpl`:
 | **GitLab** | `@zereight/mcp-gitlab` | MR, Issues, Pipelines, Wiki | `GITLAB_TOKEN` |
 | **Codacy** | `@codacy/codacy-mcp` | Code quality, Security | `CODACY_TOKEN` |
 | **Playwright** | `@playwright/mcp` | Browser automation, E2E tests | None |
+| **Taskmaster** | `task-master-ai` | Persistent task planning, dependencies, PRD parsing | None (MCP provider) |
 
 **grepai tools (MANDATORY - use instead of Grep):**
 
@@ -133,6 +134,9 @@ Configured in `mcp.json.tpl`:
 
 **Context7 usage:** Add "use context7" in prompts to fetch up-to-date documentation.
 
+**Taskmaster tools (standard tier - 15 tools):**
+`initialize_project`, `parse_prd`, `get_tasks`, `get_task`, `add_task`, `set_task_status`, `next_task`, `expand_task`, `expand_all`, `add_subtask`, `update_subtask`, `remove_task`, `analyze_project_complexity`, `complexity_report`, `generate`
+
 **Playwright capabilities:** `core`, `pdf`, `testing`, `tracing` (headless mode)
 
 ## Skills (Slash Commands)
@@ -154,6 +158,7 @@ Configured in `mcp.json.tpl`:
 | `/warmup` | Context pre-loading and CLAUDE.md update |
 | `/update` | DevContainer update from template |
 | `/improve` | Continuous docs enhancement & anti-pattern detection |
+| `/feature` | Feature tracking (RTM) with --add, --edit, --del, --list, --checkup |
 | `/prompt` | Generate ideal prompt structure for /plan |
 
 ## Hooks

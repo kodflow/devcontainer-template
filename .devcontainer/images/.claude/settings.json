@@ -142,13 +142,17 @@
       "Glob(**/*)",
       "Grep(**/*)",
       "mcp__grepai__*",
-      "mcp__context7__*"
+      "mcp__context7__*",
+      "mcp__taskmaster__*"
     ],
     "deny": [],
     "additionalDirectories": []
   },
   "enableAllProjectMcpServers": true,
-  "disabledMcpjsonServers": ["codacy", "playwright"],
+  "disabledMcpjsonServers": [
+    "codacy",
+    "playwright"
+  ],
   "hooks": {
     "SessionStart": [
       {
@@ -262,6 +266,12 @@
             "command": "/home/vscode/.claude/scripts/test.sh",
             "timeout": 60,
             "statusMessage": "Running tests..."
+          },
+          {
+            "type": "command",
+            "command": "/home/vscode/.claude/scripts/feature-update.sh",
+            "timeout": 5,
+            "async": true
           }
         ]
       },
