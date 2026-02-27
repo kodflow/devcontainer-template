@@ -672,7 +672,7 @@ re-running `/warmup --update` if checks fail and require corrections.
 ```yaml
 context_update_workflow:
   trigger: "ALWAYS (mandatory before commit)"
-  position: "After Phase 3 + 3.5 (all checks pass), before Phase 4 (commit)"
+  position: "After Phase 4 + 5 (all checks pass), before Phase 7 (commit)"
   tool: "/warmup --update"
 
   1_collect_branch_diff:
@@ -1233,7 +1233,7 @@ review_triage:
            - Qodo: no action (auto-re-reviews on push)
            - Codacy: no action (auto-re-analyzes on push)
            - Human: no action (never auto-dismiss)
-        6. Wait for re-reviews (reuse Phase 3.0 polling, 120s timeout)
+        6. Wait for re-reviews (MCP-only polling with wait_for_re_review 120s cap)
         7. Re-fetch and re-classify (repeat Phase 3.5.1 + 3.5.2)
         8. Check satisfaction: relevant_count == 0?
 
