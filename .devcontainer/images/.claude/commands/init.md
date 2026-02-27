@@ -808,6 +808,7 @@ branch_protection_config:
   1_check_exists:
     action: |
       GITHUB_TOKEN=$(jq -r '.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN' /workspace/mcp.json 2>/dev/null)
+      [ -z "$GITHUB_TOKEN" ] && { echo "No GITHUB_TOKEN — skipping"; exit 1; }
       REMOTE=$(git remote get-url origin 2>/dev/null)
       OWNER=$(echo "$REMOTE" | sed 's|.*github.com[:/]\([^/]*\)/.*|\1|')
       REPO=$(echo "$REMOTE" | sed 's|.*/\([^.]*\)\.git$|\1|; s|.*/\([^/]*\)$|\1|')
@@ -872,6 +873,7 @@ branch_protection_config:
 
   5b_validate_coderabbit:
     action: "Re-validate .coderabbit.yaml after edit (same logic as Phase 4.5 step 7)"
+    condition: "Glob('/workspace/.coderabbit.yaml') returns a match"
     command: |
       python3 - <<'PY'
       import json, pathlib, urllib.request, yaml
@@ -884,6 +886,7 @@ branch_protection_config:
       print("valid")
       PY
     on_success: "YAML valid after pre_merge_checks edit"
+    if_file_missing: "SKIP — log: .coderabbit.yaml not found"
     on_failure: "Revert edit (restore warning mode), log error, continue"
 
   6_create_ruleset:
@@ -1033,7 +1036,7 @@ parallel_checks:
     ✓ .coderabbit.yaml (generated if missing)
     ✓ .pr_agent.toml (generated if missing)
     ✓ .codacy.yaml (generated if missing)
-    ✓ Branch protection: main-protection ruleset (CI gates)
+    ✓ Branch protection: main-protection ruleset (if configured)
     {conditional files}
 
   Environment:
