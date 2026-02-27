@@ -1,5 +1,7 @@
 # Qodo Merge (PR-Agent) Configuration — devcontainer-template (strict, high-signal)
-# https://qodo-merge-docs.qodo.ai/usage-guide/configuration_options/
+# Official file name: .pr_agent.toml (not .qodo-merge.toml)
+# Docs: https://qodo-merge-docs.qodo.ai/usage-guide/configuration_options/
+# Canonical defaults: https://github.com/qodo-ai/pr-agent/blob/main/pr_agent/settings/configuration.toml
 #
 # Strategy:
 # - pr_reviewer: full review narrative (P0/P1/P2 triage, diff-first, structured output)

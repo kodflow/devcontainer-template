@@ -33,6 +33,7 @@ allowed-tools:
   - "TaskGet(*)"
   - "mcp__github__*"
   - "mcp__codacy__*"
+  - "Bash(codacy-analysis-cli:*)"
 ---
 
 # /init - Conversational Project Discovery
@@ -409,9 +410,10 @@ files:
 
 ---
 
-## Phase 4.5: CodeRabbit Configuration
+## Phase 4.5: CodeRabbit Configuration (AI Tools 1/3)
 
 **Generate `.coderabbit.yaml` if missing, personalized from project context.**
+**See also:** Phase 4.6 (Qodo Merge) and Phase 4.7 (Codacy) for the full AI tools configuration block.
 
 ```yaml
 coderabbit_config:
@@ -573,6 +575,226 @@ coderabbit_config:
 
 ---
 
+## Phase 4.6: Qodo Merge (PR-Agent) Configuration (AI Tools 2/3)
+
+**Generate `.pr_agent.toml` if missing, personalized from project context.**
+**Official docs:** https://qodo-merge-docs.qodo.ai/usage-guide/configuration_options/
+**Canonical defaults:** https://github.com/qodo-ai/pr-agent/blob/main/pr_agent/settings/configuration.toml
+
+```yaml
+qodo_merge_config:
+  trigger: "ALWAYS (after CodeRabbit config)"
+  docs: "https://qodo-merge-docs.qodo.ai/usage-guide/configuration_options/"
+  canonical_defaults: "https://github.com/qodo-ai/pr-agent/blob/main/pr_agent/settings/configuration.toml"
+
+  1_check_exists:
+    action: "Glob('/workspace/.pr_agent.toml')"
+    if_exists:
+      status: "SKIP"
+      output: "Phase 4.6 skipped output"
+    if_missing:
+      status: "GENERATE"
+      steps: [2_detect_stack, 3_build_reviewer_instructions, 4_build_suggestion_instructions, 5_generate_file, 6_validate]
+
+  2_detect_stack:
+    action: "Map languages to review conventions for extra_instructions"
+    mapping:
+      "Go":      "enforce Go error handling (no bare returns), unused vars, panic prevention in production paths"
+      "Rust":    "enforce ownership safety, flag unsafe blocks, check panic paths and unwrap/expect"
+      "Python":  "enforce type hints, exception handling, no bare except"
+      "Node/TS": "enforce strict TypeScript, async/await error handling, no floating promises"
+      "Java":    "enforce null checks, resource management (try-with-resources), exception handling"
+      "C#":      "enforce nullable reference types, async/await patterns, IDisposable"
+      "Shell":   "enforce strict mode (set -euo pipefail), quoting, shellcheck compliance"
+      "Docker":  "enforce Dockerfile best practices, non-root user, multi-stage builds, minimal images"
+      "Ruby":    "enforce frozen string literals, exception handling, RuboCop compliance"
+      "PHP":     "enforce strict types, null safety, PSR compliance"
+
+  3_build_reviewer_instructions:
+    action: "Combine base P0/P1/P2 triage + stack-specific rules"
+    base: |
+      Staff-level reviewer. Diff-first, evidence-driven.
+      Triage: P0 (blocker), P1 (major), P2 (minor).
+      Cap at 10 findings. If P0 exists, hide P2 entirely.
+      Each finding: What/Where + Why + Fix.
+    stack_specific: "Merged from step 2 per detected language"
+
+  4_build_suggestion_instructions:
+    action: "Adapt code suggestion rules to detected stack"
+    base: |
+      P0 blockers only. Minimal diffs. No refactors.
+      Must compile and preserve existing behavior.
+      Keep changes localized to smallest surface area.
+
+  5_generate_file:
+    action: "Write /workspace/.pr_agent.toml"
+    sections:
+      - "[pr_reviewer]": "enable_review_labels_security, enable_review_labels_effort, require_security_review, require_tests_review, extra_instructions"
+      - "[pr_code_suggestions]": "num_code_suggestions=6, extra_instructions"
+      - "[pr_description]": "enable_semantic_files_types, collapsible_file_list=adaptive, generate_ai_title=false"
+      - "[pr_questions]": "enable_help_text=true"
+      - "[rag_arguments]": "NOTE: RAG requires Enterprise tier (commented out by default)"
+      - "[pr_compliance]": "enable_codebase_duplication, enable_global_pr_compliance, enable_generic_custom_compliance_checklist"
+      - "[github_action_config]": "auto_review, auto_describe, auto_improve"
+      - "[config]": "output_relevant_configurations=false"
+
+  6_validate:
+    action: |
+      python3 -c "
+      import tomllib, pathlib
+      cfg = tomllib.loads(pathlib.Path('/workspace/.pr_agent.toml').read_text())
+      sections = list(cfg.keys())
+      print(f'valid ({len(sections)} sections: {", ".join(sections)})')
+      "
+    reference: "Cross-check keys against canonical: https://github.com/qodo-ai/pr-agent/blob/main/pr_agent/settings/configuration.toml"
+    on_failure: "Fix TOML syntax and retry"
+```
+
+**Output Phase 4.6 (generated):**
+
+```text
+═══════════════════════════════════════════════════════════════
+  Qodo Merge (PR-Agent) Configuration
+═══════════════════════════════════════════════════════════════
+
+  Status: GENERATED (new file)
+
+  Detected Stack:
+    ├─ Go       → error handling, panic prevention
+    ├─ Shell    → strict mode, shellcheck
+    └─ Docker   → hadolint compliance
+
+  Sections:
+    ├─ [pr_reviewer] (P0/P1/P2 triage + stack-specific extra_instructions)
+    ├─ [pr_code_suggestions] (6 suggestions, P0 blockers only)
+    ├─ [pr_description] (semantic files, adaptive collapse)
+    ├─ [pr_compliance] (duplication + global compliance)
+    └─ [github_action_config] (auto review/describe/improve)
+
+  Validation: valid (TOML syntax)
+  Reference: https://github.com/qodo-ai/pr-agent/blob/main/pr_agent/settings/configuration.toml
+
+═══════════════════════════════════════════════════════════════
+```
+
+**Output Phase 4.6 (skipped):**
+
+```text
+═══════════════════════════════════════════════════════════════
+  Qodo Merge (PR-Agent) Configuration
+═══════════════════════════════════════════════════════════════
+
+  Status: SKIPPED (file already exists)
+
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Phase 4.7: Codacy Configuration (AI Tools 3/3)
+
+**Generate `.codacy.yaml` if missing, personalized from project context.**
+**Official docs:** https://docs.codacy.com/repositories-configure/codacy-configuration-file/
+**CLI validation:** `codacy-analysis-cli validate-configuration --directory $(pwd)`
+
+```yaml
+codacy_config:
+  trigger: "ALWAYS (after Qodo Merge config)"
+  docs: "https://docs.codacy.com/repositories-configure/codacy-configuration-file/"
+  validation_cli: "codacy-analysis-cli validate-configuration --directory $(pwd)"
+
+  1_check_exists:
+    action: "Glob('/workspace/.codacy.yaml') OR Glob('/workspace/.codacy.yml')"
+    if_exists:
+      status: "SKIP"
+      output: "Phase 4.7 skipped output"
+    if_missing:
+      status: "GENERATE"
+      steps: [2_detect_excludes, 3_detect_engines, 4_generate_file, 5_validate]
+
+  2_detect_excludes:
+    action: "Build exclude_paths from project context"
+    always:
+      - "CLAUDE.md"
+      - "AGENTS.md"
+      - "README.md"
+      - "docs/**"
+      - ".devcontainer/**/*.md"
+      - ".claude/**/*.md"
+      - ".devcontainer/images/.claude/**/*.md"
+    if_detected:
+      go: ["vendor/**"]
+      node: ["node_modules/**", "dist/**"]
+      java: ["target/**", "build/**"]
+      rust: ["target/**"]
+      python: ["__pycache__/**", ".venv/**"]
+      dotnet: ["bin/**", "obj/**"]
+
+  3_detect_engines:
+    action: "Optional engine overrides (Codacy auto-detects by default)"
+    note: |
+      Only add explicit engines section if user has specific preferences.
+      Codacy supports 40+ tools out-of-the-box. Override only when:
+        - Disabling a tool that produces false positives for the stack
+        - Enabling a tool that is not auto-detected
+        - Configuring tool-specific options
+
+  4_generate_file:
+    action: "Write /workspace/.codacy.yaml"
+    format: "YAML with --- header (required by Codacy)"
+    structure: |
+      ---
+      exclude_paths:
+        - "{from step 2}"
+      # engines section only if step 3 produced overrides
+
+  5_validate:
+    primary: "codacy-analysis-cli validate-configuration --directory $(pwd)"
+    fallback: |
+      python3 -c "
+      import yaml, pathlib
+      cfg = yaml.safe_load(pathlib.Path('/workspace/.codacy.yaml').read_text())
+      excludes = cfg.get('exclude_paths', [])
+      print(f'valid ({len(excludes)} exclusions)')
+      "
+    on_failure: "Fix YAML syntax and retry"
+```
+
+**Output Phase 4.7 (generated):**
+
+```text
+═══════════════════════════════════════════════════════════════
+  Codacy Configuration
+═══════════════════════════════════════════════════════════════
+
+  Status: GENERATED (new file)
+
+  Exclusions:
+    ├─ 7 always-excluded paths (docs, prompts)
+    └─ 2 stack-specific exclusions (vendor, node_modules)
+
+  Engines: auto-detect (no overrides)
+
+  Validation: valid (codacy-analysis-cli)
+  Docs: https://docs.codacy.com/repositories-configure/codacy-configuration-file/
+
+═══════════════════════════════════════════════════════════════
+```
+
+**Output Phase 4.7 (skipped):**
+
+```text
+═══════════════════════════════════════════════════════════════
+  Codacy Configuration
+═══════════════════════════════════════════════════════════════
+
+  Status: SKIPPED (file already exists)
+
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
 ## Phase 5.0: Environment Validation
 
 **Verify the environment (parallel via Task agents).**
@@ -621,6 +843,8 @@ parallel_checks:
     ✓ docs/workflows.md
     ✓ README.md (updated)
     ✓ .coderabbit.yaml (generated if missing)
+    ✓ .pr_agent.toml (generated if missing)
+    ✓ .codacy.yaml (generated if missing)
     {conditional files}
 
   Environment:
