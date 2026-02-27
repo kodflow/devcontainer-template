@@ -810,8 +810,10 @@ branch_protection_config:
       GITHUB_TOKEN=$(jq -r '.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN' /workspace/mcp.json 2>/dev/null)
       [ -z "$GITHUB_TOKEN" ] && { echo "No GITHUB_TOKEN — skipping"; exit 1; }
       REMOTE=$(git remote get-url origin 2>/dev/null)
+      [ -z "$REMOTE" ] && { echo "No git remote — skipping"; exit 1; }
       OWNER=$(echo "$REMOTE" | sed 's|.*github.com[:/]\([^/]*\)/.*|\1|')
       REPO=$(echo "$REMOTE" | sed 's|.*/\([^.]*\)\.git$|\1|; s|.*/\([^/]*\)$|\1|')
+      [ -z "$OWNER" ] || [ -z "$REPO" ] && { echo "Cannot parse owner/repo from $REMOTE"; exit 1; }
       curl -fsSL \
         -H "Authorization: Bearer $GITHUB_TOKEN" \
         -H "Accept: application/vnd.github+json" \
@@ -839,8 +841,10 @@ branch_protection_config:
     action: "Parse owner/repo from git remote origin"
     command: |
       REMOTE=$(git remote get-url origin 2>/dev/null)
+      [ -z "$REMOTE" ] && { echo "No git remote — skipping"; exit 1; }
       OWNER=$(echo "$REMOTE" | sed 's|.*github.com[:/]\([^/]*\)/.*|\1|')
       REPO=$(echo "$REMOTE" | sed 's|.*/\([^.]*\)\.git$|\1|; s|.*/\([^/]*\)$|\1|')
+      [ -z "$OWNER" ] || [ -z "$REPO" ] && { echo "Cannot parse owner/repo from $REMOTE"; exit 1; }
     handles: "SSH (git@github.com:owner/repo.git) and HTTPS (https://github.com/owner/repo)"
     on_failure: "Log warning, skip phase"
 
@@ -848,6 +852,7 @@ branch_protection_config:
     action: "Set Codacy diff coverage gate to 80% via Codacy API v3"
     condition: "CODACY_TOKEN is non-empty"
     command: |
+      [ -z "$CODACY_TOKEN" ] && { echo "Codacy gate skipped (no token)"; exit 0; }
       curl -fsSL -X PUT \
         -H "api-token: $CODACY_TOKEN" \
         -H "Content-Type: application/json" \
