@@ -817,6 +817,7 @@ branch_protection_config:
       curl -fsSL \
         -H "Authorization: Bearer $GITHUB_TOKEN" \
         -H "Accept: application/vnd.github+json" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
         "https://api.github.com/repos/$OWNER/$REPO/rulesets" \
         | jq -e '.[] | select(.name == "main-protection")' > /dev/null 2>&1
     if_exists:
@@ -853,11 +854,11 @@ branch_protection_config:
     condition: "CODACY_TOKEN is non-empty"
     command: |
       [ -z "$CODACY_TOKEN" ] && { echo "Codacy gate skipped (no token)"; exit 0; }
-      curl -fsSL -X PUT \
+      curl -fsSL -X PATCH \
         -H "api-token: $CODACY_TOKEN" \
         -H "Content-Type: application/json" \
         -d '{"diffCoverageThreshold": 80}' \
-        "https://app.codacy.com/api/v3/organizations/gh/$OWNER/repositories/$REPO/settings/quality/pull-requests"
+        "https://api.codacy.com/api/v3/organizations/gh/$OWNER/repositories/$REPO/settings/quality/pull-requests"
     on_success: "Codacy diff coverage gate set to 80%"
     on_failure: "Log warning, continue — Codacy gate is non-blocking for ruleset creation"
     if_no_token: "SKIP silently — log: Codacy gate skipped (no CODACY_ACCOUNT_TOKEN)"
@@ -900,6 +901,7 @@ branch_protection_config:
       curl -fsSL -X POST \
         -H "Authorization: Bearer $GITHUB_TOKEN" \
         -H "Accept: application/vnd.github+json" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
         -H "Content-Type: application/json" \
         -d '{
           "name": "main-protection",
@@ -943,6 +945,7 @@ branch_protection_config:
       curl -fsSL \
         -H "Authorization: Bearer $GITHUB_TOKEN" \
         -H "Accept: application/vnd.github+json" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
         "https://api.github.com/repos/$OWNER/$REPO/rulesets" \
         | jq -e '.[] | select(.name == "main-protection" and .enforcement == "active")'
     on_success: "Ruleset confirmed active"
