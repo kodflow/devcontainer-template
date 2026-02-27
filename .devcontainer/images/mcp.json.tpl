@@ -6,7 +6,7 @@
     },
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@0.x"],
+      "args": ["-y", "@upstash/context7-mcp@2.x"],
       "env": {}
     },
     "codacy": {
@@ -38,7 +38,7 @@
     },
     "gitlab": {
       "command": "npx",
-      "args": ["-y", "@zereight/mcp-gitlab@1.x"],
+      "args": ["-y", "@zereight/mcp-gitlab@2.x"],
       "env": {
         "GITLAB_PERSONAL_ACCESS_TOKEN": "{{GITLAB_TOKEN}}",
         "GITLAB_API_URL": "{{GITLAB_API_URL:-https://gitlab.com/api/v4}}"
