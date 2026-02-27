@@ -5,8 +5,8 @@ description: |
   CRUD operations, auto-learn from code changes, parallel audit.
 allowed-tools:
   - "Read(**/*)"
-  - "Write(**/*)"
-  - "Edit(**/*)"
+  - "Write(.claude/**)"
+  - "Edit(.claude/**)"
   - "Glob(**/*)"
   - "Grep(**/*)"
   - "Bash(jq:*)"
@@ -136,7 +136,7 @@ add_feature:
 
   2_parse_args:
     level: "from --level (default 0, integer >= 0)"
-    workdirs: "from --workdirs (comma-separated, normalize trailing /). Required."
+    workdirs: "from --workdirs (comma-separated, normalize trailing /). Prompted if missing."
     audit_dirs: "from --audit-dirs (comma-separated, default = workdirs)"
     validation: |
       IF --workdirs missing: ask user
@@ -455,7 +455,7 @@ checkup_workflow:
 | Action | Trigger | Fields |
 |--------|---------|--------|
 | `created` | --add | detail |
-| `modified` | --edit, /do auto-learn | detail, files? |
+| `modified` | --edit | detail, files? |
 | `status_change` | --edit --status | detail (from → to) |
 | `checkup_pass` | --checkup | detail |
 | `checkup_fail` | --checkup | detail |
@@ -553,9 +553,6 @@ A feature spawns many tasks; a task belongs to at most one feature.
 
 | Skill | Integration |
 |-------|-------------|
-| `/do` | Auto-learn: update journal for modified files |
-| `/git --commit` | Stage features.json, add journal entries for committed features |
-| `/review` | Add checkup_fail journal entry for findings |
 | `/init` | Propose --add for discovered features |
 | `/warmup` | Load features.json into context |
 | `/plan` | Reference features in plan context |

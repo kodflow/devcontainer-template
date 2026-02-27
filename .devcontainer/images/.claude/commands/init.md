@@ -1013,7 +1013,7 @@ branch_protection_config:
 
 ```yaml
 phase_4.9_taskmaster_init:
-  condition: "mcp__taskmaster__ available AND .taskmaster/config.json absent"
+  condition: "mcp__taskmaster__ available AND /workspace/.taskmaster/config.json absent"
   actions:
     1_initialize:
       action: "mcp__taskmaster__initialize_project"
@@ -1024,12 +1024,12 @@ phase_4.9_taskmaster_init:
         Converts project vision into a structured task backlog.
 
 phase_4.9_feature_bootstrap:
-  condition: ".claude/features.json absent"
+  condition: "/workspace/.claude/features.json absent"
   actions:
     1_create_db:
       action: |
-        Ensure directory exists: mkdir -p .claude
-        Create .claude/features.json with: { "version": 2, "features": [] }
+        Ensure directory exists: mkdir -p /workspace/.claude
+        Create /workspace/.claude/features.json with: { "version": 2, "features": [] }
     2_propose_features:
       action: |
         Based on the discovery conversation, propose /feature --add
