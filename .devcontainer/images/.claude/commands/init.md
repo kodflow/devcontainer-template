@@ -970,11 +970,20 @@ branch_protection_config:
     ├─ Target  : refs/heads/main
     ├─ Enforce : active
     ├─ Reviews : 1 required approver (dismiss stale on push)
+    {{#if CODACY_CONFIGURED}}
     └─ Checks  : Codacy Static Code Analysis
                  Codacy Diff Coverage
+    {{else}}
+    └─ Checks  : (none — Codacy not configured)
+    {{/if}}
 
+  {{#if CODACY_CONFIGURED}}
   Codacy Gate:
     └─ diffCoverageThreshold: 80% (set via API)
+  {{else}}
+  Codacy Gate:
+    └─ SKIPPED (no CODACY_ACCOUNT_TOKEN)
+  {{/if}}
 
   CodeRabbit:
     └─ pre_merge_checks: title + description → mode: error
