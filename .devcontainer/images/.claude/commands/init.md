@@ -1028,11 +1028,16 @@ phase_4.9_feature_bootstrap:
   actions:
     1_create_db:
       action: |
-        Create .claude/features.json with: { "version": 1, "features": [] }
+        Create .claude/features.json with: { "version": 2, "features": [] }
     2_propose_features:
       action: |
         Based on the discovery conversation, propose /feature --add
         for each identified feature of the project.
+        For each feature, ask user to specify:
+          - level (0 = architectural, 1 = subsystem, 2+ = component)
+          - workdirs (directories this feature owns)
+          - audit_dirs (directories this feature audits, default = workdirs)
+        Show inferred parent-child relationships after all features are added.
         Ask user to confirm each feature before adding.
 ```
 

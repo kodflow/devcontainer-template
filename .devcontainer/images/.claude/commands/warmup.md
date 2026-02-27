@@ -194,8 +194,16 @@ phase_1.5_taskmaster:
 
 phase_1.5_features:
   condition: ".claude/features.json exists"
-  action: "Read .claude/features.json"
-  output: "Inject active features (status != archived) into context"
+  action: |
+    Read .claude/features.json
+    IF version == 1: note "Schema v1 detected — run /feature to auto-migrate to v2"
+    IF version == 2: run infer_hierarchy (see /feature Hierarchy Inference)
+  output: |
+    Inject active features as hierarchy tree:
+      F001  [L0] DDD Architecture       | completed
+      ├─ F002  [L1] HTTP Server         | in_progress
+      └─ F003  [L1] Database layer      | completed
+    Orphans (level > 0 with no parent) shown with ⚠ warning.
 ```
 
 ---
