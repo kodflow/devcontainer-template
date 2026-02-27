@@ -141,8 +141,8 @@ add_feature:
     validation: |
       IF --workdirs missing: ask user
       Normalize: ensure each dir ends with /
-      IF level > 5: WARNING "Consider flattening hierarchy"
-      IF level > 0 AND workdirs empty: WARNING "Cannot be parented without workdirs"
+      IF level > 5: ERROR "Level must be <= 5" → reject input
+      IF workdirs empty after prompt: ERROR "workdirs required" → reject input
 
   3_create_entry:
     fields:
@@ -392,7 +392,7 @@ checkup_workflow:
           Generate auto-correction plan: .claude/plans/auto-correct-{child_id}.md
           Journal entry on child:
             { action: "auto_corrected", detail: "Parent {parent_id} generated correction plan" }
-    constraint: "Direction is DOWNWARD ONLY. Level N → N+1, N+2... NEVER upward."
+    constraint: "Direction is DOWNWARD ONLY. Each wave N corrects direct children at N+1; deeper descendants (N+2, N+3...) are corrected when their own wave runs. NEVER upward."
 
   6_cross_feature_analysis:
     action: "Analyze results across all waves for contradictions"
@@ -528,8 +528,8 @@ compaction:
 | Store secrets in features.json | **FORBIDDEN** | Git-committed file |
 | Auto-correct upward (child → parent) | **FORBIDDEN** | Corrections flow downward only |
 | Delete parent with children | **WARN** | Offer cascade archive option |
-| Level > 5 | **WARNING** | Consider flattening hierarchy |
-| Workdirs empty at level > 0 | **WARNING** | Cannot be parented without workdirs |
+| Level > 5 | **FORBIDDEN** | Reject input (must be <= 5) |
+| Workdirs empty | **FORBIDDEN** | Reject input (required for hierarchy inference) |
 
 ---
 
