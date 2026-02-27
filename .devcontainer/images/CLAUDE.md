@@ -20,7 +20,7 @@ Claude Code and MCP servers are included; languages added via features.
 │   ├── shared/utils.sh # Shared utilities
 │   └── lifecycle/      # onCreate, postCreate, postStart, etc.
 └── .claude/            # Claude Code configuration
-    ├── commands/       # Slash commands (16 skills)
+    ├── commands/       # Slash commands (17 skills)
     ├── scripts/        # Hook scripts (27 scripts)
     ├── agents/         # Agent definitions (79 agents)
     ├── docs/           # Design Patterns Knowledge Base (170+ patterns)
@@ -107,6 +107,7 @@ Configured in `mcp.json.tpl`:
 | **GitLab** | `@zereight/mcp-gitlab` | MR, Issues, Pipelines, Wiki | `GITLAB_TOKEN` |
 | **Codacy** | `@codacy/codacy-mcp` | Code quality, Security | `CODACY_TOKEN` |
 | **Playwright** | `@playwright/mcp` | Browser automation, E2E tests | None |
+| **Taskmaster** | `task-master-ai` | Persistent task planning, dependencies, PRD parsing | None (MCP provider) |
 
 **grepai tools (MANDATORY - use instead of Grep):**
 
@@ -133,6 +134,26 @@ Configured in `mcp.json.tpl`:
 
 **Context7 usage:** Add "use context7" in prompts to fetch up-to-date documentation.
 
+**Taskmaster tools (standard tier - 15 tools):**
+
+| Tool | Description | Use Case |
+|------|-------------|----------|
+| `initialize_project` | Bootstrap .taskmaster/ | First-time setup |
+| `parse_prd` | PRD → structured tasks | Requirements breakdown |
+| `get_tasks` | List all tasks | Task overview |
+| `get_task` | Get task details | Inspection |
+| `add_task` | Create task | Ad-hoc creation |
+| `set_task_status` | Update status | Progress tracking |
+| `next_task` | Next actionable task | Workflow guidance |
+| `expand_task` | Task → subtasks (AI) | Decomposition |
+| `expand_all` | Expand all tasks | Bulk decomposition |
+| `add_subtask` | Add subtask | Granular tracking |
+| `update_subtask` | Update subtask | Detail updates |
+| `remove_task` | Delete task | Cleanup |
+| `analyze_project_complexity` | Complexity scoring | Sprint planning |
+| `complexity_report` | Generate report | Analysis |
+| `generate` | Generate code/content | AI generation |
+
 **Playwright capabilities:** `core`, `pdf`, `testing`, `tracing` (headless mode)
 
 ## Skills (Slash Commands)
@@ -154,6 +175,7 @@ Configured in `mcp.json.tpl`:
 | `/warmup` | Context pre-loading and CLAUDE.md update |
 | `/update` | DevContainer update from template |
 | `/improve` | Continuous docs enhancement & anti-pattern detection |
+| `/feature` | Feature tracking (RTM) with --add, --edit, --del, --list, --checkup |
 | `/prompt` | Generate ideal prompt structure for /plan |
 
 ## Hooks

@@ -18,6 +18,8 @@ allowed-tools:
   - "TaskList(*)"
   - "TaskGet(*)"
   - "Bash(git:*)"
+  - "mcp__taskmaster__get_tasks(*)"
+  - "mcp__taskmaster__next_task(*)"
 ---
 
 # /warmup - Project Context Pre-loading (RLM Architecture)
@@ -179,6 +181,22 @@ peek_workflow:
   Strategy: Funnel (root → leaves, decreasing detail)
 
 ═══════════════════════════════════════════════════════════════
+```
+
+---
+
+### Phase 1.5: Taskmaster + Feature Context (Conditional)
+
+```yaml
+phase_1.5_taskmaster:
+  condition: "mcp__taskmaster__ available AND .taskmaster/ exists"
+  action: "mcp__taskmaster__get_tasks(filter: pending|in-progress)"
+  output: "Inject active tasks into working context"
+
+phase_1.5_features:
+  condition: ".claude/features.json exists"
+  action: "Read .claude/features.json"
+  output: "Inject active features (status != archived) into context"
 ```
 
 ---

@@ -34,6 +34,7 @@ allowed-tools:
   - "mcp__github__*"
   - "mcp__codacy__*"
   - "Bash(codacy-analysis-cli:*)"
+  - "mcp__taskmaster__*"
 ---
 
 # /init - Conversational Project Discovery
@@ -1004,6 +1005,35 @@ branch_protection_config:
   Status: SKIPPED (ruleset main-protection already exists)
 
 ═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Phase 4.9: Taskmaster Init + Feature Bootstrap (Conditional)
+
+```yaml
+phase_4.9_taskmaster_init:
+  condition: "mcp__taskmaster__ available AND .taskmaster/config.json absent"
+  actions:
+    1_initialize:
+      action: "mcp__taskmaster__initialize_project"
+    2_parse_prd:
+      condition: "docs/vision.md exists"
+      action: |
+        mcp__taskmaster__parse_prd(input: docs/vision.md)
+        Converts project vision into a structured task backlog.
+
+phase_4.9_feature_bootstrap:
+  condition: ".claude/features.json absent"
+  actions:
+    1_create_db:
+      action: |
+        Create .claude/features.json with: { "version": 1, "features": [] }
+    2_propose_features:
+      action: |
+        Based on the discovery conversation, propose /feature --add
+        for each identified feature of the project.
+        Ask user to confirm each feature before adding.
 ```
 
 ---
