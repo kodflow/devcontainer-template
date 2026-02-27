@@ -814,17 +814,19 @@ branch_protection_config:
       OWNER=$(echo "$REMOTE" | sed 's|.*github.com[:/]\([^/]*\)/.*|\1|')
       REPO=$(echo "$REMOTE" | sed 's|.*/\([^.]*\)\.git$|\1|; s|.*/\([^/]*\)$|\1|')
       [ -z "$OWNER" ] || [ -z "$REPO" ] && { echo "Cannot parse owner/repo from $REMOTE"; exit 1; }
-      HTTP_CODE=$(curl -sS -w "%{http_code}" -o /tmp/ruleset_resp \
+      TMPFILE=$(mktemp)
+      trap 'rm -f "$TMPFILE"' EXIT
+      HTTP_CODE=$(curl -sS -w "%{http_code}" -o "$TMPFILE" \
         -H "Authorization: Bearer $GITHUB_TOKEN" \
         -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
         "https://api.github.com/repos/$OWNER/$REPO/rulesets")
       if [ "$HTTP_CODE" = "200" ]; then
-        jq -e '.[] | select(.name == "main-protection")' /tmp/ruleset_resp > /dev/null 2>&1
+        jq -e '.[] | select(.name == "main-protection")' "$TMPFILE" > /dev/null 2>&1
       elif [ "$HTTP_CODE" = "404" ]; then
         false  # Not found → trigger CONFIGURE
       else
-        echo "GitHub API error (HTTP $HTTP_CODE)"; cat /tmp/ruleset_resp; exit 2
+        echo "GitHub API error (HTTP $HTTP_CODE)"; cat "$TMPFILE"; exit 2
       fi
     exit_codes:
       0: "Ruleset found (jq matched)"
@@ -865,16 +867,20 @@ branch_protection_config:
   4_configure_codacy_gate:
     action: "Set Codacy diff coverage gate to 80% via Codacy API v3"
     condition: "CODACY_TOKEN is non-empty"
+    sets_flag: "CODACY_CONFIGURED=true on success (used by step 6 to conditionally add status checks)"
     command: |
+      CODACY_CONFIGURED=false
       [ -z "$CODACY_TOKEN" ] && { echo "Codacy gate skipped (no token)"; exit 0; }
       curl -fsSL -X PATCH \
         -H "api-token: $CODACY_TOKEN" \
         -H "Content-Type: application/json" \
         -d '{"diffCoverageThreshold": 80}' \
-        "https://api.codacy.com/api/v3/organizations/gh/$OWNER/repositories/$REPO/settings/quality/pull-requests"
-    on_success: "Codacy diff coverage gate set to 80%"
-    on_failure: "Log warning, continue — Codacy gate is non-blocking for ruleset creation"
-    if_no_token: "SKIP silently — log: Codacy gate skipped (no CODACY_ACCOUNT_TOKEN)"
+        "https://api.codacy.com/api/v3/organizations/gh/$OWNER/repositories/$REPO/settings/quality/pull-requests" \
+        && CODACY_CONFIGURED=true
+      export CODACY_CONFIGURED
+    on_success: "Codacy diff coverage gate set to 80%, CODACY_CONFIGURED=true"
+    on_failure: "Log warning, CODACY_CONFIGURED remains false — Codacy checks excluded from ruleset"
+    if_no_token: "SKIP — CODACY_CONFIGURED=false, Codacy checks excluded from ruleset"
 
   5_update_coderabbit:
     action: "Edit .coderabbit.yaml — harden pre_merge_checks from warning to error"
@@ -910,45 +916,31 @@ branch_protection_config:
 
   6_create_ruleset:
     action: "POST to GitHub Rulesets API to create main-protection"
+    note: "Codacy status checks are only included if CODACY_CONFIGURED flag is set (step 4 succeeded)"
     command: |
+      # Build rules array — Codacy checks only if step 4 configured successfully
+      RULES='[{"type":"pull_request","parameters":{"required_approving_review_count":1,"dismiss_stale_reviews_on_push":true,"require_last_push_approval":false,"required_review_thread_resolution":true}}'
+      if [ "$CODACY_CONFIGURED" = "true" ]; then
+        RULES="$RULES"',{"type":"required_status_checks","parameters":{"strict_required_status_checks_policy":true,"do_not_enforce_on_create":false,"required_status_checks":[{"context":"Codacy Static Code Analysis"},{"context":"Codacy Diff Coverage"}]}}'
+      fi
+      RULES="$RULES]"
       curl -fsSL -X POST \
         -H "Authorization: Bearer $GITHUB_TOKEN" \
         -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
         -H "Content-Type: application/json" \
-        -d '{
-          "name": "main-protection",
-          "target": "branch",
-          "enforcement": "active",
-          "conditions": {
-            "ref_name": {
-              "include": ["refs/heads/main"],
-              "exclude": []
+        -d "{
+          \"name\": \"main-protection\",
+          \"target\": \"branch\",
+          \"enforcement\": \"active\",
+          \"conditions\": {
+            \"ref_name\": {
+              \"include\": [\"refs/heads/main\"],
+              \"exclude\": []
             }
           },
-          "rules": [
-            {
-              "type": "required_status_checks",
-              "parameters": {
-                "strict_required_status_checks_policy": true,
-                "do_not_enforce_on_create": false,
-                "required_status_checks": [
-                  { "context": "Codacy Static Code Analysis" },
-                  { "context": "Codacy Diff Coverage" }
-                ]
-              }
-            },
-            {
-              "type": "pull_request",
-              "parameters": {
-                "required_approving_review_count": 1,
-                "dismiss_stale_reviews_on_push": true,
-                "require_last_push_approval": false,
-                "required_review_thread_resolution": true
-              }
-            }
-          ]
-        }' \
+          \"rules\": $RULES
+        }" \
         "https://api.github.com/repos/$OWNER/$REPO/rulesets"
     on_failure: "Display HTTP error — may require GitHub Pro/Team plan for rulesets"
 
