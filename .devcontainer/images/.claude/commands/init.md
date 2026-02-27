@@ -1028,6 +1028,7 @@ phase_4.9_feature_bootstrap:
   actions:
     1_create_db:
       action: |
+        Ensure directory exists: mkdir -p .claude
         Create .claude/features.json with: { "version": 2, "features": [] }
     2_propose_features:
       action: |

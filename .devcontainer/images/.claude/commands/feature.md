@@ -36,7 +36,7 @@ Track project features with full traceability: CRUD, audit, auto-learn.
 
 ## --help
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   /feature - Feature Tracking RTM
 ═══════════════════════════════════════════════════════════════
