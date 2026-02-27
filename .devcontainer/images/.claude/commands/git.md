@@ -1704,7 +1704,7 @@ action_finish:
 |--------|--------|--------|
 | Skip Phase 0.5 (Identity) without flag | **FORBIDDEN** | Git identity required |
 | Skip Phase 1 (Peek) | **FORBIDDEN** | git status before action |
-| Skip Phase 3.8 (Context) | **FORBIDDEN** | CLAUDE.md must reflect changes |
+| Skip Phase 6.0 (Context) | **FORBIDDEN** | CLAUDE.md must reflect changes |
 | Skip Phase 5.5 (PR Regeneration) | **FORBIDDEN** | PR must reflect final changes |
 | Skip Phase 2 (CI Polling) | **FORBIDDEN** | CI validation mandatory |
 | Automatic merge without CI | **FORBIDDEN** | Code quality |

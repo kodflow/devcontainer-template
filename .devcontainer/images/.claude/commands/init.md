@@ -33,6 +33,7 @@ allowed-tools:
   - "TaskGet(*)"
   - "mcp__github__*"
   - "mcp__codacy__*"
+  - "Bash(codacy-analysis-cli:*)"
 ---
 
 # /init - Conversational Project Discovery
