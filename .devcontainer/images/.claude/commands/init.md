@@ -824,14 +824,21 @@ branch_protection_config:
       elif [ "$HTTP_CODE" = "404" ]; then
         false  # Not found → trigger CONFIGURE
       else
-        echo "GitHub API error (HTTP $HTTP_CODE)"; cat /tmp/ruleset_resp; exit 1
+        echo "GitHub API error (HTTP $HTTP_CODE)"; cat /tmp/ruleset_resp; exit 2
       fi
+    exit_codes:
+      0: "Ruleset found (jq matched)"
+      1: "No token, no remote, bad owner/repo, or ruleset not found (404/jq miss)"
+      2: "HTTP/auth error (non-200, non-404)"
     if_exists:
       status: "SKIP"
       message: "Ruleset main-protection already exists."
     if_missing:
       status: "CONFIGURE"
       steps: [2_extract_tokens, 3_detect_owner_repo, 4_configure_codacy_gate, 5_update_coderabbit, 6_create_ruleset, 7_validate]
+    if_api_error:
+      status: "SKIP"
+      message: "GitHub API error — cannot verify rulesets. Check token permissions."
     if_no_token:
       status: "SKIP"
       message: "No GITHUB_TOKEN in mcp.json — cannot configure branch protection."
@@ -1050,7 +1057,7 @@ parallel_checks:
     ✓ .coderabbit.yaml (generated if missing)
     ✓ .pr_agent.toml (generated if missing)
     ✓ .codacy.yaml (generated if missing)
-    ✓ Branch protection: main-protection ruleset (if configured)
+    {{#if phase4_8_configured}}✓ Branch protection: main-protection ruleset (CI gates){{/if}}
     {conditional files}
 
   Environment:
