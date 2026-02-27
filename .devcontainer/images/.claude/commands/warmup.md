@@ -18,6 +18,7 @@ allowed-tools:
   - "TaskList(*)"
   - "TaskGet(*)"
   - "Bash(git:*)"
+  - "mcp__taskmaster__*"
 ---
 
 # /warmup - Project Context Pre-loading (RLM Architecture)
@@ -179,6 +180,30 @@ peek_workflow:
   Strategy: Funnel (root → leaves, decreasing detail)
 
 ═══════════════════════════════════════════════════════════════
+```
+
+---
+
+### Phase 1.5: Taskmaster + Feature Context (Conditional)
+
+```yaml
+phase_1.5_taskmaster:
+  condition: "mcp__taskmaster__ available AND .taskmaster/ exists"
+  action: "mcp__taskmaster__get_tasks(status: pending) + mcp__taskmaster__get_tasks(status: in-progress)"
+  output: "Inject active tasks into working context"
+
+phase_1.5_features:
+  condition: ".claude/features.json exists"
+  action: |
+    Read .claude/features.json
+    IF version == 1: note "Schema v1 detected — run /feature to auto-migrate to v2"
+    IF version == 2: run infer_hierarchy (see /feature Hierarchy Inference)
+  output: |
+    Inject active features as hierarchy tree:
+      F001  [L0] DDD Architecture       | completed
+      ├─ F002  [L1] HTTP Server         | in_progress
+      └─ F003  [L1] Database layer      | completed
+    Orphans (level > 0 with no parent) shown with ⚠ warning.
 ```
 
 ---

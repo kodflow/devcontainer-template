@@ -579,6 +579,77 @@ step_mcp_configuration() {
     fi
 }
 
+# Taskmaster AI configuration
+# Generates .taskmaster/config.json with MCP provider (uses Claude Code session)
+# Optional Ollama fallback for streaming if available on host
+step_taskmaster_config() {
+    local TASKMASTER_DIR="/workspace/.taskmaster"
+    local TASKMASTER_CONFIG="$TASKMASTER_DIR/config.json"
+    local tm_tmp=""
+
+    if ! command -v jq >/dev/null 2>&1; then
+        log_warning "Taskmaster config skipped: jq not available"
+        return 0
+    fi
+
+    # Idempotent: skip only when existing config is valid JSON
+    if [ -f "$TASKMASTER_CONFIG" ] && jq empty "$TASKMASTER_CONFIG" >/dev/null 2>&1; then
+        log_info "Taskmaster config exists, skipping"
+        return 0
+    fi
+
+    # Safety: refuse symlinked or non-directory target
+    if [ -e "$TASKMASTER_DIR" ] && { [ -L "$TASKMASTER_DIR" ] || [ ! -d "$TASKMASTER_DIR" ]; }; then
+        log_warning "Taskmaster config skipped: unsafe directory target ($TASKMASTER_DIR)"
+        return 0
+    fi
+    mkdir -p "$TASKMASTER_DIR" 2>/dev/null || return 0
+    if [ -e "$TASKMASTER_CONFIG" ] && { [ -L "$TASKMASTER_CONFIG" ] || [ ! -f "$TASKMASTER_CONFIG" ]; }; then
+        log_warning "Taskmaster config skipped: unsafe file target ($TASKMASTER_CONFIG)"
+        return 0
+    fi
+    tm_tmp=$(mktemp "${TASKMASTER_CONFIG}.tmp.XXXXXX") || return 0
+
+    # Detect Ollama for optional fallback streaming
+    local has_ollama=false
+    local ollama_url="${OLLAMA_HOST:-host.docker.internal:11434}"
+    if curl -sf --connect-timeout 2 "http://$ollama_url/api/tags" >/dev/null 2>&1; then
+        has_ollama=true
+    fi
+
+    if [ "$has_ollama" = true ]; then
+        jq -n --arg url "http://$ollama_url/api" '{
+            models: {
+                main:     { provider: "mcp", modelId: "claude-code" },
+                research: { provider: "mcp", modelId: "claude-code" },
+                fallback: { provider: "ollama", modelId: "llama3.2", baseURL: $url }
+            },
+            global: { projectRoot: "/workspace", logLevel: "info" }
+        }' > "$tm_tmp"
+    else
+        jq -n '{
+            models: {
+                main:     { provider: "mcp", modelId: "claude-code" },
+                research: { provider: "mcp", modelId: "claude-code" }
+            },
+            global: { projectRoot: "/workspace", logLevel: "info" }
+        }' > "$tm_tmp"
+    fi
+
+    if jq empty "$tm_tmp" >/dev/null 2>&1; then
+        if mv "$tm_tmp" "$TASKMASTER_CONFIG"; then
+            chmod 600 "$TASKMASTER_CONFIG" 2>/dev/null || true
+            log_success "Taskmaster config generated"
+        else
+            rm -f "$tm_tmp"
+            log_warning "Taskmaster config generation failed (install step failed)"
+        fi
+    else
+        rm -f "$tm_tmp"
+        log_warning "Taskmaster config generation failed (invalid JSON)"
+    fi
+}
+
 # CodeRabbit CLI authentication (inject token from 1Password)
 # Retrieves the API token from 1Password and writes ~/.coderabbit/auth.json
 # This enables `coderabbit review` and `cr review` without manual login
@@ -1402,6 +1473,7 @@ fi
 run_step "1Password permissions"    step_1password_permissions
 run_step "npm cache permissions"    step_npm_cache_permissions
 run_step "MCP configuration"        step_mcp_configuration
+run_step "Taskmaster config"        step_taskmaster_config
 run_step "CodeRabbit auth"           step_coderabbit_auth
 run_step "Git credential cleanup"   step_git_credential_cleanup
 

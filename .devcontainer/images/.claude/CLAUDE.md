@@ -59,6 +59,7 @@ Enforced by `commit-validate.sh` hook.
 | `/vpn` | VPN management |
 | `/warmup` | Context pre-loading |
 | `/update` | DevContainer update |
+| `/feature` | Feature tracking (RTM) |
 | `/improve` | Docs QA |
 | `/prompt` | Better /plan descriptions |
 

@@ -34,6 +34,7 @@ allowed-tools:
   - "mcp__github__*"
   - "mcp__codacy__*"
   - "Bash(codacy-analysis-cli:*)"
+  - "mcp__taskmaster__*"
 ---
 
 # /init - Conversational Project Discovery
@@ -1004,6 +1005,41 @@ branch_protection_config:
   Status: SKIPPED (ruleset main-protection already exists)
 
 ═══════════════════════════════════════════════════════════════
+```
+
+---
+
+## Phase 4.9: Taskmaster Init + Feature Bootstrap (Conditional)
+
+```yaml
+phase_4.9_taskmaster_init:
+  condition: "mcp__taskmaster__ available AND /workspace/.taskmaster/config.json absent"
+  actions:
+    1_initialize:
+      action: "mcp__taskmaster__initialize_project"
+    2_parse_prd:
+      condition: "/workspace/docs/vision.md exists"
+      action: |
+        mcp__taskmaster__parse_prd(input: /workspace/docs/vision.md)
+        Converts project vision into a structured task backlog.
+
+phase_4.9_feature_bootstrap:
+  condition: "/workspace/.claude/features.json absent"
+  actions:
+    1_create_db:
+      action: |
+        Ensure directory exists: mkdir -p /workspace/.claude
+        Create /workspace/.claude/features.json with: { "version": 2, "features": [] }
+    2_propose_features:
+      action: |
+        Based on the discovery conversation, propose /feature --add
+        for each identified feature of the project.
+        For each feature, ask user to specify:
+          - level (0 = architectural, 1 = subsystem, 2+ = component)
+          - workdirs (directories this feature owns)
+          - audit_dirs (directories this feature audits, default = workdirs)
+        Show inferred parent-child relationships after all features are added.
+        Ask user to confirm each feature before adding.
 ```
 
 ---
