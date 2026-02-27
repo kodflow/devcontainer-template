@@ -23,7 +23,6 @@ allowed-tools:
   - "TaskUpdate(*)"
   - "TaskList(*)"
   - "TaskGet(*)"
-  - "mcp__taskmaster__*"
 ---
 
 # Review - AI Code Review (RLM Architecture)
@@ -627,30 +626,6 @@ ci_diagnostics:
         inject_ci_context = true
       IF ci_status == "pending":
         warning = "CI still running, results may change"
-```
-
----
-
-## Phase 6.5: Taskmaster + Feature Findings (Conditional)
-
-```yaml
-6_5_taskmaster_findings:
-  condition: "mcp__taskmaster__ available AND CRITICAL/HIGH findings > 0"
-  action: |
-    For each CRITICAL or HIGH finding:
-      mcp__taskmaster__add_task(
-        title: "[REVIEW] {type}: {file}:{line}",
-        description: "{message}\n\nSuggested fix: {fix}",
-        status: "pending"
-      )
-  rationale: "Critical findings survive context reset for /do."
-
-6_5_feature_findings:
-  condition: ".claude/features.json exists AND feature identifiable"
-  action: |
-    For each feature with findings:
-      Add journal entry:
-        { action: "checkup_fail", detail: "Review found {n} issues" }
 ```
 
 ---

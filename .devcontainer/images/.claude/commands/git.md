@@ -23,9 +23,6 @@ allowed-tools:
   - "TaskList(*)"
   - "TaskGet(*)"
   - "AskUserQuestion(*)"
-  - "mcp__taskmaster__*"
-  - "Edit(.claude/features.json)"
-  - "Read(.claude/features.json)"
 ---
 
 # /git - Workflow Git Automation (RLM Architecture)
@@ -742,20 +739,6 @@ context_update_workflow:
     ✓ Staged for commit
 
 ═══════════════════════════════════════════════════════════════
-```
-
----
-
-### Phase 6.5: Feature Journal Update (Conditional)
-
-```yaml
-feature_journal_update:
-  condition: ".claude/features.json exists"
-  action: |
-    For each feature whose files appear in the git diff:
-      Add journal entry:
-        { action: "modified", detail: "{commit_message}", files: [...] }
-    Stage .claude/features.json in the commit.
 ```
 
 ---

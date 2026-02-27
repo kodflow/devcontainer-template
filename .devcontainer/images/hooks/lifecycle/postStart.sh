@@ -585,14 +585,21 @@ step_mcp_configuration() {
 step_taskmaster_config() {
     local TASKMASTER_DIR="/workspace/.taskmaster"
     local TASKMASTER_CONFIG="$TASKMASTER_DIR/config.json"
+    local tm_tmp=""
 
-    # Idempotent: skip if config already exists
-    if [ -f "$TASKMASTER_CONFIG" ]; then
+    if ! command -v jq >/dev/null 2>&1; then
+        log_warning "Taskmaster config skipped: jq not available"
+        return 0
+    fi
+
+    # Idempotent: skip only when existing config is valid JSON
+    if [ -f "$TASKMASTER_CONFIG" ] && jq empty "$TASKMASTER_CONFIG" >/dev/null 2>&1; then
         log_info "Taskmaster config exists, skipping"
         return 0
     fi
 
     mkdir -p "$TASKMASTER_DIR" 2>/dev/null || return 0
+    tm_tmp=$(mktemp "${TASKMASTER_CONFIG}.tmp.XXXXXX") || return 0
 
     # Detect Ollama for optional fallback streaming
     local has_ollama=false
@@ -600,8 +607,6 @@ step_taskmaster_config() {
     if curl -sf --connect-timeout 2 "http://$ollama_url/api/tags" >/dev/null 2>&1; then
         has_ollama=true
     fi
-
-    local tmp="${TASKMASTER_CONFIG}.tmp"
 
     if [ "$has_ollama" = true ]; then
         jq -n --arg url "http://$ollama_url/api" '{
@@ -611,7 +616,7 @@ step_taskmaster_config() {
                 fallback: { provider: "ollama", modelId: "llama3.2", baseURL: $url }
             },
             global: { projectRoot: "/workspace", logLevel: "info" }
-        }' > "$tmp" && mv "$tmp" "$TASKMASTER_CONFIG"
+        }' > "$tm_tmp"
     else
         jq -n '{
             models: {
@@ -619,7 +624,16 @@ step_taskmaster_config() {
                 research: { provider: "mcp", modelId: "claude-code" }
             },
             global: { projectRoot: "/workspace", logLevel: "info" }
-        }' > "$tmp" && mv "$tmp" "$TASKMASTER_CONFIG"
+        }' > "$tm_tmp"
+    fi
+
+    if jq empty "$tm_tmp" >/dev/null 2>&1; then
+        mv "$tm_tmp" "$TASKMASTER_CONFIG"
+        chmod 600 "$TASKMASTER_CONFIG" 2>/dev/null || true
+    else
+        rm -f "$tm_tmp"
+        log_warning "Taskmaster config generation failed (invalid JSON)"
+        return 0
     fi
 
     log_success "Taskmaster config generated"

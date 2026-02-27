@@ -21,7 +21,6 @@ allowed-tools:
   - "TaskGet(*)"
   - "AskUserQuestion(*)"
   - "mcp__codacy__codacy_cli_analyze(*)"
-  - "mcp__taskmaster__*"
 ---
 
 # /do - Iterative Task Loop (RLM Architecture)
@@ -440,21 +439,6 @@ decompose_workflow:
 
   3_create_todos:
     action: "Initialize TaskCreate with sub-objectives"
-
-  4_persist_to_taskmaster:
-    condition: "mcp__taskmaster__ tools available"
-    action: |
-      For each sub-objective decomposed:
-        mcp__taskmaster__add_task(title, description, status: "pending")
-      Creates a persistent link between the plan and tasks.
-    rationale: "TaskCreate = UI session. Taskmaster = cross-session persistence."
-
-  5_feature_tracking:
-    condition: ".claude/features.json exists"
-    action: |
-      Identify the most probable feature for modified files.
-      After each sub-objective completed, add journal entry:
-        { action: "modified", detail: "...", files: [...] }
 ```
 
 **Output Phase 5.0:**

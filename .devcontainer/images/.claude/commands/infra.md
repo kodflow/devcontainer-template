@@ -13,12 +13,7 @@ allowed-tools:
   - "Edit(**/*)"
   - "Bash(*)"
   - "Task(*)"
-  - "TaskCreate(*)"
-  - "TaskUpdate(*)"
-  - "TaskList(*)"
-  - "TaskGet(*)"
   - "AskUserQuestion(*)"
-  - "mcp__taskmaster__*"
 ---
 
 # /infra - Infrastructure Automation (Terraform/Terragrunt)
