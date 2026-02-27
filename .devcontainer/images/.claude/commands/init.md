@@ -807,19 +807,25 @@ branch_protection_config:
 
   1_check_exists:
     action: |
-      GITHUB_TOKEN=$(jq -r '.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN' /workspace/mcp.json 2>/dev/null)
+      GITHUB_TOKEN=$(jq -r '.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN // empty' /workspace/mcp.json 2>/dev/null)
       [ -z "$GITHUB_TOKEN" ] && { echo "No GITHUB_TOKEN — skipping"; exit 1; }
       REMOTE=$(git remote get-url origin 2>/dev/null)
       [ -z "$REMOTE" ] && { echo "No git remote — skipping"; exit 1; }
       OWNER=$(echo "$REMOTE" | sed 's|.*github.com[:/]\([^/]*\)/.*|\1|')
       REPO=$(echo "$REMOTE" | sed 's|.*/\([^.]*\)\.git$|\1|; s|.*/\([^/]*\)$|\1|')
       [ -z "$OWNER" ] || [ -z "$REPO" ] && { echo "Cannot parse owner/repo from $REMOTE"; exit 1; }
-      curl -fsSL \
+      HTTP_CODE=$(curl -sS -w "%{http_code}" -o /tmp/ruleset_resp \
         -H "Authorization: Bearer $GITHUB_TOKEN" \
         -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
-        "https://api.github.com/repos/$OWNER/$REPO/rulesets" \
-        | jq -e '.[] | select(.name == "main-protection")' > /dev/null 2>&1
+        "https://api.github.com/repos/$OWNER/$REPO/rulesets")
+      if [ "$HTTP_CODE" = "200" ]; then
+        jq -e '.[] | select(.name == "main-protection")' /tmp/ruleset_resp > /dev/null 2>&1
+      elif [ "$HTTP_CODE" = "404" ]; then
+        false  # Not found → trigger CONFIGURE
+      else
+        echo "GitHub API error (HTTP $HTTP_CODE)"; cat /tmp/ruleset_resp; exit 1
+      fi
     if_exists:
       status: "SKIP"
       message: "Ruleset main-protection already exists."
@@ -832,7 +838,7 @@ branch_protection_config:
 
   2_extract_tokens:
     action: "Extract tokens from /workspace/mcp.json using jq"
-    github: "jq -r '.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN' /workspace/mcp.json"
+    github: "jq -r '.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN // empty' /workspace/mcp.json"
     codacy: "jq -r '.mcpServers.codacy.env.CODACY_ACCOUNT_TOKEN // empty' /workspace/mcp.json"
     notes:
       - "GITHUB_TOKEN must be non-empty — abort phase if empty"
