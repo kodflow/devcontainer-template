@@ -1018,9 +1018,9 @@ phase_4.9_taskmaster_init:
     1_initialize:
       action: "mcp__taskmaster__initialize_project"
     2_parse_prd:
-      condition: "docs/vision.md exists"
+      condition: "/workspace/docs/vision.md exists"
       action: |
-        mcp__taskmaster__parse_prd(input: docs/vision.md)
+        mcp__taskmaster__parse_prd(input: /workspace/docs/vision.md)
         Converts project vision into a structured task backlog.
 
 phase_4.9_feature_bootstrap:

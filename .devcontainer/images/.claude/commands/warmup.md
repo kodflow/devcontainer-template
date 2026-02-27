@@ -189,7 +189,7 @@ peek_workflow:
 ```yaml
 phase_1.5_taskmaster:
   condition: "mcp__taskmaster__ available AND .taskmaster/ exists"
-  action: "mcp__taskmaster__get_tasks(filter: pending|in-progress)"
+  action: "mcp__taskmaster__get_tasks(status: pending) + mcp__taskmaster__get_tasks(status: in-progress)"
   output: "Inject active tasks into working context"
 
 phase_1.5_features:
