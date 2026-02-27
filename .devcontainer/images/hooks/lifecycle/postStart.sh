@@ -598,7 +598,16 @@ step_taskmaster_config() {
         return 0
     fi
 
+    # Safety: refuse symlinked or non-directory target
+    if [ -e "$TASKMASTER_DIR" ] && { [ -L "$TASKMASTER_DIR" ] || [ ! -d "$TASKMASTER_DIR" ]; }; then
+        log_warning "Taskmaster config skipped: unsafe directory target ($TASKMASTER_DIR)"
+        return 0
+    fi
     mkdir -p "$TASKMASTER_DIR" 2>/dev/null || return 0
+    if [ -e "$TASKMASTER_CONFIG" ] && { [ -L "$TASKMASTER_CONFIG" ] || [ ! -f "$TASKMASTER_CONFIG" ]; }; then
+        log_warning "Taskmaster config skipped: unsafe file target ($TASKMASTER_CONFIG)"
+        return 0
+    fi
     tm_tmp=$(mktemp "${TASKMASTER_CONFIG}.tmp.XXXXXX") || return 0
 
     # Detect Ollama for optional fallback streaming
@@ -628,15 +637,17 @@ step_taskmaster_config() {
     fi
 
     if jq empty "$tm_tmp" >/dev/null 2>&1; then
-        mv "$tm_tmp" "$TASKMASTER_CONFIG"
-        chmod 600 "$TASKMASTER_CONFIG" 2>/dev/null || true
+        if mv "$tm_tmp" "$TASKMASTER_CONFIG"; then
+            chmod 600 "$TASKMASTER_CONFIG" 2>/dev/null || true
+            log_success "Taskmaster config generated"
+        else
+            rm -f "$tm_tmp"
+            log_warning "Taskmaster config generation failed (install step failed)"
+        fi
     else
         rm -f "$tm_tmp"
         log_warning "Taskmaster config generation failed (invalid JSON)"
-        return 0
     fi
-
-    log_success "Taskmaster config generated"
 }
 
 # CodeRabbit CLI authentication (inject token from 1Password)
