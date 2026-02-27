@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-25T12:30:00Z -->
+<!-- updated: 2026-02-27T13:00:00Z -->
 # DevContainer Images
 
 ## Purpose
@@ -21,7 +21,7 @@ Claude Code and MCP servers are included; languages added via features.
 │   └── lifecycle/      # onCreate, postCreate, postStart, etc.
 └── .claude/            # Claude Code configuration
     ├── commands/       # Slash commands (16 skills)
-    ├── scripts/        # Hook scripts (15 scripts)
+    ├── scripts/        # Hook scripts (27 scripts)
     ├── agents/         # Agent definitions (79 agents)
     ├── docs/           # Design Patterns Knowledge Base (170+ patterns)
     ├── templates/      # Project/docs/terraform templates
