@@ -1132,13 +1132,19 @@ review_triage:
     max_iterations: 3                    # Review-fix-recheck loop limit
     wait_for_re_review: 120s             # Max wait for bot re-review after push
     sources: [coderabbit, qodo, codacy, human]
+    platform: "github"                   # Phase 3.5 is GitHub-only (CodeRabbit/Qodo are GitHub bots)
     skip_conditions:
       - "No review comments exist on the PR/MR"
       - "--skip-review flag was passed"
+      - "Platform is GitLab (CodeRabbit/Qodo not available on GitLab)"
 
   #---------------------------------------------------------------------------
-  # Phase 3.5.1: Parallel Fetch
+  # Phase 3.5.1: Parallel Fetch (GitHub-only)
   #---------------------------------------------------------------------------
+  # NOTE: CodeRabbit and Qodo are GitHub-specific bots.
+  # On GitLab, Phase 3.5 is skipped entirely (only Codacy runs on both,
+  # but its findings are surfaced via CI checks, not review comments).
+  #
   # Fetch ALL review feedback in ONE parallel call:
   #
   # 1. mcp__github__pull_request_read(method="get_review_comments")
