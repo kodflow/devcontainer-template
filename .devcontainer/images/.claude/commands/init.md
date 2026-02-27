@@ -605,6 +605,7 @@ qodo_merge_config:
       "Java":    "enforce null checks, resource management (try-with-resources), exception handling"
       "C#":      "enforce nullable reference types, async/await patterns, IDisposable"
       "Shell":   "enforce strict mode (set -euo pipefail), quoting, shellcheck compliance"
+      "Docker":  "enforce Dockerfile best practices, non-root user, multi-stage builds, minimal images"
       "Ruby":    "enforce frozen string literals, exception handling, RuboCop compliance"
       "PHP":     "enforce strict types, null safety, PSR compliance"
 

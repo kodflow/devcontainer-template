@@ -718,11 +718,11 @@ context_update_workflow:
     parse: "ISO 8601 - easiest format to parse programmatically"
 ```
 
-**Output Phase 3.8:**
+**Output Phase 6.0:**
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
-  /git --commit - Context Update (Phase 3.8)
+  /git --commit - Context Update (Phase 6.0)
 ═══════════════════════════════════════════════════════════════
 
   Branch diff: 12 files changed
@@ -1540,7 +1540,7 @@ pr_regeneration_workflow:
 
 **Output Phase 5.5:**
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   /git --merge - PR Description Regeneration (Phase 5.5)
 ═══════════════════════════════════════════════════════════════
