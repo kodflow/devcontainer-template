@@ -100,7 +100,7 @@ RLM Patterns:
   1. Peek          - Analyze git state
   2. Decompose     - Categorize files
   3. Parallelize   - Simultaneous checks
-  3.8. Context     - /warmup --update (branch diff, 5min staleness)
+  3.8. Context     - /warmup --update (branch diff, unconditional)
   4. Synthesize    - Consolidated report
 
 Options --commit:
@@ -695,32 +695,17 @@ context_update_workflow:
       # Always include /workspace/CLAUDE.md (root)
     output: "claude_files_to_update[] (unique set)"
 
-  3_check_staleness:
-    action: "Check the last update timestamp"
-    algorithm: |
-      FOR each claude_file IN claude_files_to_update:
-        first_line = read_first_line(claude_file)
-        IF first_line matches '<!-- updated: YYYY-MM-DDTHH:MM:SSZ -->':
-          timestamp = parse_iso(first_line)
-          age = now() - timestamp
-          IF age < 5 minutes:
-            skip(claude_file)  # Already up to date
-            log("Skipping {claude_file} (updated {age} ago)")
-        ELSE:
-          include(claude_file)  # No timestamp = always update
-    output: "stale_claude_files[] (files needing update)"
-
-  4_run_warmup_update:
-    condition: "stale_claude_files is not empty"
-    action: "Run /warmup --update on stale files"
+  3_run_warmup_update:
+    action: "Run /warmup --update on ALL resolved CLAUDE.md files (unconditional)"
     tool: "Skill(warmup, --update)"
-    scope: "Limited to directories of stale_claude_files"
+    scope: "All directories from claude_files_to_update"
     note: |
       /warmup --update will automatically add the ISO timestamp
       as the first line of each updated CLAUDE.md:
         <!-- updated: 2026-02-11T14:30:00Z -->
+      No staleness check — ALWAYS update to ensure accuracy.
 
-  5_stage_updated_docs:
+  4_stage_updated_docs:
     action: "Add updated CLAUDE.md files to staging"
     command: "git add **/CLAUDE.md"
     note: "Included in the same commit as code modifications"
@@ -729,27 +714,27 @@ context_update_workflow:
     format: "<!-- updated: YYYY-MM-DDTHH:MM:SSZ -->"
     example: "<!-- updated: 2026-02-11T14:30:00Z -->"
     position: "First line of CLAUDE.md file"
-    purpose: "Freshness detection (staleness check 5 minutes)"
+    purpose: "Track last update time (unconditional update on every commit)"
     parse: "ISO 8601 - easiest format to parse programmatically"
 ```
 
-**Output Phase 3.8:**
+**Output Phase 6.0:**
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
-  /git --commit - Context Update (Phase 3.8)
+  /git --commit - Context Update (Phase 6.0)
 ═══════════════════════════════════════════════════════════════
 
   Branch diff: 12 files changed
 
   CLAUDE.md resolution:
-    ├─ /workspace/CLAUDE.md (stale, 2h ago)
-    ├─ .devcontainer/CLAUDE.md (stale, no timestamp)
-    ├─ .devcontainer/images/CLAUDE.md (fresh, 3m ago) → SKIP
-    └─ .devcontainer/hooks/CLAUDE.md (stale, 45m ago)
+    ├─ /workspace/CLAUDE.md (updated)
+    ├─ .devcontainer/CLAUDE.md (updated)
+    ├─ .devcontainer/images/CLAUDE.md (updated)
+    └─ .devcontainer/hooks/CLAUDE.md (updated)
 
   /warmup --update:
-    ✓ 3 CLAUDE.md files updated
+    ✓ 4 CLAUDE.md files updated (unconditional)
     ✓ Timestamps refreshed
     ✓ Staged for commit
 
@@ -1489,6 +1474,93 @@ autofix_loop:
 
 ---
 
+### Phase 5.5: PR/MR Description Regeneration (MANDATORY before merge)
+
+**Regenerates the PR/MR title and body from the final branch state.**
+
+Between PR creation and merge, significant changes may be pushed (auto-fixes,
+additional commits). The PR description becomes stale. Since squash merge uses
+the PR title/body as the commit message, regeneration ensures accuracy.
+
+```yaml
+pr_regeneration_workflow:
+  trigger: "ALWAYS (mandatory before merge)"
+  position: "After Phase 5.0 (auto-fix), before Phase 6.0 (merge)"
+  rationale: "Squash commit message comes from PR title/body — must reflect final state"
+
+  1_get_full_diff:
+    action: "Get complete diff between branch and main"
+    tools:
+      github: "mcp__github__get_pull_request_files"
+      fallback: "git diff main...HEAD --stat"
+    output: "changed_files[] with additions/deletions"
+
+  2_get_all_commits:
+    action: "Get all commits on the branch"
+    command: "git log main..HEAD --oneline"
+    output: "commits[] (full branch history)"
+
+  3_analyze_changes:
+    action: "Categorize changes by type, scope, and impact"
+    algorithm: |
+      FOR each commit IN commits:
+        IF message matches 'type(scope): description':
+          categorize(type, scope, description)
+        ELSE:
+          infer_type_from_files(commit)
+      GROUP BY type → feat, fix, docs, refactor, test, chore
+      IDENTIFY primary_scope from most-changed directory
+      COUNT files_changed, additions, deletions
+
+  4_generate_pr_description:
+    action: "Generate new PR title and body from scratch"
+    title_format: "<type>(<scope>): <summary>"
+    body_format: |
+      ## Summary
+      <bullet points of actual changes — what and why>
+
+      ## Changes
+      <file-level detail grouped by category>
+
+      ## Test plan
+      <bulleted checklist of verification steps>
+
+  5_update_pr_mr:
+    action: "Update PR/MR via MCP"
+    tools:
+      github: "mcp__github__update_pull_request"
+      gitlab: "glab mr update"
+    fields:
+      - title (new conventional format)
+      - body (regenerated from final state)
+
+  6_log_regeneration:
+    action: "Log the update in output"
+```
+
+**Output Phase 5.5:**
+
+```text
+═══════════════════════════════════════════════════════════════
+  /git --merge - PR Description Regeneration (Phase 5.5)
+═══════════════════════════════════════════════════════════════
+
+  Branch: feat/add-auth (12 commits, 34 files changed)
+
+  Analysis:
+    ├─ feat: 8 commits (auth module, middleware, tests)
+    ├─ fix: 3 commits (lint fixes, type corrections)
+    └─ docs: 1 commit (CLAUDE.md updates)
+
+  PR #42 updated:
+    Title: feat(auth): add user authentication with JWT
+    Body: Regenerated from 12 commits and 34 files
+
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
 ### Phase 6.0: Synthesize (Merge & Cleanup)
 
 ```yaml
@@ -1632,7 +1704,8 @@ action_finish:
 |--------|--------|--------|
 | Skip Phase 0.5 (Identity) without flag | **FORBIDDEN** | Git identity required |
 | Skip Phase 1 (Peek) | **FORBIDDEN** | git status before action |
-| Skip Phase 3.8 (Context) | **FORBIDDEN** | CLAUDE.md must reflect changes |
+| Skip Phase 6.0 (Context) | **FORBIDDEN** | CLAUDE.md must reflect changes |
+| Skip Phase 5.5 (PR Regeneration) | **FORBIDDEN** | PR must reflect final changes |
 | Skip Phase 2 (CI Polling) | **FORBIDDEN** | CI validation mandatory |
 | Automatic merge without CI | **FORBIDDEN** | Code quality |
 | Push to main/master | **FORBIDDEN** | Protected branch |
