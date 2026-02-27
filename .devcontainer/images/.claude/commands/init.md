@@ -870,6 +870,22 @@ branch_protection_config:
       - "All other keys unchanged"
     if_file_missing: "SKIP — log: .coderabbit.yaml not found"
 
+  5b_validate_coderabbit:
+    action: "Re-validate .coderabbit.yaml after edit (same logic as Phase 4.5 step 7)"
+    command: |
+      python3 - <<'PY'
+      import json, pathlib, urllib.request, yaml
+      from jsonschema import validate
+
+      cfg_path = pathlib.Path("/workspace/.coderabbit.yaml")
+      cfg = yaml.safe_load(cfg_path.read_text())
+      schema = json.load(urllib.request.urlopen("https://www.coderabbit.ai/integrations/schema.v2.json"))
+      validate(instance=cfg, schema=schema)
+      print("valid")
+      PY
+    on_success: "YAML valid after pre_merge_checks edit"
+    on_failure: "Revert edit (restore warning mode), log error, continue"
+
   6_create_ruleset:
     action: "POST to GitHub Rulesets API to create main-protection"
     command: |
