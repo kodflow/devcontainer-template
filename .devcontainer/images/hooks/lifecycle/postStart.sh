@@ -1372,8 +1372,27 @@ connect_pptp() {
 # --- RTK CLI proxy initialization ---
 init_rtk() {
     if ! command -v rtk &>/dev/null; then
-        log_info "RTK not installed, skipping"
-        return 0
+        log_info "RTK not found, installing latest from GitHub..."
+        local rtk_arch
+        case "$(uname -m)" in
+            x86_64)  rtk_arch="x86_64-unknown-linux-musl" ;;
+            aarch64) rtk_arch="aarch64-unknown-linux-musl" ;;
+            *)       log_warning "RTK: unsupported architecture $(uname -m)"; return 0 ;;
+        esac
+        local rtk_tag
+        rtk_tag=$(curl -fsSL ${GITHUB_API_TOKEN:+-H "Authorization: token ${GITHUB_API_TOKEN}"} \
+            "https://api.github.com/repos/rtk-ai/rtk/releases/latest" 2>/dev/null | jq -r '.tag_name // empty')
+        if [ -z "$rtk_tag" ]; then
+            log_warning "RTK: failed to fetch latest release tag"
+            return 0
+        fi
+        if curl -fsSL "https://github.com/rtk-ai/rtk/releases/download/${rtk_tag}/rtk-${rtk_arch}.tar.gz" \
+            | sudo tar xz -C /usr/local/bin rtk 2>/dev/null; then
+            log_success "RTK ${rtk_tag} installed to /usr/local/bin/rtk"
+        else
+            log_warning "RTK: installation failed (non-blocking)"
+            return 0
+        fi
     fi
 
     # Sync config from template (with hash tracking for updates)
