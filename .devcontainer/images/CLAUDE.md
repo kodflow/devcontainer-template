@@ -76,7 +76,7 @@ Lifecycle hooks delegate from workspace stubs to `/etc/devcontainer-hooks/` (ima
 | Container | Docker (via feature), kubectl, Helm |
 | Network | ping, dig, nmap, traceroute, mtr, tcpdump, netcat, whois, iperf3, net-tools |
 | VPN | OpenVPN, WireGuard, StrongSwan (IPsec), PPTP |
-| Code Quality | ShellCheck, ktn-linter, grepai, CodeRabbit |
+| Code Quality | ShellCheck, ktn-linter, grepai, CodeRabbit, RTK |
 | Shell | Zsh (default `$SHELL`) + Oh My Zsh + Powerlevel10k |
 
 ## Shell Startup Optimization (v3)
@@ -173,6 +173,7 @@ Configured in `mcp.json.tpl`:
 | `session-init.sh` | SessionStart (all) | Cache git metadata as env vars |
 | `post-compact.sh` | SessionStart (compact) | Restore RLM context rules |
 | `on-stop.sh` | Stop (*) | Terminal bell + session summary |
+| `rtk-rewrite.sh` | PreToolUse (Bash) | RTK token-saving command rewrite (runs LAST) |
 | `notification.sh` | Notification (*) | Terminal bell + notification log
 
 **Makefile-first pattern:** All scripts (format, lint, typecheck, test) check for Makefile targets first:

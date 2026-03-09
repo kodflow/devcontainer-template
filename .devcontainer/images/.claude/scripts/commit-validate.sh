@@ -62,7 +62,15 @@ if [[ "$TOOL" != "Bash" ]]; then
     exit 0
 fi
 
-if [[ ! "$COMMAND" =~ ^git[[:space:]]+commit ]]; then
+# Normalize RTK-prefixed commands (strip rtk/rtk proxy prefix)
+NORMALIZED_CMD="$COMMAND"
+if [[ "$NORMALIZED_CMD" =~ ^rtk[[:space:]]+proxy[[:space:]]+ ]]; then
+    NORMALIZED_CMD="${NORMALIZED_CMD#rtk proxy }"
+elif [[ "$NORMALIZED_CMD" =~ ^rtk[[:space:]]+ ]]; then
+    NORMALIZED_CMD="${NORMALIZED_CMD#rtk }"
+fi
+
+if [[ ! "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit ]]; then
     exit 0
 fi
 

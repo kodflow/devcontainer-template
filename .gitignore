@@ -141,6 +141,9 @@ plans/
 # Taskmaster AI (runtime config per-developer, not shared)
 .taskmaster/
 
+# RTK token savings tracking (local per-developer)
+.rtk/
+
 # ============================================
 # Claude Code session logs (context recovery)
 # ============================================

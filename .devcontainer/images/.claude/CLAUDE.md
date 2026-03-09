@@ -107,3 +107,5 @@ Before any action: MCP available? Tokens in env? On feature branch? CLAUDE.md re
 - During exploratory phases (brainstorming, init): ask ONE question at a time
 - Configuration phases (/do Phase 0) may batch related questions
 - Prefer multiple choice over open-ended
+
+@RTK.md
