@@ -1373,20 +1373,28 @@ connect_pptp() {
 init_rtk() {
     if ! command -v rtk &>/dev/null; then
         log_info "RTK not found, installing latest from GitHub..."
+        if ! command -v jq >/dev/null 2>&1; then
+            log_warning "RTK: jq not available, skipping installation"
+            return 0
+        fi
         local rtk_arch
         case "$(uname -m)" in
             x86_64)  rtk_arch="x86_64-unknown-linux-musl" ;;
             aarch64) rtk_arch="aarch64-unknown-linux-musl" ;;
             *)       log_warning "RTK: unsupported architecture $(uname -m)"; return 0 ;;
         esac
+        local curl_auth_args=()
+        if [ -n "${GITHUB_API_TOKEN:-}" ]; then
+            curl_auth_args=(-H "Authorization: token ${GITHUB_API_TOKEN}")
+        fi
         local rtk_tag
-        rtk_tag=$(curl -fsSL ${GITHUB_API_TOKEN:+-H "Authorization: token ${GITHUB_API_TOKEN}"} \
+        rtk_tag=$(curl -fsSL --connect-timeout 5 --max-time 15 "${curl_auth_args[@]}" \
             "https://api.github.com/repos/rtk-ai/rtk/releases/latest" 2>/dev/null | jq -r '.tag_name // empty')
-        if [ -z "$rtk_tag" ]; then
-            log_warning "RTK: failed to fetch latest release tag"
+        if [ -z "$rtk_tag" ] || ! [[ "$rtk_tag" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            log_warning "RTK: failed to fetch valid release tag"
             return 0
         fi
-        if curl -fsSL "https://github.com/rtk-ai/rtk/releases/download/${rtk_tag}/rtk-${rtk_arch}.tar.gz" \
+        if curl -fsSL --connect-timeout 5 --max-time 60 "https://github.com/rtk-ai/rtk/releases/download/${rtk_tag}/rtk-${rtk_arch}.tar.gz" \
             | sudo tar xz -C /usr/local/bin rtk 2>/dev/null; then
             log_success "RTK ${rtk_tag} installed to /usr/local/bin/rtk"
         else
