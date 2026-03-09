@@ -105,9 +105,9 @@ if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
     # Check if this is a git commit/push command
     if [[ "$TOOL" == "Bash" ]] && [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+(commit|push) ]]; then
         # === Auto-correct git push --force to --force-with-lease ===
-        if [[ "$COMMAND" =~ ^git[[:space:]]+push ]] && \
-           [[ "$COMMAND" =~ --force ]] && \
-           [[ ! "$COMMAND" =~ --force-with-lease ]]; then
+        if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+push ]] && \
+           [[ "$NORMALIZED_CMD" =~ --force ]] && \
+           [[ ! "$NORMALIZED_CMD" =~ --force-with-lease ]]; then
             CORRECTED=$(echo "$COMMAND" | sed "s/--force\b/--force-with-lease/g")
             echo "⚠️  Auto-corrected: --force → --force-with-lease" >&2
             if command -v jq &>/dev/null; then
