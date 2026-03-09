@@ -217,12 +217,7 @@
             "command": "/home/vscode/.claude/scripts/log.sh",
             "timeout": 5,
             "async": true
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
+          },
           {
             "type": "command",
             "command": "/home/vscode/.claude/scripts/rtk-rewrite.sh",

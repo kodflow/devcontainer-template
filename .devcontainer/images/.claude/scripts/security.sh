@@ -94,8 +94,16 @@ if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
     TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
     COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
 
+    # Normalize RTK-prefixed commands (strip rtk/rtk proxy prefix)
+    NORMALIZED_CMD="$COMMAND"
+    if [[ "$NORMALIZED_CMD" =~ ^rtk[[:space:]]+proxy[[:space:]]+ ]]; then
+        NORMALIZED_CMD="${NORMALIZED_CMD#rtk proxy }"
+    elif [[ "$NORMALIZED_CMD" =~ ^rtk[[:space:]]+ ]]; then
+        NORMALIZED_CMD="${NORMALIZED_CMD#rtk }"
+    fi
+
     # Check if this is a git commit/push command
-    if [[ "$TOOL" == "Bash" ]] && [[ "$COMMAND" =~ ^git[[:space:]]+(commit|push) ]]; then
+    if [[ "$TOOL" == "Bash" ]] && [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+(commit|push) ]]; then
         # === Auto-correct git push --force to --force-with-lease ===
         if [[ "$COMMAND" =~ ^git[[:space:]]+push ]] && \
            [[ "$COMMAND" =~ --force ]] && \

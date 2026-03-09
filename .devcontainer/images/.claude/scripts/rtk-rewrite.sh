@@ -16,14 +16,19 @@ if ! command -v rtk &>/dev/null; then
 fi
 
 # Version guard: rtk rewrite was added in 0.23.0.
-# Older binaries: warn once and exit cleanly (no silent failure).
+# Older binaries: warn once (marker file) and exit cleanly (no silent failure).
 RTK_VERSION=$(rtk --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 if [ -n "$RTK_VERSION" ]; then
   MAJOR=$(echo "$RTK_VERSION" | cut -d. -f1)
   MINOR=$(echo "$RTK_VERSION" | cut -d. -f2)
   # Require >= 0.23.0
   if [ "$MAJOR" -eq 0 ] && [ "$MINOR" -lt 23 ]; then
-    echo "[rtk] WARNING: rtk $RTK_VERSION is too old (need >= 0.23.0). Upgrade: cargo install rtk" >&2
+    WARN_MARKER="${XDG_CACHE_HOME:-$HOME/.cache}/rtk/.version-warning-shown"
+    if [ ! -f "$WARN_MARKER" ]; then
+      mkdir -p "$(dirname "$WARN_MARKER")"
+      echo "[rtk] WARNING: rtk $RTK_VERSION is too old (need >= 0.23.0). Upgrade: cargo install rtk" >&2
+      : > "$WARN_MARKER"
+    fi
     exit 0
   fi
 fi

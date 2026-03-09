@@ -193,8 +193,8 @@ COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
 # GrepAI config template (optimized for 12 languages)
 COPY --chown=vscode:vscode grepai.config.yaml /etc/grepai/config.yaml
 
-# RTK config template (token savings proxy)
-COPY --chown=vscode:vscode rtk.config.toml /etc/rtk/config.toml
+# RTK config template (token savings proxy, root-owned system template)
+COPY --chown=root:root rtk.config.toml /etc/rtk/config.toml
 
 # Lifecycle hooks embedded in image (auto-updated on rebuild)
 # Workspace stubs delegate to /etc/devcontainer-hooks/ at runtime

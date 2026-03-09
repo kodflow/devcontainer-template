@@ -18,7 +18,7 @@ rtk proxy <cmd>       # Execute raw command without filtering (for debugging)
 RTK installs as a PreToolUse hook in Claude Code. It transparently rewrites
 Bash commands before execution to compress their output:
 
-```
+```text
 git status    → rtk git status     (75% savings)
 cargo test    → rtk cargo test     (90% savings)
 docker ps     → rtk docker ps      (75% savings)

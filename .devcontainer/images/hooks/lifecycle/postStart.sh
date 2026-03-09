@@ -1376,14 +1376,28 @@ init_rtk() {
         return 0
     fi
 
-    # Sync config from template
+    # Sync config from template (with hash tracking for updates)
     local RTK_CONFIG_DIR="$HOME/.config/rtk"
     local RTK_CONFIG_SRC="/etc/rtk/config.toml"
     if [ -f "$RTK_CONFIG_SRC" ]; then
         mkdir -p "$RTK_CONFIG_DIR"
+        local template_hash user_hash stored_hash
+        template_hash=$(md5sum "$RTK_CONFIG_SRC" 2>/dev/null | cut -d' ' -f1)
         if [ ! -f "$RTK_CONFIG_DIR/config.toml" ]; then
             cp "$RTK_CONFIG_SRC" "$RTK_CONFIG_DIR/config.toml"
+            echo "$template_hash" > "$RTK_CONFIG_DIR/.template_hash"
             log_info "RTK config initialized from template"
+        else
+            stored_hash=$(cat "$RTK_CONFIG_DIR/.template_hash" 2>/dev/null || echo "")
+            user_hash=$(md5sum "$RTK_CONFIG_DIR/config.toml" 2>/dev/null | cut -d' ' -f1)
+            if [ "$stored_hash" != "$template_hash" ] && [ "$user_hash" = "$stored_hash" ]; then
+                cp "$RTK_CONFIG_SRC" "$RTK_CONFIG_DIR/config.toml"
+                echo "$template_hash" > "$RTK_CONFIG_DIR/.template_hash"
+                log_info "RTK config updated from new template"
+            elif [ "$stored_hash" != "$template_hash" ]; then
+                echo "$template_hash" > "$RTK_CONFIG_DIR/.template_hash"
+                log_info "RTK config preserved (user customized)"
+            fi
         fi
     fi
 
@@ -1505,8 +1519,7 @@ init_semantic_search >> /tmp/grepai-init.log 2>&1 &
 echo $! > /tmp/.grepai-init.pid
 init_vpn >> /tmp/vpn-init.log 2>&1 &
 echo $! > /tmp/.vpn-init.pid
-init_rtk >> /tmp/rtk-init.log 2>&1 &
-echo $! > /tmp/.rtk-init.pid
+run_step "RTK init" init_rtk
 
 # Export dynamic environment variables (appended to ~/.devcontainer-env.sh)
 # Note: ~/.devcontainer-env.sh is created by postCreate.sh with static content
