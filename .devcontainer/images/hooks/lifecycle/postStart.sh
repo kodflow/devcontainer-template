@@ -1369,6 +1369,29 @@ connect_pptp() {
     log_warning "PPTP started but ppp0 not detected after 15s"
 }
 
+# --- RTK CLI proxy initialization ---
+init_rtk() {
+    if ! command -v rtk &>/dev/null; then
+        log_info "RTK not installed, skipping"
+        return 0
+    fi
+
+    # Sync config from template
+    local RTK_CONFIG_DIR="$HOME/.config/rtk"
+    local RTK_CONFIG_SRC="/etc/rtk/config.toml"
+    if [ -f "$RTK_CONFIG_SRC" ]; then
+        mkdir -p "$RTK_CONFIG_DIR"
+        if [ ! -f "$RTK_CONFIG_DIR/config.toml" ]; then
+            cp "$RTK_CONFIG_SRC" "$RTK_CONFIG_DIR/config.toml"
+            log_info "RTK config initialized from template"
+        fi
+    fi
+
+    local RTK_VER
+    RTK_VER=$(rtk --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    log_success "RTK ${RTK_VER:-unknown} ready (token savings active)"
+}
+
 # --- Main VPN auto-connect orchestrator ---
 init_vpn() {
     # Skip if no VPN tools installed at all
@@ -1482,6 +1505,8 @@ init_semantic_search >> /tmp/grepai-init.log 2>&1 &
 echo $! > /tmp/.grepai-init.pid
 init_vpn >> /tmp/vpn-init.log 2>&1 &
 echo $! > /tmp/.vpn-init.pid
+init_rtk >> /tmp/rtk-init.log 2>&1 &
+echo $! > /tmp/.rtk-init.pid
 
 # Export dynamic environment variables (appended to ~/.devcontainer-env.sh)
 # Note: ~/.devcontainer-env.sh is created by postCreate.sh with static content

@@ -137,6 +137,7 @@
       "Bash(nasm:*)",
       "Bash(sqlfluff:*)",
       "Bash(sql-formatter:*)",
+      "Bash(rtk:*)",
       "Bash(/home/vscode/.claude/scripts/*:*)",
       "Read(**/*)",
       "Glob(**/*)",
@@ -149,10 +150,7 @@
     "additionalDirectories": []
   },
   "enableAllProjectMcpServers": true,
-  "disabledMcpjsonServers": [
-    "codacy",
-    "playwright"
-  ],
+  "disabledMcpjsonServers": ["codacy", "playwright"],
   "hooks": {
     "SessionStart": [
       {
@@ -219,6 +217,16 @@
             "command": "/home/vscode/.claude/scripts/log.sh",
             "timeout": 5,
             "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/vscode/.claude/scripts/rtk-rewrite.sh",
+            "timeout": 5
           }
         ]
       },

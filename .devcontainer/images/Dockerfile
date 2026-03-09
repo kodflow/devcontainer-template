@@ -98,7 +98,7 @@ RUN ARCH_AWS=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") &
     rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
-# Kubernetes + Binary Tools (kubectl, Helm, Bazelisk, yq, grepai) - consolidated
+# Kubernetes + Binary Tools (kubectl, Helm, Bazelisk, yq, grepai, rtk) - consolidated
 # =============================================================================
 RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     KUBECTL_LATEST=$(curl -fsSL "https://dl.k8s.io/release/stable.txt") && \
@@ -119,7 +119,12 @@ RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     GREPAI_LATEST=$(curl -fsSL ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} "https://api.github.com/repos/yoanbernabeu/grepai/releases/latest" | jq -r '.tag_name') && \
     echo "Installing grepai ${GREPAI_LATEST}..." && \
     curl -fsSL "https://github.com/yoanbernabeu/grepai/releases/download/${GREPAI_LATEST}/grepai_${GREPAI_LATEST#v}_linux_${ARCH}.tar.gz" | \
-    tar xz -C /usr/local/bin grepai
+    tar xz -C /usr/local/bin grepai && \
+    RTK_LATEST=$(curl -fsSL ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} "https://api.github.com/repos/rtk-ai/rtk/releases/latest" | jq -r '.tag_name') && \
+    echo "Installing rtk ${RTK_LATEST}..." && \
+    RTK_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-musl" || echo "x86_64-unknown-linux-musl") && \
+    curl -fsSL "https://github.com/rtk-ai/rtk/releases/download/${RTK_LATEST}/rtk-${RTK_ARCH}.tar.gz" | \
+    tar xz -C /usr/local/bin rtk
 
 # =============================================================================
 # MkDocs Material (Documentation Server)
@@ -187,6 +192,9 @@ COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
 
 # GrepAI config template (optimized for 12 languages)
 COPY --chown=vscode:vscode grepai.config.yaml /etc/grepai/config.yaml
+
+# RTK config template (token savings proxy)
+COPY --chown=vscode:vscode rtk.config.toml /etc/rtk/config.toml
 
 # Lifecycle hooks embedded in image (auto-updated on rebuild)
 # Workspace stubs delegate to /etc/devcontainer-hooks/ at runtime

@@ -471,6 +471,52 @@ download_tools() {
         echo "  ✓ grepai already installed"
     fi
 
+    # Install rtk (token savings CLI proxy)
+    if ! command -v rtk &>/dev/null; then
+        mkdir -p "$HOME_DIR/.local/bin"
+
+        local rtk_latest
+        rtk_latest=$(curl -fsSL "https://api.github.com/repos/rtk-ai/rtk/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+        if [[ -n "$rtk_latest" ]]; then
+            local rtk_rust_arch
+            case "${ARCH}-${OS}" in
+                amd64-linux)   rtk_rust_arch="x86_64-unknown-linux-musl" ;;
+                arm64-linux)   rtk_rust_arch="aarch64-unknown-linux-musl" ;;
+                amd64-darwin)  rtk_rust_arch="x86_64-apple-darwin" ;;
+                arm64-darwin)  rtk_rust_arch="aarch64-apple-darwin" ;;
+                amd64-windows) rtk_rust_arch="x86_64-pc-windows-msvc" ;;
+                *)             rtk_rust_arch="" ;;
+            esac
+
+            if [[ -n "$rtk_rust_arch" ]]; then
+                local rtk_url="https://github.com/rtk-ai/rtk/releases/download/${rtk_latest}/rtk-${rtk_rust_arch}.tar.gz"
+                local rtk_tmp rtk_extract
+                rtk_tmp=$(mktemp)
+                rtk_extract=$(mktemp -d)
+
+                local rtk_ext=""
+                [ "$OS" = "windows" ] && rtk_ext=".exe"
+
+                if curl -fsL --retry 3 --proto '=https' --tlsv1.2 "$rtk_url" -o "$rtk_tmp" 2>/dev/null && \
+                   tar -xzf "$rtk_tmp" -C "$rtk_extract" 2>/dev/null; then
+                    install -m 0755 "$rtk_extract/rtk${rtk_ext}" "$HOME_DIR/.local/bin/rtk${rtk_ext}"
+                    tool_count=$((tool_count + 1))
+                    echo "  ✓ rtk ${rtk_latest} installed"
+                else
+                    echo "  ⚠ rtk download failed (optional)"
+                fi
+                rm -f "$rtk_tmp"
+                rm -rf "$rtk_extract"
+            else
+                echo "  ⚠ rtk: unsupported platform ${ARCH}-${OS} (optional)"
+            fi
+        else
+            echo "  ⚠ Failed to resolve latest rtk version (optional, skipping)"
+        fi
+    else
+        echo "  ✓ rtk already installed"
+    fi
+
     # Install status-line (git status display)
     if ! command -v status-line &>/dev/null; then
         mkdir -p "$HOME_DIR/.local/bin"

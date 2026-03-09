@@ -25,7 +25,7 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 - **Cloud CLIs**: AWS v2, GCP SDK, Azure CLI
 - **IaC**: Terraform, Vault, Consul, Nomad, Packer, Ansible
 - **Containers**: Docker, kubectl, Helm
-- **AI**: Claude Code, MCP servers (GitHub, Codacy, Playwright, context7, grepai, Taskmaster)
+- **AI**: Claude Code, RTK (token savings), MCP servers (GitHub, Codacy, Playwright, context7, grepai, Taskmaster)
 
 ## How to Work
 
