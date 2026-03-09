@@ -1390,7 +1390,7 @@ init_rtk() {
         local rtk_tag
         rtk_tag=$(curl -fsSL --connect-timeout 5 --max-time 15 "${curl_auth_args[@]}" \
             "https://api.github.com/repos/rtk-ai/rtk/releases/latest" 2>/dev/null | jq -r '.tag_name // empty')
-        if [ -z "$rtk_tag" ] || ! [[ "$rtk_tag" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+        if [ -z "$rtk_tag" ] || ! [[ "$rtk_tag" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             log_warning "RTK: failed to fetch valid release tag"
             return 0
         fi
