@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-25T12:30:00Z -->
+<!-- updated: 2026-03-10T12:30:00Z -->
 # DevContainer Hooks
 
 ## Purpose
@@ -52,6 +52,8 @@ This ensures hooks auto-update when the Docker image is rebuilt.
 | p10k segments | `step_generate_p10k_segments` | Dynamic `~/.p10k-segments.zsh` |
 | grepai watch | `init_semantic_search` | `.health-stamp` + watchdog (60s) |
 | VPN | `init_vpn` | 1Password profile detection |
+| Claude Code update | `step_update_claude_code` | Auto-update to latest version (background) |
+| RTK init | `init_rtk` | Token savings proxy initialization |
 
 ## Conventions
 

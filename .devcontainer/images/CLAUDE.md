@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-27T13:00:00Z -->
+<!-- updated: 2026-03-10T12:30:00Z -->
 # DevContainer Images
 
 ## Purpose
@@ -161,28 +161,23 @@ Configured in `mcp.json.tpl`:
 | `/feature` | Feature tracking (RTM) with --add, --edit, --del, --list, --checkup |
 | `/prompt` | Generate ideal prompt structure for /plan |
 
-## Hooks
+## Hooks (27 scripts, 17 event types)
+
+Core hooks (always active):
 
 | Hook | Trigger | Action |
 |------|---------|--------|
 | `commit-validate.sh` | PreToolUse (Bash) | Block AI mentions in commits |
-| `security.sh` | PreToolUse (Bash) + PostToolUse (Write/Edit) | Secret detection on commit + edit |
+| `security.sh` | PreToolUse + PostToolUse | Secret detection |
 | `pre-validate.sh` | PreToolUse (Write/Edit) | Protect sensitive files |
 | `post-edit.sh` | PostToolUse (Write/Edit) | Format + Lint + Typecheck |
 | `test.sh` | PostToolUse (Write/Edit) | Run related tests |
-| `session-init.sh` | SessionStart (all) | Cache git metadata as env vars |
-| `post-compact.sh` | SessionStart (compact) | Restore RLM context rules |
-| `on-stop.sh` | Stop (*) | Terminal bell + session summary |
-| `rtk-rewrite.sh` | PreToolUse (Bash) | RTK token-saving command rewrite (runs LAST) |
-| `notification.sh` | Notification (*) | Terminal bell + notification log
+| `session-init.sh` | SessionStart | Cache git metadata as env vars |
+| `rtk-rewrite.sh` | PreToolUse (Bash) | RTK token-saving rewrite (runs LAST) |
 
-**Makefile-first pattern:** All scripts (format, lint, typecheck, test) check for Makefile targets first:
-- `make fmt FILE=<path>` or `make format FILE=<path>`
-- `make lint FILE=<path>`
-- `make typecheck FILE=<path>`
-- `make test FILE=<path>`
+Full inventory: See `.devcontainer/hooks/CLAUDE.md` and `CLAUDE.md` (root).
 
-Falls back to direct tool invocation (prettier, eslint, ruff, etc.) if no Makefile target exists.
+**Makefile-first pattern:** Scripts check `make fmt/lint/typecheck/test FILE=<path>` first, then fall back to direct tool invocation.
 
 ## Build
 
