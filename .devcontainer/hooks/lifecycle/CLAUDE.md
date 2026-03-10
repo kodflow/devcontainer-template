@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-25T12:30:00Z -->
+<!-- updated: 2026-03-10T12:30:00Z -->
 # Lifecycle Hooks
 
 ## Purpose
@@ -52,6 +52,7 @@ Extracts `OLLAMA_MODEL` dynamically from `grepai.config.yaml` (single source of 
 | `step_shell_env_repair` | postStart | Upgrade v1/v2→v3, clean duplicate inits |
 | `step_cache_completions` | postStart | Pre-cache tool completions to `~/.zsh_completions/` |
 | `step_generate_p10k_segments` | postStart | Dynamic p10k segments based on installed tools |
+| `step_update_claude_code` | postStart | Auto-update Claude Code to latest (background) |
 
 ## Conventions
 

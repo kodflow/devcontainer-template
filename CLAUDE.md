@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-27T13:00:00Z -->
+<!-- updated: 2026-03-10T12:30:00Z -->
 # devcontainer-template
 
 ## Purpose
@@ -12,10 +12,13 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 ├── .devcontainer/   # Container config, features, hooks, images
 ├── .github/         # GitHub Actions workflows
 ├── .githooks/       # Git hooks (pre-commit: regenerate assets)
-├── src/             # All source code (mandatory)
-├── tests/           # Unit tests (Go: alongside code in src/)
-├── docs/            # Documentation (vision, architecture, workflows)
-├── AGENTS.md        # Specialist agents specification
+├── .claude/         # Workspace Claude overrides (settings.local.json, features.json)
+├── .grepai/         # GrepAI project config (exclusions)
+├── .taskmaster/     # Taskmaster task management data
+├── docs/            # Documentation (MkDocs: vision, architecture, guides)
+├── src/             # All source code (created per project via /init)
+├── tests/           # Unit tests (created per project via /init)
+├── AGENTS.md        # Specialist agents specification (79 agents)
 └── CLAUDE.md        # This file
 ```
 
@@ -63,17 +66,25 @@ When refactoring: move content to separate files, preserve logic.
 
 Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.). Priority: Makefile targets, then language-specific commands.
 
-## Hooks
+## Hooks (17 event types)
 
 | Hook | Purpose |
 |------|---------|
-| pre-validate | Protect sensitive files |
-| post-edit | Format + lint |
-| security | Secret detection + auto-correct --force |
-| test | Run related tests |
-| on-stop | Session summary + terminal bell |
-| notification | External monitoring notifications |
-| session-init | Cache project metadata as env vars |
+| SessionStart | Cache project metadata + compact recovery |
+| SessionEnd | Session cleanup |
+| UserPromptSubmit | Prompt tracking |
+| PreToolUse | Commit validate, security scan, RTK rewrite, logging |
+| PostToolUse | Format + lint, security, test, feature update, logging |
+| PostToolUseFailure | Failure diagnostics |
+| PermissionRequest | Permission logging |
+| SubagentStart/Stop | Agent lifecycle tracking |
+| Stop | Session summary + terminal bell |
+| TeammateIdle | Multi-agent coordination |
+| TaskCompleted | Async task completion |
+| ConfigChange | Configuration change tracking |
+| WorktreeCreate/Remove | Git worktree lifecycle |
+| PreCompact | Context preservation before compaction |
+| Notification | External monitoring notifications |
 
 ## /secret - Secure Secret Management (1Password)
 
