@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-27T13:00:00Z -->
+<!-- updated: 2026-03-10T12:30:00Z -->
 # GitHub Configuration
 
 ## Purpose
@@ -13,8 +13,6 @@ GitHub-specific configurations: workflows, templates, and instructions.
 │   ├── docker-images.yml
 │   ├── release.yml
 │   └── CLAUDE.md
-├── instructions/       # AI instructions (gitignored)
-│   └── codacy.instructions.md
 ├── dependabot.yml      # Dependency updates
 └── CLAUDE.md           # This file
 ```
@@ -31,12 +29,6 @@ GitHub-specific configurations: workflows, templates, and instructions.
 | File | Description |
 |------|-------------|
 | dependabot.yml | Automated dependency update configuration |
-
-## Instructions (gitignored)
-
-| File | Description |
-|------|-------------|
-| codacy.instructions.md | Codacy code quality AI instructions |
 
 ## Conventions
 

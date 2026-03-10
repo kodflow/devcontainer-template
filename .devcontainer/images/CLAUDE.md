@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-27T13:00:00Z -->
+<!-- updated: 2026-03-10T12:30:00Z -->
 # DevContainer Images
 
 ## Purpose
@@ -174,7 +174,20 @@ Configured in `mcp.json.tpl`:
 | `post-compact.sh` | SessionStart (compact) | Restore RLM context rules |
 | `on-stop.sh` | Stop (*) | Terminal bell + session summary |
 | `rtk-rewrite.sh` | PreToolUse (Bash) | RTK token-saving command rewrite (runs LAST) |
-| `notification.sh` | Notification (*) | Terminal bell + notification log
+| `notification.sh` | Notification (*) | Terminal bell + notification log |
+| `session-end.sh` | SessionEnd | Session cleanup |
+| `user-prompt-submit.sh` | UserPromptSubmit | Prompt tracking |
+| `post-tool-failure.sh` | PostToolUseFailure | Failure diagnostics |
+| `permission-request.sh` | PermissionRequest (Bash) | Permission logging |
+| `subagent-start.sh` | SubagentStart | Agent lifecycle tracking |
+| `subagent-stop.sh` | SubagentStop | Agent lifecycle tracking |
+| `teammate-idle.sh` | TeammateIdle | Multi-agent coordination |
+| `task-completed.sh` | TaskCompleted (async) | Task completion notification |
+| `config-change.sh` | ConfigChange | Configuration change tracking |
+| `worktree-create.sh` | WorktreeCreate | Git worktree lifecycle |
+| `worktree-remove.sh` | WorktreeRemove | Git worktree lifecycle |
+| `pre-compact.sh` | PreCompact (async) | Context preservation before compaction |
+| `feature-update.sh` | PostToolUse (Write/Edit, async) | Feature tracking update |
 
 **Makefile-first pattern:** All scripts (format, lint, typecheck, test) check for Makefile targets first:
 - `make fmt FILE=<path>` or `make format FILE=<path>`
