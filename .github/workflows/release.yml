@@ -4,20 +4,25 @@ on:
   push:
     branches: [main]
     paths:
-      - '.devcontainer/images/**'
-      - '.devcontainer/features/**'
-      - '.devcontainer/hooks/**'
-      - '.github/workflows/release.yml'
+      - ".devcontainer/features/**"
+      - ".devcontainer/hooks/**"
+      - ".github/workflows/release.yml"
+  workflow_run:
+    workflows: ["Build Docker Image"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   release:
-    # Only run on the original template repository, not on forks/copies
-    if: github.repository == 'kodflow/devcontainer-template'
+    # Only run on the original repo, and skip if triggered by a failed Docker build
+    if: >-
+      github.repository == 'kodflow/devcontainer-template'
+      && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
