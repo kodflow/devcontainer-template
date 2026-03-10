@@ -771,6 +771,9 @@ step_git_credential_cleanup() {
 # Runs in background to avoid blocking container startup
 # Fail-open: never blocks the DevContainer lifecycle
 step_update_claude_code() {
+    local PID_FILE="/tmp/.claude-update.pid"
+    local INIT_MARKER="$HOME/.devcontainer-init-done"
+
     if ! command -v claude &> /dev/null; then
         log_info "Claude Code not installed, skipping update"
         return 0
@@ -778,6 +781,18 @@ step_update_claude_code() {
 
     if [ -n "${CI:-}" ]; then
         log_info "CI environment detected, skipping Claude Code update"
+        return 0
+    fi
+
+    # Skip if initial project init is still pending (avoid CLI contention)
+    if [ ! -f "$INIT_MARKER" ]; then
+        log_info "Initial project init still pending, deferring Claude Code update"
+        return 0
+    fi
+
+    # Skip if a previous update is still running (prevent concurrent npm writes)
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null; then
+        log_info "Claude Code update already in progress, skipping"
         return 0
     fi
 
@@ -796,8 +811,9 @@ step_update_claude_code() {
         else
             echo "[$(date -Iseconds)] Update failed (non-blocking)" >> "$UPDATE_LOG"
         fi
+        rm -f /tmp/.claude-update.pid
     ' >> /tmp/claude-update.log 2>&1 &
-    echo $! > /tmp/.claude-update.pid
+    echo $! > "$PID_FILE"
 
     log_success "Claude Code update scheduled (logs: ~/.claude-update.log)"
 }
