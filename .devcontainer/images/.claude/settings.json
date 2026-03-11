@@ -206,13 +206,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/vscode/.claude/scripts/commit-validate.sh",
-            "timeout": 10
+            "command": "/home/vscode/.claude/scripts/git-guard.sh",
+            "timeout": 15
           },
           {
             "type": "command",
-            "command": "/home/vscode/.claude/scripts/security.sh",
-            "timeout": 30
+            "command": "/home/vscode/.claude/scripts/rtk-rewrite.sh",
+            "timeout": 5
           },
           {
             "type": "command",
@@ -233,7 +233,7 @@
           {
             "type": "command",
             "command": "/home/vscode/.claude/scripts/pre-validate.sh",
-            "timeout": 60
+            "timeout": 5
           }
         ]
       }
@@ -257,20 +257,8 @@
           {
             "type": "command",
             "command": "/home/vscode/.claude/scripts/post-edit.sh",
-            "timeout": 60,
-            "statusMessage": "Formatting and linting..."
-          },
-          {
-            "type": "command",
-            "command": "/home/vscode/.claude/scripts/security.sh",
-            "timeout": 60,
-            "statusMessage": "Scanning for secrets..."
-          },
-          {
-            "type": "command",
-            "command": "/home/vscode/.claude/scripts/test.sh",
-            "timeout": 60,
-            "statusMessage": "Running tests..."
+            "timeout": 15,
+            "statusMessage": "Formatting..."
           },
           {
             "type": "command",
@@ -311,7 +299,8 @@
           {
             "type": "command",
             "command": "/home/vscode/.claude/scripts/subagent-start.sh",
-            "timeout": 5
+            "timeout": 5,
+            "async": true
           }
         ]
       }
@@ -323,7 +312,8 @@
           {
             "type": "command",
             "command": "/home/vscode/.claude/scripts/subagent-stop.sh",
-            "timeout": 5
+            "timeout": 5,
+            "async": true
           }
         ]
       }
@@ -336,6 +326,12 @@
             "type": "command",
             "command": "/home/vscode/.claude/scripts/on-stop.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "/home/vscode/.claude/scripts/on-stop-quality.sh",
+            "timeout": 120,
+            "statusMessage": "Running quality checks..."
           }
         ]
       }
