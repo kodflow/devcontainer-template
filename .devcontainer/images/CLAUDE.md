@@ -167,13 +167,15 @@ Core hooks (always active):
 
 | Hook | Trigger | Action |
 |------|---------|--------|
-| `commit-validate.sh` | PreToolUse (Bash) | Block AI mentions in commits |
-| `security.sh` | PreToolUse + PostToolUse | Secret detection |
+| `git-guard.sh` | PreToolUse (Bash) | Block AI commits + secret scan + force-with-lease |
+| `rtk-rewrite.sh` | PreToolUse (Bash) | Rewrite commands via RTK for token savings |
 | `pre-validate.sh` | PreToolUse (Write/Edit) | Protect sensitive files |
-| `post-edit.sh` | PostToolUse (Write/Edit) | Format + Lint + Typecheck |
-| `test.sh` | PostToolUse (Write/Edit) | Run related tests |
-| `session-init.sh` | SessionStart | Cache git metadata as env vars |
-| `rtk-rewrite.sh` | PreToolUse (Bash) | RTK token-saving rewrite (runs LAST) |
+| `post-edit.sh` | PostToolUse (Write/Edit) | **Format only** (fast, ~100-500ms) |
+| `on-stop-quality.sh` | Stop (*) | **Batch lint + typecheck + test** (deduplicated) |
+| `on-stop.sh` | Stop (*) | Terminal bell + session summary |
+| `session-init.sh` | SessionStart (all) | Cache git metadata as env vars |
+| `post-compact.sh` | SessionStart (compact) | Restore RLM context rules |
+| `notification.sh` | Notification (*) | Terminal bell + notification log
 
 Full inventory: See `.devcontainer/hooks/CLAUDE.md` and `CLAUDE.md` (root).
 
