@@ -21,14 +21,21 @@
 set +e  # Fail-open: never block
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# === Sanitize external inputs ===
+# Strip anything that's not alphanumeric, dash, underscore, or dot
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${PROJECT_DIR//[^a-zA-Z0-9\/._-]/}"
+[ -d "$PROJECT_DIR" ] || exit 0
+
+SESSION_ID="${CLAUDE_SESSION_ID:-default}"
+SESSION_ID="${SESSION_ID//[^a-zA-Z0-9_-]/}"
 
 # Source common utilities
 # shellcheck source=common.sh
 [ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
 
 # === Prevent infinite loops ===
-SESSION_ID="${CLAUDE_SESSION_ID:-default}"
 TRACKER="/tmp/.claude-edited-files-${SESSION_ID}"
 QUALITY_RAN="/tmp/.claude-quality-ran-${SESSION_ID}"
 
@@ -76,40 +83,8 @@ detect_project_type() {
         "*.pas" "*.dpr" "*.m" "*.asm" "*.s"
     )
 
-    # Build system markers (confirm it's a code project)
-    local build_markers=(
-        "go.mod" "Cargo.toml" "package.json" "pyproject.toml"
-        "pom.xml" "build.gradle" "build.gradle.kts" "build.sbt"
-        "mix.exs" "pubspec.yaml" "CMakeLists.txt" "Package.swift"
-        "composer.json" "Gemfile" "fpm.toml" "alire.toml"
-        "setup.py" "setup.cfg" "Makefile"
-    )
-
-    # Check for programming language files
-    for dir in "${search_dirs[@]}"; do
-        [ -d "$dir" ] || continue
-        for ext in "${code_extensions[@]}"; do
-            if compgen -G "$dir/$ext" > /dev/null 2>&1; then
-                echo "code"
-                return
-            fi
-            # Check one level deeper (common project layouts)
-            if compgen -G "$dir"/*/"$ext" > /dev/null 2>&1; then
-                echo "code"
-                return
-            fi
-        done
-    done
-
-    # Check build system markers at root
-    for marker in "${build_markers[@]}"; do
-        if [ -f "$root/$marker" ]; then
-            echo "code"
-            return
-        fi
-    done
-
-    # Check for IaC-only project
+    # Check for IaC markers FIRST (before code detection)
+    # IaC projects may have a Makefile for infra workflows — don't classify as code
     local iac_markers=(
         "*.tf"           # Terraform
         "*.tfvars"       # Terraform vars
@@ -122,13 +97,59 @@ detect_project_type() {
         "Pulumi.yaml"    # Pulumi
     )
 
+    local has_iac=false
     for pattern in "${iac_markers[@]}"; do
         if compgen -G "$root/$pattern" > /dev/null 2>&1 || \
            compgen -G "$root"/*/"$pattern" > /dev/null 2>&1; then
-            echo "iac"
+            has_iac=true
+            break
+        fi
+    done
+
+    # Check for programming language files
+    local has_code=false
+    for dir in "${search_dirs[@]}"; do
+        [ -d "$dir" ] || continue
+        for ext in "${code_extensions[@]}"; do
+            if compgen -G "$dir/$ext" > /dev/null 2>&1; then
+                has_code=true
+                break 2
+            fi
+            # Check one level deeper (common project layouts)
+            if compgen -G "$dir"/*/"$ext" > /dev/null 2>&1; then
+                has_code=true
+                break 2
+            fi
+        done
+    done
+
+    # If we found code files → always "code" (even if IaC also present)
+    if [ "$has_code" = "true" ]; then
+        echo "code"
+        return
+    fi
+
+    # Build system markers (without Makefile — Makefile alone is not proof of code)
+    local build_markers=(
+        "go.mod" "Cargo.toml" "package.json" "pyproject.toml"
+        "pom.xml" "build.gradle" "build.gradle.kts" "build.sbt"
+        "mix.exs" "pubspec.yaml" "CMakeLists.txt" "Package.swift"
+        "composer.json" "Gemfile" "fpm.toml" "alire.toml"
+        "setup.py" "setup.cfg"
+    )
+
+    for marker in "${build_markers[@]}"; do
+        if [ -f "$root/$marker" ]; then
+            echo "code"
             return
         fi
     done
+
+    # IaC-only (no code files, no build markers, but IaC detected)
+    if [ "$has_iac" = "true" ]; then
+        echo "iac"
+        return
+    fi
 
     echo "none"
 }
@@ -137,8 +158,6 @@ PROJECT_TYPE=$(detect_project_type "$PROJECT_ROOT")
 
 # === IaC-only projects: skip quality gate ===
 if [ "$PROJECT_TYPE" = "iac" ]; then
-    # IaC projects use their own validation (terraform validate, ansible-lint, etc.)
-    # These are handled by the specific tools, not make build/lint/test
     exit 0
 fi
 
@@ -150,27 +169,26 @@ fi
 # === Programming language project: enforce quality gate ===
 
 # Determine which targets make sense based on project structure
-REQUIRED_TARGETS=""
+# Use arrays for ShellCheck compliance (no word-splitting issues)
+REQUIRED_TARGETS=()
 OPTIONAL_BUILD=true
 
-# Some ecosystems don't have a separate "build" step (interpreted languages)
-# but we still require it for consistency — the Makefile target can just
-# run syntax checks or be a no-op if truly not needed
+# Compiled languages need build+lint+test
 for marker in "go.mod" "Cargo.toml" "CMakeLists.txt" "pom.xml" \
               "build.gradle" "build.gradle.kts" "build.sbt" \
               "Package.swift" "pubspec.yaml" "fpm.toml" "alire.toml"; do
     if [ -f "$PROJECT_ROOT/$marker" ]; then
-        REQUIRED_TARGETS="build lint test"
+        REQUIRED_TARGETS=(build lint test)
         break
     fi
 done
 
-# For interpreted languages: build is optional but lint+test are required
-if [ -z "$REQUIRED_TARGETS" ]; then
+# Interpreted languages: lint+test (build optional)
+if [ ${#REQUIRED_TARGETS[@]} -eq 0 ]; then
     for marker in "package.json" "pyproject.toml" "setup.py" "setup.cfg" \
                   "Gemfile" "composer.json" "mix.exs"; do
         if [ -f "$PROJECT_ROOT/$marker" ]; then
-            REQUIRED_TARGETS="lint test"
+            REQUIRED_TARGETS=(lint test)
             OPTIONAL_BUILD=false
             break
         fi
@@ -178,8 +196,8 @@ if [ -z "$REQUIRED_TARGETS" ]; then
 fi
 
 # Fallback: if we detected code files but no build system marker
-if [ -z "$REQUIRED_TARGETS" ]; then
-    REQUIRED_TARGETS="lint test"
+if [ ${#REQUIRED_TARGETS[@]} -eq 0 ]; then
+    REQUIRED_TARGETS=(lint test)
     OPTIONAL_BUILD=false
 fi
 
@@ -187,26 +205,29 @@ fi
 if [ ! -f "$PROJECT_ROOT/Makefile" ]; then
     echo "--- Quality Gate: No Makefile ---" >&2
 
-    CONTEXT="QUALITY GATE: No Makefile found at $PROJECT_ROOT.\n\n"
-    CONTEXT+="Programming language project detected. Please create a Makefile with these targets:\n"
-    for target in $REQUIRED_TARGETS; do
+    CONTEXT="QUALITY GATE: No Makefile found at $PROJECT_ROOT."
+    CONTEXT+=$'\n\n'
+    CONTEXT+="Programming language project detected. Please create a Makefile with these targets:"
+    CONTEXT+=$'\n'
+    for target in "${REQUIRED_TARGETS[@]}"; do
         case "$target" in
-            build) CONTEXT+="  - \`make build\` : Compile/build the project\n" ;;
-            lint)  CONTEXT+="  - \`make lint\`  : Run linter(s) appropriate for the language\n" ;;
-            test)  CONTEXT+="  - \`make test\`  : Run the test suite\n" ;;
+            build) CONTEXT+="  - \`make build\` : Compile/build the project"$'\n' ;;
+            lint)  CONTEXT+="  - \`make lint\`  : Run linter(s) appropriate for the language"$'\n' ;;
+            test)  CONTEXT+="  - \`make test\`  : Run the test suite"$'\n' ;;
         esac
     done
     if [ "$OPTIONAL_BUILD" = "false" ]; then
-        CONTEXT+="\nNote: \`make build\` is optional for this project type (interpreted language).\n"
-        CONTEXT+="Add it if there's a compilation/transpilation step, otherwise skip it.\n"
+        CONTEXT+=$'\n'"Note: \`make build\` is optional for this project type (interpreted language)."
+        CONTEXT+=$'\n'"Add it if there's a compilation/transpilation step, otherwise skip it."$'\n'
     fi
-    CONTEXT+="\nBefore creating it, ask the user:\n"
-    CONTEXT+="  1. Which linter(s) they prefer?\n"
-    CONTEXT+="  2. Which test framework to use?\n"
-    CONTEXT+="  3. Any specific flags or configurations?\n\n"
-    CONTEXT+="If the answers are obvious from the project structure (e.g., go.mod -> Go with golangci-lint,\n"
-    CONTEXT+="Cargo.toml -> Rust with clippy, package.json -> check existing scripts), create the Makefile\n"
-    CONTEXT+="directly with sensible defaults."
+    CONTEXT+=$'\n'"Before creating it, ask the user:"
+    CONTEXT+=$'\n'"  1. Which linter(s) they prefer?"
+    CONTEXT+=$'\n'"  2. Which test framework to use?"
+    CONTEXT+=$'\n'"  3. Any specific flags or configurations?"
+    CONTEXT+=$'\n\n'
+    CONTEXT+="If the answers are obvious from the project structure (e.g., go.mod -> Go with golangci-lint,"
+    CONTEXT+=$'\n'"Cargo.toml -> Rust with clippy, package.json -> check existing scripts), create the Makefile"
+    CONTEXT+=$'\n'"directly with sensible defaults."
 
     if command -v jq &>/dev/null; then
         jq -n -c \
@@ -219,12 +240,10 @@ if [ ! -f "$PROJECT_ROOT/Makefile" ]; then
 fi
 
 # === Check for required targets in existing Makefile ===
-MISSING_TARGETS=""
-TOTAL_REQUIRED=0
-for target in $REQUIRED_TARGETS; do
-    TOTAL_REQUIRED=$((TOTAL_REQUIRED + 1))
+MISSING_TARGETS=()
+for target in "${REQUIRED_TARGETS[@]}"; do
     if ! has_makefile_target "$target" "$PROJECT_ROOT"; then
-        MISSING_TARGETS="${MISSING_TARGETS}${target} "
+        MISSING_TARGETS+=("$target")
     fi
 done
 
@@ -234,19 +253,20 @@ if has_makefile_target "build" "$PROJECT_ROOT"; then
     RUN_BUILD=true
 fi
 
-if [ -n "$MISSING_TARGETS" ]; then
+if [ ${#MISSING_TARGETS[@]} -gt 0 ]; then
     echo "--- Quality Gate: Missing Makefile targets ---" >&2
-    CONTEXT="QUALITY GATE: Makefile exists at $PROJECT_ROOT but is missing targets: ${MISSING_TARGETS}\n\n"
-    CONTEXT+="Please add the missing target(s) to the Makefile:\n"
-    for target in $MISSING_TARGETS; do
+    MISSING_STR="${MISSING_TARGETS[*]}"
+    CONTEXT="QUALITY GATE: Makefile exists at $PROJECT_ROOT but is missing targets: ${MISSING_STR}"
+    CONTEXT+=$'\n\n'"Please add the missing target(s) to the Makefile:"$'\n'
+    for target in "${MISSING_TARGETS[@]}"; do
         case "$target" in
-            build) CONTEXT+="  - \`make build\`: Compile/build the project\n" ;;
-            lint)  CONTEXT+="  - \`make lint\`: Run linter(s) for the project\n" ;;
-            test)  CONTEXT+="  - \`make test\`: Run the test suite\n" ;;
+            build) CONTEXT+="  - \`make build\`: Compile/build the project"$'\n' ;;
+            lint)  CONTEXT+="  - \`make lint\`: Run linter(s) for the project"$'\n' ;;
+            test)  CONTEXT+="  - \`make test\`: Run the test suite"$'\n' ;;
         esac
     done
-    CONTEXT+="\nAnalyze the existing Makefile and project structure to determine the right commands.\n"
-    CONTEXT+="If unclear, ask the user about their preferred tools."
+    CONTEXT+=$'\n'"Analyze the existing Makefile and project structure to determine the right commands."
+    CONTEXT+=$'\n'"If unclear, ask the user about their preferred tools."
 
     if command -v jq &>/dev/null; then
         jq -n -c \
@@ -259,13 +279,13 @@ if [ -n "$MISSING_TARGETS" ]; then
 fi
 
 # === Build the list of targets to run ===
-TARGETS_TO_RUN=""
+TARGETS_TO_RUN=()
 if [ "$RUN_BUILD" = "true" ]; then
-    TARGETS_TO_RUN="build "
+    TARGETS_TO_RUN+=(build)
 fi
-for target in $REQUIRED_TARGETS; do
+for target in "${REQUIRED_TARGETS[@]}"; do
     [ "$target" = "build" ] && continue  # Already handled above
-    TARGETS_TO_RUN+="$target "
+    TARGETS_TO_RUN+=("$target")
 done
 
 # === Run quality gate ===
@@ -277,10 +297,11 @@ PASSED=0
 FAILED=0
 TOTAL_RUN=0
 
-for target in $TARGETS_TO_RUN; do
+for target in "${TARGETS_TO_RUN[@]}"; do
     TOTAL_RUN=$((TOTAL_RUN + 1))
     echo "Running: make $target" >&2
-    OUTPUT=$(timeout 60 make "$target" 2>&1)
+    # 90s per target (hook allows 300s total for ~3 targets)
+    OUTPUT=$(timeout 90 make "$target" 2>&1)
     EXIT_CODE=$?
 
     if [ "$EXIT_CODE" -ne 0 ]; then
@@ -290,7 +311,7 @@ for target in $TARGETS_TO_RUN; do
         if [ ${#TRUNCATED} -gt 2000 ]; then
             TRUNCATED="${TRUNCATED:0:2000}...(truncated)"
         fi
-        ISSUES+="FAIL make ${target} (exit $EXIT_CODE):\n${TRUNCATED}\n\n"
+        ISSUES+="FAIL make ${target} (exit $EXIT_CODE):"$'\n'"${TRUNCATED}"$'\n\n'
         echo "  FAIL (exit $EXIT_CODE)" >&2
     else
         PASSED=$((PASSED + 1))
@@ -299,14 +320,17 @@ for target in $TARGETS_TO_RUN; do
 done
 
 # === Report results ===
+# Always mark quality as ran (even on success) to prevent re-runs with no edits
+touch "$QUALITY_RAN" 2>/dev/null || true
+
 if [ -n "$ISSUES" ]; then
     echo "Result: $PASSED passed, $FAILED failed" >&2
     echo "--- End Quality Gate ---" >&2
 
-    CONTEXT="QUALITY GATE FAILED ($FAILED/$TOTAL_RUN targets failed, $PASSED/$TOTAL_RUN passed):\n\n"
-    CONTEXT+="$ISSUES"
-    CONTEXT+="Fix ALL failing targets. Run them again after fixing to verify.\n"
-    CONTEXT+="Do NOT skip or comment out failing code - fix the root cause."
+    CONTEXT="QUALITY GATE FAILED ($FAILED/$TOTAL_RUN targets failed, $PASSED/$TOTAL_RUN passed):"
+    CONTEXT+=$'\n\n'"$ISSUES"
+    CONTEXT+="Fix ALL failing targets. Run them again after fixing to verify."
+    CONTEXT+=$'\n'"Do NOT skip or comment out failing code - fix the root cause."
 
     if command -v jq &>/dev/null; then
         jq -n -c \
@@ -314,11 +338,9 @@ if [ -n "$ISSUES" ]; then
             '{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":$ctx}}' \
             2>/dev/null || true
     fi
-    touch "$QUALITY_RAN" 2>/dev/null || true
 else
     echo "All targets passed ($PASSED/$TOTAL_RUN)" >&2
     echo "--- End Quality Gate ---" >&2
-    rm -f "$QUALITY_RAN" 2>/dev/null || true
 fi
 
 exit 0
