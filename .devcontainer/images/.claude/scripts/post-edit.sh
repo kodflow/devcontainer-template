@@ -39,9 +39,14 @@ fi
 # === Format only (fast: goimports ~100ms, ruff ~50ms, prettier ~200ms) ===
 FMT_OUT=$("$SCRIPT_DIR/format.sh" "$FILE" 2>&1) || true
 
-# Track edited file for on-stop-quality.sh batch processing
-TRACKER="/tmp/.claude-edited-files"
-echo "$FILE" >> "$TRACKER" 2>/dev/null || true
+# Track edited file for on-stop-quality.sh batch processing (session-scoped)
+SESSION_ID="${CLAUDE_SESSION_ID:-default}"
+TRACKER="/tmp/.claude-edited-files-${SESSION_ID}"
+if command -v flock &>/dev/null; then
+    flock -w 2 "$TRACKER.lock" bash -c "echo '$FILE' >> '$TRACKER'" 2>/dev/null || true
+else
+    echo "$FILE" >> "$TRACKER" 2>/dev/null || true
+fi
 
 # Output additionalContext only if formatter reported issues
 if [ -n "$FMT_OUT" ] && command -v jq &>/dev/null; then

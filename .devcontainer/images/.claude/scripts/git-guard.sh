@@ -51,7 +51,16 @@ fi
 if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+push ]] && \
    [[ "$NORMALIZED_CMD" =~ --force ]] && \
    [[ ! "$NORMALIZED_CMD" =~ --force-with-lease ]]; then
-    CORRECTED="${COMMAND//--force/--force-with-lease}"
+    # Replace only standalone --force (not --force-if-includes, etc.)
+    CORRECTED=""
+    for arg in $COMMAND; do
+        if [ "$arg" = "--force" ]; then
+            CORRECTED="$CORRECTED --force-with-lease"
+        else
+            CORRECTED="$CORRECTED $arg"
+        fi
+    done
+    CORRECTED="${CORRECTED# }"  # trim leading space
     echo "⚠️  Auto-corrected: --force → --force-with-lease" >&2
     jq -n --arg cmd "$CORRECTED" \
         --arg reason "Auto-corrected: --force → --force-with-lease" \
@@ -117,8 +126,8 @@ if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit ]]; then
         done
     fi
 
-    # === 3. Scan staged files for secrets ===
-    STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || true)
+    # === 3. Scan staged files for secrets (reads staged blobs, not working tree) ===
+    STAGED_FILES=$(git diff --cached --name-only -z 2>/dev/null || true)
     if [ -z "$STAGED_FILES" ]; then
         exit 0
     fi
@@ -126,30 +135,32 @@ if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit ]]; then
     ISSUES_FOUND=0
 
     # Inline lightweight secret scan (avoid calling security.sh subprocess)
-    while IFS= read -r f; do
-        [ ! -f "$f" ] && continue
+    while IFS= read -r -d '' f; do
+        [ -z "$f" ] && continue
 
         # Skip hook/tooling scripts (contain regex patterns that match themselves)
         case "$f" in
             */.claude/scripts/*|*/.githooks/*) continue ;;
         esac
 
-        # Skip binary files
-        if file "$f" 2>/dev/null | grep -q "binary"; then
+        # Read staged blob content (not working tree)
+        STAGED_CONTENT=$(git show ":$f" 2>/dev/null) || continue
+
+        # Skip binary files (check staged content)
+        if printf '%s' "$STAGED_CONTENT" | file -- - 2>/dev/null | grep -q "binary"; then
             continue
         fi
 
-        # Pattern-based secret detection (fastest)
-        if grep -iEq \
-            'password\s*=\s*["\047][^"\047]+|api[_-]?key\s*=\s*["\047][^"\047]+|secret[_-]?key\s*=\s*["\047][^"\047]+|aws[_-]?access[_-]?key|BEGIN RSA PRIVATE KEY|BEGIN OPENSSH PRIVATE KEY|ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]+|sk-[a-zA-Z0-9]{48}|AKIA[0-9A-Z]{16}' \
-            "$f" 2>/dev/null; then
+        # Pattern-based secret detection on staged content
+        if printf '%s' "$STAGED_CONTENT" | grep -iEq \
+            'password\s*=\s*["\047][^"\047]+|api[_-]?key\s*=\s*["\047][^"\047]+|secret[_-]?key\s*=\s*["\047][^"\047]+|aws[_-]?access[_-]?key|BEGIN RSA PRIVATE KEY|BEGIN OPENSSH PRIVATE KEY|ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]+|sk-[a-zA-Z0-9]{48}|AKIA[0-9A-Z]{16}'; then
             echo "⚠️  Potential secret in: $f" >&2
             ISSUES_FOUND=1
         fi
 
         # detect-secrets (if available, more thorough)
         if [ $ISSUES_FOUND -eq 0 ] && command -v detect-secrets &>/dev/null; then
-            if detect-secrets scan "$f" 2>/dev/null | grep -q '"results":\s*{[^}]*}'; then
+            if printf '%s' "$STAGED_CONTENT" | detect-secrets scan --list 2>/dev/null | grep -q '"results"'; then
                 echo "⚠️  detect-secrets found issue in: $f" >&2
                 ISSUES_FOUND=1
             fi
