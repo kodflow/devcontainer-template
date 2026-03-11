@@ -330,8 +330,8 @@
           {
             "type": "command",
             "command": "/home/vscode/.claude/scripts/on-stop-quality.sh",
-            "timeout": 120,
-            "statusMessage": "Running quality checks..."
+            "timeout": 300,
+            "statusMessage": "Running quality gate (build, lint, test)..."
           }
         ]
       }
