@@ -1,8 +1,13 @@
 #!/bin/bash
-# Combined post-edit hook: format + lint + typecheck
-# Usage: post-edit.sh <file_path>
-# Note: format.sh handles imports (goimports, ruff, rustfmt, etc.)
-# Outputs additionalContext with lint/format issues for Claude self-correction.
+# ============================================================================
+# post-edit.sh - Format only (fast, runs after every Write/Edit)
+# Hook: PostToolUse (Write|Edit)
+# Exit 0 = always (fail-open)
+#
+# Purpose: Auto-format edited files for immediate feedback.
+# Lint, typecheck, test, and security scans are batched in on-stop-quality.sh
+# (Stop hook) to avoid redundant CPU work when Claude edits multiple files.
+# ============================================================================
 
 set +e  # Fail-open: hooks should never block unexpectedly
 
@@ -20,7 +25,7 @@ if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
     exit 0
 fi
 
-# Skip format/lint for documentation and config files
+# Skip format for documentation and config files
 if [[ "$FILE" == *".claude/contexts/"* ]] || \
    [[ "$FILE" == *".claude/plans/"* ]] || \
    [[ "$FILE" == *".claude/sessions/"* ]] || \
@@ -31,32 +36,21 @@ if [[ "$FILE" == *".claude/contexts/"* ]] || \
     exit 0
 fi
 
-# === Format/Lint/Types pipeline (capture issues) ===
-ISSUES=""
-
-# 1. Format (includes import sorting via goimports, ruff, rustfmt, etc.)
+# === Format only (fast: goimports ~100ms, ruff ~50ms, prettier ~200ms) ===
 FMT_OUT=$("$SCRIPT_DIR/format.sh" "$FILE" 2>&1) || true
-if [ -n "$FMT_OUT" ]; then
-    ISSUES="${ISSUES}Format: ${FMT_OUT:0:300}\n"
+
+# Track edited file for on-stop-quality.sh batch processing (session-scoped)
+SESSION_ID="${CLAUDE_SESSION_ID:-default}"
+TRACKER="/tmp/.claude-edited-files-${SESSION_ID}"
+if command -v flock &>/dev/null; then
+    flock -w 2 "$TRACKER.lock" bash -c "echo '$FILE' >> '$TRACKER'" 2>/dev/null || true
+else
+    echo "$FILE" >> "$TRACKER" 2>/dev/null || true
 fi
 
-# 2. Lint (with auto-fix)
-LINT_OUT=$("$SCRIPT_DIR/lint.sh" "$FILE" 2>&1)
-LINT_RC=$?
-if [ $LINT_RC -ne 0 ] && [ -n "$LINT_OUT" ]; then
-    ISSUES="${ISSUES}Lint: ${LINT_OUT:0:300}\n"
-fi
-
-# 3. Type check (academic rigor)
-TYPE_OUT=$("$SCRIPT_DIR/typecheck.sh" "$FILE" 2>&1)
-TYPE_RC=$?
-if [ $TYPE_RC -ne 0 ] && [ -n "$TYPE_OUT" ]; then
-    ISSUES="${ISSUES}Typecheck: ${TYPE_OUT:0:300}\n"
-fi
-
-# Output additionalContext if issues found
-if [ -n "$ISSUES" ] && command -v jq &>/dev/null; then
-    CONTEXT="Post-edit issues in $FILE:\n$ISSUES\nPlease fix these issues in your next edit."
+# Output additionalContext only if formatter reported issues
+if [ -n "$FMT_OUT" ] && command -v jq &>/dev/null; then
+    CONTEXT="Format issues in $FILE:\n${FMT_OUT:0:300}"
     jq -n -c \
         --arg ctx "$CONTEXT" \
         '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":$ctx}}' \
