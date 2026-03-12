@@ -67,6 +67,9 @@ for category in "$FEATURES_DIR"/*; do
 
     for feature in "$category"/*; do
         [ ! -d "$feature" ] && continue
+        # Skip utility directories (e.g., languages/shared)
+        [ "$(basename "$feature")" = "shared" ] && continue
+
 
         feature_name="$(basename "$category")/$(basename "$feature")"
 

@@ -210,6 +210,10 @@ fi
 
 # Aliases
 # super-claude: runs claude with MCP config if available, otherwise without
+# Secure archive encrypt/decrypt aliases
+alias encrypt='secure-archive encrypt'
+alias decrypt='secure-archive decrypt'
+
 super-claude() {
     local mcp_config="/workspace/mcp.json"
 

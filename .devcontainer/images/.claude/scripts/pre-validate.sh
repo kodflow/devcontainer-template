@@ -42,10 +42,8 @@ PROTECTED_PATTERNS=(
     "Cargo.lock"
     "poetry.lock"
     "go.sum"
-    ".claude/scripts/"
     ".claude/commands/"
     ".claude/settings.json"
-    ".devcontainer/"
 )
 
 # Exceptions (always allowed)
