@@ -198,6 +198,7 @@ RUN chmod -R 755 /etc/claude-defaults/ /home/vscode/.claude/scripts/ /etc/devcon
     rm -rf /tmp/vpn && \
     chmod +x /etc/openvpn/update-dns /usr/local/bin/vpn-connect \
              /usr/local/bin/vpn-disconnect /usr/local/bin/vpn-status && \
+    ln -sf /etc/claude-defaults/scripts/secure-archive.sh /usr/local/bin/secure-archive && \
     printf '%s\n' \
       'vscode ALL=(ALL) NOPASSWD: /usr/sbin/openvpn' \
       'vscode ALL=(ALL) NOPASSWD: /usr/bin/killall openvpn' \

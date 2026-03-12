@@ -172,18 +172,23 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/vscode/.claude/scripts/commit-validate.sh",
+            "command": "/home/vscode/.claude/scripts/git-guard.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "/home/vscode/.claude/scripts/security.sh",
-            "timeout": 30
           },
           {
             "type": "command",
             "command": "/home/vscode/.claude/scripts/log.sh",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__github__create_pull_request|mcp__github__update_pull_request|mcp__github__add_issue_comment|mcp__gitlab__create_merge_request|mcp__gitlab__create_merge_request_note",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/vscode/.claude/scripts/mcp-ai-guard.sh",
+            "timeout": 10
           }
         ]
       },
