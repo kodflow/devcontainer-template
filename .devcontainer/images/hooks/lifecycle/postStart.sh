@@ -27,12 +27,25 @@ init_steps
 # Resolve 1Password vault ID
 # Priority: OP_VAULT_ID env var > dynamic lookup of "CI" vault
 resolve_vault_id() {
+    # Priority 1: OP_VAULT_ID env var (validated)
     if [ -n "${OP_VAULT_ID:-}" ]; then
-        echo "$OP_VAULT_ID"
-        return 0
+        local sanitized
+        sanitized=$(echo "$OP_VAULT_ID" | tr -d '[:space:]')
+        # Reject empty after trim or values starting with '-' (option injection)
+        if [ -z "$sanitized" ] || [[ "$sanitized" == -* ]]; then
+            log_warning "OP_VAULT_ID contains invalid value, ignoring"
+        else
+            echo "$sanitized"
+            return 0
+        fi
     fi
-    # Dynamic resolution: look up vault named "CI"
+    # Priority 2: dynamic resolution of vault named "CI"
     if command -v op &> /dev/null && [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]; then
+        if ! command -v jq &> /dev/null; then
+            log_info "jq not available; set OP_VAULT_ID to skip auto-lookup"
+            echo ""
+            return 0
+        fi
         local vault_id
         vault_id=$(op vault get "CI" --format=json 2>/dev/null | jq -r '.id // empty' 2>/dev/null || echo "")
         if [ -n "$vault_id" ]; then
@@ -451,7 +464,7 @@ step_mcp_configuration() {
     if [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &> /dev/null; then
         log_info "Retrieving secrets from 1Password..."
         if [ -z "$VAULT_ID" ]; then
-            log_warning "OP_VAULT_ID not set and vault 'CI' not found, skipping 1Password secrets"
+            log_warning "Vault ID could not be resolved (OP_VAULT_ID unset, 'CI' vault not found, or jq missing), skipping 1Password secrets"
         else
 
         local OP_CODACY
