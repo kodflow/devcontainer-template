@@ -1,4 +1,4 @@
-<!-- updated: 2026-03-10T12:30:00Z -->
+<!-- updated: 2026-03-14T12:00:00Z -->
 # devcontainer-template
 
 ## Purpose
@@ -35,7 +35,7 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 1. **New project**: `/init` → conversational discovery → doc generation
 2. **New feature**: `/plan "description"` → planning mode → `/do` → `/git --commit`
 3. **Bug fix**: `/plan "description"` → planning mode → `/do` → `/git --commit`
-4. **Code review**: `/review` → 5 specialist executors in parallel
+4. **Code review**: `/review` → 3-tier review (agents + Qodo + CodeRabbit)
 
 Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
 
@@ -123,7 +123,7 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/init` | Conversational project discovery + doc generation |
 | `/plan` | Analyze codebase and design implementation approach |
 | `/do` | Execute approved plans iteratively |
-| `/review` | Code review with 5 specialist agents |
+| `/review` | Code review (3-tier: agents + Qodo + CodeRabbit) |
 | `/git` | Conventional commits, branch management |
 | `/search` | Documentation research with official sources |
 | `/docs` | Deep project documentation generation |
