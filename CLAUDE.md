@@ -1,4 +1,4 @@
-<!-- updated: 2026-03-10T12:30:00Z -->
+<!-- updated: 2026-03-14T12:00:00Z -->
 # devcontainer-template
 
 ## Purpose
@@ -123,7 +123,7 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/init` | Conversational project discovery + doc generation |
 | `/plan` | Analyze codebase and design implementation approach |
 | `/do` | Execute approved plans iteratively |
-| `/review` | Code review with 5 specialist agents |
+| `/review` | Code review (3-tier: agents + Qodo + CodeRabbit) |
 | `/git` | Conventional commits, branch management |
 | `/search` | Documentation research with official sources |
 | `/docs` | Deep project documentation generation |

@@ -3,7 +3,7 @@ name: review
 description: |
   AI-powered code review (RLM decomposition) for PRs/MRs or local diffs.
   Focus: correctness, security, design, quality, shell safety.
-  15 phases, 5 agents (opus for deep analysis, haiku for patterns).
+  15 phases, 3 tiers: T1 (5 agents), T2 (Qodo), T3 (CodeRabbit).
   Cyclic workflow: /review --loop for iterative perfection.
   Local-only output with /plan generation for /do execution.
 allowed-tools:
@@ -23,6 +23,8 @@ allowed-tools:
   - "TaskUpdate(*)"
   - "TaskList(*)"
   - "TaskGet(*)"
+  - "Bash(qodo run review *)"
+  - "Bash(coderabbit review *)"
 ---
 
 # Review - AI Code Review (RLM Architecture)
@@ -56,7 +58,7 @@ Intelligent code review using **Recursive Language Model** decomposition:
 | 2.3 | **CI Diagnostics** | Extract CI failure context (conditional) |
 | 2.5 | Questions | Handle human questions |
 | 3 | Peek | Snapshot diff, categorize files, route agents |
-| 4 | **Analyze** | **5 parallel agents** (correctness, security, design, quality, shell) |
+| 4 | **Analyze** | **5 parallel agents + external tiers** (T1: agents, T2: Qodo, T3: CodeRabbit) |
 | 4.7 | **Merge & Dedupe** | Normalize findings, deduplicate, require evidence |
 | 5 | Challenge | Evaluate feedback relevance with context |
 | 6 | Output | Generate LOCAL report + /plan file (no GitHub/GitLab post) |
@@ -65,7 +67,15 @@ Intelligent code review using **Recursive Language Model** decomposition:
 
 **RLM Principle:** Peek → Decompose → Parallelize → Synthesize
 
-**5 Agents (opus for reasoning, haiku for patterns):**
+**3-Tier Review Architecture:**
+
+| Tier | Source | Execution | Output |
+|------|--------|-----------|--------|
+| T1 (Internal) | 5 Claude agents (opus+haiku) | Task subagents | JSON findings |
+| T2 (Qodo) | `qodo run review` | Bash `--ci --silent --log` | Text → parsed |
+| T3 (CodeRabbit) | `coderabbit review --plain` | Bash `--plain --base` | Text → parsed |
+
+**T1 Agents (opus for reasoning, haiku for patterns):**
 - `developer-executor-correctness` (opus) - Algorithmic errors, invariants
 - `developer-executor-security` (opus) - Taint analysis, OWASP, supply chain
 - `developer-executor-design` (opus) - Antipatterns, DDD, layering, SOLID
@@ -93,6 +103,11 @@ Intelligent code review using **Recursive Language Model** decomposition:
 /review --quality          # Quality-focused review only
 /review --triage           # Large PR/MR mode (>30 files or >1500 lines)
 /review --describe         # Force auto-describe even if PR/MR has description
+/review --tier all          # All tiers: T1+T2+T3 (default)
+/review --tier internal     # T1 only (5 agents, no external)
+/review --tier external     # T2+T3 only (qodo + coderabbit)
+/review --tier qodo         # T2 only
+/review --tier coderabbit   # T3 only
 ```
 
 **Cyclic Workflow:**
@@ -916,6 +931,48 @@ secret_masking:
   action: "Replace with [REDACTED] in evidence/recommendation"
 ```
 
+
+### External Tiers (T2 + T3) — Parallel with T1
+
+**Launch external review tools in parallel with the 5 internal agents:**
+
+```yaml
+external_tiers:
+  dispatch:
+    mode: "parallel with T1 (2 Bash calls alongside 5 Task calls)"
+    tier_filter: "--tier flag controls which tiers run (default: all)"
+
+    qodo:
+      tier: "T2"
+      trigger: "command -v qodo && QODO_API_KEY is set"
+      command: |
+        qodo run review "Review the diff from {base_branch}. Focus on P0/P1 only. Structured output." \
+          --ci --yes --silent --log=/tmp/qodo-review-{timestamp}.md \
+          --tools=git,filesystem,ripgrep --permissions=r
+      timeout: 120000  # 2 minutes max
+      fallback: "skip (T2 unavailable)"
+
+    coderabbit:
+      tier: "T3"
+      trigger: "command -v coderabbit && ~/.coderabbit/auth.json exists"
+      command: |
+        coderabbit review --plain --no-color --type committed \
+          --base {base_branch} --cwd /workspace \
+          > /tmp/coderabbit-review-{timestamp}.md 2>&1
+      timeout: 120000  # 2 minutes max
+      fallback: "skip (T3 unavailable)"
+```
+
+**Tier Selection:**
+
+| `--tier` Value | T1 (Agents) | T2 (Qodo) | T3 (CodeRabbit) |
+|----------------|-------------|-----------|-----------------|
+| `all` (default) | Yes | Yes | Yes |
+| `internal` | Yes | No | No |
+| `external` | No | Yes | Yes |
+| `qodo` | No | Yes | No |
+| `coderabbit` | No | No | Yes |
+
 ---
 
 ## Phase 11.0: Merge & Dedupe
@@ -927,11 +984,33 @@ merge_dedupe:
   goal: "Normalize findings, remove duplicates, enforce evidence"
 
   inputs:
+    # T1 (Internal agents)
     - "correctness_agent.findings"
     - "security_agent.findings"
     - "design_agent.findings"
     - "quality_agent.findings"
     - "shell_agent.findings"
+    # T2 (Qodo) — parsed from /tmp/qodo-review-{timestamp}.md
+    - "qodo_findings (parsed)"
+    # T3 (CodeRabbit) — parsed from /tmp/coderabbit-review-{timestamp}.md
+    - "coderabbit_findings (parsed)"
+
+  parse_external:
+    qodo:
+      source_file: "/tmp/qodo-review-{timestamp}.md"
+      parser: |
+        Extract findings matching pattern: [P0|P1|P2] <file>:<line> — <title>
+        Map: P0→CRITICAL, P1→HIGH, P2→MEDIUM
+        Set: impact="external-qodo", source="qodo"
+      on_parse_failure: "log warning, skip T2 findings"
+
+    coderabbit:
+      source_file: "/tmp/coderabbit-review-{timestamp}.md"
+      parser: |
+        Extract CodeRabbit findings from plain text output
+        Map severity from CodeRabbit format to our schema
+        Set: impact="external-coderabbit", source="coderabbit"
+      on_parse_failure: "log warning, skip T3 findings"
 
   normalize:
     required_fields:
@@ -964,6 +1043,14 @@ merge_dedupe:
   dedupe:
     key: "{impact}:{category}:{file}:{line}:{normalize(title)}"
     merge_strategy: "keep highest severity, merge evidence"
+
+  cross_tier_dedupe:
+    rule: |
+      IF same file:line AND similar title (fuzzy match > 80%):
+        Keep T1 finding (highest detail)
+        Add "confirmed_by: [T2, T3]" field
+        Boost confidence by 10% per confirmation (cap 100%)
+    boost_label: "multi-tier-confirmed"
 
   promote:
     rule: |

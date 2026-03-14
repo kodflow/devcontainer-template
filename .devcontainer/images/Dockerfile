@@ -233,6 +233,14 @@ USER vscode
 RUN curl -fsSL https://cli.coderabbit.ai/install.sh | sh
 
 # =============================================================================
+# Qodo Command CLI (AI-powered code review + agents)
+# =============================================================================
+# Provides: qodo - local AI code reviews, chains, custom agents
+# Docs: https://docs.qodo.ai/qodo-documentation/qodo-command
+# Note: npm available via Claude Code's bundled Node.js runtime
+RUN npm install -g @qodo/command
+
+# =============================================================================
 # User Tools (status-line, ktn-linter, xdg-open) - consolidated
 # =============================================================================
 RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
