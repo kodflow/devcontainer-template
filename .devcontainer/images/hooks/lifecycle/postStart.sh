@@ -818,7 +818,7 @@ step_qodo_auth() {
 
     # Write to environment file (safe append with dedup)
     sed -i '/^export QODO_API_KEY=/d' "$HOME/.devcontainer-env.sh" 2>/dev/null || true
-    printf 'export QODO_API_KEY="%s"\n' "$QODO_KEY" >> "$HOME/.devcontainer-env.sh"
+    printf "export QODO_API_KEY='%s'\n" "$QODO_KEY" >> "$HOME/.devcontainer-env.sh"
     chmod 600 "$HOME/.devcontainer-env.sh" 2>/dev/null || true
 
     # Export for current session

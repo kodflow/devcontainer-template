@@ -948,7 +948,7 @@ external_tiers:
       command: |
         qodo run review "Review the diff from {base_branch}. Focus on P0/P1 only. Structured output." \
           --ci --yes --silent --log=/tmp/qodo-review-{timestamp}.md \
-          --tools=git,filesystem,ripgrep --permissions=r
+          --tools=git,filesystem,ripgrep
       timeout: 120000  # 2 minutes max
       fallback: "skip (T2 unavailable)"
 
@@ -957,7 +957,7 @@ external_tiers:
       trigger: "command -v coderabbit && ~/.coderabbit/auth.json exists"
       command: |
         coderabbit review --plain --no-color --type committed \
-          --base {base_branch} --cwd /workspace \
+          --base "{base_branch}" --cwd /workspace \
           > /tmp/coderabbit-review-{timestamp}.md 2>&1
       timeout: 120000  # 2 minutes max
       fallback: "skip (T3 unavailable)"

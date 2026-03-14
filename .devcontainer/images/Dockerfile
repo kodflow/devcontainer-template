@@ -244,7 +244,7 @@ RUN NODE_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "x64") && \
     NODE_VERSION=$(curl -fsSL https://nodejs.org/dist/index.json | jq -r '[.[] | select(.lts != false)][0].version') && \
     curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" | tar xJ -C /tmp && \
     export PATH="/tmp/node-${NODE_VERSION}-linux-${NODE_ARCH}/bin:$PATH" && \
-    npm install -g --prefix="$HOME/.local" @qodo/command && \
+    npm install -g --prefix="$HOME/.local" @qodo/command@0.36.0 && \
     rm -rf /tmp/node-${NODE_VERSION}-linux-${NODE_ARCH}
 
 # =============================================================================

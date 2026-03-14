@@ -2,7 +2,10 @@
 # Used by: qodo run review, qodo run improve
 # Docs: https://docs.qodo.ai/qodo-documentation/qodo-command
 
+version = "1.0"
+
 [commands.review]
+description = "Staff-level code review with severity triage (P0/P1/P2)"
 instructions = """
 You are a Staff-level code reviewer. Analyze the git diff strictly.
 
@@ -23,10 +26,11 @@ For each finding:
   Evidence: <what's wrong>
   Fix: <minimal patch steps>
 """
-available_tools = ["git", "filesystem", "ripgrep"]
+tools = ["git", "filesystem", "ripgrep"]
 execution_strategy = "act"
 
 [commands.improve]
+description = "Code improvement suggestions for git diff (P0/P1 only)"
 instructions = """
 Suggest code improvements for the git diff. Only P0/P1 fixes.
 For each suggestion:
@@ -35,5 +39,5 @@ For each suggestion:
   After: <improved code>
   Reason: <why this is better>
 """
-available_tools = ["git", "filesystem", "ripgrep"]
+tools = ["git", "filesystem", "ripgrep"]
 execution_strategy = "act"

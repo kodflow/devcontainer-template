@@ -35,7 +35,7 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 1. **New project**: `/init` → conversational discovery → doc generation
 2. **New feature**: `/plan "description"` → planning mode → `/do` → `/git --commit`
 3. **Bug fix**: `/plan "description"` → planning mode → `/do` → `/git --commit`
-4. **Code review**: `/review` → 5 specialist executors in parallel
+4. **Code review**: `/review` → 3-tier review (agents + Qodo + CodeRabbit)
 
 Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
 
