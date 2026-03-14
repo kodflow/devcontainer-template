@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-27T13:00:00Z -->
+<!-- updated: 2026-03-14T12:00:00Z -->
 # Claude Code Core Rules
 
 ## 1.0 MCP-FIRST (MANDATORY)
@@ -48,7 +48,7 @@ Enforced by `commit-validate.sh` hook.
 | `/init` | Personalize + validate |
 | `/plan` | Planning mode |
 | `/do` | Iterative task execution |
-| `/review` | Code review (5 agents) |
+| `/review` | Code review (3 tiers: agents + Qodo + CodeRabbit) |
 | `/git` | Branch + commit + PR |
 | `/search` | Documentation research |
 | `/docs` | Deep project docs generation |

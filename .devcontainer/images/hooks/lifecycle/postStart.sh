@@ -665,11 +665,11 @@ step_coderabbit_auth() {
         return 0
     fi
 
-    # Skip if already authenticated (with valid token)
+    # Skip if already authenticated (check both OAuth and API key formats)
     if [ -f "$CR_AUTH_FILE" ]; then
         if command -v jq >/dev/null 2>&1; then
             local existing_token
-            existing_token=$(jq -r '.accessToken // ""' "$CR_AUTH_FILE" 2>/dev/null || echo "")
+            existing_token=$(jq -r '.accessToken // .apiKey // ""' "$CR_AUTH_FILE" 2>/dev/null || echo "")
             if [ -n "$existing_token" ]; then
                 log_success "CodeRabbit already authenticated"
                 return 0
@@ -733,7 +733,11 @@ step_coderabbit_auth() {
     }
     trap 'rm -f "${cr_tmp:-}" 2>/dev/null || true' RETURN
 
-    # Detect provider from git remote (github or gitlab)
+    # Write OAuth auth format (accessToken + provider)
+    # Note: both OAuth and API key tokens start with "cr-" so prefix detection
+    # cannot distinguish them. We always use OAuth format because:
+    #   - OAuth: works without paid addon
+    #   - API key: requires "Hoppy CLI" subscription
     local cr_provider="github"
     local remote_url
     remote_url=$(git config --get remote.origin.url 2>/dev/null || echo "")
@@ -757,6 +761,70 @@ step_coderabbit_auth() {
         log_warning "CodeRabbit: generated auth.json is invalid, skipping"
         rm -f "$cr_tmp" 2>/dev/null || true
     fi
+}
+
+# Authenticate Qodo Command CLI via 1Password
+# Item: mcp-qodo in 1Password vault
+# Env var: QODO_API_KEY (written to ~/.devcontainer-env.sh)
+step_qodo_auth() {
+    local VAULT_ID="${OP_VAULT_ID:-ypahjj334ixtiyjkytu5hij2im}"
+
+    # Skip if Qodo CLI not installed
+    if ! command -v qodo &> /dev/null; then
+        log_info "Qodo CLI not installed, skipping auth"
+        return 0
+    fi
+
+    # Skip if already configured
+    if grep -q "^export QODO_API_KEY=" "$HOME/.devcontainer-env.sh" 2>/dev/null; then
+        local existing_key
+        existing_key=$(grep "^export QODO_API_KEY=" "$HOME/.devcontainer-env.sh" | head -1 | cut -d= -f2- | tr -d '"')
+        if [ -n "$existing_key" ]; then
+            log_success "Qodo already authenticated"
+            return 0
+        fi
+    fi
+
+    # Guard: 1Password CLI must be available
+    if ! command -v op &> /dev/null; then
+        log_info "Qodo: op CLI not installed, skipping auto-auth"
+        return 0
+    fi
+
+    # Guard: OP_SERVICE_ACCOUNT_TOKEN must be set
+    if [ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]; then
+        log_info "Qodo: OP_SERVICE_ACCOUNT_TOKEN not set, skipping auto-auth"
+        return 0
+    fi
+
+    # Guard: vault must be accessible (quick connectivity check)
+    if ! op vault get "$VAULT_ID" --format=json >/dev/null 2>&1; then
+        log_warning "Qodo: 1Password vault inaccessible (vault: $VAULT_ID), skipping"
+        return 0
+    fi
+
+    # Retrieve API key from 1Password (try multiple field names)
+    local QODO_KEY=""
+    local fields=("credential" "password" "identifiant" "mot de passe")
+    for field in "${fields[@]}"; do
+        QODO_KEY=$(op item get "mcp-qodo" --vault "$VAULT_ID" --fields "$field" --reveal 2>/dev/null || echo "")
+        [ -n "$QODO_KEY" ] && break
+    done
+
+    if [ -z "$QODO_KEY" ]; then
+        log_info "Qodo: item 'mcp-qodo' not found in 1Password, skipping"
+        return 0
+    fi
+
+    # Write to environment file (safe append with dedup)
+    sed -i '/^export QODO_API_KEY=/d' "$HOME/.devcontainer-env.sh" 2>/dev/null || true
+    printf "export QODO_API_KEY='%s'\n" "$QODO_KEY" >> "$HOME/.devcontainer-env.sh"
+    chmod 600 "$HOME/.devcontainer-env.sh" 2>/dev/null || true
+
+    # Export for current session
+    export QODO_API_KEY="$QODO_KEY"
+
+    log_success "Qodo authenticated via 1Password"
 }
 
 # Clean git credential helpers (remove macOS-specific helpers)
@@ -1590,6 +1658,7 @@ run_step "npm cache permissions"    step_npm_cache_permissions
 run_step "MCP configuration"        step_mcp_configuration
 run_step "Taskmaster config"        step_taskmaster_config
 run_step "CodeRabbit auth"           step_coderabbit_auth
+run_step "Qodo auth"               step_qodo_auth
 run_step "Git credential cleanup"   step_git_credential_cleanup
 
 # Background tasks (tracked via PID files for diagnostics)

@@ -1,4 +1,4 @@
-<!-- updated: 2026-03-10T12:30:00Z -->
+<!-- updated: 2026-03-14T12:00:00Z -->
 # DevContainer Images
 
 ## Purpose
@@ -76,7 +76,7 @@ Lifecycle hooks delegate from workspace stubs to `/etc/devcontainer-hooks/` (ima
 | Container | Docker (via feature), kubectl, Helm |
 | Network | ping, dig, nmap, traceroute, mtr, tcpdump, netcat, whois, iperf3, net-tools |
 | VPN | OpenVPN, WireGuard, StrongSwan (IPsec), PPTP |
-| Code Quality | ShellCheck, ktn-linter, grepai, CodeRabbit, RTK |
+| Code Quality | ShellCheck, ktn-linter, grepai, CodeRabbit, Qodo, RTK |
 | Shell | Zsh (default `$SHELL`) + Oh My Zsh + Powerlevel10k |
 
 ## Shell Startup Optimization (v3)
@@ -146,7 +146,7 @@ Configured in `mcp.json.tpl`:
 | `/init` | Project initialization check |
 | `/plan` | Planning mode for implementation strategy |
 | `/do` | Iterative task execution loop (RLM) |
-| `/review` | AI-powered code review (RLM decomposition) |
+| `/review` | AI-powered code review (3-tier: agents + Qodo + CodeRabbit) |
 | `/git` | Workflow Git automation (commit, push, PR, merge) |
 | `/search` | Documentation research with official sources |
 | `/docs` | Deep project documentation generation (multi-agent) |
