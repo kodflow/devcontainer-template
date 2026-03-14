@@ -33,7 +33,7 @@ resolve_vault_id() {
         sanitized=$(echo "$OP_VAULT_ID" | tr -d '[:space:]')
         # Reject empty after trim or values starting with '-' (option injection)
         if [ -z "$sanitized" ] || [[ "$sanitized" == -* ]]; then
-            log_warning "OP_VAULT_ID contains invalid value, ignoring"
+            log_warning "OP_VAULT_ID contains invalid value, ignoring" >&2
         else
             echo "$sanitized"
             return 0
@@ -42,7 +42,7 @@ resolve_vault_id() {
     # Priority 2: dynamic resolution of vault named "CI"
     if command -v op &> /dev/null && [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]; then
         if ! command -v jq &> /dev/null; then
-            log_info "jq not available; set OP_VAULT_ID to skip auto-lookup"
+            log_info "jq not available; set OP_VAULT_ID to skip auto-lookup" >&2
             echo ""
             return 0
         fi
