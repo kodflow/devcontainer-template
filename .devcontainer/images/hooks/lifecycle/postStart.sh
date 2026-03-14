@@ -723,6 +723,12 @@ step_coderabbit_auth() {
         return 0
     fi
 
+    # Guard: VAULT_ID must be resolved
+    if [ -z "$VAULT_ID" ]; then
+        log_info "CodeRabbit: OP_VAULT_ID not set and vault 'CI' not found, skipping auto-auth"
+        return 0
+    fi
+
     # Guard: vault must be accessible (quick connectivity check)
     if ! op vault get "$VAULT_ID" --format=json >/dev/null 2>&1; then
         log_warning "CodeRabbit: 1Password vault inaccessible (vault: $VAULT_ID), skipping"
@@ -825,6 +831,12 @@ step_qodo_auth() {
     # Guard: OP_SERVICE_ACCOUNT_TOKEN must be set
     if [ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]; then
         log_info "Qodo: OP_SERVICE_ACCOUNT_TOKEN not set, skipping auto-auth"
+        return 0
+    fi
+
+    # Guard: VAULT_ID must be resolved
+    if [ -z "$VAULT_ID" ]; then
+        log_info "Qodo: OP_VAULT_ID not set and vault 'CI' not found, skipping auto-auth"
         return 0
     fi
 
