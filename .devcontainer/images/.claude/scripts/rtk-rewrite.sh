@@ -26,7 +26,7 @@ if [ -n "$RTK_VERSION" ]; then
     WARN_MARKER="${XDG_CACHE_HOME:-$HOME/.cache}/rtk/.version-warning-shown"
     if [ ! -f "$WARN_MARKER" ]; then
       mkdir -p "$(dirname "$WARN_MARKER")"
-      echo "[rtk] WARNING: rtk $RTK_VERSION is too old (need >= 0.23.0). Upgrade: cargo install rtk" >&2
+      echo "[rtk] WARNING: rtk $RTK_VERSION is too old (need >= 0.23.0). Upgrade: download latest binary from https://github.com/rtk-ai/rtk/releases and replace /usr/local/bin/rtk" >&2
       : > "$WARN_MARKER"
     fi
     exit 0

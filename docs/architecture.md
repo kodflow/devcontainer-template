@@ -13,9 +13,9 @@ Base image (Ubuntu 24.04 + core tooling)
         |
 Lifecycle hooks + language features
         |
-Claude Code + MCP servers (github, codacy, context7, grepai, playwright)
+Claude Code + MCP servers (github, gitlab, codacy, context7, grepai, playwright, taskmaster)
         |
-Specialist agents (13 language + 5 executor + 8 devops)
+Specialist agents (25 language + 6 dev executor + 9 devops + 6 platform executor + 22 OS + 9 docs analyzers + 2 orchestrators)
 ```
 
 ## Key Components
@@ -68,11 +68,13 @@ User intent (slash command)
 
 | Service | Tool | Purpose |
 |---------|------|---------|
-| GitHub | `@modelcontextprotocol/server-github` | PR automation, code search |
+| GitHub | `ghcr.io/github/github-mcp-server` | PR automation, code search |
+| GitLab | `@zereight/mcp-gitlab` | MR automation, pipelines |
 | Codacy | `@codacy/codacy-mcp` | Security and lint analysis |
 | context7 | `@upstash/context7-mcp` | Official library documentation |
 | Playwright | `@playwright/mcp` | Browser automation, E2E testing |
 | grepai | Local MCP | Semantic code search, call graphs |
+| Taskmaster | `task-master-ai` | Task planning, dependencies, PRD parsing |
 
 ## Volumes
 

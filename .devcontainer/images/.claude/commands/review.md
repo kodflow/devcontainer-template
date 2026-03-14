@@ -75,10 +75,10 @@ Intelligent code review using **Recursive Language Model** decomposition:
 | T2 (Qodo) | `qodo run review` | Bash `--ci --silent --log` | Text → parsed |
 | T3 (CodeRabbit) | `coderabbit review --plain` | Bash `--plain --base` | Text → parsed |
 
-**T1 Agents (opus for reasoning, haiku for patterns):**
-- `developer-executor-correctness` (opus) - Algorithmic errors, invariants
+**T1 Agents (opus/sonnet for reasoning, haiku for patterns):**
+- `developer-executor-correctness` (sonnet) - Algorithmic errors, invariants
 - `developer-executor-security` (opus) - Taint analysis, OWASP, supply chain
-- `developer-executor-design` (opus) - Antipatterns, DDD, layering, SOLID
+- `developer-executor-design` (sonnet) - Antipatterns, DDD, layering, SOLID
 - `developer-executor-quality` (haiku) - Style, complexity, metrics
 - `developer-executor-shell` (haiku) - Shell safety, Dockerfile, CI/CD
 
@@ -219,7 +219,7 @@ context_detection:
   4_ci_status:
     condition: "on_pr_mr == true"
     tools:
-      github: "mcp__github__get_pull_request_status"
+      github: "mcp__github__pull_request_read (method: get_status)"
       gitlab: "mcp__gitlab__list_pipelines(ref: current_branch)"
     strategy:
       max_polls: 2
@@ -334,8 +334,8 @@ repo_profile:
 intent_analysis:
   inputs:
     github:
-      - "mcp__github__get_pull_request (title, body, labels)"
-      - "mcp__github__get_pull_request_files (file list)"
+      - "mcp__github__pull_request_read (method: get → title, body, labels)"
+      - "mcp__github__pull_request_read (method: get_files → file list)"
     gitlab:
       - "mcp__gitlab__get_merge_request (title, description, labels)"
       - "mcp__gitlab__get_merge_request_changes (file list)"
@@ -451,7 +451,7 @@ auto_describe:
   workflow:
     1_analyze_diff:
       inputs:
-        github: "mcp__github__get_pull_request_files"
+        github: "mcp__github__pull_request_read (method: get_files)"
         gitlab: "mcp__gitlab__get_merge_request_changes"
         common:
           - "git diff --stat"
@@ -551,8 +551,8 @@ feedback_collection:
   1_fetch:
     tools:
       github:
-        - "mcp__github__get_pull_request_reviews"
-        - "mcp__github__get_pull_request_comments"
+        - "mcp__github__pull_request_read (method: get_reviews)"
+        - "mcp__github__pull_request_read (method: get_comments)"
       gitlab:
         - "mcp__gitlab__list_merge_request_notes"
         - "mcp__gitlab__list_merge_request_discussions"
@@ -772,7 +772,7 @@ parallel_analysis:
     agents:
       correctness:
         name: "developer-executor-correctness"
-        model: opus
+        model: sonnet
         trigger: "always (MANDATORY for code stability)"
         focus:
           - "Algorithmic errors (off-by-one, bounds, indexes)"
@@ -797,7 +797,7 @@ parallel_analysis:
 
       design:
         name: "developer-executor-design"
-        model: opus
+        model: sonnet
         trigger: "risk_tags contains architecture OR files in core/, domain/, pkg/"
         focus:
           - "Antipatterns (God object, Feature envy, etc.)"
@@ -1605,7 +1605,7 @@ error_handling:
     │       │
     │       ├─→ 4: PARALLEL (5 agents)
     │       │       │
-    │       │       ├─→ developer-executor-correctness (opus)
+    │       │       ├─→ developer-executor-correctness (sonnet)
     │       │       │     Focus: Invariants, bounds, state, concurrency
     │       │       │     Output: oracle, failure_mode, repro
     │       │       │
@@ -1613,7 +1613,7 @@ error_handling:
     │       │       │     Focus: OWASP, taint analysis, supply chain
     │       │       │     Output: source, sink, taint_path, CWE refs
     │       │       │
-    │       │       ├─→ developer-executor-design (opus)
+    │       │       ├─→ developer-executor-design (sonnet)
     │       │       │     Focus: Antipatterns, DDD, layering, SOLID
     │       │       │     Output: pattern_reference, official_reference
     │       │       │

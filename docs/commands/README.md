@@ -1,8 +1,8 @@
-# Commandes
+# Commands
 
-Les commandes (slash commands) sont le point d'entrée principal. Tapez-les directement dans Claude Code.
+Commands (slash commands) are the main entry point. Type them directly in Claude Code.
 
-## Quand utiliser quelle commande
+## When to Use Which Command
 
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': {
@@ -13,60 +13,62 @@ Les commandes (slash commands) sont le point d'entrée principal. Tapez-les dire
   'textColor': '#d4d8e0'
 }}}%%
 flowchart TD
-    Q{Que voulez-vous faire ?}
-    Q -->|Nouveau projet| A["/init"]
-    Q -->|Planifier du code| B["/plan"]
-    Q -->|Exécuter un plan| C["/do"]
-    Q -->|Valider du code| D["/review"]
-    Q -->|Committer / PR| E["/git"]
-    Q -->|Tester dans un navigateur| F["/test"]
-    Q -->|Corriger le style| G["/lint"]
-    Q -->|Chercher de la doc| H["/search"]
-    Q -->|Générer la doc| I["/docs"]
+    Q{What do you want to do?}
+    Q -->|New project| A["/init"]
+    Q -->|Plan code| B["/plan"]
+    Q -->|Execute a plan| C["/do"]
+    Q -->|Validate code| D["/review"]
+    Q -->|Commit / PR| E["/git"]
+    Q -->|Test in a browser| F["/test"]
+    Q -->|Fix code style| G["/lint"]
+    Q -->|Search documentation| H["/search"]
+    Q -->|Generate docs| I["/docs"]
     Q -->|Infrastructure| J["/infra"]
-    Q -->|Gérer des secrets| K["/secret"]
-    Q -->|Se connecter en VPN| L["/vpn"]
+    Q -->|Manage secrets| K["/secret"]
+    Q -->|Connect via VPN| L["/vpn"]
+    Q -->|Track features| M["/feature"]
 ```
 
-## Référence complète
+## Full Reference
 
-### Cycle de développement
+### Development Cycle
 
-| Commande | Arguments | Ce que ça fait |
-|----------|-----------|----------------|
-| `/init` | — | Découverte interactive du projet, génère la doc de base (vision, architecture, workflows) |
-| `/plan "desc"` | description de la tâche | Analyse le codebase, consulte les patterns, propose un plan étape par étape |
-| `/do` | `--step`, `--max N` | Exécute le plan approuvé. Itère jusqu'à ce que tests + lint passent (max 50 itérations) |
-| `/review` | `--pr N`, `--loop` | Lance 5 agents d'analyse en parallèle (correctness, security, design, quality, shell) |
-| `/git` | `--commit`, `--push`, `--pr`, `--merge` | Branche conventionnelle, commit signé, PR via MCP GitHub |
+| Command | Arguments | What It Does |
+|---------|-----------|--------------|
+| `/init` | — | Interactive project discovery, generates base docs (vision, architecture, workflows) |
+| `/plan "desc"` | task description | Analyzes the codebase, consults patterns, proposes a step-by-step plan |
+| `/do` | `--step`, `--max N` | Executes the approved plan. Iterates until tests + lint pass (max 50 iterations) |
+| `/review` | `--pr N`, `--loop` | Launches 5 analysis agents in parallel (correctness, security, design, quality, shell) |
+| `/git` | `--commit`, `--push`, `--pr`, `--merge` | Conventional branch, signed commit, PR via MCP GitHub |
+| `/feature` | `--add`, `--edit`, `--del`, `--list`, `--checkup` | Feature tracking (RTM) with audit and auto-learn |
 
-### Qualité
+### Quality
 
-| Commande | Arguments | Ce que ça fait |
-|----------|-----------|----------------|
-| `/lint` | `--fix` | 148 règles ktn-linter en 8 phases, corrige automatiquement |
-| `/test` | `--headless`, `--trace` | Tests E2E avec Playwright MCP (navigation, screenshots, assertions) |
+| Command | Arguments | What It Does |
+|---------|-----------|--------------|
+| `/lint` | `--fix` | 148 ktn-linter rules in 8 phases, auto-fixes |
+| `/test` | `--headless`, `--trace` | E2E tests with Playwright MCP (navigation, screenshots, assertions) |
 
-### Documentation & Recherche
+### Documentation & Search
 
-| Commande | Arguments | Ce que ça fait |
-|----------|-----------|----------------|
-| `/search "query"` | requête en langage naturel | Cherche d'abord dans `~/.claude/docs/`, puis context7, puis le web |
-| `/docs` | `--update`, `--stop`, `--serve`, `--quick` | Génère la documentation MkDocs depuis l'analyse du codebase |
-| `/warmup` | `--update` | Charge la hiérarchie CLAUDE.md en mémoire, met à jour si besoin |
+| Command | Arguments | What It Does |
+|---------|-----------|--------------|
+| `/search "query"` | natural language query | Searches first in `~/.claude/docs/`, then context7, then the web |
+| `/docs` | `--update`, `--stop`, `--serve`, `--quick` | Generates MkDocs documentation from codebase analysis |
+| `/warmup` | `--update` | Loads the CLAUDE.md hierarchy into memory, updates if needed |
 
 ### Infrastructure & Ops
 
-| Commande | Arguments | Ce que ça fait |
-|----------|-----------|----------------|
-| `/infra` | `--plan`, `--apply`, `--docs` | Terraform/Terragrunt : plan, apply, documentation auto |
-| `/secret` | `--push KEY=val`, `--get KEY`, `--list` | Gestion de secrets via 1Password CLI (`op://vault/item`) |
-| `/vpn` | `--connect`, `--disconnect`, `--list` | Connexion VPN multi-protocole depuis 1Password |
+| Command | Arguments | What It Does |
+|---------|-----------|--------------|
+| `/infra` | `--plan`, `--apply`, `--docs` | Terraform/Terragrunt: plan, apply, auto-documentation |
+| `/secret` | `--push KEY=val`, `--get KEY`, `--list` | Secret management via 1Password CLI (`op://vault/item`) |
+| `/vpn` | `--connect`, `--disconnect`, `--list` | Multi-protocol VPN connection from 1Password |
 
-### Utilitaires
+### Utilities
 
-| Commande | Arguments | Ce que ça fait |
-|----------|-----------|----------------|
-| `/update` | `--check`, `--force` | Met à jour le devcontainer depuis le template officiel |
-| `/improve` | — | Audit qualité des fichiers de patterns dans `~/.claude/docs/` |
-| `/prompt` | — | Affiche le format idéal pour les descriptions de `/plan` |
+| Command | Arguments | What It Does |
+|---------|-----------|--------------|
+| `/update` | `--check`, `--force` | Updates the devcontainer from the official template |
+| `/improve` | — | Quality audit for pattern files in `~/.claude/docs/` |
+| `/prompt` | — | Displays the ideal format for `/plan` descriptions |

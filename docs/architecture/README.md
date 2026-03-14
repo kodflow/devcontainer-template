@@ -1,8 +1,8 @@
 # Architecture
 
-## Vue d'ensemble
+## Overview
 
-Le DevContainer Template est organisé en 4 couches : l'image Docker de base, les features de langages, la configuration Claude Code, et les hooks d'automatisation.
+The DevContainer Template is organized in 4 layers: the base Docker image, language features, Claude Code configuration, and automation hooks.
 
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': {
@@ -20,33 +20,33 @@ Le DevContainer Template est organisé en 4 couches : l'image Docker de base, le
 }}}%%
 flowchart TB
     subgraph IDE["VS Code / Codespaces"]
-        U[Développeur]
+        U[Developer]
     end
 
     subgraph DC["DevContainer"]
-        subgraph BASE["Image de base (Ubuntu 24.04)"]
+        subgraph BASE["Base Image (Ubuntu 24.04)"]
             TOOLS[Cloud CLIs<br/>Terraform, Vault<br/>Docker, kubectl]
             NET[VPN clients<br/>OpenVPN, WireGuard]
         end
 
-        subgraph FEAT["Features (langages)"]
+        subgraph FEAT["Features (languages)"]
             L1[Python + ruff + pytest]
             L2[Go + golangci-lint]
             L3[Rust + clippy + cargo-nextest]
-            LN[... 22 autres]
+            LN[... 22 others]
         end
 
         subgraph CLAUDE["Claude Code"]
-            CMD[16 commandes<br/>/plan /do /review /git]
+            CMD[17 commands<br/>/plan /do /review /git]
             AGT[79 agents<br/>orchestrators → specialists → executors]
-            HK[8 hooks Claude<br/>format, lint, test, security]
+            HK[8 Claude hooks<br/>format, lint, test, security]
         end
 
-        subgraph MCP["Serveurs MCP"]
-            G[grepai<br/>recherche sémantique]
-            C7[context7<br/>docs à jour]
+        subgraph MCP["MCP Servers"]
+            G[grepai<br/>semantic search]
+            C7[context7<br/>up-to-date docs]
             GH[GitHub MCP<br/>PRs, issues]
-            PW[Playwright<br/>tests E2E]
+            PW[Playwright<br/>E2E tests]
         end
     end
 
@@ -67,43 +67,43 @@ flowchart TB
     class TOOLS,NET external
 ```
 
-## Structure des fichiers
+## File Structure
 
 ```
 .devcontainer/
-├── devcontainer.json          # Point d'entrée VS Code
+├── devcontainer.json          # VS Code entry point
 ├── docker-compose.yml         # Service + 8 volumes
-├── Dockerfile                 # Étend l'image de base
-├── .env.tpl                   # Template des variables d'env
+├── Dockerfile                 # Extends the base image
+├── .env.tpl                   # Environment variables template
 ├── features/
-│   └── languages/             # 25 installeurs (1 par langage)
-│       ├── shared/            # feature-utils.sh (utilitaires partagés)
+│   └── languages/             # 25 installers (1 per language)
+│       ├── shared/            # feature-utils.sh (shared utilities)
 │       ├── go/install.sh
 │       ├── python/install.sh
 │       └── ...
 ├── hooks/
-│   └── lifecycle/             # Stubs de délégation
+│   └── lifecycle/             # Delegation stubs
 │       ├── initialize.sh      # → host (Ollama, .env)
 │       ├── postCreate.sh      # → /etc/devcontainer-hooks/
 │       └── postStart.sh       # → /etc/devcontainer-hooks/
 └── images/
-    ├── Dockerfile             # Image de base (Ubuntu + outils)
-    ├── mcp.json.tpl           # Template MCP (tokens injectés)
-    ├── grepai.config.yaml     # Config recherche sémantique
-    ├── hooks/                 # Vrais hooks (embarqués dans l'image)
-    │   ├── shared/utils.sh    # 367 lignes d'utilitaires
+    ├── Dockerfile             # Base image (Ubuntu + tools)
+    ├── mcp.json.tpl           # MCP template (tokens injected)
+    ├── grepai.config.yaml     # Semantic search config
+    ├── hooks/                 # Real hooks (embedded in image)
+    │   ├── shared/utils.sh    # 367 lines of utilities
     │   └── lifecycle/         # onCreate, postCreate, postStart
     └── .claude/
-        ├── commands/          # 16 commandes (markdown)
+        ├── commands/          # 17 commands (markdown)
         ├── agents/            # 79 agents (markdown)
-        ├── scripts/           # 15 scripts hooks Claude
-        ├── docs/              # 170+ patterns de design
-        └── settings.json      # Config Claude Code
+        ├── scripts/           # 31 Claude hook scripts
+        ├── docs/              # 170+ design patterns
+        └── settings.json      # Claude Code config
 ```
 
-## Système d'agents
+## Agent System
 
-79 agents organisés en hiérarchie à 3 niveaux :
+79 agents organized in a 3-level hierarchy:
 
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': {
@@ -114,22 +114,22 @@ flowchart TB
   'textColor': '#d4d8e0'
 }}}%%
 flowchart TD
-    subgraph ORCH["Orchestrateurs (2 — opus)"]
+    subgraph ORCH["Orchestrators (2 — opus)"]
         DO[developer-orchestrator]
         OO[devops-orchestrator]
     end
 
-    subgraph SPEC["Spécialistes (35 — sonnet)"]
-        LS[26 langages<br/>Go, Python, Rust<br/>Java, C++, Ruby...]
+    subgraph SPEC["Specialists (34 — sonnet)"]
+        LS[25 languages<br/>Go, Python, Rust<br/>Java, C++, Ruby...]
         IS[9 infrastructure<br/>AWS, Azure, GCP<br/>Docker, K8s, Security]
     end
 
-    subgraph EXEC["Exécuteurs (11 — haiku/opus)"]
-        DE[5 dev executors<br/>correctness, security<br/>design, quality, shell]
+    subgraph EXEC["Executors (12 — haiku/opus)"]
+        DE[6 dev executors<br/>review, correctness, security<br/>design, quality, shell]
         PE[6 platform executors<br/>Linux, macOS, BSD<br/>Windows, QEMU, VMware]
     end
 
-    subgraph DOCS["Analyseurs docs (9 — haiku)"]
+    subgraph DOCS["Documentation Analyzers (9 — haiku)"]
         DA[languages, commands<br/>agents, hooks, mcp<br/>patterns, structure<br/>config, architecture]
     end
 
@@ -139,36 +139,36 @@ flowchart TD
     OO --> PE
 ```
 
-| Niveau | Nombre | Modèle | Rôle |
-|--------|--------|--------|------|
-| Orchestrateur | 2 | Opus | Décompose la tâche, coordonne les sous-agents |
-| Spécialiste | 35 | Sonnet | Expertise dans un langage ou domaine infra |
-| Exécuteur | 11 | Haiku/Opus | Analyse ciblée (sécurité, qualité, correctness) |
-| Analyseur docs | 9 | Haiku/Sonnet | Analyse du codebase pour `/docs` |
+| Level | Count | Model | Role |
+|-------|-------|-------|------|
+| Orchestrator | 2 | Opus | Decomposes the task, coordinates sub-agents |
+| Specialist | 34 | Sonnet | Expertise in a language or infrastructure domain |
+| Executor | 12 | Haiku/Opus | Targeted analysis (security, quality, correctness) |
+| Documentation Analyzer | 9 | Haiku/Sonnet | Codebase analysis for `/docs` |
 
-**Comment c'est utilisé** : quand vous tapez `/review`, le `developer-specialist-review` lance 5 exécuteurs en parallèle. Quand vous tapez `/plan`, l'orchestrateur consulte le spécialiste du langage détecté et les patterns dans `~/.claude/docs/`.
+**How it's used**: when you type `/review`, the `developer-specialist-review` launches 5 executors in parallel. When you type `/plan`, the orchestrator consults the detected language specialist and the patterns in `~/.claude/docs/`.
 
-## Pattern de délégation des hooks
+## Hook Delegation Pattern
 
-Les hooks de cycle de vie utilisent un pattern à deux couches :
+Lifecycle hooks use a two-layer pattern:
 
-1. **Stubs workspace** (`.devcontainer/hooks/lifecycle/`) : scripts courts qui délèguent
-2. **Hooks image** (`/etc/devcontainer-hooks/lifecycle/`) : vrais scripts embarqués dans le Docker
+1. **Workspace stubs** (`.devcontainer/hooks/lifecycle/`): short scripts that delegate
+2. **Image hooks** (`/etc/devcontainer-hooks/lifecycle/`): real scripts embedded in Docker
 
-Avantage : les hooks se mettent à jour automatiquement quand l'image est reconstruite, sans modifier le workspace.
+Advantage: hooks update automatically when the image is rebuilt, without modifying the workspace.
 
 ```bash
-# Exemple de stub (postStart.sh dans le workspace)
+# Example stub (postStart.sh in workspace)
 #!/bin/bash
 exec /etc/devcontainer-hooks/lifecycle/postStart.sh "$@"
 ```
 
-## Restauration au démarrage
+## Startup Restoration
 
-`postStart.sh` restaure les fichiers Claude depuis `/etc/claude-defaults/` à chaque démarrage. Ce mécanisme garantit que les commandes, agents et scripts sont toujours à jour avec l'image, même si le volume `~/.claude` contient d'anciennes versions.
+`postStart.sh` restores Claude files from `/etc/claude-defaults/` at each startup. This mechanism ensures that commands, agents and scripts are always up to date with the image, even if the `~/.claude` volume contains older versions.
 
-Fichiers restaurés :
-- `~/.claude/commands/` (16 commandes)
-- `~/.claude/scripts/` (15 scripts hooks)
+Restored files:
+- `~/.claude/commands/` (17 commands)
+- `~/.claude/scripts/` (31 hook scripts)
 - `~/.claude/agents/` (79 agents)
 - `~/.claude/docs/` (170+ patterns)

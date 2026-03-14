@@ -152,20 +152,20 @@ install_ollama() {
             if command -v brew &>/dev/null; then
                 brew install ollama
             else
-                curl -fsSL https://ollama.ai/install.sh | sh
+                curl -fsSL https://ollama.com/install.sh | sh
             fi
             ;;
         linux)
-            curl -fsSL https://ollama.ai/install.sh | sh
+            curl -fsSL https://ollama.com/install.sh | sh
             ;;
         windows)
             echo "Windows detected. Please install Ollama manually:"
-            echo "  Download from: https://ollama.ai/download/windows"
+            echo "  Download from: https://ollama.com/download/windows"
             echo "  Or via winget: winget install Ollama.Ollama"
             return 1
             ;;
         *)
-            echo "Unknown OS. Please install Ollama manually from https://ollama.ai"
+            echo "Unknown OS. Please install Ollama manually from https://ollama.com"
             return 1
             ;;
     esac
@@ -259,8 +259,8 @@ else
     echo "Warning: Ollama not available - will use CPU-only sidecar"
     echo "To enable GPU acceleration, install Ollama manually:"
     echo "  macOS: brew install ollama"
-    echo "  Linux: curl -fsSL https://ollama.ai/install.sh | sh"
-    echo "  Windows: https://ollama.ai/download/windows"
+    echo "  Linux: curl -fsSL https://ollama.com/install.sh | sh"
+    echo "  Windows: https://ollama.com/download/windows"
 fi
 
 # ============================================================================

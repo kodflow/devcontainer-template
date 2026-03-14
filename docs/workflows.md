@@ -5,8 +5,8 @@
 | Task | Command |
 |------|---------|
 | Initialize project | `/init` |
-| New feature | `/feature <description>` |
-| Bug fix | `/fix <description>` |
+| New feature | `/plan "feature description"` |
+| Bug fix | `/plan "fix description"` |
 | Code review | `/review` |
 | Plan implementation | `/plan` |
 | Execute plan | `/do` |
@@ -24,7 +24,7 @@ Run once after creating a project from this template. Produces vision, architect
 ## Feature Development
 
 ```
-/feature "add user auth" → plan → implement → /review → PR
+/plan "add user auth" → implement → /review → PR
 ```
 
 1. Creates `feat/<desc>` branch
@@ -36,7 +36,7 @@ Run once after creating a project from this template. Produces vision, architect
 ## Bug Fixes
 
 ```
-/fix "login timeout" → plan → implement → /review → PR
+/plan "fix: login timeout" → implement → /review → PR
 ```
 
 Same flow as features, uses `fix/` branch prefix and `fix(scope):` commits.

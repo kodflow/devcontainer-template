@@ -134,12 +134,12 @@ step_shell_env_repair() {
     fi
 
     if [ "$need_regen" = true ]; then
-        if [ -f /home/vscode/.devcontainer-initialized ]; then
-            rm -f /home/vscode/.devcontainer-initialized
-            if [ -f /workspace/.devcontainer/hooks/lifecycle/postCreate.sh ]; then
-                bash /workspace/.devcontainer/hooks/lifecycle/postCreate.sh 2>/dev/null || true
+        if [ -f "$HOME/.devcontainer-initialized" ]; then
+            rm -f "$HOME/.devcontainer-initialized"
+            if [ -f "${WORKSPACE_FOLDER:-/workspace}/.devcontainer/hooks/lifecycle/postCreate.sh" ]; then
+                bash "${WORKSPACE_FOLDER:-/workspace}/.devcontainer/hooks/lifecycle/postCreate.sh" 2>/dev/null || true
             fi
-            touch /home/vscode/.devcontainer-initialized
+            touch "$HOME/.devcontainer-initialized"
         fi
         log_success "devcontainer-env.sh upgraded to v3 (lazy wrappers + cached completions)"
     fi
@@ -340,7 +340,7 @@ step_generate_p10k_segments() {
 
 # Reload .env file to get updated tokens
 step_reload_env() {
-    local ENV_FILE="/workspace/.devcontainer/.env"
+    local ENV_FILE="${WORKSPACE_FOLDER:-/workspace}/.devcontainer/.env"
     if [ -f "$ENV_FILE" ]; then
         log_info "Reloading environment from .env..."
         set -a
@@ -388,9 +388,9 @@ step_npm_cache_permissions() {
 # MCP configuration setup (inject secrets into template)
 step_mcp_configuration() {
     # 1Password vault ID (can be overridden via OP_VAULT_ID env var)
-    local VAULT_ID="${OP_VAULT_ID:-ypahjj334ixtiyjkytu5hij2im}"
+    local VAULT_ID="${OP_VAULT_ID:-}"
     local MCP_TPL="/etc/mcp/mcp.json.tpl"
-    local MCP_OUTPUT="/workspace/mcp.json"
+    local MCP_OUTPUT="${WORKSPACE_FOLDER:-/workspace}/mcp.json"
 
     # Skip regeneration if mcp.json exists and template hasn't changed
     if [ -f "$MCP_OUTPUT" ] && [ -f "$MCP_TPL" ]; then
@@ -426,6 +426,9 @@ step_mcp_configuration() {
     # Try 1Password if OP_SERVICE_ACCOUNT_TOKEN is defined
     if [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &> /dev/null; then
         log_info "Retrieving secrets from 1Password..."
+        if [ -z "$VAULT_ID" ]; then
+            log_warn "OP_VAULT_ID not set, skipping 1Password secrets"
+        else
 
         local OP_CODACY
         OP_CODACY=$(get_1password_field "mcp-codacy" "$VAULT_ID")
@@ -434,6 +437,7 @@ step_mcp_configuration() {
 
         [ -n "$OP_CODACY" ] && CODACY_TOKEN="$OP_CODACY"
         [ -n "$OP_GITHUB" ] && GITHUB_TOKEN="$OP_GITHUB"
+        fi
     fi
 
     # Show status of tokens (INFO for optional, WARNING for essential)
@@ -457,15 +461,15 @@ step_mcp_configuration() {
     fi
 
     # Migrate legacy .mcp.json to mcp.json (renamed in v2)
-    if [ -f "/workspace/.mcp.json" ] && [ ! -e "$MCP_OUTPUT" ]; then
+    if [ -f "${WORKSPACE_FOLDER:-/workspace}/.mcp.json" ] && [ ! -e "$MCP_OUTPUT" ]; then
         log_info "Migrating legacy .mcp.json to mcp.json..."
 
         if ! command -v jq >/dev/null 2>&1; then
             log_warning "jq not found; migrating without JSON validation"
-            if cp "/workspace/.mcp.json" "$MCP_OUTPUT"; then
+            if cp "${WORKSPACE_FOLDER:-/workspace}/.mcp.json" "$MCP_OUTPUT"; then
                 chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
                 chmod 600 "$MCP_OUTPUT"
-                rm -f "/workspace/.mcp.json" || log_warning "Could not remove legacy .mcp.json (permissions?)"
+                rm -f "${WORKSPACE_FOLDER:-/workspace}/.mcp.json" || log_warning "Could not remove legacy .mcp.json (permissions?)"
                 log_success "Migration complete: .mcp.json → mcp.json"
             else
                 log_error "Migration failed: unable to copy legacy file"
@@ -476,12 +480,12 @@ step_mcp_configuration() {
                 log_error "Migration failed: unable to create temp file"
                 MCP_MIG_TMP=""
             }
-            if [ -n "$MCP_MIG_TMP" ] && cp "/workspace/.mcp.json" "$MCP_MIG_TMP"; then
+            if [ -n "$MCP_MIG_TMP" ] && cp "${WORKSPACE_FOLDER:-/workspace}/.mcp.json" "$MCP_MIG_TMP"; then
                 if jq empty "$MCP_MIG_TMP" 2>/dev/null; then
                     mv "$MCP_MIG_TMP" "$MCP_OUTPUT"
                     chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
                     chmod 600 "$MCP_OUTPUT"
-                    rm -f "/workspace/.mcp.json" || log_warning "Could not remove legacy .mcp.json (permissions?)"
+                    rm -f "${WORKSPACE_FOLDER:-/workspace}/.mcp.json" || log_warning "Could not remove legacy .mcp.json (permissions?)"
                     log_success "Migration complete: .mcp.json → mcp.json"
                 else
                     log_error "Legacy .mcp.json is invalid JSON; keeping legacy file"
@@ -583,7 +587,7 @@ step_mcp_configuration() {
 # Generates .taskmaster/config.json with MCP provider (uses Claude Code session)
 # Optional Ollama fallback for streaming if available on host
 step_taskmaster_config() {
-    local TASKMASTER_DIR="/workspace/.taskmaster"
+    local TASKMASTER_DIR="${WORKSPACE_FOLDER:-/workspace}/.taskmaster"
     local TASKMASTER_CONFIG="$TASKMASTER_DIR/config.json"
     local tm_tmp=""
 
@@ -613,26 +617,27 @@ step_taskmaster_config() {
     # Detect Ollama for optional fallback streaming
     local has_ollama=false
     local ollama_url="${OLLAMA_HOST:-host.docker.internal:11434}"
+    local model="${OLLAMA_CHAT_MODEL:-llama3.2}"
     if curl -sf --connect-timeout 2 "http://$ollama_url/api/tags" >/dev/null 2>&1; then
         has_ollama=true
     fi
 
     if [ "$has_ollama" = true ]; then
-        jq -n --arg url "http://$ollama_url/api" '{
+        jq -n --arg url "http://$ollama_url/api" --arg model "$model" --arg root "${WORKSPACE_FOLDER:-/workspace}" '{
             models: {
                 main:     { provider: "mcp", modelId: "claude-code" },
                 research: { provider: "mcp", modelId: "claude-code" },
-                fallback: { provider: "ollama", modelId: "llama3.2", baseURL: $url }
+                fallback: { provider: "ollama", modelId: $model, baseURL: $url }
             },
-            global: { projectRoot: "/workspace", logLevel: "info" }
+            global: { projectRoot: $root, logLevel: "info" }
         }' > "$tm_tmp"
     else
-        jq -n '{
+        jq -n --arg root "${WORKSPACE_FOLDER:-/workspace}" '{
             models: {
                 main:     { provider: "mcp", modelId: "claude-code" },
                 research: { provider: "mcp", modelId: "claude-code" }
             },
-            global: { projectRoot: "/workspace", logLevel: "info" }
+            global: { projectRoot: $root, logLevel: "info" }
         }' > "$tm_tmp"
     fi
 
@@ -655,7 +660,7 @@ step_taskmaster_config() {
 # This enables `coderabbit review` and `cr review` without manual login
 # Graceful degradation: skips silently if 1Password/token/vault unavailable
 step_coderabbit_auth() {
-    local VAULT_ID="${OP_VAULT_ID:-ypahjj334ixtiyjkytu5hij2im}"
+    local VAULT_ID="${OP_VAULT_ID:-}"
     local CR_AUTH_DIR="$HOME/.coderabbit"
     local CR_AUTH_FILE="$CR_AUTH_DIR/auth.json"
 
@@ -767,7 +772,7 @@ step_coderabbit_auth() {
 # Item: mcp-qodo in 1Password vault
 # Env var: QODO_API_KEY (written to ~/.devcontainer-env.sh)
 step_qodo_auth() {
-    local VAULT_ID="${OP_VAULT_ID:-ypahjj334ixtiyjkytu5hij2im}"
+    local VAULT_ID="${OP_VAULT_ID:-}"
 
     # Skip if Qodo CLI not installed
     if ! command -v qodo &> /dev/null; then
@@ -913,7 +918,7 @@ step_auto_init_check() {
 # ============================================================================
 GREPAI_BIN="/usr/local/bin/grepai"
 GREPAI_CONFIG_TPL="/etc/grepai/config.yaml"
-OLLAMA_HOST_ENDPOINT="host.docker.internal:11434"
+OLLAMA_HOST_ENDPOINT="${OLLAMA_HOST:-host.docker.internal:11434}"
 
 detect_ollama_endpoint() {
     local endpoint=""
@@ -1034,12 +1039,12 @@ stop_grepai_daemon() {
         fi
     fi
     # Clean stale lock (daemon may have held it when killed)
-    rm -f "/workspace/.grepai/index.gob.lock"
+    rm -f "${WORKSPACE_FOLDER:-/workspace}/.grepai/index.gob.lock"
 }
 
 _grepai_init_core() {
     local quiet="${1:-false}"
-    local grepai_dir="/workspace/.grepai"
+    local grepai_dir="${WORKSPACE_FOLDER:-/workspace}/.grepai"
     local grepai_config="${grepai_dir}/config.yaml"
     local health_stamp="${grepai_dir}/.health-stamp"
     local grepai_log="/tmp/grepai.log"
@@ -1082,7 +1087,7 @@ _grepai_init_core() {
         log_success "grepai config synced from template (endpoint: http://$ollama_endpoint)"
     else
         log_warning "Config template not found at $GREPAI_CONFIG_TPL, using grepai init..."
-        (cd /workspace && "$GREPAI_BIN" init --provider ollama --backend gob --yes 2>/dev/null) || true
+        (cd "${WORKSPACE_FOLDER:-/workspace}" && "$GREPAI_BIN" init --provider ollama --backend gob --yes 2>/dev/null) || true
         if [ -f "$grepai_config" ]; then
             sed -i -E "s|(endpoint: http://)[^[:space:]]+|\1${ollama_endpoint}|" "$grepai_config"
         fi
@@ -1176,7 +1181,7 @@ _grepai_init_core() {
         rm -f "${grepai_dir}/index.gob.lock"
         log_info "Starting grepai watch daemon..."
         : > "$grepai_log"
-        (cd /workspace && nohup "$GREPAI_BIN" watch > "$grepai_log" 2>&1 &)
+        (cd "${WORKSPACE_FOLDER:-/workspace}" && nohup "$GREPAI_BIN" watch > "$grepai_log" 2>&1 &)
 
         # Retry loop: wait up to 5 seconds for daemon to start
         local retries=10
@@ -1214,7 +1219,7 @@ init_semantic_search() {
 # When no health stamp: retries init when Ollama becomes available.
 # Runs in background for the lifetime of the container.
 grepai_watchdog() {
-    local grepai_dir="/workspace/.grepai"
+    local grepai_dir="${WORKSPACE_FOLDER:-/workspace}/.grepai"
     local health_stamp="${grepai_dir}/.health-stamp"
     local grepai_log="/tmp/grepai.log"
     local deferred_attempts=0
@@ -1263,7 +1268,7 @@ grepai_watchdog() {
 
             # Clean stale lock from crashed daemon before restart
             rm -f "${grepai_dir}/index.gob.lock"
-            (cd /workspace && nohup "$GREPAI_BIN" watch >> "$grepai_log" 2>&1 &)
+            (cd "${WORKSPACE_FOLDER:-/workspace}" && nohup "$GREPAI_BIN" watch >> "$grepai_log" 2>&1 &)
             sleep 3
 
             current_pid=$(pgrep -f "$GREPAI_BIN watch" 2>/dev/null || true)
@@ -1296,7 +1301,7 @@ grepai_watchdog() {
 # --- OpenVPN connect (extracted for multi-protocol support) ---
 connect_openvpn() {
     local vault="$1" profile="$2" doc_uuid="$3" login_uuid="$4"
-    local ovpn_config="${OPENVPN_CONFIG:-/home/vscode/.config/openvpn/client.ovpn}"
+    local ovpn_config="${OPENVPN_CONFIG:-$HOME/.config/openvpn/client.ovpn}"
     local ovpn_auth="${OPENVPN_AUTH:-/tmp/vpn-auth.txt}"
     local ovpn_dir
     ovpn_dir=$(dirname "$ovpn_config")
@@ -1370,7 +1375,7 @@ connect_openvpn() {
 # --- WireGuard connect ---
 connect_wireguard() {
     local vault="$1" profile="$2" doc_uuid="$3"
-    local wg_config="/home/vscode/.config/wireguard/wg0.conf"
+    local wg_config="$HOME/.config/wireguard/wg0.conf"
 
     mkdir -p "$(dirname "$wg_config")"
 
@@ -1404,7 +1409,7 @@ connect_wireguard() {
 # --- IPsec/IKEv2 connect ---
 connect_ipsec() {
     local vault="$1" profile="$2" doc_uuid="$3" login_uuid="$4"
-    local ipsec_config="/home/vscode/.config/strongswan/ipsec.conf"
+    local ipsec_config="$HOME/.config/strongswan/ipsec.conf"
 
     mkdir -p "$(dirname "$ipsec_config")"
 
@@ -1448,7 +1453,7 @@ connect_ipsec() {
 # --- PPTP connect ---
 connect_pptp() {
     local vault="$1" profile="$2" doc_uuid="$3" login_uuid="$4"
-    local pptp_config="/home/vscode/.config/pptp/tunnel.conf"
+    local pptp_config="$HOME/.config/pptp/tunnel.conf"
 
     mkdir -p "$(dirname "$pptp_config")"
 
@@ -1619,7 +1624,7 @@ init_vpn() {
     fi
 
     # Source 2: File on disk (OpenVPN fallback for backward compat)
-    local ovpn_config="${OPENVPN_CONFIG:-/home/vscode/.config/openvpn/client.ovpn}"
+    local ovpn_config="${OPENVPN_CONFIG:-$HOME/.config/openvpn/client.ovpn}"
     if [ -f "$ovpn_config" ] && [ -s "$ovpn_config" ] && command -v openvpn &>/dev/null; then
         log_info "Found OpenVPN config on disk, connecting..."
         connect_openvpn "" "" "" ""
@@ -1642,7 +1647,7 @@ run_step "p10k segments"            step_generate_p10k_segments
 # NOTE: Environment reload MUST NOT run inside run_step (which uses a subshell).
 # Variables sourced in a subshell are lost when it exits — tokens would never
 # reach step_mcp_configuration. Source .env directly in the main shell.
-_ENV_FILE="/workspace/.devcontainer/.env"
+_ENV_FILE="${WORKSPACE_FOLDER:-/workspace}/.devcontainer/.env"
 if [ -f "$_ENV_FILE" ]; then
     log_info "Reloading environment from .env..."
     set -a

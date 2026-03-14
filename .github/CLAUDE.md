@@ -13,6 +13,7 @@ GitHub-specific configurations: workflows, templates, and instructions.
 │   ├── docker-images.yml
 │   ├── release.yml
 │   └── CLAUDE.md
+├── instructions/       # AI coding instructions
 ├── dependabot.yml      # Dependency updates
 └── CLAUDE.md           # This file
 ```

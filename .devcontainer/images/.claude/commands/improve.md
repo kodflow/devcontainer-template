@@ -174,7 +174,7 @@ application:
   mode_antipattern:
     action: |
       FOR each HIGH/MEDIUM violation:
-        mcp__github__create_issue(
+        mcp__github__issue_write(
           owner: "kodflow",
           repo: "devcontainer-template",
           title: "pattern: {description}",
@@ -183,8 +183,11 @@ application:
         )
 
       FOR each positive worth_documenting:
-        mcp__github__create_issue(
+        mcp__github__issue_write(
+          owner: "kodflow",
+          repo: "devcontainer-template",
           title: "new-pattern: {description}",
+          body: "## New Pattern\n{description}\n## Context\n{context}",
           labels: ["new-pattern", "auto-generated"]
         )
 

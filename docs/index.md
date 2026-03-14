@@ -1,25 +1,25 @@
-<!-- /docs-generated: {"date":"2026-02-25T14:15:00Z","commit":"02bac1d","pages":14,"agents":9} -->
+<!-- /docs-generated: {"date":"2026-03-14T00:00:00Z","commit":"edab48d","pages":14,"agents":79,"commands":17} -->
 # DevContainer Template
 
-**Un environnement de dev complet avec 79 agents IA, 16 commandes, et 25 langages — prêt en une commande.**
+**A complete dev environment with 79 AI agents, 17 commands, and 25 languages — ready in one command.**
 
-[Commencer :material-arrow-right:](#quick-start){ .md-button .md-button--primary }
+[Get Started :material-arrow-right:](#quick-start){ .md-button .md-button--primary }
 
 ---
 
-## Ce que ça fait
+## What It Does
 
-| Fonctionnalité | Description |
-|----------------|-------------|
-| **25 langages** | Python, Go, Rust, Node.js, Java, C/C++, Ruby, PHP, et 17 autres — chacun avec linter, formatter et tests |
-| **79 agents IA** | Spécialistes par langage (26), DevOps (9), OS (22), orchestrateurs et exécuteurs — orchestrés par Claude Code |
-| **16 commandes** | `/plan`, `/do`, `/review`, `/git`, `/test`, `/lint`, `/docs`... couvrent tout le cycle de dev |
-| **Hooks automatiques** | Format, lint, tests, détection de secrets — déclenchés à chaque édition |
-| **6 serveurs MCP** | GitHub, GitLab, Codacy, Playwright, grepai, context7 — auth pré-configurée |
-| **VPN intégré** | OpenVPN, WireGuard, IPsec, PPTP — connexion auto au démarrage |
-| **Secrets 1Password** | Gestion sécurisée via `/secret` avec convention vault-like |
+| Feature | Description |
+|---------|-------------|
+| **25 languages** | Python, Go, Rust, Node.js, Java, C/C++, Ruby, PHP, and 17 others — each with linter, formatter and tests |
+| **79 AI agents** | Language specialists (25), DevOps (9), OS (22), orchestrators and executors — orchestrated by Claude Code |
+| **17 commands** | `/plan`, `/do`, `/review`, `/git`, `/test`, `/lint`, `/docs`, `/feature`... cover the entire dev cycle |
+| **Automatic hooks** | Format, lint, tests, secret detection — triggered on every edit |
+| **7 MCP servers** | GitHub, GitLab, Codacy, Playwright, grepai, context7, Taskmaster — pre-configured auth |
+| **Built-in VPN** | OpenVPN, WireGuard, IPsec, PPTP — auto-connect on startup |
+| **1Password secrets** | Secure management via `/secret` with vault-like convention |
 
-## Comment ça marche
+## How It Works
 
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': {
@@ -31,43 +31,43 @@
 }}}%%
 flowchart LR
     A[VS Code] -->|"Reopen in Container"| B[DevContainer]
-    B --> C[Base Image<br/>Ubuntu 24.04<br/>25 langages]
-    C --> D[Claude Code<br/>79 agents<br/>16 commandes]
+    B --> C[Base Image<br/>Ubuntu 24.04<br/>25 languages]
+    C --> D[Claude Code<br/>79 agents<br/>17 commands]
     D --> E[MCP Servers<br/>GitHub, Codacy<br/>grepai, Playwright]
-    E --> F[Code produit<br/>testé, linté<br/>reviewé]
+    E --> F[Production code<br/>tested, linted<br/>reviewed]
 ```
 
-VS Code ouvre le DevContainer, qui contient tous les outils. Claude Code orchestre les agents spécialisés qui produisent du code validé automatiquement.
+VS Code opens the DevContainer, which contains all the tools. Claude Code orchestrates the specialized agents that produce automatically validated code.
 
 ## Quick Start
 
-**Prérequis** : [VS Code](https://code.visualstudio.com/) + [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) + [Docker](https://docs.docker.com/get-docker/)
+**Prerequisites**: [VS Code](https://code.visualstudio.com/) + [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) + [Docker](https://docs.docker.com/get-docker/)
 
-1. **Créer un repo depuis le template**
+1. **Create a repo from the template**
     ```bash
-    gh repo create mon-projet --template kodflow/devcontainer-template --clone
-    cd mon-projet
+    gh repo create my-project --template kodflow/devcontainer-template --clone
+    cd my-project
     code .
     ```
 
-2. **Ouvrir dans le container**
+2. **Open in the container**
     - `Ctrl+Shift+P` → `Dev Containers: Reopen in Container`
-    - Attendre le build (~5 min la première fois, ~30s ensuite)
+    - Wait for the build (~5 min the first time, ~30s after)
 
-3. **Configurer** (optionnel)
-    - Créer `.devcontainer/.env` avec vos tokens :
+3. **Configure** (optional)
+    - Create `.devcontainer/.env` with your tokens:
     ```env
-    GIT_USER=VotreNom
-    GIT_EMAIL=votre@email.com
+    GIT_USER=YourName
+    GIT_EMAIL=your@email.com
     GITHUB_TOKEN=ghp_xxx
     ```
 
-4. **Commencer à travailler**
+4. **Start working**
     ```
-    /warmup              # Charger le contexte projet
-    /plan "ma feature"   # Planifier l'implémentation
-    /do                  # Exécuter le plan
-    /git --commit        # Committer proprement
+    /warmup              # Load project context
+    /plan "my feature"   # Plan the implementation
+    /do                  # Execute the plan
+    /git --commit        # Commit properly
     ```
 
 ---
