@@ -134,12 +134,12 @@ step_shell_env_repair() {
     fi
 
     if [ "$need_regen" = true ]; then
-        if [ -f $HOME/.devcontainer-initialized ]; then
-            rm -f $HOME/.devcontainer-initialized
+        if [ -f "$HOME/.devcontainer-initialized" ]; then
+            rm -f "$HOME/.devcontainer-initialized"
             if [ -f "${WORKSPACE_FOLDER:-/workspace}/.devcontainer/hooks/lifecycle/postCreate.sh" ]; then
                 bash "${WORKSPACE_FOLDER:-/workspace}/.devcontainer/hooks/lifecycle/postCreate.sh" 2>/dev/null || true
             fi
-            touch $HOME/.devcontainer-initialized
+            touch "$HOME/.devcontainer-initialized"
         fi
         log_success "devcontainer-env.sh upgraded to v3 (lazy wrappers + cached completions)"
     fi
