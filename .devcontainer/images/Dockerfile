@@ -237,8 +237,15 @@ RUN curl -fsSL https://cli.coderabbit.ai/install.sh | sh
 # =============================================================================
 # Provides: qodo - local AI code reviews, chains, custom agents
 # Docs: https://docs.qodo.ai/qodo-documentation/qodo-command
-# Note: npm available via Claude Code's bundled Node.js runtime
-RUN npm install -g @qodo/command
+# Note: Node.js downloaded temporarily for npm install (not kept in image)
+# Runtime requires Node.js via devcontainer feature
+# hadolint ignore=DL3003
+RUN NODE_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "x64") && \
+    NODE_VERSION=$(curl -fsSL https://nodejs.org/dist/index.json | jq -r '[.[] | select(.lts != false)][0].version') && \
+    curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" | tar xJ -C /tmp && \
+    export PATH="/tmp/node-${NODE_VERSION}-linux-${NODE_ARCH}/bin:$PATH" && \
+    npm install -g --prefix="$HOME/.local" @qodo/command && \
+    rm -rf /tmp/node-${NODE_VERSION}-linux-${NODE_ARCH}
 
 # =============================================================================
 # User Tools (status-line, ktn-linter, xdg-open) - consolidated
