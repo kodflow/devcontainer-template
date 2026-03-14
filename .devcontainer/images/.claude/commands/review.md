@@ -772,7 +772,7 @@ parallel_analysis:
     agents:
       correctness:
         name: "developer-executor-correctness"
-        model: opus
+        model: sonnet
         trigger: "always (MANDATORY for code stability)"
         focus:
           - "Algorithmic errors (off-by-one, bounds, indexes)"
@@ -797,7 +797,7 @@ parallel_analysis:
 
       design:
         name: "developer-executor-design"
-        model: opus
+        model: sonnet
         trigger: "risk_tags contains architecture OR files in core/, domain/, pkg/"
         focus:
           - "Antipatterns (God object, Feature envy, etc.)"

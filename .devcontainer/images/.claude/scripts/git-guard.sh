@@ -51,17 +51,8 @@ fi
 if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+push ]] && \
    [[ "$NORMALIZED_CMD" =~ --force ]] && \
    [[ ! "$NORMALIZED_CMD" =~ --force-with-lease ]]; then
-    # Replace only standalone --force (not --force-if-includes, etc.)
-    CORRECTED=""
-    read -ra args <<< "$COMMAND"
-    for arg in "${args[@]}"; do
-        if [ "$arg" = "--force" ]; then
-            CORRECTED="$CORRECTED --force-with-lease"
-        else
-            CORRECTED="$CORRECTED $arg"
-        fi
-    done
-    CORRECTED="${CORRECTED# }"  # trim leading space
+    # Replace standalone --force with --force-with-lease (preserves quoting)
+    CORRECTED="${COMMAND/--force/--force-with-lease}"
     echo "⚠️  Auto-corrected: --force → --force-with-lease" >&2
     jq -n --arg cmd "$CORRECTED" \
         --arg reason "Auto-corrected: --force → --force-with-lease" \

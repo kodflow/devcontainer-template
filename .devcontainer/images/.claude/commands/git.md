@@ -150,7 +150,7 @@ Examples:
 | Create PR | `mcp__github__create_pull_request` | `gh pr create` |
 | List PRs | `mcp__github__list_pull_requests` | `gh pr list` |
 | View PR | `mcp__github__pull_request_read` (method: get) | `gh pr view` |
-| CI Status | `mcp__github__pull_request_read` (method: get_status) | `gh pr checks` |
+| CI Status | `mcp__github__pull_request_read` (method: get_status) | _No fallback (MCP-only)_ |
 | Merge PR | `mcp__github__merge_pull_request` | `gh pr merge` |
 
 ### GitLab (MRs)

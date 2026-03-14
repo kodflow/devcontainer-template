@@ -426,6 +426,9 @@ step_mcp_configuration() {
     # Try 1Password if OP_SERVICE_ACCOUNT_TOKEN is defined
     if [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &> /dev/null; then
         log_info "Retrieving secrets from 1Password..."
+        if [ -z "$VAULT_ID" ]; then
+            log_warn "OP_VAULT_ID not set, skipping 1Password secrets"
+        else
 
         local OP_CODACY
         OP_CODACY=$(get_1password_field "mcp-codacy" "$VAULT_ID")
@@ -434,6 +437,7 @@ step_mcp_configuration() {
 
         [ -n "$OP_CODACY" ] && CODACY_TOKEN="$OP_CODACY"
         [ -n "$OP_GITHUB" ] && GITHUB_TOKEN="$OP_GITHUB"
+        fi
     fi
 
     # Show status of tokens (INFO for optional, WARNING for essential)
