@@ -15,7 +15,7 @@ Each targets the **current stable version** and consults context7/official docs 
 
 | Agent | Expertise | Min Version |
 |-------|-----------|-------------|
-| `developer-specialist-go` | Idiomatic Go, concurrency, error handling | 1.25+ |
+| `developer-specialist-go` | Idiomatic Go, concurrency, error handling | 1.26+ |
 | `developer-specialist-python` | Type hints, async, mypy strict, ruff | 3.14+ |
 | `developer-specialist-nodejs` | TypeScript strict, ESLint, async patterns | 25+ |
 | `developer-specialist-rust` | Ownership, lifetimes, clippy pedantic | 1.92+ |
@@ -120,7 +120,7 @@ Each agent knows its OS's package manager, init system, kernel, security model, 
 | `os-specialist-windows-server` | Windows Server 2025 | winget/choco | AD, IIS, Hyper-V |
 | `os-specialist-windows-desktop` | Windows 11 24H2 | winget/scoop | WSL2, winget, Store |
 
-## Documentation Analyzers (8)
+## Documentation Analyzers (9)
 
 | Agent | Purpose | Invoked By |
 |-------|---------|------------|

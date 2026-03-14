@@ -28,7 +28,7 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 - **Cloud CLIs**: AWS v2, GCP SDK, Azure CLI
 - **IaC**: Terraform, Vault, Consul, Nomad, Packer, Ansible
 - **Containers**: Docker, kubectl, Helm
-- **AI**: Claude Code, RTK (token savings), MCP servers (GitHub, Codacy, Playwright, context7, grepai, Taskmaster)
+- **AI**: Claude Code, RTK (token savings), MCP servers (GitHub, GitLab, Codacy, Playwright, context7, grepai, Taskmaster)
 
 ## How to Work
 
@@ -78,7 +78,7 @@ Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.).
 | PostToolUseFailure | Failure diagnostics |
 | PermissionRequest | Permission logging |
 | SubagentStart/Stop | Agent lifecycle tracking |
-| Stop | Session summary + terminal bell |
+| Stop | Session summary + terminal bell + quality gate (lint/typecheck/test) |
 | TeammateIdle | Multi-agent coordination |
 | TaskCompleted | Async task completion |
 | ConfigChange | Configuration change tracking |
@@ -110,7 +110,7 @@ CLAUDE.md                    # This overview
 ├── .devcontainer/CLAUDE.md  # Container config details
 │   ├── features/CLAUDE.md   # Language & tool features
 │   ├── hooks/CLAUDE.md      # Lifecycle hooks delegation
-│   └── images/CLAUDE.md     # Base image (170 lines)
+│   └── images/CLAUDE.md     # Base image (189 lines)
 └── .claude/commands/        # Slash commands (17 skills)
 ```
 

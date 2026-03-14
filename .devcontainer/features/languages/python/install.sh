@@ -16,7 +16,7 @@ print_banner "Python Development Environment" 2>/dev/null || {
 }
 
 # Environment variables
-export PYTHON_VERSION="${PYTHON_VERSION:-3.12}"
+export PYTHON_VERSION="${PYTHON_VERSION:-3.14}"
 export PIP_CACHE_DIR="${PIP_CACHE_DIR:-$HOME/.cache/pip}"
 export PYENV_ROOT="${PYENV_ROOT:-$HOME/.cache/pyenv}"
 

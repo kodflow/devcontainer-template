@@ -1,11 +1,11 @@
-# Langages supportés
+# Supported Languages
 
-25 langages sont installés via des features DevContainer. Chacun est un script `install.sh` indépendant dans `.devcontainer/features/languages/`.
+25 languages are installed via DevContainer features. Each is an independent `install.sh` script in `.devcontainer/features/languages/`.
 
-## Vue d'ensemble
+## Overview
 
-| Langage | Linter | Formatter | Tests | Sécurité |
-|---------|--------|-----------|-------|----------|
+| Language | Linter | Formatter | Tests | Security |
+|----------|--------|-----------|-------|----------|
 | **Python** | ruff, pylint | ruff | pytest | bandit |
 | **Go** | golangci-lint | gofumpt | go test, gotestsum | gosec |
 | **Node.js** | eslint | prettier | jest | npm audit |
@@ -31,27 +31,27 @@
 | **COBOL** | — | — | — | — |
 | **VB.NET** | — | — | xunit | — |
 
-## Fonctionnalités avancées
+## Advanced Features
 
-### Support WebAssembly
+### WebAssembly Support
 
-Go (via TinyGo), Rust, Node.js (via AssemblyScript), et C# supportent la compilation WebAssembly.
+Go (via TinyGo), Rust, Node.js (via AssemblyScript), and C# support WebAssembly compilation.
 
-### Support Desktop
+### Desktop Support
 
-Go (Wails), Rust (Tauri), Node.js (Electron), C#, Swift, et Dart/Flutter supportent le développement d'applications desktop.
+Go (Wails), Rust (Tauri), Node.js (Electron), C#, Swift, and Dart/Flutter support desktop application development.
 
-### Gestion de versions
+### Version Management
 
-Python (pyenv), Ruby (rbenv), PHP, Node.js (nvm), et Swift permettent de choisir la version via les options de la feature dans `devcontainer.json`.
+Python (pyenv), Ruby (rbenv), PHP, Node.js (nvm), and Swift allow version selection via feature options in `devcontainer.json`.
 
-## Comment ça s'installe
+## How It Installs
 
-Chaque langage est un script `install.sh` qui :
+Each language is an `install.sh` script that:
 
-1. Détecte l'architecture (amd64/arm64)
-2. Télécharge les binaires précompilés (ou compile si indisponible)
-3. Installe le linter, formatter, et outils de test en parallèle
-4. Utilise `feature-utils.sh` pour la détection de version via l'API GitHub
+1. Detects the architecture (amd64/arm64)
+2. Downloads precompiled binaries (or compiles if unavailable)
+3. Installs the linter, formatter, and test tools in parallel
+4. Uses `feature-utils.sh` for version detection via the GitHub API
 
-Les installations sont parallélisées (`&` + `wait`) pour réduire le temps de build.
+Installations are parallelized (`&` + `wait`) to reduce build time.

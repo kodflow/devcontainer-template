@@ -53,7 +53,8 @@ if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+push ]] && \
    [[ ! "$NORMALIZED_CMD" =~ --force-with-lease ]]; then
     # Replace only standalone --force (not --force-if-includes, etc.)
     CORRECTED=""
-    for arg in $COMMAND; do
+    read -ra args <<< "$COMMAND"
+    for arg in "${args[@]}"; do
         if [ "$arg" = "--force" ]; then
             CORRECTED="$CORRECTED --force-with-lease"
         else
@@ -72,13 +73,13 @@ fi
 if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit ]]; then
     # Extract commit message
     COMMIT_MSG=""
-    if [[ "$COMMAND" =~ -m[[:space:]]+[\"\']([^\"\']+)[\"\'] ]]; then
+    if [[ "$COMMAND" =~ -m[[:space:]]+[\"\']([^\"]+)[\"\'] ]]; then
         COMMIT_MSG="${BASH_REMATCH[1]}"
     fi
     if [[ "$COMMAND" =~ cat[[:space:]]+\<\<[\'\"]?EOF ]]; then
         COMMIT_MSG=$(echo "$COMMAND" | sed -n '/<<.*EOF/,/EOF/p' | grep -v "EOF" | grep -v "cat <<")
     fi
-    if [[ "$COMMAND" =~ --message=[\"\']([^\"\']+)[\"\'] ]]; then
+    if [[ "$COMMAND" =~ --message=[\"\']([^\"]+)[\"\'] ]]; then
         COMMIT_MSG="${BASH_REMATCH[1]}"
     fi
 
@@ -127,14 +128,10 @@ if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit ]]; then
     fi
 
     # === 3. Scan staged files for secrets (reads staged blobs, not working tree) ===
-    STAGED_FILES=$(git diff --cached --name-only -z 2>/dev/null || true)
-    if [ -z "$STAGED_FILES" ]; then
-        exit 0
-    fi
-
     ISSUES_FOUND=0
 
     # Inline lightweight secret scan (avoid calling security.sh subprocess)
+    # Use process substitution to avoid subshell (preserves ISSUES_FOUND)
     while IFS= read -r -d '' f; do
         [ -z "$f" ] && continue
 
@@ -160,12 +157,12 @@ if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit ]]; then
 
         # detect-secrets (if available, more thorough)
         if [ $ISSUES_FOUND -eq 0 ] && command -v detect-secrets &>/dev/null; then
-            if printf '%s' "$STAGED_CONTENT" | detect-secrets scan --list 2>/dev/null | grep -q '"results"'; then
+            if printf '%s' "$STAGED_CONTENT" | detect-secrets scan 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); exit(0 if any(d.get("results",{}).values()) else 1)'; then
                 echo "⚠️  detect-secrets found issue in: $f" >&2
                 ISSUES_FOUND=1
             fi
         fi
-    done <<< "$STAGED_FILES"
+    done < <(git diff --cached --name-only -z 2>/dev/null)
 
     if [ $ISSUES_FOUND -eq 1 ]; then
         echo "═══════════════════════════════════════════════" >&2

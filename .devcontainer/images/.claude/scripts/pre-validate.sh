@@ -129,12 +129,5 @@ else
     done
 fi
 
-# Special check for commits on main/master
-if [[ "$FILE" == *"git commit"* ]] || [[ "$FILE" == *"git push"* ]]; then
-    BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
-    if [[ "$BRANCH" == "main" ]] || [[ "$BRANCH" == "master" ]]; then
-        echo "⚠️  Warning: operation on branch $BRANCH"
-    fi
-fi
 
 exit 0

@@ -22,8 +22,7 @@ tools:
   - Bash
   - WebFetch
   # GitHub MCP
-  - mcp__github__get_pull_request
-  - mcp__github__get_pull_request_files
+  - mcp__github__pull_request_read
   - mcp__github__create_pull_request
   - mcp__github__list_pull_requests
   - mcp__github__add_issue_comment
@@ -338,7 +337,7 @@ Always use MCP tools before CLI fallback. Platform auto-detected from git remote
 
 | Action | MCP Tool | CLI Fallback |
 |--------|----------|--------------|
-| PR Files | `mcp__github__get_pull_request_files` | `gh pr view` |
+| PR Files | `mcp__github__pull_request_read` (method: get_files) | `gh pr view` |
 | Create PR | `mcp__github__create_pull_request` | `gh pr create` |
 | List PRs | `mcp__github__list_pull_requests` | `gh pr list` |
 

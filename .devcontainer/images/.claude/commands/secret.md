@@ -228,7 +228,7 @@ peek_workflow:
 
   1Password CLI : op v2.32.0 ✓
   Service Token : OP_SERVICE_ACCOUNT_TOKEN ✓ (set)
-  Vault Access  : CI (ypahjj334ixtiyjkytu5hij2im) ✓
+  Vault Access  : CI (${OP_VAULT_ID}) ✓
   Project Path  : kodflow/devcontainer-template ✓
 
 ═══════════════════════════════════════════════════════════════

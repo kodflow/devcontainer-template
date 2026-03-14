@@ -16,7 +16,7 @@ print_banner "Ruby Development Environment" 2>/dev/null || {
 }
 
 # Environment variables
-export RUBY_VERSION="${RUBY_VERSION:-3.3}"
+export RUBY_VERSION="${RUBY_VERSION:-4.0}"
 export GEM_HOME="${GEM_HOME:-$HOME/.cache/gems}"
 export BUNDLE_PATH="${BUNDLE_PATH:-$HOME/.cache/bundle}"
 export RBENV_ROOT="${RBENV_ROOT:-$HOME/.cache/rbenv}"

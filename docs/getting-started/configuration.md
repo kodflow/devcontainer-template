@@ -1,44 +1,44 @@
 # Configuration
 
-## Variables d'environnement
+## Environment Variables
 
-Le fichier `.devcontainer/.env` configure le container. Il est créé automatiquement au premier lancement depuis `.devcontainer/.env.tpl`.
+The `.devcontainer/.env` file configures the container. It is created automatically on first launch from `.devcontainer/.env.tpl`.
 
-### Obligatoires
+### Required
 
-| Variable | Valeur | Exemple |
-|----------|--------|---------|
-| `GIT_USER` | Nom pour les commits | `Jean Dupont` |
-| `GIT_EMAIL` | Email pour les commits | `jean@example.com` |
+| Variable | Value | Example |
+|----------|-------|---------|
+| `GIT_USER` | Name for commits | `John Doe` |
+| `GIT_EMAIL` | Email for commits | `john@example.com` |
 
-Ces valeurs sont lues par `postCreate.sh` pour configurer `git config`.
+These values are read by `postCreate.sh` to configure `git config`.
 
-### Tokens MCP (optionnels)
+### MCP Tokens (optional)
 
-| Variable | Service | Comment l'obtenir |
-|----------|---------|-------------------|
+| Variable | Service | How to Obtain |
+|----------|---------|---------------|
 | `GITHUB_TOKEN` | GitHub MCP (PRs, issues) | [Settings → Developer settings → Fine-grained tokens](https://github.com/settings/tokens?type=beta) |
 | `GITLAB_TOKEN` | GitLab MCP (MRs, pipelines) | [Preferences → Access Tokens](https://gitlab.com/-/user_settings/personal_access_tokens) |
-| `CODACY_TOKEN` | Codacy (analyse qualité) | [Settings → API tokens](https://app.codacy.com/account/api-tokens) |
+| `CODACY_TOKEN` | Codacy (quality analysis) | [Settings → API tokens](https://app.codacy.com/account/api-tokens) |
 
-Sans token, le serveur MCP correspondant ne démarre pas. Les commandes (`/review`, `/git`) utilisent alors les CLI (`gh`, `glab`) en fallback.
+Without a token, the corresponding MCP server does not start. Commands (`/review`, `/git`) fall back to CLIs (`gh`, `glab`).
 
-### Secrets et VPN (optionnels)
+### Secrets and VPN (optional)
 
 | Variable | Usage |
 |----------|-------|
-| `OP_SERVICE_ACCOUNT_TOKEN` | Auth 1Password CLI pour `/secret` |
-| `VPN_CONFIG_REF` | Référence 1Password au profil VPN (ex: `op://VPN/MonVPN/config`) |
-| `OLLAMA_HOST` | Endpoint Ollama (défaut: `host.docker.internal:11434`) |
+| `OP_SERVICE_ACCOUNT_TOKEN` | 1Password CLI auth for `/secret` |
+| `VPN_CONFIG_REF` | 1Password reference to VPN profile (e.g., `op://VPN/MyVPN/config`) |
+| `OLLAMA_HOST` | Ollama endpoint (default: `host.docker.internal:11434`) |
 
-### Exemple complet
+### Full Example
 
 ```env
 # .devcontainer/.env
-GIT_USER=Jean Dupont
-GIT_EMAIL=jean@example.com
+GIT_USER=John Doe
+GIT_EMAIL=john@example.com
 
-# Tokens MCP
+# MCP Tokens
 GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 GITLAB_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx
 CODACY_TOKEN=xxxxxxxxxxxxx
@@ -46,44 +46,44 @@ CODACY_TOKEN=xxxxxxxxxxxxx
 # Secrets
 OP_SERVICE_ACCOUNT_TOKEN=ops_xxxxxxxxxxxx
 
-# VPN (auto-connect au démarrage)
-VPN_CONFIG_REF=op://VPN/Bureau/config
+# VPN (auto-connect on startup)
+VPN_CONFIG_REF=op://VPN/Office/config
 ```
 
-## Volumes persistants
+## Persistent Volumes
 
-8 volumes Docker conservent les données entre les rebuilds du container :
+8 Docker volumes preserve data between container rebuilds:
 
-| Volume | Chemin | Ce qui persiste |
-|--------|--------|-----------------|
+| Volume | Path | What Persists |
+|--------|------|---------------|
 | `package-cache` | `~/.cache` | npm, pip, cargo, maven, gradle, go-build |
-| `npm-global` | `~/.local/share/npm-global` | Packages npm globaux |
-| `claude-config` | `~/.claude` | Sessions Claude, settings, historique |
-| `op-config` | `~/.config/op` | Config 1Password |
-| `op-cache` | `~/.op` | Cache 1Password |
-| `zsh-history` | `~/.zsh_history_dir` | Historique shell |
-| `gnupg` | `~/.gnupg` | Clés GPG (depuis le host) |
-| `docker-socket` | `/var/run/docker.sock` | Accès Docker-from-Docker |
+| `npm-global` | `~/.local/share/npm-global` | Global npm packages |
+| `claude-config` | `~/.claude` | Claude sessions, settings, history |
+| `op-config` | `~/.config/op` | 1Password config |
+| `op-cache` | `~/.op` | 1Password cache |
+| `zsh-history` | `~/.zsh_history_dir` | Shell history |
+| `gnupg` | `~/.gnupg` | GPG keys (from host) |
+| `docker-socket` | `/var/run/docker.sock` | Docker-from-Docker access |
 
-!!! warning "Le home n'est pas un volume"
-    Seuls ces sous-répertoires persistent. Le reste de `~` est recréé à chaque rebuild depuis l'image. Les fichiers Claude sont restaurés depuis `/etc/claude-defaults/` par `postStart.sh`.
+!!! warning "Home is not a volume"
+    Only these subdirectories persist. The rest of `~` is recreated on each rebuild from the image. Claude files are restored from `/etc/claude-defaults/` by `postStart.sh`.
 
-## Activer des features optionnelles
+## Enabling Optional Features
 
-Dans `devcontainer.json`, décommenter les features selon vos besoins :
+In `devcontainer.json`, uncomment features as needed:
 
 ```jsonc
 "features": {
-    // Toujours activé (requis pour MCP)
+    // Always enabled (required for MCP)
     "ghcr.io/devcontainers/features/node:1": {},
 
-    // Décommenter pour Kubernetes local
+    // Uncomment for local Kubernetes
     // "ghcr.io/kodflow/devcontainer-template/kubernetes:latest": {
     //     "kindVersion": "0.31.0",
     //     "kubectlVersion": "1.35.0"
     // },
 
-    // Décommenter pour Docker-in-Docker
+    // Uncomment for Docker-in-Docker
     // "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
     //     "moby": false,
     //     "installDockerBuildx": true

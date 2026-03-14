@@ -21,6 +21,7 @@ Development container setup for consistent dev environments across languages.
 │   ├── claude/          # Standalone Claude feature
 │   └── kubernetes/      # Local K8s via kind
 ├── hooks/               # Lifecycle scripts (delegation stubs)
+├── scripts/             # Build utilities
 └── images/              # Docker base image + Claude config
 ```
 
