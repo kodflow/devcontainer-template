@@ -21,6 +21,29 @@ log_info "postStart: Container starting..."
 init_steps
 
 # ============================================================================
+# Helpers
+# ============================================================================
+
+# Resolve 1Password vault ID
+# Priority: OP_VAULT_ID env var > dynamic lookup of "CI" vault
+resolve_vault_id() {
+    if [ -n "${OP_VAULT_ID:-}" ]; then
+        echo "$OP_VAULT_ID"
+        return 0
+    fi
+    # Dynamic resolution: look up vault named "CI"
+    if command -v op &> /dev/null && [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]; then
+        local vault_id
+        vault_id=$(op vault get "CI" --format=json 2>/dev/null | jq -r '.id // empty' 2>/dev/null || echo "")
+        if [ -n "$vault_id" ]; then
+            echo "$vault_id"
+            return 0
+        fi
+    fi
+    echo ""
+}
+
+# ============================================================================
 # Step functions
 # ============================================================================
 
@@ -387,8 +410,9 @@ step_npm_cache_permissions() {
 
 # MCP configuration setup (inject secrets into template)
 step_mcp_configuration() {
-    # 1Password vault ID (can be overridden via OP_VAULT_ID env var)
-    local VAULT_ID="${OP_VAULT_ID:-}"
+    # 1Password vault ID (env var or dynamic "CI" vault lookup)
+    local VAULT_ID
+    VAULT_ID=$(resolve_vault_id)
     local MCP_TPL="/etc/mcp/mcp.json.tpl"
     local MCP_OUTPUT="${WORKSPACE_FOLDER:-/workspace}/mcp.json"
 
@@ -427,7 +451,7 @@ step_mcp_configuration() {
     if [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &> /dev/null; then
         log_info "Retrieving secrets from 1Password..."
         if [ -z "$VAULT_ID" ]; then
-            log_warn "OP_VAULT_ID not set, skipping 1Password secrets"
+            log_warning "OP_VAULT_ID not set and vault 'CI' not found, skipping 1Password secrets"
         else
 
         local OP_CODACY
@@ -660,7 +684,8 @@ step_taskmaster_config() {
 # This enables `coderabbit review` and `cr review` without manual login
 # Graceful degradation: skips silently if 1Password/token/vault unavailable
 step_coderabbit_auth() {
-    local VAULT_ID="${OP_VAULT_ID:-}"
+    local VAULT_ID
+    VAULT_ID=$(resolve_vault_id)
     local CR_AUTH_DIR="$HOME/.coderabbit"
     local CR_AUTH_FILE="$CR_AUTH_DIR/auth.json"
 
@@ -772,7 +797,8 @@ step_coderabbit_auth() {
 # Item: mcp-qodo in 1Password vault
 # Env var: QODO_API_KEY (written to ~/.devcontainer-env.sh)
 step_qodo_auth() {
-    local VAULT_ID="${OP_VAULT_ID:-}"
+    local VAULT_ID
+    VAULT_ID=$(resolve_vault_id)
 
     # Skip if Qodo CLI not installed
     if ! command -v qodo &> /dev/null; then

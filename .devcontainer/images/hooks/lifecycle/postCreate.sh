@@ -53,7 +53,7 @@ step_git_ssl_config() {
 
 # GPG commit signing configuration
 step_gpg_signing() {
-    if [ ! -d "/home/vscode/.gnupg" ] || [ -z "$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null)" ]; then
+    if [ ! -d "/home/vscode/.gnupg" ] || ! gpg --list-secret-keys --keyid-format LONG 2>/dev/null | grep -q "^sec"; then
         log_info "No GPG keys available - commit signing disabled"
         return 0
     fi
