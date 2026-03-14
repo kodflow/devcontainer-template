@@ -41,11 +41,11 @@ All other tools are discovered via `MCPSearch` when needed.
 
 ```yaml
 # CORRECT
-1. MCPSearch(query="select:mcp__github__get_pull_request")
-2. mcp__github__get_pull_request(...)
+1. MCPSearch(query="select:mcp__github__pull_request_read")
+2. mcp__github__pull_request_read(...)
 
 # INCORRECT (may fail if not loaded)
-1. mcp__github__get_pull_request(...)  # Tool not in context
+1. mcp__github__pull_request_read(...)  # Tool not in context
 ```
 
 ### 2. Search by Capability, Not Tool Name
@@ -63,7 +63,7 @@ MCPSearch(query="select:mcp__github__create_pull_request")
 ```yaml
 # Efficient - one search for related tools
 MCPSearch(query="github pull request review")
-# Returns: get_pull_request, list_pull_requests, create_pull_request
+# Returns: pull_request_read, list_pull_requests, create_pull_request
 
 # Inefficient - multiple searches
 MCPSearch(query="get pull request")
@@ -94,7 +94,7 @@ MCPSearch(query="create pull request")
 ### github (Repository Operations)
 
 **High-frequency tools:**
-- `get_pull_request` - PR details
+- `pull_request_read` - PR details (method: get, get_files, get_reviews, get_comments)
 - `list_pull_requests` - List PRs
 - `create_pull_request` - Create PR
 - `add_issue_comment` - Comment on issues

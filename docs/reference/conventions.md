@@ -2,65 +2,65 @@
 
 ## Commits
 
-Format : `type(scope): message`
+Format: `type(scope): message`
 
 | Type | Usage |
 |------|-------|
-| `feat` | Nouvelle fonctionnalité |
-| `fix` | Correction de bug |
+| `feat` | New feature |
+| `fix` | Bug fix |
 | `docs` | Documentation |
-| `refactor` | Restructuration sans changement fonctionnel |
-| `test` | Ajout ou modification de tests |
+| `refactor` | Restructuring without functional change |
+| `test` | Adding or modifying tests |
 | `chore` | Maintenance (CI, deps, config) |
-| `perf` | Optimisation de performance |
+| `perf` | Performance optimization |
 
-Le scope est déduit du répertoire principal modifié. Exemples : `feat(auth): add JWT login`, `fix(api): handle timeout error`.
+The scope is inferred from the main modified directory. Examples: `feat(auth): add JWT login`, `fix(api): handle timeout error`.
 
 ## Branches
 
-| Préfixe | Usage |
-|---------|-------|
-| `feat/` | Nouvelle fonctionnalité |
-| `fix/` | Correction de bug |
+| Prefix | Usage |
+|--------|-------|
+| `feat/` | New feature |
+| `fix/` | Bug fix |
 | `docs/` | Documentation |
-| `refactor/` | Restructuration |
+| `refactor/` | Restructuring |
 
-Ne jamais committer directement sur `main`. Toujours passer par une branche + PR.
+Never commit directly to `main`. Always go through a branch + PR.
 
-## Stratégie de merge
+## Merge Strategy
 
-Squash merge par défaut. GitHub supprime automatiquement la branche distante après le merge.
+Squash merge by default. GitHub automatically deletes the remote branch after merge.
 
-## Structure du code
+## Code Structure
 
-| Répertoire | Contenu |
-|------------|---------|
-| `src/` | Tout le code source (obligatoire) |
-| `tests/` | Tests unitaires (Go : à côté du code dans `src/`) |
+| Directory | Contents |
+|-----------|----------|
+| `src/` | All source code (required) |
+| `tests/` | Unit tests (Go: alongside code in `src/`) |
 | `docs/` | Documentation |
-| `.devcontainer/` | Configuration du container |
+| `.devcontainer/` | Container configuration |
 
 ## Makefile
 
-Les hooks de qualité cherchent d'abord un target Makefile avant d'utiliser les outils directement :
+Quality hooks look for a Makefile target first before using tools directly:
 
 | Target | Usage |
 |--------|-------|
-| `make fmt` / `make format` | Formatage du code |
+| `make fmt` / `make format` | Code formatting |
 | `make lint` | Linting |
-| `make typecheck` | Vérification de types |
+| `make typecheck` | Type checking |
 | `make test` | Tests |
 
-Si votre projet a un Makefile avec ces targets, les hooks l'utilisent. Sinon, ils détectent le langage et lancent l'outil correspondant.
+If your project has a Makefile with these targets, the hooks use it. Otherwise, they detect the language and run the corresponding tool.
 
-## Fichiers protégés
+## Protected Files
 
-Les hooks Claude empêchent la modification accidentelle de :
+Claude hooks prevent accidental modification of:
 
-- `.devcontainer/` — configuration container
-- `.claude/scripts/` — scripts hooks
-- `.env` — variables d'environnement
-- `node_modules/`, `vendor/` — dépendances
-- `*.lock` — fichiers de lock
+- `.devcontainer/` — container configuration
+- `.claude/scripts/` — hook scripts
+- `.env` — environment variables
+- `node_modules/`, `vendor/` — dependencies
+- `*.lock` — lock files
 
-Pour forcer une modification : `ALLOW_PROTECTED_EDIT=1`.
+To force a modification: `ALLOW_PROTECTED_EDIT=1`.

@@ -1,8 +1,8 @@
 # Changelog
 
-Changements notables du devcontainer-template, générés depuis les commits conventionnels.
+Notable changes to the devcontainer-template, generated from conventional commits.
 
-## Récent
+## Recent
 
 ### Features
 

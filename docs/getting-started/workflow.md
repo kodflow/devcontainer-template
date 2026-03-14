@@ -1,8 +1,8 @@
-# Workflow quotidien
+# Daily Workflow
 
-## Le cycle de développement
+## The Development Cycle
 
-Chaque tâche suit le même cycle : planifier, exécuter, valider, committer.
+Every task follows the same cycle: plan, execute, validate, commit.
 
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': {
@@ -13,91 +13,91 @@ Chaque tâche suit le même cycle : planifier, exécuter, valider, committer.
   'textColor': '#d4d8e0'
 }}}%%
 flowchart TD
-    A["/plan 'description'"] --> B[Claude analyse le codebase]
-    B --> C[Plan proposé]
-    C -->|Approuvé| D["/do"]
-    D --> E[Exécution itérative]
-    E --> F{Tests + Lint OK ?}
-    F -->|Non| E
-    F -->|Oui| G["/review"]
-    G --> H{Issues trouvées ?}
-    H -->|Oui| E
-    H -->|Non| I["/git --commit"]
+    A["/plan 'description'"] --> B[Claude analyzes the codebase]
+    B --> C[Plan proposed]
+    C -->|Approved| D["/do"]
+    D --> E[Iterative execution]
+    E --> F{Tests + Lint OK?}
+    F -->|No| E
+    F -->|Yes| G["/review"]
+    G --> H{Issues found?}
+    H -->|Yes| E
+    H -->|No| I["/git --commit"]
     I --> J["/git --pr"]
 ```
 
-## Nouvelle feature
+## New Feature
 
 ```bash
-# 1. Planifier
-/plan "ajouter l'authentification JWT"
+# 1. Plan
+/plan "add JWT authentication"
 
-# 2. Valider le plan (Claude le présente, vous approuvez ou modifiez)
+# 2. Validate the plan (Claude presents it, you approve or modify)
 
-# 3. Exécuter
+# 3. Execute
 /do
 
-# 4. Review automatique (5 agents en parallèle)
+# 4. Automated review (5 agents in parallel)
 /review
 
-# 5. Committer et créer la PR
+# 5. Commit and create the PR
 /git --commit
 /git --pr
 ```
 
-Claude crée automatiquement la branche `feat/add-jwt-auth`, commit au format conventionnel (`feat(auth): add JWT authentication`), et ouvre une PR.
+Claude automatically creates the `feat/add-jwt-auth` branch, commits in conventional format (`feat(auth): add JWT authentication`), and opens a PR.
 
-## Corriger un bug
+## Fix a Bug
 
 ```bash
-/plan "fix: le login timeout après 30s au lieu de 5min"
+/plan "fix: login timeout after 30s instead of 5min"
 /do
 /review
 /git --commit
 ```
 
-Branche `fix/login-timeout`, commit `fix(auth): increase login timeout to 5 minutes`.
+Branch `fix/login-timeout`, commit `fix(auth): increase login timeout to 5 minutes`.
 
-## Review de code
+## Code Review
 
 ```bash
-# Reviewer les changements locaux
+# Review local changes
 /review
 
-# Reviewer une PR existante
+# Review an existing PR
 /review --pr 42
 
-# Review itérative (review → fix → re-review)
+# Iterative review (review → fix → re-review)
 /review --loop
 ```
 
-La review lance 5 analyses en parallèle :
+The review launches 5 parallel analyses:
 
-| Agent | Ce qu'il cherche |
-|-------|------------------|
-| Correctness | Bugs logiques, off-by-one, race conditions |
-| Security | Injections, secrets hardcodés, OWASP Top 10 |
-| Design | Violations SOLID, antipatterns, patterns manquants |
-| Quality | Complexité cyclomatique, code mort, duplication |
-| Shell | Scripts dangereux, Dockerfiles non-sécurisés |
+| Agent | What It Looks For |
+|-------|-------------------|
+| Correctness | Logic bugs, off-by-one, race conditions |
+| Security | Injections, hardcoded secrets, OWASP Top 10 |
+| Design | SOLID violations, antipatterns, missing patterns |
+| Quality | Cyclomatic complexity, dead code, duplication |
+| Shell | Dangerous scripts, insecure Dockerfiles |
 
-## Rechercher de la documentation
+## Search Documentation
 
 ```bash
-# Chercher dans les docs officielles
-/search "comment configurer les middleware Express.js"
+# Search official docs
+/search "how to configure Express.js middleware"
 
-# Chercher sémantiquement dans le code
-# (grepai est utilisé automatiquement avant grep)
+# Search semantically in the code
+# (grepai is used automatically before grep)
 ```
 
-## Conventions de branches et commits
+## Branch and Commit Conventions
 
-| Type | Branche | Format du commit |
-|------|---------|------------------|
+| Type | Branch | Commit Format |
+|------|--------|---------------|
 | Feature | `feat/<description>` | `feat(scope): message` |
 | Bug fix | `fix/<description>` | `fix(scope): message` |
 | Docs | `docs/<description>` | `docs(scope): message` |
 | Refactor | `refactor/<description>` | `refactor(scope): message` |
 
-Le scope est déduit du répertoire principal modifié. Exemples : `feat(auth)`, `fix(api)`, `docs(readme)`.
+The scope is inferred from the main modified directory. Examples: `feat(auth)`, `fix(api)`, `docs(readme)`.

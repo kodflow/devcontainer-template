@@ -16,7 +16,7 @@ allowed-tools:
   - "Task(*)"
   - "AskUserQuestion(*)"
   - "mcp__context7__*"
-  - "mcp__github__create_issue"
+  - "mcp__github__issue_write"
 ---
 
 # Search - Documentation Research (RLM-Enhanced)
@@ -454,7 +454,7 @@ conflict_resolution:
 
   step_2_create_issue:
     condition: "user_choice == 'Update LOCAL'"
-    tool: mcp__github__create_issue
+    tool: mcp__github__issue_write
     params:
       owner: "kodflow"
       repo: "devcontainer-template"

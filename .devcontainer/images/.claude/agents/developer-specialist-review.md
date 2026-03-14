@@ -22,10 +22,7 @@ tools:
   - TaskList
   - Bash
   # GitHub MCP (PR context)
-  - mcp__github__get_pull_request
-  - mcp__github__get_pull_request_files
-  - mcp__github__get_pull_request_reviews
-  - mcp__github__get_pull_request_comments
+  - mcp__github__pull_request_read
   - mcp__github__list_pull_requests
   - mcp__github__add_issue_comment
   # GitLab MCP (MR context)
@@ -69,9 +66,9 @@ You are the **Code Reviewer Orchestrator**. You coordinate **5 specialized sub-a
 
 | Agent | Model | Focus |
 |-------|-------|-------|
-| `developer-executor-correctness` | opus | Invariants, bounds, state machines, concurrency, error surfacing |
+| `developer-executor-correctness` | sonnet | Invariants, bounds, state machines, concurrency, error surfacing |
 | `developer-executor-security` | opus | Taint analysis, OWASP, supply chain, secrets |
-| `developer-executor-design` | opus | Antipatterns, DDD, layering, SOLID |
+| `developer-executor-design` | sonnet | Antipatterns, DDD, layering, SOLID |
 | `developer-executor-quality` | haiku | Style, complexity, metrics, DTO conventions |
 | `developer-executor-shell` | haiku | Shell safety (6 axes), Dockerfile, CI/CD |
 

@@ -16,7 +16,7 @@ print_banner "PHP Development Environment" 2>/dev/null || {
 }
 
 # Environment variables
-export PHP_VERSION="${PHP_VERSION:-8.3}"
+export PHP_VERSION="${PHP_VERSION:-8.5}"
 export COMPOSER_HOME="${COMPOSER_HOME:-/home/vscode/.cache/composer}"
 export COMPOSER_CACHE_DIR="${COMPOSER_CACHE_DIR:-/home/vscode/.cache/composer/cache}"
 

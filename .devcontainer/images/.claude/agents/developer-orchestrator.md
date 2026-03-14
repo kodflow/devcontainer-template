@@ -21,8 +21,7 @@ tools:
   - Bash
   - WebFetch
   # GitHub MCP
-  - mcp__github__get_pull_request
-  - mcp__github__get_pull_request_files
+  - mcp__github__pull_request_read
   - mcp__github__create_pull_request
   - mcp__github__list_pull_requests
   # GitLab MCP
@@ -64,11 +63,11 @@ developer-orchestrator (opus)
     │     Focus: Code review, PR analysis, best practices
     │     Decides: Review approach, priority issues
     │
-    ├─→ developer-executor-security (sonnet)
+    ├─→ developer-executor-security (opus)
     │     Focus: SAST, secrets, OWASP patterns
     │     Executes: Security scans, taint analysis
     │
-    └─→ developer-executor-quality (sonnet)
+    └─→ developer-executor-quality (haiku)
           Focus: Linting, complexity, code smells
           Executes: Quality checks, metric analysis
 ```

@@ -20,7 +20,7 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Create worktree in a standard location
-WORKTREE_BASE="/tmp/claude-worktrees"
+WORKTREE_BASE="$HOME/.claude/worktrees"
 mkdir -p "$WORKTREE_BASE" 2>/dev/null || true
 
 if [ -n "$WORKTREE_NAME" ]; then

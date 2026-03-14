@@ -149,8 +149,8 @@ Examples:
 | Create branch | `mcp__github__create_branch` | `git checkout -b` |
 | Create PR | `mcp__github__create_pull_request` | `gh pr create` |
 | List PRs | `mcp__github__list_pull_requests` | `gh pr list` |
-| View PR | `mcp__github__get_pull_request` | `gh pr view` |
-| CI Status | `mcp__github__get_pull_request_status` | `gh pr checks` |
+| View PR | `mcp__github__pull_request_read` (method: get) | `gh pr view` |
+| CI Status | `mcp__github__pull_request_read` (method: get_status) | _No fallback (MCP-only)_ |
 | Merge PR | `mcp__github__merge_pull_request` | `gh pr merge` |
 
 ### GitLab (MRs)
@@ -848,7 +848,7 @@ URL: https://gitlab.com/<owner>/<repo>/-/merge_requests/42
 mcp_only_policy:
   MANDATORY:
     github:
-      pipeline_status: "mcp__github__get_pull_request"
+      pipeline_status: "mcp__github__pull_request_read"
       check_runs: "mcp__github__list_check_runs (via pull_request_read)"
     gitlab:
       pipeline_status: "mcp__gitlab__list_pipelines"
@@ -884,7 +884,7 @@ peek_workflow:
   1_pr_mr_info:
     action: "Retrieve PR/MR info"
     tools:
-      github: mcp__github__get_pull_request
+      github: mcp__github__pull_request_read
       gitlab: mcp__gitlab__get_merge_request
     verify: "head_sha == pushed_commit_sha"
     output: "pr_mr_number, head_sha, status, checks"
@@ -1006,7 +1006,7 @@ ci_monitoring:
   #---------------------------------------------------------------------------
   polling_strategy:
     github:
-      tool: mcp__github__get_pull_request
+      tool: mcp__github__pull_request_read
       params:
         pull_number: "{pr_number}"
       response_fields: ["state", "statuses[]", "check_runs[]"]
@@ -1741,7 +1741,7 @@ pr_regeneration_workflow:
   1_get_full_diff:
     action: "Get complete diff between branch and main"
     tools:
-      github: "mcp__github__get_pull_request_files"
+      github: "mcp__github__pull_request_read (method: get_files)"
       fallback: "git diff main...HEAD --stat"
     output: "changed_files[] with additions/deletions"
 
@@ -1818,7 +1818,7 @@ merge_workflow:
   1_final_verify:
     action: "Verify ALL jobs passed (job-level check)"
     tools:
-      github: mcp__github__get_pull_request
+      github: mcp__github__pull_request_read
       gitlab: mcp__gitlab__get_merge_request
     condition: "ALL check_runs.conclusion == 'success'"
 
@@ -2018,7 +2018,7 @@ forbidden_cli:
     - "curl *gitlab.com/api*"
 
 required_mcp:
-  github: "mcp__github__get_pull_request, mcp__github__pull_request_read"
+  github: "mcp__github__pull_request_read"
   gitlab: "mcp__gitlab__list_pipelines, mcp__gitlab__list_pipeline_jobs"
 ```
 

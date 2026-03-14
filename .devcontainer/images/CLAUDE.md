@@ -21,7 +21,7 @@ Claude Code and MCP servers are included; languages added via features.
 │   └── lifecycle/      # onCreate, postCreate, postStart, etc.
 └── .claude/            # Claude Code configuration
     ├── commands/       # Slash commands (17 skills)
-    ├── scripts/        # Hook scripts (27 scripts)
+    ├── scripts/        # Hook scripts (31 scripts)
     ├── agents/         # Agent definitions (79 agents)
     ├── docs/           # Design Patterns Knowledge Base (170+ patterns)
     ├── templates/      # Project/docs/terraform templates
@@ -51,7 +51,7 @@ Lifecycle hooks delegate from workspace stubs to `/etc/devcontainer-hooks/` (ima
 
 | Category | Files | Examples |
 |----------|-------|----------|
-| GoF (22 files) | creational, structural, behavioral | Factory, Observer, Strategy |
+| GoF (25 files) | creational, structural, behavioral | Factory, Observer, Strategy |
 | Architectural (9) | architectural/ | MVC, Hexagonal, CQRS |
 | Cloud + Resilience (27) | cloud/, resilience/ | Circuit Breaker, Saga, Retry |
 | Concurrency (8) | concurrency/ | Thread Pool, Actor, Mutex |
@@ -161,7 +161,7 @@ Configured in `mcp.json.tpl`:
 | `/feature` | Feature tracking (RTM) with --add, --edit, --del, --list, --checkup |
 | `/prompt` | Generate ideal prompt structure for /plan |
 
-## Hooks (27 scripts, 17 event types)
+## Hooks (31 scripts, 17 event types)
 
 Core hooks (always active):
 
