@@ -24,12 +24,9 @@ Each step first looks for a Makefile target (`make fmt`, `make lint`, `make test
 
 | Hook | When | What It Does |
 |------|------|--------------|
-| `pre-validate.sh` | Before write | Blocks editing of protected files (`.devcontainer/`, `.env`, `*.lock`) |
+| `pre-validate.sh` | Before write | Blocks editing of protected files (`.env`, `*.lock`, `node_modules/`, `.git/`) |
 | `security.sh` | Before commit | Scans staged files to detect secrets (detect-secrets, trivy, gitleaks) |
 | `commit-validate.sh` | Before commit | Blocks commit messages mentioning AI |
-
-!!! tip "Break glass"
-    If you need to modify a protected file: set `ALLOW_PROTECTED_EDIT=1` in your environment.
 
 ### Session
 

@@ -34,7 +34,7 @@ if command -v yq &>/dev/null; then
     fi
 fi
 
-# Default protected patterns (fallback)
+# Default protected patterns (fallback) - only truly dangerous paths
 PROTECTED_PATTERNS=(
     "node_modules/"
     ".git/"
@@ -49,10 +49,6 @@ PROTECTED_PATTERNS=(
     "Cargo.lock"
     "poetry.lock"
     "go.sum"
-    ".claude/scripts/"
-    ".claude/commands/"
-    ".claude/settings.json"
-    ".devcontainer/"
 )
 
 # Exceptions (always allowed)
@@ -82,16 +78,6 @@ if is_exception "$FILE"; then
     exit 0
 fi
 
-# === Break Glass Check ===
-BREAK_GLASS_VAR="${ALLOW_PROTECTED_EDIT:-0}"
-if [[ "$BREAK_GLASS_VAR" == "1" ]]; then
-    echo "⚠️  BREAK-GLASS enabled for: $FILE"
-    echo "   Variable: ALLOW_PROTECTED_EDIT=1"
-    # Log break-glass usage
-    logger -t "claude-protected" "BREAK-GLASS used for: $FILE by $(whoami)" 2>/dev/null || true
-    exit 0
-fi
-
 # === Verification with yq if available ===
 if [[ "$USE_YQ" == "true" ]]; then
     # Read protected patterns from the YAML file
@@ -103,7 +89,7 @@ if [[ "$USE_YQ" == "true" ]]; then
 
         # Check if the file matches the pattern
         if [[ "$FILE" == *"$pattern"* ]] || [[ "$FILE" == $pattern ]]; then
-            REASON="Protected file: $FILE (pattern: $pattern). To modify: export ALLOW_PROTECTED_EDIT=1"
+            REASON="Protected file: $FILE (pattern: $pattern)"
             echo "🚫 $REASON" >&2
             if command -v jq &>/dev/null; then
                 jq -n --arg reason "$REASON" \
@@ -117,7 +103,7 @@ else
     # Fallback: use hardcoded patterns
     for pattern in "${PROTECTED_PATTERNS[@]}"; do
         if [[ "$FILE" == *"$pattern"* ]]; then
-            REASON="Protected file: $FILE (pattern: $pattern). To modify: export ALLOW_PROTECTED_EDIT=1"
+            REASON="Protected file: $FILE (pattern: $pattern)"
             echo "🚫 $REASON" >&2
             if command -v jq &>/dev/null; then
                 jq -n --arg reason "$REASON" \
