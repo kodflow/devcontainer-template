@@ -63,4 +63,4 @@ Claude hooks prevent accidental modification of:
 - `node_modules/`, `vendor/` — dependencies
 - `*.lock` — lock files
 
-To force a modification: `ALLOW_PROTECTED_EDIT=1`.
+

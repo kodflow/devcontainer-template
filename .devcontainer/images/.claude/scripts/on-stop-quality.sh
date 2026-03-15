@@ -232,7 +232,7 @@ if [ ! -f "$PROJECT_ROOT/Makefile" ]; then
     if command -v jq &>/dev/null; then
         jq -n -c \
             --arg ctx "$CONTEXT" \
-            '{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":$ctx}}' \
+            '{"systemMessage":$ctx}' \
             2>/dev/null || true
     fi
     touch "$QUALITY_RAN" 2>/dev/null || true
@@ -271,7 +271,7 @@ if [ ${#MISSING_TARGETS[@]} -gt 0 ]; then
     if command -v jq &>/dev/null; then
         jq -n -c \
             --arg ctx "$CONTEXT" \
-            '{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":$ctx}}' \
+            '{"systemMessage":$ctx}' \
             2>/dev/null || true
     fi
     touch "$QUALITY_RAN" 2>/dev/null || true
@@ -335,7 +335,7 @@ if [ -n "$ISSUES" ]; then
     if command -v jq &>/dev/null; then
         jq -n -c \
             --arg ctx "$CONTEXT" \
-            '{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":$ctx}}' \
+            '{"systemMessage":$ctx}' \
             2>/dev/null || true
     fi
 else
