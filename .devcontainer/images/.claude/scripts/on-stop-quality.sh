@@ -300,8 +300,12 @@ TOTAL_RUN=0
 for target in "${TARGETS_TO_RUN[@]}"; do
     TOTAL_RUN=$((TOTAL_RUN + 1))
     echo "Running: make $target" >&2
-    # 90s per target (hook allows 300s total for ~3 targets)
-    OUTPUT=$(timeout 90 make "$target" 2>&1)
+    # 300s for test (large suites), 90s for build/lint
+    TARGET_TIMEOUT=90
+    if [ "$target" = "test" ]; then
+        TARGET_TIMEOUT=300
+    fi
+    OUTPUT=$(timeout "$TARGET_TIMEOUT" make "$target" 2>&1)
     EXIT_CODE=$?
 
     if [ "$EXIT_CODE" -ne 0 ]; then

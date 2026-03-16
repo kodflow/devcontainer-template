@@ -127,8 +127,9 @@ if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit ]]; then
         [ -z "$f" ] && continue
 
         # Skip hook/tooling scripts (contain regex patterns that match themselves)
+        # Only skip test fixture files (*.bats), not all files under tests/
         case "$f" in
-            */.claude/scripts/*|*/.githooks/*) continue ;;
+            */.claude/scripts/*|*/.githooks/*|*.bats) continue ;;
         esac
 
         # Read staged blob content (not working tree)

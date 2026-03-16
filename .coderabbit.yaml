@@ -146,10 +146,10 @@ reviews:
 
   pre_merge_checks:
     title:
-      mode: "warning"
+      mode: "error"
       requirements: "Must follow conventional commit format: type(scope): description"
     description:
-      mode: "warning"
+      mode: "error"
     issue_assessment:
       mode: "off"
     docstrings:
