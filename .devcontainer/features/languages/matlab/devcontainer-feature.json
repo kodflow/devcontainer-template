@@ -4,5 +4,10 @@
   "name": "MATLAB/Octave Development Environment",
   "description": "Installs GNU Octave as an open-source MATLAB-compatible environment",
   "options": {},
+  "customizations": {
+    "vscode": {
+      "extensions": ["MathWorks.language-matlab", "toasty-technologies.octave"]
+    }
+  },
   "installsAfter": []
 }

@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-27T13:00:00Z -->
+<!-- updated: 2026-03-17T12:15:00Z -->
 # Language Features
 
 ## Purpose
@@ -34,6 +34,38 @@ Language-specific installation scripts. Conventions handled by specialist agents
 | Lua | >= 5.4.0 | `developer-specialist-lua` |
 | Scala | >= 3.7.0 | `developer-specialist-scala` |
 | Elixir | >= 1.19.0 | `developer-specialist-elixir` |
+
+## VS Code Extensions (LSP)
+
+Each `devcontainer-feature.json` declares `customizations.vscode.extensions` with the LSP extension(s) for that language. When a language feature is enabled in `devcontainer.json`, its extensions install automatically. Commented-out features contribute nothing — no bloat.
+
+| Language | Extension(s) |
+|----------|-------------|
+| Go | `golang.go` |
+| Python | `ms-python.python`, `ms-python.vscode-pylance` |
+| Node.js | `dbaeumer.vscode-eslint` |
+| Rust | `rust-lang.rust-analyzer` |
+| Java | `redhat.java` |
+| C# | `ms-dotnettools.csharp` |
+| C++ | `llvm-vs-code-extensions.vscode-clangd` |
+| C | `llvm-vs-code-extensions.vscode-clangd` |
+| Ruby | `Shopify.ruby-lsp` |
+| PHP | `bmewburn.vscode-intelephense-client` |
+| Elixir | `JakeBecker.elixir-ls` |
+| Scala | `scalameta.metals` |
+| Dart/Flutter | `Dart-Code.dart-code`, `Dart-Code.flutter` |
+| Kotlin | `fwcd.kotlin` |
+| Swift | `swiftlang.swift-vscode` |
+| R | `REditorSupport.r` |
+| Perl | `bscan.perlnavigator` |
+| Lua | `sumneko.lua` |
+| Fortran | `fortran-lang.linter-gfortran` |
+| Ada | `AdaCore.ada` |
+| COBOL | `broadcomMFD.cobol-language-support` |
+| Pascal | `alefragnani.pascal` |
+| VB.NET | `ms-dotnettools.csharp` |
+| MATLAB/Octave | `MathWorks.language-matlab`, `toasty-technologies.octave` |
+| Assembly | `13xforever.language-x86-64-assembly` |
 
 ## Per-Language Structure
 

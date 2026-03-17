@@ -4,5 +4,10 @@
   "name": "COBOL Development Environment",
   "description": "Installs GnuCOBOL compiler and development tools",
   "options": {},
+  "customizations": {
+    "vscode": {
+      "extensions": ["broadcomMFD.cobol-language-support"]
+    }
+  },
   "installsAfter": []
 }

@@ -4,5 +4,10 @@
   "name": "Java Development Environment",
   "description": "Installs Java (OpenJDK), Maven, Gradle, and common development tools",
   "options": {},
+  "customizations": {
+    "vscode": {
+      "extensions": ["redhat.java"]
+    }
+  },
   "installsAfter": []
 }

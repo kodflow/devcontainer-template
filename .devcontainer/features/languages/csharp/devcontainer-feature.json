@@ -14,5 +14,10 @@
     "DOTNET_ROOT": "/usr/share/dotnet",
     "PATH": "/usr/share/dotnet:/home/vscode/.dotnet/tools:${PATH}"
   },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-dotnettools.csharp"]
+    }
+  },
   "installsAfter": []
 }

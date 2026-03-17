@@ -4,5 +4,10 @@
   "name": "Ruby Development Environment",
   "description": "Installs Ruby via rbenv, bundler, and common development tools",
   "options": {},
+  "customizations": {
+    "vscode": {
+      "extensions": ["Shopify.ruby-lsp"]
+    }
+  },
   "installsAfter": []
 }

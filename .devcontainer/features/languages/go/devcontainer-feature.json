@@ -17,5 +17,10 @@
     "GOMODCACHE": "/home/vscode/.cache/go/pkg/mod",
     "PATH": "/usr/local/go/bin:/home/vscode/.cache/go/bin:${PATH}"
   },
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.go"]
+    }
+  },
   "installsAfter": []
 }
