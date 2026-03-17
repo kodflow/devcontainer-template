@@ -63,11 +63,12 @@ jobs:
               --project-token "${{ secrets.CODACY_PROJECT_TOKEN }}" \
               -r "$REPORT" \
               --partial || true
-            bash <(curl -Ls https://coverage.codacy.com/get.sh) final \
-              --project-token "${{ secrets.CODACY_PROJECT_TOKEN }}" || true
           else
-            echo "No coverage report found, skipping Codacy upload"
+            echo "No coverage report found, sending final signal only"
           fi
+          # Always send final signal so Codacy posts the status check
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) final \
+            --project-token "${{ secrets.CODACY_PROJECT_TOKEN }}" || true
 
       - name: Upload coverage artifact
         if: always()
