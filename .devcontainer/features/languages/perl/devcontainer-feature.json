@@ -4,5 +4,10 @@
   "name": "Perl Development Environment",
   "description": "Installs Perl, cpanminus, Perl::Tidy, and Perl::Critic",
   "options": {},
+  "customizations": {
+    "vscode": {
+      "extensions": ["bscan.perlnavigator"]
+    }
+  },
   "installsAfter": []
 }
