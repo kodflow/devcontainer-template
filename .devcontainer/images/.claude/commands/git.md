@@ -1925,7 +1925,7 @@ action_watch:
       - get_info:
           github: "mcp__github__pull_request_read(method: get)"
           gitlab: "mcp__gitlab__get_merge_request"
-      - pin_commit: "Store HEAD commit SHA for tracking"
+      - pin_commit: "Store HEAD commit SHA for tracking (re-pinned after each fix push)"
       - validate: "PR/MR must exist and be open"
       - fail_if: "No PR/MR found → error with guidance"
 
@@ -1941,15 +1941,19 @@ action_watch:
 
       reviews:
         description: "Fetch bot review statuses"
+        note: "CodeRabbit and Qodo are GitHub-only. On GitLab, only Codacy is available."
         sources:
           coderabbit:
-            detect: "Review from github-actions[bot] or coderabbitai"
+            platform: "GitHub only"
+            detect: "author.login == 'coderabbitai[bot]'"
             check: "APPROVED | CHANGES_REQUESTED | PENDING"
           qodo:
-            detect: "Review from qodo-merge-pro[bot] or pr-agent"
+            platform: "GitHub only"
+            detect: "author.login IN ['qodo-merge-pro[bot]', 'qodo-code-review[bot]']"
             check: "P0/P1 findings present?"
           codacy:
-            detect: "Status check from Codacy"
+            platform: "GitHub and GitLab"
+            detect: "Status check from Codacy or mcp__codacy__ API"
             check: "passing | pending | failing"
 
       prerequisites:
@@ -2003,14 +2007,20 @@ action_watch:
       closed:
         description: "Normal operation"
         flow: "monitor → detect issue → fix → push → wait for re-review → refresh"
-        max_fix_iterations: 3  # Per issue, same as --merge
+        max_fix_iterations: 3  # Total across all issues (matches --merge Phase 3.5.4)
+        re_pin_after_push: "After each fix push, refresh PR/MR info and update pin_commit to new HEAD SHA"
 
       half_open:
-        description: "Stall detected (>10min no progress)"
+        description: "Stall detected — no status change for >10min"
+        detection:
+          method: "Compare current check/review statuses with previous poll"
+          trigger: "No status field changed across 10+ consecutive minutes"
+          note: "This is NOT a hard timeout — watch continues but investigates the stall"
+          distinction: "The 10min HARD timeout in guardrails applies to --merge CI polling only, not --watch"
         actions:
           - investigate_codacy: "Check if coverage upload missing, check status.codacy.com"
           - investigate_pipeline: "Check if runner available, check GitHub Actions status page"
-          - investigate_coderabbit: "If >5min no review, post @coderabbitai review"
+          - investigate_coderabbit: "If >5min no review, post @coderabbitai review (GitHub only)"
           - report: "Display investigation results to user"
 
       open:
@@ -2019,19 +2029,23 @@ action_watch:
 
     fix_actions:
       coderabbit_changes_requested:
+        platform: "GitHub only"
         steps:
           - "Analyze each finding"
           - "Fix if legitimate code issue"
           - "Reply with justification if finding is rejected"
           - "Post @coderabbitai resolve on addressed threads"
           - "Post @coderabbitai review to trigger re-review"
+          - "Re-pin commit SHA after push"
 
       qodo_p0_p1:
+        platform: "GitHub only"
         steps:
           - "Analyze P0/P1 findings"
           - "Fix code issues"
           - "Commit with conventional message: fix(scope): address Qodo P1 finding"
           - "Push (auto triggers re-review)"
+          - "Re-pin commit SHA after push"
 
       codacy_failure:
         steps:
@@ -2155,7 +2169,7 @@ action_finish:
 | Commit without validated identity | **FORBIDDEN** | Traceability |
 | CLI for CI status | **FORBIDDEN** | MCP-ONLY policy |
 | Report success if ANY job failed | **FORBIDDEN** | Job-level parsing |
-| Wait > 10 min for pipeline | **FORBIDDEN** | Hard timeout |
+| Wait > 10 min for pipeline (--merge) | **FORBIDDEN** | Hard timeout (--merge only; --watch uses stall detection instead) |
 | Monitor wrong commit's pipeline | **FORBIDDEN** | Commit-pinned tracking |
 
 ### Review Triage Safeguards (Phase 3.5)
