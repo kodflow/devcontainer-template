@@ -8,5 +8,10 @@
     "SWIFT_HOME": "/usr/share/swift",
     "PATH": "/usr/share/swift/usr/bin:${PATH}"
   },
+  "customizations": {
+    "vscode": {
+      "extensions": ["swiftlang.swift-vscode"]
+    }
+  },
   "installsAfter": []
 }

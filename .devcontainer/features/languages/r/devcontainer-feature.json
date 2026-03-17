@@ -7,5 +7,10 @@
   "containerEnv": {
     "R_HOME": "/usr/lib/R"
   },
+  "customizations": {
+    "vscode": {
+      "extensions": ["REditorSupport.r"]
+    }
+  },
   "installsAfter": []
 }

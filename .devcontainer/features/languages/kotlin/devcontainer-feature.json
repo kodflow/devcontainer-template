@@ -14,5 +14,10 @@
     "SDKMAN_DIR": "/home/vscode/.sdkman",
     "PATH": "/home/vscode/.sdkman/candidates/kotlin/current/bin:/home/vscode/.local/bin:${PATH}"
   },
+  "customizations": {
+    "vscode": {
+      "extensions": ["fwcd.kotlin"]
+    }
+  },
   "installsAfter": []
 }

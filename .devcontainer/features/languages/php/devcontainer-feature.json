@@ -4,5 +4,10 @@
   "name": "PHP Development Environment",
   "description": "Installs PHP, Composer, and common development tools",
   "options": {},
+  "customizations": {
+    "vscode": {
+      "extensions": ["bmewburn.vscode-intelephense-client"]
+    }
+  },
   "installsAfter": []
 }

@@ -11,6 +11,11 @@
     }
   },
   "installsAfter": [],
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "ms-python.vscode-pylance"]
+    }
+  },
   "containerEnv": {
     "PYENV_ROOT": "/home/vscode/.cache/pyenv",
     "PIP_CACHE_DIR": "/home/vscode/.cache/pip",

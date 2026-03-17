@@ -74,7 +74,9 @@
         "vscode-icons-team.vscode-icons",
         "redhat.vscode-yaml",
         "tamasfe.even-better-toml",
-        "bierner.markdown-mermaid"
+        "bierner.markdown-mermaid",
+        "ms-azuretools.vscode-docker",
+        "hashicorp.terraform"
       ]
     }
   },

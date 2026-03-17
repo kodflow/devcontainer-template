@@ -4,5 +4,10 @@
   "name": "Elixir Development Environment",
   "description": "Installs Elixir, Erlang, and Hex package manager",
   "options": {},
+  "customizations": {
+    "vscode": {
+      "extensions": ["JakeBecker.elixir-ls"]
+    }
+  },
   "installsAfter": []
 }
