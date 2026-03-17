@@ -304,8 +304,7 @@
           {
             "type": "command",
             "command": "/home/vscode/.claude/scripts/subagent-stop.sh",
-            "timeout": 5,
-            "async": true
+            "timeout": 5
           },
           {
             "type": "command",
@@ -352,8 +351,7 @@
           {
             "type": "command",
             "command": "/home/vscode/.claude/scripts/task-completed.sh",
-            "timeout": 5,
-            "async": true
+            "timeout": 5
           },
           {
             "type": "command",

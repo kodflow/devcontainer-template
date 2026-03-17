@@ -12,9 +12,9 @@ cd "$PROJECT_DIR" 2>/dev/null || exit 0
 # Skip if not a git repo
 git rev-parse --is-inside-work-tree &>/dev/null || exit 0
 
-# Skip if on main/master (never commit directly)
+# Skip if on main/master or detached HEAD (never commit directly)
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-case "$BRANCH" in main|master|"") exit 0 ;; esac
+case "$BRANCH" in main|master|HEAD|"") exit 0 ;; esac
 
 # Skip if no changes
 git diff --quiet HEAD 2>/dev/null && git diff --cached --quiet 2>/dev/null && \
@@ -36,8 +36,13 @@ if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
 fi
 [ -z "$CONTEXT" ] && CONTEXT="progress checkpoint"
 
-# Stage all + commit (--no-verify to skip hooks, fast)
+# Stage all + commit
+# --no-verify is opt-in via AUTO_SAVE_SKIP_HOOKS=1 (default: run hooks)
 git add -A 2>/dev/null
-git commit --no-verify -m "chore(save): $CONTEXT" 2>/dev/null || true
+if [ "${AUTO_SAVE_SKIP_HOOKS:-0}" = "1" ]; then
+  git commit --no-verify -m "chore(save): $CONTEXT" 2>/dev/null || true
+else
+  git commit -m "chore(save): $CONTEXT" 2>/dev/null || true
+fi
 
 exit 0
