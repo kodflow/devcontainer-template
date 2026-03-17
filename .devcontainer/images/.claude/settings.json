@@ -149,10 +149,7 @@
     "additionalDirectories": []
   },
   "enableAllProjectMcpServers": true,
-  "disabledMcpjsonServers": [
-    "codacy",
-    "playwright"
-  ],
+  "disabledMcpjsonServers": ["codacy", "playwright"],
   "hooks": {
     "SessionStart": [
       {
@@ -309,6 +306,11 @@
             "command": "/home/vscode/.claude/scripts/subagent-stop.sh",
             "timeout": 5,
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "/home/vscode/.claude/scripts/auto-save.sh",
+            "timeout": 10
           }
         ]
       }
@@ -352,6 +354,11 @@
             "command": "/home/vscode/.claude/scripts/task-completed.sh",
             "timeout": 5,
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "/home/vscode/.claude/scripts/auto-save.sh",
+            "timeout": 10
           }
         ]
       }
