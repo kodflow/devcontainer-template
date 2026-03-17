@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-27T13:00:00Z -->
+<!-- updated: 2026-03-17T12:15:00Z -->
 # Language Features
 
 ## Purpose
@@ -64,7 +64,7 @@ Each `devcontainer-feature.json` declares `customizations.vscode.extensions` wit
 | COBOL | `broadcomMFD.cobol-language-support` |
 | Pascal | `alefragnani.pascal` |
 | VB.NET | `ms-dotnettools.csharp` |
-| MATLAB/Octave | `MathWorks.language-matlab` |
+| MATLAB/Octave | `MathWorks.language-matlab`, `toasty-technologies.octave` |
 | Assembly | `13xforever.language-x86-64-assembly` |
 
 ## Per-Language Structure
