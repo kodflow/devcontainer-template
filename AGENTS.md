@@ -134,19 +134,54 @@ Each agent knows its OS's package manager, init system, kernel, security model, 
 | `docs-analyzer-patterns` | Design patterns inventory | `/docs` |
 | `docs-analyzer-architecture` | Deep architecture analysis (C4) | `/docs` |
 
-## Routing Chain
+## Meta Agents (2)
+
+| Agent | Model | Purpose | Invoked By |
+|-------|-------|---------|------------|
+| `developer-commentator` | opus | Orchestrate comment auditing across entire project | `/comment` |
+| `developer-commentator-worker` | haiku | Audit/fix comments in a single file (WHY not WHAT) | `developer-commentator` |
+
+## Routing Chains
 
 ```
-Skill (/infra, /vpn, /do)
-  → devops-orchestrator (opus)
-    → devops-specialist-{domain} (sonnet)
-    → devops-executor-{platform} (haiku, router)
-      → os-specialist-{distro} (haiku)
-        → Returns condensed JSON
-      ← Merged result
-    ← Consolidated report
-  ← Actionable summary
+/review → developer-specialist-review (sonnet)
+            → developer-executor-correctness (sonnet)
+            → developer-executor-security (opus)
+            → developer-executor-design (sonnet)
+            → developer-executor-quality (haiku)
+            → developer-executor-shell (haiku)
+
+/do, /plan → developer-orchestrator (opus)
+               → developer-specialist-{lang} (sonnet)
+
+/infra → devops-orchestrator (opus)
+           → devops-specialist-{domain} (sonnet)
+           → devops-executor-{platform} (haiku, router)
+             → os-specialist-{distro} (haiku)
+
+/docs → docs-analyzer-structure (haiku)
+          → docs-analyzer-{aspect} (haiku) × 8
+
+/comment → developer-commentator (opus)
+             → developer-commentator-worker (haiku) × N files
 ```
+
+## Decision Tree: Which Agent For My Task?
+
+| I want to... | Agent | Model |
+|--------------|-------|-------|
+| Review code changes | `developer-specialist-review` | sonnet |
+| Write Go/Python/Rust/etc. code | `developer-specialist-{lang}` | sonnet |
+| Fix security vulnerabilities | `developer-executor-security` | opus |
+| Analyze code complexity | `developer-executor-quality` | haiku |
+| Check shell/Dockerfile safety | `developer-executor-shell` | haiku |
+| Provision cloud infrastructure | `devops-specialist-{aws,gcp,azure}` | sonnet |
+| Configure Kubernetes | `devops-specialist-kubernetes` | sonnet |
+| Manage OS packages/services | `os-specialist-{distro}` | haiku |
+| Audit/fix code comments | `developer-commentator` | opus |
+| Generate project documentation | `docs-analyzer-structure` | haiku |
+| Optimize cloud costs | `devops-specialist-finops` | sonnet |
+| Scan for secrets/compliance | `devops-specialist-security` | sonnet |
 
 ## Agent Behavior
 
@@ -157,3 +192,7 @@ Agents must:
 - Self-correct when linting or tests fail
 - Return structured JSON for orchestrators to process
 - Ask permission before destructive operations
+
+## Registry
+
+Machine-readable agent catalog: `~/.claude/agents/registry.json`
