@@ -22,6 +22,13 @@ set +e  # Fail-open: never block
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Source shared utilities for hook profile gating
+# shellcheck source=common.sh
+[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
+
+# Hook profile gate: quality is "standard" level (skipped in minimal mode)
+check_hook_profile "standard" || exit 0
+
 # === Sanitize external inputs ===
 # Strip anything that's not alphanumeric, dash, underscore, or dot
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"

@@ -23,6 +23,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 [ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
 
+# Hook profile gate: format is "standard" level (skipped in minimal mode)
+check_hook_profile "standard" || exit 0
+
 PROJECT_ROOT=$(find_project_root "$DIR" "$DIR")
 
 # === Makefile-first approach ===
