@@ -22,6 +22,13 @@ set +e  # Fail-open: never block
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Source shared utilities for hook profile gating
+# shellcheck source=common.sh
+[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
+
+# Hook profile gate: quality is "standard" level (skipped in minimal mode)
+check_hook_profile "standard" || exit 0
+
 # === Sanitize external inputs ===
 # Strip anything that's not alphanumeric, dash, underscore, or dot
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
@@ -30,10 +37,6 @@ PROJECT_DIR="${PROJECT_DIR//[^a-zA-Z0-9\/._-]/}"
 
 SESSION_ID="${CLAUDE_SESSION_ID:-default}"
 SESSION_ID="${SESSION_ID//[^a-zA-Z0-9_-]/}"
-
-# Source common utilities
-# shellcheck source=common.sh
-[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
 
 # === Prevent infinite loops ===
 TRACKER="/tmp/.claude-edited-files-${SESSION_ID}"

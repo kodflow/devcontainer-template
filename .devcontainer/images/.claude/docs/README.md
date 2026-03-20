@@ -31,6 +31,30 @@ Total: 167 markdown files - 300+ documented patterns
 
 ---
 
+## Quick Lookup by Problem
+
+| I need to... | Patterns | Category |
+|-------------|----------|----------|
+| Create objects flexibly | Factory, Builder, Prototype | creational/ |
+| Add behavior without subclassing | Decorator, Strategy, Visitor | structural/, behavioral/ |
+| Decouple components | Observer, Mediator, Event Bus | behavioral/, messaging/ |
+| Handle distributed transactions | Saga, Two-Phase Commit, Outbox | cloud/, messaging/ |
+| Survive service failures | Circuit Breaker, Retry, Bulkhead, Timeout | resilience/ |
+| Scale database reads | CQRS, Cache-Aside, Read Replica | cloud/, architectural/ |
+| Manage complex state | State Machine, Memento, Event Sourcing | behavioral/, architectural/ |
+| Process messages reliably | Pipes & Filters, Dead Letter, Outbox | messaging/ |
+| Secure API access | OAuth, JWT, RBAC, ABAC | security/ |
+| Deploy without downtime | Blue-Green, Canary, Feature Toggles | devops/ |
+| Test isolated components | Mock, Stub, Fixture, Contract Testing | testing/ |
+| Improve code readability | Extract Method, Rename, Inline | refactoring/ |
+| Model business domains | Entity, Value Object, Aggregate, Repository | ddd/ |
+| Handle concurrent access | Mutex, Actor, Thread Pool, COW | concurrency/ |
+| Optimize performance | Cache, Pool, Lazy Load, Memoization | performance/ |
+| Migrate legacy systems | Strangler Fig, Anti-Corruption Layer, BFF | refactoring/, integration/ |
+| Compose functions cleanly | Monad, Either, Lens, Pipe | functional/ |
+
+---
+
 ## Complete Alphabetical Index
 
 ### A

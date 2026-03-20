@@ -302,3 +302,18 @@ cyclic:
 3. **Expect JSON responses** - Condensed, not verbose
 4. **Limit output** - Max 5 medium, 3 low issues shown
 5. **Require evidence** - Drop findings without proof
+
+## Worked Example: Review Finding (BAD/GOOD)
+
+```text
+[CRITICAL] SQL injection via string concatenation
+File: src/api/users.ts:42
+  // BAD: User input directly in query
+  const q = `SELECT * FROM users WHERE id = ${req.params.id}`;
+  // GOOD: Parameterized query
+  const q = `SELECT * FROM users WHERE id = $1`;
+  const r = await db.query(q, [req.params.id]);
+Fix: Use parameterized queries for all user input
+```
+
+This level of specificity (file:line, BAD/GOOD, actionable fix) is expected from all sub-executors.
