@@ -10,7 +10,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@upstash/context7-mcp@2.x"
+        "@upstash/context7-mcp@latest"
       ],
       "env": {}
     },
@@ -18,7 +18,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@codacy/codacy-mcp@0.x"
+        "@codacy/codacy-mcp@latest"
       ],
       "env": {
         "CODACY_ACCOUNT_TOKEN": "{{CODACY_TOKEN}}"
@@ -32,7 +32,7 @@
         "--rm",
         "-e",
         "GITHUB_PERSONAL_ACCESS_TOKEN",
-        "ghcr.io/github/github-mcp-server"
+        "ghcr.io/github/github-mcp-server:latest"
       ],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "{{GITHUB_TOKEN}}"
@@ -42,7 +42,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@playwright/mcp@0.x",
+        "@playwright/mcp@latest",
         "--headless",
         "--caps",
         "core,pdf,testing,tracing"
@@ -52,7 +52,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "task-master-ai@0.x"
+        "task-master-ai@latest"
       ],
       "env": {
         "TASK_MASTER_PROJECT_ROOT": "/workspace",
@@ -63,7 +63,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@zereight/mcp-gitlab@2.x"
+        "@zereight/mcp-gitlab@latest"
       ],
       "env": {
         "GITLAB_PERSONAL_ACCESS_TOKEN": "{{GITLAB_TOKEN}}",
