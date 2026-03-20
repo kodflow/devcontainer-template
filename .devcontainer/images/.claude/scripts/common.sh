@@ -18,10 +18,14 @@ check_hook_profile() {
 
     case "$current" in
         minimal)
-            [ "$required_level" = "critical" ] && return 0
+            if [ "$required_level" = "critical" ]; then
+                return 0
+            fi
             return 1 ;;
         standard)
-            [ "$required_level" = "critical" ] || [ "$required_level" = "standard" ] && return 0
+            if [ "$required_level" = "critical" ] || [ "$required_level" = "standard" ]; then
+                return 0
+            fi
             return 1 ;;
         full|*)
             return 0 ;;

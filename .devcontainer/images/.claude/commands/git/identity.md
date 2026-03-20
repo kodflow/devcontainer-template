@@ -108,7 +108,7 @@ GIT_EMAIL="john.doe@example.com"
 
 ## Output: Identity & GPG Validated
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   /git --commit - Git Identity & GPG Validation
 ═══════════════════════════════════════════════════════════════
@@ -133,7 +133,7 @@ GIT_EMAIL="john.doe@example.com"
 
 ## Output: Correction Needed
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   /git --commit - Git Identity Validation
 ═══════════════════════════════════════════════════════════════
@@ -158,7 +158,7 @@ GIT_EMAIL="john.doe@example.com"
 
 ## Output: .env Missing
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   /git --commit - Git Identity Validation
 ═══════════════════════════════════════════════════════════════

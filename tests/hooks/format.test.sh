@@ -16,7 +16,7 @@ TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
 # === Basic behavior ===
-RESULT=$(bash "$HOOK" 2>&1)
+bash "$HOOK" >/dev/null 2>&1
 EXIT_CODE=$?
 TESTS_RUN=$((TESTS_RUN + 1))
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -27,7 +27,7 @@ else
     printf "${RED}  FAIL${NC}: Should exit 0 with no arguments (got: %d)\n" "$EXIT_CODE"
 fi
 
-RESULT=$(bash "$HOOK" "/nonexistent/file.py" 2>&1)
+bash "$HOOK" "/nonexistent/file.py" >/dev/null 2>&1
 EXIT_CODE=$?
 TESTS_RUN=$((TESTS_RUN + 1))
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -46,7 +46,7 @@ fmt:
 MAKEFILE
 echo "x = 1" > "$TMPDIR/fmt-project/test.py"
 
-RESULT=$(bash "$HOOK" "$TMPDIR/fmt-project/test.py" 2>&1)
+bash "$HOOK" "$TMPDIR/fmt-project/test.py" >/dev/null 2>&1
 EXIT_CODE=$?
 TESTS_RUN=$((TESTS_RUN + 1))
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -65,7 +65,7 @@ format:
 MAKEFILE
 echo "x = 1" > "$TMPDIR/format-project/test.py"
 
-RESULT=$(bash "$HOOK" "$TMPDIR/format-project/test.py" 2>&1)
+bash "$HOOK" "$TMPDIR/format-project/test.py" >/dev/null 2>&1
 EXIT_CODE=$?
 TESTS_RUN=$((TESTS_RUN + 1))
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -80,7 +80,7 @@ fi
 mkdir -p "$TMPDIR/no-fmt"
 echo "content" > "$TMPDIR/no-fmt/test.xyz"
 
-RESULT=$(bash "$HOOK" "$TMPDIR/no-fmt/test.xyz" 2>&1)
+bash "$HOOK" "$TMPDIR/no-fmt/test.xyz" >/dev/null 2>&1
 EXIT_CODE=$?
 TESTS_RUN=$((TESTS_RUN + 1))
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -93,7 +93,7 @@ fi
 
 # === Language-specific formatting ===
 echo "x=1" > "$TMPDIR/no-fmt/test.py"
-RESULT=$(bash "$HOOK" "$TMPDIR/no-fmt/test.py" 2>&1)
+bash "$HOOK" "$TMPDIR/no-fmt/test.py" >/dev/null 2>&1
 EXIT_CODE=$?
 TESTS_RUN=$((TESTS_RUN + 1))
 if [ "$EXIT_CODE" -eq 0 ]; then

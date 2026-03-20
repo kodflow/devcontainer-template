@@ -143,7 +143,7 @@ Each agent knows its OS's package manager, init system, kernel, security model, 
 
 ## Routing Chains
 
-```
+```text
 /review → developer-specialist-review (sonnet)
             → developer-executor-correctness (sonnet)
             → developer-executor-security (opus)

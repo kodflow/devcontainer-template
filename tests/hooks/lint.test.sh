@@ -36,7 +36,7 @@ MAKEFILE
 echo "print('hello')" > "$TMPDIR/makefile-project/test.py"
 
 # Test that Makefile is preferred (lint.sh takes file as $1, not stdin)
-RESULT=$(bash "$HOOK" "$TMPDIR/makefile-project/test.py" 2>&1)
+bash "$HOOK" "$TMPDIR/makefile-project/test.py" >/dev/null 2>&1
 EXIT_CODE=$?
 TESTS_RUN=$((TESTS_RUN + 1))
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -52,7 +52,7 @@ fi
 mkdir -p "$TMPDIR/no-tools"
 echo "some content" > "$TMPDIR/no-tools/test.xyz"
 
-RESULT=$(bash "$HOOK" "$TMPDIR/no-tools/test.xyz" 2>&1)
+bash "$HOOK" "$TMPDIR/no-tools/test.xyz" >/dev/null 2>&1
 EXIT_CODE=$?
 TESTS_RUN=$((TESTS_RUN + 1))
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -66,7 +66,7 @@ fi
 # === Extension detection ===
 # Create Python file to verify ruff is called (if available)
 echo "x=1" > "$TMPDIR/no-tools/test.py"
-RESULT=$(bash "$HOOK" "$TMPDIR/no-tools/test.py" 2>&1)
+bash "$HOOK" "$TMPDIR/no-tools/test.py" >/dev/null 2>&1
 EXIT_CODE=$?
 TESTS_RUN=$((TESTS_RUN + 1))
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -79,7 +79,7 @@ fi
 
 # Create Go file
 echo "package main" > "$TMPDIR/no-tools/test.go"
-RESULT=$(bash "$HOOK" "$TMPDIR/no-tools/test.go" 2>&1)
+bash "$HOOK" "$TMPDIR/no-tools/test.go" >/dev/null 2>&1
 EXIT_CODE=$?
 TESTS_RUN=$((TESTS_RUN + 1))
 if [ "$EXIT_CODE" -eq 0 ]; then

@@ -38,10 +38,6 @@ PROJECT_DIR="${PROJECT_DIR//[^a-zA-Z0-9\/._-]/}"
 SESSION_ID="${CLAUDE_SESSION_ID:-default}"
 SESSION_ID="${SESSION_ID//[^a-zA-Z0-9_-]/}"
 
-# Source common utilities
-# shellcheck source=common.sh
-[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
-
 # === Prevent infinite loops ===
 TRACKER="/tmp/.claude-edited-files-${SESSION_ID}"
 QUALITY_RAN="/tmp/.claude-quality-ran-${SESSION_ID}"

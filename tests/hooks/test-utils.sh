@@ -15,10 +15,9 @@ FAILURES_LOG=""
 if [ -t 1 ]; then
     GREEN='\033[0;32m'
     RED='\033[0;31m'
-    YELLOW='\033[0;33m'
     NC='\033[0m'
 else
-    GREEN="" RED="" YELLOW="" NC=""
+    GREEN="" RED="" NC=""
 fi
 
 # Run a hook test
@@ -33,9 +32,12 @@ test_hook() {
     TESTS_RUN=$((TESTS_RUN + 1))
 
     local stdout stderr actual_exit
-    stdout=$(echo "$input" | bash "$script" 2>/tmp/test_stderr)
+    local tmp_stderr
+    tmp_stderr=$(mktemp)
+    stdout=$(echo "$input" | bash "$script" 2>"$tmp_stderr")
     actual_exit=$?
-    stderr=$(cat /tmp/test_stderr 2>/dev/null)
+    stderr=$(cat "$tmp_stderr" 2>/dev/null)
+    rm -f "$tmp_stderr"
 
     local passed=true
 
@@ -74,9 +76,12 @@ test_hook_stdout() {
 
     TESTS_RUN=$((TESTS_RUN + 1))
 
-    local stdout stderr actual_exit
-    stdout=$(echo "$input" | bash "$script" 2>/tmp/test_stderr)
+    local stdout actual_exit
+    local tmp_stderr
+    tmp_stderr=$(mktemp)
+    stdout=$(echo "$input" | bash "$script" 2>"$tmp_stderr")
     actual_exit=$?
+    rm -f "$tmp_stderr"
 
     local passed=true
 
@@ -123,11 +128,15 @@ print_summary() {
 # Usage: make_bash_input "git commit -m 'test'"
 make_bash_input() {
     local cmd="$1"
-    printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$cmd"
+    local escaped
+    escaped=$(printf '%s' "$cmd" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$escaped"
 }
 
 # Build a PreToolUse input for non-Bash tools
 make_tool_input() {
     local tool="$1"
-    printf '{"tool_name":"%s","tool_input":{}}' "$tool"
+    local escaped
+    escaped=$(printf '%s' "$tool" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    printf '{"tool_name":"%s","tool_input":{}}' "$escaped"
 }

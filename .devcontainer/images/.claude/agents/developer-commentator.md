@@ -62,7 +62,7 @@ to process files in parallel, then validate results and produce a final report.
 
 ### Worker Invocation Template
 
-```
+```text
 Audit comments in file: {path}
 Language: {lang}
 Mode: {check|fix}
@@ -76,7 +76,7 @@ Return JSON only.
 2. Aggregate worker JSON results
 3. Produce final report:
 
-```
+```text
 ## Comment Audit Report
 
 **Files scanned**: N

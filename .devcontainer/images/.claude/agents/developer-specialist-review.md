@@ -305,7 +305,7 @@ cyclic:
 
 ## Worked Example: Review Finding (BAD/GOOD)
 
-```
+```text
 [CRITICAL] SQL injection via string concatenation
 File: src/api/users.ts:42
   // BAD: User input directly in query
