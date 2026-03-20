@@ -371,6 +371,24 @@ Context: .claude/contexts/<slug>.md
 ### Step 2: <Title>
 ...
 
+## Parallelization (optional — for multi-step plans)
+
+When steps are independent (no shared files, no dependency), tag them for parallel execution:
+
+| Step | Files | Agent | Model | Worktree | Depends On |
+|------|-------|-------|-------|----------|------------|
+| 1 | src/auth/ | developer-specialist-go | sonnet | yes | - |
+| 2 | src/api/ | developer-specialist-go | haiku | yes | - |
+| 3 | docs/ | developer-specialist-review | haiku | no | 1, 2 |
+
+`/do` will use this table to create worktrees and dispatch agents in parallel (semi-auto: user confirms before creating worktrees).
+
+**Rules:**
+- Only tag `worktree: yes` if step touches DIFFERENT files than other parallel steps
+- Assign the most specific agent for the task
+- Model follows agent default (from registry.json)
+- Steps with `depends_on` run sequentially AFTER dependencies complete
+
 ## Testing Strategy
 - [ ] Unit tests for `component`
 - [ ] Integration test for `flow`
