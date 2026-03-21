@@ -40,6 +40,43 @@ step_git_safe_directory() {
     fi
 }
 
+# Global gitignore — prevent accidental commit of secrets files
+# Belt + suspenders: even if project .gitignore is modified or missing,
+# mcp.json, .env, and credential files are NEVER committable.
+step_git_global_ignore() {
+    local IGNORE_DIR="/home/vscode/.config/git"
+    local IGNORE_FILE="$IGNORE_DIR/ignore"
+    mkdir -p "$IGNORE_DIR"
+    cat > "$IGNORE_FILE" << 'IGNOREEOF'
+# Global gitignore — managed by DevContainer (never commit secrets)
+# This file is the last line of defense against accidental token leaks.
+# Even `git add -f` respects global gitignore (only `--no-exclude` bypasses).
+
+# MCP configs (contain API tokens)
+mcp.json
+.mcp.json
+**/mcp.json
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+**/.env
+
+# Credential files
+**/credentials.json
+**/service-account.json
+**/*.pem
+**/id_rsa
+**/id_ed25519
+
+# 1Password
+**/op-session-*
+IGNOREEOF
+    git config --global core.excludesfile "$IGNORE_FILE"
+    log_success "Global gitignore configured ($IGNORE_FILE)"
+}
+
 # Conditionally disable SSL verification (for corporate proxies/self-signed certs)
 # Only applies when GIT_SSL_NO_VERIFY=1 is set in .env or environment
 step_git_ssl_config() {
@@ -325,6 +362,7 @@ step_mark_initialized() {
 
 # Git steps run every time (safe directory, SSL, GPG)
 run_step "Git safe directory"    step_git_safe_directory
+run_step "Git global gitignore"  step_git_global_ignore
 run_step "Git SSL configuration" step_git_ssl_config
 run_step "GPG signing"           step_gpg_signing
 
