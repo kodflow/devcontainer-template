@@ -248,10 +248,10 @@ ignore:
   - "*.egg-info"
   - "*.whl"
 
-  # Go
+  # Go (vendor covers Go + PHP)
   - vendor
   - go.sum
-  - pkg
+  - pkg/mod
 
   # Rust
   - target
@@ -306,12 +306,12 @@ ignore:
   - .bundle
   - Gemfile.lock
 
-  # PHP
-  - vendor
+  # PHP (vendor already covered by Go section)
   - composer.lock
 
-  # .NET / C#
-  - bin
+  # .NET / C# (bin/obj are build outputs, not source)
+  - "**/bin/Debug"
+  - "**/bin/Release"
   - obj
   - "*.nupkg"
   - packages
