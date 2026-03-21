@@ -107,113 +107,61 @@ decompose_workflow:
 
 ---
 
-## Phase 4.0: Parallelize (RLM Pattern) - Multi-Language Pre-commit
+## Phase 4.0: Incremental Quality Gate (Lint + Test in Parallel)
 
-**Auto-detect ALL project languages and run checks for each:**
+**Runs lint + test in PARALLEL, scoped to changed files/packages only.**
 
 ```yaml
-language_detection:
-  script: ".claude/scripts/pre-commit-checks.sh"
+incremental_quality:
+  script: "~/.claude/scripts/pre-commit-quality.sh"
+  trigger: "ALWAYS before commit (mandatory)"
+  scope: "Only files changed vs base branch (not entire project)"
+  parallelism: "lint and test run simultaneously in background"
 
-  detection_files:
-    go.mod: "Go"
-    Cargo.toml: "Rust"
-    package.json: "Node.js"
-    pyproject.toml: "Python"
-    requirements.txt: "Python"
-    Gemfile: "Ruby"
-    pom.xml: "Java (Maven)"
-    build.gradle: "Java/Kotlin (Gradle)"
-    mix.exs: "Elixir"
-    composer.json: "PHP"
-    pubspec.yaml: "Dart/Flutter"
-    build.sbt: "Scala"
-    CMakeLists.txt: "C/C++ (CMake)"
-    meson.build: "C/C++ (Meson)"
-    "*.csproj": "C# (.NET)"
-    "*.sln": "C# (.NET)"
-    Package.swift: "Swift"
-    DESCRIPTION: "R"
-    cpanfile: "Perl"
-    Makefile.PL: "Perl"
-    "*.rockspec": "Lua"
-    .luacheckrc: "Lua"
-    fpm.toml: "Fortran"
-    alire.toml: "Ada"
-    "*.gpr": "Ada"
-    "*.cob": "COBOL"
-    "*.cbl": "COBOL"
-    "*.lpi": "Pascal"
-    "*.vbproj": "VB.NET"
+  strategy:
+    1_detect_changes: "git diff main...HEAD + unstaged + staged → changed files"
+    2_detect_languages: "Map file extensions to languages (Go, Rust, TS, Python, Shell, etc.)"
+    3_makefile_first: "If Makefile has lint/test targets → delegate to make"
+    4_fallback: "Language-specific tools scoped to changed files/packages"
 
-parallel_checks:
-  mode: "PARALLEL (single message, multiple calls)"
+  supported_languages:
+    go: { lint: "golangci-lint run <changed_pkgs>", test: "go test -race <changed_pkgs>" }
+    rust: { lint: "cargo clippy -- -D warnings", test: "cargo test" }
+    node: { lint: "npx eslint <changed_files>", test: "npx vitest run" }
+    python: { lint: "ruff check <changed_files>", test: "pytest" }
+    shell: { lint: "shellcheck -x <changed_files>", test: "bats tests/**/*.bats" }
+    ruby: { lint: "rubocop <changed_files>", test: "bundle exec rspec" }
+    php: { lint: "phpstan analyse <changed_files>", test: "phpunit" }
+    elixir: { lint: "mix credo --strict", test: "mix test" }
+    dart: { lint: "dart analyze <changed_files>", test: "dart test" }
 
-  for_each_detected_language:
-    - task: "lint-check"
-      priority: "Makefile target > language-specific tool"
-      commands:
-        go: "golangci-lint run ./..."
-        rust: "cargo clippy -- -D warnings"
-        nodejs: "npm run lint"
-        python: "ruff check ."
-        ruby: "bundle exec rubocop"
-        java-maven: "mvn checkstyle:check"
-        java-gradle: "./gradlew check"
-        elixir: "mix credo --strict"
-        php: "vendor/bin/phpstan analyse"
-        dart: "dart analyze --fatal-infos"
-
-    - task: "build-check"
-      commands:
-        go: "go build ./..."
-        rust: "cargo build --release"
-        nodejs: "npm run build"
-        java-maven: "mvn compile -q"
-        java-gradle: "./gradlew build -x test"
-        elixir: "mix compile --warnings-as-errors"
-
-    - task: "test-check"
-      commands:
-        go: "go test -race ./..."
-        rust: "cargo test"
-        nodejs: "npm test"
-        python: "pytest"
-        ruby: "bundle exec rspec"
-        java-maven: "mvn test -q"
-        java-gradle: "./gradlew test"
-        elixir: "mix test"
-        php: "vendor/bin/phpunit"
-        dart: "dart test"
+  execution:
+    command: "bash ~/.claude/scripts/pre-commit-quality.sh main"
+    parallel: true  # lint and test run as background jobs simultaneously
+    timeout: 300s
+    on_failure: "BLOCK commit — Claude must fix errors before retrying"
+    on_success: "Continue to Phase 5.0 (Secret Scan)"
 ```
 
-**Output Multi-Language:**
+**Key difference from old on-stop-quality.sh:**
+- Old: ran after EVERY Claude response (even Q&A), on ALL project files
+- New: runs ONLY during `/git --commit`, scoped to changed files only
+
+**Output:**
 
 ```text
 ═══════════════════════════════════════════════════════════════
-   Pre-commit Checks
+  Pre-commit Quality Gate
 ═══════════════════════════════════════════════════════════════
 
-  Languages detected: Go, Rust
+  Changed: 5 files (Go: 3, Shell: 2)
 
---- Rust Checks ---
-[CHECK] Rust lint (clippy)...
-[PASS] Rust lint (clippy)
-[CHECK] Rust build...
-[PASS] Rust build
-[CHECK] Rust tests...
-[PASS] Rust tests
+  [PARALLEL]
+    ├─ lint  : ✓ passed (golangci-lint + shellcheck)
+    └─ test  : ✓ passed (go test + bats)
 
---- Go Checks ---
-[CHECK] Go lint (golangci-lint)...
-[PASS] Go lint (golangci-lint)
-[CHECK] Go build...
-[PASS] Go build
-[CHECK] Go tests (with race detection)...
-[PASS] Go tests (with race detection)
+  Pre-commit Quality Gate PASSED
 
-═══════════════════════════════════════════════════════════════
-   All pre-commit checks passed
 ═══════════════════════════════════════════════════════════════
 ```
 
