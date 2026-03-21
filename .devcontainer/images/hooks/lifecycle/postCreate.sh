@@ -40,18 +40,26 @@ step_git_safe_directory() {
     fi
 }
 
-# Global gitignore — prevent accidental commit of secrets files
-# Belt + suspenders: even if project .gitignore is modified or missing,
-# mcp.json, .env, and credential files are NEVER committable.
+# Global gitignore — additional layer of protection against accidental secret commits.
+# Primary protection is git-guard.sh (PreToolUse hook) which scans staged content
+# for token patterns and blocks commits. This global gitignore is a secondary layer.
 step_git_global_ignore() {
     local IGNORE_DIR="/home/vscode/.config/git"
     local IGNORE_FILE="$IGNORE_DIR/ignore"
-    mkdir -p "$IGNORE_DIR"
-    cat > "$IGNORE_FILE" << 'IGNOREEOF'
-# Global gitignore — managed by DevContainer (never commit secrets)
-# This file is the last line of defense against accidental token leaks.
-# Even `git add -f` respects global gitignore (only `--no-exclude` bypasses).
+    local MARKER="# managed-by: devcontainer-template"
 
+    mkdir -p "$IGNORE_DIR" || { log_error "Failed to create $IGNORE_DIR"; return 1; }
+
+    # If file exists and already has our managed block, skip (idempotent)
+    if [ -f "$IGNORE_FILE" ] && grep -qF "$MARKER" "$IGNORE_FILE" 2>/dev/null; then
+        log_info "Global gitignore already configured"
+        return 0
+    fi
+
+    # Append our patterns (preserve any existing user patterns)
+    cat >> "$IGNORE_FILE" << IGNOREEOF
+
+$MARKER
 # MCP configs (contain API tokens)
 mcp.json
 .mcp.json
@@ -59,9 +67,9 @@ mcp.json
 
 # Environment files (contain secrets)
 .env
-.env.local
-.env.*.local
+.env.*
 **/.env
+**/.env.*
 
 # Credential files
 **/credentials.json
@@ -73,7 +81,8 @@ mcp.json
 # 1Password
 **/op-session-*
 IGNOREEOF
-    git config --global core.excludesfile "$IGNORE_FILE"
+
+    git config --global core.excludesfile "$IGNORE_FILE" || { log_error "Failed to set core.excludesfile"; return 1; }
     log_success "Global gitignore configured ($IGNORE_FILE)"
 }
 
