@@ -38,6 +38,7 @@ CHANGED_FILES=$(
 [ -z "$CHANGED_FILES" ] && exit 0
 
 # === Detect which languages have changes ===
+# shellcheck disable=SC2034  # Variables reserved for future language checkers
 HAS_GO=false HAS_RUST=false HAS_NODE=false HAS_PYTHON=false HAS_SHELL=false
 HAS_JAVA=false HAS_CPP=false HAS_RUBY=false HAS_PHP=false HAS_ELIXIR=false
 HAS_DART=false HAS_SCALA=false HAS_KOTLIN=false HAS_SWIFT=false
@@ -62,6 +63,7 @@ while IFS= read -r f; do
 done <<< "$CHANGED_FILES"
 
 # === Extract changed packages/directories for scoped checks ===
+# shellcheck disable=SC2034  # Used by future language checkers that scope by directory
 CHANGED_DIRS=$(echo "$CHANGED_FILES" | xargs -I{} dirname {} | sort -u | head -20)
 
 # === Build parallel check commands ===
@@ -81,36 +83,37 @@ run_lint() {
     if $HAS_GO && command -v golangci-lint &>/dev/null; then
         local go_pkgs
         go_pkgs=$(echo "$CHANGED_FILES" | grep '\.go$' | xargs -I{} dirname {} | sort -u | sed 's|^|./|' | paste -sd' ')
-        golangci-lint run $go_pkgs 2>&1 >> "$out" || exit_code=1
+        # shellcheck disable=SC2086 -- intentional word splitting on go_pkgs
+        golangci-lint run $go_pkgs >> "$out" 2>&1 || exit_code=1
     fi
     if $HAS_RUST && command -v cargo &>/dev/null; then
-        cargo clippy -- -D warnings 2>&1 >> "$out" || exit_code=1
+        cargo clippy -- -D warnings >> "$out" 2>&1 || exit_code=1
     fi
     if $HAS_NODE; then
         if [ -f "$PROJECT_ROOT/package.json" ] && command -v npx &>/dev/null; then
-            npx eslint --fix $(echo "$CHANGED_FILES" | grep -E '\.(ts|tsx|js|jsx)$' | tr '\n' ' ') 2>&1 >> "$out" || exit_code=1
+            npx eslint $(echo "$CHANGED_FILES" | grep -E '\.(ts|tsx|js|jsx)$' | tr '\n' ' ') >> "$out" 2>&1 || exit_code=1
         fi
     fi
     if $HAS_PYTHON && command -v ruff &>/dev/null; then
-        ruff check $(echo "$CHANGED_FILES" | grep '\.py$' | tr '\n' ' ') 2>&1 >> "$out" || exit_code=1
+        ruff check $(echo "$CHANGED_FILES" | grep '\.py$' | tr '\n' ' ') >> "$out" 2>&1 || exit_code=1
     fi
     if $HAS_SHELL && command -v shellcheck &>/dev/null; then
-        shellcheck -x $(echo "$CHANGED_FILES" | grep -E '\.(sh|bash)$' | tr '\n' ' ') 2>&1 >> "$out" || exit_code=1
+        shellcheck -x $(echo "$CHANGED_FILES" | grep -E '\.(sh|bash)$' | tr '\n' ' ') >> "$out" 2>&1 || exit_code=1
     fi
     if $HAS_JAVA && has_makefile_target "lint" "$PROJECT_ROOT"; then
-        make lint 2>&1 >> "$out" || exit_code=1
+        make lint >> "$out" 2>&1 || exit_code=1
     fi
     if $HAS_RUBY && command -v rubocop &>/dev/null; then
-        rubocop $(echo "$CHANGED_FILES" | grep '\.rb$' | tr '\n' ' ') 2>&1 >> "$out" || exit_code=1
+        rubocop $(echo "$CHANGED_FILES" | grep '\.rb$' | tr '\n' ' ') >> "$out" 2>&1 || exit_code=1
     fi
     if $HAS_PHP && command -v phpstan &>/dev/null; then
-        phpstan analyse $(echo "$CHANGED_FILES" | grep '\.php$' | tr '\n' ' ') 2>&1 >> "$out" || exit_code=1
+        phpstan analyse $(echo "$CHANGED_FILES" | grep '\.php$' | tr '\n' ' ') >> "$out" 2>&1 || exit_code=1
     fi
     if $HAS_ELIXIR && command -v mix &>/dev/null; then
-        mix credo --strict 2>&1 >> "$out" || exit_code=1
+        mix credo --strict >> "$out" 2>&1 || exit_code=1
     fi
     if $HAS_DART && command -v dart &>/dev/null; then
-        dart analyze $(echo "$CHANGED_FILES" | grep '\.dart$' | tr '\n' ' ') 2>&1 >> "$out" || exit_code=1
+        dart analyze $(echo "$CHANGED_FILES" | grep '\.dart$' | tr '\n' ' ') >> "$out" 2>&1 || exit_code=1
     fi
 
     return $exit_code
@@ -126,27 +129,30 @@ run_test() {
     if $HAS_GO && command -v go &>/dev/null; then
         local go_pkgs
         go_pkgs=$(echo "$CHANGED_FILES" | grep '\.go$' | xargs -I{} dirname {} | sort -u | sed 's|^|./|' | paste -sd' ')
-        go test -race -count=1 $go_pkgs 2>&1 >> "$out" || exit_code=1
+        # shellcheck disable=SC2086 -- intentional word splitting on go_pkgs
+        go test -race -count=1 $go_pkgs >> "$out" 2>&1 || exit_code=1
     fi
     if $HAS_RUST && command -v cargo &>/dev/null; then
-        cargo test 2>&1 >> "$out" || exit_code=1
+        cargo test >> "$out" 2>&1 || exit_code=1
     fi
     if $HAS_NODE && [ -f "$PROJECT_ROOT/package.json" ]; then
         if command -v npx &>/dev/null; then
-            npx vitest run --reporter=verbose 2>&1 >> "$out" || \
-            npx jest --passWithNoTests 2>&1 >> "$out" || exit_code=1
+            npx vitest run --reporter=verbose >> "$out" 2>&1 || \
+            npx jest --passWithNoTests >> "$out" 2>&1 || exit_code=1
         fi
     fi
     if $HAS_PYTHON && command -v pytest &>/dev/null; then
-        pytest --tb=short -q 2>&1 >> "$out" || exit_code=1
+        pytest --tb=short -q >> "$out" 2>&1 || exit_code=1
     fi
     if $HAS_SHELL; then
-        if command -v bats &>/dev/null && ls tests/**/*.bats &>/dev/null 2>&1; then
-            bats tests/**/*.bats 2>&1 >> "$out" || exit_code=1
+        if [ -x "tests/hooks/run-all.sh" ]; then
+            bash tests/hooks/run-all.sh >> "$out" 2>&1 || exit_code=1
+        elif command -v bats &>/dev/null && ls tests/**/*.bats &>/dev/null 2>&1; then
+            bats tests/**/*.bats >> "$out" 2>&1 || exit_code=1
         fi
     fi
     if $HAS_ELIXIR && command -v mix &>/dev/null; then
-        mix test 2>&1 >> "$out" || exit_code=1
+        mix test >> "$out" 2>&1 || exit_code=1
     fi
 
     return $exit_code

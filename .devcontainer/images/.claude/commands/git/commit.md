@@ -121,8 +121,7 @@ incremental_quality:
   strategy:
     1_detect_changes: "git diff main...HEAD + unstaged + staged → changed files"
     2_detect_languages: "Map file extensions to languages (Go, Rust, TS, Python, Shell, etc.)"
-    3_makefile_first: "If Makefile has lint/test targets → delegate to make"
-    4_fallback: "Language-specific tools scoped to changed files/packages"
+    3_scoped_first: "Language-specific tools scoped to changed files/packages"
 
   supported_languages:
     go: { lint: "golangci-lint run <changed_pkgs>", test: "go test -race <changed_pkgs>" }
@@ -165,7 +164,7 @@ incremental_quality:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**IMPORTANT**: Run `.claude/scripts/pre-commit-checks.sh` which auto-detects languages.
+**IMPORTANT**: Run `.claude/scripts/pre-commit-quality.sh main` which auto-detects languages.
 
 ---
 

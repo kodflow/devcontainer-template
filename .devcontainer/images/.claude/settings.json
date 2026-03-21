@@ -140,10 +140,7 @@
     "additionalDirectories": []
   },
   "enableAllProjectMcpServers": true,
-  "disabledMcpjsonServers": [
-    "codacy",
-    "playwright"
-  ],
+  "disabledMcpjsonServers": ["codacy", "playwright"],
   "hooks": {
     "SessionStart": [
       {
@@ -210,11 +207,6 @@
             "command": "/home/vscode/.claude/scripts/log.sh",
             "timeout": 5,
             "async": true
-          },
-          {
-            "type": "command",
-            "command": "/home/vscode/.claude/scripts/rtk-rewrite.sh",
-            "timeout": 5
           }
         ]
       },
