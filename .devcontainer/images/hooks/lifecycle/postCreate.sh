@@ -40,6 +40,52 @@ step_git_safe_directory() {
     fi
 }
 
+# Global gitignore — additional layer of protection against accidental secret commits.
+# Primary protection is git-guard.sh (PreToolUse hook) which scans staged content
+# for token patterns and blocks commits. This global gitignore is a secondary layer.
+step_git_global_ignore() {
+    local IGNORE_DIR="/home/vscode/.config/git"
+    local IGNORE_FILE="$IGNORE_DIR/ignore"
+    local MARKER="# managed-by: devcontainer-template"
+
+    mkdir -p "$IGNORE_DIR" || { log_error "Failed to create $IGNORE_DIR"; return 1; }
+
+    # If file exists and already has our managed block, skip (idempotent)
+    if [ -f "$IGNORE_FILE" ] && grep -qF "$MARKER" "$IGNORE_FILE" 2>/dev/null; then
+        log_info "Global gitignore already configured"
+        return 0
+    fi
+
+    # Append our patterns (preserve any existing user patterns)
+    cat >> "$IGNORE_FILE" << IGNOREEOF
+
+$MARKER
+# MCP configs (contain API tokens)
+mcp.json
+.mcp.json
+**/mcp.json
+
+# Environment files (contain secrets)
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Credential files
+**/credentials.json
+**/service-account.json
+**/*.pem
+**/id_rsa
+**/id_ed25519
+
+# 1Password
+**/op-session-*
+IGNOREEOF
+
+    git config --global core.excludesfile "$IGNORE_FILE" || { log_error "Failed to set core.excludesfile"; return 1; }
+    log_success "Global gitignore configured ($IGNORE_FILE)"
+}
+
 # Conditionally disable SSL verification (for corporate proxies/self-signed certs)
 # Only applies when GIT_SSL_NO_VERIFY=1 is set in .env or environment
 step_git_ssl_config() {
@@ -325,6 +371,7 @@ step_mark_initialized() {
 
 # Git steps run every time (safe directory, SSL, GPG)
 run_step "Git safe directory"    step_git_safe_directory
+run_step "Git global gitignore"  step_git_global_ignore
 run_step "Git SSL configuration" step_git_ssl_config
 run_step "GPG signing"           step_gpg_signing
 
