@@ -8,277 +8,342 @@
 version: 1
 
 embedder:
-    provider: ollama
-    model: bge-m3
-    endpoint: http://localhost:11434  # Auto-replaced by postStart.sh
-    dimensions: 1024  # Reduced from 4096 max for efficiency
+  provider: ollama
+  model: bge-m3
+  endpoint: http://localhost:11434 # Auto-replaced by postStart.sh
+  dimensions: 1024 # Reduced from 4096 max for efficiency
 
 store:
-    backend: gob
+  backend: gob
 
 chunking:
-    size: 1024   # Larger chunks for better semantic context
-    overlap: 100 # Better context overlap
+  size: 1024 # Larger chunks for better semantic context
+  overlap: 100 # Better context overlap
 
 watch:
-    debounce_ms: 2000  # Reduced CPU: wait 2s before re-indexing
+  debounce_ms: 2000 # Reduced CPU: wait 2s before re-indexing
 
 search:
-    hybrid:
-        enabled: true  # RRF combines vector + keyword search
-        k: 60          # Balanced weighting
+  hybrid:
+    enabled: true # RRF combines vector + keyword search
+    k: 60 # Balanced weighting
 
-    boost:
-        enabled: true
-        bonuses:
-            # Source code priority
-            - pattern: /src/
-              factor: 1.2
-            - pattern: /lib/
-              factor: 1.15
-            - pattern: /app/
-              factor: 1.15
-            - pattern: /pkg/
-              factor: 1.15
-            - pattern: /internal/
-              factor: 1.1
-            - pattern: /cmd/
-              factor: 1.1
-        penalties:
-            # Test files (lower priority)
-            - pattern: /tests/
-              factor: 0.5
-            - pattern: /test/
-              factor: 0.5
-            - pattern: __tests__/
-              factor: 0.5
-            - pattern: _test.
-              factor: 0.5
-            - pattern: .test.
-              factor: 0.5
-            - pattern: .spec.
-              factor: 0.5
-            - pattern: test_
-              factor: 0.5
-            - pattern: _spec.
-              factor: 0.5
-            # Mocks and fixtures
-            - pattern: /mocks/
-              factor: 0.4
-            - pattern: /mock/
-              factor: 0.4
-            - pattern: .mock.
-              factor: 0.4
-            - pattern: /fixtures/
-              factor: 0.4
-            - pattern: /testdata/
-              factor: 0.4
-            - pattern: /stubs/
-              factor: 0.4
-            # Generated code
-            - pattern: /generated/
-              factor: 0.3
-            - pattern: .generated.
-              factor: 0.3
-            - pattern: .gen.
-              factor: 0.3
-            - pattern: .pb.
-              factor: 0.3
-            - pattern: _pb2.
-              factor: 0.3
-            # Documentation (lower but not excluded)
-            - pattern: .md
-              factor: 0.6
-            - pattern: /docs/
-              factor: 0.6
-            # Vendored code
-            - pattern: /vendor/
-              factor: 0.2
-            - pattern: /third_party/
-              factor: 0.2
+  boost:
+    enabled: true
+    bonuses:
+      # Source code priority
+      - pattern: /src/
+        factor: 1.2
+      - pattern: /lib/
+        factor: 1.15
+      - pattern: /app/
+        factor: 1.15
+      - pattern: /pkg/
+        factor: 1.15
+      - pattern: /internal/
+        factor: 1.1
+      - pattern: /cmd/
+        factor: 1.1
+    penalties:
+      # Test files (lower priority)
+      - pattern: /tests/
+        factor: 0.5
+      - pattern: /test/
+        factor: 0.5
+      - pattern: __tests__/
+        factor: 0.5
+      - pattern: _test.
+        factor: 0.5
+      - pattern: .test.
+        factor: 0.5
+      - pattern: .spec.
+        factor: 0.5
+      - pattern: test_
+        factor: 0.5
+      - pattern: _spec.
+        factor: 0.5
+      # Mocks and fixtures
+      - pattern: /mocks/
+        factor: 0.4
+      - pattern: /mock/
+        factor: 0.4
+      - pattern: .mock.
+        factor: 0.4
+      - pattern: /fixtures/
+        factor: 0.4
+      - pattern: /testdata/
+        factor: 0.4
+      - pattern: /stubs/
+        factor: 0.4
+      # Generated code
+      - pattern: /generated/
+        factor: 0.3
+      - pattern: .generated.
+        factor: 0.3
+      - pattern: .gen.
+        factor: 0.3
+      - pattern: .pb.
+        factor: 0.3
+      - pattern: _pb2.
+        factor: 0.3
+      # Documentation (lower but not excluded)
+      - pattern: .md
+        factor: 0.6
+      - pattern: /docs/
+        factor: 0.6
+      # Vendored code
+      - pattern: /vendor/
+        factor: 0.2
+      - pattern: /third_party/
+        factor: 0.2
 
 trace:
-    mode: fast
-    enabled_languages:
-        # Go
-        - .go
-        # Node.js / TypeScript
-        - .js
-        - .ts
-        - .jsx
-        - .tsx
-        - .mjs
-        - .cjs
-        # Python
-        - .py
-        - .pyx
-        - .pyi
-        # Rust
-        - .rs
-        # Elixir
-        - .ex
-        - .exs
-        # Java
-        - .java
-        # PHP
-        - .php
-        # Ruby
-        - .rb
-        - .rake
-        # Scala
-        - .scala
-        - .sc
-        - .sbt
-        # Dart / Flutter
-        - .dart
-        # C / C++
-        - .c
-        - .h
-        - .cpp
-        - .hpp
-        - .cc
-        - .cxx
-        - .hxx
-        # Carbon
-        - .carbon
-    exclude_patterns:
-        # Go tests
-        - '*_test.go'
-        # JS/TS tests
-        - '*.spec.ts'
-        - '*.spec.js'
-        - '*.spec.tsx'
-        - '*.spec.jsx'
-        - '*.test.ts'
-        - '*.test.js'
-        - '*.test.tsx'
-        - '*.test.jsx'
-        - '__tests__/*'
-        # Python tests
-        - 'test_*.py'
-        - '*_test.py'
-        - 'conftest.py'
-        # Rust tests
-        - '**/tests/*.rs'
-        # Elixir tests
-        - '*_test.exs'
-        # Java tests
-        - '*Test.java'
-        - '*Tests.java'
-        # PHP tests
-        - '*Test.php'
-        - '*_test.php'
-        # Ruby tests
-        - '*_spec.rb'
-        - '*_test.rb'
-        # Scala tests
-        - '*Spec.scala'
-        - '*Test.scala'
-        # Dart tests
-        - '*_test.dart'
+  mode: fast
+  enabled_languages:
+    # Go
+    - .go
+    # Node.js / TypeScript
+    - .js
+    - .ts
+    - .jsx
+    - .tsx
+    - .mjs
+    - .cjs
+    # Python
+    - .py
+    - .pyx
+    - .pyi
+    # Rust
+    - .rs
+    # Elixir
+    - .ex
+    - .exs
+    # Java
+    - .java
+    # PHP
+    - .php
+    # Ruby
+    - .rb
+    - .rake
+    # Scala
+    - .scala
+    - .sc
+    - .sbt
+    # Dart / Flutter
+    - .dart
+    # C / C++
+    - .c
+    - .h
+    - .cpp
+    - .hpp
+    - .cc
+    - .cxx
+    - .hxx
+    # Carbon
+    - .carbon
+  exclude_patterns:
+    # Go tests
+    - "*_test.go"
+    # JS/TS tests
+    - "*.spec.ts"
+    - "*.spec.js"
+    - "*.spec.tsx"
+    - "*.spec.jsx"
+    - "*.test.ts"
+    - "*.test.js"
+    - "*.test.tsx"
+    - "*.test.jsx"
+    - "__tests__/*"
+    # Python tests
+    - "test_*.py"
+    - "*_test.py"
+    - "conftest.py"
+    # Rust tests
+    - "**/tests/*.rs"
+    # Elixir tests
+    - "*_test.exs"
+    # Java tests
+    - "*Test.java"
+    - "*Tests.java"
+    # PHP tests
+    - "*Test.php"
+    - "*_test.php"
+    # Ruby tests
+    - "*_spec.rb"
+    - "*_test.rb"
+    # Scala tests
+    - "*Spec.scala"
+    - "*Test.scala"
+    # Dart tests
+    - "*_test.dart"
 
 update:
-    check_on_startup: false
+  check_on_startup: false
 
 ignore:
-    # Version control
-    - .git
-    - .svn
-    - .hg
+  # Version control
+  - .git
+  - .svn
+  - .hg
 
-    # GrepAI
-    - .grepai
+  # GrepAI
+  - .grepai
 
-    # Claude Code (logs change constantly, causing infinite re-indexing)
-    - .claude
+  # Claude Code (logs change constantly, causing infinite re-indexing)
+  - .claude
+  - .claude-plugin
 
-    # IDE / Editors
-    - .idea
-    - .vscode
-    - '*.swp'
-    - '*.swo'
-    - .DS_Store
+  # IDE / Editors
+  - .idea
+  - .vscode
+  - "*.swp"
+  - "*.swo"
+  - .DS_Store
+  - "*.bak"
+  - "*.orig"
 
-    # Node.js
-    - node_modules
-    - .npm
-    - .yarn
-    - .pnpm-store
-    - package-lock.json
-    - yarn.lock
-    - pnpm-lock.yaml
+  # Node.js / JavaScript
+  - node_modules
+  - .npm
+  - .yarn
+  - .pnpm-store
+  - bower_components
+  - package-lock.json
+  - yarn.lock
+  - pnpm-lock.yaml
+  - bun.lockb
+  - "*.min.js"
+  - "*.min.css"
+  - "*.map"
+  - "*.chunk.js"
+  - "*.bundle.js"
 
-    # Python
-    - __pycache__
-    - .venv
-    - venv
-    - .env
-    - '*.pyc'
-    - '*.pyo'
-    - .mypy_cache
-    - .pytest_cache
-    - .ruff_cache
-    - '*.egg-info'
-    - dist
-    - build
+  # JS Frameworks (build caches)
+  - .next
+  - .nuxt
+  - .output
+  - .svelte-kit
+  - .angular
+  - .parcel-cache
+  - .turbo
+  - .vercel
+  - storybook-static
+  - .docusaurus
 
-    # Go
-    - vendor
-    - go.sum
+  # Python
+  - __pycache__
+  - __pypackages__
+  - .venv
+  - venv
+  - .env
+  - "*.pyc"
+  - "*.pyo"
+  - .mypy_cache
+  - .pytest_cache
+  - .ruff_cache
+  - .tox
+  - .nox
+  - .pixi
+  - site-packages
+  - "*.egg-info"
+  - "*.whl"
 
-    # Rust
-    - target
-    - Cargo.lock
+  # Go
+  - vendor
+  - go.sum
+  - pkg
 
-    # Java / Scala
-    - .gradle
-    - .m2
-    - '*.class'
-    - '*.jar'
+  # Rust
+  - target
+  - Cargo.lock
+  - .cargo
 
-    # C / C++
-    - '*.o'
-    - '*.obj'
-    - '*.a'
-    - '*.so'
-    - '*.dylib'
-    - cmake-build-*
-    - CMakeFiles
+  # Java / Kotlin / Scala
+  - .gradle
+  - .m2
+  - "*.class"
+  - "*.jar"
+  - "*.war"
+  - "*.ear"
 
-    # Dart / Flutter
-    - .dart_tool
-    - .packages
-    - pubspec.lock
-    - .flutter-plugins
-    - .flutter-plugins-dependencies
+  # C / C++
+  - "*.o"
+  - "*.obj"
+  - "*.a"
+  - "*.so"
+  - "*.dylib"
+  - "*.dll"
+  - "*.exe"
+  - cmake-build-*
+  - CMakeFiles
+  - .cxx
 
-    # Elixir
-    - _build
-    - deps
-    - .elixir_ls
+  # Swift / iOS
+  - Pods
+  - .build
+  - "*.xcworkspace"
+  - "*.dSYM"
+  - DerivedData
 
-    # Ruby
-    - .bundle
-    - Gemfile.lock
+  # Dart / Flutter
+  - .dart_tool
+  - .packages
+  - .pub-cache
+  - pubspec.lock
+  - .flutter-plugins
+  - .flutter-plugins-dependencies
 
-    # PHP
-    - vendor
-    - composer.lock
+  # Android
+  - "*.aar"
+  - "*.apk"
 
-    # Build outputs
-    - bin
-    - out
-    - dist
-    - build
-    - release
+  # Elixir
+  - _build
+  - deps
+  - .elixir_ls
 
-    # Carbon (experimental)
-    - bazel-*
+  # Ruby
+  - .bundle
+  - Gemfile.lock
 
-    # Misc
-    - coverage
-    - .coverage
-    - '*.log'
-    - tmp
-    - temp
-    - .cache
+  # PHP
+  - vendor
+  - composer.lock
+
+  # .NET / C#
+  - bin
+  - obj
+  - "*.nupkg"
+  - packages
+
+  # Infrastructure as Code
+  - .terraform
+  - .terragrunt-cache
+  - "*.tfstate"
+  - "*.tfstate.backup"
+
+  # Build outputs (generic)
+  - out
+  - dist
+  - build
+  - release
+  - artifacts
+
+  # WebAssembly
+  - "*.wasm"
+
+  # Bazel / Carbon
+  - bazel-*
+
+  # Container / Docker
+  - .docker
+
+  # Misc
+  - coverage
+  - .coverage
+  - "*.log"
+  - tmp
+  - temp
+  - .cache
+  - .sass-cache
+  - .eslintcache
