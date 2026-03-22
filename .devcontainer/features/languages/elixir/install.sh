@@ -23,9 +23,17 @@ export HEX_HOME="${HEX_HOME:-/home/vscode/.cache/hex}"
 export ASDF_DATA_DIR="${ASDF_DATA_DIR:-/home/vscode/.cache/asdf}"
 
 # Resolve latest asdf version for fallback installations
-ASDF_LATEST=$(curl -fsSL "https://api.github.com/repos/asdf-vm/asdf/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+ASDF_LATEST=""
+for _attempt in 1 2 3; do
+    ASDF_LATEST=$(curl -fsSL --connect-timeout 5 --max-time 10 \
+        ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+        "https://api.github.com/repos/asdf-vm/asdf/releases/latest" 2>/dev/null \
+        | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+    [[ -n "$ASDF_LATEST" ]] && break
+    sleep $((_attempt * 2))
+done
 if [ -z "$ASDF_LATEST" ]; then
-    echo -e "${RED}✗ Failed to resolve latest asdf version${NC}"
+    echo -e "${RED}✗ Failed to resolve latest asdf version after retries${NC}"
     exit 1
 fi
 

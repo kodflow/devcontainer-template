@@ -61,21 +61,25 @@ echo -e "${GREEN}+ Kotlin installed${NC}"
 echo -e "${YELLOW}Installing ktlint...${NC}"
 mkdir -p /home/vscode/.local/bin
 
-KTLINT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-    "https://api.github.com/repos/pinterest/ktlint/releases/latest" 2>/dev/null \
-    | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
-if [ -z "$KTLINT_VERSION" ]; then
-    echo -e "${RED}✗ Failed to resolve latest ktlint version${NC}"
-    exit 1
-fi
+KTLINT_VERSION=""
+for _attempt in 1 2 3; do
+    KTLINT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
+        ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+        "https://api.github.com/repos/pinterest/ktlint/releases/latest" 2>/dev/null \
+        | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+    [[ -n "$KTLINT_VERSION" ]] && break
+    sleep $((_attempt * 2))
+done
 
-if curl -fsSL --connect-timeout 10 --max-time 120 \
+if [ -z "$KTLINT_VERSION" ]; then
+    echo -e "${YELLOW}⚠ Failed to resolve ktlint version, skipping${NC}"
+elif curl -fsSL --connect-timeout 10 --max-time 120 \
     "https://github.com/pinterest/ktlint/releases/download/${KTLINT_VERSION}/ktlint" \
     -o /home/vscode/.local/bin/ktlint; then
     chmod +x /home/vscode/.local/bin/ktlint
     echo -e "${GREEN}+ ktlint ${KTLINT_VERSION} installed${NC}"
 else
-    echo -e "${YELLOW}! ktlint download failed${NC}"
+    echo -e "${YELLOW}⚠ ktlint download failed${NC}"
 fi
 
 export PATH="$SDKMAN_DIR/candidates/kotlin/current/bin:/home/vscode/.local/bin:$PATH"

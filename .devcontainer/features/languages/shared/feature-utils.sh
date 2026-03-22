@@ -60,18 +60,35 @@ detect_arch() {
 # GitHub Latest Version
 # =============================================================================
 # Usage: get_github_latest_version "owner/repo"
-# Returns version WITHOUT 'v' prefix. Fails if resolution fails.
+# Returns version WITHOUT 'v' prefix. Returns 1 on failure (does NOT exit).
+# Retries 3 times with exponential backoff. Uses GITHUB_TOKEN if available.
 get_github_latest_version() {
     local repo="$1"
-    local version
-    version=$(curl -s --connect-timeout 5 --max-time 10 \
-        "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
-        | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+    local version auth_args=()
+    if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+        auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
+    fi
+    local attempt
+    for attempt in 1 2 3; do
+        version=$(curl -s --connect-timeout 5 --max-time 10 \
+            "${auth_args[@]:+${auth_args[@]}}" \
+            "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+            | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+        [[ -n "$version" ]] && break
+        sleep $((attempt * 2))
+    done
     if [[ -z "$version" ]]; then
-        err "Failed to resolve latest version for ${repo}. GitHub API may be rate-limited. Try setting an explicit version."
-        exit 1
+        err "Failed to resolve latest version for ${repo}. GitHub API may be rate-limited."
+        return 1
     fi
     echo "$version"
+}
+
+# =============================================================================
+# GitHub Latest Version (non-fatal, returns empty on failure)
+# =============================================================================
+get_github_latest_version_or_empty() {
+    get_github_latest_version "$1" 2>/dev/null || echo ""
 }
 
 # =============================================================================

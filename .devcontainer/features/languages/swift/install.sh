@@ -25,7 +25,18 @@ trap cleanup EXIT
 # Environment variables
 # Auto-resolve latest Swift version if not specified
 if [ -z "${SWIFT_VERSION:-}" ] || [ "${SWIFT_VERSION}" = "latest" ]; then
-    SWIFT_VERSION=$(curl -s --connect-timeout 5 --max-time 10         "https://api.github.com/repos/swiftlang/swift/releases/latest" 2>/dev/null         | sed -n 's/.*"tag_name": *"swift-\([^-]*\)-RELEASE".*/\1/p' | head -n 1)
+    SWIFT_VERSION=""
+    for _attempt in 1 2 3; do
+        SWIFT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
+            ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+            "https://api.github.com/repos/swiftlang/swift/releases/latest" 2>/dev/null \
+            | sed -n 's/.*"tag_name": *"swift-\([^-]*\)-RELEASE".*/\1/p' | head -n 1)
+        [[ -n "$SWIFT_VERSION" ]] && break
+        sleep $((_attempt * 2))
+    done
+    if [ -z "$SWIFT_VERSION" ]; then
+        echo -e "${YELLOW}⚠ Failed to resolve latest Swift version from GitHub, using fallback 6.0.3${NC}"
+    fi
     SWIFT_VERSION="${SWIFT_VERSION:-6.0.3}"
 fi
 export SWIFT_VERSION
@@ -87,12 +98,18 @@ echo -e "${GREEN}${SWIFT_INSTALLED} installed${NC}"
 # SwiftFormat (GitHub releases)
 (
     echo -e "${YELLOW}Installing SwiftFormat...${NC}"
-    SWIFTFORMAT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-        "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/latest" 2>/dev/null \
-        | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+    SWIFTFORMAT_VERSION=""
+    for _attempt in 1 2 3; do
+        SWIFTFORMAT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
+            ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+            "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/latest" 2>/dev/null \
+            | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+        [[ -n "$SWIFTFORMAT_VERSION" ]] && break
+        sleep $((_attempt * 2))
+    done
     if [ -z "$SWIFTFORMAT_VERSION" ]; then
-        echo -e "${RED}✗ Failed to resolve latest SwiftFormat version${NC}"
-        exit 1
+        echo -e "${YELLOW}⚠ Failed to resolve SwiftFormat version, skipping${NC}"
+        exit 0
     fi
 
     SWIFTFORMAT_URL="https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat_linux_${SWIFT_ARCH}.tar.gz"
@@ -115,12 +132,18 @@ SWIFTFORMAT_PID=$!
 # SwiftLint (GitHub releases or build from source)
 (
     echo -e "${YELLOW}Installing SwiftLint...${NC}"
-    SWIFTLINT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-        "https://api.github.com/repos/realm/SwiftLint/releases/latest" 2>/dev/null \
-        | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+    SWIFTLINT_VERSION=""
+    for _attempt in 1 2 3; do
+        SWIFTLINT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
+            ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+            "https://api.github.com/repos/realm/SwiftLint/releases/latest" 2>/dev/null \
+            | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+        [[ -n "$SWIFTLINT_VERSION" ]] && break
+        sleep $((_attempt * 2))
+    done
     if [ -z "$SWIFTLINT_VERSION" ]; then
-        echo -e "${RED}✗ Failed to resolve latest SwiftLint version${NC}"
-        exit 1
+        echo -e "${YELLOW}⚠ Failed to resolve SwiftLint version, skipping${NC}"
+        exit 0
     fi
 
     SWIFTLINT_URL="https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/swiftlint_linux_${SWIFT_ARCH}.tar.gz"

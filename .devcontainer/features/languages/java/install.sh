@@ -9,15 +9,25 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
     warn() { echo -e "${YELLOW}⚠${NC} $*"; }
     err() { echo -e "${RED}✗${NC} $*" >&2; }
     get_github_latest_version() {
-        local repo="$1" version
-        version=$(curl -s --connect-timeout 5 --max-time 10 \
-            "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
-            | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+        local repo="$1" version auth_args=()
+        [[ -n "${GITHUB_TOKEN:-}" ]] && auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
+        local attempt
+        for attempt in 1 2 3; do
+            version=$(curl -s --connect-timeout 5 --max-time 10 \
+                "${auth_args[@]:+${auth_args[@]}}" \
+                "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+                | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+            [[ -n "$version" ]] && break
+            sleep $((attempt * 2))
+        done
         if [[ -z "$version" ]]; then
             echo -e "${RED}✗ Failed to resolve latest version for ${repo}${NC}" >&2
-            exit 1
+            return 1
         fi
         echo "$version"
+    }
+    get_github_latest_version_or_empty() {
+        get_github_latest_version "$1" 2>/dev/null || echo ""
     }
 }
 
@@ -122,11 +132,19 @@ mkdir -p /home/vscode/.local/bin
 # Download all 3 tools in parallel
 (
     # Google Java Format
-    GOOGLE_JAVA_FORMAT_VERSION=$(curl -fsSL "https://api.github.com/repos/google/google-java-format/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+    GOOGLE_JAVA_FORMAT_VERSION=""
+    for _attempt in 1 2 3; do
+        GOOGLE_JAVA_FORMAT_VERSION=$(curl -fsSL --connect-timeout 5 --max-time 10 \
+            ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+            "https://api.github.com/repos/google/google-java-format/releases/latest" 2>/dev/null \
+            | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+        [[ -n "$GOOGLE_JAVA_FORMAT_VERSION" ]] && break
+        sleep $((_attempt * 2))
+    done
     GOOGLE_JAVA_FORMAT_VERSION="${GOOGLE_JAVA_FORMAT_VERSION#v}"
     if [ -z "$GOOGLE_JAVA_FORMAT_VERSION" ]; then
-        echo -e "${RED}✗ Failed to resolve latest google-java-format version${NC}"
-        exit 1
+        echo -e "${YELLOW}⚠ Failed to resolve google-java-format version, skipping${NC}"
+        exit 0
     fi
     echo -e "${YELLOW}Installing Google Java Format ${GOOGLE_JAVA_FORMAT_VERSION}...${NC}"
     GOOGLE_JAVA_FORMAT_JAR="/home/vscode/.local/share/java/google-java-format.jar"
@@ -142,11 +160,19 @@ GJF_PID=$!
 
 (
     # Checkstyle
-    CHECKSTYLE_TAG=$(curl -fsSL "https://api.github.com/repos/checkstyle/checkstyle/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+    CHECKSTYLE_TAG=""
+    for _attempt in 1 2 3; do
+        CHECKSTYLE_TAG=$(curl -fsSL --connect-timeout 5 --max-time 10 \
+            ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+            "https://api.github.com/repos/checkstyle/checkstyle/releases/latest" 2>/dev/null \
+            | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+        [[ -n "$CHECKSTYLE_TAG" ]] && break
+        sleep $((_attempt * 2))
+    done
     CHECKSTYLE_VERSION="${CHECKSTYLE_TAG#checkstyle-}"
     if [ -z "$CHECKSTYLE_VERSION" ]; then
-        echo -e "${RED}✗ Failed to resolve latest checkstyle version${NC}"
-        exit 1
+        echo -e "${YELLOW}⚠ Failed to resolve checkstyle version, skipping${NC}"
+        exit 0
     fi
     echo -e "${YELLOW}Installing Checkstyle ${CHECKSTYLE_VERSION}...${NC}"
     CHECKSTYLE_JAR="/home/vscode/.local/share/java/checkstyle.jar"
@@ -162,10 +188,18 @@ CS_PID=$!
 
 (
     # SpotBugs
-    SPOTBUGS_VERSION=$(curl -fsSL "https://api.github.com/repos/spotbugs/spotbugs/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+    SPOTBUGS_VERSION=""
+    for _attempt in 1 2 3; do
+        SPOTBUGS_VERSION=$(curl -fsSL --connect-timeout 5 --max-time 10 \
+            ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+            "https://api.github.com/repos/spotbugs/spotbugs/releases/latest" 2>/dev/null \
+            | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+        [[ -n "$SPOTBUGS_VERSION" ]] && break
+        sleep $((_attempt * 2))
+    done
     if [ -z "$SPOTBUGS_VERSION" ]; then
-        echo -e "${RED}✗ Failed to resolve latest spotbugs version${NC}"
-        exit 1
+        echo -e "${YELLOW}⚠ Failed to resolve spotbugs version, skipping${NC}"
+        exit 0
     fi
     echo -e "${YELLOW}Installing SpotBugs ${SPOTBUGS_VERSION}...${NC}"
     SPOTBUGS_DIR="/home/vscode/.local/share/spotbugs"

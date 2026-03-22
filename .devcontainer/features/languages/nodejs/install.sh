@@ -158,9 +158,17 @@ apt_get_retry install -y curl git build-essential libssl-dev || {
 log_info "Installing NVM..."
 mkdir_safe "$NVM_DIR"
 # Fetch latest NVM version from GitHub API
-NVM_LATEST=$(curl -fsSL "https://api.github.com/repos/nvm-sh/nvm/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+NVM_LATEST=""
+for _attempt in 1 2 3; do
+    NVM_LATEST=$(curl -fsSL --connect-timeout 5 --max-time 10 \
+        ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+        "https://api.github.com/repos/nvm-sh/nvm/releases/latest" 2>/dev/null \
+        | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+    [[ -n "$NVM_LATEST" ]] && break
+    sleep $((_attempt * 2))
+done
 if [ -z "$NVM_LATEST" ]; then
-    log_error "Failed to resolve latest NVM version"
+    log_error "Failed to resolve latest NVM version after retries"
     exit 1
 fi
 log_info "Using NVM ${NVM_LATEST}"

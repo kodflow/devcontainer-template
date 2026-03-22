@@ -39,14 +39,20 @@ echo -e "${GREEN}✓ LuaRocks $(luarocks --version | head -n 1) installed${NC}"
 
 # Install StyLua (formatter) from GitHub releases
 echo -e "${YELLOW}Installing StyLua (formatter)...${NC}"
-STYLUA_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-    "https://api.github.com/repos/JohnnyMorganz/StyLua/releases/latest" \
-    | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+STYLUA_VERSION=""
+for _attempt in 1 2 3; do
+    STYLUA_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
+        ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+        "https://api.github.com/repos/JohnnyMorganz/StyLua/releases/latest" 2>/dev/null \
+        | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+    [[ -n "$STYLUA_VERSION" ]] && break
+    sleep $((_attempt * 2))
+done
 if [ -z "$STYLUA_VERSION" ]; then
-    echo -e "${RED}✗ Failed to resolve latest StyLua version${NC}"
-    exit 1
+    echo -e "${YELLOW}⚠ Failed to resolve StyLua version, skipping${NC}"
 fi
 
+if [ -n "$STYLUA_VERSION" ]; then
 STYLUA_URL="https://github.com/JohnnyMorganz/StyLua/releases/download/v${STYLUA_VERSION}/stylua-v${STYLUA_VERSION}-linux-${GH_ARCH}.zip"
 if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/stylua.zip "$STYLUA_URL"; then
     sudo unzip -o /tmp/stylua.zip -d /usr/local/bin/
@@ -55,6 +61,7 @@ if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/stylua.zip "$STYLUA_URL
     echo -e "${GREEN}✓ StyLua ${STYLUA_VERSION} installed${NC}"
 else
     echo -e "${YELLOW}⚠ StyLua download failed${NC}"
+fi
 fi
 
 # Install Luacheck (linter) via LuaRocks

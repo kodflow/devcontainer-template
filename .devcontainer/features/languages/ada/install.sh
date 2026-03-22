@@ -8,15 +8,25 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
     ok() { echo -e "${GREEN}✓${NC} $*"; }
     warn() { echo -e "${YELLOW}⚠${NC} $*"; }
     get_github_latest_version() {
-        local repo="$1" version
-        version=$(curl -s --connect-timeout 5 --max-time 10 \
-            "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
-            | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+        local repo="$1" version auth_args=()
+        [[ -n "${GITHUB_TOKEN:-}" ]] && auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
+        local attempt
+        for attempt in 1 2 3; do
+            version=$(curl -s --connect-timeout 5 --max-time 10 \
+                "${auth_args[@]:+${auth_args[@]}}" \
+                "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+                | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+            [[ -n "$version" ]] && break
+            sleep $((attempt * 2))
+        done
         if [[ -z "$version" ]]; then
             echo -e "${RED}✗ Failed to resolve latest version for ${repo}${NC}" >&2
-            exit 1
+            return 1
         fi
         echo "$version"
+    }
+    get_github_latest_version_or_empty() {
+        get_github_latest_version "$1" 2>/dev/null || echo ""
     }
 }
 
@@ -52,23 +62,28 @@ echo -e "${GREEN}✓ ${GPRBUILD_VERSION} installed${NC}"
 
 # Install Alire (alr) from GitHub releases
 echo -e "${YELLOW}Installing Alire (package manager)...${NC}"
-ALR_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-    "https://api.github.com/repos/alire-project/alire/releases/latest" \
-    | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+ALR_VERSION=""
+for _attempt in 1 2 3; do
+    ALR_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
+        ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+        "https://api.github.com/repos/alire-project/alire/releases/latest" 2>/dev/null \
+        | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+    [[ -n "$ALR_VERSION" ]] && break
+    sleep $((_attempt * 2))
+done
 if [ -z "$ALR_VERSION" ]; then
-    echo -e "${RED}✗ Failed to resolve latest Alire version${NC}"
-    exit 1
-fi
-
-ALR_URL="https://github.com/alire-project/alire/releases/download/v${ALR_VERSION}/alr-${ALR_VERSION}-bin-${ALR_ARCH}-linux.zip"
-if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/alr.zip "$ALR_URL"; then
-    sudo unzip -o /tmp/alr.zip -d /tmp/alr-extract
-    sudo mv /tmp/alr-extract/bin/alr /usr/local/bin/alr
-    sudo chmod +x /usr/local/bin/alr
-    rm -rf /tmp/alr.zip /tmp/alr-extract
-    echo -e "${GREEN}✓ Alire ${ALR_VERSION} installed${NC}"
+    echo -e "${YELLOW}⚠ Failed to resolve Alire version, skipping${NC}"
 else
-    echo -e "${YELLOW}⚠ Alire download failed${NC}"
+    ALR_URL="https://github.com/alire-project/alire/releases/download/v${ALR_VERSION}/alr-${ALR_VERSION}-bin-${ALR_ARCH}-linux.zip"
+    if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/alr.zip "$ALR_URL"; then
+        sudo unzip -o /tmp/alr.zip -d /tmp/alr-extract
+        sudo mv /tmp/alr-extract/bin/alr /usr/local/bin/alr
+        sudo chmod +x /usr/local/bin/alr
+        rm -rf /tmp/alr.zip /tmp/alr-extract
+        echo -e "${GREEN}✓ Alire ${ALR_VERSION} installed${NC}"
+    else
+        echo -e "${YELLOW}⚠ Alire download failed${NC}"
+    fi
 fi
 
 print_success_banner "Ada environment" 2>/dev/null || {
