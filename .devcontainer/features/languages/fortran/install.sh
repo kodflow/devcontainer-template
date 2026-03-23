@@ -94,5 +94,9 @@ echo "  - ${GFORTRAN_VERSION}"
 echo ""
 echo "Development tools:"
 echo "  - fprettify (formatter)"
-echo "  - fpm (Fortran Package Manager)"
+if command -v fpm &>/dev/null; then
+    echo "  - fpm (Fortran Package Manager)"
+else
+    echo "  - fpm (skipped — version resolution failed)"
+fi
 echo ""

@@ -296,12 +296,13 @@ echo "  - ${GO_INSTALLED}"
 echo "  - Go Modules (package manager)"
 echo ""
 echo "Development tools:"
-echo "  - golangci-lint (meta-linter)"
-echo "  - gosec (security scanner)"
-echo "  - gofumpt (formatter)"
-echo "  - goimports (import manager)"
-echo "  - gotestsum (test runner)"
-echo "  - ktn-linter (custom linter)"
+for _tool in golangci-lint gosec gofumpt goimports gotestsum ktn-linter; do
+    if command -v "$_tool" &>/dev/null; then
+        echo "  - $_tool (installed)"
+    else
+        echo "  - $_tool (skipped)"
+    fi
+done
 echo ""
 echo "Desktop & WASM tools:"
 echo "  - wails (desktop GUI framework)"

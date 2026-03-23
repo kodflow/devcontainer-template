@@ -155,7 +155,7 @@ readiness_checks:
     steps:
       1_get_pr: "mcp__github__pull_request_read(method: get)"
       2_get_files: "mcp__github__pull_request_read(method: get_files)"
-      3_get_commits: "git log $(git symbolic-ref refs/remotes/origin/HEAD --short | sed 's|origin/||')..HEAD --oneline"
+      3_get_commits: "git log $({ git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null || echo origin/main; } | sed 's|origin/||')..HEAD --oneline"
       4_validate_title: |
         Title MUST match: <type>(<scope>): <summary>
         Type MUST match actual changes:
@@ -184,7 +184,7 @@ readiness_checks:
   # ── Check 6: Branch up to date ────────────────────────────
   branch_fresh:
     action: "Verify branch is not behind main"
-    command: "git fetch && git merge-base --is-ancestor origin/$(git symbolic-ref refs/remotes/origin/HEAD --short | sed 's|origin/||') HEAD"
+    command: "git fetch && git merge-base --is-ancestor origin/$({ git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null || echo origin/main; } | sed 's|origin/||') HEAD"
     on_fail: "ABORT — branch behind main, run /git --watch to rebase"
 ```
 
@@ -236,7 +236,7 @@ merge_workflow:
   1_pre_merge_test:
     action: "Test merge result BEFORE actual merge"
     commands:
-      - "DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD --short | sed 's|origin/||')"
+      - "DEFAULT_BRANCH=$({ git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null || echo origin/main; } | sed 's|origin/||')"
       - "git fetch origin $DEFAULT_BRANCH"
       - "git merge origin/$DEFAULT_BRANCH --no-commit --no-ff"
       - "{test_command}"

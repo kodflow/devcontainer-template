@@ -184,6 +184,14 @@ print_success_banner "Swift environment" 2>/dev/null || {
 }
 echo "Installed components:"
 echo "  - ${SWIFT_INSTALLED}"
-echo "  - SwiftFormat (formatter)"
-echo "  - SwiftLint (linter)"
+if command -v swiftformat &>/dev/null; then
+    echo "  - SwiftFormat (formatter)"
+else
+    echo "  - SwiftFormat (skipped — version resolution failed)"
+fi
+if command -v swiftlint &>/dev/null; then
+    echo "  - SwiftLint (linter)"
+else
+    echo "  - SwiftLint (skipped — version resolution failed)"
+fi
 echo ""

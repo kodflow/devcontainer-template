@@ -90,5 +90,9 @@ echo "  - ${GNAT_VERSION}"
 echo "  - ${GPRBUILD_VERSION}"
 echo ""
 echo "Development tools:"
-echo "  - Alire (package manager)"
+if command -v alr &>/dev/null; then
+    echo "  - Alire (package manager)"
+else
+    echo "  - Alire (skipped — version resolution failed)"
+fi
 echo ""

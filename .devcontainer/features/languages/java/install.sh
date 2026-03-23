@@ -154,7 +154,7 @@ GJF_PID=$!
     # Checkstyle (tag format: "checkstyle-X.Y.Z" — shared helper strips 'v' prefix only,
     # so we fetch the raw tag and strip the "checkstyle-" prefix manually)
     CHECKSTYLE_TAG=""
-    local _cs_auth=()
+    _cs_auth=()
     [[ -n "${GITHUB_TOKEN:-}" ]] && _cs_auth=(-H "Authorization: token ${GITHUB_TOKEN}")
     for _attempt in 1 2 3; do
         CHECKSTYLE_TAG=$(curl -fsS --connect-timeout 5 --max-time 10 \
@@ -217,26 +217,30 @@ if [ "$DOWNLOAD_FAILED" -ne 0 ]; then
 fi
 
 # Create wrapper scripts
-# google-java-format wrapper
-cat > /home/vscode/.local/bin/google-java-format << 'EOF'
+# Create wrapper scripts only if the corresponding tool was installed
+if [ -f /home/vscode/.local/share/java/google-java-format.jar ]; then
+    cat > /home/vscode/.local/bin/google-java-format << 'EOF'
 #!/bin/bash
 java -jar /home/vscode/.local/share/java/google-java-format.jar "$@"
 EOF
-chmod +x /home/vscode/.local/bin/google-java-format
+    chmod +x /home/vscode/.local/bin/google-java-format
+fi
 
-# checkstyle wrapper
-cat > /home/vscode/.local/bin/checkstyle << 'EOF'
+if [ -f /home/vscode/.local/share/java/checkstyle.jar ]; then
+    cat > /home/vscode/.local/bin/checkstyle << 'EOF'
 #!/bin/bash
 java -jar /home/vscode/.local/share/java/checkstyle.jar "$@"
 EOF
-chmod +x /home/vscode/.local/bin/checkstyle
+    chmod +x /home/vscode/.local/bin/checkstyle
+fi
 
-# spotbugs wrapper
-cat > /home/vscode/.local/bin/spotbugs << 'EOF'
+if [ -d /home/vscode/.local/share/spotbugs/bin ]; then
+    cat > /home/vscode/.local/bin/spotbugs << 'EOF'
 #!/bin/bash
 /home/vscode/.local/share/spotbugs/bin/spotbugs "$@"
 EOF
-chmod +x /home/vscode/.local/bin/spotbugs
+    chmod +x /home/vscode/.local/bin/spotbugs
+fi
 
 echo -e "${GREEN}✓ Java development tools installed${NC}"
 
@@ -254,9 +258,21 @@ echo "  - ${MAVEN_VERSION}"
 echo "  - ${GRADLE_VERSION}"
 echo ""
 echo "Development tools:"
-echo "  - Google Java Format (formatter)"
-echo "  - Checkstyle (style checker)"
-echo "  - SpotBugs (bug detector)"
+if [ -f /home/vscode/.local/share/java/google-java-format.jar ]; then
+    echo "  - Google Java Format (formatter)"
+else
+    echo "  - Google Java Format (skipped — version resolution failed)"
+fi
+if [ -f /home/vscode/.local/share/java/checkstyle.jar ]; then
+    echo "  - Checkstyle (style checker)"
+else
+    echo "  - Checkstyle (skipped — version resolution failed)"
+fi
+if [ -d /home/vscode/.local/share/spotbugs/bin ]; then
+    echo "  - SpotBugs (bug detector)"
+else
+    echo "  - SpotBugs (skipped — version resolution failed)"
+fi
 echo ""
 echo "Cache directories:"
 echo "  - SDKMAN: $SDKMAN_DIR"
