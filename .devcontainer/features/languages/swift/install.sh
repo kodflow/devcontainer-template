@@ -34,7 +34,7 @@ if [ -z "${SWIFT_VERSION:-}" ] || [ "${SWIFT_VERSION}" = "latest" ]; then
             "https://api.github.com/repos/swiftlang/swift/releases/latest" 2>/dev/null \
             | sed -n 's/.*"tag_name": *"swift-\([^-]*\)-RELEASE".*/\1/p' | head -n 1)
         [[ -n "$SWIFT_VERSION" ]] && break
-        sleep $((_attempt * 2))
+        [[ $_attempt -lt 3 ]] && sleep $((2 ** _attempt))
     done
     if [ -z "$SWIFT_VERSION" ]; then
         echo -e "${YELLOW}⚠ Failed to resolve latest Swift version from GitHub, using fallback 6.0.3${NC}"
@@ -109,7 +109,7 @@ echo -e "${GREEN}${SWIFT_INSTALLED} installed${NC}"
             "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/latest" 2>/dev/null \
             | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
         [[ -n "$SWIFTFORMAT_VERSION" ]] && break
-        sleep $((_attempt * 2))
+        [[ $_attempt -lt 3 ]] && sleep $((2 ** _attempt))
     done
     if [ -z "$SWIFTFORMAT_VERSION" ]; then
         echo -e "${YELLOW}⚠ Failed to resolve SwiftFormat version, skipping${NC}"
@@ -145,7 +145,7 @@ SWIFTFORMAT_PID=$!
             "https://api.github.com/repos/realm/SwiftLint/releases/latest" 2>/dev/null \
             | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
         [[ -n "$SWIFTLINT_VERSION" ]] && break
-        sleep $((_attempt * 2))
+        [[ $_attempt -lt 3 ]] && sleep $((2 ** _attempt))
     done
     if [ -z "$SWIFTLINT_VERSION" ]; then
         echo -e "${YELLOW}⚠ Failed to resolve SwiftLint version, skipping${NC}"
@@ -187,11 +187,11 @@ echo "  - ${SWIFT_INSTALLED}"
 if command -v swiftformat &>/dev/null; then
     echo "  - SwiftFormat (formatter)"
 else
-    echo "  - SwiftFormat (skipped — version resolution failed)"
+    echo "  - SwiftFormat (not installed)"
 fi
 if command -v swiftlint &>/dev/null; then
     echo "  - SwiftLint (linter)"
 else
-    echo "  - SwiftLint (skipped — version resolution failed)"
+    echo "  - SwiftLint (not installed)"
 fi
 echo ""

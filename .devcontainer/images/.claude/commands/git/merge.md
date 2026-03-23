@@ -122,8 +122,9 @@ readiness_checks:
 
   # ── Check 1: All CI jobs passed ────────────────────────────
   ci_passed:
-    tool: "mcp__github__pull_request_read(method: get_status)"
-    condition: "ALL check_runs.conclusion in [success, skipped, neutral]"
+    github: "mcp__github__pull_request_read(method: get_status)"
+    gitlab: "mcp__gitlab__list_pipelines + mcp__gitlab__list_pipeline_jobs"
+    condition: "ALL jobs in [success, skipped, neutral]"
     on_fail: "ABORT — pipeline has failed jobs, run /git --watch to fix"
 
   # ── Check 2: No unresolved review findings ────────────────
@@ -146,15 +147,20 @@ readiness_checks:
       - "ghp_[a-zA-Z0-9]{36}"
       - "glpat-[a-zA-Z0-9\\-]{20}"
       - "op_[a-zA-Z0-9]{43}"
-    tool: "mcp__github__pull_request_read(method: get_diff)"
+    tool_github: "mcp__github__pull_request_read(method: get_diff)"
+    tool_gitlab: "mcp__gitlab__get_merge_request_changes"
     on_match: "ABORT — potential secret detected in diff: {{match}}"
 
-  # ── Check 4: PR title/body matches actual changes ─────────
+  # ── Check 4: PR/MR title/body matches actual changes ──────
   pr_conformity:
-    action: "Verify PR title follows conventional commit format and reflects the code"
+    action: "Verify PR/MR title follows conventional commit format and reflects the code"
     steps:
-      1_get_pr: "mcp__github__pull_request_read(method: get)"
-      2_get_files: "mcp__github__pull_request_read(method: get_files)"
+      1_get_pr:
+        github: "mcp__github__pull_request_read(method: get)"
+        gitlab: "mcp__gitlab__get_merge_request"
+      2_get_files:
+        github: "mcp__github__pull_request_read(method: get_files)"
+        gitlab: "mcp__gitlab__get_merge_request_changes"
       3_get_commits: "git log $({ git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null || echo origin/main; } | sed 's|origin/||')..HEAD --oneline"
       4_validate_title: |
         Title MUST match: <type>(<scope>): <summary>
@@ -172,8 +178,8 @@ readiness_checks:
       6_regenerate_if_needed: |
         IF title or body don't match:
           Regenerate from final branch state
-          Update PR via mcp__github__update_pull_request
-          Log: "PR description regenerated to match final code"
+          Update via mcp__github__update_pull_request (GitHub) or glab mr update (GitLab)
+          Log: "PR/MR description regenerated to match final code"
 
   # ── Check 5: Mergeable state ──────────────────────────────
   mergeable:

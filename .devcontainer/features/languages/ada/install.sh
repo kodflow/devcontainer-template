@@ -67,14 +67,15 @@ if [ -z "$ALR_VERSION" ]; then
     echo -e "${YELLOW}⚠ Failed to resolve Alire version, skipping${NC}"
 else
     ALR_URL="https://github.com/alire-project/alire/releases/download/v${ALR_VERSION}/alr-${ALR_VERSION}-bin-${ALR_ARCH}-linux.zip"
-    if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/alr.zip "$ALR_URL"; then
-        sudo unzip -o /tmp/alr.zip -d /tmp/alr-extract
-        sudo mv /tmp/alr-extract/bin/alr /usr/local/bin/alr
-        sudo chmod +x /usr/local/bin/alr
+    if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/alr.zip "$ALR_URL" && \
+       sudo unzip -o /tmp/alr.zip -d /tmp/alr-extract && \
+       sudo mv /tmp/alr-extract/bin/alr /usr/local/bin/alr && \
+       sudo chmod +x /usr/local/bin/alr; then
         rm -rf /tmp/alr.zip /tmp/alr-extract
         echo -e "${GREEN}✓ Alire ${ALR_VERSION} installed${NC}"
     else
-        echo -e "${YELLOW}⚠ Alire download failed${NC}"
+        rm -rf /tmp/alr.zip /tmp/alr-extract
+        echo -e "${YELLOW}⚠ Alire install failed${NC}"
     fi
 fi
 
@@ -93,6 +94,6 @@ echo "Development tools:"
 if command -v alr &>/dev/null; then
     echo "  - Alire (package manager)"
 else
-    echo "  - Alire (skipped — version resolution failed)"
+    echo "  - Alire (skipped — not available)"
 fi
 echo ""

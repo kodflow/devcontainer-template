@@ -97,6 +97,6 @@ echo "  - fprettify (formatter)"
 if command -v fpm &>/dev/null; then
     echo "  - fpm (Fortran Package Manager)"
 else
-    echo "  - fpm (skipped — version resolution failed)"
+    echo "  - fpm (skipped — not available)"
 fi
 echo ""
