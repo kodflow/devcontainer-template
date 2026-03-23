@@ -129,8 +129,9 @@ readiness_checks:
   # ── Check 2: No unresolved review findings ────────────────
   reviews_clear:
     parallel:
-      - tool: "mcp__github__pull_request_read(method: get_reviews)"
-        condition: "No CHANGES_REQUESTED from bots (coderabbit, qodo)"
+      - tool_github: "mcp__github__pull_request_read(method: get_reviews)"
+        tool_gitlab: "mcp__gitlab__list_merge_request_notes — check for unresolved threads"
+        condition: "No CHANGES_REQUESTED from bots (coderabbit, qodo on GitHub; unresolved threads on GitLab)"
       - tool: "mcp__codacy__codacy_list_pull_request_issues(status: new)"
         condition: "0 new Critical/High issues"
     on_fail: "ABORT — unresolved review findings, run /git --watch to fix"
@@ -154,7 +155,7 @@ readiness_checks:
     steps:
       1_get_pr: "mcp__github__pull_request_read(method: get)"
       2_get_files: "mcp__github__pull_request_read(method: get_files)"
-      3_get_commits: "git log main..HEAD --oneline"
+      3_get_commits: "git log $(git symbolic-ref refs/remotes/origin/HEAD --short | sed 's|origin/||')..HEAD --oneline"
       4_validate_title: |
         Title MUST match: <type>(<scope>): <summary>
         Type MUST match actual changes:
@@ -183,7 +184,7 @@ readiness_checks:
   # ── Check 6: Branch up to date ────────────────────────────
   branch_fresh:
     action: "Verify branch is not behind main"
-    command: "git fetch && git merge-base --is-ancestor origin/main HEAD"
+    command: "git fetch && git merge-base --is-ancestor origin/$(git symbolic-ref refs/remotes/origin/HEAD --short | sed 's|origin/||') HEAD"
     on_fail: "ABORT — branch behind main, run /git --watch to rebase"
 ```
 
@@ -235,8 +236,9 @@ merge_workflow:
   1_pre_merge_test:
     action: "Test merge result BEFORE actual merge"
     commands:
-      - "git fetch origin main"
-      - "git merge origin/main --no-commit --no-ff"
+      - "DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD --short | sed 's|origin/||')"
+      - "git fetch origin $DEFAULT_BRANCH"
+      - "git merge origin/$DEFAULT_BRANCH --no-commit --no-ff"
       - "{test_command}"
       - "git merge --abort"
     on_failure: "ABORT merge, report test failures"
@@ -251,8 +253,8 @@ merge_workflow:
     actions:
       - "git push origin --delete <branch>"
       - "git branch -D <branch>"
-      - "git checkout main"
-      - "git pull origin main"
+      - "git checkout $DEFAULT_BRANCH"
+      - "git pull origin $DEFAULT_BRANCH"
 ```
 
 **Final Output (GitHub):**

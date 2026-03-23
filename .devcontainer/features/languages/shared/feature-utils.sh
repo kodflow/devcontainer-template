@@ -70,8 +70,8 @@ get_github_latest_version() {
     fi
     local attempt
     for attempt in 1 2 3; do
-        version=$(curl -s --connect-timeout 5 --max-time 10 \
-            "${auth_args[@]:+${auth_args[@]}}" \
+        version=$(curl -fsS --connect-timeout 5 --max-time 10 \
+            "${auth_args[@]}" \
             "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
             | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
         [[ -n "$version" ]] && break

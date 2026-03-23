@@ -13,8 +13,8 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
         [[ -n "${GITHUB_TOKEN:-}" ]] && auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
         local attempt
         for attempt in 1 2 3; do
-            version=$(curl -s --connect-timeout 5 --max-time 10 \
-                "${auth_args[@]:+${auth_args[@]}}" \
+            version=$(curl -fsS --connect-timeout 5 --max-time 10 \
+                "${auth_args[@]}" \
                 "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
                 | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
             [[ -n "$version" ]] && break
@@ -178,7 +178,8 @@ if [[ -n "$GOLANGCI_VERSION" ]]; then
 else
     (echo -e "${YELLOW}golangci-lint: version unavailable, building from source...${NC}" && \
      go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest && \
-     echo -e "${GREEN}✓ golangci-lint installed (from source)${NC}") &
+     echo -e "${GREEN}✓ golangci-lint installed (from source)${NC}" || \
+     echo -e "${YELLOW}⚠ golangci-lint: source build failed, skipping${NC}") &
 fi
 
 if [[ -n "$GOSEC_VERSION" ]]; then
@@ -189,7 +190,8 @@ if [[ -n "$GOSEC_VERSION" ]]; then
 else
     (echo -e "${YELLOW}gosec: version unavailable, building from source...${NC}" && \
      go install github.com/securego/gosec/v2/cmd/gosec@latest && \
-     echo -e "${GREEN}✓ gosec installed (from source)${NC}") &
+     echo -e "${GREEN}✓ gosec installed (from source)${NC}" || \
+     echo -e "${YELLOW}⚠ gosec: source build failed, skipping${NC}") &
 fi
 
 if [[ -n "$GOFUMPT_VERSION" ]]; then
@@ -200,7 +202,8 @@ if [[ -n "$GOFUMPT_VERSION" ]]; then
 else
     (echo -e "${YELLOW}gofumpt: version unavailable, building from source...${NC}" && \
      go install mvdan.cc/gofumpt@latest && \
-     echo -e "${GREEN}✓ gofumpt installed (from source)${NC}") &
+     echo -e "${GREEN}✓ gofumpt installed (from source)${NC}" || \
+     echo -e "${YELLOW}⚠ gofumpt: source build failed, skipping${NC}") &
 fi
 
 if [[ -n "$GOTESTSUM_VERSION" ]]; then
@@ -211,7 +214,8 @@ if [[ -n "$GOTESTSUM_VERSION" ]]; then
 else
     (echo -e "${YELLOW}gotestsum: version unavailable, building from source...${NC}" && \
      go install gotest.tools/gotestsum@latest && \
-     echo -e "${GREEN}✓ gotestsum installed (from source)${NC}") &
+     echo -e "${GREEN}✓ gotestsum installed (from source)${NC}" || \
+     echo -e "${YELLOW}⚠ gotestsum: source build failed, skipping${NC}") &
 fi
 
 (

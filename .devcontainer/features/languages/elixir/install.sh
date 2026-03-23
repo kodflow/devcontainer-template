@@ -24,9 +24,11 @@ export ASDF_DATA_DIR="${ASDF_DATA_DIR:-/home/vscode/.cache/asdf}"
 
 # Resolve latest asdf version for fallback installations
 ASDF_LATEST=""
+_asdf_auth=()
+[[ -n "${GITHUB_TOKEN:-}" ]] && _asdf_auth=(-H "Authorization: token ${GITHUB_TOKEN}")
 for _attempt in 1 2 3; do
-    ASDF_LATEST=$(curl -fsSL --connect-timeout 5 --max-time 10 \
-        ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+    ASDF_LATEST=$(curl -fsS --connect-timeout 5 --max-time 10 \
+        "${_asdf_auth[@]}" \
         "https://api.github.com/repos/asdf-vm/asdf/releases/latest" 2>/dev/null \
         | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
     [[ -n "$ASDF_LATEST" ]] && break

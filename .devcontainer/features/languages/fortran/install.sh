@@ -12,8 +12,8 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
         [[ -n "${GITHUB_TOKEN:-}" ]] && auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
         local attempt
         for attempt in 1 2 3; do
-            version=$(curl -s --connect-timeout 5 --max-time 10 \
-                "${auth_args[@]:+${auth_args[@]}}" \
+            version=$(curl -fsS --connect-timeout 5 --max-time 10 \
+                "${auth_args[@]}" \
                 "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
                 | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
             [[ -n "$version" ]] && break
@@ -68,15 +68,7 @@ fi
 
 # Install fpm (Fortran Package Manager) from GitHub releases
 echo -e "${YELLOW}Installing fpm (Fortran Package Manager)...${NC}"
-FPM_VERSION=""
-for _attempt in 1 2 3; do
-    FPM_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-        ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
-        "https://api.github.com/repos/fortran-lang/fpm/releases/latest" 2>/dev/null \
-        | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
-    [[ -n "$FPM_VERSION" ]] && break
-    sleep $((_attempt * 2))
-done
+FPM_VERSION=$(get_github_latest_version_or_empty "fortran-lang/fpm")
 if [ -z "$FPM_VERSION" ]; then
     echo -e "${YELLOW}⚠ Failed to resolve fpm version, skipping${NC}"
 else

@@ -12,8 +12,8 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
         [[ -n "${GITHUB_TOKEN:-}" ]] && auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
         local attempt
         for attempt in 1 2 3; do
-            version=$(curl -s --connect-timeout 5 --max-time 10 \
-                "${auth_args[@]:+${auth_args[@]}}" \
+            version=$(curl -fsS --connect-timeout 5 --max-time 10 \
+                "${auth_args[@]}" \
                 "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
                 | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
             [[ -n "$version" ]] && break
@@ -62,15 +62,7 @@ echo -e "${GREEN}✓ ${GPRBUILD_VERSION} installed${NC}"
 
 # Install Alire (alr) from GitHub releases
 echo -e "${YELLOW}Installing Alire (package manager)...${NC}"
-ALR_VERSION=""
-for _attempt in 1 2 3; do
-    ALR_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-        ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
-        "https://api.github.com/repos/alire-project/alire/releases/latest" 2>/dev/null \
-        | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
-    [[ -n "$ALR_VERSION" ]] && break
-    sleep $((_attempt * 2))
-done
+ALR_VERSION=$(get_github_latest_version_or_empty "alire-project/alire")
 if [ -z "$ALR_VERSION" ]; then
     echo -e "${YELLOW}⚠ Failed to resolve Alire version, skipping${NC}"
 else

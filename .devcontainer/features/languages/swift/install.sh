@@ -26,9 +26,11 @@ trap cleanup EXIT
 # Auto-resolve latest Swift version if not specified
 if [ -z "${SWIFT_VERSION:-}" ] || [ "${SWIFT_VERSION}" = "latest" ]; then
     SWIFT_VERSION=""
+    _swift_auth=()
+    [[ -n "${GITHUB_TOKEN:-}" ]] && _swift_auth=(-H "Authorization: token ${GITHUB_TOKEN}")
     for _attempt in 1 2 3; do
-        SWIFT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-            ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+        SWIFT_VERSION=$(curl -fsS --connect-timeout 5 --max-time 10 \
+            "${_swift_auth[@]}" \
             "https://api.github.com/repos/swiftlang/swift/releases/latest" 2>/dev/null \
             | sed -n 's/.*"tag_name": *"swift-\([^-]*\)-RELEASE".*/\1/p' | head -n 1)
         [[ -n "$SWIFT_VERSION" ]] && break
@@ -99,9 +101,11 @@ echo -e "${GREEN}${SWIFT_INSTALLED} installed${NC}"
 (
     echo -e "${YELLOW}Installing SwiftFormat...${NC}"
     SWIFTFORMAT_VERSION=""
+    _fmt_auth=()
+    [[ -n "${GITHUB_TOKEN:-}" ]] && _fmt_auth=(-H "Authorization: token ${GITHUB_TOKEN}")
     for _attempt in 1 2 3; do
-        SWIFTFORMAT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-            ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+        SWIFTFORMAT_VERSION=$(curl -fsS --connect-timeout 5 --max-time 10 \
+            "${_fmt_auth[@]}" \
             "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/latest" 2>/dev/null \
             | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
         [[ -n "$SWIFTFORMAT_VERSION" ]] && break
@@ -133,9 +137,11 @@ SWIFTFORMAT_PID=$!
 (
     echo -e "${YELLOW}Installing SwiftLint...${NC}"
     SWIFTLINT_VERSION=""
+    _lint_auth=()
+    [[ -n "${GITHUB_TOKEN:-}" ]] && _lint_auth=(-H "Authorization: token ${GITHUB_TOKEN}")
     for _attempt in 1 2 3; do
-        SWIFTLINT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-            ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+        SWIFTLINT_VERSION=$(curl -fsS --connect-timeout 5 --max-time 10 \
+            "${_lint_auth[@]}" \
             "https://api.github.com/repos/realm/SwiftLint/releases/latest" 2>/dev/null \
             | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
         [[ -n "$SWIFTLINT_VERSION" ]] && break

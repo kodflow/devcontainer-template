@@ -159,9 +159,11 @@ log_info "Installing NVM..."
 mkdir_safe "$NVM_DIR"
 # Fetch latest NVM version from GitHub API
 NVM_LATEST=""
+_nvm_auth=()
+[[ -n "${GITHUB_TOKEN:-}" ]] && _nvm_auth=(-H "Authorization: token ${GITHUB_TOKEN}")
 for _attempt in 1 2 3; do
-    NVM_LATEST=$(curl -fsSL --connect-timeout 5 --max-time 10 \
-        ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+    NVM_LATEST=$(curl -fsS --connect-timeout 5 --max-time 10 \
+        "${_nvm_auth[@]}" \
         "https://api.github.com/repos/nvm-sh/nvm/releases/latest" 2>/dev/null \
         | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
     [[ -n "$NVM_LATEST" ]] && break

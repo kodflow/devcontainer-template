@@ -13,8 +13,8 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
         [[ -n "${GITHUB_TOKEN:-}" ]] && auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
         local attempt
         for attempt in 1 2 3; do
-            version=$(curl -s --connect-timeout 5 --max-time 10 \
-                "${auth_args[@]:+${auth_args[@]}}" \
+            version=$(curl -fsS --connect-timeout 5 --max-time 10 \
+                "${auth_args[@]}" \
                 "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
                 | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
             [[ -n "$version" ]] && break
@@ -132,15 +132,7 @@ mkdir -p /home/vscode/.local/bin
 # Download all 3 tools in parallel
 (
     # Google Java Format
-    GOOGLE_JAVA_FORMAT_VERSION=""
-    for _attempt in 1 2 3; do
-        GOOGLE_JAVA_FORMAT_VERSION=$(curl -fsSL --connect-timeout 5 --max-time 10 \
-            ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
-            "https://api.github.com/repos/google/google-java-format/releases/latest" 2>/dev/null \
-            | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
-        [[ -n "$GOOGLE_JAVA_FORMAT_VERSION" ]] && break
-        sleep $((_attempt * 2))
-    done
+    GOOGLE_JAVA_FORMAT_VERSION=$(get_github_latest_version_or_empty "google/google-java-format")
     GOOGLE_JAVA_FORMAT_VERSION="${GOOGLE_JAVA_FORMAT_VERSION#v}"
     if [ -z "$GOOGLE_JAVA_FORMAT_VERSION" ]; then
         echo -e "${YELLOW}⚠ Failed to resolve google-java-format version, skipping${NC}"
@@ -159,11 +151,14 @@ mkdir -p /home/vscode/.local/bin
 GJF_PID=$!
 
 (
-    # Checkstyle
+    # Checkstyle (tag format: "checkstyle-X.Y.Z" — shared helper strips 'v' prefix only,
+    # so we fetch the raw tag and strip the "checkstyle-" prefix manually)
     CHECKSTYLE_TAG=""
+    local _cs_auth=()
+    [[ -n "${GITHUB_TOKEN:-}" ]] && _cs_auth=(-H "Authorization: token ${GITHUB_TOKEN}")
     for _attempt in 1 2 3; do
-        CHECKSTYLE_TAG=$(curl -fsSL --connect-timeout 5 --max-time 10 \
-            ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
+        CHECKSTYLE_TAG=$(curl -fsS --connect-timeout 5 --max-time 10 \
+            "${_cs_auth[@]}" \
             "https://api.github.com/repos/checkstyle/checkstyle/releases/latest" 2>/dev/null \
             | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
         [[ -n "$CHECKSTYLE_TAG" ]] && break
@@ -187,16 +182,8 @@ GJF_PID=$!
 CS_PID=$!
 
 (
-    # SpotBugs
-    SPOTBUGS_VERSION=""
-    for _attempt in 1 2 3; do
-        SPOTBUGS_VERSION=$(curl -fsSL --connect-timeout 5 --max-time 10 \
-            ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} \
-            "https://api.github.com/repos/spotbugs/spotbugs/releases/latest" 2>/dev/null \
-            | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
-        [[ -n "$SPOTBUGS_VERSION" ]] && break
-        sleep $((_attempt * 2))
-    done
+    # SpotBugs (tag format: "X.Y.Z" — shared helper works directly)
+    SPOTBUGS_VERSION=$(get_github_latest_version_or_empty "spotbugs/spotbugs")
     if [ -z "$SPOTBUGS_VERSION" ]; then
         echo -e "${YELLOW}⚠ Failed to resolve spotbugs version, skipping${NC}"
         exit 0

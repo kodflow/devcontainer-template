@@ -154,15 +154,21 @@ action_watch:
     platform: "GitHub (CodeRabbit + Qodo), both (Codacy)"
     max_iterations: 3
 
-    # ── Step 1: Parallel Fetch ──────────────────────────────
+    # ── Step 1: Parallel Fetch (platform-conditional) ───────
     fetch:
-      parallel_calls:
+      github_calls:
         - tool: "mcp__github__pull_request_read"
           params: { method: "get_review_comments" }
           captures: "inline_comments (CodeRabbit + Qodo + Human threads)"
         - tool: "mcp__github__pull_request_read"
           params: { method: "get_comments" }
           captures: "issue_comments (CodeRabbit summary)"
+      gitlab_calls:
+        - tool: "mcp__gitlab__list_merge_request_notes"
+          captures: "mr_notes (human + bot comments)"
+        - tool: "mcp__gitlab__list_merge_request_discussions"
+          captures: "mr_discussions (unresolved threads)"
+      both_platforms:
         - tool: "mcp__codacy__codacy_list_pull_request_issues"
           params: { status: "new" }
           captures: "codacy_issues"
@@ -173,7 +179,7 @@ action_watch:
         detect: "author.login == 'coderabbitai[bot]'"
         relevant: "unresolved AND NOT outdated"
       qodo:
-        detect: "author.login IN ['qodo-merge-pro[bot]', 'qodo-code-review[bot]', 'github-actions[bot]'] AND P0/P1"
+        detect: "author.login IN ['qodo-merge-pro[bot]', 'qodo-code-review[bot]'] AND P0/P1"
         relevant: "P0 or P1 only (P2 ignored)"
       codacy:
         detect: "From mcp__codacy__codacy_list_pull_request_issues"
@@ -213,7 +219,7 @@ action_watch:
           Classify as:
             LEGITIMATE   → real issue, should be fixed
             ILLEGITIMATE → contradicts project, would cause regression
-            UNCLEAR      → needs more context → default to LEGITIMATE (fix)
+            UNCLEAR      → needs more context → ask user via AskUserQuestion before acting
         4_record_decision: "Store verdict + justification for each finding"
 
     # ── Step 4: Fix Legitimate Findings ─────────────────────
