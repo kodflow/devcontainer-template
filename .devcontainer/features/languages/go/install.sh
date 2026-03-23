@@ -9,15 +9,25 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
     warn() { echo -e "${YELLOW}⚠${NC} $*"; }
     err() { echo -e "${RED}✗${NC} $*" >&2; }
     get_github_latest_version() {
-        local repo="$1" version
-        version=$(curl -s --connect-timeout 5 --max-time 10 \
-            "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
-            | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+        local repo="$1" version auth_args=()
+        [[ -n "${GITHUB_TOKEN:-}" ]] && auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
+        local attempt
+        for attempt in 1 2 3; do
+            version=$(curl -fsS --connect-timeout 5 --max-time 10 \
+                "${auth_args[@]}" \
+                "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+                | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+            [[ -n "$version" ]] && break
+            sleep $((attempt * 2))
+        done
         if [[ -z "$version" ]]; then
             echo -e "${RED}✗ Failed to resolve latest version for ${repo}${NC}" >&2
-            exit 1
+            return 1
         fi
         echo "$version"
+    }
+    get_github_latest_version_or_empty() {
+        get_github_latest_version "$1" 2>/dev/null || echo ""
     }
 }
 
@@ -150,35 +160,63 @@ install_go_tool() {
     fi
 }
 
-# Fetch latest versions (sequential, fast API calls with fallbacks)
-GOLANGCI_VERSION=$(get_github_latest_version "golangci/golangci-lint")
-GOSEC_VERSION=$(get_github_latest_version "securego/gosec")
-GOFUMPT_VERSION=$(get_github_latest_version "mvdan/gofumpt")
-GOTESTSUM_VERSION=$(get_github_latest_version "gotestyourself/gotestsum")
+# Fetch latest versions (non-fatal: empty string on rate-limit/timeout, retries 3x)
+GOLANGCI_VERSION=$(get_github_latest_version_or_empty "golangci/golangci-lint")
+GOSEC_VERSION=$(get_github_latest_version_or_empty "securego/gosec")
+GOFUMPT_VERSION=$(get_github_latest_version_or_empty "mvdan/gofumpt")
+GOTESTSUM_VERSION=$(get_github_latest_version_or_empty "gotestyourself/gotestsum")
 
 # gofumpt uses 'v' prefix in URLs
-[[ "$GOFUMPT_VERSION" != v* ]] && GOFUMPT_VERSION="v${GOFUMPT_VERSION}"
+[[ -n "$GOFUMPT_VERSION" && "$GOFUMPT_VERSION" != v* ]] && GOFUMPT_VERSION="v${GOFUMPT_VERSION}"
 
-# Install all tools in parallel
-install_go_tool "golangci-lint" \
-    "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_VERSION}/golangci-lint-${GOLANGCI_VERSION}-linux-${GO_ARCH}.tar.gz" \
-    "github.com/golangci/golangci-lint/v2/cmd/golangci-lint" \
-    "tar.gz" &
+# Install all tools in parallel (binary release preferred, go install @latest as fallback)
+if [[ -n "$GOLANGCI_VERSION" ]]; then
+    install_go_tool "golangci-lint" \
+        "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_VERSION}/golangci-lint-${GOLANGCI_VERSION}-linux-${GO_ARCH}.tar.gz" \
+        "github.com/golangci/golangci-lint/v2/cmd/golangci-lint" \
+        "tar.gz" &
+else
+    (echo -e "${YELLOW}golangci-lint: version unavailable, building from source...${NC}" && \
+     go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest && \
+     echo -e "${GREEN}✓ golangci-lint installed (from source)${NC}" || \
+     echo -e "${YELLOW}⚠ golangci-lint: source build failed, skipping${NC}") &
+fi
 
-install_go_tool "gosec" \
-    "https://github.com/securego/gosec/releases/download/v${GOSEC_VERSION}/gosec_${GOSEC_VERSION}_linux_${GO_ARCH}.tar.gz" \
-    "github.com/securego/gosec/v2/cmd/gosec" \
-    "tar.gz" &
+if [[ -n "$GOSEC_VERSION" ]]; then
+    install_go_tool "gosec" \
+        "https://github.com/securego/gosec/releases/download/v${GOSEC_VERSION}/gosec_${GOSEC_VERSION}_linux_${GO_ARCH}.tar.gz" \
+        "github.com/securego/gosec/v2/cmd/gosec" \
+        "tar.gz" &
+else
+    (echo -e "${YELLOW}gosec: version unavailable, building from source...${NC}" && \
+     go install github.com/securego/gosec/v2/cmd/gosec@latest && \
+     echo -e "${GREEN}✓ gosec installed (from source)${NC}" || \
+     echo -e "${YELLOW}⚠ gosec: source build failed, skipping${NC}") &
+fi
 
-install_go_tool "gofumpt" \
-    "https://github.com/mvdan/gofumpt/releases/download/${GOFUMPT_VERSION}/gofumpt_${GOFUMPT_VERSION}_linux_${GO_ARCH}" \
-    "mvdan.cc/gofumpt" \
-    "binary" &
+if [[ -n "$GOFUMPT_VERSION" ]]; then
+    install_go_tool "gofumpt" \
+        "https://github.com/mvdan/gofumpt/releases/download/${GOFUMPT_VERSION}/gofumpt_${GOFUMPT_VERSION}_linux_${GO_ARCH}" \
+        "mvdan.cc/gofumpt" \
+        "binary" &
+else
+    (echo -e "${YELLOW}gofumpt: version unavailable, building from source...${NC}" && \
+     go install mvdan.cc/gofumpt@latest && \
+     echo -e "${GREEN}✓ gofumpt installed (from source)${NC}" || \
+     echo -e "${YELLOW}⚠ gofumpt: source build failed, skipping${NC}") &
+fi
 
-install_go_tool "gotestsum" \
-    "https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VERSION}/gotestsum_${GOTESTSUM_VERSION}_linux_${GO_ARCH}.tar.gz" \
-    "gotest.tools/gotestsum" \
-    "tar.gz" &
+if [[ -n "$GOTESTSUM_VERSION" ]]; then
+    install_go_tool "gotestsum" \
+        "https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VERSION}/gotestsum_${GOTESTSUM_VERSION}_linux_${GO_ARCH}.tar.gz" \
+        "gotest.tools/gotestsum" \
+        "tar.gz" &
+else
+    (echo -e "${YELLOW}gotestsum: version unavailable, building from source...${NC}" && \
+     go install gotest.tools/gotestsum@latest && \
+     echo -e "${GREEN}✓ gotestsum installed (from source)${NC}" || \
+     echo -e "${YELLOW}⚠ gotestsum: source build failed, skipping${NC}") &
+fi
 
 (
     echo -e "${YELLOW}Installing goimports...${NC}"
@@ -217,7 +255,11 @@ WAILS_PID=$!
 # TinyGo (WebAssembly Compiler)
 (
     echo -e "${YELLOW}Installing TinyGo (WASM/embedded compiler)...${NC}"
-    TINYGO_VERSION=$(get_github_latest_version "tinygo-org/tinygo")
+    TINYGO_VERSION=$(get_github_latest_version_or_empty "tinygo-org/tinygo")
+    if [[ -z "$TINYGO_VERSION" ]]; then
+        echo -e "${YELLOW}⚠ TinyGo version resolution failed, skipping${NC}"
+        exit 0
+    fi
     case "$GO_ARCH" in
         amd64) TINYGO_PKG="tinygo_${TINYGO_VERSION}_amd64.deb" ;;
         arm64) TINYGO_PKG="tinygo_${TINYGO_VERSION}_arm64.deb" ;;
@@ -254,12 +296,13 @@ echo "  - ${GO_INSTALLED}"
 echo "  - Go Modules (package manager)"
 echo ""
 echo "Development tools:"
-echo "  - golangci-lint (meta-linter)"
-echo "  - gosec (security scanner)"
-echo "  - gofumpt (formatter)"
-echo "  - goimports (import manager)"
-echo "  - gotestsum (test runner)"
-echo "  - ktn-linter (custom linter)"
+for _tool in golangci-lint gosec gofumpt goimports gotestsum ktn-linter; do
+    if command -v "$_tool" &>/dev/null; then
+        echo "  - $_tool (installed)"
+    else
+        echo "  - $_tool (skipped)"
+    fi
+done
 echo ""
 echo "Desktop & WASM tools:"
 echo "  - wails (desktop GUI framework)"

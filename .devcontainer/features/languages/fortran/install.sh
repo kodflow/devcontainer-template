@@ -8,15 +8,25 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
     ok() { echo -e "${GREEN}✓${NC} $*"; }
     warn() { echo -e "${YELLOW}⚠${NC} $*"; }
     get_github_latest_version() {
-        local repo="$1" version
-        version=$(curl -s --connect-timeout 5 --max-time 10 \
-            "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
-            | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+        local repo="$1" version auth_args=()
+        [[ -n "${GITHUB_TOKEN:-}" ]] && auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
+        local attempt
+        for attempt in 1 2 3; do
+            version=$(curl -fsS --connect-timeout 5 --max-time 10 \
+                "${auth_args[@]}" \
+                "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+                | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+            [[ -n "$version" ]] && break
+            sleep $((attempt * 2))
+        done
         if [[ -z "$version" ]]; then
             echo -e "${RED}✗ Failed to resolve latest version for ${repo}${NC}" >&2
-            exit 1
+            return 1
         fi
         echo "$version"
+    }
+    get_github_latest_version_or_empty() {
+        get_github_latest_version "$1" 2>/dev/null || echo ""
     }
 }
 
@@ -58,21 +68,18 @@ fi
 
 # Install fpm (Fortran Package Manager) from GitHub releases
 echo -e "${YELLOW}Installing fpm (Fortran Package Manager)...${NC}"
-FPM_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-    "https://api.github.com/repos/fortran-lang/fpm/releases/latest" \
-    | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+FPM_VERSION=$(get_github_latest_version_or_empty "fortran-lang/fpm")
 if [ -z "$FPM_VERSION" ]; then
-    echo -e "${RED}✗ Failed to resolve latest fpm version${NC}"
-    exit 1
-fi
-
-FPM_URL="https://github.com/fortran-lang/fpm/releases/download/v${FPM_VERSION}/fpm-${FPM_VERSION}-linux-${GH_ARCH}"
-if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/fpm "$FPM_URL"; then
-    sudo mv /tmp/fpm /usr/local/bin/fpm
-    sudo chmod +x /usr/local/bin/fpm
-    echo -e "${GREEN}✓ fpm ${FPM_VERSION} installed${NC}"
+    echo -e "${YELLOW}⚠ Failed to resolve fpm version, skipping${NC}"
 else
-    echo -e "${YELLOW}⚠ fpm download failed${NC}"
+    FPM_URL="https://github.com/fortran-lang/fpm/releases/download/v${FPM_VERSION}/fpm-${FPM_VERSION}-linux-${GH_ARCH}"
+    if curl -fsSL --connect-timeout 10 --max-time 60 -o /tmp/fpm "$FPM_URL"; then
+        sudo mv /tmp/fpm /usr/local/bin/fpm
+        sudo chmod +x /usr/local/bin/fpm
+        echo -e "${GREEN}✓ fpm ${FPM_VERSION} installed${NC}"
+    else
+        echo -e "${YELLOW}⚠ fpm download failed${NC}"
+    fi
 fi
 
 print_success_banner "Fortran environment" 2>/dev/null || {
@@ -87,5 +94,9 @@ echo "  - ${GFORTRAN_VERSION}"
 echo ""
 echo "Development tools:"
 echo "  - fprettify (formatter)"
-echo "  - fpm (Fortran Package Manager)"
+if command -v fpm &>/dev/null; then
+    echo "  - fpm (Fortran Package Manager)"
+else
+    echo "  - fpm (skipped — not available)"
+fi
 echo ""
