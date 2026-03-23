@@ -25,7 +25,20 @@ trap cleanup EXIT
 # Environment variables
 # Auto-resolve latest Swift version if not specified
 if [ -z "${SWIFT_VERSION:-}" ] || [ "${SWIFT_VERSION}" = "latest" ]; then
-    SWIFT_VERSION=$(curl -s --connect-timeout 5 --max-time 10         "https://api.github.com/repos/swiftlang/swift/releases/latest" 2>/dev/null         | sed -n 's/.*"tag_name": *"swift-\([^-]*\)-RELEASE".*/\1/p' | head -n 1)
+    SWIFT_VERSION=""
+    _swift_auth=()
+    [[ -n "${GITHUB_TOKEN:-}" ]] && _swift_auth=(-H "Authorization: token ${GITHUB_TOKEN}")
+    for _attempt in 1 2 3; do
+        SWIFT_VERSION=$(curl -fsS --connect-timeout 5 --max-time 10 \
+            "${_swift_auth[@]}" \
+            "https://api.github.com/repos/swiftlang/swift/releases/latest" 2>/dev/null \
+            | sed -n 's/.*"tag_name": *"swift-\([^-]*\)-RELEASE".*/\1/p' | head -n 1)
+        [[ -n "$SWIFT_VERSION" ]] && break
+        [[ $_attempt -lt 3 ]] && sleep $((2 ** _attempt))
+    done
+    if [ -z "$SWIFT_VERSION" ]; then
+        echo -e "${YELLOW}⚠ Failed to resolve latest Swift version from GitHub, using fallback 6.0.3${NC}"
+    fi
     SWIFT_VERSION="${SWIFT_VERSION:-6.0.3}"
 fi
 export SWIFT_VERSION
@@ -87,12 +100,20 @@ echo -e "${GREEN}${SWIFT_INSTALLED} installed${NC}"
 # SwiftFormat (GitHub releases)
 (
     echo -e "${YELLOW}Installing SwiftFormat...${NC}"
-    SWIFTFORMAT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-        "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/latest" 2>/dev/null \
-        | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+    SWIFTFORMAT_VERSION=""
+    _fmt_auth=()
+    [[ -n "${GITHUB_TOKEN:-}" ]] && _fmt_auth=(-H "Authorization: token ${GITHUB_TOKEN}")
+    for _attempt in 1 2 3; do
+        SWIFTFORMAT_VERSION=$(curl -fsS --connect-timeout 5 --max-time 10 \
+            "${_fmt_auth[@]}" \
+            "https://api.github.com/repos/nicklockwood/SwiftFormat/releases/latest" 2>/dev/null \
+            | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+        [[ -n "$SWIFTFORMAT_VERSION" ]] && break
+        [[ $_attempt -lt 3 ]] && sleep $((2 ** _attempt))
+    done
     if [ -z "$SWIFTFORMAT_VERSION" ]; then
-        echo -e "${RED}✗ Failed to resolve latest SwiftFormat version${NC}"
-        exit 1
+        echo -e "${YELLOW}⚠ Failed to resolve SwiftFormat version, skipping${NC}"
+        exit 0
     fi
 
     SWIFTFORMAT_URL="https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat_linux_${SWIFT_ARCH}.tar.gz"
@@ -115,12 +136,20 @@ SWIFTFORMAT_PID=$!
 # SwiftLint (GitHub releases or build from source)
 (
     echo -e "${YELLOW}Installing SwiftLint...${NC}"
-    SWIFTLINT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-        "https://api.github.com/repos/realm/SwiftLint/releases/latest" 2>/dev/null \
-        | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+    SWIFTLINT_VERSION=""
+    _lint_auth=()
+    [[ -n "${GITHUB_TOKEN:-}" ]] && _lint_auth=(-H "Authorization: token ${GITHUB_TOKEN}")
+    for _attempt in 1 2 3; do
+        SWIFTLINT_VERSION=$(curl -fsS --connect-timeout 5 --max-time 10 \
+            "${_lint_auth[@]}" \
+            "https://api.github.com/repos/realm/SwiftLint/releases/latest" 2>/dev/null \
+            | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+        [[ -n "$SWIFTLINT_VERSION" ]] && break
+        [[ $_attempt -lt 3 ]] && sleep $((2 ** _attempt))
+    done
     if [ -z "$SWIFTLINT_VERSION" ]; then
-        echo -e "${RED}✗ Failed to resolve latest SwiftLint version${NC}"
-        exit 1
+        echo -e "${YELLOW}⚠ Failed to resolve SwiftLint version, skipping${NC}"
+        exit 0
     fi
 
     SWIFTLINT_URL="https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/swiftlint_linux_${SWIFT_ARCH}.tar.gz"
@@ -155,6 +184,14 @@ print_success_banner "Swift environment" 2>/dev/null || {
 }
 echo "Installed components:"
 echo "  - ${SWIFT_INSTALLED}"
-echo "  - SwiftFormat (formatter)"
-echo "  - SwiftLint (linter)"
+if command -v swiftformat &>/dev/null; then
+    echo "  - SwiftFormat (formatter)"
+else
+    echo "  - SwiftFormat (not installed)"
+fi
+if command -v swiftlint &>/dev/null; then
+    echo "  - SwiftLint (linter)"
+else
+    echo "  - SwiftLint (not installed)"
+fi
 echo ""

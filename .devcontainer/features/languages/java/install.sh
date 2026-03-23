@@ -9,15 +9,25 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
     warn() { echo -e "${YELLOW}⚠${NC} $*"; }
     err() { echo -e "${RED}✗${NC} $*" >&2; }
     get_github_latest_version() {
-        local repo="$1" version
-        version=$(curl -s --connect-timeout 5 --max-time 10 \
-            "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
-            | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+        local repo="$1" version auth_args=()
+        [[ -n "${GITHUB_TOKEN:-}" ]] && auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
+        local attempt
+        for attempt in 1 2 3; do
+            version=$(curl -fsS --connect-timeout 5 --max-time 10 \
+                "${auth_args[@]}" \
+                "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+                | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+            [[ -n "$version" ]] && break
+            sleep $((attempt * 2))
+        done
         if [[ -z "$version" ]]; then
             echo -e "${RED}✗ Failed to resolve latest version for ${repo}${NC}" >&2
-            exit 1
+            return 1
         fi
         echo "$version"
+    }
+    get_github_latest_version_or_empty() {
+        get_github_latest_version "$1" 2>/dev/null || echo ""
     }
 }
 
@@ -122,11 +132,11 @@ mkdir -p /home/vscode/.local/bin
 # Download all 3 tools in parallel
 (
     # Google Java Format
-    GOOGLE_JAVA_FORMAT_VERSION=$(curl -fsSL "https://api.github.com/repos/google/google-java-format/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+    GOOGLE_JAVA_FORMAT_VERSION=$(get_github_latest_version_or_empty "google/google-java-format")
     GOOGLE_JAVA_FORMAT_VERSION="${GOOGLE_JAVA_FORMAT_VERSION#v}"
     if [ -z "$GOOGLE_JAVA_FORMAT_VERSION" ]; then
-        echo -e "${RED}✗ Failed to resolve latest google-java-format version${NC}"
-        exit 1
+        echo -e "${YELLOW}⚠ Failed to resolve google-java-format version, skipping${NC}"
+        exit 0
     fi
     echo -e "${YELLOW}Installing Google Java Format ${GOOGLE_JAVA_FORMAT_VERSION}...${NC}"
     GOOGLE_JAVA_FORMAT_JAR="/home/vscode/.local/share/java/google-java-format.jar"
@@ -141,12 +151,23 @@ mkdir -p /home/vscode/.local/bin
 GJF_PID=$!
 
 (
-    # Checkstyle
-    CHECKSTYLE_TAG=$(curl -fsSL "https://api.github.com/repos/checkstyle/checkstyle/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+    # Checkstyle (tag format: "checkstyle-X.Y.Z" — shared helper strips 'v' prefix only,
+    # so we fetch the raw tag and strip the "checkstyle-" prefix manually)
+    CHECKSTYLE_TAG=""
+    _cs_auth=()
+    [[ -n "${GITHUB_TOKEN:-}" ]] && _cs_auth=(-H "Authorization: token ${GITHUB_TOKEN}")
+    for _attempt in 1 2 3; do
+        CHECKSTYLE_TAG=$(curl -fsS --connect-timeout 5 --max-time 10 \
+            "${_cs_auth[@]}" \
+            "https://api.github.com/repos/checkstyle/checkstyle/releases/latest" 2>/dev/null \
+            | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+        [[ -n "$CHECKSTYLE_TAG" ]] && break
+        sleep $((_attempt * 2))
+    done
     CHECKSTYLE_VERSION="${CHECKSTYLE_TAG#checkstyle-}"
     if [ -z "$CHECKSTYLE_VERSION" ]; then
-        echo -e "${RED}✗ Failed to resolve latest checkstyle version${NC}"
-        exit 1
+        echo -e "${YELLOW}⚠ Failed to resolve checkstyle version, skipping${NC}"
+        exit 0
     fi
     echo -e "${YELLOW}Installing Checkstyle ${CHECKSTYLE_VERSION}...${NC}"
     CHECKSTYLE_JAR="/home/vscode/.local/share/java/checkstyle.jar"
@@ -161,11 +182,11 @@ GJF_PID=$!
 CS_PID=$!
 
 (
-    # SpotBugs
-    SPOTBUGS_VERSION=$(curl -fsSL "https://api.github.com/repos/spotbugs/spotbugs/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
+    # SpotBugs (tag format: "X.Y.Z" — shared helper works directly)
+    SPOTBUGS_VERSION=$(get_github_latest_version_or_empty "spotbugs/spotbugs")
     if [ -z "$SPOTBUGS_VERSION" ]; then
-        echo -e "${RED}✗ Failed to resolve latest spotbugs version${NC}"
-        exit 1
+        echo -e "${YELLOW}⚠ Failed to resolve spotbugs version, skipping${NC}"
+        exit 0
     fi
     echo -e "${YELLOW}Installing SpotBugs ${SPOTBUGS_VERSION}...${NC}"
     SPOTBUGS_DIR="/home/vscode/.local/share/spotbugs"
@@ -196,26 +217,30 @@ if [ "$DOWNLOAD_FAILED" -ne 0 ]; then
 fi
 
 # Create wrapper scripts
-# google-java-format wrapper
-cat > /home/vscode/.local/bin/google-java-format << 'EOF'
+# Create wrapper scripts only if the corresponding tool was installed
+if [ -f /home/vscode/.local/share/java/google-java-format.jar ]; then
+    cat > /home/vscode/.local/bin/google-java-format << 'EOF'
 #!/bin/bash
 java -jar /home/vscode/.local/share/java/google-java-format.jar "$@"
 EOF
-chmod +x /home/vscode/.local/bin/google-java-format
+    chmod +x /home/vscode/.local/bin/google-java-format
+fi
 
-# checkstyle wrapper
-cat > /home/vscode/.local/bin/checkstyle << 'EOF'
+if [ -f /home/vscode/.local/share/java/checkstyle.jar ]; then
+    cat > /home/vscode/.local/bin/checkstyle << 'EOF'
 #!/bin/bash
 java -jar /home/vscode/.local/share/java/checkstyle.jar "$@"
 EOF
-chmod +x /home/vscode/.local/bin/checkstyle
+    chmod +x /home/vscode/.local/bin/checkstyle
+fi
 
-# spotbugs wrapper
-cat > /home/vscode/.local/bin/spotbugs << 'EOF'
+if [ -d /home/vscode/.local/share/spotbugs/bin ]; then
+    cat > /home/vscode/.local/bin/spotbugs << 'EOF'
 #!/bin/bash
 /home/vscode/.local/share/spotbugs/bin/spotbugs "$@"
 EOF
-chmod +x /home/vscode/.local/bin/spotbugs
+    chmod +x /home/vscode/.local/bin/spotbugs
+fi
 
 echo -e "${GREEN}✓ Java development tools installed${NC}"
 
@@ -233,9 +258,21 @@ echo "  - ${MAVEN_VERSION}"
 echo "  - ${GRADLE_VERSION}"
 echo ""
 echo "Development tools:"
-echo "  - Google Java Format (formatter)"
-echo "  - Checkstyle (style checker)"
-echo "  - SpotBugs (bug detector)"
+if [ -f /home/vscode/.local/share/java/google-java-format.jar ]; then
+    echo "  - Google Java Format (formatter)"
+else
+    echo "  - Google Java Format (skipped — version resolution failed)"
+fi
+if [ -f /home/vscode/.local/share/java/checkstyle.jar ]; then
+    echo "  - Checkstyle (style checker)"
+else
+    echo "  - Checkstyle (skipped — version resolution failed)"
+fi
+if [ -d /home/vscode/.local/share/spotbugs/bin ]; then
+    echo "  - SpotBugs (bug detector)"
+else
+    echo "  - SpotBugs (skipped — version resolution failed)"
+fi
 echo ""
 echo "Cache directories:"
 echo "  - SDKMAN: $SDKMAN_DIR"

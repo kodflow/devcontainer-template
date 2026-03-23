@@ -7,6 +7,28 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
     RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
     ok() { echo -e "${GREEN}✓${NC} $*"; }
     warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+    err() { echo -e "${RED}✗${NC} $*" >&2; }
+    get_github_latest_version() {
+        local repo="$1" version auth_args=()
+        [[ -n "${GITHUB_TOKEN:-}" ]] && auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
+        local attempt
+        for attempt in 1 2 3; do
+            version=$(curl -fsS --connect-timeout 5 --max-time 10 \
+                "${auth_args[@]}" \
+                "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+                | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+            [[ -n "$version" ]] && break
+            sleep $((attempt * 2))
+        done
+        if [[ -z "$version" ]]; then
+            echo -e "${RED}✗ Failed to resolve latest version for ${repo}${NC}" >&2
+            return 1
+        fi
+        echo "$version"
+    }
+    get_github_latest_version_or_empty() {
+        get_github_latest_version "$1" 2>/dev/null || echo ""
+    }
 }
 
 print_banner "Kotlin Development Environment" 2>/dev/null || {
@@ -61,21 +83,17 @@ echo -e "${GREEN}+ Kotlin installed${NC}"
 echo -e "${YELLOW}Installing ktlint...${NC}"
 mkdir -p /home/vscode/.local/bin
 
-KTLINT_VERSION=$(curl -s --connect-timeout 5 --max-time 10 \
-    "https://api.github.com/repos/pinterest/ktlint/releases/latest" 2>/dev/null \
-    | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
-if [ -z "$KTLINT_VERSION" ]; then
-    echo -e "${RED}✗ Failed to resolve latest ktlint version${NC}"
-    exit 1
-fi
+KTLINT_VERSION=$(get_github_latest_version_or_empty "pinterest/ktlint")
 
-if curl -fsSL --connect-timeout 10 --max-time 120 \
+if [ -z "$KTLINT_VERSION" ]; then
+    echo -e "${YELLOW}⚠ Failed to resolve ktlint version, skipping${NC}"
+elif curl -fsSL --connect-timeout 10 --max-time 120 \
     "https://github.com/pinterest/ktlint/releases/download/${KTLINT_VERSION}/ktlint" \
     -o /home/vscode/.local/bin/ktlint; then
     chmod +x /home/vscode/.local/bin/ktlint
     echo -e "${GREEN}+ ktlint ${KTLINT_VERSION} installed${NC}"
 else
-    echo -e "${YELLOW}! ktlint download failed${NC}"
+    echo -e "${YELLOW}⚠ ktlint download failed${NC}"
 fi
 
 export PATH="$SDKMAN_DIR/candidates/kotlin/current/bin:/home/vscode/.local/bin:$PATH"
