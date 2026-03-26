@@ -1,4 +1,4 @@
-name: Build Docker Image
+name: Build Docker Images
 
 on:
   push:
@@ -12,9 +12,16 @@ on:
       - ".devcontainer/images/**"
       - ".github/workflows/docker-images.yml"
   schedule:
-    # Daily build at 4:00 AM UTC
+    # Daily build at 4:00 AM UTC (main image)
     - cron: "0 4 * * *"
+    # Weekly base image rebuild (Sunday 3:00 AM UTC)
+    - cron: "0 3 * * 0"
   workflow_dispatch:
+    inputs:
+      rebuild_base:
+        description: "Force rebuild base image"
+        type: boolean
+        default: false
   repository_dispatch:
     types: [ktn-linter-release]
 
@@ -26,14 +33,120 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: kodflow/devcontainer-template
+  BASE_IMAGE_NAME: kodflow/devcontainer-base
 
 jobs:
   # =============================================================================
-  # Build each architecture in parallel (native runners)
+  # Base image: stable layers (apt, PPA, Cloud CLIs) — rebuilt weekly
+  # =============================================================================
+  build-base:
+    if: >-
+      github.repository == 'kodflow/devcontainer-template' && (
+        github.event.schedule == '0 3 * * 0' ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.rebuild_base == 'true') ||
+        (github.event_name == 'push' && contains(github.event.head_commit.message, '[base]'))
+      )
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare platform pair
+        id: platform
+        run: |
+          platform=${{ matrix.platform }}
+          echo "pair=${platform//\//-}" >> $GITHUB_OUTPUT
+
+      - name: Build and push base by digest
+        id: build
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        with:
+          context: .devcontainer/images
+          file: .devcontainer/images/Dockerfile.base
+          platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=base-${{ steps.platform.outputs.pair }}
+          cache-to: type=gha,mode=max,scope=base-${{ steps.platform.outputs.pair }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests-base
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests-base/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: digests-base-${{ steps.platform.outputs.pair }}
+          path: /tmp/digests-base/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Merge base architectures into multi-arch manifest
+  merge-base:
+    if: github.repository == 'kodflow/devcontainer-template'
+    runs-on: ubuntu-latest
+    needs: build-base
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: /tmp/digests-base
+          pattern: digests-base-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests-base
+        run: |
+          docker buildx imagetools create \
+            -t ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}:latest \
+            -t ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}:$(date +'%Y-%m-%d') \
+            $(printf '${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}@sha256:%s ' *)
+
+  # =============================================================================
+  # Main image: dynamic layers (Claude, grepai, rtk) — rebuilt daily
   # =============================================================================
   build:
-    # Only run on the original template repository, not on forks/copies
-    if: github.repository == 'kodflow/devcontainer-template'
+    # Skip if this is a base-only build (weekly schedule)
+    if: >-
+      github.repository == 'kodflow/devcontainer-template' &&
+      github.event.schedule != '0 3 * * 0'
     permissions:
       contents: read
       packages: write
@@ -74,8 +187,6 @@ jobs:
           platform=${{ matrix.platform }}
           echo "pair=${platform//\//-}" >> $GITHUB_OUTPUT
 
-      # Generate cache bust value for scheduled builds
-      # This ensures dynamic installations (Claude Code) get updated daily
       - name: Generate cache bust value
         id: cachebust
         run: |
@@ -134,7 +245,7 @@ jobs:
           retention-days: 1
 
   # =============================================================================
-  # Merge architectures into multi-arch manifest (push events only)
+  # Merge main image architectures into multi-arch manifest
   # =============================================================================
   merge:
     if: github.repository == 'kodflow/devcontainer-template' && github.event_name != 'pull_request'

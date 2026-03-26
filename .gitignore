@@ -42,6 +42,8 @@ Thumbs.db
 **/.env
 mcp.json
 **/mcp.json
+# Allow MCP fragments in feature directories (no secrets, just server definitions)
+!.devcontainer/features/**/mcp.json
 
 # VPN configs and credentials (never commit)
 *.ovpn

@@ -579,42 +579,59 @@ step_mcp_configuration() {
             generate_mcp_from_template
         fi
 
-        # Add optional MCPs based on installed features
-        add_optional_mcp() {
-            local name="$1"
-            local binary="$2"
-            local output="$3"
+        # Merge feature MCP fragments from /etc/mcp/features/
+        # Each language feature can drop a mcp.json fragment during install.sh
+        merge_feature_mcps() {
+            local output="$1"
+            local features_dir="/etc/mcp/features"
 
+            [ -d "$features_dir" ] || return 0
             [ -f "$output" ] || return 0
+            command -v jq >/dev/null 2>&1 || { log_warning "Skipping feature MCPs (jq not found)"; return 0; }
 
-            if ! command -v jq >/dev/null 2>&1; then
-                log_warning "Skipping $name MCP injection (jq not found)"
-                return 0
-            fi
+            local fragment
+            for fragment in "$features_dir"/*.mcp.json; do
+                [ -f "$fragment" ] || continue
+                local feature_name
+                feature_name=$(basename "$fragment" .mcp.json)
 
-            if [ -x "$binary" ]; then
-                log_info "Adding $name MCP (binary found at $binary)"
-                local tmp_file
-                tmp_file=$(mktemp "${output}.tmp.XXXXXX") || {
-                    log_warning "Failed to add $name MCP (unable to create temp file)"
-                    return 0
-                }
-                if jq --arg name "$name" --arg bin "$binary" \
-                   '.mcpServers = (.mcpServers // {}) | .mcpServers[$name] = {"command": $bin, "args": [], "env": {}}' \
-                   "$output" > "$tmp_file" && jq empty "$tmp_file" 2>/dev/null; then
-                    mv "$tmp_file" "$output"
-                    chown "$(id -u):$(id -g)" "$output" 2>/dev/null || true
-                    chmod 600 "$output" 2>/dev/null || true
-                else
-                    log_warning "Failed to add $name MCP, keeping original"
-                    rm -f "$tmp_file"
-                fi
-            else
-                log_info "Skipping $name MCP (binary not found)"
-            fi
+                local servers
+                servers=$(jq -r '.servers // {} | keys[]' "$fragment" 2>/dev/null) || continue
+
+                local server_name
+                for server_name in $servers; do
+                    local requires
+                    requires=$(jq -r --arg s "$server_name" '.servers[$s].requires_binary // empty' "$fragment")
+
+                    if [ -n "$requires" ]; then
+                        if [ "${requires#/}" != "$requires" ]; then
+                            [ -x "$requires" ] || { log_info "Skipping $server_name MCP ($requires not found)"; continue; }
+                        else
+                            command -v "$requires" &>/dev/null || { log_info "Skipping $server_name MCP ($requires not found)"; continue; }
+                        fi
+                    fi
+
+                    local config
+                    config=$(jq --arg s "$server_name" '.servers[$s] | del(.requires_binary)' "$fragment")
+
+                    local tmp_file
+                    tmp_file=$(mktemp "${output}.tmp.XXXXXX") || continue
+                    if jq --arg name "$server_name" --argjson config "$config" \
+                       '.mcpServers[$name] = $config' "$output" > "$tmp_file" && \
+                       jq empty "$tmp_file" 2>/dev/null; then
+                        mv "$tmp_file" "$output"
+                        chown "$(id -u):$(id -g)" "$output" 2>/dev/null || true
+                        chmod 600 "$output" 2>/dev/null || true
+                        log_info "Added $server_name MCP (from $feature_name feature)"
+                    else
+                        log_warning "Failed to add $server_name MCP, keeping original"
+                        rm -f "$tmp_file"
+                    fi
+                done
+            done
         }
 
-        add_optional_mcp "rust-analyzer" "$HOME/.cache/cargo/bin/rust-analyzer-mcp" "$MCP_OUTPUT"
+        merge_feature_mcps "$MCP_OUTPUT"
     else
         log_warning "MCP template not found at $MCP_TPL"
     fi
@@ -1686,10 +1703,28 @@ init_vpn() {
     return 0
 }
 
+# Clean up legacy workspace hook stubs (replaced by direct /etc/devcontainer-hooks/ calls)
+step_cleanup_legacy_stubs() {
+    local dc_dir="${WORKSPACE_FOLDER:-/workspace}/.devcontainer"
+    local stubs=("onCreate.sh" "postCreate.sh" "postStart.sh" "postAttach.sh" "updateContent.sh")
+    local cleaned=0
+    for stub in "${stubs[@]}"; do
+        local f="$dc_dir/hooks/lifecycle/$stub"
+        if [ -f "$f" ] && head -5 "$f" 2>/dev/null | grep -q "delegation stub\|Delegates to"; then
+            rm -f "$f"
+            cleaned=$((cleaned + 1))
+        fi
+    done
+    if [ "$cleaned" -gt 0 ]; then
+        log_info "Cleaned up $cleaned legacy hook stub(s)"
+    fi
+}
+
 # ============================================================================
 # Execution
 # ============================================================================
 
+run_step "Cleanup legacy stubs"     step_cleanup_legacy_stubs
 run_step "Restore Claude config"    step_restore_claude_config
 run_step "Init Claude dirs"         step_init_claude_dirs
 run_step "Shell env repair"         step_shell_env_repair

@@ -12,13 +12,20 @@ CI/CD automation for the devcontainer template.
 | `docker-images.yml` | Build and push devcontainer images |
 | `release.yml` | Create GitHub Release with claude-assets.tar.gz |
 
-## docker-images.yml
+## docker-images.yml (Two-Tier Build)
 
-- **Trigger**: Push to main, PRs, daily schedule (4AM UTC)
+**Base image** (`devcontainer-base`):
+- **Trigger**: Weekly (Sunday 3AM UTC), `[base]` in commit message, manual dispatch
+- **Content**: apt, PPA tools, Cloud CLIs, MkDocs, Oh My Zsh (~1.1GB, stable)
+
+**Main image** (`devcontainer-template`):
+- **Trigger**: Push to main, PRs, daily (4AM UTC), ktn-linter-release
+- **Content**: kubectl, grepai, rtk, Claude Code, CodeRabbit, Qodo (~120MB delta)
+
 - **Registry**: ghcr.io
-- **Tags**: latest, commit SHA
+- **Tags**: latest, date, commit SHA
 - **Platforms**: linux/amd64, linux/arm64
-- **Cache busting**: Scheduled builds pass `CACHE_BUST_DYNAMIC=YYYY-MM-DD` to pull latest tool versions
+- **Cache busting**: Scheduled builds pass `CACHE_BUST_DYNAMIC=YYYY-MM-DD`
 
 ## release.yml
 

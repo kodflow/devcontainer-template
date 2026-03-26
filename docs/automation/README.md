@@ -38,7 +38,7 @@ Each step first looks for a Makefile target (`make fmt`, `make lint`, `make test
 
 ## DevContainer Hooks (lifecycle)
 
-These hooks configure the container. They use a **delegation** pattern: scripts in `.devcontainer/hooks/lifecycle/` call the real scripts embedded in the Docker image (`/etc/devcontainer-hooks/`). This allows updating hooks by rebuilding the image without touching the workspace.
+These hooks configure the container. They are **embedded in the Docker image** at `/etc/devcontainer-hooks/` and called directly by `devcontainer.json`. Hooks update automatically when the image is rebuilt.
 
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': {
@@ -55,13 +55,13 @@ sequenceDiagram
 
     H->>H: initialize.sh<br/>.env, Ollama, features
     H->>C: Container created
-    C->>I: onCreate.sh → delegates
+    C->>I: onCreate.sh
     I->>I: Caches, CLAUDE.md
-    C->>I: postCreate.sh → delegates
+    C->>I: postCreate.sh
     I->>I: Git config, GPG, shell
-    C->>I: postStart.sh → delegates
+    C->>I: postStart.sh
     I->>I: MCP, grepai, VPN
-    C->>C: postAttach.sh<br/>Welcome message
+    C->>I: postAttach.sh<br/>Welcome message
 ```
 
 | Hook | Frequency | Main Actions |

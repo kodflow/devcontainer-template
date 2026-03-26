@@ -22,7 +22,7 @@ GitHub-specific configurations: workflows, templates, and instructions.
 
 | Workflow | Trigger | Description |
 |----------|---------|-------------|
-| docker-images.yml | push/PR | Build devcontainer images |
+| docker-images.yml | push/PR/schedule | Two-tier build (base weekly + main daily) |
 | release.yml | push to main | Create release with claude-assets.tar.gz |
 
 ## Dependency Management
