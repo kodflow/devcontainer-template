@@ -51,8 +51,7 @@ Updates the DevContainer environment from the official template.
 - **Hooks** - Claude scripts (format, lint, security, etc.)
 - **Commands** - Slash commands (/git, /search, etc.)
 - **Agents** - Agent definitions (specialists, executors)
-- **Lifecycle** - Lifecycle hooks (delegation stubs)
-- **Image-hooks** - Hooks embedded in the Docker image (real logic)
+- **Image-hooks** - Lifecycle hooks embedded in Docker image
 - **Shared-utils** - Shared utilities (utils.sh)
 - **Config** - p10k, settings.json
 - **Compose** - docker-compose.yml (update devcontainer, preserve custom)
@@ -129,8 +128,7 @@ Components:
   hooks        Claude scripts (format, lint...)
   commands     Slash commands (/git, /search)
   agents       Agent definitions (specialists)
-  lifecycle    Lifecycle hooks (delegation stubs)
-  image-hooks  Image-embedded lifecycle hooks
+  image-hooks  Lifecycle hooks (image-embedded)
   shared-utils Shared hook utilities (utils.sh)
   p10k         Powerlevel10k config
   settings     Claude settings.json

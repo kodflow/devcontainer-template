@@ -267,6 +267,9 @@ echo ""
 echo "Note: WebKitGTK/Tauri libs are pre-installed in base image"
 echo ""
 
+# Install MCP fragment (rust-analyzer server) if available
+install_mcp_fragment "$FEATURE_DIR" 2>/dev/null || true
+
 if [[ ${#FAILED_TOOLS[@]} -gt 0 ]]; then
     warn "Some tools failed to install: ${FAILED_TOOLS[*]}"
 fi

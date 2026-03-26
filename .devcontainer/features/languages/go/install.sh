@@ -313,3 +313,6 @@ echo "  - GOPATH: $GOPATH"
 echo "  - GOCACHE: $GOCACHE"
 echo "  - GOMODCACHE: $GOMODCACHE"
 echo ""
+
+# Install MCP fragment (ktn-linter server) if available
+install_mcp_fragment "$FEATURE_DIR" 2>/dev/null || true

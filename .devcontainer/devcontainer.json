@@ -81,17 +81,15 @@
     }
   },
   // ========== LIFECYCLE COMMANDS ==========
-  // All commands check for script existence to avoid failures if scripts are missing
+  // Hooks are embedded in the Docker image at /etc/devcontainer-hooks/
+  // Only initialize.sh runs on the host (before container build)
   "waitFor": "postCreateCommand",
   "initializeCommand": "[ -f \"${localWorkspaceFolder}/.devcontainer/hooks/lifecycle/initialize.sh\" ] && bash \"${localWorkspaceFolder}/.devcontainer/hooks/lifecycle/initialize.sh\" || true",
-  "onCreateCommand": {
-    "chmod-hooks": "chmod +x /workspace/.devcontainer/hooks/lifecycle/*.sh 2>/dev/null || true",
-    "run-hook": "[ -f /workspace/.devcontainer/hooks/lifecycle/onCreate.sh ] && /workspace/.devcontainer/hooks/lifecycle/onCreate.sh || true"
-  },
-  "updateContentCommand": "[ -f /workspace/.devcontainer/hooks/lifecycle/updateContent.sh ] && /workspace/.devcontainer/hooks/lifecycle/updateContent.sh || true",
-  "postCreateCommand": "[ -f /workspace/.devcontainer/hooks/lifecycle/postCreate.sh ] && /workspace/.devcontainer/hooks/lifecycle/postCreate.sh || true",
-  "postStartCommand": "[ -f /workspace/.devcontainer/hooks/lifecycle/postStart.sh ] && /workspace/.devcontainer/hooks/lifecycle/postStart.sh || true",
-  "postAttachCommand": "[ -f /workspace/.devcontainer/hooks/lifecycle/postAttach.sh ] && /workspace/.devcontainer/hooks/lifecycle/postAttach.sh || true",
+  "onCreateCommand": "/etc/devcontainer-hooks/lifecycle/onCreate.sh",
+  "updateContentCommand": "/etc/devcontainer-hooks/lifecycle/updateContent.sh",
+  "postCreateCommand": "/etc/devcontainer-hooks/lifecycle/postCreate.sh",
+  "postStartCommand": "/etc/devcontainer-hooks/lifecycle/postStart.sh",
+  "postAttachCommand": "/etc/devcontainer-hooks/lifecycle/postAttach.sh",
   "forwardPorts": [],
   "remoteUser": "vscode",
   "shutdownAction": "none"

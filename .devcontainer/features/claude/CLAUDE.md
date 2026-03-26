@@ -31,7 +31,7 @@ This feature leverages Claude's native capabilities:
 ## Configuration
 
 Settings are stored in `~/.claude/settings.json`.
-MCP servers are configured in project `mcp.json`.
+MCP servers configured in `mcp.json` (generated at runtime from `mcp.json.tpl` + feature fragments in `/etc/mcp/features/`).
 
 ## See Also
 

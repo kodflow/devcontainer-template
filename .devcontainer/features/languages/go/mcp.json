@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "ktn-linter": {
+      "command": "ktn-linter",
+      "args": ["serve", "--port", "7717"],
+      "env": {},
+      "requires_binary": "ktn-linter"
+    }
+  }
+}

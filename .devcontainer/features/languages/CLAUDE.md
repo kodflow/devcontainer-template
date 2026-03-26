@@ -72,10 +72,13 @@ Each `devcontainer-feature.json` declares `customizations.vscode.extensions` wit
 ```text
 languages/
 ├── shared/             # Shared utility library
-│   └── feature-utils.sh  # Colors, logging, arch detection, GitHub API
+│   └── feature-utils.sh  # Colors, logging, arch detection, GitHub API, MCP fragment install
 └── <language>/
-    └── install.sh      # Installation script (sources shared/feature-utils.sh)
+    ├── install.sh      # Installation script (sources shared/feature-utils.sh)
+    └── mcp.json        # (Optional) MCP server fragment for runtime merge
 ```
+
+**Languages with MCP fragments:** Go (ktn-linter), Rust (rust-analyzer)
 
 ## Version Discovery
 

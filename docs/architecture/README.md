@@ -82,12 +82,11 @@ flowchart TB
 │       ├── python/install.sh
 │       └── ...
 ├── hooks/
-│   └── lifecycle/             # Delegation stubs
-│       ├── initialize.sh      # → host (Ollama, .env)
-│       ├── postCreate.sh      # → /etc/devcontainer-hooks/
-│       └── postStart.sh       # → /etc/devcontainer-hooks/
+│   └── lifecycle/             # Host-side only
+│       └── initialize.sh      # → host (Ollama, .env)
 └── images/
-    ├── Dockerfile             # Base image (Ubuntu + tools)
+    ├── Dockerfile.base        # Stable layer (apt, Cloud CLIs) — weekly
+    ├── Dockerfile             # Dynamic layer (Claude, tools) — daily
     ├── mcp.json.tpl           # MCP template (tokens injected)
     ├── grepai.config.yaml     # Semantic search config
     ├── hooks/                 # Real hooks (embedded in image)
@@ -148,20 +147,19 @@ flowchart TD
 
 **How it's used**: when you type `/review`, the `developer-specialist-review` launches 5 executors in parallel. When you type `/plan`, the orchestrator consults the detected language specialist and the patterns in `~/.claude/docs/`.
 
-## Hook Delegation Pattern
+## Lifecycle Hooks
 
-Lifecycle hooks use a two-layer pattern:
+Lifecycle hooks are embedded in the Docker image at `/etc/devcontainer-hooks/lifecycle/`.
+`devcontainer.json` calls them directly — no workspace stubs needed.
 
-1. **Workspace stubs** (`.devcontainer/hooks/lifecycle/`): short scripts that delegate
-2. **Image hooks** (`/etc/devcontainer-hooks/lifecycle/`): real scripts embedded in Docker
+Advantage: hooks update automatically when the image is rebuilt.
 
-Advantage: hooks update automatically when the image is rebuilt, without modifying the workspace.
-
-```bash
-# Example stub (postStart.sh in workspace)
-#!/bin/bash
-exec /etc/devcontainer-hooks/lifecycle/postStart.sh "$@"
+```json
+// devcontainer.json
+"postStartCommand": "/etc/devcontainer-hooks/lifecycle/postStart.sh"
 ```
+
+Only exception: `initialize.sh` runs on the host (before container build).
 
 ## Startup Restoration
 

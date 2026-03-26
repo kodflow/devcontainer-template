@@ -1,63 +1,51 @@
-<!-- updated: 2026-03-10T12:30:00Z -->
+<!-- updated: 2026-03-26T18:00:00Z -->
 # DevContainer Hooks
 
 ## Purpose
 
-Lifecycle scripts for devcontainer events using a delegation architecture.
+Host-side initialization and optional project extensions.
+All lifecycle hooks are now embedded in the Docker image at `/etc/devcontainer-hooks/`.
 
 ## Structure
 
 ```text
 hooks/
-├── lifecycle/          # Delegation stubs (thin wrappers)
-│   ├── initialize.sh   # Initial setup (Ollama on host) - NOT delegated
-│   ├── onCreate.sh     # Delegates to image-embedded hook
-│   ├── postAttach.sh   # Delegates to image-embedded hook
-│   ├── postCreate.sh   # Delegates to image-embedded hook
-│   ├── postStart.sh    # Delegates to image-embedded hook
-│   └── updateContent.sh # Delegates to image-embedded hook
+├── lifecycle/          # Host-side only
+│   └── initialize.sh   # Ollama + .env setup (runs on HOST before build)
 ├── shared/             # Shared utilities
-│   └── utils.sh        # Common functions (needed by initialize.sh)
+│   ├── utils.sh        # Common functions (used by initialize.sh)
+│   └── .env.example    # Environment variable template
 └── project/            # Project-specific extensions (optional)
     └── .gitkeep
 ```
 
-## Delegation Architecture
+## Architecture
 
-Workspace hooks are thin stubs that delegate to image-embedded implementations:
+`devcontainer.json` lifecycle commands point directly to image-embedded hooks:
+```json
+"onCreateCommand": "/etc/devcontainer-hooks/lifecycle/onCreate.sh",
+"postStartCommand": "/etc/devcontainer-hooks/lifecycle/postStart.sh"
+```
 
-1. **DEV** path: `/workspace/.devcontainer/images/hooks/` (template dev only)
-2. **IMG** path: `/etc/devcontainer-hooks/` (all downstream containers)
-3. **EXT** path: `/workspace/.devcontainer/hooks/project/` (project extensions)
+Hooks auto-update when the Docker image is rebuilt. No workspace stubs needed.
 
-This ensures hooks auto-update when the Docker image is rebuilt.
-
-**Exception:** `initialize.sh` runs on the host machine, cannot be embedded.
-
-## Lifecycle Events
-
-| Event | Script | Description |
-|-------|--------|-------------|
-| onCreate | onCreate.sh | Initial container creation |
-| postCreate | postCreate.sh | After container ready (once, guarded) |
-| postAttach | postAttach.sh | After VS Code attaches |
-| postStart | postStart.sh | After each start (MCP, grepai, VPN) |
+**Exception:** `initialize.sh` runs on the host machine (before container build).
 
 ## postStart Services
 
 | Service | Function | Description |
 |---------|----------|-------------|
+| Legacy cleanup | `step_cleanup_legacy_stubs` | Remove old workspace stubs |
 | Shell env repair | `step_shell_env_repair` | v1→v3 upgrade, duplicate cleanup |
 | Completion cache | `step_cache_completions` | Pre-generate `~/.zsh_completions/` |
 | p10k segments | `step_generate_p10k_segments` | Dynamic `~/.p10k-segments.zsh` |
 | grepai watch | `init_semantic_search` | `.health-stamp` + watchdog (60s) |
 | VPN | `init_vpn` | 1Password profile detection |
-| Claude Code update | `step_update_claude_code` | Auto-update to latest version (background) |
+| Claude Code update | `step_update_claude_code` | Auto-update to latest version |
 | RTK init | `init_rtk` | Token savings proxy initialization |
 
 ## Conventions
 
-- Stubs must be executable (chmod +x)
-- Do NOT add logic to stubs — modify image hooks instead
-- `initialize.sh` is the only hook with inline logic (host-side)
+- All hook logic lives in `images/hooks/lifecycle/*.sh` (baked into image)
+- `initialize.sh` is the only workspace-side hook (host machine)
 - Use `run_step` pattern from `shared/utils.sh` in image hooks

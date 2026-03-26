@@ -3,14 +3,18 @@
 
 ## Purpose
 
-Docker base image with all development tools pre-installed.
+Two-tier Docker images with all development tools pre-installed.
 Claude Code and MCP servers are included; languages added via features.
+
+**Base image** (`Dockerfile.base`): Stable deps (apt, Cloud CLIs) — rebuilt weekly.
+**Main image** (`Dockerfile`): Dynamic tools (Claude, grepai, rtk) — rebuilt daily.
 
 ## Structure
 
 ```text
 .devcontainer/images/
-├── Dockerfile          # Base image (~15 layers, consolidated)
+├── Dockerfile.base     # Stable layer (~1.1GB, weekly rebuild)
+├── Dockerfile          # Dynamic layer (~120MB, daily rebuild)
 ├── .dockerignore       # Build context exclusions
 ├── mcp.json.tpl        # MCP server template
 ├── grepai.config.yaml  # GrepAI search config (12 languages)
@@ -41,7 +45,7 @@ Claude Code and MCP servers are included; languages added via features.
 | `hooks/` | `/etc/devcontainer-hooks/` | - |
 
 **Note:** Claude files restored from `/etc/claude-defaults/` at each start via `postStart.sh`.
-Lifecycle hooks delegate from workspace stubs to `/etc/devcontainer-hooks/` (image-embedded).
+Lifecycle hooks called directly from `devcontainer.json` → `/etc/devcontainer-hooks/` (no stubs).
 
 ## Design Patterns Knowledge Base
 
@@ -97,7 +101,7 @@ Management commands (`nvm use`, `pyenv install`) trigger lazy-load on first call
 
 ## MCP Servers (Runtime)
 
-Configured in `mcp.json.tpl`:
+Core servers configured in `mcp.json.tpl`. Feature-specific servers added via fragments in `/etc/mcp/features/` (see features/CLAUDE.md).
 
 | Server | Package | Usage | Auth |
 |--------|---------|-------|------|

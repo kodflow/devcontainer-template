@@ -171,10 +171,37 @@ install_ollama() {
     esac
 }
 
+# Ensure Ollama binds on all interfaces so Docker containers can reach it
+# via host.docker.internal:11434 (default is 127.0.0.1 = container-invisible)
+ensure_ollama_host_binding() {
+    local os="$1"
+
+    case "$os" in
+        macos)
+            # Set for current session + persist via launchctl
+            launchctl setenv OLLAMA_HOST 0.0.0.0 2>/dev/null || true
+            export OLLAMA_HOST=0.0.0.0
+            ;;
+        linux)
+            export OLLAMA_HOST=0.0.0.0
+            # Persist in systemd override if service exists
+            if systemctl list-unit-files 2>/dev/null | grep -q "ollama"; then
+                sudo mkdir -p /etc/systemd/system/ollama.service.d 2>/dev/null || true
+                echo -e "[Service]\nEnvironment=OLLAMA_HOST=0.0.0.0" | \
+                    sudo tee /etc/systemd/system/ollama.service.d/bind-all.conf >/dev/null 2>&1 || true
+                sudo systemctl daemon-reload 2>/dev/null || true
+            fi
+            ;;
+    esac
+}
+
 # Start Ollama daemon
 start_ollama() {
     local os="$1"
     echo "Starting Ollama daemon..."
+
+    # Bind on 0.0.0.0 so containers can reach via host.docker.internal
+    ensure_ollama_host_binding "$os"
 
     case "$os" in
         macos)
@@ -184,20 +211,21 @@ start_ollama() {
                 launchctl start com.ollama.ollama 2>/dev/null || true
             else
                 # Start manually in background
-                nohup ollama serve >/dev/null 2>&1 &
+                OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
             fi
             ;;
         linux)
             # Check if systemd service exists
             if systemctl list-unit-files 2>/dev/null | grep -q "ollama"; then
-                sudo systemctl start ollama 2>/dev/null || nohup ollama serve >/dev/null 2>&1 &
+                sudo systemctl restart ollama 2>/dev/null || OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
             else
-                nohup ollama serve >/dev/null 2>&1 &
+                OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
             fi
             ;;
         windows)
             # On Windows, Ollama typically runs as a service after installation
             echo "Please ensure Ollama is running (check system tray)"
+            echo "Set OLLAMA_HOST=0.0.0.0 in system environment for container access"
             ;;
     esac
 
@@ -205,7 +233,7 @@ start_ollama() {
     local retries=15
     while [ $retries -gt 0 ]; do
         if check_ollama_running; then
-            echo "Ollama is ready"
+            echo "Ollama is ready (listening on 0.0.0.0:11434)"
             return 0
         fi
         retries=$((retries - 1))
@@ -216,17 +244,11 @@ start_ollama() {
     return 1
 }
 
-# Pull embedding model if not present
+# Pull/update embedding model (idempotent — ollama pull checks digest)
 pull_model() {
     local model="$1"
-    echo "Checking for embedding model: $model..."
-
-    if curl -sf http://localhost:11434/api/tags 2>/dev/null | grep -qw "$model"; then
-        echo "Model $model already available"
-    else
-        echo "Pulling model $model (this may take a few minutes)..."
-        ollama pull "$model"
-    fi
+    echo "Pulling/updating embedding model: $model..."
+    ollama pull "$model"
 }
 
 # Main Ollama setup flow
@@ -246,6 +268,8 @@ fi
 if check_ollama_installed; then
     if check_ollama_running; then
         echo "Ollama is running"
+        # Persist 0.0.0.0 binding for future restarts (does NOT restart now)
+        ensure_ollama_host_binding "$OS"
     else
         start_ollama "$OS"
     fi

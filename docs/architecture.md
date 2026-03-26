@@ -24,8 +24,9 @@ Specialist agents (25 language + 6 dev executor + 9 devops + 6 platform executor
 |-----------|----------|---------|
 | DevContainer config | `.devcontainer/devcontainer.json` | VS Code entry point |
 | Docker Compose | `.devcontainer/docker-compose.yml` | Service definition, volumes |
-| Base image | `.devcontainer/images/Dockerfile` | Ubuntu + core tooling |
-| Lifecycle hooks | `.devcontainer/hooks/lifecycle/` | Startup automation |
+| Base image (stable) | `.devcontainer/images/Dockerfile.base` | System deps, Cloud CLIs (weekly) |
+| Main image (dynamic) | `.devcontainer/images/Dockerfile` | Claude, tools (daily) |
+| Lifecycle hooks | `/etc/devcontainer-hooks/lifecycle/` | Startup automation (image-embedded) |
 | Language features | `.devcontainer/features/languages/` | Per-language installers |
 | Specialist agents | `.devcontainer/images/.claude/agents/` | AI agent definitions |
 | Slash commands | `.claude/commands/` | Workflow entry points |

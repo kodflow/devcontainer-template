@@ -81,15 +81,16 @@ bash .devcontainer/install.sh
 ### Langages
 Les langages sont ajoutés via **DevContainer Features** selon vos besoins :
 
-```json
+```jsonc
+// Dans devcontainer.json, décommenter les langages souhaités :
 "features": {
-  "ghcr.io/devcontainers/features/go:1": {},
-  "ghcr.io/devcontainers/features/python:1": {},
-  "ghcr.io/devcontainers/features/rust:1": {}
+  "./features/languages/go": {},
+  "./features/languages/python": {},
+  "./features/languages/rust": {}
 }
 ```
 
-Voir : https://containers.dev/features
+25 langages disponibles dans `.devcontainer/features/languages/`
 
 ## Installation
 
@@ -113,9 +114,13 @@ Le template inclut des serveurs MCP pré-configurés pour Claude Code.
 
 | Serveur | Description |
 |---------|-------------|
-| **github** | Intégration GitHub |
-| **codacy** | Analyse de code |
-| **taskwarrior** | Gestion de tâches |
+| **grepai** | Recherche sémantique de code |
+| **context7** | Documentation à jour pour les prompts |
+| **github** | Intégration GitHub (PR, Issues) |
+| **gitlab** | Intégration GitLab (MR, Pipelines) |
+| **codacy** | Analyse de code + sécurité |
+| **playwright** | Tests E2E, automatisation navigateur |
+| **taskmaster** | Gestion de tâches persistante |
 
 ### Configuration des tokens
 
@@ -145,17 +150,13 @@ Configurez `OP_SERVICE_ACCOUNT_TOKEN` et les items correspondants dans votre vau
 ├── docker-compose.yml         # Services Docker
 ├── Dockerfile                 # Extends l'image de base
 ├── hooks/
-│   ├── lifecycle/
-│   │   ├── initialize.sh      # Avant création (hôte)
-│   │   ├── onCreate.sh        # Création container
-│   │   ├── postCreate.sh      # Config initiale
-│   │   ├── postStart.sh       # Chaque démarrage (MCP)
-│   │   └── postAttach.sh      # Attachement IDE
-│   └── shared/
-│       ├── mcp.json.tpl       # Template MCP
-│       └── utils.sh           # Fonctions utilitaires
+│   └── lifecycle/
+│       └── initialize.sh      # Avant création (hôte : Ollama, .env)
 └── images/
-    └── Dockerfile             # Image de base GHCR
+    ├── Dockerfile.base        # Layer stable (apt, Cloud CLIs) — hebdo
+    ├── Dockerfile             # Layer dynamique (Claude, outils) — quotidien
+    ├── mcp.json.tpl           # Template MCP (+ fragments par feature)
+    └── hooks/lifecycle/       # Hooks embarqués dans l'image
 ```
 
 ## Commandes
@@ -182,9 +183,10 @@ docker compose -f .devcontainer/docker-compose.yml down -v
 
 ## Volumes persistants
 
-- `{projet}-local-bin` : Binaires locaux
-- `vscode-extensions` : Extensions VS Code
 - `zsh-history` : Historique shell
+- `package-cache` : Caches packages (npm, pip, cargo, etc.)
+- `claude-config` : Configuration Claude (credentials, sessions)
+- `cloud-config` : Config cloud (AWS, GCP, Azure, 1Password)
 
 ## License
 
