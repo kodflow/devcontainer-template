@@ -156,3 +156,19 @@ print_success_banner() {
     echo -e "${GREEN}=========================================${NC}"
     echo ""
 }
+
+# =============================================================================
+# MCP Fragment Installation
+# =============================================================================
+# Copies a feature's mcp.json fragment to /etc/mcp/features/ for runtime merge.
+# Called at the end of each feature install.sh that provides MCP servers.
+install_mcp_fragment() {
+    local feature_dir="$1"
+    local feature_name
+    feature_name=$(basename "$feature_dir")
+    if [ -f "$feature_dir/mcp.json" ]; then
+        mkdir -p /etc/mcp/features
+        cp "$feature_dir/mcp.json" "/etc/mcp/features/${feature_name}.mcp.json"
+        echo -e "${GREEN}✓${NC} MCP fragment installed for $feature_name"
+    fi
+}

@@ -24,8 +24,33 @@ features/
 - Downloads parallelized with `&` + `wait` for faster builds
 - Conventions enforced by specialist agents (e.g., `developer-specialist-go`)
 
+## MCP Integration
+
+Features can contribute MCP server configs via fragment files:
+
+1. Add `mcp.json` in the feature directory (e.g., `languages/go/mcp.json`)
+2. Call `install_mcp_fragment "$FEATURE_DIR"` at end of `install.sh`
+3. Fragment is copied to `/etc/mcp/features/<name>.mcp.json` at build time
+4. `postStart.sh` merges fragments into `/workspace/mcp.json` at runtime
+5. `requires_binary` field gates inclusion (skipped if binary not found)
+
+Fragment format:
+```json
+{
+  "servers": {
+    "server-name": {
+      "command": "binary",
+      "args": ["arg1"],
+      "env": {},
+      "requires_binary": "binary"
+    }
+  }
+}
+```
+
 ## Adding a Language
 
 1. Create `languages/<name>/`
 2. Add `devcontainer-feature.json` for metadata
 3. Add `install.sh` sourcing `shared/feature-utils.sh`
+4. (Optional) Add `mcp.json` if the language provides an MCP server

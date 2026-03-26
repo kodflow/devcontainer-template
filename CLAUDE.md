@@ -109,8 +109,8 @@ CLAUDE.md                    # This overview
 ├── docs/workflows.md        # Detailed workflows
 ├── .devcontainer/CLAUDE.md  # Container config details
 │   ├── features/CLAUDE.md   # Language & tool features
-│   ├── hooks/CLAUDE.md      # Lifecycle hooks delegation
-│   └── images/CLAUDE.md     # Base image (189 lines)
+│   ├── hooks/CLAUDE.md      # Host-side hooks (initialize.sh only)
+│   └── images/CLAUDE.md     # Two-tier images (base + dynamic)
 └── .claude/commands/        # Slash commands (17 skills)
 ```
 

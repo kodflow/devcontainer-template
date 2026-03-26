@@ -20,8 +20,10 @@ Development container setup for consistent dev environments across languages.
 │   ├── architectures/   # 14 architecture patterns
 │   ├── claude/          # Standalone Claude feature
 │   └── kubernetes/      # Local K8s via kind
-├── hooks/               # Lifecycle scripts (delegation stubs)
-└── images/              # Docker base image + Claude config
+├── hooks/               # Host-side only (initialize.sh) + project extensions
+└── images/              # Two-tier Docker images + Claude config
+    ├── Dockerfile.base  # Stable layer (apt, Cloud CLIs) — weekly
+    └── Dockerfile       # Dynamic layer (Claude, tools) — daily
 ```
 
 ## Key Files
