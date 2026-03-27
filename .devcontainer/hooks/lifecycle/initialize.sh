@@ -205,18 +205,19 @@ start_ollama() {
 
     case "$os" in
         macos)
-            # On macOS, ollama serve runs as a background service
-            # Check if launchd service exists
-            if launchctl list 2>/dev/null | grep -q "com.ollama"; then
+            # On macOS, prefer brew services (persists across reboots)
+            if command -v brew &>/dev/null && brew list ollama &>/dev/null; then
+                OLLAMA_HOST=0.0.0.0 brew services start ollama 2>/dev/null || true
+            elif launchctl list 2>/dev/null | grep -q "com.ollama"; then
                 launchctl start com.ollama.ollama 2>/dev/null || true
             else
-                # Start manually in background
                 OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
             fi
             ;;
         linux)
-            # Check if systemd service exists
+            # Prefer systemd (enable + start = persists across reboots)
             if systemctl list-unit-files 2>/dev/null | grep -q "ollama"; then
+                sudo systemctl enable ollama 2>/dev/null || true
                 sudo systemctl restart ollama 2>/dev/null || OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
             else
                 OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
