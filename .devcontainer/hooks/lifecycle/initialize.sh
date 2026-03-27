@@ -252,40 +252,130 @@ pull_model() {
     ollama pull "$model"
 }
 
-# Main Ollama setup flow
+# Check if the embedding model is already pulled
+check_model_pulled() {
+    local model="$1"
+    ollama list 2>/dev/null | grep -q "$model"
+}
+
+# Ensure Ollama is registered as a persistent service (survives reboots)
+ensure_ollama_persistent() {
+    local os="$1"
+    case "$os" in
+        macos)
+            if command -v brew &>/dev/null && brew list ollama &>/dev/null; then
+                # brew services auto-starts on boot
+                if ! brew services list 2>/dev/null | grep ollama | grep -q started; then
+                    echo "  Registering Ollama as persistent brew service..."
+                    OLLAMA_HOST=0.0.0.0 brew services start ollama 2>/dev/null || true
+                else
+                    echo "  Ollama already registered as persistent brew service"
+                fi
+            fi
+            ;;
+        linux)
+            if systemctl list-unit-files 2>/dev/null | grep -q "ollama"; then
+                if ! systemctl is-enabled ollama 2>/dev/null | grep -q "enabled"; then
+                    echo "  Enabling Ollama systemd service (persist across reboots)..."
+                    sudo systemctl enable ollama 2>/dev/null || true
+                else
+                    echo "  Ollama systemd service already enabled"
+                fi
+            fi
+            ;;
+    esac
+}
+
+# ============================================================================
+# Main Ollama setup flow — each step checks and fixes if needed
+# ============================================================================
 OS=$(detect_os)
 echo "Detected OS: $OS"
 
+# Step 1: Ensure Ollama is installed
+echo ""
+echo "[1/5] Checking Ollama installation..."
 if check_ollama_installed; then
-    echo "Ollama is installed"
+    echo "  OK: Ollama is installed ($(ollama --version 2>/dev/null || echo 'version unknown'))"
 else
-    echo "Ollama not found, installing..."
+    echo "  MISSING: Installing Ollama..."
     if ! install_ollama "$OS"; then
-        echo "Warning: Could not install Ollama automatically"
-        echo "Semantic search will use CPU-only sidecar (slower)"
+        echo "  FAILED: Could not install Ollama automatically"
+        echo "  Semantic search (grepai) will be unavailable"
+        echo "  Manual install: https://ollama.com/download"
     fi
 fi
 
+# Step 2: Ensure 0.0.0.0 binding (container-accessible)
+echo ""
+echo "[2/5] Checking host binding (0.0.0.0 for container access)..."
+if check_ollama_installed; then
+    ensure_ollama_host_binding "$OS"
+    echo "  OK: OLLAMA_HOST=0.0.0.0 configured"
+else
+    echo "  SKIP: Ollama not installed"
+fi
+
+# Step 3: Ensure Ollama is running
+echo ""
+echo "[3/5] Checking Ollama service..."
 if check_ollama_installed; then
     if check_ollama_running; then
-        echo "Ollama is running"
-        # Persist 0.0.0.0 binding for future restarts (does NOT restart now)
-        ensure_ollama_host_binding "$OS"
+        echo "  OK: Ollama is running (port 11434)"
     else
+        echo "  DOWN: Starting Ollama..."
         start_ollama "$OS"
-    fi
-
-    # Pull model if Ollama is running
-    if check_ollama_running; then
-        pull_model "$OLLAMA_MODEL"
-        echo "Ollama setup complete - GPU acceleration enabled"
+        if check_ollama_running; then
+            echo "  OK: Ollama started successfully"
+        else
+            echo "  FAILED: Ollama did not start — grepai will be unavailable"
+        fi
     fi
 else
-    echo "Warning: Ollama not available - will use CPU-only sidecar"
-    echo "To enable GPU acceleration, install Ollama manually:"
-    echo "  macOS: brew install ollama"
-    echo "  Linux: curl -fsSL https://ollama.com/install.sh | sh"
-    echo "  Windows: https://ollama.com/download/windows"
+    echo "  SKIP: Ollama not installed"
+fi
+
+# Step 4: Ensure Ollama persists across reboots
+echo ""
+echo "[4/5] Checking service persistence (survive reboots)..."
+if check_ollama_installed; then
+    ensure_ollama_persistent "$OS"
+else
+    echo "  SKIP: Ollama not installed"
+fi
+
+# Step 5: Ensure embedding model is pulled
+echo ""
+echo "[5/5] Checking embedding model ($OLLAMA_MODEL)..."
+if check_ollama_installed && check_ollama_running; then
+    if check_model_pulled "$OLLAMA_MODEL"; then
+        echo "  OK: Model $OLLAMA_MODEL already available"
+    else
+        echo "  MISSING: Pulling $OLLAMA_MODEL..."
+        pull_model "$OLLAMA_MODEL"
+        if check_model_pulled "$OLLAMA_MODEL"; then
+            echo "  OK: Model $OLLAMA_MODEL pulled successfully"
+        else
+            echo "  FAILED: Could not pull $OLLAMA_MODEL"
+        fi
+    fi
+else
+    echo "  SKIP: Ollama not running"
+fi
+
+# Summary
+echo ""
+if check_ollama_installed && check_ollama_running && check_model_pulled "$OLLAMA_MODEL"; then
+    echo "Ollama setup complete — GPU-accelerated semantic search ready"
+else
+    echo "Warning: Ollama setup incomplete — grepai semantic search may be unavailable"
+    if ! check_ollama_installed; then
+        echo "  Install: https://ollama.com/download"
+    elif ! check_ollama_running; then
+        echo "  Start: ollama serve"
+    elif ! check_model_pulled "$OLLAMA_MODEL"; then
+        echo "  Pull model: ollama pull $OLLAMA_MODEL"
+    fi
 fi
 
 # ============================================================================
