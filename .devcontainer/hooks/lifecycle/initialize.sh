@@ -184,12 +184,14 @@ ensure_ollama_host_binding() {
             ;;
         linux)
             export OLLAMA_HOST=0.0.0.0
-            # Persist in systemd override if service exists
+            # Persist in systemd override if service exists (sudo -n = non-interactive)
             if systemctl list-unit-files 2>/dev/null | grep -q "ollama"; then
-                sudo mkdir -p /etc/systemd/system/ollama.service.d 2>/dev/null || true
-                echo -e "[Service]\nEnvironment=OLLAMA_HOST=0.0.0.0" | \
-                    sudo tee /etc/systemd/system/ollama.service.d/bind-all.conf >/dev/null 2>&1 || true
-                sudo systemctl daemon-reload 2>/dev/null || true
+                if sudo -n true 2>/dev/null; then
+                    sudo -n mkdir -p /etc/systemd/system/ollama.service.d 2>/dev/null || true
+                    echo -e "[Service]\nEnvironment=OLLAMA_HOST=0.0.0.0" | \
+                        sudo -n tee /etc/systemd/system/ollama.service.d/bind-all.conf >/dev/null 2>&1 || true
+                    sudo -n systemctl daemon-reload 2>/dev/null || true
+                fi
             fi
             ;;
     esac
@@ -205,9 +207,16 @@ start_ollama() {
 
     case "$os" in
         macos)
-            # On macOS, prefer brew services (persists across reboots)
+            # On macOS, try brew services first, then launchctl, then nohup
             if command -v brew &>/dev/null && brew list ollama &>/dev/null; then
-                OLLAMA_HOST=0.0.0.0 brew services start ollama 2>/dev/null || true
+                if ! OLLAMA_HOST=0.0.0.0 brew services start ollama 2>/dev/null; then
+                    # brew services failed — try launchctl
+                    if launchctl list 2>/dev/null | grep -q "com.ollama"; then
+                        launchctl start com.ollama.ollama 2>/dev/null || true
+                    else
+                        OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
+                    fi
+                fi
             elif launchctl list 2>/dev/null | grep -q "com.ollama"; then
                 launchctl start com.ollama.ollama 2>/dev/null || true
             else
@@ -215,10 +224,10 @@ start_ollama() {
             fi
             ;;
         linux)
-            # Prefer systemd (enable + start = persists across reboots)
-            if systemctl list-unit-files 2>/dev/null | grep -q "ollama"; then
-                sudo systemctl enable ollama 2>/dev/null || true
-                sudo systemctl restart ollama 2>/dev/null || OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
+            # Prefer systemd with non-interactive sudo; fall back to nohup
+            if systemctl list-unit-files 2>/dev/null | grep -q "ollama" && sudo -n true 2>/dev/null; then
+                sudo -n systemctl enable ollama 2>/dev/null || true
+                sudo -n systemctl restart ollama 2>/dev/null || OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
             else
                 OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
             fi
@@ -276,8 +285,12 @@ ensure_ollama_persistent() {
         linux)
             if systemctl list-unit-files 2>/dev/null | grep -q "ollama"; then
                 if ! systemctl is-enabled ollama 2>/dev/null | grep -q "enabled"; then
-                    echo "  Enabling Ollama systemd service (persist across reboots)..."
-                    sudo systemctl enable ollama 2>/dev/null || true
+                    if sudo -n true 2>/dev/null; then
+                        echo "  Enabling Ollama systemd service (persist across reboots)..."
+                        sudo -n systemctl enable ollama 2>/dev/null || true
+                    else
+                        echo "  SKIP: sudo not available (run manually: sudo systemctl enable ollama)"
+                    fi
                 else
                     echo "  Ollama systemd service already enabled"
                 fi
