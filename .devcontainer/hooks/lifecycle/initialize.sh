@@ -261,10 +261,10 @@ pull_model() {
     ollama pull "$model"
 }
 
-# Check if the embedding model is already pulled
+# Check if the embedding model is already pulled (exact name match on first column)
 check_model_pulled() {
     local model="$1"
-    ollama list 2>/dev/null | grep -q "$model"
+    ollama list 2>/dev/null | awk '{print $1}' | grep -qE "^${model}(:latest)?$"
 }
 
 # Ensure Ollama is registered as a persistent service (survives reboots)
@@ -276,7 +276,9 @@ ensure_ollama_persistent() {
                 # brew services auto-starts on boot
                 if ! brew services list 2>/dev/null | grep ollama | grep -q started; then
                     echo "  Registering Ollama as persistent brew service..."
-                    OLLAMA_HOST=0.0.0.0 brew services start ollama 2>/dev/null || true
+                    if ! OLLAMA_HOST=0.0.0.0 brew services start ollama 2>/dev/null; then
+                        echo "  Warning: brew services start failed — Ollama may not persist across reboots"
+                    fi
                 else
                     echo "  Ollama already registered as persistent brew service"
                 fi
@@ -337,7 +339,7 @@ if check_ollama_installed; then
         echo "  OK: Ollama is running (port 11434)"
     else
         echo "  DOWN: Starting Ollama..."
-        start_ollama "$OS"
+        start_ollama "$OS" || true
         if check_ollama_running; then
             echo "  OK: Ollama started successfully"
         else
