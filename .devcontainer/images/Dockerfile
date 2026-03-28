@@ -25,6 +25,8 @@ ARG GITHUB_TOKEN=
 # Set to current date (YYYY-MM-DD) during scheduled builds to pull latest versions.
 ARG CACHE_BUST_DYNAMIC=stable
 
+USER root
+
 # =============================================================================
 # Dynamic Binary Tools (grepai, rtk) — kubectl/helm/bazelisk/yq are in base
 # =============================================================================
