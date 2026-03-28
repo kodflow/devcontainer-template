@@ -264,7 +264,9 @@ pull_model() {
 # Check if the embedding model is already pulled (exact name match on first column)
 check_model_pulled() {
     local model="$1"
-    ollama list 2>/dev/null | awk '{print $1}' | grep -qE "^${model}(:latest)?$"
+    # Use fixed-string matching to avoid regex metacharacter issues in model names
+    ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -qxF "$model" ||
+    ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -qxF "${model}:latest"
 }
 
 # Ensure Ollama is registered as a persistent service (survives reboots)
