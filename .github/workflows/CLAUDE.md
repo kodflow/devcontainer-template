@@ -32,7 +32,7 @@ CI/CD automation for the devcontainer template.
 
 - **Trigger**: Push to main (features changed), workflow_dispatch
 - **Action**: Flattens features, embeds shared utils, publishes as OCI artifacts
-- **Registry**: `ghcr.io/kodflow/devcontainer-template/<feature>:v<version>`
+- **Registry**: `ghcr.io/kodflow/devcontainer-features/<feature>:v<version>`
 - **Uses**: `devcontainers/action@v1`
 
 ## release.yml

@@ -76,7 +76,7 @@ In `devcontainer.json`, uncomment features as needed:
     "ghcr.io/devcontainers/features/node:1": {},
 
     // Uncomment for local Kubernetes
-    // "ghcr.io/kodflow/devcontainer-template/kubernetes:latest": {
+    // "ghcr.io/kodflow/devcontainer-features/kubernetes:latest": {
     //     "kindVersion": "0.31.0",
     //     "kubectlVersion": "1.35.0"
     // },

@@ -49,6 +49,6 @@ jobs:
           publish-features: true
           base-path-to-features: src
           oci-registry: ghcr.io
-          features-namespace: kodflow/devcontainer-template
+          features-namespace: kodflow/devcontainer-features
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
