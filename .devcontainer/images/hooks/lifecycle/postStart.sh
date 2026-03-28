@@ -457,8 +457,9 @@ step_mcp_configuration() {
     }
 
     # Initialize tokens from environment variables (fallback)
-    local CODACY_TOKEN="${CODACY_API_TOKEN:-}"
     local GITHUB_TOKEN="${GITHUB_API_TOKEN:-}"
+    local GITLAB_TOKEN="${GITLAB_TOKEN:-}"
+    local GITLAB_API_URL="${GITLAB_API_URL:-https://gitlab.com/api/v4}"
 
     # Try 1Password if OP_SERVICE_ACCOUNT_TOKEN is defined
     if [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &> /dev/null; then
@@ -467,19 +468,19 @@ step_mcp_configuration() {
             log_warning "Vault ID could not be resolved (OP_VAULT_ID unset, 'CI' vault not found, or jq missing), skipping 1Password secrets"
         else
 
-        local OP_CODACY
-        OP_CODACY=$(get_1password_field "mcp-codacy" "$VAULT_ID")
         local OP_GITHUB
         OP_GITHUB=$(get_1password_field "mcp-github" "$VAULT_ID")
+        local OP_GITLAB
+        OP_GITLAB=$(get_1password_field "mcp-gitlab" "$VAULT_ID")
 
-        [ -n "$OP_CODACY" ] && CODACY_TOKEN="$OP_CODACY"
         [ -n "$OP_GITHUB" ] && GITHUB_TOKEN="$OP_GITHUB"
+        [ -n "$OP_GITLAB" ] && GITLAB_TOKEN="$OP_GITLAB"
         fi
     fi
 
-    # Show status of tokens (INFO for optional, WARNING for essential)
-    [ -z "$CODACY_TOKEN" ] && log_info "Codacy token not configured (optional)"
+    # Show status of tokens
     [ -z "$GITHUB_TOKEN" ] && log_warning "GitHub token not available"
+    [ -z "$GITLAB_TOKEN" ] && log_info "GitLab token not configured (optional)"
 
     # Helper: escape special chars for sed replacement
     escape_for_sed() {
@@ -538,7 +539,7 @@ step_mcp_configuration() {
     # Generate mcp.json from template (baked in Docker image)
     # ALWAYS regenerate from template to ensure latest MCP config is applied
     if [ -f "$MCP_TPL" ]; then
-        if [ -z "$CODACY_TOKEN" ] && [ -z "$GITHUB_TOKEN" ]; then
+        if [ -z "$GITHUB_TOKEN" ] && [ -z "$GITLAB_TOKEN" ]; then
             log_warning "No tokens available, creating minimal mcp.json"
             printf '%s\n' '{"mcpServers":{}}' > "$MCP_OUTPUT"
             chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
@@ -546,9 +547,10 @@ step_mcp_configuration() {
             log_info "Created minimal mcp.json (optional MCPs will be added below)"
         else
             generate_mcp_from_template() {
-                local escaped_codacy escaped_github mcp_tmp
-                escaped_codacy=$(escape_for_sed "${CODACY_TOKEN}")
+                local escaped_github escaped_gitlab escaped_gitlab_api mcp_tmp
                 escaped_github=$(escape_for_sed "${GITHUB_TOKEN}")
+                escaped_gitlab=$(escape_for_sed "${GITLAB_TOKEN}")
+                escaped_gitlab_api=$(escape_for_sed "${GITLAB_API_URL}")
 
                 mcp_tmp=$(mktemp "${MCP_OUTPUT}.tmp.XXXXXX") || {
                     log_error "Failed to create temp file for mcp.json generation"
@@ -557,8 +559,9 @@ step_mcp_configuration() {
 
                 trap 'rm -f "${mcp_tmp:-}" 2>/dev/null || true' RETURN
 
-                if ! sed -e "s|{{CODACY_TOKEN}}|${escaped_codacy}|g" \
-                        -e "s|{{GITHUB_TOKEN}}|${escaped_github}|g" \
+                if ! sed -e "s|{{GITHUB_TOKEN}}|${escaped_github}|g" \
+                        -e "s|{{GITLAB_TOKEN}}|${escaped_gitlab}|g" \
+                        -e "s|{{GITLAB_API_URL:-https://gitlab.com/api/v4}}|${escaped_gitlab_api}|g" \
                         "$MCP_TPL" > "$mcp_tmp"; then
                     log_error "Failed to render mcp.json template"
                     return 0
@@ -634,77 +637,6 @@ step_mcp_configuration() {
     fi
 }
 
-# Taskmaster AI configuration
-# Generates .taskmaster/config.json with MCP provider (uses Claude Code session)
-# Optional Ollama fallback for streaming if available on host
-step_taskmaster_config() {
-    local TASKMASTER_DIR="${WORKSPACE_FOLDER:-/workspace}/.taskmaster"
-    local TASKMASTER_CONFIG="$TASKMASTER_DIR/config.json"
-    local tm_tmp=""
-
-    if ! command -v jq >/dev/null 2>&1; then
-        log_warning "Taskmaster config skipped: jq not available"
-        return 0
-    fi
-
-    # Idempotent: skip only when existing config is valid JSON
-    if [ -f "$TASKMASTER_CONFIG" ] && jq empty "$TASKMASTER_CONFIG" >/dev/null 2>&1; then
-        log_info "Taskmaster config exists, skipping"
-        return 0
-    fi
-
-    # Safety: refuse symlinked or non-directory target
-    if [ -e "$TASKMASTER_DIR" ] && { [ -L "$TASKMASTER_DIR" ] || [ ! -d "$TASKMASTER_DIR" ]; }; then
-        log_warning "Taskmaster config skipped: unsafe directory target ($TASKMASTER_DIR)"
-        return 0
-    fi
-    mkdir -p "$TASKMASTER_DIR" 2>/dev/null || return 0
-    if [ -e "$TASKMASTER_CONFIG" ] && { [ -L "$TASKMASTER_CONFIG" ] || [ ! -f "$TASKMASTER_CONFIG" ]; }; then
-        log_warning "Taskmaster config skipped: unsafe file target ($TASKMASTER_CONFIG)"
-        return 0
-    fi
-    tm_tmp=$(mktemp "${TASKMASTER_CONFIG}.tmp.XXXXXX") || return 0
-
-    # Detect Ollama for optional fallback streaming
-    local has_ollama=false
-    local ollama_url="${OLLAMA_HOST:-host.docker.internal:11434}"
-    local model="${OLLAMA_CHAT_MODEL:-llama3.2}"
-    if curl -sf --connect-timeout 2 "http://$ollama_url/api/tags" >/dev/null 2>&1; then
-        has_ollama=true
-    fi
-
-    if [ "$has_ollama" = true ]; then
-        jq -n --arg url "http://$ollama_url/api" --arg model "$model" --arg root "${WORKSPACE_FOLDER:-/workspace}" '{
-            models: {
-                main:     { provider: "mcp", modelId: "claude-code" },
-                research: { provider: "mcp", modelId: "claude-code" },
-                fallback: { provider: "ollama", modelId: $model, baseURL: $url }
-            },
-            global: { projectRoot: $root, logLevel: "info" }
-        }' > "$tm_tmp"
-    else
-        jq -n --arg root "${WORKSPACE_FOLDER:-/workspace}" '{
-            models: {
-                main:     { provider: "mcp", modelId: "claude-code" },
-                research: { provider: "mcp", modelId: "claude-code" }
-            },
-            global: { projectRoot: $root, logLevel: "info" }
-        }' > "$tm_tmp"
-    fi
-
-    if jq empty "$tm_tmp" >/dev/null 2>&1; then
-        if mv "$tm_tmp" "$TASKMASTER_CONFIG"; then
-            chmod 600 "$TASKMASTER_CONFIG" 2>/dev/null || true
-            log_success "Taskmaster config generated"
-        else
-            rm -f "$tm_tmp"
-            log_warning "Taskmaster config generation failed (install step failed)"
-        fi
-    else
-        rm -f "$tm_tmp"
-        log_warning "Taskmaster config generation failed (invalid JSON)"
-    fi
-}
 
 # CodeRabbit CLI authentication (inject token from 1Password)
 # Retrieves the API token from 1Password and writes ~/.coderabbit/auth.json
@@ -1744,7 +1676,6 @@ fi
 run_step "1Password permissions"    step_1password_permissions
 run_step "npm cache permissions"    step_npm_cache_permissions
 run_step "MCP configuration"        step_mcp_configuration
-run_step "Taskmaster config"        step_taskmaster_config
 run_step "CodeRabbit auth"           step_coderabbit_auth
 run_step "Qodo auth"               step_qodo_auth
 run_step "Git credential cleanup"   step_git_credential_cleanup

@@ -163,8 +163,6 @@ readiness_checks:
       - tool_github: "mcp__github__pull_request_read(method: get_reviews)"
         tool_gitlab: "mcp__gitlab__list_merge_request_notes — check for unresolved threads"
         condition: "No CHANGES_REQUESTED from bots (coderabbit, qodo on GitHub; unresolved threads on GitLab)"
-      - tool: "mcp__codacy__codacy_list_pull_request_issues(status: new)"
-        condition: "0 new Critical/High issues"
     on_fail: "ABORT — unresolved review findings, run /git --watch to fix"
 
   # ── Check 3: No secrets in diff ────────────────────────────

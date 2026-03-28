@@ -19,7 +19,6 @@ These values are read by `postCreate.sh` to configure `git config`.
 |----------|---------|---------------|
 | `GITHUB_TOKEN` | GitHub MCP (PRs, issues) | [Settings → Developer settings → Fine-grained tokens](https://github.com/settings/tokens?type=beta) |
 | `GITLAB_TOKEN` | GitLab MCP (MRs, pipelines) | [Preferences → Access Tokens](https://gitlab.com/-/user_settings/personal_access_tokens) |
-| `CODACY_TOKEN` | Codacy (quality analysis) | [Settings → API tokens](https://app.codacy.com/account/api-tokens) |
 
 Without a token, the corresponding MCP server does not start. Commands (`/review`, `/git`) fall back to CLIs (`gh`, `glab`).
 
@@ -41,7 +40,6 @@ GIT_EMAIL=john@example.com
 # MCP Tokens
 GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 GITLAB_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx
-CODACY_TOKEN=xxxxxxxxxxxxx
 
 # Secrets
 OP_SERVICE_ACCOUNT_TOKEN=ops_xxxxxxxxxxxx

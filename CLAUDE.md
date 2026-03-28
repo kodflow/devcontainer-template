@@ -14,7 +14,6 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 ├── .githooks/       # Git hooks (pre-commit: regenerate assets)
 ├── .claude/         # Workspace Claude overrides (settings.local.json, features.json)
 ├── .grepai/         # GrepAI project config (exclusions)
-├── .taskmaster/     # Taskmaster task management data
 ├── docs/            # Documentation (MkDocs: vision, architecture, guides)
 ├── src/             # All source code (created per project via /init)
 ├── tests/           # Unit tests (created per project via /init)
@@ -28,7 +27,7 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 - **Cloud CLIs**: AWS v2, GCP SDK, Azure CLI
 - **IaC**: Terraform, Vault, Consul, Nomad, Packer, Ansible
 - **Containers**: Docker, kubectl, Helm
-- **AI**: Claude Code, RTK (token savings), MCP servers (GitHub, GitLab, Codacy, Playwright, context7, grepai, Taskmaster)
+- **AI**: Claude Code, RTK (token savings), MCP servers (GitHub, GitLab, grepai, context7 + feature-based: Playwright, ktn-linter)
 
 ## How to Work
 
@@ -43,7 +42,7 @@ Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
 
 **Reliability first**: Verify before generating. Agents consult context7 and official docs before producing non-trivial code.
 
-**MCP-first**: Use MCP tools (`mcp__github__*`, `mcp__codacy__*`) before CLI fallbacks. Auth is pre-configured.
+**MCP-first**: Use MCP tools (`mcp__github__*`, `mcp__gitlab__*`) before CLI fallbacks. Auth is pre-configured.
 
 **Self-correction**: When linting or tests fail, agents fix and retry automatically.
 

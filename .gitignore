@@ -140,9 +140,6 @@ out/
 plans/
 .grepai/
 
-# Taskmaster AI (runtime config per-developer, not shared)
-.taskmaster/
-
 # RTK token savings tracking (local per-developer)
 .rtk/
 

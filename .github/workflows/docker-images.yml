@@ -168,26 +168,39 @@ jobs:
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Log in to Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check base image availability
+        id: base-check
+        run: |
+          if docker manifest inspect ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}:latest > /dev/null 2>&1; then
+            echo "available=true" >> $GITHUB_OUTPUT
+            echo "Base image available"
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "::warning::Base image ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}:latest not found — skipping build. Trigger a base image rebuild first."
+          fi
+
       - name: Extract metadata
+        if: steps.base-check.outputs.available == 'true'
         id: meta
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: Prepare platform pair
+        if: steps.base-check.outputs.available == 'true'
         id: platform
         run: |
           platform=${{ matrix.platform }}
           echo "pair=${platform//\//-}" >> $GITHUB_OUTPUT
 
       - name: Generate cache bust value
+        if: steps.base-check.outputs.available == 'true'
         id: cachebust
         run: |
           if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "repository_dispatch" ]; then
@@ -198,7 +211,7 @@ jobs:
 
       # PR: Build only (no push)
       - name: Build image (PR)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.base-check.outputs.available == 'true'
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           context: .devcontainer/images
@@ -213,7 +226,7 @@ jobs:
 
       # Push events: Build and push by digest
       - name: Build and push by digest
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.base-check.outputs.available == 'true'
         id: build
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
@@ -229,14 +242,14 @@ jobs:
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.base-check.outputs.available == 'true'
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.base-check.outputs.available == 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: digests-${{ steps.platform.outputs.pair }}

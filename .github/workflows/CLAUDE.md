@@ -10,6 +10,7 @@ CI/CD automation for the devcontainer template.
 | File | Description |
 |------|-------------|
 | `docker-images.yml` | Build and push devcontainer images |
+| `publish-features.yml` | Publish Dev Container Features as OCI artifacts to GHCR |
 | `release.yml` | Create GitHub Release with claude-assets.tar.gz |
 
 ## docker-images.yml (Two-Tier Build)
@@ -26,6 +27,13 @@ CI/CD automation for the devcontainer template.
 - **Tags**: latest, date, commit SHA
 - **Platforms**: linux/amd64, linux/arm64
 - **Cache busting**: Scheduled builds pass `CACHE_BUST_DYNAMIC=YYYY-MM-DD`
+
+## publish-features.yml
+
+- **Trigger**: Push to main (features changed), workflow_dispatch
+- **Action**: Flattens features, embeds shared utils, publishes as OCI artifacts
+- **Registry**: `ghcr.io/kodflow/devcontainer-template/<feature>:v<version>`
+- **Uses**: `devcontainers/action@v1`
 
 ## release.yml
 
