@@ -1,5 +1,11 @@
 # Phase 3: --checkup (Wave-Based Audit)
 
+## Path Resolution (MANDATORY)
+
+All `.claude/` paths MUST be absolute: `${WORKSPACE_ROOT}/.claude/` (resolve via `git rev-parse --show-toplevel || echo /workspace`).
+
+---
+
 ```yaml
 checkup_workflow:
   1_load_and_infer:

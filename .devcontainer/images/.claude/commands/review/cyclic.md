@@ -1,5 +1,11 @@
 # Cyclic Workflow & Guardrails (Phase 14-15)
 
+## Path Resolution (MANDATORY)
+
+All `.claude/` paths MUST be absolute: `${WORKSPACE_ROOT}/.claude/plans/` (resolve via `git rev-parse --show-toplevel || echo /workspace`).
+
+---
+
 ## Phase 14.0: Language-Specialist Dispatch
 
 **Route fixes to language-specialist agent via /do:**

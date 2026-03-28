@@ -1,5 +1,11 @@
 # Phase 7.0: Final Synthesis
 
+## Path Resolution (MANDATORY)
+
+All `.claude/` paths MUST be absolute: `${WORKSPACE_ROOT}/.claude/plans/` (resolve via `git rev-parse --show-toplevel || echo /workspace`).
+
+---
+
 ## Success Report
 
 ```

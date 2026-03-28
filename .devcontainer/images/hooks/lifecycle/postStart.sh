@@ -579,18 +579,15 @@ step_mcp_configuration() {
             generate_mcp_from_template
         fi
 
-        # Merge feature MCP fragments from /etc/mcp/features/
-        # Each language feature can drop a mcp.json fragment during install.sh
+        # Merge MCP fragments from /etc/mcp/fragments/ (image-level) and /etc/mcp/features/ (feature-level)
         merge_feature_mcps() {
             local output="$1"
-            local features_dir="/etc/mcp/features"
 
-            [ -d "$features_dir" ] || return 0
             [ -f "$output" ] || return 0
             command -v jq >/dev/null 2>&1 || { log_warning "Skipping feature MCPs (jq not found)"; return 0; }
 
             local fragment
-            for fragment in "$features_dir"/*.mcp.json; do
+            for fragment in /etc/mcp/fragments/*.mcp.json /etc/mcp/features/*.mcp.json; do
                 [ -f "$fragment" ] || continue
                 local feature_name
                 feature_name=$(basename "$fragment" .mcp.json)

@@ -314,5 +314,5 @@ echo "  - GOCACHE: $GOCACHE"
 echo "  - GOMODCACHE: $GOMODCACHE"
 echo ""
 
-# Install MCP fragment (ktn-linter server) if available
-install_mcp_fragment "$FEATURE_DIR" 2>/dev/null || true
+# ktn-linter MCP fragment is now image-level (in /etc/mcp/fragments/)
+# No Go-specific MCP servers to install
