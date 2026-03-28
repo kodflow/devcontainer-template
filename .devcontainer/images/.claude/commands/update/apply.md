@@ -65,11 +65,21 @@ apply_devcontainer_tarball() {
         echo "  ✓ hooks"
     fi
 
-    # Commands
+    # Commands (top-level)
     if [ -d "$src/.devcontainer/images/.claude/commands" ]; then
         mkdir -p "$UPDATE_TARGET/commands"
         safe_glob_copy "$src/.devcontainer/images/.claude/commands/*.md" "$UPDATE_TARGET/commands"
         echo "  ✓ commands"
+    fi
+
+    # Command sub-modules (subdirectories like commands/git/, commands/search/, etc.)
+    if [ -d "$src/.devcontainer/images/.claude/commands" ]; then
+        while IFS= read -r -d '' subdir; do
+            local rel="${subdir#$src/.devcontainer/images/.claude/}"
+            mkdir -p "$UPDATE_TARGET/$rel"
+            safe_glob_copy "$subdir/*.md" "$UPDATE_TARGET/$rel"
+        done < <(find "$src/.devcontainer/images/.claude/commands" -mindepth 1 -type d -print0 2>/dev/null)
+        echo "  ✓ command sub-modules"
     fi
 
     # Agents
@@ -118,6 +128,46 @@ apply_devcontainer_tarball() {
     if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/images/grepai.config.yaml" ]; then
         cp -f "$src/.devcontainer/images/grepai.config.yaml" ".devcontainer/images/grepai.config.yaml"
         echo "  ✓ grepai"
+    fi
+
+    # MCP template (container only)
+    if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/images/mcp.json.tpl" ]; then
+        mkdir -p ".devcontainer/images"
+        cp -f "$src/.devcontainer/images/mcp.json.tpl" ".devcontainer/images/mcp.json.tpl"
+        echo "  ✓ mcp-template"
+    fi
+
+    # MCP fragments (container only)
+    if [ "$CONTEXT" = "container" ] && [ -d "$src/.devcontainer/images/mcp-fragments" ]; then
+        mkdir -p ".devcontainer/images/mcp-fragments"
+        safe_glob_copy "$src/.devcontainer/images/mcp-fragments/*.json" ".devcontainer/images/mcp-fragments"
+        echo "  ✓ mcp-fragments"
+    fi
+
+    # Design patterns docs
+    if [ -d "$src/.devcontainer/images/.claude/docs" ]; then
+        mkdir -p "$UPDATE_TARGET/docs"
+        cp -rf "$src/.devcontainer/images/.claude/docs/"* "$UPDATE_TARGET/docs/"
+        echo "  ✓ docs"
+    fi
+
+    # Templates (project, terraform, docs)
+    if [ -d "$src/.devcontainer/images/.claude/templates" ]; then
+        mkdir -p "$UPDATE_TARGET/templates"
+        cp -rf "$src/.devcontainer/images/.claude/templates/"* "$UPDATE_TARGET/templates/"
+        echo "  ✓ templates"
+    fi
+
+    # devcontainer.json (container only - update feature refs)
+    if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/devcontainer.json" ]; then
+        cp -f "$src/.devcontainer/devcontainer.json" ".devcontainer/devcontainer.json"
+        echo "  ✓ devcontainer.json"
+    fi
+
+    # Dockerfile (container only - update FROM reference)
+    if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/Dockerfile" ]; then
+        cp -f "$src/.devcontainer/Dockerfile" ".devcontainer/Dockerfile"
+        echo "  ✓ Dockerfile"
     fi
 
     # docker-compose.yml (container only, preserve custom services)
@@ -310,10 +360,24 @@ for hook in onCreate postCreate postStart postAttach updateContent; do
 done
 ```
 
-### 5.6: Cleanup deprecated files
+### 5.6: Cleanup deprecated files & MCP migration
 
 ```bash
 [ -f ".coderabbit.yaml" ] && rm -f ".coderabbit.yaml" && echo "  Removed deprecated .coderabbit.yaml"
+
+# Migration: remove deprecated MCP servers from runtime mcp.json
+if [ -f "$HOME/.claude/mcp.json" ] && command -v jq &>/dev/null; then
+    for server in codacy taskmaster; do
+        if jq -e ".mcpServers.$server" "$HOME/.claude/mcp.json" &>/dev/null; then
+            jq "del(.mcpServers.$server)" "$HOME/.claude/mcp.json" > "$HOME/.claude/mcp.json.tmp" && \
+                mv "$HOME/.claude/mcp.json.tmp" "$HOME/.claude/mcp.json"
+            echo "  Removed deprecated $server MCP server"
+        fi
+    done
+fi
+
+# Migration: remove .taskmaster/ directory
+[ -d ".taskmaster" ] && rm -rf ".taskmaster" && echo "  Removed deprecated .taskmaster/"
 ```
 
 ### 5.7: Update devcontainer version file
@@ -353,16 +417,22 @@ echo "  ✓ .template-version updated ($DC_COMMIT)"
   Version : def5678
 
   Updated components:
-    ✓ hooks        (scripts)
-    ✓ commands     (slash commands)
-    ✓ agents       (agent definitions)
-    ✓ lifecycle    (delegation stubs)
-    ✓ image-hooks  (image-embedded hooks)
-    ✓ shared-utils (utils.sh)
-    ✓ p10k         (powerlevel10k)
-    ✓ settings     (settings.json)
-    ✓ compose      (devcontainer service)
-    ✓ grepai       (bge-m3 config)
+    ✓ hooks          (scripts)
+    ✓ commands       (slash commands + sub-modules)
+    ✓ agents         (agent definitions)
+    ✓ lifecycle      (delegation stubs)
+    ✓ image-hooks    (image-embedded hooks)
+    ✓ shared-utils   (utils.sh)
+    ✓ p10k           (powerlevel10k)
+    ✓ settings       (settings.json)
+    ✓ compose        (devcontainer service)
+    ✓ grepai         (bge-m3 config)
+    ✓ mcp-template   (mcp.json.tpl)
+    ✓ mcp-fragments  (context7, ktn-linter)
+    ✓ docs           (design patterns KB)
+    ✓ templates      (project/docs templates)
+    ✓ devcontainer   (feature refs)
+    ✓ Dockerfile     (image FROM)
 
 ═══════════════════════════════════════════════
 ```

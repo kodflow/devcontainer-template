@@ -32,9 +32,6 @@ allowed-tools:
   - "TaskList(*)"
   - "TaskGet(*)"
   - "mcp__github__*"
-  - "mcp__codacy__*"
-  - "Bash(codacy-analysis-cli:*)"
-  - "mcp__taskmaster__*"
 ---
 
 # /init - Conversational Project Discovery
@@ -91,9 +88,8 @@ Conversational initialization with **progressive context building**:
 | 4.0 | File generation (vision, CLAUDE, AGENTS, etc.) | Read ~/.claude/commands/init/generate.md |
 | 4.5 | CodeRabbit configuration | Read ~/.claude/commands/init/generate.md |
 | 4.6 | Qodo Merge configuration | Read ~/.claude/commands/init/templates.md |
-| 4.7 | Codacy configuration | Read ~/.claude/commands/init/templates.md |
-| 4.8 | GitHub branch protection (CI gates) | Read ~/.claude/commands/init/templates.md |
-| 4.9 | Taskmaster + Feature bootstrap | Read ~/.claude/commands/init/templates.md |
+| 4.7 | GitHub branch protection (CI gates) | Read ~/.claude/commands/init/templates.md |
+| 4.8 | Feature bootstrap | Read ~/.claude/commands/init/templates.md |
 | 5.0 | Environment validation (parallel checks) | Read ~/.claude/commands/init/validate.md |
 | 6.0 | Final report | Read ~/.claude/commands/init/validate.md |
 | 7.0 | GrepAI calibration | Read ~/.claude/commands/init/validate.md |

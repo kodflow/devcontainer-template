@@ -108,7 +108,7 @@ Each secret is stored as a 1Password item:
 ```yaml
 item:
   title: "<org>/<repo>/<key>"           # Ex: kodflow/devcontainer-template/DB_PASSWORD
-  category: "API_CREDENTIAL"            # Same category as mcp-github, mcp-codacy
+  category: "API_CREDENTIAL"            # Same category as mcp-github
   vault: "${OP_VAULT_ID}"               # Configured vault (default: CI)
   fields:
     - name: "credential"                # Main field (same pattern as MCP tokens)

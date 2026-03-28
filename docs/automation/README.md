@@ -82,11 +82,10 @@ sequenceDiagram
 | Server | What It Provides | Auth Required |
 |--------|------------------|---------------|
 | **grepai** | Semantic code search, call graphs | None (local) |
-| **context7** | Up-to-date library documentation (npm, Go, Rust...) | None |
 | **GitHub** | PR, issue, and branch management via MCP | `GITHUB_TOKEN` |
 | **GitLab** | MR and pipeline management via MCP | `GITLAB_TOKEN` |
-| **Codacy** | Code quality and security analysis | `CODACY_TOKEN` |
-| **Playwright** | Browser automation, E2E tests | None |
-| **Taskmaster** | Task planning, dependencies, PRD parsing | None |
+| **context7** | Up-to-date library documentation (image fragment) | None |
+| **ktn-linter** | Code linting (image fragment) | None |
+| **Playwright** | Browser automation, E2E tests (browser feature) | None |
 
 **MCP-first rule**: commands always use MCP tools before CLIs. Example: `/git --pr` uses `mcp__github__create_pull_request` instead of `gh pr create`.

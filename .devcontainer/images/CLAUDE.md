@@ -101,17 +101,18 @@ Management commands (`nvm use`, `pyenv install`) trigger lazy-load on first call
 
 ## MCP Servers (Runtime)
 
-Core servers configured in `mcp.json.tpl`. Feature-specific servers added via fragments in `/etc/mcp/features/` (see features/CLAUDE.md).
+Core servers in `mcp.json.tpl` (grepai, GitHub, GitLab). Additional servers added via MCP fragments:
+- Image-level fragments (`/etc/mcp/fragments/`): context7, ktn-linter — always merged
+- Feature-level fragments (`/etc/mcp/features/`): Playwright (browser feature), rust-analyzer, etc.
 
-| Server | Package | Usage | Auth |
-|--------|---------|-------|------|
-| **grepai** | `grepai` (binary) | Semantic code search, Call graph | None (local) |
-| **context7** | `@upstash/context7-mcp` | Up-to-date documentation for prompts | None (rate-limited) |
-| **GitHub** | `ghcr.io/github/github-mcp-server` (Docker) | PR, Issues, Repos | `GITHUB_TOKEN` |
-| **GitLab** | `@zereight/mcp-gitlab` | MR, Issues, Pipelines, Wiki | `GITLAB_TOKEN` |
-| **Codacy** | `@codacy/codacy-mcp` | Code quality, Security | `CODACY_TOKEN` |
-| **Playwright** | `@playwright/mcp` | Browser automation, E2E tests | None |
-| **Taskmaster** | `task-master-ai` | Persistent task planning, dependencies, PRD parsing | None (MCP provider) |
+| Server | Package | Type | Auth |
+|--------|---------|------|------|
+| **grepai** | `grepai` (binary) | Core (template) | None (local) |
+| **GitHub** | `ghcr.io/github/github-mcp-server` (Docker) | Core (template) | `GITHUB_TOKEN` |
+| **GitLab** | `@zereight/mcp-gitlab` | Core (template) | `GITLAB_TOKEN` |
+| **context7** | `@upstash/context7-mcp` | Fragment (image) | None |
+| **ktn-linter** | `ktn-linter` (binary) | Fragment (image) | None |
+| **Playwright** | `@playwright/mcp` | Fragment (browser feature) | None |
 
 **grepai tools (MANDATORY - use instead of Grep):**
 
@@ -138,10 +139,7 @@ Core servers configured in `mcp.json.tpl`. Feature-specific servers added via fr
 
 **Context7 usage:** Add "use context7" in prompts to fetch up-to-date documentation.
 
-**Taskmaster tools (standard tier - 15 tools):**
-`initialize_project`, `parse_prd`, `get_tasks`, `get_task`, `add_task`, `set_task_status`, `next_task`, `expand_task`, `expand_all`, `add_subtask`, `update_subtask`, `remove_task`, `analyze_project_complexity`, `complexity_report`, `generate`
-
-**Playwright capabilities:** `core`, `pdf`, `testing`, `tracing` (headless mode)
+**Playwright capabilities** (when browser feature enabled): `core`, `pdf`, `testing`, `tracing` (headless mode)
 
 ## Skills (Slash Commands)
 

@@ -4,6 +4,7 @@ set -e
 
 FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../shared/feature-utils.sh
+source "${FEATURE_DIR}/feature-utils.sh" 2>/dev/null || \
 source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
     RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
     log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }

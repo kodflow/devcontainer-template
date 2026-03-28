@@ -22,7 +22,6 @@ allowed-tools:
   - "TaskGet(*)"
   - "AskUserQuestion(*)"
   - "mcp__grepai__*"
-  - "mcp__taskmaster__*"
 ---
 
 # /feature - Feature Tracking RTM (Requirements Traceability Matrix)
@@ -110,7 +109,7 @@ Track project features with full traceability: CRUD, audit, auto-learn.
 |-------|--------|-------------|
 | 1-2 | Read ~/.claude/commands/feature/crud.md | Init/migration + CRUD operations (add/edit/del/list/show) + hierarchy inference |
 | 3 | Read ~/.claude/commands/feature/audit.md | --checkup wave-based audit with auto-correction |
-| Ref | Read ~/.claude/commands/feature/autolearn.md | Journal actions, compaction, schema, Taskmaster comparison |
+| Ref | Read ~/.claude/commands/feature/autolearn.md | Journal actions, compaction, schema |
 
 ---
 
