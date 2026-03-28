@@ -33,7 +33,7 @@ Enable in `devcontainer.json`:
 
 ```json
 "features": {
-  "ghcr.io/kodflow/devcontainer-template/kubernetes:1": {
+  "ghcr.io/kodflow/devcontainer-features/kubernetes:1": {
     "kindVersion": "latest",
     "enableHelm": true,
     "enableRegistry": true
