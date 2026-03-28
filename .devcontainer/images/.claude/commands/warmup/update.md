@@ -234,7 +234,7 @@ apply_workflow:
           insert timestamp as first line
     format: "<!-- updated: YYYY-MM-DDTHH:MM:SSZ -->"
     purpose: |
-      Allows /git Phase 3.8 to detect staleness.
+      Allows /git Phase 6.0 to detect staleness.
       Files updated less than 5 minutes ago are ignored.
 
   validation:

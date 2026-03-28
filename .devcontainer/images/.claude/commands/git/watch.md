@@ -8,7 +8,14 @@
 action_watch:
   trigger: "--watch"
   refresh_interval: 60s
-  stop: "Ctrl+C (user interrupt)"
+  stop: "Ctrl+C ONLY (user interrupt)"
+
+  # ─── ABSOLUTE RULE: NEVER STOP ─────────────────────────────
+  # --watch runs in an infinite loop until ALL conditions are green.
+  # Do NOT present "options" to the user. Do NOT suggest they retry.
+  # Do NOT stop because of stalls. Keep polling with sleep(60).
+  # The ONLY exit is: all green OR Ctrl+C.
+  # ────────────────────────────────────────────────────────────
 
   # ─── Phase 1.0: Resolve PR/MR ───────────────────────────────
   phase_1_resolve:
@@ -109,16 +116,17 @@ action_watch:
         detection:
           method: "Compare current check/review statuses with previous poll"
           trigger: "No status field changed across 10+ consecutive minutes"
-          note: "NOT a hard timeout — watch continues but investigates the stall"
+          note: "NOT a hard timeout — watch CONTINUES and investigates the stall"
         actions:
           - investigate_codacy: "Check if coverage upload missing"
           - investigate_pipeline: "Check if runner available"
           - investigate_coderabbit: "If >5min no review, post @coderabbitai review"
-          - report: "Display investigation results to user"
+          - report: "Display investigation results, then CONTINUE POLLING (do NOT stop)"
 
       open:
-        description: "Unresolvable issue detected"
-        action: "Escalate to user with detailed explanation, exit watch"
+        description: "Truly unresolvable issue (merge conflicts with semantic overlap)"
+        action: "Escalate to user via AskUserQuestion, then CONTINUE based on answer"
+        note: "NEVER exit watch silently. Ask, get answer, act on it, keep looping."
 
     fix_actions:
       pipeline_failure:
@@ -243,19 +251,33 @@ action_watch:
       coderabbit:
         legitimate_fixed:
           action: |
-            1. "@coderabbitai pause" (before batch fix)
-            2. Apply fixes + commit + push
-            3. "@coderabbitai resume"
-            4. "@coderabbitai resolve" on fixed threads
-            5. "@coderabbitai review" (trigger re-review)
+            1. Apply fixes + commit + push
+            2. Post issue comment: "@coderabbitai review" (trigger re-review)
+            3. Sleep 120s, then re-fetch threads
+            4. CONTINUE POLLING — do NOT stop
 
         illegitimate_rejected:
           action: |
-            Post a reply on EACH rejected thread via mcp__github__add_reply_to_pull_request_comment:
-              "Thank you for the suggestion. We're not applying this change because:
-               [REASON — e.g., project uses Go 1.26+ per CLAUDE.md, downgrading would break features].
-               This is intentional and consistent with the project conventions."
-            Then: "@coderabbitai resolve" to dismiss the thread.
+            1. Post justification as issue comment (NOT thread reply — thread replies fail with 422)
+            2. Dismiss the CHANGES_REQUESTED state via:
+               mcp__github__pull_request_review_write(method: create, event: COMMENT,
+                 body: "Findings triaged: N fixed, M rejected with justification. See PR comments.")
+               This creates a new COMMENT review that supersedes the CHANGES_REQUESTED state.
+            3. Post "@coderabbitai resolve" in same comment
+            4. CONTINUE POLLING — do NOT stop
+
+        # CRITICAL: @coderabbitai resolve in issue comments does NOT resolve
+        # individual review threads. It only works as a bot command.
+        # When it fails, fall back to dismissing the review via API.
+        stall_recovery:
+          description: "CodeRabbit status stuck at 'pending' for >5min"
+          action: |
+            1. Post "@coderabbitai review" as issue comment
+            2. Sleep 120s
+            3. If still pending: the status is a CodeRabbit backend issue
+            4. Check if ALL threads are resolved (is_resolved: true)
+            5. If all resolved: proceed as if review passed (ignore stuck status)
+            6. NEVER stop watching because of a stuck CodeRabbit status
 
       qodo:
         legitimate_fixed:
@@ -313,8 +335,11 @@ action_watch:
     user_interrupt:
       action: "Display current state, exit cleanly"
       message: "Watch interrupted — current state displayed above"
+      note: "This is the ONLY valid exit besides all_green"
 
-    unresolvable:
-      action: "Escalate with detailed explanation"
-      message: "Cannot auto-resolve: {{reason}} — manual intervention needed"
+    # FORBIDDEN EXIT PATTERNS:
+    #   - "You can either: 1. Wait 2. Proceed" → NEVER present options, just keep going
+    #   - "Run /git --watch to fix" → you ARE --watch, keep looping
+    #   - "CodeRabbit stalled, stopping" → sleep and retry, never stop
+    #   - "Escalating to user" → use AskUserQuestion, then act on answer and CONTINUE
 ```
