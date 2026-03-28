@@ -1,5 +1,19 @@
 # Phase 5.0: Synthesize (RLM Pattern)
 
+## Path Resolution (MANDATORY)
+
+All `.claude/` paths MUST be absolute, anchored to workspace root:
+```bash
+WORKSPACE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo /workspace)
+```
+- Write plans to: `${WORKSPACE_ROOT}/.claude/plans/{slug}.md`
+- Write contexts to: `${WORKSPACE_ROOT}/.claude/contexts/{slug}.md`
+- Glob plans from: `${WORKSPACE_ROOT}/.claude/plans/*.md`
+
+**NEVER use relative `.claude/` paths** — subagents may operate from subdirectories.
+
+---
+
 **Generate the structured plan:**
 
 ```yaml
