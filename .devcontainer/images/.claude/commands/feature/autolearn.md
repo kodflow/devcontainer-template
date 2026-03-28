@@ -65,22 +65,6 @@ compaction:
 
 ---
 
-## features.json vs Taskmaster
-
-| Aspect | features.json (RTM) | Taskmaster |
-|--------|---------------------|------------|
-| **Scope** | Product-level features | Session-level tasks |
-| **Persistence** | Git-committed, shared | Local `.taskmaster/`, gitignored |
-| **Lifecycle** | Long-lived (days/weeks) | Ephemeral (hours/session) |
-| **Purpose** | Track WHAT exists and WHY | Track HOW to implement NOW |
-| **Audit** | `--checkup` verifies conformity | `next_task` guides workflow |
-| **Example** | "JWT authentication" | "Write login endpoint test" |
-
-**Rule:** Features describe capabilities. Tasks decompose work.
-A feature spawns many tasks; a task belongs to at most one feature.
-
----
-
 ## Integration
 
 | Skill | Integration |

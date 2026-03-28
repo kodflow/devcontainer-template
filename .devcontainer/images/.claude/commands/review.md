@@ -15,7 +15,7 @@ allowed-tools:
   - "Grep(**/*)"
   - "mcp__github__*"
   - "mcp__gitlab__*"
-  - "mcp__codacy__*"
+
   - "mcp__grepai__*"
   - "mcp__context7__*"
   - "Task(*)"

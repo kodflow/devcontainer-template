@@ -123,8 +123,6 @@ feedback_collection:
       gitlab:
         - "mcp__gitlab__list_merge_request_notes"
         - "mcp__gitlab__list_merge_request_discussions"
-      common:
-        - "mcp__codacy__codacy_list_pull_request_issues"
 
   2_budget_filter:
     rule: |

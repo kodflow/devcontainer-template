@@ -11,6 +11,7 @@ GitHub-specific configurations: workflows, templates, and instructions.
 .github/
 ├── workflows/          # GitHub Actions
 │   ├── docker-images.yml
+│   ├── publish-features.yml
 │   ├── release.yml
 │   └── CLAUDE.md
 ├── instructions/       # AI coding instructions
@@ -23,6 +24,7 @@ GitHub-specific configurations: workflows, templates, and instructions.
 | Workflow | Trigger | Description |
 |----------|---------|-------------|
 | docker-images.yml | push/PR/schedule | Two-tier build (base weekly + main daily) |
+| publish-features.yml | push to main (features) | Publish features as OCI artifacts to GHCR |
 | release.yml | push to main | Create release with claude-assets.tar.gz |
 
 ## Dependency Management

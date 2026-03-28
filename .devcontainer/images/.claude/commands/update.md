@@ -95,6 +95,12 @@ Updates the DevContainer environment from the official template.
 | `settings` | `.../images/.claude/settings.json` | Claude config |
 | `compose` | `.devcontainer/docker-compose.yml` | Update devcontainer service |
 | `grepai` | `.devcontainer/images/grepai.config.yaml` | grepai config |
+| `mcp-template` | `.devcontainer/images/mcp.json.tpl` | MCP server template |
+| `mcp-fragments` | `.devcontainer/images/mcp-fragments/` | MCP server fragments |
+| `docs` | `.../images/.claude/docs/` | Design patterns KB (170+) |
+| `templates` | `.../images/.claude/templates/` | Project/docs templates |
+| `devcontainer` | `.devcontainer/devcontainer.json` | Feature refs (GHCR) |
+| `dockerfile` | `.devcontainer/Dockerfile` | Image FROM reference |
 
 ### Available components (infrastructure - auto-detected)
 
@@ -134,6 +140,12 @@ Components:
   settings     Claude settings.json
   compose      docker-compose.yml (devcontainer service)
   grepai       grepai config (provider, model)
+  mcp-template MCP server template (mcp.json.tpl)
+  mcp-fragments MCP server fragments (context7, ktn-linter)
+  docs         Design patterns knowledge base (170+)
+  templates    Project/docs/terraform templates
+  devcontainer devcontainer.json (feature refs)
+  dockerfile   Dockerfile (image FROM)
 
 Infrastructure (auto-detected):
   modules      Terraform modules (cloud, services)

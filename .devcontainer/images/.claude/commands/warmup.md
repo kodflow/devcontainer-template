@@ -18,7 +18,6 @@ allowed-tools:
   - "TaskList(*)"
   - "TaskGet(*)"
   - "Bash(git:*)"
-  - "mcp__taskmaster__*"
 ---
 
 # /warmup - Project Context Pre-loading (RLM Architecture)
@@ -117,7 +116,7 @@ Workflow:
 | Phase | Action | Module |
 |-------|--------|--------|
 | 1.0 | Peek (hierarchy discovery + project detection) | Read ~/.claude/commands/warmup/scan.md |
-| 1.5 | Taskmaster + Feature context (conditional) | Read ~/.claude/commands/warmup/scan.md |
+| 1.5 | Feature context (conditional) | Read ~/.claude/commands/warmup/scan.md |
 | 2.0 | Funnel reading (root → leaves) | Read ~/.claude/commands/warmup/read.md |
 | 3.0 | Parallelize (4 agents: source, config, test, docs) | Read ~/.claude/commands/warmup/read.md |
 | 4.0 | Synthesize (consolidated context) | Read ~/.claude/commands/warmup/read.md |

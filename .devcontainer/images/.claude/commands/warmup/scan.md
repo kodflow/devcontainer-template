@@ -72,14 +72,9 @@ peek_workflow:
 
 ---
 
-## Phase 1.5: Taskmaster + Feature Context (Conditional)
+## Phase 1.5: Feature Context (Conditional)
 
 ```yaml
-phase_1.5_taskmaster:
-  condition: "mcp__taskmaster__ available AND .taskmaster/ exists"
-  action: "mcp__taskmaster__get_tasks(status: pending) + mcp__taskmaster__get_tasks(status: in-progress)"
-  output: "Inject active tasks into working context"
-
 phase_1.5_features:
   condition: ".claude/features.json exists"
   action: |

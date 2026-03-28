@@ -132,15 +132,14 @@
       "Glob(**/*)",
       "Grep(**/*)",
       "mcp__grepai__*",
-      "mcp__context7__*",
-      "mcp__taskmaster__*"
+      "mcp__context7__*"
     ],
     "deny": [],
     "defaultMode": "bypassPermissions",
     "additionalDirectories": []
   },
   "enableAllProjectMcpServers": true,
-  "disabledMcpjsonServers": ["codacy", "playwright"],
+  "disabledMcpjsonServers": [],
   "hooks": {
     "SessionStart": [
       {

@@ -13,7 +13,7 @@ Base image (Ubuntu 24.04 + core tooling)
         |
 Lifecycle hooks + language features
         |
-Claude Code + MCP servers (github, gitlab, codacy, context7, grepai, playwright, taskmaster)
+Claude Code + MCP servers (github, gitlab, grepai, context7 + feature fragments)
         |
 Specialist agents (25 language + 6 dev executor + 9 devops + 6 platform executor + 22 OS + 9 docs analyzers + 2 orchestrators)
 ```
@@ -71,11 +71,10 @@ User intent (slash command)
 |---------|------|---------|
 | GitHub | `ghcr.io/github/github-mcp-server` | PR automation, code search |
 | GitLab | `@zereight/mcp-gitlab` | MR automation, pipelines |
-| Codacy | `@codacy/codacy-mcp` | Security and lint analysis |
-| context7 | `@upstash/context7-mcp` | Official library documentation |
-| Playwright | `@playwright/mcp` | Browser automation, E2E testing |
 | grepai | Local MCP | Semantic code search, call graphs |
-| Taskmaster | `task-master-ai` | Task planning, dependencies, PRD parsing |
+| context7 | `@upstash/context7-mcp` | Official library documentation (image fragment) |
+| Playwright | `@playwright/mcp` | Browser automation, E2E testing (browser feature) |
+| ktn-linter | Local MCP | Code linting (image fragment) |
 
 ## Volumes
 

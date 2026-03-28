@@ -84,13 +84,13 @@ Les langages sont ajoutés via **DevContainer Features** selon vos besoins :
 ```jsonc
 // Dans devcontainer.json, décommenter les langages souhaités :
 "features": {
-  "./features/languages/go": {},
-  "./features/languages/python": {},
-  "./features/languages/rust": {}
+  "ghcr.io/kodflow/devcontainer-template/go:1": {},
+  "ghcr.io/kodflow/devcontainer-template/python:1": {},
+  "ghcr.io/kodflow/devcontainer-template/rust:1": {}
 }
 ```
 
-25 langages disponibles dans `.devcontainer/features/languages/`
+25 langages disponibles sur `ghcr.io/kodflow/devcontainer-template/`
 
 ## Installation
 
@@ -115,12 +115,11 @@ Le template inclut des serveurs MCP pré-configurés pour Claude Code.
 | Serveur | Description |
 |---------|-------------|
 | **grepai** | Recherche sémantique de code |
-| **context7** | Documentation à jour pour les prompts |
 | **github** | Intégration GitHub (PR, Issues) |
 | **gitlab** | Intégration GitLab (MR, Pipelines) |
-| **codacy** | Analyse de code + sécurité |
-| **playwright** | Tests E2E, automatisation navigateur |
-| **taskmaster** | Gestion de tâches persistante |
+| **context7** | Documentation à jour (fragment image) |
+| **ktn-linter** | Linting de code (fragment image) |
+| **playwright** | Tests E2E, navigateur (feature browser) |
 
 ### Configuration des tokens
 
@@ -128,7 +127,6 @@ Le template inclut des serveurs MCP pré-configurés pour Claude Code.
 
 ```bash
 export GITHUB_API_TOKEN="ghp_xxx"
-export CODACY_API_TOKEN="xxx"
 ```
 
 **Option 2 : 1Password**

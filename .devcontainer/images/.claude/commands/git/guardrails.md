@@ -46,7 +46,6 @@ Reference document for all safety rules, conventions, and forbidden actions acro
 |--------|--------|--------|
 | Auto-resolve human comments | **FORBIDDEN** | Only humans resolve their own |
 | Skip Phase 3.5 entirely | **ALLOWED** | If 0 review comments exist or --skip-review |
-| `.codacy.yaml` exclusion without user approval | **FORBIDDEN** | Persistent config change |
 | More than 3 fix iterations | **FORBIDDEN** | Escalate to user |
 | Auto-dismiss CodeRabbit without fixing | **FORBIDDEN** | Must fix or justify |
 | Auto-dismiss Qodo P0/P1 without fixing | **FORBIDDEN** | Must address blockers |
@@ -87,7 +86,6 @@ Reference document for all safety rules, conventions, and forbidden actions acro
 | Auto-resolve human reviews | **FORBIDDEN** | Only humans resolve their own |
 | Watch without PR/MR | **FORBIDDEN** | Must have a target to monitor |
 | Fix without commit message | **FORBIDDEN** | Traceability |
-| Modify .codacy.yaml without user OK | **FORBIDDEN** | Persistent config change |
 | Ignore stalled check >10min | **FORBIDDEN** | Must investigate root cause |
 
 ---

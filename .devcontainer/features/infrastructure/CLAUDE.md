@@ -41,7 +41,7 @@ Enable in `devcontainer.json`:
 
 ```json
 "features": {
-  "./features/infrastructure": {
+  "ghcr.io/kodflow/devcontainer-template/infrastructure:1": {
     "terragruntVersion": "latest",
     "tflintVersion": "latest",
     "infracostVersion": "latest",

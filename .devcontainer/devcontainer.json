@@ -7,39 +7,42 @@
   "features": {
     // ========== LANGUAGES ==========
     // Node.js enabled by default (required for MCP servers)
-    "./features/languages/nodejs": {},
+    "ghcr.io/kodflow/devcontainer-template/nodejs:1": {},
     // Uncomment other languages as needed
-    // "./features/languages/c": {},
-    // "./features/languages/cpp": {},
-    // "./features/languages/java": {},
-    // "./features/languages/csharp": {},
-    // "./features/languages/python": {},
-    // "./features/languages/go": {},
-    // "./features/languages/rust": {},
-    // "./features/languages/ruby": {},
-    // "./features/languages/php": {},
-    // "./features/languages/elixir": {},
-    // "./features/languages/scala": {},
-    // "./features/languages/dart-flutter": {},
-    // "./features/languages/kotlin": {},
-    // "./features/languages/swift": {},
-    // "./features/languages/r": {},
-    // "./features/languages/perl": {},
-    // "./features/languages/lua": {},
-    // "./features/languages/fortran": {},
-    // "./features/languages/ada": {},
-    // "./features/languages/cobol": {},
-    // "./features/languages/pascal": {},
-    // "./features/languages/vbnet": {},
-    // "./features/languages/matlab": {},
-    // "./features/languages/assembly": {},
+    // "ghcr.io/kodflow/devcontainer-template/c:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/cpp:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/java:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/csharp:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/python:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/go:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/rust:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/ruby:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/php:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/elixir:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/scala:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/dart-flutter:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/kotlin:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/swift:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/r:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/perl:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/lua:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/fortran:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/ada:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/cobol:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/pascal:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/vbnet:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/matlab:1": {},
+    // "ghcr.io/kodflow/devcontainer-template/assembly:1": {},
+    // ========== BROWSER ==========
+    // Browser automation with Playwright (chromium + MCP server)
+    // "ghcr.io/kodflow/devcontainer-template/browser:1": {},
     // ========== KUBERNETES ==========
     // Local Kubernetes development with kind (requires docker-outside-of-docker)
-    "./features/kubernetes": {},
+    "ghcr.io/kodflow/devcontainer-template/kubernetes:1": {},
     // ========== INFRASTRUCTURE ==========
     // Infra tools: terragrunt, tflint, infracost, cfssl, ansible-lint, molecule
     // Recommended companions: python (for ansible-lint/molecule), go (for Terratest)
-    // "./features/infrastructure": {},
+    // "ghcr.io/kodflow/devcontainer-template/infrastructure:1": {},
     // ========== NETWORKING ==========
     // VPN clients (OpenVPN, WireGuard, IPsec, PPTP) are built into the base image
     // Configure credentials in .env with op:// references (see .env.example)

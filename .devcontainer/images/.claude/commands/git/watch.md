@@ -42,7 +42,7 @@ action_watch:
 
       reviews:
         description: "Fetch bot review statuses"
-        note: "CodeRabbit and Qodo are GitHub-only. On GitLab, only Codacy is available."
+        note: "CodeRabbit and Qodo are GitHub-only."
         sources:
           coderabbit:
             platform: "GitHub only"
@@ -52,10 +52,6 @@ action_watch:
             platform: "GitHub only"
             detect: "author.login IN ['qodo-merge-pro[bot]', 'qodo-code-review[bot]']"
             check: "P0/P1 findings present?"
-          codacy:
-            platform: "GitHub and GitLab"
-            detect: "Status check from Codacy or mcp__codacy__ API"
-            check: "passing | pending | failing"
 
       prerequisites:
         description: "Merge readiness checks"
@@ -83,8 +79,7 @@ action_watch:
 
         REVIEWS       | {{source_count}} sources
           ├─ CodeRabbit    : ✓ approved
-          ├─ Qodo          : ⚠ 1 P1 finding → fixing...
-          └─ Codacy        : ⟳ analyzing (3m)
+          └─ Qodo          : ⚠ 1 P1 finding → fixing...
 
         PREREQUISITES | {{rule_count}} rules
           ├─ Required reviews (1/1) : ✓
@@ -118,7 +113,6 @@ action_watch:
           trigger: "No status field changed across 10+ consecutive minutes"
           note: "NOT a hard timeout — watch CONTINUES and investigates the stall"
         actions:
-          - investigate_codacy: "Check if coverage upload missing"
           - investigate_pipeline: "Check if runner available"
           - investigate_coderabbit: "If >5min no review, post @coderabbitai review"
           - report: "Display investigation results, then CONTINUE POLLING (do NOT stop)"
@@ -159,7 +153,7 @@ action_watch:
   # ─────────────────────────────────────────────────────────────
   phase_4_5_review_triage:
     description: "Triage, judge, fix or reject ALL review findings"
-    platform: "GitHub (CodeRabbit + Qodo), both (Codacy)"
+    platform: "GitHub (CodeRabbit + Qodo)"
     max_iterations: 3
 
     # ── Step 1: Parallel Fetch (platform-conditional) ───────
@@ -176,11 +170,6 @@ action_watch:
           captures: "mr_notes (human + bot comments)"
         - tool: "mcp__gitlab__list_merge_request_discussions"
           captures: "mr_discussions (unresolved threads)"
-      both_platforms:
-        - tool: "mcp__codacy__codacy_list_pull_request_issues"
-          params: { status: "new" }
-          captures: "codacy_issues"
-
     # ── Step 2: Classify by Source ──────────────────────────
     classify:
       coderabbit:
@@ -189,9 +178,6 @@ action_watch:
       qodo:
         detect: "author.login IN ['qodo-merge-pro[bot]', 'qodo-code-review[bot]'] AND P0/P1"
         relevant: "P0 or P1 only (P2 ignored)"
-      codacy:
-        detect: "From mcp__codacy__codacy_list_pull_request_issues"
-        relevant: "status='new' AND severity in [Critical, High, Medium]"
       human:
         detect: "is_bot=false"
         action: "NEVER auto-handle — flag to user only"
@@ -288,19 +274,6 @@ action_watch:
               "P{level} finding acknowledged but rejected:
                [REASON — e.g., this pattern is intentional for performance].
                Not a regression — consistent with project design."
-
-      codacy:
-        legitimate_fixed:
-          action: "Fix code + push (Codacy auto-re-analyzes)"
-        false_positive:
-          action: |
-            Ask user via AskUserQuestion:
-              Option 1: "Fix the code anyway"
-              Option 2: "Add inline suppression (// nolint, # noqa, etc.)"
-              Option 3: "Add path exclusion to .codacy.yaml"
-              Option 4: "Ignore this finding"
-        illegitimate_rejected:
-          action: "Ignore (Codacy doesn't have thread resolution)"
 
       human:
         action: "NEVER auto-handle. Display to user and wait."

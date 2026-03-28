@@ -1,0 +1,15 @@
+{
+  "servers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--headless",
+        "--caps",
+        "core,pdf,testing,tracing"
+      ],
+      "requires_binary": "playwright"
+    }
+  }
+}
