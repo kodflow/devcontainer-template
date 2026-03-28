@@ -66,7 +66,9 @@ COPY --chown=root:root scripts/vpn/ /tmp/vpn/
 
 # MCP template (secrets injected at runtime via postStart.sh)
 # Feature fragments are added to /etc/mcp/features/ by language install.sh scripts
+# Image-level fragments live in /etc/mcp/fragments/ (always available)
 COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
+COPY --chown=vscode:vscode mcp-fragments/ /etc/mcp/fragments/
 
 # GrepAI config template (optimized for 12 languages)
 COPY --chown=vscode:vscode grepai.config.yaml /etc/grepai/config.yaml
@@ -79,7 +81,7 @@ COPY --chown=root:root hooks/ /etc/devcontainer-hooks/
 
 # Consolidated system setup: permissions, VPN scripts, sudoers
 RUN chmod -R 755 /etc/claude-defaults/ /home/vscode/.claude/scripts/ /etc/devcontainer-hooks/ && \
-    mkdir -p /etc/mcp/features && chown vscode:vscode /etc/mcp/features && \
+    mkdir -p /etc/mcp/features /etc/mcp/fragments && chown vscode:vscode /etc/mcp/features /etc/mcp/fragments && \
     mkdir -p /etc/openvpn && \
     cp /tmp/vpn/update-dns.sh /etc/openvpn/update-dns && \
     cp /tmp/vpn/vpn-connect.sh /usr/local/bin/vpn-connect && \

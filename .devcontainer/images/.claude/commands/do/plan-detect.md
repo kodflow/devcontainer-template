@@ -1,5 +1,18 @@
 # Phase 1.0: Approved Plan Detection
 
+## Path Resolution (MANDATORY)
+
+All `.claude/` paths MUST be absolute, anchored to workspace root:
+```bash
+WORKSPACE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo /workspace)
+```
+- Glob plans from: `${WORKSPACE_ROOT}/.claude/plans/*.md`
+- Read contexts from: `${WORKSPACE_ROOT}/.claude/contexts/{slug}.md`
+
+**NEVER use relative `.claude/` paths** — subagents may operate from subdirectories.
+
+---
+
 **Announce:** Always start with: "I'm using /do to {task_summary}"
 
 **ALWAYS execute first. Checks if /plan was used.**
