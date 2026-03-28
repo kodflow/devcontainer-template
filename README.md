@@ -84,13 +84,13 @@ Les langages sont ajoutés via **DevContainer Features** selon vos besoins :
 ```jsonc
 // Dans devcontainer.json, décommenter les langages souhaités :
 "features": {
-  "ghcr.io/kodflow/devcontainer-template/go:1": {},
-  "ghcr.io/kodflow/devcontainer-template/python:1": {},
-  "ghcr.io/kodflow/devcontainer-template/rust:1": {}
+  "ghcr.io/kodflow/devcontainer-features/go:1": {},
+  "ghcr.io/kodflow/devcontainer-features/python:1": {},
+  "ghcr.io/kodflow/devcontainer-features/rust:1": {}
 }
 ```
 
-25 langages disponibles sur `ghcr.io/kodflow/devcontainer-template/`
+25 langages disponibles sur `ghcr.io/kodflow/devcontainer-features/`
 
 ## Installation
 
