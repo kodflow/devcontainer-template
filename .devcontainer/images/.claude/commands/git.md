@@ -46,7 +46,7 @@ This skill is split into focused modules for maintainability.
 ```
 ~/.claude/commands/git/
 ├── identity.md      # Phase 0.5: Git identity & GPG validation
-├── commit.md        # Phases 1-7: Full --commit workflow
+├── commit.md        # Phases 2.0-7.0: Full --commit workflow
 ├── merge.md         # Full --merge workflow (CI, reviews, auto-fix)
 ├── watch.md         # Full --watch workflow (monitor & fix loop)
 └── guardrails.md    # Safety rules, forbidden actions, timeouts
@@ -102,11 +102,11 @@ Actions:
 
 RLM Patterns:
   0.5. Identity    - Verify/configure git user via .env
-  1. Peek          - Analyze git state
-  2. Decompose     - Categorize files
-  3. Parallelize   - Simultaneous checks
-  3.8. Context     - /warmup --update (branch diff, unconditional)
-  4. Synthesize    - Consolidated report
+  2. Peek          - Analyze git state
+  3. Decompose     - Categorize files
+  4. Quality Gate  - Simultaneous checks (lint+test+secret)
+  6. Context       - /warmup --update (branch diff, unconditional)
+  7. Synthesize    - Consolidated report
 
 Options --commit:
   --branch <name>   Force the branch name
@@ -178,20 +178,20 @@ Examples:
 
 1. **`Read ~/.claude/commands/git/identity.md`** — Phase 0.5: Validate git identity & GPG
    - Skip if `--skip-identity` flag passed
-2. **`Read ~/.claude/commands/git/commit.md`** — Phases 1-7: Full commit workflow
-   - Peek → Decompose → Pre-commit checks → Secret scan → Context update → Execute
+2. **`Read ~/.claude/commands/git/commit.md`** — Phases 2.0-7.0: Full commit workflow
+   - Peek → Decompose → Quality Gate → Secret Scan → Context Update → Execute
 
 **Quick reference (see commit.md for full details):**
 
 | Phase | Action | Key Rule |
 |-------|--------|----------|
 | 0.5 | Identity | GIT_USER/GIT_EMAIL from .env → git config |
-| 1.0 | Peek | git status, branch check (must NOT be main) |
-| 2.0 | Decompose | Categorize files (feat/fix/docs/config/test) |
-| 3.0 | Parallelize | Multi-language pre-commit (lint+build+test) |
-| 4.0 | Secret Scan | Block real secrets, allow test passwords in .example |
-| 5.0 | Context | `/warmup --update` on modified CLAUDE.md files |
-| 6.0 | Execute | Branch → stage → commit → push → PR/MR |
+| 2.0 | Peek | git status, branch check (must NOT be main) |
+| 3.0 | Decompose | Categorize files (feat/fix/docs/config/test) |
+| 4.0 | Quality Gate | Multi-language pre-commit (lint+build+test) |
+| 5.0 | Secret Scan | Block real secrets, allow test passwords in .example |
+| 6.0 | Context | `/warmup --update` on modified CLAUDE.md files |
+| 7.0 | Execute | Branch → stage → commit → push → PR/MR |
 
 ---
 

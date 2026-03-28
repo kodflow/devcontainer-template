@@ -1,8 +1,11 @@
 # Merge Workflow (--merge)
 
-**Final verification and merge. All review work is done by `--watch` — merge only checks readiness.**
+**Final verification and merge. If not immediately mergeable, enable auto-merge and enter watch loop.**
 
-**Flow:** `/git --watch` (resolves everything) --> `/git --merge` (verify + merge)
+**Flow:** `/git --merge` → if ready: merge now | if blocked: enable auto-merge + enter --watch loop until merged
+
+**CRITICAL RULE: --merge NEVER stops and asks the user to retry.**
+If not mergeable now → enable auto-merge → enter --watch loop → keep going until merged or Ctrl+C.
 
 ---
 
@@ -112,9 +115,36 @@ ci_monitoring:
 
 ---
 
+## Phase 3.5: Auto-Merge Enablement (NEW)
+
+**If not immediately mergeable, enable auto-merge and enter watch loop.**
+
+```yaml
+auto_merge:
+  description: "Enable GitHub auto-merge so PR merges automatically when all checks pass"
+  trigger: "Any readiness check fails during Phase 4.0"
+  workflow:
+    1_enable_auto_merge:
+      github: "gh pr merge {{number}} --auto --squash"
+      note: "This enables auto-merge — GitHub will merge when all status checks pass"
+    2_enter_watch_loop:
+      action: "Execute full --watch workflow (Phase 4.5 review triage included)"
+      note: "Fix findings, wait for CI, dismiss stale reviews — NEVER stop"
+    3_monitor_merge:
+      action: "After watch reports all green, poll PR state every 60s"
+      condition: "PR merged == true"
+      on_success: "Proceed to Phase 5.0 cleanup"
+      on_timeout: "Keep polling — auto-merge will handle it"
+
+  # ABSOLUTE RULE: --merge never returns to user with "BLOCKED".
+  # It enables auto-merge and enters watch loop until merge happens.
+```
+
+---
+
 ## Phase 4.0: Final Readiness Verification (MANDATORY)
 
-**--merge does NOT fix anything. It only verifies readiness and blocks if not ready.**
+**--merge does NOT fix anything. It verifies readiness. If blocked → Phase 3.5 auto-merge.**
 
 ```yaml
 readiness_checks:
@@ -213,24 +243,31 @@ readiness_checks:
 ═══════════════════════════════════════════════════════════════
 ```
 
-**Output Phase 4.0 (BLOCKED):**
+**Output Phase 4.0 (NOT YET READY → auto-merge + watch):**
 
 ```text
 ═══════════════════════════════════════════════════════════════
-  /git --merge - BLOCKED
+  /git --merge — Not immediately mergeable
 ═══════════════════════════════════════════════════════════════
 
   ✓ CI: All 4 jobs passed
   ✗ Reviews: 2 unresolved CodeRabbit findings
   ✓ Secrets: No secrets in diff
   ✓ PR title: feat(build): ...
-  ✓ Mergeable: Yes
-  ✓ Branch: Up to date
+  ✗ Mergeable: blocked
 
-  BLOCKED: Unresolved review findings.
-  Run /git --watch to fix remaining issues.
+  → Enabling auto-merge (squash)...
+  → Entering --watch loop to resolve remaining issues...
+  → Will merge automatically when all checks pass.
 
 ═══════════════════════════════════════════════════════════════
+```
+
+**FORBIDDEN output — NEVER do this:**
+```text
+  BLOCKED: ...
+  Run /git --watch to fix remaining issues.
+  ← WRONG: --merge must handle this itself, not ask the user
 ```
 
 ---
