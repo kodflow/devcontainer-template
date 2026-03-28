@@ -212,13 +212,15 @@ start_ollama() {
                 if ! OLLAMA_HOST=0.0.0.0 brew services start ollama 2>/dev/null; then
                     # brew services failed — try launchctl
                     if launchctl list 2>/dev/null | grep -q "com.ollama"; then
-                        launchctl start com.ollama.ollama 2>/dev/null || true
+                        launchctl start com.ollama.ollama >/dev/null 2>&1 || \
+                            OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
                     else
                         OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
                     fi
                 fi
             elif launchctl list 2>/dev/null | grep -q "com.ollama"; then
-                launchctl start com.ollama.ollama 2>/dev/null || true
+                launchctl start com.ollama.ollama >/dev/null 2>&1 || \
+                    OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
             else
                 OLLAMA_HOST=0.0.0.0 nohup ollama serve >/dev/null 2>&1 &
             fi
@@ -288,7 +290,7 @@ ensure_ollama_persistent() {
             ;;
         linux)
             if systemctl list-unit-files 2>/dev/null | grep -q "ollama"; then
-                if ! systemctl is-enabled ollama 2>/dev/null | grep -q "enabled"; then
+                if [ "$(systemctl is-enabled ollama 2>/dev/null || true)" != "enabled" ]; then
                     if sudo -n true 2>/dev/null; then
                         echo "  Enabling Ollama systemd service (persist across reboots)..."
                         sudo -n systemctl enable ollama 2>/dev/null || true
@@ -369,7 +371,7 @@ if check_ollama_installed && check_ollama_running; then
         echo "  OK: Model $OLLAMA_MODEL already available"
     else
         echo "  MISSING: Pulling $OLLAMA_MODEL..."
-        pull_model "$OLLAMA_MODEL"
+        pull_model "$OLLAMA_MODEL" || true
         if check_model_pulled "$OLLAMA_MODEL"; then
             echo "  OK: Model $OLLAMA_MODEL pulled successfully"
         else
