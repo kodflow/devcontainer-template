@@ -80,7 +80,7 @@ Lifecycle hooks called directly from `devcontainer.json` → `/etc/devcontainer-
 | Container | Docker (via feature), kubectl, Helm |
 | Network | ping, dig, nmap, traceroute, mtr, tcpdump, netcat, whois, iperf3, net-tools |
 | VPN | OpenVPN, WireGuard, StrongSwan (IPsec), PPTP |
-| Code Quality | ShellCheck, ktn-linter, grepai, CodeRabbit, Qodo, RTK |
+| Code Quality | ShellCheck, grepai, CodeRabbit, Qodo, RTK |
 | Shell | Zsh (default `$SHELL`) + Oh My Zsh + Powerlevel10k |
 
 ## Shell Startup Optimization (v3)
@@ -102,8 +102,8 @@ Management commands (`nvm use`, `pyenv install`) trigger lazy-load on first call
 ## MCP Servers (Runtime)
 
 Core servers in `mcp.json.tpl` (grepai, GitHub, GitLab). Additional servers added via MCP fragments:
-- Image-level fragments (`/etc/mcp/fragments/`): context7, ktn-linter — always merged
-- Feature-level fragments (`/etc/mcp/features/`): Playwright (browser feature), rust-analyzer, etc.
+- Image-level fragments (`/etc/mcp/fragments/`): context7 — always merged
+- Feature-level fragments (`/etc/mcp/features/`): ktn-linter (Go), Playwright (browser), rust-analyzer, etc.
 
 | Server | Package | Type | Auth |
 |--------|---------|------|------|
@@ -111,7 +111,7 @@ Core servers in `mcp.json.tpl` (grepai, GitHub, GitLab). Additional servers adde
 | **GitHub** | `ghcr.io/github/github-mcp-server` (Docker) | Core (template) | `GITHUB_TOKEN` |
 | **GitLab** | `@zereight/mcp-gitlab` | Core (template) | `GITLAB_TOKEN` |
 | **context7** | `@upstash/context7-mcp` | Fragment (image) | None |
-| **ktn-linter** | `ktn-linter` (binary) | Fragment (image) | None |
+| **ktn-linter** | `ktn-linter` (binary) | Fragment (Go feature) | None |
 | **Playwright** | `@playwright/mcp` | Fragment (browser feature) | None |
 
 **grepai tools (MANDATORY - use instead of Grep):**

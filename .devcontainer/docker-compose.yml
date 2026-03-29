@@ -64,6 +64,9 @@ services:
 
     # Environment variables for package managers cache
     environment:
+      # Timezone (Europe/Paris = CET/CEST)
+      - TZ=Europe/Paris
+
       # Home directory (required for many tools including Claude CLI)
       - HOME=/home/vscode
 
