@@ -18,4 +18,3 @@
 hooks/shared/.env
 hooks/shared/mcp.json
 .env
-mcp.json
