@@ -375,8 +375,8 @@ run_step "Git global gitignore"  step_git_global_ignore
 run_step "Git SSL configuration" step_git_ssl_config
 run_step "GPG signing"           step_gpg_signing
 
-# Note: Tools (status-line, ktn-linter) are now baked into the Docker image
-# No longer need to update on each rebuild
+# Note: status-line is baked into the Docker image
+# ktn-linter is installed by the Go feature (not in base image)
 
 # Check if already initialized (but only if env file also exists)
 # If ~/.devcontainer-env.sh is missing, we must recreate it even if marker exists

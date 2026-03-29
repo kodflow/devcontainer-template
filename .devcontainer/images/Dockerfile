@@ -123,7 +123,7 @@ RUN NODE_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "x64") && \
     rm -rf "/tmp/node-${NODE_VERSION}-linux-${NODE_ARCH}"
 
 # =============================================================================
-# User Tools (status-line, ktn-linter, xdg-open)
+# User Tools (status-line, xdg-open)
 # =============================================================================
 RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     mkdir -p ~/.local/bin && \
@@ -135,10 +135,6 @@ RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     sed -i "s|status-line-linux-${ARCH}|$HOME/.local/bin/status-line|" /tmp/status-line.sha256 && \
     sha256sum -c /tmp/status-line.sha256 && rm -f /tmp/status-line.sha256 && \
     chmod +x ~/.local/bin/status-line && \
-    echo "Installing ktn-linter (latest)..." && \
-    curl -fsSL "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${ARCH}" \
-      -o ~/.local/bin/ktn-linter && \
-    chmod +x ~/.local/bin/ktn-linter && \
     printf '%s\n' '#!/bin/sh' \
     '[ $# -eq 0 ] && { echo "Usage: xdg-open <url> [url...]" >&2; exit 2; }' \
     'for url in "$@"; do printf "\n  Open in browser: %s\n" "$url"; done' \
