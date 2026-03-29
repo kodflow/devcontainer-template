@@ -16,5 +16,4 @@
 
 # Exclude sensitive files even if in hooks/
 hooks/shared/.env
-hooks/shared/mcp.json
 .env
