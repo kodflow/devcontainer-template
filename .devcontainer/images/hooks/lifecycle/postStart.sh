@@ -539,47 +539,46 @@ step_mcp_configuration() {
         [ -z "$GITHUB_TOKEN" ] && log_warning "GitHub token not available"
         [ -z "$GITLAB_TOKEN" ] && log_info "GitLab token not configured (optional)"
 
-        if [ -z "$GITHUB_TOKEN" ] && [ -z "$GITLAB_TOKEN" ]; then
-            log_warning "No tokens available, creating minimal mcp.json"
-            printf '%s\n' '{"mcpServers":{}}' > "$MCP_OUTPUT"
-            chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
-            chmod 600 "$MCP_OUTPUT"
-            log_info "Created minimal mcp.json (optional MCPs will be added below)"
-        else
-            generate_mcp_from_template() {
-                local escaped_github escaped_gitlab escaped_gitlab_api mcp_tmp
-                escaped_github=$(escape_for_sed "${GITHUB_TOKEN}")
-                escaped_gitlab=$(escape_for_sed "${GITLAB_TOKEN}")
-                escaped_gitlab_api=$(escape_for_sed "${GITLAB_API_URL}")
+        # Always render template (grepai needs no token), then prune tokenless servers
+        local escaped_github escaped_gitlab escaped_gitlab_api mcp_tmp
+        escaped_github=$(escape_for_sed "${GITHUB_TOKEN}")
+        escaped_gitlab=$(escape_for_sed "${GITLAB_TOKEN}")
+        escaped_gitlab_api=$(escape_for_sed "${GITLAB_API_URL}")
 
-                mcp_tmp=$(mktemp "${MCP_OUTPUT}.tmp.XXXXXX") || {
-                    log_error "Failed to create temp file for mcp.json generation"
-                    return 0
-                }
+        mcp_tmp=$(mktemp "${MCP_OUTPUT}.tmp.XXXXXX") || {
+            log_error "Failed to create temp file for mcp.json generation"
+            mcp_tmp=""
+        }
 
-                trap 'rm -f "${mcp_tmp:-}" 2>/dev/null || true' RETURN
+        if [ -n "$mcp_tmp" ]; then
+            trap 'rm -f "${mcp_tmp:-}" 2>/dev/null || true' RETURN
 
-                if ! sed -e "s|{{GITHUB_TOKEN}}|${escaped_github}|g" \
-                        -e "s|{{GITLAB_TOKEN}}|${escaped_gitlab}|g" \
-                        -e "s|{{GITLAB_API_URL:-https://gitlab.com/api/v4}}|${escaped_gitlab_api}|g" \
-                        "$MCP_TPL" > "$mcp_tmp"; then
-                    log_error "Failed to render mcp.json template"
-                    return 0
+            if sed -e "s|{{GITHUB_TOKEN}}|${escaped_github}|g" \
+                   -e "s|{{GITLAB_TOKEN}}|${escaped_gitlab}|g" \
+                   -e "s|{{GITLAB_API_URL:-https://gitlab.com/api/v4}}|${escaped_gitlab_api}|g" \
+                   "$MCP_TPL" > "$mcp_tmp" && jq empty "$mcp_tmp" 2>/dev/null; then
+
+                # Remove servers whose env contains empty token values
+                if command -v jq >/dev/null 2>&1; then
+                    local pruned
+                    pruned=$(jq '
+                        .mcpServers |= with_entries(
+                            select(.value.env == null or
+                                   (.value.env | to_entries | all(.value != "")))
+                        )
+                    ' "$mcp_tmp") && printf '%s\n' "$pruned" > "$mcp_tmp"
                 fi
 
-                if jq empty "$mcp_tmp" 2>/dev/null; then
-                    mv "$mcp_tmp" "$MCP_OUTPUT"
-                    chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
-                    chmod 600 "$MCP_OUTPUT"
-                    log_success "mcp.json generated successfully"
-                    # Save template hash to skip regeneration on next start
-                    md5sum "$MCP_TPL" 2>/dev/null | cut -d" " -f1 > /tmp/.mcp-tpl-hash 2>/dev/null || true
-                else
-                    log_error "Generated mcp.json is invalid JSON, keeping original"
-                fi
-            }
-            log_info "Regenerating mcp.json from template (forced)..."
-            generate_mcp_from_template
+                mv "$mcp_tmp" "$MCP_OUTPUT"
+                chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
+                chmod 600 "$MCP_OUTPUT"
+                log_success "mcp.json generated successfully"
+                # Save template hash to skip regeneration on next start
+                md5sum "$MCP_TPL" 2>/dev/null | cut -d" " -f1 > /tmp/.mcp-tpl-hash 2>/dev/null || true
+            else
+                log_error "Failed to render or validate mcp.json template"
+                rm -f "$mcp_tmp"
+            fi
         fi
     elif [ "$tpl_cached" = "false" ]; then
         log_warning "MCP template not found at $MCP_TPL"
