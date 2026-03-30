@@ -160,15 +160,16 @@ print_success_banner() {
 # =============================================================================
 # MCP Fragment Installation
 # =============================================================================
-# Copies a feature's mcp.json fragment to /etc/mcp/features/ for runtime merge.
-# Called at the end of each feature install.sh that provides MCP servers.
+# Writes an MCP fragment to /etc/mcp/features/ for runtime merge by postStart.sh.
+# Usage: install_mcp_fragment <feature_name> <json_content>
+# The JSON content is passed inline because OCI feature artifacts may not
+# include non-standard files (mcp.json is stripped by devcontainers/action).
 install_mcp_fragment() {
-    local feature_dir="$1"
-    local feature_name
-    feature_name=$(basename "$feature_dir")
-    if [ -f "$feature_dir/mcp.json" ]; then
+    local feature_name="$1"
+    local json_content="$2"
+    if [ -n "$json_content" ]; then
         mkdir -p /etc/mcp/features
-        cp "$feature_dir/mcp.json" "/etc/mcp/features/${feature_name}.mcp.json"
+        printf '%s\n' "$json_content" > "/etc/mcp/features/${feature_name}.mcp.json"
         echo -e "${GREEN}✓${NC} MCP fragment installed for $feature_name"
     fi
 }
