@@ -432,10 +432,20 @@ step_mcp_configuration() {
     # Track whether template generation was skipped (fragments still need merging)
     local tpl_cached=false
 
-    # Skip regeneration if mcp.json exists and template hasn't changed
+    # Skip regeneration if mcp.json exists, template hasn't changed,
+    # AND token availability hasn't changed (prevents stale cache when 1Password
+    # wasn't ready on first run but is available on subsequent restarts)
     if [ -f "$MCP_OUTPUT" ] && [ -f "$MCP_TPL" ]; then
         local tpl_hash output_marker="/tmp/.mcp-tpl-hash"
-        tpl_hash=$(md5sum "$MCP_TPL" 2>/dev/null | cut -d" " -f1)
+        local gh_avail="${GITHUB_API_TOKEN:+1}"
+        local gl_avail="${GITLAB_TOKEN:+1}"
+        if [ -z "$gh_avail" ] && [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &>/dev/null; then
+            gh_avail="1"
+        fi
+        if [ -z "$gl_avail" ] && [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &>/dev/null; then
+            gl_avail="1"
+        fi
+        tpl_hash=$(printf '%s|gh=%s|gl=%s' "$(md5sum "$MCP_TPL" 2>/dev/null | cut -d" " -f1)" "$gh_avail" "$gl_avail")
         if [ -f "$output_marker" ] && [ "$(cat "$output_marker" 2>/dev/null)" = "$tpl_hash" ]; then
             log_info "mcp.json already up-to-date (template unchanged)"
             tpl_cached=true
@@ -573,8 +583,10 @@ step_mcp_configuration() {
                 chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
                 chmod 600 "$MCP_OUTPUT"
                 log_success "mcp.json generated successfully"
-                # Save template hash to skip regeneration on next start
-                md5sum "$MCP_TPL" 2>/dev/null | cut -d" " -f1 > /tmp/.mcp-tpl-hash 2>/dev/null || true
+                # Save composite fingerprint (template hash + token availability)
+                # to invalidate cache when tokens become available on restart
+                printf '%s|gh=%s|gl=%s' "$(md5sum "$MCP_TPL" 2>/dev/null | cut -d" " -f1)" \
+                    "${GITHUB_TOKEN:+1}" "${GITLAB_TOKEN:+1}" > /tmp/.mcp-tpl-hash 2>/dev/null || true
             else
                 log_error "Failed to render or validate mcp.json template"
                 rm -f "$mcp_tmp"
