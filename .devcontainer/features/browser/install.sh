@@ -10,11 +10,10 @@ source "${FEATURE_DIR}/../languages/shared/feature-utils.sh" 2>/dev/null || {
     warn() { echo -e "${YELLOW}⚠${NC} $*"; }
     err() { echo -e "${RED}✗${NC} $*" >&2; }
     install_mcp_fragment() {
-        local feature_dir="$1" feature_name
-        feature_name=$(basename "$feature_dir")
-        if [ -f "$feature_dir/mcp.json" ]; then
+        local feature_name="$1" json_content="$2"
+        if [ -n "$json_content" ]; then
             mkdir -p /etc/mcp/features
-            cp "$feature_dir/mcp.json" "/etc/mcp/features/${feature_name}.mcp.json"
+            printf '%s\n' "$json_content" > "/etc/mcp/features/${feature_name}.mcp.json"
             echo -e "${GREEN}✓${NC} MCP fragment installed for $feature_name"
         fi
     }
@@ -46,6 +45,15 @@ else
 fi
 
 # Install MCP fragment (enables Playwright MCP server)
-install_mcp_fragment "$FEATURE_DIR"
+# JSON is inlined because OCI feature artifacts don't include mcp.json files
+install_mcp_fragment "browser" '{
+  "servers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--headless", "--caps", "core,pdf,testing,tracing"],
+      "requires_binary": "playwright"
+    }
+  }
+}'
 
 print_success "Browser (Playwright + Chromium)"

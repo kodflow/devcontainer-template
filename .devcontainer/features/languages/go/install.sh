@@ -316,4 +316,14 @@ echo "  - GOMODCACHE: $GOMODCACHE"
 echo ""
 
 # Install ktn-linter MCP fragment (feature-level, only when Go is enabled)
-install_mcp_fragment "$FEATURE_DIR"
+# JSON is inlined because OCI feature artifacts don't include mcp.json files
+install_mcp_fragment "go" '{
+  "servers": {
+    "ktn-linter": {
+      "command": "ktn-linter",
+      "args": ["serve", "--port", "7717"],
+      "env": {},
+      "requires_binary": "ktn-linter"
+    }
+  }
+}'
