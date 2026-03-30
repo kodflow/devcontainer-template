@@ -429,14 +429,28 @@ step_mcp_configuration() {
     local MCP_TPL="/etc/mcp/mcp.json.tpl"
     local MCP_OUTPUT="${WORKSPACE_FOLDER:-/workspace}/mcp.json"
 
+    # Track whether template generation was skipped (fragments still need merging)
+    local tpl_cached=false
+
     # Skip regeneration if mcp.json exists and template hasn't changed
     if [ -f "$MCP_OUTPUT" ] && [ -f "$MCP_TPL" ]; then
         local tpl_hash output_marker="/tmp/.mcp-tpl-hash"
         tpl_hash=$(md5sum "$MCP_TPL" 2>/dev/null | cut -d" " -f1)
         if [ -f "$output_marker" ] && [ "$(cat "$output_marker" 2>/dev/null)" = "$tpl_hash" ]; then
-            log_info "mcp.json already up-to-date (template unchanged), skipping"
-            return 0
+            log_info "mcp.json already up-to-date (template unchanged)"
+            tpl_cached=true
         fi
+    fi
+
+    # Security: refuse to write secrets through symlinks or unsafe directories
+    local MCP_DIR
+    MCP_DIR=$(dirname -- "$MCP_OUTPUT")
+    if [ ! -d "$MCP_DIR" ] || [ -L "$MCP_DIR" ]; then
+        log_error "Refusing to write mcp.json: unsafe parent directory ($MCP_DIR)"
+        return 0
+    elif [ -e "$MCP_OUTPUT" ] && { [ -L "$MCP_OUTPUT" ] || [ ! -f "$MCP_OUTPUT" ]; }; then
+        log_error "Refusing to write mcp.json: not a regular file ($MCP_OUTPUT)"
+        return 0
     fi
 
     # Helper function to get 1Password field (tries multiple field names)
@@ -456,47 +470,10 @@ step_mcp_configuration() {
         echo ""
     }
 
-    # Initialize tokens from environment variables (fallback)
-    local GITHUB_TOKEN="${GITHUB_API_TOKEN:-}"
-    local GITLAB_TOKEN="${GITLAB_TOKEN:-}"
-    local GITLAB_API_URL="${GITLAB_API_URL:-https://gitlab.com/api/v4}"
-
-    # Try 1Password if OP_SERVICE_ACCOUNT_TOKEN is defined
-    if [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &> /dev/null; then
-        log_info "Retrieving secrets from 1Password..."
-        if [ -z "$VAULT_ID" ]; then
-            log_warning "Vault ID could not be resolved (OP_VAULT_ID unset, 'CI' vault not found, or jq missing), skipping 1Password secrets"
-        else
-
-        local OP_GITHUB
-        OP_GITHUB=$(get_1password_field "mcp-github" "$VAULT_ID")
-        local OP_GITLAB
-        OP_GITLAB=$(get_1password_field "mcp-gitlab" "$VAULT_ID")
-
-        [ -n "$OP_GITHUB" ] && GITHUB_TOKEN="$OP_GITHUB"
-        [ -n "$OP_GITLAB" ] && GITLAB_TOKEN="$OP_GITLAB"
-        fi
-    fi
-
-    # Show status of tokens
-    [ -z "$GITHUB_TOKEN" ] && log_warning "GitHub token not available"
-    [ -z "$GITLAB_TOKEN" ] && log_info "GitLab token not configured (optional)"
-
     # Helper: escape special chars for sed replacement
     escape_for_sed() {
         LC_ALL=C printf '%s' "$1" | tr -d '\n\r' | sed -e 's/[&/|\\]/\\&/g'
     }
-
-    # Security: refuse to write secrets through symlinks or unsafe directories
-    local MCP_DIR
-    MCP_DIR=$(dirname -- "$MCP_OUTPUT")
-    if [ ! -d "$MCP_DIR" ] || [ -L "$MCP_DIR" ]; then
-        log_error "Refusing to write mcp.json: unsafe parent directory ($MCP_DIR)"
-        return 0
-    elif [ -e "$MCP_OUTPUT" ] && { [ -L "$MCP_OUTPUT" ] || [ ! -f "$MCP_OUTPUT" ]; }; then
-        log_error "Refusing to write mcp.json: not a regular file ($MCP_OUTPUT)"
-        return 0
-    fi
 
     # Migrate legacy .mcp.json to mcp.json (renamed in v2)
     if [ -f "${WORKSPACE_FOLDER:-/workspace}/.mcp.json" ] && [ ! -e "$MCP_OUTPUT" ]; then
@@ -537,8 +514,31 @@ step_mcp_configuration() {
     fi
 
     # Generate mcp.json from template (baked in Docker image)
-    # ALWAYS regenerate from template to ensure latest MCP config is applied
-    if [ -f "$MCP_TPL" ]; then
+    # Skip only if cache is valid; fragments are ALWAYS merged below
+    if [ "$tpl_cached" = "false" ] && [ -f "$MCP_TPL" ]; then
+        # Resolve tokens only when regenerating template
+        local GITHUB_TOKEN="${GITHUB_API_TOKEN:-}"
+        local GITLAB_TOKEN="${GITLAB_TOKEN:-}"
+        local GITLAB_API_URL="${GITLAB_API_URL:-https://gitlab.com/api/v4}"
+
+        if [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op &> /dev/null; then
+            log_info "Retrieving secrets from 1Password..."
+            if [ -z "$VAULT_ID" ]; then
+                log_warning "Vault ID could not be resolved (OP_VAULT_ID unset, 'CI' vault not found, or jq missing), skipping 1Password secrets"
+            else
+                local OP_GITHUB
+                OP_GITHUB=$(get_1password_field "mcp-github" "$VAULT_ID")
+                local OP_GITLAB
+                OP_GITLAB=$(get_1password_field "mcp-gitlab" "$VAULT_ID")
+
+                [ -n "$OP_GITHUB" ] && GITHUB_TOKEN="$OP_GITHUB"
+                [ -n "$OP_GITLAB" ] && GITLAB_TOKEN="$OP_GITLAB"
+            fi
+        fi
+
+        [ -z "$GITHUB_TOKEN" ] && log_warning "GitHub token not available"
+        [ -z "$GITLAB_TOKEN" ] && log_info "GitLab token not configured (optional)"
+
         if [ -z "$GITHUB_TOKEN" ] && [ -z "$GITLAB_TOKEN" ]; then
             log_warning "No tokens available, creating minimal mcp.json"
             printf '%s\n' '{"mcpServers":{}}' > "$MCP_OUTPUT"
@@ -581,59 +581,58 @@ step_mcp_configuration() {
             log_info "Regenerating mcp.json from template (forced)..."
             generate_mcp_from_template
         fi
-
-        # Merge MCP fragments from /etc/mcp/fragments/ (image-level) and /etc/mcp/features/ (feature-level)
-        merge_feature_mcps() {
-            local output="$1"
-
-            [ -f "$output" ] || return 0
-            command -v jq >/dev/null 2>&1 || { log_warning "Skipping feature MCPs (jq not found)"; return 0; }
-
-            local fragment
-            for fragment in /etc/mcp/fragments/*.mcp.json /etc/mcp/features/*.mcp.json; do
-                [ -f "$fragment" ] || continue
-                local feature_name
-                feature_name=$(basename "$fragment" .mcp.json)
-
-                local servers
-                servers=$(jq -r '.servers // {} | keys[]' "$fragment" 2>/dev/null) || continue
-
-                local server_name
-                for server_name in $servers; do
-                    local requires
-                    requires=$(jq -r --arg s "$server_name" '.servers[$s].requires_binary // empty' "$fragment")
-
-                    if [ -n "$requires" ]; then
-                        if [ "${requires#/}" != "$requires" ]; then
-                            [ -x "$requires" ] || { log_info "Skipping $server_name MCP ($requires not found)"; continue; }
-                        else
-                            command -v "$requires" &>/dev/null || { log_info "Skipping $server_name MCP ($requires not found)"; continue; }
-                        fi
-                    fi
-
-                    local config
-                    config=$(jq --arg s "$server_name" '.servers[$s] | del(.requires_binary)' "$fragment")
-
-                    local tmp_file
-                    tmp_file=$(mktemp "${output}.tmp.XXXXXX") || continue
-                    if jq --arg name "$server_name" --argjson config "$config" \
-                       '.mcpServers[$name] = $config' "$output" > "$tmp_file" && \
-                       jq empty "$tmp_file" 2>/dev/null; then
-                        mv "$tmp_file" "$output"
-                        chown "$(id -u):$(id -g)" "$output" 2>/dev/null || true
-                        chmod 600 "$output" 2>/dev/null || true
-                        log_info "Added $server_name MCP (from $feature_name feature)"
-                    else
-                        log_warning "Failed to add $server_name MCP, keeping original"
-                        rm -f "$tmp_file"
-                    fi
-                done
-            done
-        }
-
-        merge_feature_mcps "$MCP_OUTPUT"
-    else
+    elif [ "$tpl_cached" = "false" ]; then
         log_warning "MCP template not found at $MCP_TPL"
+    fi
+
+    # ALWAYS merge MCP fragments from /etc/mcp/fragments/ (image-level) and /etc/mcp/features/ (feature-level)
+    # This runs even when template is cached, so new features/binaries are picked up on restart
+    if [ -f "$MCP_OUTPUT" ] && command -v jq >/dev/null 2>&1; then
+        local fragment
+        for fragment in /etc/mcp/fragments/*.mcp.json /etc/mcp/features/*.mcp.json; do
+            [ -f "$fragment" ] || continue
+            local feature_name
+            feature_name=$(basename "$fragment" .mcp.json)
+
+            local servers
+            servers=$(jq -r '.servers // {} | keys[]' "$fragment" 2>/dev/null) || continue
+
+            local server_name
+            for server_name in $servers; do
+                # Skip if already present in mcp.json
+                if jq -e --arg name "$server_name" '.mcpServers[$name]' "$MCP_OUTPUT" >/dev/null 2>&1; then
+                    continue
+                fi
+
+                local requires
+                requires=$(jq -r --arg s "$server_name" '.servers[$s].requires_binary // empty' "$fragment")
+
+                if [ -n "$requires" ]; then
+                    if [ "${requires#/}" != "$requires" ]; then
+                        [ -x "$requires" ] || { log_info "Skipping $server_name MCP ($requires not found)"; continue; }
+                    else
+                        command -v "$requires" &>/dev/null || { log_info "Skipping $server_name MCP ($requires not found)"; continue; }
+                    fi
+                fi
+
+                local config
+                config=$(jq --arg s "$server_name" '.servers[$s] | del(.requires_binary)' "$fragment")
+
+                local tmp_file
+                tmp_file=$(mktemp "${MCP_OUTPUT}.tmp.XXXXXX") || continue
+                if jq --arg name "$server_name" --argjson config "$config" \
+                   '.mcpServers[$name] = $config' "$MCP_OUTPUT" > "$tmp_file" && \
+                   jq empty "$tmp_file" 2>/dev/null; then
+                    mv "$tmp_file" "$MCP_OUTPUT"
+                    chown "$(id -u):$(id -g)" "$MCP_OUTPUT" 2>/dev/null || true
+                    chmod 600 "$MCP_OUTPUT" 2>/dev/null || true
+                    log_info "Added $server_name MCP (from $feature_name feature)"
+                else
+                    log_warning "Failed to add $server_name MCP, keeping original"
+                    rm -f "$tmp_file"
+                fi
+            done
+        done
     fi
 }
 
