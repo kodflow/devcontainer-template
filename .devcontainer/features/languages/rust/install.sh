@@ -268,8 +268,18 @@ echo ""
 echo "Note: WebKitGTK/Tauri libs are pre-installed in base image"
 echo ""
 
-# Install MCP fragment (rust-analyzer server) if available
-install_mcp_fragment "$FEATURE_DIR" 2>/dev/null || true
+# Install MCP fragment (rust-analyzer MCP server)
+# JSON is inlined because OCI feature artifacts don't include mcp.json files
+install_mcp_fragment "rust" '{
+  "servers": {
+    "rust-analyzer": {
+      "command": "/home/vscode/.cache/cargo/bin/rust-analyzer-mcp",
+      "args": [],
+      "env": {},
+      "requires_binary": "/home/vscode/.cache/cargo/bin/rust-analyzer-mcp"
+    }
+  }
+}'
 
 if [[ ${#FAILED_TOOLS[@]} -gt 0 ]]; then
     warn "Some tools failed to install: ${FAILED_TOOLS[*]}"
