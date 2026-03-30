@@ -1,6 +1,6 @@
 {
   "id": "rust",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "name": "Rust Development Environment",
   "description": "Installs Rust via rustup, cargo, and common development tools",
   "options": {},
@@ -9,5 +9,5 @@
       "extensions": ["rust-lang.rust-analyzer"]
     }
   },
-  "installsAfter": ["nodejs"]
+  "installsAfter": ["ghcr.io/kodflow/devcontainer-features/nodejs"]
 }
