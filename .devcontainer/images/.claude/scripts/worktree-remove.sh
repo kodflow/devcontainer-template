@@ -31,9 +31,13 @@ if command -v jq &>/dev/null && [ -n "$WORKTREE_PATH" ]; then
 fi
 
 # Actually remove the worktree directory (with safety checks)
-WORKTREE_EXPECTED_PREFIX="/tmp/claude-worktrees/"
+# Worktrees can be in ~/.claude/worktrees/ (custom hook) or .claude/worktrees/ (built-in)
+WORKTREE_BASE="$HOME/.claude/worktrees"
+BUILTIN_BASE="$PROJECT_DIR/.claude/worktrees"
 if [ -n "$WORKTREE_PATH" ] && \
-   [[ "$WORKTREE_PATH" == "$WORKTREE_EXPECTED_PREFIX"* ]] && \
+   { [[ "$WORKTREE_PATH" == "$WORKTREE_BASE/"* ]] || \
+     [[ "$WORKTREE_PATH" == "$BUILTIN_BASE/"* ]] || \
+     [[ "$WORKTREE_PATH" == "/tmp/claude-worktrees/"* ]]; } && \
    [ -d "$WORKTREE_PATH" ]; then
     # Prune git worktree reference first
     git -C "$PROJECT_DIR" worktree remove "$WORKTREE_PATH" --force 2>/dev/null || \
