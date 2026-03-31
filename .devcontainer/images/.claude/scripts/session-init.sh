@@ -24,6 +24,25 @@ if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
     MODEL=$(printf '%s' "$INPUT" | jq -r '.model // ""' 2>/dev/null || echo "")
 fi
 
+# Clean up orphaned worktrees FIRST (from crashed/interrupted sessions)
+# This prevents grepai from indexing duplicate copies of the project
+# Must run before any early-exit so cleanup always happens
+WORKTREE_BASE="$HOME/.claude/worktrees"
+BUILTIN_BASE="$PROJECT_DIR/.claude/worktrees"
+for WT_BASE in "$WORKTREE_BASE" "$BUILTIN_BASE"; do
+    if [ -d "$WT_BASE" ]; then
+        for wt_dir in "$WT_BASE"/*/; do
+            [ -d "$wt_dir" ] || continue
+            # Remove worktrees older than 24h (likely orphaned)
+            if find "$wt_dir" -maxdepth 0 -mmin +1440 -print -quit 2>/dev/null | grep -q .; then
+                git -C "$PROJECT_DIR" worktree remove "$wt_dir" --force 2>/dev/null || \
+                    rm -rf "$wt_dir" 2>/dev/null || true
+            fi
+        done
+        git -C "$PROJECT_DIR" worktree prune 2>/dev/null || true
+    fi
+done
+
 # CLAUDE_ENV_FILE is set by Claude Code runtime; if not, we cannot write env vars
 ENV_FILE="${CLAUDE_ENV_FILE:-}"
 if [ -z "$ENV_FILE" ]; then
@@ -52,24 +71,6 @@ fi
     echo "GH_BRANCH=$GH_BRANCH"
     echo "GH_DEFAULT_BRANCH=$GH_DEFAULT_BRANCH"
 } >> "$ENV_FILE" 2>/dev/null || true
-
-# Clean up orphaned worktrees (from crashed/interrupted sessions)
-# This prevents grepai from indexing duplicate copies of the project
-WORKTREE_BASE="$HOME/.claude/worktrees"
-BUILTIN_BASE="$PROJECT_DIR/.claude/worktrees"
-for WT_BASE in "$WORKTREE_BASE" "$BUILTIN_BASE"; do
-    if [ -d "$WT_BASE" ]; then
-        for wt_dir in "$WT_BASE"/*/; do
-            [ -d "$wt_dir" ] || continue
-            # Remove worktrees older than 24h (likely orphaned)
-            if find "$wt_dir" -maxdepth 0 -mmin +1440 -print -quit 2>/dev/null | grep -q .; then
-                git -C "$PROJECT_DIR" worktree remove "$wt_dir" --force 2>/dev/null || \
-                    rm -rf "$wt_dir" 2>/dev/null || true
-            fi
-        done
-        git -C "$PROJECT_DIR" worktree prune 2>/dev/null || true
-    fi
-done
 
 # Log session start with source and model
 BRANCH_SAFE=$(printf '%s' "$GH_BRANCH" | tr '/ ' '__')

@@ -31,17 +31,19 @@ if command -v jq &>/dev/null && [ -n "$WORKTREE_PATH" ]; then
 fi
 
 # Actually remove the worktree directory (with safety checks)
-# Worktrees can be in ~/.claude/worktrees/ (custom hook) or .claude/worktrees/ (built-in)
-WORKTREE_BASE="$HOME/.claude/worktrees"
-BUILTIN_BASE="$PROJECT_DIR/.claude/worktrees"
-if [ -n "$WORKTREE_PATH" ] && \
-   { [[ "$WORKTREE_PATH" == "$WORKTREE_BASE/"* ]] || \
-     [[ "$WORKTREE_PATH" == "$BUILTIN_BASE/"* ]] || \
-     [[ "$WORKTREE_PATH" == "/tmp/claude-worktrees/"* ]]; } && \
-   [ -d "$WORKTREE_PATH" ]; then
-    # Prune git worktree reference first
-    git -C "$PROJECT_DIR" worktree remove "$WORKTREE_PATH" --force 2>/dev/null || \
-        rm -rf "$WORKTREE_PATH" 2>/dev/null || true
+# Canonicalize all paths to prevent directory traversal attacks
+WORKTREE_REAL=$(realpath -m "$WORKTREE_PATH" 2>/dev/null || echo "")
+WORKTREE_BASE_REAL=$(realpath -m "$HOME/.claude/worktrees" 2>/dev/null || echo "")
+BUILTIN_BASE_REAL=$(realpath -m "$PROJECT_DIR/.claude/worktrees" 2>/dev/null || echo "")
+
+if [ -n "$WORKTREE_REAL" ] && \
+   { [[ "$WORKTREE_REAL" == "$WORKTREE_BASE_REAL/"* ]] || \
+     [[ "$WORKTREE_REAL" == "$BUILTIN_BASE_REAL/"* ]] || \
+     [[ "$WORKTREE_REAL" == "/tmp/claude-worktrees/"* ]]; } && \
+   [ -d "$WORKTREE_REAL" ]; then
+    # Prune git worktree reference first, then remove directory
+    git -C "$PROJECT_DIR" worktree remove "$WORKTREE_REAL" --force 2>/dev/null || \
+        rm -rf "$WORKTREE_REAL" 2>/dev/null || true
     git -C "$PROJECT_DIR" worktree prune 2>/dev/null || true
 fi
 
