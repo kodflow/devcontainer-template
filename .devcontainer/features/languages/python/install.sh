@@ -17,7 +17,7 @@ print_banner "Python Development Environment" 2>/dev/null || {
 }
 
 # Environment variables
-export PYTHON_VERSION="${PYTHON_VERSION:-3.14}"
+export PYTHON_VERSION="${VERSION:-3.13}"
 export PIP_CACHE_DIR="${PIP_CACHE_DIR:-$HOME/.cache/pip}"
 export PYENV_ROOT="${PYENV_ROOT:-$HOME/.cache/pyenv}"
 
@@ -41,12 +41,20 @@ install_python_deadsnakes() {
     if sudo add-apt-repository -y ppa:deadsnakes/ppa 2>/dev/null; then
         sudo apt-get update
 
-        # Install Python with all necessary packages
+        # Install Python core packages (no || true — we need the real exit code)
         if sudo apt-get install -y \
             "python${PYTHON_VERSION}" \
             "python${PYTHON_VERSION}-venv" \
-            "python${PYTHON_VERSION}-dev" \
-            "python${PYTHON_VERSION}-distutils" 2>/dev/null || true; then
+            "python${PYTHON_VERSION}-dev" 2>/dev/null; then
+
+            # Optional: distutils (removed in Python 3.12+)
+            sudo apt-get install -y "python${PYTHON_VERSION}-distutils" 2>/dev/null || true
+
+            # Verify the binary actually exists before claiming success
+            if ! command -v "python${PYTHON_VERSION}" &>/dev/null; then
+                echo -e "${YELLOW}⚠ Package installed but binary not found${NC}"
+                return 1
+            fi
 
             # Set as default python3
             sudo update-alternatives --install /usr/bin/python3 python3 "/usr/bin/python${PYTHON_VERSION}" 1 2>/dev/null || true
@@ -117,7 +125,11 @@ else
 fi
 
 # Install/upgrade pip
-$PYTHON_BIN -m ensurepip --upgrade 2>/dev/null || true
+# ensurepip is disabled on Debian/Ubuntu for deadsnakes Python — fall back to get-pip.py
+if ! $PYTHON_BIN -m ensurepip --upgrade 2>/dev/null; then
+    echo -e "${YELLOW}ensurepip unavailable, using get-pip.py...${NC}"
+    curl -sSL https://bootstrap.pypa.io/get-pip.py | $PYTHON_BIN 2>/dev/null || true
+fi
 $PYTHON_BIN -m pip install --upgrade pip 2>/dev/null || \
 $PYTHON_BIN -m pip install --break-system-packages --upgrade pip 2>/dev/null || true
 
