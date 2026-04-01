@@ -29,14 +29,25 @@ fi
 # Must run before any early-exit so cleanup always happens
 WORKTREE_BASE="$HOME/.claude/worktrees"
 BUILTIN_BASE="$PROJECT_DIR/.claude/worktrees"
+WORKTREE_BASE_REAL=$(realpath -m "$WORKTREE_BASE" 2>/dev/null || echo "")
+BUILTIN_BASE_REAL=$(realpath -m "$BUILTIN_BASE" 2>/dev/null || echo "")
 for WT_BASE in "$WORKTREE_BASE" "$BUILTIN_BASE"; do
     if [ -d "$WT_BASE" ]; then
         for wt_dir in "$WT_BASE"/*/; do
+            wt_dir="${wt_dir%/}"
             [ -d "$wt_dir" ] || continue
+            # Skip symlinks to prevent following them into unrelated directories
+            [ -L "$wt_dir" ] && continue
+            # Canonicalize and verify path is under allowed bases
+            wt_real=$(realpath -m "$wt_dir" 2>/dev/null || echo "")
+            [ -n "$wt_real" ] || continue
+            [[ "$wt_real" == "$WORKTREE_BASE_REAL/"* ]] || \
+            [[ "$wt_real" == "$BUILTIN_BASE_REAL/"* ]] || continue
+            [ -d "$wt_real" ] || continue
             # Remove worktrees older than 24h (likely orphaned)
-            if find "$wt_dir" -maxdepth 0 -mmin +1440 -print -quit 2>/dev/null | grep -q .; then
-                git -C "$PROJECT_DIR" worktree remove "$wt_dir" --force 2>/dev/null || \
-                    rm -rf "$wt_dir" 2>/dev/null || true
+            if find "$wt_real" -maxdepth 0 -mmin +1440 -print -quit 2>/dev/null | grep -q .; then
+                git -C "$PROJECT_DIR" worktree remove "$wt_real" --force 2>/dev/null || \
+                    rm -rf -- "$wt_real" 2>/dev/null || true
             fi
         done
         git -C "$PROJECT_DIR" worktree prune 2>/dev/null || true

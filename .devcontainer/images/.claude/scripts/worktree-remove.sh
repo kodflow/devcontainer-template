@@ -35,15 +35,16 @@ fi
 WORKTREE_REAL=$(realpath -m "$WORKTREE_PATH" 2>/dev/null || echo "")
 WORKTREE_BASE_REAL=$(realpath -m "$HOME/.claude/worktrees" 2>/dev/null || echo "")
 BUILTIN_BASE_REAL=$(realpath -m "$PROJECT_DIR/.claude/worktrees" 2>/dev/null || echo "")
+TMP_BASE_REAL=$(realpath -m "/tmp/claude-worktrees" 2>/dev/null || echo "/tmp/claude-worktrees")
 
 if [ -n "$WORKTREE_REAL" ] && \
    { [[ "$WORKTREE_REAL" == "$WORKTREE_BASE_REAL/"* ]] || \
      [[ "$WORKTREE_REAL" == "$BUILTIN_BASE_REAL/"* ]] || \
-     [[ "$WORKTREE_REAL" == "/tmp/claude-worktrees/"* ]]; } && \
+     [[ "$WORKTREE_REAL" == "$TMP_BASE_REAL/"* ]]; } && \
    [ -d "$WORKTREE_REAL" ]; then
     # Prune git worktree reference first, then remove directory
     git -C "$PROJECT_DIR" worktree remove "$WORKTREE_REAL" --force 2>/dev/null || \
-        rm -rf "$WORKTREE_REAL" 2>/dev/null || true
+        rm -rf -- "$WORKTREE_REAL" 2>/dev/null || true
     git -C "$PROJECT_DIR" worktree prune 2>/dev/null || true
 fi
 
