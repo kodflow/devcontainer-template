@@ -1,6 +1,6 @@
 {
   "id": "scala",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "Scala Development Environment",
   "description": "Installs Scala, sbt, and Coursier for Scala development",
   "options": {},
@@ -9,5 +9,5 @@
       "extensions": ["scalameta.metals"]
     }
   },
-  "installsAfter": ["java"]
+  "installsAfter": ["ghcr.io/kodflow/devcontainer-features/java"]
 }
