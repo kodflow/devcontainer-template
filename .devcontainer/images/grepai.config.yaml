@@ -193,6 +193,9 @@ ignore:
   - .claude
   - .claude-plugin
 
+  # Claude Code worktrees (duplicates of main project, causes N*files indexing)
+  - .claude/worktrees
+
   # IDE / Editors
   - .idea
   - .vscode
