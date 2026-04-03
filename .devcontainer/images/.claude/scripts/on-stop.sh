@@ -11,13 +11,51 @@
 
 set +e  # Fail-open: never block
 
-# Read hook input for stop_hook_active guard
+# Read hook input
 INPUT="$(cat 2>/dev/null || true)"
+
+# Extract session_id from hook JSON input (unique per Claude session/worktree)
+SESSION_ID="default"
 if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
-    STOP_ACTIVE=$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")
-    if [ "$STOP_ACTIVE" = "true" ]; then
-        exit 0  # Prevent infinite loop
+    SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
+fi
+
+# === Circuit-breaker: force stop after 3 consecutive attempts ===
+# Prevents infinite loop when ktn-linter (or any hook) keeps blocking stop.
+# Counter resets: on successful stop, on new user prompt, or after 5 min stale.
+# Session-scoped: each session/worktree has its own counter file.
+STOP_COUNTER_FILE="/tmp/.claude-stop-counter-${SESSION_ID}"
+STOP_COUNT=0
+MAX_STOP_ATTEMPTS=3
+STALE_SECONDS=300  # 5 minutes
+
+# Atomic read-increment-write with flock to prevent race conditions
+# (multiple hooks or concurrent sessions won't corrupt the counter)
+{
+    flock -n 9 || true  # Non-blocking: proceed even if lock fails
+    if [ -f "$STOP_COUNTER_FILE" ]; then
+        FILE_AGE=$(( $(date +%s) - $(stat -c %Y "$STOP_COUNTER_FILE" 2>/dev/null || echo "0") ))
+        if [ "$FILE_AGE" -gt "$STALE_SECONDS" ]; then
+            rm -f "$STOP_COUNTER_FILE"
+        else
+            STOP_COUNT=$(cat "$STOP_COUNTER_FILE" 2>/dev/null || echo "0")
+        fi
     fi
+    STOP_COUNT=$((STOP_COUNT + 1))
+    printf '%d' "$STOP_COUNT" > "$STOP_COUNTER_FILE" 2>/dev/null || true
+} 9>"${STOP_COUNTER_FILE}.lock"
+
+# If we've tried too many times, force clean exit (skip all hooks)
+if [ "$STOP_COUNT" -ge "$MAX_STOP_ATTEMPTS" ]; then
+    echo -e "\033[1;31m⚠️  CIRCUIT-BREAKER: stop hook looped ${STOP_COUNT}/${MAX_STOP_ATTEMPTS} — forcing exit to break infinite loop\033[0m" >&2
+    rm -f "$STOP_COUNTER_FILE" "${STOP_COUNTER_FILE}.lock"
+    exit 0
+fi
+
+# Tell the AI where we are in the circuit-breaker sequence
+# so it can decide to wait instead of retrying immediately
+if [ "$STOP_COUNT" -gt 1 ]; then
+    echo -e "\033[1;33m⚠️  Stop attempt ${STOP_COUNT}/${MAX_STOP_ATTEMPTS} — circuit-breaker will force exit at attempt ${MAX_STOP_ATTEMPTS}\033[0m" >&2
 fi
 
 # Terminal bell - works in containers, unlike notify-send
@@ -42,8 +80,16 @@ if command -v curl &>/dev/null; then
             echo "$KTN_SUMMARY" >&2
             echo "--- End Report ---" >&2
         fi
+        # Forward as additionalContext only — NEVER forward permissionDecision
+        # on stop hook (stop must never be blocked by linter state)
         if printf '%s' "$KTN_RESP" | jq -e '.hookSpecificOutput' &>/dev/null; then
-            printf '%s' "$KTN_RESP"
+            printf '%s' "$KTN_RESP" | jq -c '
+                if .hookSpecificOutput.permissionDecision then
+                    .hookSpecificOutput |= del(.permissionDecision, .permissionDecisionReason)
+                    | if .hookSpecificOutput.additionalContext then . else empty end
+                else .
+                end
+            ' 2>/dev/null || true
         fi
     fi
 fi
@@ -78,5 +124,8 @@ if [ -f "$SESSION_LOG" ] && command -v jq &>/dev/null; then
     fi
     echo "--- End Summary ---" >&2
 fi
+
+# Reset circuit-breaker counter on successful stop
+rm -f "$STOP_COUNTER_FILE" "${STOP_COUNTER_FILE}.lock" 2>/dev/null || true
 
 exit 0

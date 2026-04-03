@@ -18,6 +18,16 @@ if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
     PROMPT=$(printf '%s' "$INPUT" | jq -r '.prompt // ""' 2>/dev/null || echo "")
 fi
 
+# === Reset stop circuit-breaker on new user prompt ===
+# If the user is typing a new prompt, they're not stuck in a loop anymore.
+# Extract session_id from hook JSON input (same key as on-stop.sh)
+CB_SESSION_ID="default"
+if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
+    CB_SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
+fi
+STOP_COUNTER_FILE="/tmp/.claude-stop-counter-${CB_SESSION_ID}"
+rm -f "$STOP_COUNTER_FILE" "${STOP_COUNTER_FILE}.lock" 2>/dev/null || true
+
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
 BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 
