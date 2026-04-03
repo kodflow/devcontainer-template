@@ -307,7 +307,7 @@
           {
             "type": "command",
             "command": "/home/vscode/.claude/scripts/on-stop.sh",
-            "timeout": 10
+            "timeout": 45
           }
         ]
       }
