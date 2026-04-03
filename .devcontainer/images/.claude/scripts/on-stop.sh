@@ -52,7 +52,8 @@ STALE_SECONDS=300  # 5 minutes
 # If we've tried too many times, force clean exit (skip all hooks)
 if [ "$STOP_COUNT" -ge "$MAX_STOP_ATTEMPTS" ]; then
     echo -e "\033[1;31m⚠️  CIRCUIT-BREAKER: stop hook looped ${STOP_COUNT}/${MAX_STOP_ATTEMPTS} — forcing exit to break infinite loop\033[0m" >&2
-    rm -f "$STOP_COUNTER_FILE" "${STOP_COUNTER_FILE}.lock"
+    rm -f "$STOP_COUNTER_FILE"
+    # Keep .lock file intact to preserve flock inode semantics for concurrent waiters
     exit 0
 fi
 
