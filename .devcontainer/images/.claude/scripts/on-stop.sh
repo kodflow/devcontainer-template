@@ -32,20 +32,21 @@ STOP_COUNT=0
 MAX_STOP_ATTEMPTS=3
 STALE_SECONDS=300  # 5 minutes
 
-# Atomic read-increment-write with flock to prevent race conditions
-# (multiple hooks or concurrent sessions won't corrupt the counter)
+# Atomic read-increment-write with flock to prevent race conditions.
+# If lock cannot be acquired within 1s, skip increment (fail-open).
 {
-    flock -w 1 9 || true  # Bounded wait (1s): serializes concurrent hooks
-    if [ -f "$STOP_COUNTER_FILE" ]; then
-        FILE_AGE=$(( $(date +%s) - $(stat -c %Y "$STOP_COUNTER_FILE" 2>/dev/null || echo "0") ))
-        if [ "$FILE_AGE" -gt "$STALE_SECONDS" ]; then
-            rm -f "$STOP_COUNTER_FILE"
-        else
-            STOP_COUNT=$(cat "$STOP_COUNTER_FILE" 2>/dev/null || echo "0")
+    if flock -w 1 9; then
+        if [ -f "$STOP_COUNTER_FILE" ]; then
+            FILE_AGE=$(( $(date +%s) - $(stat -c %Y "$STOP_COUNTER_FILE" 2>/dev/null || echo "0") ))
+            if [ "$FILE_AGE" -gt "$STALE_SECONDS" ]; then
+                rm -f "$STOP_COUNTER_FILE"
+            else
+                STOP_COUNT=$(cat "$STOP_COUNTER_FILE" 2>/dev/null || echo "0")
+            fi
         fi
+        STOP_COUNT=$((STOP_COUNT + 1))
+        printf '%d' "$STOP_COUNT" > "$STOP_COUNTER_FILE" 2>/dev/null || true
     fi
-    STOP_COUNT=$((STOP_COUNT + 1))
-    printf '%d' "$STOP_COUNT" > "$STOP_COUNTER_FILE" 2>/dev/null || true
 } 9>"${STOP_COUNTER_FILE}.lock"
 
 # If we've tried too many times, force clean exit (skip all hooks)
@@ -128,7 +129,10 @@ if [ -f "$SESSION_LOG" ] && command -v jq &>/dev/null; then
     echo "--- End Summary ---" >&2
 fi
 
-# Reset circuit-breaker counter on successful stop
-rm -f "$STOP_COUNTER_FILE" "${STOP_COUNTER_FILE}.lock" 2>/dev/null || true
+# NOTE: Do NOT reset the circuit-breaker counter here.
+# The script always reaches exit 0 (even when ktn-linter blocks via JSON output),
+# so resetting here would prevent the counter from ever accumulating.
+# Counter is reset by: user-prompt-submit.sh (new prompt), circuit-breaker trigger
+# (line 54), or stale timeout (5 min).
 
 exit 0
