@@ -23,6 +23,31 @@ fi
 # Terminal bell - works in containers, unlike notify-send
 printf '\a'
 
+# === ktn-linter: session-level validation ===
+# Scans all packages touched during the session. Never blocks stop.
+KTN_PORT="${KTN_LINTER_PORT:-7717}"
+if command -v curl &>/dev/null; then
+    KTN_PAYLOAD="${INPUT:-{\}}"
+    if command -v jq &>/dev/null; then
+        KTN_PAYLOAD=$(printf '%s' "${INPUT:-{\}}" | jq -c --arg sid "${CLAUDE_SESSION_ID:-default}" '. + {"session_id": $sid}' 2>/dev/null || echo "${INPUT:-{\}}")
+    fi
+    KTN_RESP=$(curl -sf --max-time 28 \
+        -H "Content-Type: application/json" \
+        -d "$KTN_PAYLOAD" \
+        "http://localhost:${KTN_PORT}/hooks/stop" 2>/dev/null) || true
+    if [ -n "$KTN_RESP" ] && [ "$KTN_RESP" != "{}" ] && [ "$KTN_RESP" != "null" ] && command -v jq &>/dev/null; then
+        KTN_SUMMARY=$(printf '%s' "$KTN_RESP" | jq -r '.summary // .message // empty' 2>/dev/null || true)
+        if [ -n "$KTN_SUMMARY" ]; then
+            echo "--- ktn-linter Session Report ---" >&2
+            echo "$KTN_SUMMARY" >&2
+            echo "--- End Report ---" >&2
+        fi
+        if printf '%s' "$KTN_RESP" | jq -e '.hookSpecificOutput' &>/dev/null; then
+            printf '%s' "$KTN_RESP"
+        fi
+    fi
+fi
+
 # Extract last_assistant_message for summary
 LAST_MSG_LEN=0
 if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
