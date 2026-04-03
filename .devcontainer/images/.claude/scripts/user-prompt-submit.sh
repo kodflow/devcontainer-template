@@ -21,9 +21,12 @@ fi
 # === Reset stop circuit-breaker on new user prompt ===
 # If the user is typing a new prompt, they're not stuck in a loop anymore.
 # Extract session_id from hook JSON input (same key as on-stop.sh)
+# Sanitize to [A-Za-z0-9_-] to prevent path traversal in /tmp file paths
 CB_SESSION_ID="default"
 if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
-    CB_SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
+    RAW_SID=$(printf '%s' "$INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
+    CB_SESSION_ID=$(printf '%s' "$RAW_SID" | tr -cd 'A-Za-z0-9_-')
+    [ -z "$CB_SESSION_ID" ] && CB_SESSION_ID="default"
 fi
 STOP_COUNTER_FILE="/tmp/.claude-stop-counter-${CB_SESSION_ID}"
 rm -f "$STOP_COUNTER_FILE" "${STOP_COUNTER_FILE}.lock" 2>/dev/null || true

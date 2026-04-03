@@ -15,9 +15,12 @@ set +e  # Fail-open: never block
 INPUT="$(cat 2>/dev/null || true)"
 
 # Extract session_id from hook JSON input (unique per Claude session/worktree)
+# Sanitize to [A-Za-z0-9_-] to prevent path traversal in /tmp file paths
 SESSION_ID="default"
 if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
-    SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
+    RAW_SID=$(printf '%s' "$INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
+    SESSION_ID=$(printf '%s' "$RAW_SID" | tr -cd 'A-Za-z0-9_-')
+    [ -z "$SESSION_ID" ] && SESSION_ID="default"
 fi
 
 # === Circuit-breaker: force stop after 3 consecutive attempts ===
@@ -32,7 +35,7 @@ STALE_SECONDS=300  # 5 minutes
 # Atomic read-increment-write with flock to prevent race conditions
 # (multiple hooks or concurrent sessions won't corrupt the counter)
 {
-    flock -n 9 || true  # Non-blocking: proceed even if lock fails
+    flock -w 1 9 || true  # Bounded wait (1s): serializes concurrent hooks
     if [ -f "$STOP_COUNTER_FILE" ]; then
         FILE_AGE=$(( $(date +%s) - $(stat -c %Y "$STOP_COUNTER_FILE" 2>/dev/null || echo "0") ))
         if [ "$FILE_AGE" -gt "$STALE_SECONDS" ]; then
