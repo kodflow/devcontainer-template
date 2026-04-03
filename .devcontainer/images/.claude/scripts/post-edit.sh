@@ -39,6 +39,28 @@ fi
 # === Format only (fast: goimports ~100ms, ruff ~50ms, prettier ~200ms) ===
 FMT_OUT=$("$SCRIPT_DIR/format.sh" "$FILE" 2>&1) || true
 
+# === ktn-linter: focused scan after edit ===
+# Calls ktn-linter HTTP endpoint to lint the modified file.
+# Can block via permissionDecision:"deny" if critical violation found.
+KTN_PORT="${KTN_LINTER_PORT:-7717}"
+if command -v curl &>/dev/null && [[ "$FILE" != *.md ]] && [[ "$FILE" != *.json ]] && \
+   [[ "$FILE" != *.yaml ]] && [[ "$FILE" != *.yml ]] && [[ "$FILE" != *.toml ]] && \
+   [[ "$FILE" != /tmp/* ]] && [[ "$FILE" != *".claude/"* ]]; then
+    KTN_RESP=$(curl -sf --max-time 14 \
+        -H "Content-Type: application/json" \
+        -d "${INPUT:-{\}}" \
+        "http://localhost:${KTN_PORT}/hooks/post-tool-use" 2>/dev/null) || true
+    if [ -n "$KTN_RESP" ] && [ "$KTN_RESP" != "{}" ] && [ "$KTN_RESP" != "null" ] && command -v jq &>/dev/null; then
+        if printf '%s' "$KTN_RESP" | jq -e '.hookSpecificOutput' &>/dev/null; then
+            printf '%s' "$KTN_RESP"
+        else
+            jq -n -c --arg ctx "$(printf '%s' "$KTN_RESP" | head -c 1000)" \
+                '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":$ctx}}' \
+                2>/dev/null || true
+        fi
+    fi
+fi
+
 # Track edited file for on-stop-quality.sh batch processing (session-scoped)
 SESSION_ID="${CLAUDE_SESSION_ID:-default}"
 TRACKER="/tmp/.claude-edited-files-${SESSION_ID}"

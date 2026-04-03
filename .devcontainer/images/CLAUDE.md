@@ -181,6 +181,16 @@ Core hooks (always active):
 
 Full inventory: See `.devcontainer/hooks/CLAUDE.md` and `CLAUDE.md` (root).
 
+**ktn-linter integration (embedded in existing hook scripts):**
+
+| Script | Endpoint called | Timeout | Purpose |
+|--------|----------------|---------|---------|
+| `pre-validate.sh` | `/hooks/pre-tool-use` | 4s | Package context before edit |
+| `post-edit.sh` | `/hooks/post-tool-use` | 14s | Lint scan, can block on critical |
+| `on-stop.sh` | `/hooks/stop` | 28s | Session validation report |
+
+Graceful degradation: calls exit silently if ktn-linter is not running. See [docs/ktn-linter-integration.md](/workspace/docs/ktn-linter-integration.md).
+
 **Makefile-first pattern:** Scripts check `make fmt/lint/typecheck/test FILE=<path>` first, then fall back to direct tool invocation.
 
 ## Build

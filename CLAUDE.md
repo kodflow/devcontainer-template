@@ -106,6 +106,7 @@ CLAUDE.md                    # This overview
 ├── docs/vision.md           # Objectives, success criteria
 ├── docs/architecture.md     # System design, components
 ├── docs/workflows.md        # Detailed workflows
+├── docs/ktn-linter-integration.md  # ktn-linter hook contract
 ├── .devcontainer/CLAUDE.md  # Container config details
 │   ├── features/CLAUDE.md   # Language & tool features
 │   ├── hooks/CLAUDE.md      # Host-side hooks (initialize.sh only)

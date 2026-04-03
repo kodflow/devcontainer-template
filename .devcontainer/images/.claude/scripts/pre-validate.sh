@@ -66,7 +66,7 @@ is_exception() {
     local file="$1"
     for pattern in "${EXCEPTIONS[@]}"; do
         # Use bash pattern matching
-        if [[ "$file" == *"$pattern"* ]] || [[ "$file" == $pattern ]]; then
+        if [[ "$file" == *"$pattern"* ]] || [[ "$file" == "$pattern" ]]; then
             return 0
         fi
     done
@@ -88,7 +88,7 @@ if [[ "$USE_YQ" == "true" ]]; then
         [[ -z "$pattern" ]] && continue
 
         # Check if the file matches the pattern
-        if [[ "$FILE" == *"$pattern"* ]] || [[ "$FILE" == $pattern ]]; then
+        if [[ "$FILE" == *"$pattern"* ]] || [[ "$FILE" == "$pattern" ]]; then
             REASON="Protected file: $FILE (pattern: $pattern)"
             echo "🚫 $REASON" >&2
             if command -v jq &>/dev/null; then
@@ -115,5 +115,26 @@ else
     done
 fi
 
+# === ktn-linter: package context before edit ===
+# Calls ktn-linter HTTP endpoint to surface existing issues in the package
+# being modified. Graceful degradation if ktn-linter is not running.
+KTN_PORT="${KTN_LINTER_PORT:-7717}"
+if command -v curl &>/dev/null && [[ "$FILE" != *.md ]] && [[ "$FILE" != *.json ]] && \
+   [[ "$FILE" != *.yaml ]] && [[ "$FILE" != *.yml ]] && [[ "$FILE" != *.toml ]] && \
+   [[ "$FILE" != /tmp/* ]] && [[ "$FILE" != *".claude/"* ]]; then
+    KTN_RESP=$(curl -sf --max-time 4 \
+        -H "Content-Type: application/json" \
+        -d "${INPUT:-{\}}" \
+        "http://localhost:${KTN_PORT}/hooks/pre-tool-use" 2>/dev/null) || true
+    if [ -n "$KTN_RESP" ] && [ "$KTN_RESP" != "{}" ] && [ "$KTN_RESP" != "null" ]; then
+        if printf '%s' "$KTN_RESP" | jq -e '.hookSpecificOutput' &>/dev/null; then
+            printf '%s' "$KTN_RESP"
+            exit 0
+        fi
+        jq -n -c --arg ctx "$(printf '%s' "$KTN_RESP" | head -c 500)" \
+            '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":$ctx}}' \
+            2>/dev/null || true
+    fi
+fi
 
 exit 0

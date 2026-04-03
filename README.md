@@ -140,6 +140,24 @@ Configurez `OP_SERVICE_ACCOUNT_TOKEN` et les items correspondants dans votre vau
 | `mcp.json` | Config MCP projet (ignoré par git) |
 | `.devcontainer/images/mcp.json.tpl` | Template MCP |
 
+### ktn-linter & Claude Code Hooks
+
+Le template intègre `ktn-linter` comme serveur MCP **et** fournisseur de hooks Claude Code. Le template déclare 3 scripts wrapper qui appellent les endpoints HTTP de ktn-linter. Dégradation gracieuse si ktn-linter n'est pas en cours d'exécution.
+
+| Hook | Événement | Timeout | Rôle |
+|------|-----------|---------|------|
+| PreToolUse | Write/Edit | 5s | Contexte package avant édition |
+| PostToolUse | Write/Edit | 15s | Scan fichier + blocage si violation |
+| Stop | * | 30s | Validation finale des packages modifiés |
+
+**Vérification rapide :**
+
+```bash
+which ktn-linter && curl -sf http://localhost:7717/health && echo "OK"
+```
+
+Voir [docs/ktn-linter-integration.md](docs/ktn-linter-integration.md) pour le contrat complet.
+
 ## Structure
 
 ```
