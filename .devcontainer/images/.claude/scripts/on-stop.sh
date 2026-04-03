@@ -11,6 +11,10 @@
 
 set +e  # Fail-open: never block
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh disable=SC1091
+[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
+
 # Read hook input
 INPUT="$(cat 2>/dev/null || true)"
 
@@ -66,35 +70,40 @@ fi
 # Terminal bell - works in containers, unlike notify-send
 printf '\a'
 
-# === ktn-linter: session-level validation ===
-# Scans all packages touched during the session. Never blocks stop.
-KTN_PORT="${KTN_LINTER_PORT:-7717}"
-if command -v curl &>/dev/null; then
-    KTN_PAYLOAD="${INPUT:-{\}}"
-    if command -v jq &>/dev/null; then
-        KTN_PAYLOAD=$(printf '%s' "${INPUT:-{\}}" | jq -c --arg sid "${CLAUDE_SESSION_ID:-default}" '. + {"session_id": $sid}' 2>/dev/null || echo "${INPUT:-{\}}")
-    fi
-    KTN_RESP=$(curl -sf --max-time 28 \
-        -H "Content-Type: application/json" \
-        -d "$KTN_PAYLOAD" \
-        "http://localhost:${KTN_PORT}/hooks/stop" 2>/dev/null) || true
-    if [ -n "$KTN_RESP" ] && [ "$KTN_RESP" != "{}" ] && [ "$KTN_RESP" != "null" ] && command -v jq &>/dev/null; then
-        KTN_SUMMARY=$(printf '%s' "$KTN_RESP" | jq -r '.summary // .message // empty' 2>/dev/null || true)
-        if [ -n "$KTN_SUMMARY" ]; then
-            echo "--- ktn-linter Session Report ---" >&2
-            echo "$KTN_SUMMARY" >&2
-            echo "--- End Report ---" >&2
-        fi
-        # Forward as additionalContext only — NEVER forward permissionDecision
-        # on stop hook (stop must never be blocked by linter state)
-        if printf '%s' "$KTN_RESP" | jq -e '.hookSpecificOutput' &>/dev/null; then
-            printf '%s' "$KTN_RESP" | jq -c '
-                if .hookSpecificOutput.permissionDecision then
-                    .hookSpecificOutput |= del(.permissionDecision, .permissionDecisionReason)
-                    | if .hookSpecificOutput.additionalContext then . else empty end
-                else .
-                end
-            ' 2>/dev/null || true
+# Project directory used by ktn-linter and session summary
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+
+# === ktn-linter: scoped to changed packages only ===
+# Instead of scanning everything via HTTP /hooks/stop, run ktn-linter CLI
+# targeted at Go packages that actually have changes on the branch.
+BASE_BRANCH="main"
+CHANGED_FILES=$(get_branch_changed_files "$BASE_BRANCH" "$PROJECT_DIR" 2>/dev/null)
+
+if [ -n "$CHANGED_FILES" ] && command -v ktn-linter &>/dev/null; then
+    # Extract Go packages from changed files
+    CHANGED_GO_PKGS=$(printf '%s\n' "$CHANGED_FILES" \
+        | grep '\.go$' \
+        | xargs -I{} dirname {} \
+        | sort -u \
+        | sed 's|^|./|')
+
+    if [ -n "$CHANGED_GO_PKGS" ]; then
+        echo "--- ktn-linter (scoped to changed packages) ---" >&2
+        # Intentional word splitting on package list
+        # shellcheck disable=SC2086
+        KTN_OUTPUT=$(cd "$PROJECT_DIR" && timeout 20 ktn-linter lint $CHANGED_GO_PKGS 2>&1) || true
+        if [ -n "$KTN_OUTPUT" ]; then
+            KTN_TRUNCATED=$(printf '%s' "$KTN_OUTPUT" | tail -50)
+            [ ${#KTN_TRUNCATED} -gt 2000 ] && KTN_TRUNCATED="${KTN_TRUNCATED:0:2000}...(truncated)"
+            echo "$KTN_TRUNCATED" >&2
+            echo "--- End ktn-linter ---" >&2
+            # Forward as additionalContext so Claude sees issues and can auto-fix
+            if command -v jq &>/dev/null; then
+                jq -n -c --arg ctx "$KTN_TRUNCATED" \
+                    '{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":$ctx}}'
+            fi
+        else
+            echo "ktn-linter: no issues found" >&2
         fi
     fi
 fi
@@ -106,7 +115,6 @@ if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
 fi
 
 # Generate brief session summary from log data
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
 BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")
 BRANCH_SAFE=$(printf '%s' "$BRANCH" | tr '/ ' '__')
 SESSION_LOG="$PROJECT_DIR/.claude/logs/$BRANCH_SAFE/session.jsonl"
