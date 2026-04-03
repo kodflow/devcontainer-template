@@ -73,23 +73,34 @@ printf '\a'
 # Project directory used by ktn-linter and session summary
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
 
-# === ktn-linter: scoped to changed packages only ===
-# Instead of scanning everything via HTTP /hooks/stop, run ktn-linter CLI
-# targeted at Go packages that actually have changes on the branch.
-BASE_BRANCH="main"
-CHANGED_FILES=$(get_branch_changed_files "$BASE_BRANCH" "$PROJECT_DIR" 2>/dev/null)
+# === ktn-linter: scoped to THIS SESSION's edits only ===
+# Uses the per-session tracker populated by post-edit.sh (Write/Edit hooks).
+# If this session did no edits (e.g., /search), skip entirely.
+# NEVER fallback to git diff — that reintroduces cross-session pollution.
+TRACKER="/tmp/.claude-edited-files-${SESSION_ID}"
 
-if [ -n "$CHANGED_FILES" ] && command -v ktn-linter &>/dev/null; then
-    # Extract Go packages from changed files
-    CHANGED_GO_PKGS=$(printf '%s\n' "$CHANGED_FILES" \
+SESSION_EDITED_FILES=""
+if [ "$SESSION_ID" != "default" ] && [ -f "$TRACKER" ] && [ -s "$TRACKER" ]; then
+    # Normalize: strip empty lines, convert absolute to relative, deduplicate
+    SESSION_EDITED_FILES=$(sed '/^$/d' "$TRACKER" 2>/dev/null \
+        | sed "s|^${PROJECT_DIR}/||" \
+        | sort -u)
+fi
+
+if [ -n "$SESSION_EDITED_FILES" ] && command -v ktn-linter &>/dev/null; then
+    CHANGED_GO_PKGS=$(printf '%s\n' "$SESSION_EDITED_FILES" \
         | grep '\.go$' \
         | xargs -I{} dirname {} \
         | sort -u \
         | sed 's|^|./|')
 
     if [ -n "$CHANGED_GO_PKGS" ]; then
-        echo "--- ktn-linter (scoped to changed packages) ---" >&2
-        # Intentional word splitting on package list
+        echo "--- ktn-linter (session-scoped: ${SESSION_ID}) ---" >&2
+        if [ "${CLAUDE_HOOK_DEBUG:-0}" = "1" ]; then
+            echo "  tracker: $TRACKER" >&2
+            echo "  session files: $(echo "$SESSION_EDITED_FILES" | wc -l)" >&2
+            echo "  go packages: $(echo "$CHANGED_GO_PKGS" | wc -l)" >&2
+        fi
         # shellcheck disable=SC2086
         KTN_OUTPUT=$(cd "$PROJECT_DIR" && timeout 20 ktn-linter lint $CHANGED_GO_PKGS 2>&1) || true
         if [ -n "$KTN_OUTPUT" ]; then
@@ -97,7 +108,7 @@ if [ -n "$CHANGED_FILES" ] && command -v ktn-linter &>/dev/null; then
             [ ${#KTN_TRUNCATED} -gt 2000 ] && KTN_TRUNCATED="${KTN_TRUNCATED:0:2000}...(truncated)"
             echo "$KTN_TRUNCATED" >&2
             echo "--- End ktn-linter ---" >&2
-            # Forward as additionalContext so Claude sees issues and can auto-fix
+            # additionalContext only — NEVER systemMessage (validation barrier, not auto-fix)
             if command -v jq &>/dev/null; then
                 jq -n -c --arg ctx "$KTN_TRUNCATED" \
                     '{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":$ctx}}'
@@ -105,6 +116,14 @@ if [ -n "$CHANGED_FILES" ] && command -v ktn-linter &>/dev/null; then
         else
             echo "ktn-linter: no issues found" >&2
         fi
+    elif [ "${CLAUDE_HOOK_DEBUG:-0}" = "1" ]; then
+        echo "--- ktn-linter: skipped (no .go files in session edits) ---" >&2
+    fi
+elif [ "${CLAUDE_HOOK_DEBUG:-0}" = "1" ]; then
+    if [ "$SESSION_ID" = "default" ]; then
+        echo "--- ktn-linter: skipped (no session isolation) ---" >&2
+    else
+        echo "--- ktn-linter: skipped (session read-only) ---" >&2
     fi
 fi
 
