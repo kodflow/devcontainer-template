@@ -132,7 +132,13 @@
       "Glob(**/*)",
       "Grep(**/*)",
       "mcp__grepai__*",
-      "mcp__context7__*"
+      "mcp__context7__*",
+      "Write(.claude/plans/**)",
+      "Write(.claude/contexts/**)",
+      "Write(.claude/sessions/**)",
+      "Edit(.claude/plans/**)",
+      "Edit(.claude/contexts/**)",
+      "Edit(.claude/sessions/**)"
     ],
     "deny": [],
     "defaultMode": "bypassPermissions",
