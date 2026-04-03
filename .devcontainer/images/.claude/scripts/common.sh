@@ -96,3 +96,26 @@ run_makefile_target() {
         make "$target" 2>/dev/null || true
     fi
 }
+
+# Get files changed on current branch vs base + working tree
+# Returns one path per line (relative to repo root), deduplicated.
+# On main/base branch: only working tree + index (no branch diff).
+# Usage: CHANGED=$(get_branch_changed_files [base_branch] [project_dir])
+get_branch_changed_files() {
+    local base="${1:-main}"
+    local project_dir="${2:-${CLAUDE_PROJECT_DIR:-/workspace}}"
+    (
+        cd "$project_dir" 2>/dev/null || return
+        local current_branch
+        current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+        {
+            # Branch diff only if not on the base branch itself
+            if [ -n "$current_branch" ] && [ "$current_branch" != "$base" ]; then
+                git diff --name-only "$base"...HEAD 2>/dev/null
+            fi
+            # Always include working tree + index changes
+            git diff --name-only 2>/dev/null
+            git diff --cached --name-only 2>/dev/null
+        } | sort -u
+    )
+}
