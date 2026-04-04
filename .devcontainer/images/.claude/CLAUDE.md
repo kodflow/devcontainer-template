@@ -53,7 +53,7 @@ Enforced by `commit-validate.sh` hook.
 | `/search` | Documentation research |
 | `/docs` | Deep project docs generation |
 | `/test` | E2E testing (Playwright) |
-| `/lint` | Intelligent linting (ktn-linter) |
+| `/lint` | Multi-language intelligent linting |
 | `/infra` | Infrastructure (Terraform) |
 | `/secret` | Secure secrets (1Password) |
 | `/vpn` | VPN management |

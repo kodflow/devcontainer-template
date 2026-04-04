@@ -128,7 +128,7 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/search` | Documentation research with official sources |
 | `/docs` | Deep project documentation generation |
 | `/test` | E2E testing with Playwright MCP |
-| `/lint` | Intelligent linting with ktn-linter |
+| `/lint` | Multi-language intelligent linting |
 | `/infra` | Infrastructure automation (Terraform/Terragrunt) |
 | `/secret` | Secure secret management (1Password) |
 | `/vpn` | Multi-protocol VPN management |

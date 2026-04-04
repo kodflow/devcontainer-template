@@ -253,11 +253,34 @@ Adapt detection to file extension:
 | `.ts/.js` | TypeScript | `.length` | `try/catch` | Promise, async |
 | `.rs` | Rust | `.len()` | `Result<>` | Send/Sync |
 
+## 8. Silent Failure Detection (HIGH)
+
+```yaml
+silent_failure_detection:
+  patterns:
+    - "Empty catch blocks (ABSOLUTELY FORBIDDEN)"
+    - "Catch-only-log-continue without user feedback"
+    - "Returning null/undefined on error without logging"
+    - "Optional chaining (?.) silently skipping critical operations"
+    - "Fallback chains exhausting without informing user"
+    - "Retry logic exhausting attempts without notification"
+    - "Broad catch blocks hiding specific error types"
+
+  for_each_handler:
+    1_logging: "Is error logged with sufficient context (operation, IDs, state)?"
+    2_user_feedback: "Does user receive clear, actionable feedback?"
+    3_catch_specificity: "Does catch only handle expected types? List hidden types."
+    4_fallback: "Is fallback behavior explicitly justified or does it mask the problem?"
+    5_propagation: "Should this error bubble up instead of being swallowed?"
+
+  oracle: "Every error must be either handled with user feedback OR propagated"
+```
+
 ## Severity Mapping
 
 | Level | Criteria |
 |-------|----------|
 | **CRITICAL** | Data loss, crash, infinite loop, security via correctness |
-| **HIGH** | Silent wrong result, hard to debug |
+| **HIGH** | Silent wrong result, hard to debug, silent failure |
 | **MEDIUM** | Edge case failure, rare conditions |
 | **LOW** | Minor inconsistency, cosmetic |

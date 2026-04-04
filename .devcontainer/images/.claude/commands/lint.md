@@ -1,10 +1,11 @@
 ---
 name: lint
 description: |
-  Intelligent linting with ktn-linter using RLM decomposition.
-  Sequences 148 rules optimally across 8 phases.
-  Fixes ALL issues automatically in intelligent order.
-  Detects DTOs on-the-fly and applies dto:"direction,context,security" convention.
+  Multi-language intelligent linting with RLM decomposition.
+  Auto-detects project language(s) and dispatches to the appropriate workflow.
+  Go projects with ktn-linter: 148 rules across 8 phases with Agent Teams.
+  Other languages: lint-fix-iterate loop with language-specific tools.
+  Makefile-first: uses `make lint` when available.
 allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
@@ -21,7 +22,7 @@ allowed-tools:
   - "TaskGet(*)"
 ---
 
-# /lint - Intelligent Linting (RLM Architecture)
+# /lint - Multi-Language Intelligent Linting (RLM Architecture)
 
 $ARGUMENTS
 
@@ -41,23 +42,142 @@ Use `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` to:
 
 ## AUTOMATIC WORKFLOW
 
-This skill fixes **ALL** ktn-linter issues without exception.
-No arguments. No flags. Just complete execution.
+This skill fixes **ALL** linting issues without exception.
+No arguments. No flags. Auto-detects language and tools.
 
 ---
 
-## Quick Reference
+## Phase 0: Language Detection
 
-| Phase | Category | Rules | Mode |
-|-------|----------|-------|------|
-| 1 | STRUCTURAL | 7 | Lead (sequential) |
-| 2 | SIGNATURES | 7 | Lead (sequential) |
-| 3 | LOGIC | 17 | Lead (sequential) |
-| 4 | PERFORMANCE | 11 | Teammate "perf" |
-| 5 | MODERN | 20 | Teammate "modern" |
-| 6 | STYLE | 13 | Teammate "polish" |
-| 7 | DOCS | 8 | Teammate "polish" |
-| 8 | TESTS | 8 | Teammate "tester" |
+**Run `detect-project.sh` to get languages, tools, and build system in ONE call:**
+
+```bash
+bash ~/.claude/scripts/detect-project.sh
+```
+
+This returns JSON with `languages[]`, `build_system.targets[]`, `tools{}`, `project_type`.
+Use this output for ALL routing decisions below. DO NOT re-check markers individually.
+
+**Fallback** (if script unavailable): scan the project root for build system markers:
+
+```yaml
+detection_order:
+  - marker: "go.mod"
+    language: "go"
+    check_ktn: true  # Also check for ktn-linter binary
+
+  - marker: "Cargo.toml"
+    language: "rust"
+
+  - marker: "package.json"
+    language: "nodejs"
+    sub_check: "tsconfig.json → typescript"
+
+  - marker: "pyproject.toml OR setup.py OR setup.cfg OR requirements.txt"
+    language: "python"
+
+  - marker: "pom.xml OR build.gradle OR build.gradle.kts"
+    language: "java"
+
+  - marker: "*.csproj OR *.sln"
+    language: "csharp"
+
+  - marker: "Gemfile"
+    language: "ruby"
+
+  - marker: "composer.json"
+    language: "php"
+
+  - marker: "mix.exs"
+    language: "elixir"
+
+  - marker: "pubspec.yaml"
+    language: "dart"
+
+  - marker: "build.sbt"
+    language: "scala"
+
+  - marker: "Package.swift"
+    language: "swift"
+
+  - marker: "build.gradle.kts with kotlin"
+    language: "kotlin"
+
+  - marker: "fpm.toml"
+    language: "fortran"
+
+  - marker: "alire.toml"
+    language: "ada"
+
+  - marker: "CMakeLists.txt"
+    language: "c_cpp"
+
+  # Fallback: scan file extensions in src/ or project root
+  - fallback: "extension scan"
+    extensions:
+      ".lua": "lua"
+      ".pl,.pm": "perl"
+      ".r,.R": "r"
+      ".pas,.dpr": "pascal"
+      ".vb": "vbnet"
+      ".cob,.cbl": "cobol"
+      ".f90,.f95,.f03,.f08": "fortran"
+      ".adb,.ads": "ada"
+      ".scala": "scala"
+      ".kt,.kts": "kotlin"
+```
+
+**Result**: A list of detected languages (can be multiple for monorepos).
+
+---
+
+## Phase 1: Routing
+
+### Makefile-first (any language)
+
+```
+IF Makefile exists with "lint" target:
+  → Run: make lint
+  → Parse output, fix issues, re-run until convergence
+  → DONE (skip language-specific dispatch)
+```
+
+### Go with ktn-linter
+
+```
+IF "go" detected AND (ktn-linter binary exists OR cmd/ktn-linter/ dir exists):
+  → Read ~/.claude/commands/lint/go.md
+  → Execute full 8-phase ktn-linter workflow
+```
+
+### Go without ktn-linter
+
+```
+IF "go" detected AND no ktn-linter:
+  → Read ~/.claude/commands/lint/generic.md
+  → Use golangci-lint fallback
+```
+
+### Other languages
+
+```
+FOR each detected language:
+  → Read ~/.claude/commands/lint/generic.md
+  → Execute lint-fix-iterate with language-specific tools
+```
+
+### Multi-language (Agent Teams)
+
+```
+IF multiple languages detected AND Agent Teams available:
+  → Lead handles Phase 0 detection
+  → Spawn one teammate per language (lint/generic.md each)
+  → Wait for all teammates to complete
+  → Synthesize combined report
+
+IF multiple languages detected AND no Agent Teams:
+  → Execute sequentially: primary language first, then secondary
+```
 
 ---
 
@@ -65,16 +185,35 @@ No arguments. No flags. Just complete execution.
 
 | Action | Module |
 |--------|--------|
-| All 148 rules by phase | Read ~/.claude/commands/lint/rules.md |
-| Execution workflow & agent teams | Read ~/.claude/commands/lint/execution.md |
-| DTO convention & detection | Read ~/.claude/commands/lint/dto.md |
+| Go ktn-linter gateway | Read ~/.claude/commands/lint/go.md |
+| Generic lint-fix-iterate (18+ languages) | Read ~/.claude/commands/lint/generic.md |
+| Go: 148 rules by phase | Read ~/.claude/commands/lint/rules.md |
+| Go: Execution workflow & agent teams | Read ~/.claude/commands/lint/execution.md |
+| Go: DTO convention & detection | Read ~/.claude/commands/lint/dto.md |
 
 ---
 
-## Routing
+## Final Report
 
-1. **Run ktn-linter**: Refer to `execution.md` Step 1
-2. **Parse & classify**: Refer to `rules.md` for phase mapping
-3. **DTO detection**: Refer to `dto.md` when KTN-STRUCT-ONEFILE or KTN-STRUCT-CTOR
-4. **Execute fixes**: Refer to `execution.md` for Agent Teams or sequential mode
-5. **Re-run until convergence**: Refer to `execution.md` final verification
+```text
+═══════════════════════════════════════════════════════════════
+  /lint - COMPLETE
+═══════════════════════════════════════════════════════════════
+
+  Languages detected : Go, TypeScript
+  Mode               : Agent Teams (1 teammate per language)
+
+  Go (ktn-linter 8-phase):
+    Issues fixed     : 47
+    Iterations       : 3
+    DTOs detected    : 4
+
+  TypeScript (eslint + tsc):
+    Issues fixed     : 12
+    Iterations       : 2
+    Type errors      : 0
+
+  Final verification : 0 issues across all languages
+
+═══════════════════════════════════════════════════════════════
+```
