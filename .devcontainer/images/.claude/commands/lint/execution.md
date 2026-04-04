@@ -1,4 +1,7 @@
-# RLM Execution Workflow
+# RLM Execution Workflow (Go / ktn-linter)
+
+> This module is Go-specific. It is invoked from lint/go.md.
+> For other languages, see lint/generic.md.
 
 ## IMMEDIATE EXECUTION
 

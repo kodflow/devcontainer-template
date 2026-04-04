@@ -137,4 +137,50 @@ if command -v curl &>/dev/null && [[ "$FILE" != *.md ]] && [[ "$FILE" != *.json 
     fi
 fi
 
+# === Security Pattern Warnings (allow but warn, once per session) ===
+# Inspired by anthropics/claude-plugins-official/security-guidance
+
+# Sanitize session ID to prevent path traversal
+SESSION_ID="${CLAUDE_SESSION_ID:-unknown}"
+SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'A-Za-z0-9._-')
+SESSION_ID="${SESSION_ID:-unknown}"
+STATE_FILE="$HOME/.claude/.security_warnings_${SESSION_ID}"
+
+CONTENT=""
+if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
+    CONTENT=$(printf '%s' "$INPUT" | jq -r '.tool_input.content // .tool_input.new_string // ""' 2>/dev/null || true)
+fi
+
+if [ -n "$CONTENT" ]; then
+    # pattern|warning pairs
+    SEC_CHECKS=(
+        'eval(|Code injection: eval() executes arbitrary code. Use JSON.parse() or safer alternatives.'
+        'new Function|Code injection: new Function() creates code from strings. Consider alternatives.'
+        'child_process.exec|Command injection: exec() passes to shell. Use execFile() with argument arrays.'
+        'dangerouslySetInnerHTML|XSS: renders raw HTML. Sanitize with DOMPurify or use safe alternatives.'
+        'document.write|XSS: can inject content. Use DOM methods (createElement, appendChild).'
+        '.innerHTML =|XSS: innerHTML can execute scripts. Use textContent or DOMPurify.'
+        'pickle|Deserialization: pickle can execute arbitrary code. Use JSON or safe formats.'
+        'subprocess.call|Command injection: subprocess with shell=True is dangerous. Use list args.'
+    )
+
+    for entry in "${SEC_CHECKS[@]}"; do
+        pattern="${entry%%|*}"
+        warning="${entry#*|}"
+
+        if [[ "$CONTENT" == *"$pattern"* ]]; then
+            # Skip if already warned in this session
+            if [ -f "$STATE_FILE" ] && grep -qF "$pattern" "$STATE_FILE" 2>/dev/null; then
+                continue
+            fi
+            echo "$pattern" >> "$STATE_FILE" 2>/dev/null || true
+            echo "SECURITY: $warning" >&2
+            echo "  Pattern '$pattern' in $FILE (warning shown once per session)" >&2
+        fi
+    done
+
+    # Clean up old state files (>7 days)
+    find "$HOME/.claude/" -name ".security_warnings_*" -mtime +7 -delete 2>/dev/null || true
+fi
+
 exit 0
