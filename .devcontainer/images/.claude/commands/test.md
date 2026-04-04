@@ -188,7 +188,7 @@ tdd_cycle:
 
 ### TDD Completion Checklist
 
-```
+```text
 - [ ] Every new function/method has a test
 - [ ] Watched each test fail before implementing
 - [ ] Each test failed for expected reason (not typo)

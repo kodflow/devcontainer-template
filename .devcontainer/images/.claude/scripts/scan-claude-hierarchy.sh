@@ -11,6 +11,12 @@ set +e  # Fail-open
 
 PROJECT_DIR="${1:-${CLAUDE_PROJECT_DIR:-/workspace}}"
 
+# Require jq for JSON output
+if ! command -v jq &>/dev/null; then
+    echo '{"error":"jq not installed","files":[],"total_lines":0,"oversized":[]}' >&2
+    exit 0
+fi
+
 FILES="[]"
 TOTAL_LINES=0
 OVERSIZED="[]"
@@ -21,7 +27,7 @@ while IFS= read -r f; do
     TOTAL_LINES=$((TOTAL_LINES + lines))
 
     # Calculate depth level relative to project root
-    rel_path="${f#$PROJECT_DIR/}"
+    rel_path="${f#"$PROJECT_DIR"/}"
     level=$(echo "$rel_path" | tr -cd '/' | wc -c | tr -d ' ')
 
     FILES=$(echo "$FILES" | jq --arg p "$f" --arg l "$lines" --arg lv "$level" \

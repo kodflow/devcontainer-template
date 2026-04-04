@@ -9,6 +9,12 @@
 
 set +e  # Fail-open
 
+# Require jq for JSON output
+if ! command -v jq &>/dev/null; then
+    echo '{"error":"jq not installed"}' >&2
+    exit 0
+fi
+
 CLAUDE_DIR="$HOME/.claude"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
 

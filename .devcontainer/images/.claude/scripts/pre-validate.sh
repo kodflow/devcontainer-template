@@ -140,7 +140,10 @@ fi
 # === Security Pattern Warnings (allow but warn, once per session) ===
 # Inspired by anthropics/claude-plugins-official/security-guidance
 
+# Sanitize session ID to prevent path traversal
 SESSION_ID="${CLAUDE_SESSION_ID:-unknown}"
+SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'A-Za-z0-9._-')
+SESSION_ID="${SESSION_ID:-unknown}"
 STATE_FILE="$HOME/.claude/.security_warnings_${SESSION_ID}"
 
 CONTENT=""

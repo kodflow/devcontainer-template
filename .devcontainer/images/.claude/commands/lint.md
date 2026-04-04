@@ -135,7 +135,7 @@ detection_order:
 
 ### Makefile-first (any language)
 
-```
+```text
 IF Makefile exists with "lint" target:
   → Run: make lint
   → Parse output, fix issues, re-run until convergence
@@ -144,7 +144,7 @@ IF Makefile exists with "lint" target:
 
 ### Go with ktn-linter
 
-```
+```text
 IF "go" detected AND (ktn-linter binary exists OR cmd/ktn-linter/ dir exists):
   → Read ~/.claude/commands/lint/go.md
   → Execute full 8-phase ktn-linter workflow
@@ -152,7 +152,7 @@ IF "go" detected AND (ktn-linter binary exists OR cmd/ktn-linter/ dir exists):
 
 ### Go without ktn-linter
 
-```
+```text
 IF "go" detected AND no ktn-linter:
   → Read ~/.claude/commands/lint/generic.md
   → Use golangci-lint fallback
@@ -160,7 +160,7 @@ IF "go" detected AND no ktn-linter:
 
 ### Other languages
 
-```
+```text
 FOR each detected language:
   → Read ~/.claude/commands/lint/generic.md
   → Execute lint-fix-iterate with language-specific tools
@@ -168,7 +168,7 @@ FOR each detected language:
 
 ### Multi-language (Agent Teams)
 
-```
+```text
 IF multiple languages detected AND Agent Teams available:
   → Lead handles Phase 0 detection
   → Spawn one teammate per language (lint/generic.md each)

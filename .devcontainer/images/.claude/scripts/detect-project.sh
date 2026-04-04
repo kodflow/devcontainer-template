@@ -16,7 +16,18 @@ PROJECT_DIR="${1:-${CLAUDE_PROJECT_DIR:-/workspace}}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
 
-PROJECT_ROOT=$(find_project_root "$PROJECT_DIR" "$PROJECT_DIR")
+# Guard: find_project_root may not exist if common.sh missing
+if type find_project_root &>/dev/null; then
+    PROJECT_ROOT=$(find_project_root "$PROJECT_DIR" "$PROJECT_DIR")
+else
+    PROJECT_ROOT="$PROJECT_DIR"
+fi
+
+# Require jq for JSON output
+if ! command -v jq &>/dev/null; then
+    echo '{"error":"jq not installed"}' >&2
+    exit 0
+fi
 
 # --- Language detection via markers ---
 LANGUAGES="[]"
@@ -47,7 +58,11 @@ check_marker "python" "pyproject.toml"
 check_marker "java" "pom.xml"
 [ -f "$PROJECT_ROOT/build.gradle" ] && ! echo "$LANGUAGES" | jq -e '.[] | select(.name=="java")' &>/dev/null && add_lang "java" "build.gradle" "$([[ "$FIRST" == true ]] && echo true || echo false)"
 [ -f "$PROJECT_ROOT/build.gradle.kts" ] && ! echo "$LANGUAGES" | jq -e '.[] | select(.name=="kotlin")' &>/dev/null && add_lang "kotlin" "build.gradle.kts" "$([[ "$FIRST" == true ]] && echo true || echo false)"
-check_marker "csharp" "*.csproj"
+# csproj uses glob - check with find instead of -f
+if find "$PROJECT_ROOT" -maxdepth 1 -name "*.csproj" -print -quit 2>/dev/null | grep -q .; then
+    if [ "$FIRST" = true ]; then add_lang "csharp" "*.csproj" true; FIRST=false
+    else add_lang "csharp" "*.csproj" false; fi
+fi
 check_marker "ruby" "Gemfile"
 check_marker "php" "composer.json"
 check_marker "elixir" "mix.exs"
@@ -89,7 +104,8 @@ fi
 tools_json() {
     local result="{}"
     for tool in ktn-linter eslint ruff golangci-lint cargo-clippy rubocop phpstan ktlint swiftlint luacheck shellcheck hadolint clang-tidy mypy tsc prettier; do
-        local safe_name=$(echo "$tool" | tr '-' '_')
+        local safe_name
+        safe_name=$(echo "$tool" | tr '-' '_')
         if command -v "$tool" &>/dev/null; then
             result=$(echo "$result" | jq --arg k "$safe_name" '. + {($k): true}')
         else

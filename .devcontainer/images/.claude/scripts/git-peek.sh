@@ -43,9 +43,12 @@ HEAD_MSG=$(git log -1 --format='%s' 2>/dev/null || echo "")
 
 # --- Diff stats ---
 DIFF_STAT=$(git diff --stat 2>/dev/null || echo "")
-FILES_CHANGED=$(echo "$DIFF_STAT" | tail -1 | grep -oE '[0-9]+ file' | grep -oE '[0-9]+' || echo "0")
-INSERTIONS=$(echo "$DIFF_STAT" | tail -1 | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo "0")
-DELETIONS=$(echo "$DIFF_STAT" | tail -1 | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || echo "0")
+FILES_CHANGED=$(echo "$DIFF_STAT" | tail -1 | grep -oE '[0-9]+ file' | grep -oE '[0-9]+' || echo 0)
+FILES_CHANGED="${FILES_CHANGED:-0}"
+INSERTIONS=$(echo "$DIFF_STAT" | tail -1 | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo 0)
+INSERTIONS="${INSERTIONS:-0}"
+DELETIONS=$(echo "$DIFF_STAT" | tail -1 | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || echo 0)
+DELETIONS="${DELETIONS:-0}"
 
 # --- Recent commits (for style matching) ---
 RECENT_COMMITS=$(git log --oneline -5 2>/dev/null | jq -R . 2>/dev/null | jq -s . 2>/dev/null || echo "[]")

@@ -84,7 +84,7 @@ Intelligent code review using **Recursive Language Model** decomposition:
 - `developer-executor-quality` (haiku) - Style, complexity, metrics
 - `developer-executor-shell` (haiku) - Shell safety, Dockerfile, CI/CD
 
-**Confidence Scoring:** All agents score findings 0-100. Only findings >= 80 are reported.
+**Confidence Scoring:** All agents score findings 0-100. Only findings above reporting threshold are reported (see triage.md: MEDIUM>=75, HIGH>=85, CRITICAL>=95).
 **FP Filtering:** Pre-existing issues, non-modified lines, linter-catchable issues are excluded.
 **Platform Support:** GitHub (PRs) + GitLab (MRs) - auto-detected from git remote.
 **Output:** LOCAL only (no comments posted). Generates /plan for /do execution.

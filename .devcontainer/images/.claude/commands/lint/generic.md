@@ -39,7 +39,7 @@ Select tools based on the detected language. Use the **first available** tool in
 
 ### Step 1: Format first
 
-```
+```text
 Run formatter for detected language (see table above).
 Formatting before linting avoids style-only lint noise.
 ```
@@ -73,7 +73,7 @@ rubocop -A
 
 ### Step 4: Re-run for convergence
 
-```
+```text
 Re-run linter after fixes.
 IF still issues AND iteration < 5:
   → Go back to Step 3
@@ -85,7 +85,7 @@ IF 0 issues:
 
 ### Step 5: Type checking (if available)
 
-```
+```text
 Run type checker for detected language (see table above).
 IF type errors found:
   → Fix type errors (Edit tool)
@@ -95,7 +95,7 @@ IF type errors found:
 
 ### Step 6: Final verification
 
-```
+```text
 Re-run linter one last time to confirm 0 issues.
 Report results.
 ```

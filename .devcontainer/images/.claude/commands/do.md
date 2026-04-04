@@ -170,7 +170,7 @@ Phase 7.0: Final Synthesis
 
 ## 3-Fix Escalation Rule
 
-```
+```text
 IF 3+ fix attempts have failed on the same issue:
   → STOP fixing immediately
   → This signals an ARCHITECTURAL problem, not an implementation problem
