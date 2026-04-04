@@ -407,6 +407,27 @@ execute_workflow:
       github: mcp__github__create_pull_request
       gitlab: mcp__gitlab__create_merge_request
     skip_if: "--no-pr"
+
+    body_format:
+      rule: "STRICT format. Clean markdown. No escaped newlines (\\n). No bot-generated content."
+      template: |
+        ## Summary
+
+        - First change description
+        - Second change description
+        - Third change description
+
+        ## Test plan
+
+        - [ ] First test item
+        - [ ] Second test item
+      rules:
+        - "Use REAL newlines in the body string, NEVER literal \\n"
+        - "Keep it SHORT: max 10 bullet points in Summary"
+        - "Test plan: concrete, checkable items"
+        - "No AI disclaimers, no emojis, no verbose explanations"
+        - "No duplicate of the commit message — PR body adds context the title cannot"
+        - "Bots (Qodo/CodeRabbit) will append their own analysis — keep ours minimal"
 ```
 
 **Final Output (GitHub):**
