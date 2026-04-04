@@ -32,7 +32,8 @@ STATUS_RAW=$(git status --porcelain 2>/dev/null || echo "")
 MODIFIED=$(echo "$STATUS_RAW" | grep -E '^ ?M' | sed 's/^...//;s/^ *//' | jq -R . 2>/dev/null | jq -s . 2>/dev/null || echo "[]")
 UNTRACKED=$(echo "$STATUS_RAW" | grep -E '^\?\?' | sed 's/^...//;s/^ *//' | jq -R . 2>/dev/null | jq -s . 2>/dev/null || echo "[]")
 STAGED=$(echo "$STATUS_RAW" | grep -E '^[ADMR]' | sed 's/^...//;s/^ *//' | jq -R . 2>/dev/null | jq -s . 2>/dev/null || echo "[]")
-CONFLICTS=$(echo "$STATUS_RAW" | grep -E '^(UU|AA|DD)' | sed 's/^...//;s/^ *//' | jq -R . 2>/dev/null | jq -s . 2>/dev/null || echo "[]")
+# All unmerged states: UU, AA, DD, UD, DU, AU, UA
+CONFLICTS=$(echo "$STATUS_RAW" | grep -E '^(UU|AA|DD|UD|DU|AU|UA)' | sed 's/^...//;s/^ *//' | jq -R . 2>/dev/null | jq -s . 2>/dev/null || echo "[]")
 HAS_LOCK=false
 [ -f "$PROJECT_DIR/.git/index.lock" ] && HAS_LOCK=true
 

@@ -24,6 +24,12 @@ WORKTREE_BASE="$HOME/.claude/worktrees"
 mkdir -p "$WORKTREE_BASE" 2>/dev/null || true
 
 if [ -n "$WORKTREE_NAME" ]; then
+    # Sanitize name: strip path traversal and unsafe characters
+    WORKTREE_NAME=$(echo "$WORKTREE_NAME" | tr -cd 'A-Za-z0-9._-' | head -c 64)
+    if [ -z "$WORKTREE_NAME" ]; then
+        echo "ERROR: worktree name is empty after sanitization" >&2
+        exit 1
+    fi
     WORKTREE_PATH="$WORKTREE_BASE/$WORKTREE_NAME"
 
     # === Pre-validation checks ===
