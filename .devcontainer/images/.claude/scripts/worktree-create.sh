@@ -34,10 +34,9 @@ if [ -n "$WORKTREE_NAME" ]; then
 
     # === Pre-validation checks ===
 
-    # Check git index lock
+    # Auto-remove stale git index lock (common with GitKraken/parallel tools)
     if [ -f "$PROJECT_DIR/.git/index.lock" ]; then
-        echo "ERROR: git index.lock exists — another git process may be running. If stale: rm $PROJECT_DIR/.git/index.lock" >&2
-        exit 1
+        rm -f "$PROJECT_DIR/.git/index.lock" 2>/dev/null || true
     fi
 
     # Check if worktree already exists
