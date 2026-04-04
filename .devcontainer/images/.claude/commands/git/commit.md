@@ -23,9 +23,20 @@ peek_workflow:
     action: "Based on git-peek.sh JSON output, decide:"
     decision:
       - "branch.is_protected == true → MUST create new branch"
-      - "status.has_lock == true → Remove lock or abort"
-      - "status.conflicts is not empty → Resolve conflicts first"
-      - "identity.name is empty → Ask user for identity"
+      - "status.has_lock == true → Remove lock file (rm .git/index.lock) or abort"
+      - "status.conflicts is not empty → BLOCK commit. Show conflicts list. Suggest: resolve conflicts first, then retry"
+      - "identity.name is empty → Ask user for identity via AskUserQuestion"
+      - "worktree.active_count > 0 → WARN: active worktrees exist, verify no conflicts"
+
+  2.5_conflict_gate:
+    rule: "ABSOLUTE BLOCK if conflicts detected"
+    check: "status.conflicts array from git-peek.sh"
+    if_not_empty: |
+      BLOCK the commit immediately. Display:
+        "Merge conflicts detected in N files: [list].
+         Resolve conflicts before committing.
+         Run: git mergetool or manually edit conflicted files."
+      DO NOT proceed to Phase 3.0.
 ```
 
 **Output Phase 1:**

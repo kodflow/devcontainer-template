@@ -70,6 +70,22 @@ if [ -n "$REMOTE_URL" ]; then
     REPO=$(echo "$ORG_REPO" | cut -d'/' -f2)
 fi
 
+# --- Worktree state ---
+WORKTREE_COUNT=$(git -C "$PROJECT_DIR" worktree list 2>/dev/null | wc -l | tr -d ' ')
+WORKTREE_COUNT=$((WORKTREE_COUNT - 1))  # Subtract main worktree
+[ "$WORKTREE_COUNT" -lt 0 ] && WORKTREE_COUNT=0
+IN_WORKTREE=false
+CURRENT_WT=""
+MAIN_WT=$(git -C "$PROJECT_DIR" worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //')
+if [ -n "$MAIN_WT" ] && [ "$PROJECT_DIR" != "$MAIN_WT" ]; then
+    IN_WORKTREE=true
+    CURRENT_WT=$(basename "$PROJECT_DIR")
+fi
+# Divergence from default branch
+DIVERGE_AHEAD=$(git -C "$PROJECT_DIR" rev-list --count "origin/${DEFAULT_BRANCH}..HEAD" 2>/dev/null || echo 0)
+DIVERGE_AHEAD=$(echo "$DIVERGE_AHEAD" | tr -d '[:space:]')
+DIVERGE_AHEAD="${DIVERGE_AHEAD:-0}"
+
 # --- .env identity (if exists) ---
 ENV_NAME=""
 ENV_EMAIL=""
@@ -105,6 +121,10 @@ jq -n \
     --arg repo "$REPO" \
     --arg env_name "$ENV_NAME" \
     --arg env_email "$ENV_EMAIL" \
+    --arg wt_count "$WORKTREE_COUNT" \
+    --argjson in_worktree "$IN_WORKTREE" \
+    --arg current_wt "$CURRENT_WT" \
+    --arg diverge_ahead "$DIVERGE_AHEAD" \
     '{
         identity: {name: $name, email: $email, gpg_signing: ($gpg_sign == "true"), signing_key: $signing_key, env_name: $env_name, env_email: $env_email},
         branch: {current: $current, default: $default, is_protected: $is_protected, needs_creation: $is_protected},
@@ -112,5 +132,6 @@ jq -n \
         head: {sha: $sha, short_sha: $short_sha, message: $message},
         diff_stats: {files_changed: ($files_changed | tonumber), insertions: ($insertions | tonumber), deletions: ($deletions | tonumber)},
         recent_commits: $recent_commits,
-        remote: {url: $remote_url, platform: $platform, org: $org, repo: $repo}
+        remote: {url: $remote_url, platform: $platform, org: $org, repo: $repo},
+        worktree: {active_count: ($wt_count | tonumber), in_worktree: $in_worktree, current_worktree: (if $current_wt == "" then null else $current_wt end), divergence_ahead: ($diverge_ahead | tonumber)}
     }'

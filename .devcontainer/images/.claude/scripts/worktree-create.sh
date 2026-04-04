@@ -26,6 +26,29 @@ mkdir -p "$WORKTREE_BASE" 2>/dev/null || true
 if [ -n "$WORKTREE_NAME" ]; then
     WORKTREE_PATH="$WORKTREE_BASE/$WORKTREE_NAME"
 
+    # === Pre-validation checks ===
+
+    # Check git index lock
+    if [ -f "$PROJECT_DIR/.git/index.lock" ]; then
+        echo "ERROR: git index.lock exists — another git process is running" >&2
+        exit 1
+    fi
+
+    # Check if worktree already exists
+    if [ -d "$WORKTREE_PATH" ]; then
+        echo "ERROR: worktree already exists at $WORKTREE_PATH" >&2
+        exit 1
+    fi
+
+    # Warn about uncommitted changes (non-blocking)
+    DIRTY=$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | head -1)
+    if [ -n "$DIRTY" ]; then
+        echo "WARNING: uncommitted changes in main repo — worktree will be based on last commit" >&2
+    fi
+
+    # Fetch latest to ensure base is fresh
+    git -C "$PROJECT_DIR" fetch origin 2>/dev/null || true
+
     # Create the worktree
     git -C "$PROJECT_DIR" worktree add "$WORKTREE_PATH" 2>/dev/null
     RC=$?

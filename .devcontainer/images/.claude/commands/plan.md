@@ -49,6 +49,7 @@ Planning mode with **RLM** patterns:
 | Pattern | Action |
 |---------|--------|
 | `<description>` | Plans the implementation of the feature/fix |
+| `--auto` | Auto mode: no questions, AI reasons internally and presents final plan |
 | `--context` | Auto-detect most recent `.claude/contexts/*.md` |
 | `--context=<name>` | Load specific `.claude/contexts/{name}.md` |
 | `--help` | Show help |
@@ -66,6 +67,7 @@ Usage: /plan <description> [options]
 
 Options:
   <description>     What to implement
+  --auto            No questions — AI reasons internally, presents final plan
   --context         Load most recent .claude/contexts/*.md
   --context=<name>  Load specific .claude/contexts/{name}.md
   --help            Show this help
@@ -96,6 +98,34 @@ Examples:
 | 1.0-3.0 | Read ~/.claude/commands/plan/explore.md | Peek + Decompose + Parallelize |
 | 4.0 | Read ~/.claude/commands/plan/patterns.md | Pattern consultation + DTO convention |
 | 5.0-6.0 | Read ~/.claude/commands/plan/synthesize.md | Plan generation + complexity check + validation |
+
+---
+
+## Auto Mode (`--auto`)
+
+When `--auto` is passed, ALL interactive checkpoints are skipped:
+- Phase 1.5 (validate scope) → AI decides scope internally
+- Phase 2.5 (validate objectives) → AI decides decomposition internally
+- Phase 2.5 (propose approaches) → AI picks best approach with internal reasoning
+- Phase 5.9 (risk review) → AI assesses risks internally
+- Plan is presented at the end for user review via ExitPlanMode
+
+The AI documents its reasoning in the plan file under a "## Reasoning" section so the user can review why choices were made.
+
+**When to use `--auto`:** When you trust the AI's judgment and want speed over interaction. You always review the final plan before `/do`.
+
+---
+
+## Auto-Grouping (Parallelization Table)
+
+When generating the Parallelization table, the AI MUST:
+1. Scan all files to modify
+2. Map import/dependency chains between them
+3. Group files that share NO dependencies into parallel steps
+4. Flag shared files (package.json, go.mod, config) as sequential
+5. Present groups with confidence level
+
+This replaces manual file tagging with automatic dependency analysis.
 
 ---
 

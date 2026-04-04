@@ -61,6 +61,35 @@ peek_workflow:
 
 ---
 
+## Phase 1.5: Validate Scope (INTERACTIVE CHECKPOINT)
+
+**Skip if `--auto` mode. In auto mode, AI decides scope internally and documents reasoning.**
+
+```yaml
+validate_scope:
+  tool: AskUserQuestion
+  trigger: "After Phase 1.0 output — SKIP if --auto flag"
+  present: "The Peek Analysis output above"
+  question: "Le scope identifie est-il correct ?"
+  options:
+    - label: "Oui, continue"
+      description: "Decomposer la tache avec ce scope"
+    - label: "Elargir le scope"
+      description: "Ajouter des repertoires ou fichiers a explorer"
+    - label: "Restreindre le scope"
+      description: "Se concentrer sur un sous-ensemble"
+
+  on_elargir:
+    action: "Ask: Quels repertoires/fichiers ajouter ?"
+    then: "Re-run Phase 1.0 with expanded scope"
+
+  on_restreindre:
+    action: "Ask: Quel sous-ensemble garder ?"
+    then: "Filter Phase 1.0 results, continue to Phase 2.0"
+```
+
+---
+
 ## Phase 2.0: Decompose (RLM Pattern)
 
 **Split the task into subtasks:**
@@ -89,6 +118,39 @@ decompose_workflow:
   3_order_dependencies:
     action: "Order by dependency"
     output: "ordered_tasks[]"
+```
+
+---
+
+## Phase 2.5: Validate Objectives (INTERACTIVE CHECKPOINT)
+
+**Skip if `--auto` mode. In auto mode, AI validates objectives internally.**
+
+```yaml
+validate_objectives:
+  tool: AskUserQuestion
+  trigger: "After Phase 2.0 — SKIP if --auto flag"
+  present: |
+    Numbered list of objectives with:
+    - Priority order
+    - Domain (backend/frontend/infra/test)
+    - Dependencies between objectives
+  question: "Est-ce le bon decoupage ?"
+  options:
+    - label: "Oui, lance l'exploration"
+      description: "Explorer le codebase avec ces objectifs"
+    - label: "Modifier les objectifs"
+      description: "Ajouter, supprimer ou reformuler des objectifs"
+    - label: "Reordonner les priorites"
+      description: "Changer l'ordre d'execution"
+
+  on_modifier:
+    action: "Incorporate changes, update objectives list"
+    then: "Re-present for validation"
+
+  on_reordonner:
+    action: "Ask: Quel ordre preferes-tu ?"
+    then: "Reorder and re-present"
 ```
 
 ---
