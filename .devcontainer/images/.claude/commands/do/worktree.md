@@ -47,8 +47,9 @@ worktree_dispatch:
     trigger: "ALWAYS after all agents complete, BEFORE any merge"
     algorithm: |
       For each pair of worktree branches (A, B):
-        files_A = git diff --name-only main..branch-A
-        files_B = git diff --name-only main..branch-B
+        DEFAULT=$(git symbolic-ref refs/remotes/origin/HEAD --short || echo origin/main)
+        files_A = git diff --name-only ${DEFAULT}..branch-A
+        files_B = git diff --name-only ${DEFAULT}..branch-B
         overlap = intersection(files_A, files_B)
 
       IF overlap is not empty:

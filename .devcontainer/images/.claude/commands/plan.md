@@ -105,8 +105,8 @@ Examples:
 
 When `--auto` is passed, ALL interactive checkpoints are skipped:
 - Phase 1.5 (validate scope) → AI decides scope internally
-- Phase 2.5 (validate objectives) → AI decides decomposition internally
-- Phase 2.5 (propose approaches) → AI picks best approach with internal reasoning
+- Phase 2.5 (validate objectives, explore.md) → AI decides decomposition internally
+- Phase 3.5 (propose approaches, synthesize.md) → AI picks best approach with internal reasoning
 - Phase 5.9 (risk review) → AI assesses risks internally
 - Plan is presented at the end for user review via ExitPlanMode
 
