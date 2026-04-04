@@ -234,6 +234,34 @@ documentation:
     - "Check framework-specific security docs"
 ```
 
+## False Positive Exclusion Rules (MANDATORY)
+
+```yaml
+fp_exclusions:
+  do_not_report:
+    - "Denial of Service vulnerabilities (out of scope for code review)"
+    - "Rate limiting concerns (infrastructure responsibility)"
+    - "Memory safety issues in Rust or other memory-safe languages"
+    - "Issues found only in unit test files"
+    - "SSRF with path-only control (no host control)"
+    - "Regex injection/DoS (unless user-controlled pattern)"
+    - "Purely theoretical race conditions without realistic trigger"
+    - "Hardcoded secrets on disk (handled by git-guard hook separately)"
+    - "Log spoofing concerns"
+    - "Lack of hardening (code is not expected to implement all best practices)"
+    - "User content in AI prompts (prompt injection out of scope)"
+    - "Documentation/markdown files"
+    - "Third-party library vulnerabilities (managed by dependency scanning tools)"
+    - "GitHub Action workflow input sanitization (unless clearly exploitable)"
+
+  confidence_rule: |
+    Before reporting any finding, verify:
+    1. Is the data flow actually reachable from untrusted input?
+    2. Is there an existing sanitizer in the call chain?
+    3. Is this a pre-existing pattern (not introduced by this change)?
+    If any answer causes doubt, set confidence_pct < 75 (finding will be excluded).
+```
+
 ## Severity Mapping
 
 | Level | Criteria |

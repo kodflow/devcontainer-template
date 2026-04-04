@@ -2,27 +2,31 @@
 
 ## Phase 1.0: Context Detection
 
-**Identify the execution context (GitHub/GitLab auto-detected):**
+**Run `review-context.sh` to collect ALL context in ONE call:**
+
+```bash
+bash ~/.claude/scripts/review-context.sh
+```
+
+Returns JSON with: `git{branch, platform, org, repo}`, `diff{files, stats}`, `repo_profile{lint_configs}`, `pr{exists, number}`.
+
+Use this output for ALL decisions. DO NOT re-run individual git commands.
+
+**Then route based on platform:**
 
 ```yaml
 context_detection:
-  1_git_state:
-    tools:
-      - "git remote -v"
-      - "git branch --show-current"
-      - "git rev-parse --abbrev-ref HEAD@{upstream} 2>/dev/null || echo 'no-upstream'"
-    output:
-      current_branch: string
-      upstream: string
-      remote: "origin" | "upstream"
+  1_collect:
+    command: "bash ~/.claude/scripts/review-context.sh"
+    output: "JSON with git context, diff, repo profile, PR detection"
 
   1.5_platform_detection:
     rule: |
-      remote_url = git remote get-url origin
-      IF remote_url contains "github.com":
+      From review-context.sh JSON:
+      IF git.platform == "github":
         platform = "github"
         mcp_prefix = "mcp__github__"
-      ELSE IF remote_url contains "gitlab.com" OR "gitlab.":
+      ELSE IF git.platform == "gitlab":
         platform = "gitlab"
         mcp_prefix = "mcp__gitlab__"
       ELSE:

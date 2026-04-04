@@ -53,6 +53,7 @@ E2E tests and frontend debugging with **RLM** patterns:
 |---------|--------|
 | `<url>` | Open the URL and explore the page |
 | `--run` | Run the project's Playwright tests |
+| `--tdd` | TDD mode: RED-GREEN-REFACTOR cycle enforcement |
 | `--debug <url>` | Interactive debug mode |
 | `--trace` | Enable tracing for the session |
 | `--screenshot <url>` | Screenshot the page |
@@ -117,5 +118,83 @@ Examples:
 
 1. **Any URL action**: Start with Phase 1.0 Peek from `workflow.md`
 2. **--run / --trace / --codegen**: Execute specific workflow from `workflow.md`
-3. **MCP tool reference**: Refer to `playwright.md` for tool details
-4. **Guardrails**: Refer to `playwright.md` for safety rules
+3. **--tdd**: Execute TDD workflow below
+4. **MCP tool reference**: Refer to `playwright.md` for tool details
+5. **Guardrails**: Refer to `playwright.md` for safety rules
+
+---
+
+## TDD Mode (`--tdd`)
+
+Test-Driven Development cycle enforcement. Use when building new features or fixing bugs.
+
+**Iron Law:** If you didn't watch the test fail, you don't know if it tests the right thing.
+
+### RED-GREEN-REFACTOR Cycle
+
+```yaml
+tdd_cycle:
+  RED:
+    action: "Write ONE minimal failing test showing expected behavior"
+    test_name: "Descriptive name of the behavior being tested"
+    use_real_code: "No mocks unless absolutely unavoidable"
+
+  VERIFY_RED:
+    action: "Run test suite, confirm the NEW test FAILS"
+    check:
+      - "Failure is for the RIGHT reason (feature missing, not typo)"
+      - "Failure message is meaningful and expected"
+      - "If test passes → you're testing existing behavior, fix the test"
+
+  GREEN:
+    action: "Write the MINIMAL code to make the test pass"
+    rules:
+      - "Simplest possible implementation"
+      - "Don't add features beyond what the test requires"
+      - "Don't refactor during this step"
+      - "Don't improve other code"
+
+  VERIFY_GREEN:
+    action: "Run test suite, confirm the NEW test PASSES"
+    check:
+      - "New test passes"
+      - "ALL other tests still pass"
+      - "No warnings or errors in output"
+
+  REFACTOR:
+    action: "Clean up code while keeping tests green"
+    allowed:
+      - "Remove duplication"
+      - "Improve naming"
+      - "Extract helpers"
+    forbidden:
+      - "Adding new behavior"
+      - "Changing test expectations"
+
+  COMMIT:
+    action: "Commit after each green-refactor cycle"
+```
+
+### TDD Anti-patterns (STOP immediately)
+
+| Pattern | Problem |
+|---------|---------|
+| Writing code before test | Proves nothing when test passes |
+| Test passes immediately | You're testing existing behavior |
+| Multiple changes before running | Can't isolate what worked |
+| "Too simple to test" | Simple code breaks. Test takes 30 seconds. |
+| "I'll test after" | Tests-after answer "what does it do?" not "what should it do?" |
+| "Keep code as reference, write tests" | You'll adapt it. That's testing after. |
+
+### TDD Completion Checklist
+
+```text
+- [ ] Every new function/method has a test
+- [ ] Watched each test fail before implementing
+- [ ] Each test failed for expected reason (not typo)
+- [ ] Wrote minimal code to pass each test
+- [ ] All tests pass
+- [ ] Output pristine (no errors, warnings)
+- [ ] Tests use real code (mocks only if unavoidable)
+- [ ] Edge cases and error paths covered
+```

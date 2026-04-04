@@ -6,31 +6,26 @@ Phases for the `--commit` action after identity validation (Phase 1.0).
 
 ## Phase 2.0: Peek (RLM Pattern)
 
-**Analyze git state BEFORE any action:**
+**Collect ALL git context in a single script call:**
 
 ```yaml
 peek_workflow:
-  1_status:
-    action: "Check repo state (ALL modifications, not just current task)"
-    commands:
-      - "git status --porcelain"
-      - "git branch --show-current"
-      - "git log -1 --format='%h %s'"
+  1_collect_all:
+    action: "Run git-peek.sh to get identity, branch, status, diff, remote in ONE call"
+    command: "bash ~/.claude/scripts/git-peek.sh"
+    returns: "JSON with identity, branch, status, head, diff_stats, remote"
     critical_rule: |
-      LIST ALL modified files — including CLAUDE.md, .devcontainer/,
-      .claude/commands/. NEVER ignore tracked modified files.
-      git status --porcelain shows EVERYTHING that is tracked and modified.
-      Gitignored files DO NOT APPEAR → no risk of including them.
+      This script replaces 13 sequential git commands.
+      READ the JSON output and make decisions based on it.
+      DO NOT re-run individual git commands — all data is in the JSON.
 
-  2_changes:
-    action: "Analyze changes"
-    tools: [Bash(git diff --stat)]
-
-  3_branch_check:
-    action: "Check current branch"
+  2_decisions:
+    action: "Based on git-peek.sh JSON output, decide:"
     decision:
-      - "main/master → MUST create new branch"
-      - "feat/* | fix/* → Check coherence"
+      - "branch.is_protected == true → MUST create new branch"
+      - "status.has_lock == true → Remove lock or abort"
+      - "status.conflicts is not empty → Resolve conflicts first"
+      - "identity.name is empty → Ask user for identity"
 ```
 
 **Output Phase 1:**

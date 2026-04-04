@@ -156,6 +156,45 @@ Phase 7.0: Final Synthesis
 
 ---
 
+## Rationalization Prevention (MANDATORY)
+
+| Excuse You Might Think | Reality |
+|------------------------|---------|
+| "Issue is simple, don't need process" | Simple issues have root causes too. Process is fast. |
+| "Emergency, no time for process" | Systematic is FASTER than guess-and-check thrashing. |
+| "Just try this first, then investigate" | First fix sets the pattern. Do it right from start. |
+| "I see the problem, let me fix it" | Seeing symptoms ≠ understanding root cause. |
+| "One more fix attempt (after 2+)" | 3+ failures = architectural problem. STOP and escalate. |
+| "Should work now" | Run verification. Evidence before claims. |
+| "I'm confident it's fixed" | Confidence ≠ evidence. Run the tests. |
+
+## 3-Fix Escalation Rule
+
+```text
+IF 3+ fix attempts have failed on the same issue:
+  → STOP fixing immediately
+  → This signals an ARCHITECTURAL problem, not an implementation problem
+  → Question the approach, not the implementation
+  → Escalate to user with AskUserQuestion explaining what was tried
+```
+
+## Verification Before Completion
+
+```yaml
+verification_gate:
+  rule: "NO completion claims without fresh verification evidence"
+  forbidden_phrases:
+    - "Should work now"
+    - "Probably fixed"
+    - "Looks correct"
+    - "Seems to work"
+  required: "Run verification command, read FULL output, confirm with evidence"
+  format: "[Run command] [See: output] → 'Verified: [claim]'"
+  example:
+    good: "[Run: make test] [See: 34/34 pass] → 'Verified: all tests pass'"
+    bad: "'Should pass now' / 'Looks correct' / 'I'm confident'"
+```
+
 ## Quick Guardrails
 
 | Action | Status |
@@ -167,3 +206,5 @@ Phase 7.0: Final Synthesis
 | Subjective criteria | **FORBIDDEN** |
 | Modify .claude/ or .devcontainer/ | **FORBIDDEN** |
 | More than 50 iterations | **FORBIDDEN** |
+| Claims without verification evidence | **FORBIDDEN** |
+| 3+ fix attempts without escalation | **FORBIDDEN** |
