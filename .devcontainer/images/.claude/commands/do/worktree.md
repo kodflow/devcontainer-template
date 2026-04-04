@@ -42,17 +42,57 @@ worktree_dispatch:
       - "Launch ALL parallel agents in SINGLE message"
       - "Wait for all to complete"
 
-  5_merge:
-    tool: AskUserQuestion
-    question: "All worktrees complete. Merge branches into current branch?"
-    actions:
-      - "git merge --no-ff <worktree-branch> for each"
-      - "Resolve conflicts if any"
-      - "Continue to next group or Phase 7.0"
+  4.5_file_overlap_check:
+    action: "Before merging, check if parallel agents modified same files"
+    trigger: "ALWAYS after all agents complete, BEFORE any merge"
+    algorithm: |
+      For each pair of worktree branches (A, B):
+        DEFAULT=$(git symbolic-ref refs/remotes/origin/HEAD --short || echo origin/main)
+        files_A = git diff --name-only ${DEFAULT}..branch-A
+        files_B = git diff --name-only ${DEFAULT}..branch-B
+        overlap = intersection(files_A, files_B)
+
+      IF overlap is not empty:
+        Show overlapping files to user
+        AskUserQuestion:
+          - "Merge sequentially (resolve conflicts manually)"
+          - "Abort conflicting worktree (keep the other)"
+          - "Abort all worktrees"
+    warning_files:
+      - "package.json, go.mod, Cargo.toml → dependency conflicts likely"
+      - "*.lock, go.sum → regenerate after merge"
+      - "CLAUDE.md → merge both sections"
+
+  5_pre_merge_test:
+    action: "Test merge before committing (like /git --merge Phase 5.0)"
+    trigger: "For EACH branch before actual merge"
+    steps:
+      - "git merge --no-commit --no-ff <worktree-branch>"
+      - "IF merge conflicts → show diff, AskUserQuestion: resolve or abort?"
+      - "IF clean merge → run tests (if available and < 60s)"
+      - "git merge --abort (rollback test merge)"
+    if_test_fails:
+      - "Show test failures to user"
+      - "AskUserQuestion: Fix and retry, or skip this worktree?"
+
+  5.5_actual_merge:
+    action: "Actual merge after pre-merge test passes"
+    for_each_branch:
+      - "git merge --no-ff <worktree-branch>"
+      - "If conflicts: show diff, AskUserQuestion for resolution"
+      - "After merge: run tests again to confirm"
+      - "ExitWorktree(action='remove') to cleanup"
+    commit: "Merge worktree results are committed as merge commits"
+
+  6_continue:
+    action: "Continue to next group or Phase 7.0 (Synthesis)"
 ```
 
 **Guardrails:**
 - NEVER create worktrees without user confirmation
+- NEVER merge without pre-merge test
+- ALWAYS check file overlap between parallel branches
 - Max parallel agents = nproc (CPU count)
 - If ANY worktree fails, pause and ask user before continuing
 - Worktrees are cleaned up after merge (ExitWorktree action=remove)
+- If merge conflicts detected, ALWAYS escalate to user (never auto-resolve silently)

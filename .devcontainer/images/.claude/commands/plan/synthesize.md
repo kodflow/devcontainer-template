@@ -41,8 +41,24 @@ synthesize_workflow:
   2_consolidate:
     action: "Merge into coherent plan"
 
+  2.5_propose_approaches:
+    rule: "Propose 2-3 approaches with trade-offs BEFORE picking one"
+    trigger: "After consolidation, before plan generation — SKIP AskUserQuestion if --auto (pick best internally, document reasoning in plan)"
+    format: |
+      Present each approach with:
+      - Name (e.g., "Minimal change", "Clean architecture", "Pragmatic balance")
+      - Advantages (2-3 bullets)
+      - Disadvantages (2-3 bullets)
+      - Files touched (count)
+      - Complexity (low/medium/high)
+      - Your recommendation with reasoning
+    tool: AskUserQuestion
+    question: "Quelle approche preferes-tu ?"
+    options_dynamic: true  # Options generated from analysis
+    exception: "For trivial tasks (< 3 files), skip and use the obvious approach"
+
   3_generate:
-    format: "Structured plan document"
+    format: "Structured plan document based on CHOSEN approach"
 
   4_persist_to_disk:
     action: "Write plan to .claude/plans/{slug}.md"
@@ -172,6 +188,34 @@ complexity_check:
 ```
 
 **If <= 15 files:** Skip this phase silently, proceed to Phase 6.0.
+
+---
+
+## Phase 5.9: Risk Review (INTERACTIVE CHECKPOINT)
+
+**MANDATORY: Present risks before final validation.**
+
+```yaml
+risk_review:
+  trigger: "Before Phase 6.0 — SKIP AskUserQuestion if --auto (assess risks internally, include in plan)"
+  present: "Risks & Mitigations table from the generated plan"
+  tool: AskUserQuestion
+  question: "Voici les risques identifies. Sont-ils acceptables ?"
+  options:
+    - label: "Oui, genere le plan final"
+      description: "Les risques sont acceptables, continuer"
+    - label: "Ajouter des mitigations"
+      description: "Je veux renforcer la gestion de certains risques"
+    - label: "Changer d'approche"
+      description: "Ces risques sont trop importants, revenir au choix d'approche"
+
+  on_ajouter:
+    action: "Ask: Quels risques renforcer ? Quelle mitigation ?"
+    then: "Update plan risks table, re-present"
+
+  on_changer:
+    action: "Return to Phase 2.5 (propose approaches)"
+```
 
 ---
 

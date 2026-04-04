@@ -24,7 +24,35 @@ WORKTREE_BASE="$HOME/.claude/worktrees"
 mkdir -p "$WORKTREE_BASE" 2>/dev/null || true
 
 if [ -n "$WORKTREE_NAME" ]; then
+    # Sanitize name: strip path traversal and unsafe characters
+    WORKTREE_NAME=$(echo "$WORKTREE_NAME" | tr -cd 'A-Za-z0-9._-' | head -c 64)
+    if [ -z "$WORKTREE_NAME" ]; then
+        echo "ERROR: worktree name is empty after sanitization" >&2
+        exit 1
+    fi
     WORKTREE_PATH="$WORKTREE_BASE/$WORKTREE_NAME"
+
+    # === Pre-validation checks ===
+
+    # Auto-remove stale git index lock (common with GitKraken/parallel tools)
+    if [ -f "$PROJECT_DIR/.git/index.lock" ]; then
+        rm -f "$PROJECT_DIR/.git/index.lock" 2>/dev/null || true
+    fi
+
+    # Check if worktree already exists
+    if [ -d "$WORKTREE_PATH" ]; then
+        echo "ERROR: worktree already exists at $WORKTREE_PATH" >&2
+        exit 1
+    fi
+
+    # Warn about uncommitted changes (non-blocking)
+    DIRTY=$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | head -1)
+    if [ -n "$DIRTY" ]; then
+        echo "WARNING: uncommitted changes in main repo — worktree will be based on last commit" >&2
+    fi
+
+    # Fetch latest to ensure base is fresh
+    git -C "$PROJECT_DIR" fetch origin 2>/dev/null || true
 
     # Create the worktree
     git -C "$PROJECT_DIR" worktree add "$WORKTREE_PATH" 2>/dev/null
