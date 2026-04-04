@@ -125,7 +125,7 @@ When generating the Parallelization table, the AI MUST:
 4. Flag shared files (package.json, go.mod, config) as sequential
 5. Present groups with confidence level
 
-This replaces manual file tagging with automatic dependency analysis.
+Auto-grouping is the PRIMARY method. Manual `worktree: yes/no` tags in the Parallelization table (see synthesize.md) serve as OVERRIDES when the AI's automatic grouping needs correction. Precedence: manual tags > auto-grouping.
 
 ---
 
