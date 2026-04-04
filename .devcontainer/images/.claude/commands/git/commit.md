@@ -23,7 +23,7 @@ peek_workflow:
     action: "Based on git-peek.sh JSON output, decide:"
     decision:
       - "branch.is_protected == true → MUST create new branch"
-      - "status.has_lock == true → Remove lock file (rm .git/index.lock) or abort"
+      - "status.has_lock == true → Check if a git process is running (ps aux | grep git). If stale (no process, lock age > 5min): rm .git/index.lock. Otherwise: wait or abort."
       - "status.conflicts is not empty → BLOCK commit. Show conflicts list. Suggest: resolve conflicts first, then retry"
       - "identity.name is empty → Ask user for identity via AskUserQuestion"
       - "worktree.active_count > 0 → WARN: active worktrees exist, verify no conflicts"
