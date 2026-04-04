@@ -36,7 +36,7 @@ if [ -n "$WORKTREE_NAME" ]; then
 
     # Check git index lock
     if [ -f "$PROJECT_DIR/.git/index.lock" ]; then
-        echo "ERROR: git index.lock exists — another git process is running" >&2
+        echo "ERROR: git index.lock exists — another git process may be running. If stale: rm $PROJECT_DIR/.git/index.lock" >&2
         exit 1
     fi
 

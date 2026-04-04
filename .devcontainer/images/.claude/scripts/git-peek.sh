@@ -77,8 +77,9 @@ WORKTREE_COUNT=$((WORKTREE_COUNT - 1))  # Subtract main worktree
 [ "$WORKTREE_COUNT" -lt 0 ] && WORKTREE_COUNT=0
 IN_WORKTREE=false
 CURRENT_WT=""
-MAIN_WT=$(git -C "$PROJECT_DIR" worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //')
-if [ -n "$MAIN_WT" ] && [ "$PROJECT_DIR" != "$MAIN_WT" ]; then
+MAIN_WT=$(git -C "$PROJECT_DIR" worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //' | sed 's|/$||')
+NORMALIZED_PROJECT_DIR=$(echo "$PROJECT_DIR" | sed 's|/$||')
+if [ -n "$MAIN_WT" ] && [ "$NORMALIZED_PROJECT_DIR" != "$MAIN_WT" ]; then
     IN_WORKTREE=true
     CURRENT_WT=$(basename "$PROJECT_DIR")
 fi
