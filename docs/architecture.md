@@ -74,7 +74,17 @@ User intent (slash command)
 | grepai | Local MCP | Semantic code search, call graphs |
 | context7 | `@upstash/context7-mcp` | Official library documentation (image fragment) |
 | Playwright | `@playwright/mcp` | Browser automation, E2E testing (browser feature) |
-| ktn-linter | Local MCP | Code linting (image fragment) |
+| ktn-linter | Local MCP | Code linting — MCP server + hook provider (Go feature fragment) |
+
+### ktn-linter Integration Model
+
+ktn-linter has a dual role: **MCP server** (linting tools) and **hook provider** (PreToolUse/PostToolUse/Stop).
+
+- **Template responsibility**: installs binary, registers MCP fragment, declares hook wrapper scripts in `settings.json`
+- **ktn-linter responsibility**: HTTP server with lint logic, ScanReport formatting, severity ordering
+- **Integration**: 3 wrapper scripts (`ktn-*.sh`) call ktn-linter HTTP endpoints with graceful degradation
+
+See [ktn-linter-integration.md](ktn-linter-integration.md) for the full contract.
 
 ## Volumes
 

@@ -49,6 +49,7 @@ Planning mode with **RLM** patterns:
 | Pattern | Action |
 |---------|--------|
 | `<description>` | Plans the implementation of the feature/fix |
+| `--auto` | Auto mode: no questions, AI reasons internally and presents final plan |
 | `--context` | Auto-detect most recent `.claude/contexts/*.md` |
 | `--context=<name>` | Load specific `.claude/contexts/{name}.md` |
 | `--help` | Show help |
@@ -66,6 +67,7 @@ Usage: /plan <description> [options]
 
 Options:
   <description>     What to implement
+  --auto            No questions — AI reasons internally, presents final plan
   --context         Load most recent .claude/contexts/*.md
   --context=<name>  Load specific .claude/contexts/{name}.md
   --help            Show this help
@@ -99,6 +101,34 @@ Examples:
 
 ---
 
+## Auto Mode (`--auto`)
+
+When `--auto` is passed, ALL interactive checkpoints are skipped:
+- Phase 1.5 (validate scope) → AI decides scope internally
+- Phase 2.5 (validate objectives, explore.md) → AI decides decomposition internally
+- Phase 3.5 (propose approaches, synthesize.md) → AI picks best approach with internal reasoning
+- Phase 5.9 (risk review) → AI assesses risks internally
+- Plan is presented at the end for user review via ExitPlanMode
+
+The AI documents its reasoning in the plan file under a "## Reasoning" section so the user can review why choices were made.
+
+**When to use `--auto`:** When you trust the AI's judgment and want speed over interaction. You always review the final plan before `/do`.
+
+---
+
+## Auto-Grouping (Parallelization Table)
+
+When generating the Parallelization table, the AI MUST:
+1. Scan all files to modify
+2. Map import/dependency chains between them
+3. Group files that share NO dependencies into parallel steps
+4. Flag shared files (package.json, go.mod, config) as sequential
+5. Present groups with confidence level
+
+Auto-grouping is the PRIMARY method. Manual `worktree: yes/no` tags in the Parallelization table (see synthesize.md) serve as OVERRIDES when the AI's automatic grouping needs correction. Precedence: manual tags > auto-grouping.
+
+---
+
 ## Execution Flow
 
 ```
@@ -125,15 +155,40 @@ Phase 5.0: Synthesize (RLM Pattern)
   → Persist to .claude/plans/{slug}.md
   → Persist context to .claude/contexts/{slug}.md
   → Add worktree parallelization table (if applicable)
+  → Each exploration agent MUST return 5-10 essential files list
 
-Phase 5.5: Complexity Check
+Phase 5.5: Spec Self-Review (before submitting plan)
+  → Placeholder scan: Any TBD, TODO, incomplete sections?
+  → Internal consistency: Do sections contradict?
+  → Scope check: Focused enough for single implementation?
+  → Ambiguity check: Could any requirement be interpreted two ways?
+
+Phase 5.7: Complexity Check
   → If > 15 files, ask user to split
+
+Phase 5.8: Frontend Guidelines (conditional)
+  → IF plan involves HTML, CSS, React, Vue, or frontend code:
+    - "Commit to a BOLD aesthetic direction before coding"
+    - "Choose distinctive fonts (AVOID: Arial, Inter, Roboto)"
+    - "Use CSS variables for color consistency"
+    - "Prioritize one well-orchestrated animation over scattered micro-interactions"
+    - "FORBIDDEN AI cliches: purple gradients on white, predictable centered layouts"
+    - "Each design must feel context-specific, never cookie-cutter"
 
 Phase 6.0: Validation Request
   → Wait for user approval before /do
 ```
 
 ---
+
+## HARD GATE (ABSOLUTE)
+
+```
+Do NOT invoke /do, write any code, scaffold any project, or take ANY 
+implementation action until the plan is approved by the user.
+This applies to EVERY task regardless of perceived simplicity.
+Anti-pattern: "This is too simple to need a plan" — EVERY task gets a plan.
+```
 
 ## Guardrails (ABSOLUTE)
 
@@ -145,3 +200,5 @@ Phase 6.0: Validation Request
 | Implement without approved plan | **FORBIDDEN** |
 | Plan without concrete steps | **FORBIDDEN** |
 | Plan without rollback strategy | **WARNING** |
+| Skip spec self-review | **FORBIDDEN** |
+| Start /do before user approval | **FORBIDDEN** |

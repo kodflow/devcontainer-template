@@ -6,31 +6,37 @@ Phases for the `--commit` action after identity validation (Phase 1.0).
 
 ## Phase 2.0: Peek (RLM Pattern)
 
-**Analyze git state BEFORE any action:**
+**Collect ALL git context in a single script call:**
 
 ```yaml
 peek_workflow:
-  1_status:
-    action: "Check repo state (ALL modifications, not just current task)"
-    commands:
-      - "git status --porcelain"
-      - "git branch --show-current"
-      - "git log -1 --format='%h %s'"
+  1_collect_all:
+    action: "Run git-peek.sh to get identity, branch, status, diff, remote in ONE call"
+    command: "bash ~/.claude/scripts/git-peek.sh"
+    returns: "JSON with identity, branch, status, head, diff_stats, remote"
     critical_rule: |
-      LIST ALL modified files — including CLAUDE.md, .devcontainer/,
-      .claude/commands/. NEVER ignore tracked modified files.
-      git status --porcelain shows EVERYTHING that is tracked and modified.
-      Gitignored files DO NOT APPEAR → no risk of including them.
+      This script replaces 13 sequential git commands.
+      READ the JSON output and make decisions based on it.
+      DO NOT re-run individual git commands — all data is in the JSON.
 
-  2_changes:
-    action: "Analyze changes"
-    tools: [Bash(git diff --stat)]
-
-  3_branch_check:
-    action: "Check current branch"
+  2_decisions:
+    action: "Based on git-peek.sh JSON output, decide:"
     decision:
-      - "main/master → MUST create new branch"
-      - "feat/* | fix/* → Check coherence"
+      - "branch.is_protected == true → MUST create new branch"
+      - "status.has_lock == true → Auto-remove lock (rm -f .git/index.lock) and continue. Common with GitKraken/parallel tools."
+      - "status.conflicts is not empty → BLOCK commit. Show conflicts list. Suggest: resolve conflicts first, then retry"
+      - "identity.name is empty → Ask user for identity via AskUserQuestion"
+      - "worktree.active_count > 0 → WARN: active worktrees exist, verify no conflicts"
+
+  2.5_conflict_gate:
+    rule: "ABSOLUTE BLOCK if conflicts detected"
+    check: "status.conflicts array from git-peek.sh"
+    if_not_empty: |
+      BLOCK the commit immediately. Display:
+        "Merge conflicts detected in N files: [list].
+         Resolve conflicts before committing.
+         Run: git mergetool or manually edit conflicted files."
+      DO NOT proceed to Phase 3.0.
 ```
 
 **Output Phase 1:**
@@ -401,6 +407,26 @@ execute_workflow:
       github: mcp__github__create_pull_request
       gitlab: mcp__gitlab__create_merge_request
     skip_if: "--no-pr"
+
+    body_format:
+      rule: "STRICT format. Clean markdown. No escaped newlines. No bot content."
+      template: |
+        ## Summary
+
+        - First change description
+        - Second change description
+
+        ## Test plan
+
+        - [ ] First test item
+        - [ ] Second test item
+      rules:
+        - "Use REAL newlines in the body string, NEVER literal \\n"
+        - "Keep it SHORT: max 10 bullet points in Summary"
+        - "Test plan: concrete, checkable items"
+        - "No AI disclaimers, no emojis, no verbose explanations"
+        - "No duplicate of the commit message"
+        - "Bots will append their own analysis — keep ours minimal"
 ```
 
 **Final Output (GitHub):**

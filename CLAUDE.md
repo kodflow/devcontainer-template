@@ -106,6 +106,7 @@ CLAUDE.md                    # This overview
 ├── docs/vision.md           # Objectives, success criteria
 ├── docs/architecture.md     # System design, components
 ├── docs/workflows.md        # Detailed workflows
+├── docs/ktn-linter-integration.md  # ktn-linter hook contract
 ├── .devcontainer/CLAUDE.md  # Container config details
 │   ├── features/CLAUDE.md   # Language & tool features
 │   ├── hooks/CLAUDE.md      # Host-side hooks (initialize.sh only)
@@ -127,7 +128,7 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/search` | Documentation research with official sources |
 | `/docs` | Deep project documentation generation |
 | `/test` | E2E testing with Playwright MCP |
-| `/lint` | Intelligent linting with ktn-linter |
+| `/lint` | Multi-language intelligent linting |
 | `/infra` | Infrastructure automation (Terraform/Terragrunt) |
 | `/secret` | Secure secret management (1Password) |
 | `/vpn` | Multi-protocol VPN management |

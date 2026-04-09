@@ -66,7 +66,7 @@ is_exception() {
     local file="$1"
     for pattern in "${EXCEPTIONS[@]}"; do
         # Use bash pattern matching
-        if [[ "$file" == *"$pattern"* ]] || [[ "$file" == $pattern ]]; then
+        if [[ "$file" == *"$pattern"* ]] || [[ "$file" == "$pattern" ]]; then
             return 0
         fi
     done
@@ -88,7 +88,7 @@ if [[ "$USE_YQ" == "true" ]]; then
         [[ -z "$pattern" ]] && continue
 
         # Check if the file matches the pattern
-        if [[ "$FILE" == *"$pattern"* ]] || [[ "$FILE" == $pattern ]]; then
+        if [[ "$FILE" == *"$pattern"* ]] || [[ "$FILE" == "$pattern" ]]; then
             REASON="Protected file: $FILE (pattern: $pattern)"
             echo "🚫 $REASON" >&2
             if command -v jq &>/dev/null; then
@@ -115,5 +115,72 @@ else
     done
 fi
 
+# === ktn-linter: package context before edit ===
+# Calls ktn-linter HTTP endpoint to surface existing issues in the package
+# being modified. Graceful degradation if ktn-linter is not running.
+KTN_PORT="${KTN_LINTER_PORT:-7717}"
+if command -v curl &>/dev/null && [[ "$FILE" != *.md ]] && [[ "$FILE" != *.json ]] && \
+   [[ "$FILE" != *.yaml ]] && [[ "$FILE" != *.yml ]] && [[ "$FILE" != *.toml ]] && \
+   [[ "$FILE" != /tmp/* ]] && [[ "$FILE" != *".claude/"* ]]; then
+    KTN_RESP=$(curl -sf --max-time 4 \
+        -H "Content-Type: application/json" \
+        -d "${INPUT:-{\}}" \
+        "http://localhost:${KTN_PORT}/hooks/pre-tool-use" 2>/dev/null) || true
+    if [ -n "$KTN_RESP" ] && [ "$KTN_RESP" != "{}" ] && [ "$KTN_RESP" != "null" ]; then
+        if printf '%s' "$KTN_RESP" | jq -e '.hookSpecificOutput' &>/dev/null; then
+            printf '%s' "$KTN_RESP"
+            exit 0
+        fi
+        jq -n -c --arg ctx "$(printf '%s' "$KTN_RESP" | head -c 500)" \
+            '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":$ctx}}' \
+            2>/dev/null || true
+    fi
+fi
+
+# === Security Pattern Warnings (allow but warn, once per session) ===
+# Inspired by anthropics/claude-plugins-official/security-guidance
+
+# Sanitize session ID to prevent path traversal
+SESSION_ID="${CLAUDE_SESSION_ID:-unknown}"
+SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'A-Za-z0-9._-')
+SESSION_ID="${SESSION_ID:-unknown}"
+STATE_FILE="$HOME/.claude/.security_warnings_${SESSION_ID}"
+
+CONTENT=""
+if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
+    CONTENT=$(printf '%s' "$INPUT" | jq -r '.tool_input.content // .tool_input.new_string // ""' 2>/dev/null || true)
+fi
+
+if [ -n "$CONTENT" ]; then
+    # pattern|warning pairs
+    SEC_CHECKS=(
+        'eval(|Code injection: eval() executes arbitrary code. Use JSON.parse() or safer alternatives.'
+        'new Function|Code injection: new Function() creates code from strings. Consider alternatives.'
+        'child_process.exec|Command injection: exec() passes to shell. Use execFile() with argument arrays.'
+        'dangerouslySetInnerHTML|XSS: renders raw HTML. Sanitize with DOMPurify or use safe alternatives.'
+        'document.write|XSS: can inject content. Use DOM methods (createElement, appendChild).'
+        '.innerHTML =|XSS: innerHTML can execute scripts. Use textContent or DOMPurify.'
+        'pickle|Deserialization: pickle can execute arbitrary code. Use JSON or safe formats.'
+        'subprocess.call|Command injection: subprocess with shell=True is dangerous. Use list args.'
+    )
+
+    for entry in "${SEC_CHECKS[@]}"; do
+        pattern="${entry%%|*}"
+        warning="${entry#*|}"
+
+        if [[ "$CONTENT" == *"$pattern"* ]]; then
+            # Skip if already warned in this session
+            if [ -f "$STATE_FILE" ] && grep -qF "$pattern" "$STATE_FILE" 2>/dev/null; then
+                continue
+            fi
+            echo "$pattern" >> "$STATE_FILE" 2>/dev/null || true
+            echo "SECURITY: $warning" >&2
+            echo "  Pattern '$pattern' in $FILE (warning shown once per session)" >&2
+        fi
+    done
+
+    # Clean up old state files (>7 days)
+    find "$HOME/.claude/" -name ".security_warnings_*" -mtime +7 -delete 2>/dev/null || true
+fi
 
 exit 0
