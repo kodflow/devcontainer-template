@@ -14,10 +14,17 @@ source "${FEATURE_DIR}/../languages/shared/feature-utils.sh" 2>/dev/null || {
     warn() { echo -e "${YELLOW}⚠${NC} $*"; }
     err() { echo -e "${RED}✗${NC} $*" >&2; }
     # Minimal fallback: GitHub latest version (3 retries, non-fatal, empty on failure)
+    # Honors GITHUB_TOKEN when set to avoid anonymous API rate-limits,
+    # matching the behavior of feature-utils.sh::get_github_latest_version.
     get_github_latest_version_or_empty() {
         local repo="$1" version="" attempt
+        local auth_args=()
+        if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+            auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
+        fi
         for attempt in 1 2 3; do
             version=$(curl -fsS --connect-timeout 5 --max-time 10 \
+                "${auth_args[@]}" \
                 "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
                 | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1) || version=""
             [[ -n "$version" ]] && break
