@@ -135,6 +135,7 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/warmup` | Context pre-loading and CLAUDE.md update |
 | `/update` | DevContainer update from template |
 | `/improve` | Documentation QA for design patterns |
+| `/learn` | Extract reusable patterns from the current session into `~/.claude/docs/learned/` |
 | `/feature` | Feature tracking RTM (CRUD, audit, auto-learn) |
 | `/prompt` | Generate ideal prompt structure for /plan requests |
 
