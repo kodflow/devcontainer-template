@@ -143,10 +143,14 @@ jobs:
   # Main image: dynamic layers (Claude, grepai, rtk) — rebuilt daily
   # =============================================================================
   build:
-    # Skip if this is a base-only build (weekly schedule)
+    # Wait for base image if it's being rebuilt; skip waiting otherwise
+    needs: merge-base
     if: >-
+      always() &&
       github.repository == 'kodflow/devcontainer-template' &&
-      github.event.schedule != '0 3 * * 0'
+      github.event.schedule != '0 3 * * 0' &&
+      (needs.merge-base.result == 'success' || needs.merge-base.result == 'skipped') &&
+      !failure() && !cancelled()
     permissions:
       contents: read
       packages: write
