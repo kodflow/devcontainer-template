@@ -58,6 +58,9 @@ Ask before:
 - Deleting files in `.claude/` or `.devcontainer/`
 - Removing features from `.claude/commands/*.md`
 - Removing hooks from `.devcontainer/hooks/`
+- Dropping database state, force-push, dependency downgrades
+
+Investigate before deleting unfamiliar state (branches, lock files, unknown files) — it may be user work-in-progress.
 
 When refactoring: move content to separate files, preserve logic.
 
@@ -111,7 +114,7 @@ CLAUDE.md                    # This overview
 │   ├── features/CLAUDE.md   # Language & tool features
 │   ├── hooks/CLAUDE.md      # Host-side hooks (initialize.sh only)
 │   └── images/CLAUDE.md     # Two-tier images (base + dynamic)
-└── .claude/commands/        # Slash commands (17 skills)
+└── .claude/commands/        # Slash commands (18 skills)
 ```
 
 Principle: More detail deeper in tree. Target < 200 lines each.
@@ -160,9 +163,7 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 - Propose feedback/user/project memories when the user corrects you, confirms an unusual choice, or shares a deadline/constraint.
 - At session end with significant corrections, suggest running `/learn`.
 
-**Destructive actions**
-- Ask before: deleting files in `.claude/` or `.devcontainer/`, dropping DB state, force-push, dependency downgrades.
-- Investigate before deleting unfamiliar state (branches, lock files, unknown files) — it may be user work-in-progress.
+**Destructive actions** — see the canonical [Safeguards](#safeguards) section above.
 
 ## Verification
 
