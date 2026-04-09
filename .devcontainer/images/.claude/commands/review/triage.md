@@ -325,10 +325,12 @@ Create an agent team for this review. Spawn 5 teammates and have each claim its 
 Wait for all 5 teammates to stop before synthesizing. Do NOT do the review work yourself.
 ```
 
-**Step 3 — Wait + collect + cleanup**:
-- Wait for all 5 TeammateIdle events
+**Step 3 — Wait + collect + cleanup** (bounded):
+- Wait for TeammateIdle events (timeout: 120s per teammate, 300s total)
+- If a teammate times out: proceed with partial results, annotate missing agents in report
 - Collect teammate reports from shared task list
 - Pass findings to Phase 11.0 (Merge & Dedupe) — same schema as SUBAGENTS path
+- If 0 reports received (all timed out): fall back to SUBAGENTS path
 - Call team cleanup when done
 
 After Phase 10.0 TEAMS completes, **skip directly to Phase 11.0** (the SUBAGENTS block below is the fallback, not additive).

@@ -291,6 +291,16 @@ classify_terminal_install() {
 
 detect_agent_teams_support() {
     local min="2.1.32"
+    # Portable version comparison (works on GNU, BSD, busybox, Alpine)
+    _version_gte() {
+        local IFS=.
+        set -- $1; local r1="${1:-0}" r2="${2:-0}" r3="${3:-0}"
+        set -- $2; local c1="${1:-0}" c2="${2:-0}" c3="${3:-0}"
+        [ "$c1" -gt "$r1" ] && return 0; [ "$c1" -lt "$r1" ] && return 1
+        [ "$c2" -gt "$r2" ] && return 0; [ "$c2" -lt "$r2" ] && return 1
+        [ "$c3" -ge "$r3" ] && return 0; return 1
+    }
+
     local cap="NONE"
     local current=""
     local reason=""
@@ -310,7 +320,7 @@ detect_agent_teams_support() {
         if [ -z "$current" ]; then
             cap="NONE"
             reason="claude CLI not found or version unreadable"
-        elif ! printf '%s\n%s\n' "$min" "$current" | sort -VC 2>/dev/null; then
+        elif ! _version_gte "$min" "$current"; then
             cap="NONE"
             reason="claude $current < required $min"
         else

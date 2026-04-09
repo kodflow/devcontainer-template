@@ -155,7 +155,7 @@ Each task embeds a task-contract v1 block:
 - `access_mode: "read-only"` for plan/validate operations (default)
 - `access_mode: "write"` with explicit `owned_paths` for apply operations (user confirmation required)
 
-Wait for all teammates → aggregate plan outputs → Phase 4.0 validation. Token ceiling ≤ 2x (cloud ops are IO-bound).
+Wait for all teammates (timeout: 300s per teammate, 600s total) → aggregate plan outputs → Phase 4.0 validation. Token ceiling ≤ 2x (cloud ops are IO-bound). If a teammate fails to report within timeout, proceed with partial results and log a warning.
 
 ---
 

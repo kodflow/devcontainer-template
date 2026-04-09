@@ -36,7 +36,10 @@ fi
 
 SUBJECT=$(printf '%s' "$INPUT"     | jq -r '.task_subject // ""' 2>/dev/null)
 DESCRIPTION=$(printf '%s' "$INPUT" | jq -r '.task_description // ""' 2>/dev/null)
+# Sanitize team_name to prevent path traversal
 TEAM=$(printf '%s' "$INPUT"        | jq -r '.team_name // "default"' 2>/dev/null)
+TEAM=$(echo "$TEAM" | tr -cd 'A-Za-z0-9._-' | head -c 64)
+TEAM="${TEAM:-default}"
 TASK_ID=$(printf '%s' "$INPUT"     | jq -r '.task_id // ""' 2>/dev/null)
 TEAMMATE=$(printf '%s' "$INPUT"    | jq -r '.teammate_name // ""' 2>/dev/null)
 
