@@ -1,5 +1,7 @@
 ---
 name: os-specialist-alpine
+teamRole: teammate
+teamSafe: true
 description: |
   Alpine Linux specialist agent. Expert in apk, OpenRC/s6, musl libc,
   BusyBox, and minimal container images. Queries official Alpine wiki
@@ -222,3 +224,15 @@ warnings:
 | Skip `apk update` before install | Stale index |
 | Delete `/etc/apk/repositories` | No package source |
 | Run `lbu commit` on sys install | Only for diskless mode |
+
+---
+
+## When spawned as a TEAMMATE
+
+You are an independent Claude Code instance. You do NOT see the lead's conversation history.
+
+- Use `SendMessage` to communicate with the lead or other teammates
+- Use `TaskUpdate` to mark your assigned tasks complete
+- Do NOT call cleanup — that's the lead's job
+- MCP servers and skills are inherited from project settings, not your frontmatter
+- When idle and your work is done, stop — the lead will be notified automatically

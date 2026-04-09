@@ -44,4 +44,21 @@ jq -n -c \
     '{timestamp:$ts,session_id:$sid,task_id:$tid,subject:$subj,description:$desc,teammate_name:$teammate,team_name:$team,branch:$branch,event:"TaskCompleted"}' \
     >> "$LOG_DIR/tasks.jsonl" 2>/dev/null || true
 
+# V3.1: registry lifecycle transition active → completed
+CAP=$(cat "$HOME/.claude/.team-capability" 2>/dev/null || echo NONE)
+if [ "$CAP" != "NONE" ] && [ -n "$TEAM_NAME" ] && [ -n "$TASK_ID" ]; then
+    REGISTRY="$HOME/.claude/logs/$TEAM_NAME/task-registry.jsonl"
+    if [ -f "$REGISTRY" ]; then
+        TMP=$(mktemp)
+        NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        (flock -x 200
+            jq -c \
+                --arg id "$TASK_ID" \
+                --arg now "$NOW" \
+                'if .id == $id and .status == "active" then .status = "completed" | .completed_at = $now else . end' \
+                "$REGISTRY" > "$TMP" 2>/dev/null && mv "$TMP" "$REGISTRY"
+        ) 200>"${REGISTRY}.lock"
+    fi
+fi
+
 exit 0
