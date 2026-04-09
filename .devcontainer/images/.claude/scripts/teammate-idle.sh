@@ -45,9 +45,9 @@ CAP=$(cat "$HOME/.claude/.team-capability" 2>/dev/null || echo NONE)
 if [ "$CAP" != "NONE" ] && [ -n "$TEAMMATE" ] && command -v jq &>/dev/null; then
     REGISTRY="$HOME/.claude/logs/${TEAM_NAME:-default}/task-registry.jsonl"
     if [ -f "$REGISTRY" ]; then
-        PENDING=$(jq -rc --arg a "$TEAMMATE" \
-            'select(.status == "active" and .assignee == $a) | .id' \
-            "$REGISTRY" 2>/dev/null | grep -c . || echo 0)
+        PENDING=$(jq -s --arg a "$TEAMMATE" \
+            '[.[] | select(.status == "active" and .assignee == $a)] | length' \
+            "$REGISTRY" 2>/dev/null || echo 0)
         if [ "$PENDING" -gt 0 ]; then
             echo "You still have $PENDING active task(s) — continue working" >&2
             exit 2

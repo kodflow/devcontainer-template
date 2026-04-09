@@ -217,7 +217,7 @@ Both paths MUST be functionally, schema-, and semantically equivalent. No new us
 
 ## --help
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   /review - AI Code Review (RLM Architecture)
 ═══════════════════════════════════════════════════════════════

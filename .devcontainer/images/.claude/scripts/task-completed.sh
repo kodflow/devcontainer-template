@@ -51,11 +51,13 @@ if [ "$CAP" != "NONE" ] && [ -n "$TEAM_NAME" ] && [ -n "$TASK_ID" ]; then
     if [ -f "$REGISTRY" ]; then
         TMP=$(mktemp)
         NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-        jq -c \
-            --arg id "$TASK_ID" \
-            --arg now "$NOW" \
-            'if .id == $id and .status == "active" then .status = "completed" | .completed_at = $now else . end' \
-            "$REGISTRY" > "$TMP" 2>/dev/null && mv "$TMP" "$REGISTRY"
+        (flock -x 200
+            jq -c \
+                --arg id "$TASK_ID" \
+                --arg now "$NOW" \
+                'if .id == $id and .status == "active" then .status = "completed" | .completed_at = $now else . end' \
+                "$REGISTRY" > "$TMP" 2>/dev/null && mv "$TMP" "$REGISTRY"
+        ) 200>"${REGISTRY}.lock"
     fi
 fi
 

@@ -31,9 +31,12 @@ Development container setup for consistent dev environments across languages.
 - `devcontainer.json`: VS Code devcontainer config
 - `docker-compose.yml`: Services (app, MCP servers)
 - `.env`: Environment variables (git-ignored)
-- `scripts/generate-assets-archive.sh`: Generates `claude-assets.tar.gz` (published via GitHub Releases)
-- `scripts/list-team-agents.sh`: Deterministic extraction of agents referenced by team-migrated skills
-- `install.sh`: Installs Claude CLI + tmux + detects Agent Teams capability. `--no-teams` to force-disable.
+- `scripts/generate-assets-archive.sh`: Generates
+  `claude-assets.tar.gz` (published via GitHub Releases)
+- `scripts/list-team-agents.sh`: Deterministic extraction
+  of agents referenced by team-migrated skills
+- `install.sh`: Installs Claude CLI + tmux + detects
+  Agent Teams capability. `--no-teams` to force-disable.
 
 ## Usage
 

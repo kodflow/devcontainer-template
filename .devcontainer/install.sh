@@ -993,7 +993,7 @@ super-claude() {
     # Only wrap when capability is TMUX and tmux binary present
     if [ "$cap" = "TMUX" ] && command -v tmux >/dev/null 2>&1; then
         # -A attach-if-exists, -s session name
-        tmux new-session -A -s claude "_run_claude $*"
+        tmux new-session -A -s claude "_run_claude \"$@\""
     else
         _run_claude "$@"
     fi

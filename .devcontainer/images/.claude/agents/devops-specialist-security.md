@@ -15,6 +15,8 @@ tools:
   - mcp__grepai__grepai_trace_callees
   - mcp__grepai__grepai_trace_graph
   - mcp__grepai__grepai_index_status
+  - SendMessage
+  - TaskUpdate
   - Bash
 model: sonnet
 context: fork

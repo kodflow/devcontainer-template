@@ -81,8 +81,8 @@ Analyze ALL hooks (DevContainer lifecycle + Claude Code hooks) and produce a con
 }
 ```
 
-5. Return EXACTLY one line: `DONE: hooks - {count} hooks analyzed, score {avg}/10`
-6. Do NOT return the full JSON in your response - only the DONE line
+1. Return EXACTLY one line: `DONE: hooks - {count} hooks analyzed, score {avg}/10`
+2. Do NOT return the full JSON in your response - only the DONE line
 
 ---
 
