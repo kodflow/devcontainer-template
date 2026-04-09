@@ -126,6 +126,40 @@ Iterative loop using **Recursive Language Model** decomposition:
 
 ---
 
+## Execution Mode Detection (Agent Teams)
+
+@.devcontainer/images/.claude/commands/shared/team-mode.md
+
+Before Phase 5.5 (worktree dispatch), determine runtime mode:
+
+```bash
+source "$HOME/.claude/scripts/team-mode-primitives.sh"
+MODE=$(detect_runtime_mode)
+```
+
+Branch:
+- `TEAMS_TMUX` / `TEAMS_INPROCESS` → **TEAMS dispatch** using the plan's Parallelization table
+- `SUBAGENTS` → legacy worktree dispatch in `do/worktree.md` + `do/loop.md` (unchanged)
+
+### TEAMS dispatch
+
+Lead: `developer-orchestrator`. For each worktree-tagged step in the approved plan's Parallelization table, spawn a teammate via the step's `Lead Agent` column (typically a `developer-specialist-<lang>`). Max 5 teammates per wave (hard cap from `shared/team-mode.md`).
+
+Each spawned task carries an embedded task-contract v1 block:
+
+```text
+access_mode: "write"
+owned_paths: <files from plan parallelization table for this step>
+forbidden_paths: <files owned by sibling steps>
+acceptance_criteria: <Step's "Verify" column>
+output_format: "diff"
+assignee: <teammate name from plan>
+```
+
+`task-created.sh` enforces 0 write collisions via the owned_paths check. Lead waits for all teammates, then runs Phase 7.0 synthesis. Token ceiling ≤ 2.5x legacy.
+
+---
+
 ## Execution Flow
 
 ```

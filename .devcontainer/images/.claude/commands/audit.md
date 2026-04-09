@@ -2,7 +2,7 @@
 name: audit
 description: |
   Audit configuration health of the devcontainer-template project.
-  Scores 6 dimensions: Agents, Hooks, MCP, Settings, Security, Documentation.
+  Scores 7 dimensions: Agents, Hooks, MCP, Settings, Security, Documentation, Agent Teams.
   Displays an ASCII dashboard with per-dimension scores and actionable issues.
 model: haiku
 allowed-tools:
@@ -13,6 +13,10 @@ allowed-tools:
   - "Bash(wc:*)"
   - "Bash(jq:*)"
   - "Bash(date:*)"
+  - "Bash(cat:*)"
+  - "Bash(bash:*)"
+  - "Bash(command:*)"
+  - "Bash(claude:*)"
 ---
 
 # /audit — Configuration Health Scan
@@ -67,9 +71,25 @@ Checks:
 - Count files in `~/.claude/docs/`. Expect >= 150. If < 150: subtract `(150 - count) / 3` points.
 - Cap minimum at 0.
 
+### 7. Agent Teams (Experimental)
+
+Start score at 0, add points based on detection:
+- `+25` if `~/.claude/.team-capability` exists AND content ≠ `NONE`
+- `+25` if `bash .devcontainer/scripts/list-team-agents.sh | jq length` returns ≥ 5 (≥ 1 skill migrated)
+- `+20` if `.devcontainer/images/.claude/commands/shared/team-mode.md` exists AND has ≥ 14 `^## ` sections
+- `+15` if `.devcontainer/images/.claude/scripts/task-created.sh` exists AND is executable
+- `+10` if `command -v tmux` succeeds
+- `+5` if `claude --version` reports ≥ 2.1.32
+
+Cap at 100. Status notes in the dashboard row should include:
+- Current capability from `cat ~/.claude/.team-capability 2>/dev/null` (or `NONE`)
+- Number of migrated skills: `bash .devcontainer/scripts/list-team-agents.sh | jq length`
+
+Example: `Agent Teams    80/100  IN_PROCESS, 19 agents migrated`
+
 ## Output Format
 
-After computing all 6 scores, display EXACTLY this format (replace values):
+After computing all 7 scores, display EXACTLY this format (replace values):
 
 ```
 ═══════════════════════════════════════════════
@@ -84,6 +104,7 @@ After computing all 6 scores, display EXACTLY this format (replace values):
   Settings       XX/100  {OK|WARN (N issues)}
   Security       XX/100  {OK|WARN (N issues)}
   Documentation  XX/100  {OK|WARN (N issues)}
+  Agent Teams    XX/100  {capability, N agents migrated}
 
   Overall: XX/100
 
@@ -96,13 +117,13 @@ After computing all 6 scores, display EXACTLY this format (replace values):
 
 Rules:
 - Status is `OK` when score >= 90, otherwise `WARN (N issues)` where N = count of deductions.
-- Overall = average of all 6 scores, rounded to nearest integer.
+- Overall = average of all 7 scores, rounded to nearest integer.
 - List ALL issues found (one bullet per deduction). If none, print `(none)`.
 - Include scan timestamp: `date -u +"%Y-%m-%dT%H:%M:%SZ"`.
 
 ## Execution
 
-1. Run all 6 dimension checks in order.
+1. Run all 7 dimension checks in order.
 2. Collect scores and issues.
 3. Print the dashboard.
 4. Do NOT suggest fixes — only report findings.

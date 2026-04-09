@@ -114,6 +114,42 @@ Examples:
 
 ---
 
+## Execution Mode Detection (Agent Teams)
+
+@.devcontainer/images/.claude/commands/shared/team-mode.md
+
+Before dispatching test suites, determine runtime mode:
+
+```bash
+source "$HOME/.claude/scripts/team-mode-primitives.sh"
+MODE=$(detect_runtime_mode)
+```
+
+Branch:
+- `TEAMS_TMUX` / `TEAMS_INPROCESS` → **TEAMS test dispatch** (3 parallel suites)
+- `SUBAGENTS` → legacy sequential/Task dispatch from `test/workflow.md` (unchanged)
+
+### TEAMS test dispatch
+
+Lead: `developer-orchestrator`. Spawn up to 3 suite teammates:
+
+```text
+TaskCreate × 3:
+  test-unit         → using developer-specialist-<detected-lang>
+                      scope: tests/unit/ (or project's unit test path)
+                      access_mode: read-only (analysis) OR write (if --generate)
+  test-integration  → using developer-specialist-<detected-lang>
+                      scope: tests/integration/
+                      access_mode: read-only OR write
+  test-e2e          → using developer-specialist-review  (or Playwright agent if available)
+                      scope: tests/e2e/ + Playwright traces
+                      access_mode: read-only
+```
+
+Wait for all 3 → aggregate coverage + failures → Phase 4.0 synthesis. Token ceiling ≤ 2x (test suites parallelize naturally).
+
+---
+
 ## Routing
 
 1. **Any URL action**: Start with Phase 1.0 Peek from `workflow.md`

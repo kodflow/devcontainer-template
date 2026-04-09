@@ -183,6 +183,38 @@ budget_controller:
 
 ---
 
+## Execution Mode Detection (Agent Teams)
+
+@.devcontainer/images/.claude/commands/shared/team-mode.md
+
+Before Phase 4 (parallel analysis), determine the runtime mode via the canonical block from section 3 of `shared/team-mode.md`:
+
+```bash
+source "$HOME/.claude/scripts/team-mode-primitives.sh"
+MODE=$(detect_runtime_mode)
+```
+
+Branch on `$MODE`:
+- `TEAMS_TMUX` or `TEAMS_INPROCESS` → Phase 4 dispatches via **Agent Teams** (5 parallel teammates, see triage.md §10 TEAMS execution)
+- `SUBAGENTS` → Phase 4 dispatches via the legacy `Task` tool path (see triage.md §10 SUBAGENTS execution — unchanged from today)
+
+Both paths MUST be functionally, schema-, and semantically equivalent. No new user-visible sections in the SUBAGENTS fallback.
+
+---
+
+## Success Criteria (Agent Teams migration)
+
+- **Functional equivalence**: same set of findings across modes on a given PR (set comparison, not ordered)
+- **Schema equivalence**: synthesis report has identical sections, severity levels, finding fields
+- **Semantic equivalence**: a "critical" in legacy mode is still "critical" in TEAMS mode
+- **Fallback invariant**: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=0 /review` runs the SUBAGENTS path unchanged
+- **Performance floor** (TEAMS_TMUX): ≥ 1.5x faster wall-clock on a 30+ file PR
+- **Pilot token ceiling**: ≤ 2.5x legacy cost (B1-specific, not a universal norm)
+- **Stability**: 5 consecutive runs without manual intervention
+- **Hook cleanliness**: 0 false-positive TaskCreated rejections across 10 runs
+
+---
+
 ## --help
 
 ```

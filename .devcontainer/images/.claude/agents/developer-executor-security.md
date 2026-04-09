@@ -1,5 +1,7 @@
 ---
 name: developer-executor-security
+teamRole: teammate
+teamSafe: true
 description: |
   Security-focused code analysis executor with deep reasoning capabilities.
   Performs taint analysis (source → sink), detects OWASP Top 10, hardcoded secrets,
@@ -20,6 +22,11 @@ tools:
   - mcp__context7__resolve-library-id
   - mcp__context7__query-docs
   - WebFetch
+  - SendMessage
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
+  - TaskGet
 model: opus
 context: fork
 allowed-tools:
@@ -270,3 +277,15 @@ fp_exclusions:
 | **HIGH** | Security weakness, needs fix before prod |
 | **MEDIUM** | Defense in depth, hardening opportunity |
 | **LOW** | Best practice, minimal risk |
+
+---
+
+## When spawned as a TEAMMATE
+
+You are an independent Claude Code instance. You do NOT see the lead's conversation history.
+
+- Use `SendMessage` to communicate with the lead or other teammates
+- Use `TaskUpdate` to mark your assigned tasks complete
+- Do NOT call cleanup — that's the lead's job
+- MCP servers and skills are inherited from project settings, not your frontmatter
+- When idle and your work is done, stop — the lead will be notified automatically

@@ -33,6 +33,37 @@ Automatic continuous improvement. Detects context and acts.
 
 ---
 
+## Execution Mode Detection (Agent Teams)
+
+@.devcontainer/images/.claude/commands/shared/team-mode.md
+
+Before Phase 3 (parallel violation detection), determine runtime mode:
+
+```bash
+source "$HOME/.claude/scripts/team-mode-primitives.sh"
+MODE=$(detect_runtime_mode)
+```
+
+Branch:
+- `TEAMS_TMUX` / `TEAMS_INPROCESS` → **TEAMS improvement dispatch** (4 parallel axes)
+- `SUBAGENTS` → legacy sequential/Task dispatch (unchanged)
+
+### TEAMS improvement dispatch
+
+Lead: `developer-orchestrator`. Spawn 4 axis teammates:
+
+```text
+TaskCreate × 4:
+  improve-design    → using developer-executor-design    (antipatterns, SOLID, DDD)
+  improve-quality   → using developer-executor-quality   (complexity, smells, style)
+  improve-security  → using developer-executor-security  (OWASP, taint analysis)
+  improve-shell     → using developer-executor-shell     (shell/Dockerfile/CI safety)
+```
+
+Each task embeds a task-contract v1 block with `access_mode` matching the current mode (read-only for detection, write with explicit `owned_paths` from the scan for auto-fix). Token ceiling ≤ 2.5x legacy.
+
+---
+
 ## RLM Workflow
 
 ### Phase 1: Context detection

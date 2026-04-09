@@ -24,9 +24,11 @@ API="https://api.github.com/repos/${REPO}/contents"
 
 # Parse arguments
 INSTALL_MINIMAL=false
+NO_TEAMS=false
 for arg in "$@"; do
     case "$arg" in
         --minimal) INSTALL_MINIMAL=true ;;
+        --no-teams) NO_TEAMS=true ;;
         --help)
             cat <<EOF
 Universal Claude Code Installation Script
@@ -34,10 +36,14 @@ Universal Claude Code Installation Script
 Usage:
   curl -fsSL URL | bash                    # Full installation
   curl -fsSL URL | bash -s -- --minimal    # Skip documentation (155+ files)
+  curl -fsSL URL | bash -s -- --no-teams   # Disable Agent Teams (force SUBAGENTS mode)
   DC_TARGET=/path curl -fsSL URL | bash    # Custom target directory
 
 Options:
   --minimal    Skip documentation installation (saves ~2.4MB, 155 files)
+  --no-teams   Force-disable Agent Teams feature even if Claude Code supports it.
+               Skills will always use the legacy Task-tool dispatch. Use this on
+               third-party containers where you want zero experimental behavior.
   --help       Show this help message
 
 Installation Location:
@@ -45,12 +51,14 @@ Installation Location:
 
 What Gets Installed:
   - Claude CLI (if not already installed)
-  - 35 specialist agents
-  - 11 slash commands (/git, /review, /plan, etc.)
-  - 11 hook scripts (security, lint, format, etc.)
+  - 82 specialist agents
+  - 20+ slash commands (/git, /review, /plan, etc.)
+  - 31 hook scripts (security, lint, format, etc.)
+  - tmux (optional, enables Agent Teams split-pane mode)
   - 155+ design patterns (unless --minimal)
   - Configuration files (settings.json, mcp.json, etc.)
   - super-claude function (in ~/.bashrc and ~/.zshrc)
+  - Agent Teams capability detection (~/.claude/.team-capability)
 
 1Password Integration (REQUIRED for MCP tokens):
   OP_SERVICE_ACCOUNT_TOKEN  1Password Service Account Token
@@ -60,7 +68,14 @@ What Gets Installed:
     mcp-github    → GitHub Personal Access Token (field: credential)
     mcp-gitlab    → GitLab Personal Access Token (field: credential)
 
-Total: 239 files (~3.2MB) or 84 files (~0.8MB) with --minimal
+Agent Teams:
+  Requires Claude Code >= 2.1.32. Automatically detected.
+  Three capability levels:
+    TMUX        - split-pane teammates (tmux + compatible terminal)
+    IN_PROCESS  - teammates in main terminal (Shift+Down to cycle)
+    NONE        - legacy SUBAGENTS mode (forced off or unsupported)
+
+Total: 239+ files (~3.2MB) or 84 files (~0.8MB) with --minimal
 EOF
             exit 0
             ;;
@@ -192,6 +207,142 @@ install_claude_cli() {
 
     echo "  ⚠ Installation failed (may already be in PATH)"
     return 0  # Non-blocking
+}
+
+# ============================================================================
+# Install tmux (optional, enables Agent Teams split-pane mode)
+# ============================================================================
+# Non-blocking: if install fails, Agent Teams will degrade to IN_PROCESS mode.
+# Multi-distro: apt, dnf, pacman, apk, brew.
+# ============================================================================
+install_tmux() {
+    if command -v tmux &>/dev/null; then
+        echo "→ tmux: ✓ already installed ($(tmux -V 2>/dev/null || echo unknown))"
+        return 0
+    fi
+
+    echo "→ Installing tmux (optional, enables Agent Teams split-pane mode)..."
+
+    # Detect sudo availability (some containers run as root, no sudo)
+    local SUDO=""
+    if [ "$(id -u)" != "0" ] && command -v sudo &>/dev/null; then
+        SUDO="sudo"
+    fi
+
+    case "$OS" in
+        linux)
+            if command -v apt-get &>/dev/null; then
+                $SUDO apt-get update -qq 2>/dev/null || true
+                $SUDO apt-get install -y -qq tmux 2>/dev/null || true
+            elif command -v dnf &>/dev/null; then
+                $SUDO dnf install -y -q tmux 2>/dev/null || true
+            elif command -v yum &>/dev/null; then
+                $SUDO yum install -y -q tmux 2>/dev/null || true
+            elif command -v pacman &>/dev/null; then
+                $SUDO pacman -S --noconfirm tmux 2>/dev/null || true
+            elif command -v apk &>/dev/null; then
+                $SUDO apk add --no-cache tmux 2>/dev/null || true
+            elif command -v zypper &>/dev/null; then
+                $SUDO zypper install -y tmux 2>/dev/null || true
+            fi
+            ;;
+        darwin)
+            if command -v brew &>/dev/null; then
+                brew install tmux 2>/dev/null || true
+            fi
+            ;;
+    esac
+
+    if command -v tmux &>/dev/null; then
+        echo "  ✓ tmux installed ($(tmux -V 2>/dev/null))"
+    else
+        echo "  ⚠ tmux install failed or package manager unavailable"
+        echo "    Agent Teams will run in in-process mode (still works)"
+    fi
+
+    return 0  # Never blocking
+}
+
+# ============================================================================
+# Detect Agent Teams Capability
+# ============================================================================
+# Writes $HOME/.claude/.team-capability with one of:
+#   TMUX        - Claude >= 2.1.32 + tmux + known-compatible terminal
+#   IN_PROCESS  - Claude >= 2.1.32 but tmux absent or terminal incompatible
+#   NONE        - Claude < 2.1.32, --no-teams flag, or env disabled
+#
+# Uses heuristics from team-mode-primitives.sh (duplicated inline here so
+# install.sh is self-contained and runs before the primitives are in place).
+# ============================================================================
+classify_terminal_install() {
+    # Priority: known-incompatible > known-compatible > unknown
+    [ -n "${VSCODE_PID:-}" ]            && { echo "known-incompatible"; return; }
+    [ "${TERM_PROGRAM:-}" = "vscode" ]  && { echo "known-incompatible"; return; }
+    [ -n "${WT_SESSION:-}" ]            && { echo "known-incompatible"; return; }
+
+    [ -n "${TMUX:-}" ]                  && { echo "known-compatible"; return; }
+
+    case "${TERM_PROGRAM:-}" in
+        iTerm.app|WezTerm|ghostty|kitty) echo "known-compatible"; return ;;
+    esac
+
+    echo "unknown"
+}
+
+detect_agent_teams_support() {
+    local min="2.1.32"
+    local cap="NONE"
+    local current=""
+    local reason=""
+
+    mkdir -p "$HOME_DIR/.claude"
+
+    # Explicit opt-out first
+    if [ "$NO_TEAMS" = "true" ]; then
+        cap="NONE"
+        reason="--no-teams flag"
+    else
+        # Probe claude version
+        if command -v claude &>/dev/null; then
+            current=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        fi
+
+        if [ -z "$current" ]; then
+            cap="NONE"
+            reason="claude CLI not found or version unreadable"
+        elif ! printf '%s\n%s\n' "$min" "$current" | sort -VC 2>/dev/null; then
+            cap="NONE"
+            reason="claude $current < required $min"
+        else
+            # Version OK — check tmux + terminal
+            local term_class
+            term_class=$(classify_terminal_install)
+            if command -v tmux &>/dev/null && [ "$term_class" = "known-compatible" ]; then
+                cap="TMUX"
+                reason="claude=$current tmux=yes term=$term_class"
+            else
+                cap="IN_PROCESS"
+                reason="claude=$current tmux=$(command -v tmux >/dev/null && echo yes || echo no) term=$term_class"
+            fi
+        fi
+    fi
+
+    # Persist
+    printf '%s\n' "$cap" > "$HOME_DIR/.claude/.team-capability"
+
+    # If NONE, strip the env var from settings.json so skills fall back cleanly
+    if [ "$cap" = "NONE" ] && [ -f "$HOME_DIR/.claude/settings.json" ] && command -v jq &>/dev/null; then
+        if jq -e '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS' "$HOME_DIR/.claude/settings.json" >/dev/null 2>&1; then
+            jq 'del(.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)' \
+                "$HOME_DIR/.claude/settings.json" > "$HOME_DIR/.claude/settings.json.tmp" \
+                && mv "$HOME_DIR/.claude/settings.json.tmp" "$HOME_DIR/.claude/settings.json"
+            echo "  ✓ Stripped CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS from settings.json (capability=NONE)"
+        fi
+    fi
+
+    echo "→ Agent Teams capability: $cap"
+    echo "  Reason: $reason"
+    echo "  Persisted to: $HOME_DIR/.claude/.team-capability"
 }
 
 # ============================================================================
@@ -799,11 +950,9 @@ install_super_claude() {
 # Shell functions - sourced by .bashrc and .zshrc
 # Created by Claude Code installer
 
-# super-claude: runs claude with MCP config and centralized config directory
-super-claude() {
+# _run_claude: internal helper, runs claude with MCP config
+_run_claude() {
     local mcp_config="$HOME/.claude/mcp.json"
-
-    # Centralize Claude config in ~/.claude (not project root)
     export CLAUDE_CONFIG_DIR="$HOME/.claude"
 
     if [ -f "$mcp_config" ] && command -v jq &>/dev/null && jq empty "$mcp_config" 2>/dev/null; then
@@ -813,6 +962,40 @@ super-claude() {
         claude --dangerously-skip-permissions --mcp-config "$mcp_config" "$@"
     else
         claude --dangerously-skip-permissions "$@"
+    fi
+}
+
+# super-claude: capability-aware wrapper for claude
+#
+# Behavior by capability (~/.claude/.team-capability):
+#   NONE        → never wrap, run claude directly
+#   IN_PROCESS  → never wrap, run claude directly
+#   TMUX        → wrap in `tmux new -A -s claude` IF not already in tmux
+#
+# Bypass flag: SUPER_CLAUDE_NO_TMUX=1 → never wrap (for edge cases)
+# Safety: if $TMUX is set (already in tmux), NEVER nest (known footgun)
+super-claude() {
+    local cap
+    cap=$(cat "$HOME/.claude/.team-capability" 2>/dev/null || echo NONE)
+
+    # Explicit bypass
+    if [ "${SUPER_CLAUDE_NO_TMUX:-0}" = "1" ]; then
+        _run_claude "$@"
+        return
+    fi
+
+    # Already inside tmux → never nest
+    if [ -n "${TMUX:-}" ]; then
+        _run_claude "$@"
+        return
+    fi
+
+    # Only wrap when capability is TMUX and tmux binary present
+    if [ "$cap" = "TMUX" ] && command -v tmux >/dev/null 2>&1; then
+        # -A attach-if-exists, -s session name
+        tmux new-session -A -s claude "_run_claude $*"
+    else
+        _run_claude "$@"
     fi
 }
 FUNCSEOF
@@ -958,9 +1141,9 @@ verify_installation() {
     [ -d "$target_dir/docs" ] && doc_count=$(find "$target_dir/docs" -name "*.md" 2>/dev/null | wc -l)
 
     echo "  Assets installed:"
-    echo "    Agents:   $agent_count / 35 expected"
-    echo "    Commands: $cmd_count / 11 expected"
-    echo "    Scripts:  $script_count / 11 expected"
+    echo "    Agents:   $agent_count / 82 expected"
+    echo "    Commands: $cmd_count / 20+ expected"
+    echo "    Scripts:  $script_count / 31 expected"
     if [ "$INSTALL_MINIMAL" = false ]; then
         echo "    Docs:     $doc_count / 155+ expected"
     else
@@ -1009,6 +1192,9 @@ main() {
     install_claude_cli
 
     echo ""
+    install_tmux
+
+    echo ""
     echo "→ Downloading Claude Code assets..."
     echo "  Target: $TARGET_DIR"
     echo ""
@@ -1036,6 +1222,9 @@ main() {
 
     echo ""
     generate_mcp_config "$TARGET_DIR"
+
+    echo ""
+    detect_agent_teams_support
 
     echo ""
     install_super_claude

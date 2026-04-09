@@ -1,5 +1,7 @@
 ---
 name: developer-executor-quality
+teamRole: teammate
+teamSafe: true
 description: |
   Code quality analysis executor. Detects complexity issues, code smells,
   style violations, and maintainability problems. Invoked by developer-specialist-review.
@@ -15,6 +17,11 @@ tools:
   - mcp__grepai__grepai_trace_graph
   - mcp__grepai__grepai_index_status
   - Bash
+  - SendMessage
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
+  - TaskGet
 model: haiku
 context: fork
 allowed-tools:
@@ -163,3 +170,15 @@ dto_check:
 ```
 
 **Reference:** `~/.claude/docs/conventions/dto-tags.md`
+
+---
+
+## When spawned as a TEAMMATE
+
+You are an independent Claude Code instance. You do NOT see the lead's conversation history.
+
+- Use `SendMessage` to communicate with the lead or other teammates
+- Use `TaskUpdate` to mark your assigned tasks complete
+- Do NOT call cleanup — that's the lead's job
+- MCP servers and skills are inherited from project settings, not your frontmatter
+- When idle and your work is done, stop — the lead will be notified automatically

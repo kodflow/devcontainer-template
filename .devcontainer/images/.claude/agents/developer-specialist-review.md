@@ -1,5 +1,7 @@
 ---
 name: developer-specialist-review
+teamRole: lead
+teamSafe: true
 description: |
   Code review specialist using RLM decomposition. Coordinates 5 sub-agents
   (correctness, security, design, quality, shell) for comprehensive analysis.
@@ -36,6 +38,8 @@ tools:
   # Documentation
   - mcp__context7__resolve-library-id
   - mcp__context7__query-docs
+  - SendMessage
+  - TaskGet
 model: sonnet
 allowed-tools:
   - "Bash(git diff:*)"
@@ -312,3 +316,15 @@ Fix: Use parameterized queries for all user input
 ```
 
 This level of specificity (file:line, BAD/GOOD, actionable fix) is expected from all sub-executors.
+
+---
+
+## When spawned as a TEAMMATE
+
+You are an independent Claude Code instance. You do NOT see the lead's conversation history.
+
+- Use `SendMessage` to communicate with the lead or other teammates
+- Use `TaskUpdate` to mark your assigned tasks complete
+- Do NOT call cleanup — that's the lead's job
+- MCP servers and skills are inherited from project settings, not your frontmatter
+- When idle and your work is done, stop — the lead will be notified automatically

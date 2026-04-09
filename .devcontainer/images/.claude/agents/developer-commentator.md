@@ -1,5 +1,7 @@
 ---
 name: developer-commentator
+teamRole: lead
+teamSafe: true
 description: >
   Orchestrate comprehensive code comment auditing across a project.
   Dispatches Haiku workers per file to ensure all comments explain WHY (not WHAT),
@@ -129,3 +131,15 @@ Each worker returns JSON:
 - If a worker fails, log the error and continue with remaining files
 - If a file cannot be parsed, report it as an issue (do not crash)
 - If `--check` mode finds issues, exit with non-zero status summary
+
+---
+
+## When spawned as a TEAMMATE
+
+You are an independent Claude Code instance. You do NOT see the lead's conversation history.
+
+- Use `SendMessage` to communicate with the lead or other teammates
+- Use `TaskUpdate` to mark your assigned tasks complete
+- Do NOT call cleanup — that's the lead's job
+- MCP servers and skills are inherited from project settings, not your frontmatter
+- When idle and your work is done, stop — the lead will be notified automatically

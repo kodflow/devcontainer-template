@@ -54,6 +54,45 @@ $ARGUMENTS
 
 ---
 
+## Execution Mode Detection (Agent Teams)
+
+@.devcontainer/images/.claude/commands/shared/team-mode.md
+
+Before Phase 4.1 (parallel analysis), determine runtime mode:
+
+```bash
+source "$HOME/.claude/scripts/team-mode-primitives.sh"
+MODE=$(detect_runtime_mode)
+```
+
+Branch:
+- `TEAMS_TMUX` / `TEAMS_INPROCESS` → **TEAMS analysis dispatch** (2 waves of 4 teammates)
+- `SUBAGENTS` → legacy 8-agent parallel dispatch from Phase 4.1 (unchanged)
+
+### TEAMS analysis dispatch
+
+Lead: `docs-analyzer-architecture`. The 8 `docs-analyzer-*` agents exceed the 5-teammate hard cap, so split into **2 sequential waves of 4**:
+
+```text
+Wave 1 (TaskCreate × 4):
+  docs-agents    → using docs-analyzer-agents
+  docs-commands  → using docs-analyzer-commands
+  docs-hooks     → using docs-analyzer-hooks
+  docs-config    → using docs-analyzer-config
+
+Wait for TeammateIdle × 4 → feed wave-1 JSON into wave-2 prompts
+
+Wave 2 (TaskCreate × 4):
+  docs-mcp       → using docs-analyzer-mcp
+  docs-patterns  → using docs-analyzer-patterns
+  docs-structure → using docs-analyzer-structure
+  docs-languages → using docs-analyzer-languages
+```
+
+All 8 tasks use `access_mode: "read-only"` and `owned_paths: []`. Synthesis in Phase 5.0 merges all 8 JSON outputs using the existing scoring logic. Token ceiling ≤ 3x legacy (breadth justifies the extra cost).
+
+---
+
 ## Core Principles
 
 ```yaml

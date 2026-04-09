@@ -36,7 +36,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libncurses5-dev libncursesw5-dev liblzma-dev zlib1g-dev \
         libgdbm-dev libyaml-dev \
         libsecret-1-0 libsecret-1-dev \
-        shellcheck python3-venv \
+        shellcheck python3-venv tmux \
         iputils-ping dnsutils net-tools nmap \
         traceroute mtr-tiny tcpdump \
         netcat-openbsd wget whois iperf3 \
