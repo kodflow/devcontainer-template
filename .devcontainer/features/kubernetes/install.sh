@@ -204,8 +204,10 @@ verify_sha256() {
 # ─────────────────────────────────────────────────────────────────────────────
 # Install kind
 # ─────────────────────────────────────────────────────────────────────────────
-if [[ "$KIND_PREINSTALLED" == "true" ]]; then
-    echo -e "${GREEN}✓ Skipping kind install (already present)${NC}"
+# Skip only when user asked for "latest" AND a binary is already present.
+# Explicit version requests (e.g., kindVersion: "0.20.0") always force install.
+if [[ "$KIND_PREINSTALLED" == "true" && "$KIND_VERSION" == "latest" ]]; then
+    echo -e "${GREEN}✓ Skipping kind install (already present, kindVersion=latest)${NC}"
 else
     echo -e "${YELLOW}Installing kind...${NC}"
 
@@ -240,8 +242,10 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 # Install kubectl
 # ─────────────────────────────────────────────────────────────────────────────
-if [[ "$KUBECTL_PREINSTALLED" == "true" ]]; then
-    echo -e "${GREEN}✓ Skipping kubectl install (already present)${NC}"
+# Skip only when user asked for "latest" AND a binary is already present.
+# Explicit version requests (e.g., kubectlVersion: "1.32.0") always force install.
+if [[ "$KUBECTL_PREINSTALLED" == "true" && "$KUBECTL_VERSION" == "latest" ]]; then
+    echo -e "${GREEN}✓ Skipping kubectl install (already present, kubectlVersion=latest)${NC}"
 else
     echo -e "${YELLOW}Installing kubectl...${NC}"
 
@@ -283,8 +287,10 @@ fi
 # Install Helm (if enabled)
 # ─────────────────────────────────────────────────────────────────────────────
 if [[ "$ENABLE_HELM" == "true" ]]; then
-    if [[ "$HELM_PREINSTALLED" == "true" ]]; then
-        echo -e "${GREEN}✓ Skipping Helm install (already present)${NC}"
+    # Skip only when user asked for "latest" AND a binary is already present.
+    # Explicit version requests (e.g., helmVersion: "3.14.0") always force install.
+    if [[ "$HELM_PREINSTALLED" == "true" && "$HELM_VERSION" == "latest" ]]; then
+        echo -e "${GREEN}✓ Skipping Helm install (already present, helmVersion=latest)${NC}"
     else
         echo -e "${YELLOW}Installing Helm...${NC}"
 
