@@ -166,19 +166,21 @@ validate_port() {
 
 # Verify SHA256 checksum (fail-closed).
 # Returns 0 only when the checksum is fetched, parsed, and matches the file.
-# The only soft-fail path is "sha256sum binary not available on the host",
-# which is retained as warn-and-continue for compatibility with minimal
-# base images that intentionally omit coreutils. Every other failure
-# (unreachable checksum URL, unparseable payload, mismatch) returns 1.
+# Every failure path — missing sha256sum binary, unreachable checksum URL,
+# unparseable payload, hash mismatch — returns 1 and refuses the install.
 verify_sha256() {
     local file=$1
     local checksum_url=$2
     local filename expected actual checksums attempt
 
-    # Check sha256sum availability — soft-fail for minimal images only.
+    # sha256sum is shipped by coreutils on every supported base image
+    # (Debian/Ubuntu). Its absence means the image is broken or intentionally
+    # stripped — either way, refusing to install an unverified binary is safer
+    # than emitting a warning and continuing.
     if ! command -v sha256sum &>/dev/null; then
-        echo -e "${YELLOW}⚠ sha256sum not available, skipping verification${NC}" >&2
-        return 0
+        echo -e "${RED}  ✗ sha256sum not available on PATH${NC}" >&2
+        echo -e "${RED}    Refusing to install unverified binary${NC}" >&2
+        return 1
     fi
 
     filename="$(basename "$file")"
