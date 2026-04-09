@@ -70,6 +70,35 @@ Enforced by `commit-validate.sh` hook.
 | **Rigid** | `/review`, `/git`, hooks | Absolute discipline, no shortcuts |
 | **Flexible** | `/plan`, `/search`, `/do` | Adapt depth to context |
 
+## 5.1 AGENT TEAMS
+
+Seven skills migrate to parallel multi-agent execution when Claude Code supports it: `/review`, `/plan`, `/docs`, `/do`, `/infra`, `/test`, `/improve`.
+
+**Single source of truth:** `commands/shared/team-mode.md`
+
+### Capability vs Runtime mode
+
+| Capability (persisted `~/.claude/.team-capability`) | Runtime mode (live probe) |
+|---|---|
+| `TMUX` | `TEAMS_TMUX` or `TEAMS_INPROCESS` (if terminal changed) |
+| `IN_PROCESS` | `TEAMS_INPROCESS` |
+| `NONE` | `SUBAGENTS` |
+
+The capability file is a **hint**; the live probe (`detect_runtime_mode` in `~/.claude/scripts/team-mode-primitives.sh`) is the **source of truth** and overrides on divergence.
+
+### NOT migrated
+`/git`, `/secret`, `/vpn`, `/update`, `/init`, `/warmup`, `/prompt`, `/search`, `/feature`, `/lint` (sequential, conflict-prone, or already has its own team integration).
+
+### Task contract
+Every team task embeds a `<!-- task-contract v1 {...} -->` JSON block in `task_description`. See `shared/team-mode.md` §4 for the field rules. Parser: `extract_task_contract` in primitives library.
+
+### Hooks
+- `TaskCreated` → advisory validation + collision check (exit 2 on explicit write collision only)
+- `TaskCompleted` → registry lifecycle transition `active → completed`
+- `TeammateIdle` → pending-task enforcement (exit 2 if teammate has active tasks)
+
+All hooks are gated on `.team-capability != NONE` — instant kill switch available.
+
 ## 6.0 CONTEXT HIERARCHY
 
 ```

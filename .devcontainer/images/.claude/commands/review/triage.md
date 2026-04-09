@@ -252,7 +252,92 @@ question_handling:
 
 ## Phase 10.0: Parallel Analysis (5 AGENTS)
 
-**Launch 5 sub-agents with strict JSON contract:**
+@.devcontainer/images/.claude/commands/shared/team-mode.md
+
+**Branch on runtime mode** (from review.md Execution Mode Detection):
+
+```bash
+source "$HOME/.claude/scripts/team-mode-primitives.sh"
+MODE=$(detect_runtime_mode)
+```
+
+- `TEAMS_TMUX` or `TEAMS_INPROCESS` → run **Phase 10.0 TEAMS execution** below
+- `SUBAGENTS` → run **Phase 10.0 SUBAGENTS execution (fallback)** further down
+
+---
+
+### Phase 10.0 TEAMS execution (Agent Teams mode)
+
+**Step 1 — Create 5 tasks via `TaskCreate`**, each with a task-contract v1 block embedded in `task_description`. All 5 are read-only (no file writes) so `access_mode: "read-only"` and `owned_paths: []` is legitimate:
+
+```text
+Task 1 (correctness):
+  subject: Review diff for correctness
+  description:
+    <!-- task-contract v1
+    {"contract_version":1,"scope":"review-diff","access_mode":"read-only","owned_paths":[],"acceptance_criteria":["return JSON findings array","apply Correctness Oracle Framework","include file:line and severity"],"output_format":"report","assignee":"reviewer-correctness","depends_on":[]}
+    -->
+    Review the diff for correctness: algorithmic errors, invariants,
+    state machines, concurrency, silent failures, ordering.
+
+Task 2 (security):
+  subject: Review diff for security
+  description:
+    <!-- task-contract v1
+    {"contract_version":1,"scope":"review-diff","access_mode":"read-only","owned_paths":[],"acceptance_criteria":["OWASP Top 10","taint analysis source→sink","CWE references"],"output_format":"report","assignee":"reviewer-security","depends_on":[]}
+    -->
+    Security review: OWASP, injection, secrets, crypto, supply chain.
+
+Task 3 (design):
+  subject: Review diff for design
+  description:
+    <!-- task-contract v1
+    {"contract_version":1,"scope":"review-diff","access_mode":"read-only","owned_paths":[],"acceptance_criteria":["antipatterns","DDD/SOLID violations","layering"],"output_format":"report","assignee":"reviewer-design","depends_on":[]}
+    -->
+    Design review: patterns, DDD, SOLID, layering, architecture drift.
+
+Task 4 (quality):
+  subject: Review diff for quality
+  description:
+    <!-- task-contract v1
+    {"contract_version":1,"scope":"review-diff","access_mode":"read-only","owned_paths":[],"acceptance_criteria":["complexity","smells","style","maintainability"],"output_format":"report","assignee":"reviewer-quality","depends_on":[]}
+    -->
+    Quality review: complexity, duplication, style, DTO conventions.
+
+Task 5 (shell):
+  subject: Review diff for shell/CI safety
+  description:
+    <!-- task-contract v1
+    {"contract_version":1,"scope":"review-diff","access_mode":"read-only","owned_paths":[],"acceptance_criteria":["shell pitfalls","Dockerfile","CI/CD risks"],"output_format":"report","assignee":"reviewer-shell","depends_on":[]}
+    -->
+    Shell/Dockerfile/CI review: dangerous patterns, missing safeguards.
+```
+
+**Step 2 — Spawn 5 teammates** (natural language to Claude Code):
+
+```
+Create an agent team for this review. Spawn 5 teammates and have each claim its task:
+- use developer-executor-correctness, name reviewer-correctness
+- use developer-executor-security, name reviewer-security
+- use developer-executor-design, name reviewer-design
+- use developer-executor-quality, name reviewer-quality
+- use developer-executor-shell, name reviewer-shell
+Wait for all 5 teammates to stop before synthesizing. Do NOT do the review work yourself.
+```
+
+**Step 3 — Wait + collect + cleanup**:
+- Wait for all 5 TeammateIdle events
+- Collect teammate reports from shared task list
+- Pass findings to Phase 11.0 (Merge & Dedupe) — same schema as SUBAGENTS path
+- Call team cleanup when done
+
+After Phase 10.0 TEAMS completes, **skip directly to Phase 11.0** (the SUBAGENTS block below is the fallback, not additive).
+
+---
+
+### Phase 10.0 SUBAGENTS execution (fallback, legacy)
+
+**Launch 5 sub-agents with strict JSON contract via the Task tool:**
 
 ```yaml
 parallel_analysis:

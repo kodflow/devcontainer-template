@@ -81,12 +81,33 @@ Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.).
 | PermissionRequest | Permission logging |
 | SubagentStart/Stop | Agent lifecycle tracking |
 | Stop | Session summary + terminal bell + quality gate (lint/typecheck/test) |
-| TeammateIdle | Multi-agent coordination |
-| TaskCompleted | Async task completion |
+| TeammateIdle | Multi-agent coordination + pending-task enforcement |
+| TaskCreated | Task payload contract validation + file conflict advisory |
+| TaskCompleted | Async task completion + registry lifecycle transition |
 | ConfigChange | Configuration change tracking |
 | WorktreeCreate/Remove | Git worktree lifecycle |
 | PreCompact | Context preservation before compaction |
 | Notification | External monitoring notifications |
+
+## Agent Teams (experimental)
+
+Parallel multi-agent execution for 7 high-value skills (`/review`, `/plan`, `/docs`, `/do`, `/infra`, `/test`, `/improve`). Each skill detects its runtime mode at invocation and branches:
+
+| Capability (persisted) | Runtime mode | Where |
+|---|---|---|
+| TMUX | TEAMS_TMUX | Split-pane teammates in tmux |
+| IN_PROCESS | TEAMS_INPROCESS | Shift+Down to cycle teammates |
+| NONE | SUBAGENTS | Legacy Task-tool dispatch |
+
+**Single source of truth:** `.devcontainer/images/.claude/commands/shared/team-mode.md`
+**Primitives:** `~/.claude/scripts/team-mode-primitives.sh` (`detect_runtime_mode`, `extract_task_contract`, `classify_terminal`, …)
+**Capability file:** `~/.claude/.team-capability` (hint only — live probe is source of truth)
+**Install:** automatic via `install.sh`; opt-out with `install.sh --no-teams`
+**Runtime opt-out:** `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=0 /<skill>`
+**Debug:** `TEAM_MODE_DEBUG=1` → stderr decision logs
+**Kill switch:** `echo NONE > ~/.claude/.team-capability`
+
+Every team task embeds a `<!-- task-contract v1 ... -->` JSON block (contract_version, access_mode, owned_paths, acceptance_criteria, …). Parsed and validated by `task-created.sh` in advisory mode — strict only on explicit contract violations.
 
 ## /secret - Secure Secret Management (1Password)
 

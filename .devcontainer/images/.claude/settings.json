@@ -343,6 +343,19 @@
         ]
       }
     ],
+    "TaskCreated": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/vscode/.claude/scripts/task-created.sh",
+            "timeout": 5,
+            "async": false
+          }
+        ]
+      }
+    ],
     "ConfigChange": [
       {
         "matcher": "",

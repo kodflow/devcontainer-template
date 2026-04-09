@@ -124,6 +124,41 @@ Safety:
 
 ---
 
+## Execution Mode Detection (Agent Teams)
+
+@.devcontainer/images/.claude/commands/shared/team-mode.md
+
+Before Phase 1.5 (agent dispatch), determine runtime mode:
+
+```bash
+source "$HOME/.claude/scripts/team-mode-primitives.sh"
+MODE=$(detect_runtime_mode)
+```
+
+Branch:
+- `TEAMS_TMUX` / `TEAMS_INPROCESS` → **TEAMS cloud dispatch** (below)
+- `SUBAGENTS` → legacy specialist dispatch in `infra/agents.md` (unchanged)
+
+### TEAMS cloud dispatch
+
+Lead: `devops-orchestrator`. Spawn cloud specialists only for clouds detected in the repo (via `.tf` provider scan). Up to 4 teammates:
+
+```text
+TaskCreate × N (where N ≤ 4, only for present clouds):
+  cloud-aws        → using devops-specialist-aws        (if aws provider detected)
+  cloud-gcp        → using devops-specialist-gcp        (if google provider detected)
+  cloud-azure      → using devops-specialist-azure      (if azurerm provider detected)
+  cloud-hashicorp  → using devops-specialist-hashicorp  (if vault/consul/nomad detected)
+```
+
+Each task embeds a task-contract v1 block:
+- `access_mode: "read-only"` for plan/validate operations (default)
+- `access_mode: "write"` with explicit `owned_paths` for apply operations (user confirmation required)
+
+Wait for all teammates → aggregate plan outputs → Phase 4.0 validation. Token ceiling ≤ 2x (cloud ops are IO-bound).
+
+---
+
 ## Routing
 
 1. **Phase 1.0** Detection: Refer to `terraform.md` for tool/backend detection

@@ -101,6 +101,38 @@ Examples:
 
 ---
 
+## Execution Mode Detection (Agent Teams)
+
+@.devcontainer/images/.claude/commands/shared/team-mode.md
+
+Before Phase 3.0 (Parallelize), determine runtime mode:
+
+```bash
+source "$HOME/.claude/scripts/team-mode-primitives.sh"
+MODE=$(detect_runtime_mode)
+```
+
+Branch:
+- `TEAMS_TMUX` / `TEAMS_INPROCESS` → **TEAMS exploration** (below)
+- `SUBAGENTS` → legacy parallel Task-tool dispatch in `plan/explore.md` (unchanged)
+
+### TEAMS exploration
+
+Lead: `developer-orchestrator`. Spawn up to 4 exploration teammates via `developer-specialist-review` (one per axis), each with a read-only task-contract v1 block:
+
+```text
+TaskCreate × 4:
+  explorer-backend   → scope: backend/domain
+  explorer-frontend  → scope: UI/assets
+  explorer-test      → scope: tests/ + conventions
+  explorer-patterns  → scope: ~/.claude/docs/ pattern consultation
+Each task: access_mode=read-only, owned_paths=[], acceptance_criteria=["return 5-10 essential files + findings"]
+```
+
+Wait for all 4 TeammateIdle → synthesize in Phase 5.0. Token ceiling ≤ 2x legacy (exploration is cheap). Fallback is byte-functionally equivalent.
+
+---
+
 ## Auto Mode (`--auto`)
 
 When `--auto` is passed, ALL interactive checkpoints are skipped:
