@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Load shared feature utilities (with inline fallback for OCI packaging)
 FEATURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../languages/shared/feature-utils.sh
 source "${FEATURE_DIR}/../languages/shared/feature-utils.sh" 2>/dev/null || {
     RED='\033[0;31m'
