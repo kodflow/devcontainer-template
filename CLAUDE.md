@@ -1,4 +1,4 @@
-<!-- updated: 2026-03-14T12:00:00Z -->
+<!-- updated: 2026-04-09T00:00:00Z -->
 # devcontainer-template
 
 ## Purpose
@@ -58,6 +58,9 @@ Ask before:
 - Deleting files in `.claude/` or `.devcontainer/`
 - Removing features from `.claude/commands/*.md`
 - Removing hooks from `.devcontainer/hooks/`
+- Dropping database state, force-push, dependency downgrades
+
+Investigate before deleting unfamiliar state (branches, lock files, unknown files) — it may be user work-in-progress.
 
 When refactoring: move content to separate files, preserve logic.
 
@@ -111,7 +114,7 @@ CLAUDE.md                    # This overview
 │   ├── features/CLAUDE.md   # Language & tool features
 │   ├── hooks/CLAUDE.md      # Host-side hooks (initialize.sh only)
 │   └── images/CLAUDE.md     # Two-tier images (base + dynamic)
-└── .claude/commands/        # Slash commands (17 skills)
+└── .claude/commands/        # Slash commands (18 skills)
 ```
 
 Principle: More detail deeper in tree. Target < 200 lines each.
@@ -135,8 +138,32 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/warmup` | Context pre-loading and CLAUDE.md update |
 | `/update` | DevContainer update from template |
 | `/improve` | Documentation QA for design patterns |
+| `/learn` | Extract reusable patterns from the current session into `~/.claude/docs/learned/` |
 | `/feature` | Feature tracking RTM (CRUD, audit, auto-learn) |
 | `/prompt` | Generate ideal prompt structure for /plan requests |
+
+## Collaboration Rules
+
+**Response style**
+- Terse. No trailing summary ("I did X, Y, Z"). The diff and output are enough.
+- Lead with action or decision, not with preamble.
+- French or English to match the user's language.
+
+**Tool discipline**
+- Dedicated tools over Bash equivalents: Read (not cat), Edit (not sed), Glob (not find), Grep (not grep).
+- Read the full file before modifying it. No guessing.
+- Parallelize independent tool calls in a single message when possible.
+
+**Git discipline**
+- Branch prefix matches commit prefix: `feat/*` → `feat:`, `fix/*` → `fix:`.
+- Never `--no-verify`, never `git push --force` without explicit user approval.
+- Always create NEW commits after hook failure, never `--amend`.
+
+**Memory discipline**
+- Propose feedback/user/project memories when the user corrects you, confirms an unusual choice, or shares a deadline/constraint.
+- At session end with significant corrections, suggest running `/learn`.
+
+**Destructive actions** — see the canonical [Safeguards](#safeguards) section above.
 
 ## Verification
 
