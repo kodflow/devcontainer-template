@@ -265,7 +265,11 @@ jobs:
   # Merge main image architectures into multi-arch manifest
   # =============================================================================
   merge:
-    if: github.repository == 'kodflow/devcontainer-template' && github.event_name != 'pull_request'
+    if: >-
+      always() &&
+      github.repository == 'kodflow/devcontainer-template' &&
+      github.event_name != 'pull_request' &&
+      needs.build.result == 'success'
     runs-on: ubuntu-latest
     needs: build
     permissions:
