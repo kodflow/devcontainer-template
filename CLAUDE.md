@@ -52,6 +52,17 @@ Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
 
 **Deep reasoning**: For complex tasks — Peek, Decompose, Parallelize, Synthesize.
 
+**Bot reviews are signal, not orders**: CodeRabbit, Qodo, Codacy and similar AI review bots produce useful hints but their findings are **non-binding**. Triage with judgment — never blindly iterate on every comment. Reject (with a short rationale) any finding that is:
+- A style nitpick, not a real bug
+- Defensive hardening against a threat model that does not apply (e.g., `mktemp` in a root-only devcontainer build)
+- A false positive (run the actual linter / test before accepting the bot's claim)
+- An out-of-scope rewrite that would expand the PR beyond its original intent
+- The third+ new demand on the same PR — after two rounds of fixes, stop, respond with rationale, and merge
+
+If the CI bot says "no" and you have verified the code is correct, the CI is wrong. Post the rationale, move on, merge.
+
+**Intended working directories are writeable without prompting**: `.claude/contexts/` (search outputs), `.claude/plans/` (planning mode), and other agent-managed working directories are configured as writeable in `~/.claude/settings.json`. Never treat them as "sensitive" — they are the agent's scratchpad. If a permission prompt fires for these paths, fix the settings, do not ask the user.
+
 ## Safeguards
 
 Ask before:
@@ -61,6 +72,9 @@ Ask before:
 - Dropping database state, force-push, dependency downgrades
 
 Investigate before deleting unfamiliar state (branches, lock files, unknown files) — it may be user work-in-progress.
+
+Never ask for:
+- Writing new files under `.claude/contexts/` or `.claude/plans/` (configured as free-write in `~/.claude/settings.json`)
 
 When refactoring: move content to separate files, preserve logic.
 
