@@ -84,6 +84,13 @@ detect_runtime_mode() {
     cap=$(cat "${HOME}/.claude/.team-capability" 2>/dev/null || echo NONE)
     team_mode_debug_log "capability-read: $cap"
 
+    # Kill switch: NONE means hard-disable, always SUBAGENTS
+    if [ "$cap" = "NONE" ]; then
+        team_mode_debug_log "runtime-mode: SUBAGENTS (capability=NONE, kill switch)"
+        echo "SUBAGENTS"
+        return
+    fi
+
     # Env flag required for any TEAMS mode
     if [ "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-0}" != "1" ]; then
         team_mode_debug_log "runtime-mode: SUBAGENTS (env flag off)"
@@ -95,7 +102,7 @@ detect_runtime_mode() {
     if command -v claude >/dev/null 2>&1; then
         local current min="2.1.32"
         current=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-        if [ -z "$current" ] || ! printf '%s\n%s\n' "$min" "$current" | sort -VC 2>/dev/null; then
+        if [ -z "$current" ] || ! version_at_least "$min" "$current"; then
             team_mode_debug_log "runtime-mode: SUBAGENTS (claude=${current:-none} < $min)"
             echo "SUBAGENTS"
             return
@@ -195,5 +202,16 @@ version_at_least() {
     # Strip any pre-release suffix (e.g. 2.1.32-beta → 2.1.32)
     current=$(printf '%s' "$current" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' | head -1)
     [ -z "$current" ] && return 1
-    printf '%s\n%s\n' "$required" "$current" | sort -VC 2>/dev/null
+    # Portable version comparison (works on GNU, BSD, busybox, Alpine)
+    local IFS=.
+    set -- $required
+    local r1="${1:-0}" r2="${2:-0}" r3="${3:-0}"
+    set -- $current
+    local c1="${1:-0}" c2="${2:-0}" c3="${3:-0}"
+    [ "$c1" -gt "$r1" ] && return 0
+    [ "$c1" -lt "$r1" ] && return 1
+    [ "$c2" -gt "$r2" ] && return 0
+    [ "$c2" -lt "$r2" ] && return 1
+    [ "$c3" -ge "$r3" ] && return 0
+    return 1
 }
