@@ -164,24 +164,39 @@ validate_port() {
     return 1
 }
 
-# Verify SHA256 checksum
+# Verify SHA256 checksum (fail-closed).
+# Returns 0 only when the checksum is fetched, parsed, and matches the file.
+# The only soft-fail path is "sha256sum binary not available on the host",
+# which is retained as warn-and-continue for compatibility with minimal
+# base images that intentionally omit coreutils. Every other failure
+# (unreachable checksum URL, unparseable payload, mismatch) returns 1.
 verify_sha256() {
     local file=$1
     local checksum_url=$2
-    local filename expected actual checksums
+    local filename expected actual checksums attempt
 
-    # Check sha256sum availability
+    # Check sha256sum availability — soft-fail for minimal images only.
     if ! command -v sha256sum &>/dev/null; then
-        echo -e "${YELLOW}⚠ sha256sum not available, skipping verification${NC}"
+        echo -e "${YELLOW}⚠ sha256sum not available, skipping verification${NC}" >&2
         return 0
     fi
 
     filename="$(basename "$file")"
-    checksums="$(curl -fsSL --connect-timeout 5 --max-time 10 "$checksum_url" 2>/dev/null)" || true
+
+    # Fetch checksum file with 3-retry exponential backoff. Treat an empty
+    # body after all retries as a verification failure (fail closed).
+    checksums=""
+    for attempt in 1 2 3; do
+        checksums="$(curl -fsSL --connect-timeout 5 --max-time 10 "$checksum_url" 2>/dev/null)" && \
+            [[ -n "$checksums" ]] && break
+        checksums=""
+        sleep $((attempt * 2))
+    done
 
     if [[ -z "$checksums" ]]; then
-        echo -e "${YELLOW}⚠ Checksum not available, skipping verification${NC}"
-        return 0
+        echo -e "${RED}  ✗ Checksum fetch failed after 3 attempts (${checksum_url})${NC}" >&2
+        echo -e "${RED}    Refusing to install unverified binary${NC}" >&2
+        return 1
     fi
 
     # Try to find checksum for specific filename, fallback to first entry
@@ -192,8 +207,9 @@ verify_sha256() {
     fi
 
     if [[ -z "$expected" ]]; then
-        echo -e "${YELLOW}⚠ Could not parse checksum, skipping verification${NC}"
-        return 0
+        echo -e "${RED}  ✗ Could not parse checksum payload from ${checksum_url}${NC}" >&2
+        echo -e "${RED}    Refusing to install unverified binary${NC}" >&2
+        return 1
     fi
 
     actual=$(sha256sum "$file" | awk '{print $1}')
