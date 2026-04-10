@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-27T13:00:00Z -->
+<!-- updated: 2026-04-10T12:00:00Z -->
 # DevContainer Features
 
 ## Purpose
@@ -9,12 +9,14 @@ Modular features for languages, tools, and architectures.
 
 ```text
 features/
-├── languages/      # 25 languages + shared utility library
-│   ├── shared/     # feature-utils.sh (colors, logging, arch, GitHub API)
-│   └── <lang>/     # install.sh + devcontainer-feature.json
-├── architectures/  # Architecture patterns (14 patterns)
-├── claude/         # Claude Code standalone integration
-└── kubernetes/     # Local K8s via kind
+├── languages/        # 25 languages + shared utility library
+│   ├── shared/       # feature-utils.sh (colors, logging, arch, GitHub API)
+│   └── <lang>/       # install.sh + devcontainer-feature.json
+├── architectures/    # Architecture patterns (14 patterns)
+├── browser/          # Playwright browser testing
+├── claude/           # Claude Code standalone integration
+├── infrastructure/   # Terragrunt, TFLint, Infracost, cfssl, Ansible tools
+└── kubernetes/       # Local K8s via kind
 ```
 
 ## Key Components

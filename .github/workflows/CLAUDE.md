@@ -1,4 +1,4 @@
-<!-- updated: 2026-02-25T01:00:00Z -->
+<!-- updated: 2026-04-10T12:00:00Z -->
 # GitHub Actions Workflows
 
 ## Purpose
@@ -12,6 +12,7 @@ CI/CD automation for the devcontainer template.
 | `docker-images.yml` | Build and push devcontainer images |
 | `publish-features.yml` | Publish Dev Container Features as OCI artifacts to GHCR |
 | `release.yml` | Create GitHub Release with claude-assets.tar.gz |
+| `tests.yml` | Run unit tests for hooks and scripts |
 
 ## docker-images.yml (Two-Tier Build)
 
@@ -41,6 +42,12 @@ CI/CD automation for the devcontainer template.
 - **Action**: Generates `claude-assets.tar.gz` and creates a GitHub Release
 - **Tag format**: `vYYYY.MM.DD-<sha7>`
 - **Latest**: Always marks as latest release (used by `install.sh`)
+
+## tests.yml
+
+- **Trigger**: Push to main, PRs
+- **Action**: Runs unit tests for hooks and scripts
+- **Uses**: `bats-core/bats-action@v3`
 
 ## Conventions
 
