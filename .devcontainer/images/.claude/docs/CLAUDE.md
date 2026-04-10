@@ -1,9 +1,9 @@
-<!-- updated: 2026-02-27T13:00:00Z -->
+<!-- updated: 2026-04-10T12:00:00Z -->
 # Design Patterns Knowledge Base
 
 ## Purpose
 
-170+ pattern files across 19 categories. **Consult during /plan and /review.**
+152 pattern files across 19 categories. **Consult during /plan and /review.**
 
 ## Categories
 
