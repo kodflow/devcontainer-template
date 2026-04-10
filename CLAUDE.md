@@ -1,4 +1,4 @@
-<!-- updated: 2026-04-09T00:00:00Z -->
+<!-- updated: 2026-04-10T12:00:00Z -->
 # devcontainer-template
 
 ## Purpose
@@ -17,7 +17,7 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 ├── docs/            # Documentation (MkDocs: vision, architecture, guides)
 ├── src/             # All source code (created per project via /init)
 ├── tests/           # Unit tests (created per project via /init)
-├── AGENTS.md        # Specialist agents specification (79 agents)
+├── AGENTS.md        # Specialist agents specification (81 agents)
 └── CLAUDE.md        # This file
 ```
 
@@ -145,11 +145,12 @@ CLAUDE.md                    # This overview
 ├── docs/architecture.md     # System design, components
 ├── docs/workflows.md        # Detailed workflows
 ├── docs/ktn-linter-integration.md  # ktn-linter hook contract
+├── .github/CLAUDE.md        # GitHub Actions, dependabot
 ├── .devcontainer/CLAUDE.md  # Container config details
 │   ├── features/CLAUDE.md   # Language & tool features
 │   ├── hooks/CLAUDE.md      # Host-side hooks (initialize.sh only)
 │   └── images/CLAUDE.md     # Two-tier images (base + dynamic)
-└── .claude/commands/        # Slash commands (18 skills)
+└── .claude/commands/        # Slash commands (20 skills)
 ```
 
 Principle: More detail deeper in tree. Target < 200 lines each.
