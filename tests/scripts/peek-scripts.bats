@@ -4,7 +4,9 @@
 # Pattern: fail-open (exit 0), valid JSON output, correct keys
 # ============================================================================
 
-SCRIPTS_DIR="${SCRIPTS_DIR:-/workspace/.devcontainer/images/.claude/scripts}"
+REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/../.." && pwd)"
+SCRIPTS_DIR="${SCRIPTS_DIR:-$REPO_ROOT/.devcontainer/images/.claude/scripts}"
+PROJECT_DIR="$REPO_ROOT"
 
 # --- Helpers ---
 
@@ -25,17 +27,17 @@ json_type() {
 # ============================================================================
 
 @test "project-peek: exits 0" {
-    run bash "$SCRIPTS_DIR/project-peek.sh" /workspace
+    run bash "$SCRIPTS_DIR/project-peek.sh" $PROJECT_DIR
     [ "$status" -eq 0 ]
 }
 
 @test "project-peek: outputs valid JSON" {
-    run bash "$SCRIPTS_DIR/project-peek.sh" /workspace
+    run bash "$SCRIPTS_DIR/project-peek.sh" $PROJECT_DIR
     json_valid "$output"
 }
 
 @test "project-peek: has all top-level keys" {
-    output=$(bash "$SCRIPTS_DIR/project-peek.sh" /workspace)
+    output=$(bash "$SCRIPTS_DIR/project-peek.sh" $PROJECT_DIR)
     json_has_key "$output" "claude_hierarchy"
     json_has_key "$output" "project"
     json_has_key "$output" "git"
@@ -46,18 +48,18 @@ json_type() {
 }
 
 @test "project-peek: claude_hierarchy is array" {
-    output=$(bash "$SCRIPTS_DIR/project-peek.sh" /workspace)
+    output=$(bash "$SCRIPTS_DIR/project-peek.sh" $PROJECT_DIR)
     [ "$(json_type "$output" "claude_hierarchy")" = "array" ]
 }
 
 @test "project-peek: detects devcontainer-template type" {
-    output=$(bash "$SCRIPTS_DIR/project-peek.sh" /workspace)
+    output=$(bash "$SCRIPTS_DIR/project-peek.sh" $PROJECT_DIR)
     type=$(echo "$output" | jq -r '.project.type')
     [ "$type" = "devcontainer-template" ]
 }
 
 @test "project-peek: detects git org/repo" {
-    output=$(bash "$SCRIPTS_DIR/project-peek.sh" /workspace)
+    output=$(bash "$SCRIPTS_DIR/project-peek.sh" $PROJECT_DIR)
     org=$(echo "$output" | jq -r '.git.org')
     repo=$(echo "$output" | jq -r '.git.repo')
     [ -n "$org" ]
@@ -65,7 +67,7 @@ json_type() {
 }
 
 @test "project-peek: file_counts are numbers" {
-    output=$(bash "$SCRIPTS_DIR/project-peek.sh" /workspace)
+    output=$(bash "$SCRIPTS_DIR/project-peek.sh" $PROJECT_DIR)
     [ "$(json_type "$output" "file_counts.shell")" = "number" ]
     [ "$(json_type "$output" "file_counts.markdown")" = "number" ]
 }
@@ -80,17 +82,17 @@ json_type() {
 # ============================================================================
 
 @test "dev-peek: exits 0" {
-    run bash "$SCRIPTS_DIR/dev-peek.sh" main /workspace
+    run bash "$SCRIPTS_DIR/dev-peek.sh" main $PROJECT_DIR
     [ "$status" -eq 0 ]
 }
 
 @test "dev-peek: outputs valid JSON" {
-    run bash "$SCRIPTS_DIR/dev-peek.sh" main /workspace
+    run bash "$SCRIPTS_DIR/dev-peek.sh" main $PROJECT_DIR
     json_valid "$output"
 }
 
 @test "dev-peek: has all top-level keys" {
-    output=$(bash "$SCRIPTS_DIR/dev-peek.sh" main /workspace)
+    output=$(bash "$SCRIPTS_DIR/dev-peek.sh" main $PROJECT_DIR)
     json_has_key "$output" "changed_files"
     json_has_key "$output" "languages"
     json_has_key "$output" "linters"
@@ -101,31 +103,31 @@ json_type() {
 }
 
 @test "dev-peek: changed_files.vs_base is array" {
-    output=$(bash "$SCRIPTS_DIR/dev-peek.sh" main /workspace)
+    output=$(bash "$SCRIPTS_DIR/dev-peek.sh" main $PROJECT_DIR)
     [ "$(json_type "$output" "changed_files.vs_base")" = "array" ]
 }
 
 @test "dev-peek: languages are booleans" {
-    output=$(bash "$SCRIPTS_DIR/dev-peek.sh" main /workspace)
+    output=$(bash "$SCRIPTS_DIR/dev-peek.sh" main $PROJECT_DIR)
     [ "$(json_type "$output" "languages.go")" = "boolean" ]
     [ "$(json_type "$output" "languages.shell")" = "boolean" ]
 }
 
 @test "dev-peek: linters are booleans" {
-    output=$(bash "$SCRIPTS_DIR/dev-peek.sh" main /workspace)
+    output=$(bash "$SCRIPTS_DIR/dev-peek.sh" main $PROJECT_DIR)
     [ "$(json_type "$output" "linters.shellcheck")" = "boolean" ]
 }
 
 @test "dev-peek: makefile.test reflects Makefile" {
-    output=$(bash "$SCRIPTS_DIR/dev-peek.sh" main /workspace)
+    output=$(bash "$SCRIPTS_DIR/dev-peek.sh" main $PROJECT_DIR)
     has_test=$(echo "$output" | jq -r '.makefile.test')
-    if grep -qw "test:" /workspace/Makefile 2>/dev/null; then
+    if grep -qw "test:" $PROJECT_DIR/Makefile 2>/dev/null; then
         [ "$has_test" = "true" ]
     fi
 }
 
 @test "dev-peek: exits 0 with nonexistent base branch" {
-    run bash "$SCRIPTS_DIR/dev-peek.sh" nonexistent-branch /workspace
+    run bash "$SCRIPTS_DIR/dev-peek.sh" nonexistent-branch $PROJECT_DIR
     [ "$status" -eq 0 ]
 }
 
@@ -134,17 +136,17 @@ json_type() {
 # ============================================================================
 
 @test "infra-peek: exits 0" {
-    run bash "$SCRIPTS_DIR/infra-peek.sh" /workspace
+    run bash "$SCRIPTS_DIR/infra-peek.sh" $PROJECT_DIR
     [ "$status" -eq 0 ]
 }
 
 @test "infra-peek: outputs valid JSON" {
-    run bash "$SCRIPTS_DIR/infra-peek.sh" /workspace
+    run bash "$SCRIPTS_DIR/infra-peek.sh" $PROJECT_DIR
     json_valid "$output"
 }
 
 @test "infra-peek: has all top-level keys" {
-    output=$(bash "$SCRIPTS_DIR/infra-peek.sh" /workspace)
+    output=$(bash "$SCRIPTS_DIR/infra-peek.sh" $PROJECT_DIR)
     json_has_key "$output" "tool"
     json_has_key "$output" "workspace"
     json_has_key "$output" "state"
@@ -155,13 +157,13 @@ json_type() {
 }
 
 @test "infra-peek: tool detection works" {
-    output=$(bash "$SCRIPTS_DIR/infra-peek.sh" /workspace)
+    output=$(bash "$SCRIPTS_DIR/infra-peek.sh" $PROJECT_DIR)
     tool=$(echo "$output" | jq -r '.tool.name')
     [ "$tool" != "" ]
 }
 
 @test "infra-peek: workspace.list is array" {
-    output=$(bash "$SCRIPTS_DIR/infra-peek.sh" /workspace)
+    output=$(bash "$SCRIPTS_DIR/infra-peek.sh" $PROJECT_DIR)
     [ "$(json_type "$output" "workspace.list")" = "array" ]
 }
 
@@ -175,34 +177,34 @@ json_type() {
 # ============================================================================
 
 @test "ops-peek: exits 0" {
-    run bash "$SCRIPTS_DIR/ops-peek.sh" /workspace
+    run bash "$SCRIPTS_DIR/ops-peek.sh" $PROJECT_DIR
     [ "$status" -eq 0 ]
 }
 
 @test "ops-peek: outputs valid JSON" {
-    run bash "$SCRIPTS_DIR/ops-peek.sh" /workspace
+    run bash "$SCRIPTS_DIR/ops-peek.sh" $PROJECT_DIR
     json_valid "$output"
 }
 
 @test "ops-peek: has all top-level keys" {
-    output=$(bash "$SCRIPTS_DIR/ops-peek.sh" /workspace)
+    output=$(bash "$SCRIPTS_DIR/ops-peek.sh" $PROJECT_DIR)
     json_has_key "$output" "onepassword"
     json_has_key "$output" "vpn"
 }
 
 @test "ops-peek: vpn.clients are booleans" {
-    output=$(bash "$SCRIPTS_DIR/ops-peek.sh" /workspace)
+    output=$(bash "$SCRIPTS_DIR/ops-peek.sh" $PROJECT_DIR)
     [ "$(json_type "$output" "vpn.clients.openvpn")" = "boolean" ]
     [ "$(json_type "$output" "vpn.clients.wireguard")" = "boolean" ]
 }
 
 @test "ops-peek: vpn.state.connected is boolean" {
-    output=$(bash "$SCRIPTS_DIR/ops-peek.sh" /workspace)
+    output=$(bash "$SCRIPTS_DIR/ops-peek.sh" $PROJECT_DIR)
     [ "$(json_type "$output" "vpn.state.connected")" = "boolean" ]
 }
 
 @test "ops-peek: onepassword.token_set reflects env" {
-    output=$(bash "$SCRIPTS_DIR/ops-peek.sh" /workspace)
+    output=$(bash "$SCRIPTS_DIR/ops-peek.sh" $PROJECT_DIR)
     token_set=$(echo "$output" | jq -r '.onepassword.token_set')
     if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
         [ "$token_set" = "true" ]
