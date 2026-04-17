@@ -61,7 +61,7 @@
     "**/.git": true,
     "**/node_modules": true,
     "**/dist": true,
-    "**/site": true,
+    "docs/site": true,
     "**/.claude/logs": true,
     "**/.claude/contexts": true,
     "**/.claude/plans": true,
