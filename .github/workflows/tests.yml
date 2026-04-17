@@ -14,6 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - name: Install jq
+        run: command -v jq || sudo apt-get update -qq && sudo apt-get install -y -qq jq
+
       - name: Setup Bats
         id: setup-bats
         uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43 # v4.1.0
