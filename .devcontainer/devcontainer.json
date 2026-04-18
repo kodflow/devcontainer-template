@@ -86,7 +86,7 @@
   // ========== LIFECYCLE COMMANDS ==========
   // Hooks are embedded in the Docker image at /etc/devcontainer-hooks/
   // Only initialize.sh runs on the host (before container build)
-  "waitFor": "postCreateCommand",
+  "waitFor": "onCreateCommand",
   "initializeCommand": "[ -f \"${localWorkspaceFolder}/.devcontainer/hooks/lifecycle/initialize.sh\" ] && bash \"${localWorkspaceFolder}/.devcontainer/hooks/lifecycle/initialize.sh\" || true",
   "onCreateCommand": "/etc/devcontainer-hooks/lifecycle/onCreate.sh",
   "updateContentCommand": "/etc/devcontainer-hooks/lifecycle/updateContent.sh",
