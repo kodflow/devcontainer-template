@@ -158,10 +158,9 @@ apply_devcontainer_tarball() {
         echo "  ✓ templates"
     fi
 
-    # devcontainer.json (container only - update feature refs)
+    # devcontainer.json (container only - merge template + local override)
     if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/devcontainer.json" ]; then
-        cp -f "$src/.devcontainer/devcontainer.json" ".devcontainer/devcontainer.json"
-        echo "  ✓ devcontainer.json"
+        update_devcontainer_json_from_tarball "$src"
     fi
 
     # Dockerfile (container only - update FROM reference)
@@ -328,6 +327,55 @@ update_compose_from_tarball() {
     else
         mv "$backup_file" "$compose_file"
         echo "  ✗ Compose validation failed, restored backup"
+        return 1
+    fi
+}
+```
+
+### 5.3.1: devcontainer.json merge (from tarball)
+
+```bash
+# Merge template devcontainer.json with local override
+# - Template: structure, feature refs (GHCR URLs), lifecycle commands → always updated
+# - devcontainer.local.json (optional, project-managed): enabled features with options,
+#   custom extensions, env vars, mounts → always preserved across /update runs
+#
+# No override file → template copied as-is (preserves JSONC comments for discovery)
+# Override file exists → deep merge written as strict JSON (comments stripped)
+update_devcontainer_json_from_tarball() {
+    local src="$1"
+    local template_file="$src/.devcontainer/devcontainer.json"
+    local target_file=".devcontainer/devcontainer.json"
+    local override_file=".devcontainer/devcontainer.local.json"
+    local merge_script="$src/.devcontainer/images/scripts/merge-devcontainer-json.mjs"
+
+    if [ ! -f "$override_file" ]; then
+        # Advisory: warn if local diverges from template — user likely needs a local override
+        if [ -f "$target_file" ] && ! cmp -s "$target_file" "$template_file"; then
+            echo "  ⚠ devcontainer.json differs from template and no devcontainer.local.json found"
+            echo "    Local customizations will be overwritten. To preserve them, create"
+            echo "    .devcontainer/devcontainer.local.json with your overrides (see .devcontainer/CLAUDE.md)."
+        fi
+        cp -f "$template_file" "$target_file"
+        echo "  ✓ devcontainer.json (template, no override)"
+        return 0
+    fi
+
+    if ! command -v node >/dev/null 2>&1 || [ ! -f "$merge_script" ]; then
+        echo "  ⚠ devcontainer.json merge skipped (node or merge script missing); copying template"
+        cp -f "$template_file" "$target_file"
+        return 0
+    fi
+
+    local backup_file="${target_file}.backup"
+    [ -f "$target_file" ] && cp "$target_file" "$backup_file"
+
+    if node "$merge_script" "$template_file" "$override_file" "$target_file" 2>/dev/null; then
+        rm -f "$backup_file"
+        echo "  ✓ devcontainer.json (template + devcontainer.local.json merged)"
+    else
+        [ -f "$backup_file" ] && mv "$backup_file" "$target_file"
+        echo "  ✗ devcontainer.json merge failed, restored backup"
         return 1
     fi
 }

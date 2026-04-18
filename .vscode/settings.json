@@ -44,7 +44,7 @@
     "*.sh": "${capture}.bats, ${capture}_test.sh, ${capture}.bash, ${capture}.zsh",
     "*.bash": "${capture}_test.sh, ${capture}.bats",
     "install.sh": "devcontainer-feature.json, mcp.json, README.md, NOTES.md",
-    "devcontainer.json": "docker-compose.yml, docker-compose.*.yml, Dockerfile, Dockerfile.*, .env, .env.*",
+    "devcontainer.json": "devcontainer.local.json, devcontainer.*.json, .template-version, docker-compose.yml, docker-compose.*.yml, Dockerfile, Dockerfile.*, .env, .env.*",
     "Dockerfile.base": "Dockerfile, .dockerignore, docker-compose.yml, mcp.json.tpl, .p10k.zsh, grepai.config.yaml"
   },
   "files.exclude": {
