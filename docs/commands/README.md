@@ -22,7 +22,6 @@ flowchart TD
     Q -->|Test in a browser| F["/test"]
     Q -->|Fix code style| G["/lint"]
     Q -->|Search documentation| H["/search"]
-    Q -->|Generate docs| I["/docs"]
     Q -->|Infrastructure| J["/infra"]
     Q -->|Manage secrets| K["/secret"]
     Q -->|Connect via VPN| L["/vpn"]
@@ -54,7 +53,6 @@ flowchart TD
 | Command | Arguments | What It Does |
 |---------|-----------|--------------|
 | `/search "query"` | natural language query | Searches first in `~/.claude/docs/`, then context7, then the web |
-| `/docs` | `--update`, `--stop`, `--serve`, `--quick` | Generates MkDocs documentation from codebase analysis |
 | `/warmup` | `--update` | Loads the CLAUDE.md hierarchy into memory, updates if needed |
 
 ### Infrastructure & Ops

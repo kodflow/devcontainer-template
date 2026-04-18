@@ -105,7 +105,9 @@ obj/
 # ============================================
 # IDE & Editor files
 # ============================================
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
@@ -147,6 +149,5 @@ plans/
 # Claude Code session logs (context recovery)
 # ============================================
 .claude/logs/
-docs/site/
 core.*
 .taskmaster/
