@@ -18,7 +18,7 @@ CI/CD automation for the devcontainer template.
 
 **Base image** (`devcontainer-base`):
 - **Trigger**: Weekly (Sunday 3AM UTC), `[base]` in commit message, manual dispatch
-- **Content**: apt, PPA tools, Cloud CLIs, MkDocs, Oh My Zsh (~1.1GB, stable)
+- **Content**: apt, PPA tools, Cloud CLIs, Oh My Zsh (~1.1GB, stable)
 
 **Main image** (`devcontainer-template`):
 - **Trigger**: Push to main, PRs, daily (4AM UTC), ktn-linter-release

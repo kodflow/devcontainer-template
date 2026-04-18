@@ -14,7 +14,7 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 ├── .githooks/       # Git hooks (pre-commit: regenerate assets)
 ├── .claude/         # Workspace Claude overrides (settings.local.json, features.json)
 ├── .grepai/         # GrepAI project config (exclusions)
-├── docs/            # Documentation (MkDocs: vision, architecture, guides)
+├── docs/            # Documentation (plain markdown: vision, architecture, guides)
 ├── src/             # All source code (created per project via /init)
 ├── tests/           # Unit tests (created per project via /init)
 ├── AGENTS.md        # Specialist agents specification (81 agents)
@@ -105,7 +105,7 @@ Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.).
 
 ## Agent Teams (experimental)
 
-Parallel multi-agent execution for 7 high-value skills (`/review`, `/plan`, `/docs`, `/do`, `/infra`, `/test`, `/improve`). Each skill detects its runtime mode at invocation and branches:
+Parallel multi-agent execution for 6 high-value skills (`/review`, `/plan`, `/do`, `/infra`, `/test`, `/improve`). Each skill detects its runtime mode at invocation and branches:
 
 | Capability (persisted) | Runtime mode | Where |
 |---|---|---|
@@ -165,7 +165,6 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/review` | Code review (3-tier: agents + Qodo + CodeRabbit) |
 | `/git` | Conventional commits, branch management |
 | `/search` | Documentation research with official sources |
-| `/docs` | Deep project documentation generation |
 | `/test` | E2E testing with Playwright MCP |
 | `/lint` | Multi-language intelligent linting |
 | `/infra` | Infrastructure automation (Terraform/Terragrunt) |

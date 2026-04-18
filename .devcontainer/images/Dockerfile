@@ -7,7 +7,7 @@
 # Claude Code, grepai, rtk, kubectl, helm, CodeRabbit, Qodo, etc.
 #
 # Base image (devcontainer-base) contains: system deps, Cloud CLIs, PPA tools,
-# MkDocs, Oh My Zsh. It is rebuilt weekly via Dockerfile.base.
+# Oh My Zsh. It is rebuilt weekly via Dockerfile.base.
 #
 # Build:
 #   docker buildx build --platform linux/amd64,linux/arm64 \
