@@ -144,6 +144,23 @@ apply_devcontainer_tarball() {
         echo "  ✓ mcp-fragments"
     fi
 
+    # DevContainer features (container only) — mirror from tarball.
+    # postStart also force-syncs from the image's embedded copy; /update brings
+    # them current immediately without waiting for the next image rebuild.
+    # The updated .template-version written in §5.7 tells postStart to yield
+    # when the repo is ahead of the image.
+    if [ "$CONTEXT" = "container" ] && [ -d "$src/.devcontainer/features" ]; then
+        mkdir -p ".devcontainer/features"
+        if command -v rsync &>/dev/null; then
+            rsync -a --delete "$src/.devcontainer/features/" ".devcontainer/features/"
+        else
+            rm -rf ".devcontainer/features"
+            mkdir -p ".devcontainer/features"
+            cp -rf "$src/.devcontainer/features/." ".devcontainer/features/"
+        fi
+        echo "  ✓ features"
+    fi
+
     # Design patterns docs
     if [ -d "$src/.devcontainer/images/.claude/docs" ]; then
         mkdir -p "$UPDATE_TARGET/docs"
@@ -484,6 +501,7 @@ echo "  ✓ .template-version updated ($DC_COMMIT)"
     ✓ grepai         (bge-m3 config)
     ✓ mcp-template   (mcp.json.tpl)
     ✓ mcp-fragments  (context7, ktn-linter)
+    ✓ features       (devcontainer features, 25 languages)
     ✓ docs           (design patterns KB)
     ✓ templates      (project/docs templates)
     ✓ devcontainer   (feature refs)
