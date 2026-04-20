@@ -55,7 +55,8 @@
     "**/.pytest_cache": true,
     "**/node_modules": true,
     "**/.rtk": true,
-    "**/.claude/logs": true
+    "**/.claude/logs": true,
+    "bazel-*": true
   },
   "search.exclude": {
     "**/.git": true,
@@ -67,7 +68,8 @@
     "**/.claude/plans": true,
     "**/coverage": true,
     "**/vendor": true,
-    "**/target": true
+    "**/target": true,
+    "bazel-*": true
   },
   "files.associations": {
     "*.toml": "toml",
