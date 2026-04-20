@@ -70,7 +70,8 @@
         "files.trimTrailingWhitespace": true,
         "files.exclude": {
           "**/.grepai": true,
-          "**/.git": true
+          "**/.git": true,
+          "bazel-*": true
         }
       },
       "extensions": [
