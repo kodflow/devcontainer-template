@@ -213,12 +213,19 @@ jobs:
             echo "value=stable" >> $GITHUB_OUTPUT
           fi
 
-      # Stage .devcontainer/features/ into the image build context so the
-      # Dockerfile COPY can embed them at /etc/devcontainer-template/features/.
-      # (Build context is .devcontainer/images/, features/ lives one level up.)
-      - name: Stage features into build context
+      # Stage .devcontainer/features/ + image-template-version.json into the
+      # build context so the Dockerfile can embed them. Build context is
+      # .devcontainer/images/; features/ and the version marker live one level up.
+      # The version marker lets postStart skip the sync when the consumer has
+      # already pulled a newer template via /update (avoids /update regression).
+      - name: Stage features and image template-version
         if: steps.base-check.outputs.available == 'true'
-        run: cp -r .devcontainer/features .devcontainer/images/features
+        run: |
+          cp -r .devcontainer/features .devcontainer/images/features
+          printf '{"commit": "%s", "updated": "%s"}\n' \
+            "$(echo "${{ github.sha }}" | cut -c1-7)" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            > .devcontainer/images/image-template-version.json
 
       # PR: Build only (no push)
       - name: Build image (PR)

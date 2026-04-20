@@ -1661,6 +1661,7 @@ step_sync_features() {
         return 0
     fi
 
+    # Self-exclusion: skip if we ARE the template repo (git HEAD matches marker commit).
     if [ -f "$marker" ] && command -v jq &>/dev/null; then
         local marker_commit current_commit
         marker_commit=$(jq -r '.commit // empty' "$marker" 2>/dev/null || true)
@@ -1668,6 +1669,21 @@ step_sync_features() {
         if [ -n "$marker_commit" ] && [ -n "$current_commit" ] && \
            { [[ "$current_commit" == "$marker_commit"* ]] || [[ "$marker_commit" == "$current_commit"* ]]; }; then
             log_info "Template repo detected (template-version matches HEAD), skipping features sync"
+            return 0
+        fi
+    fi
+
+    # /update harmony: skip sync when consumer's .template-version is newer than
+    # the image's embedded version (consumer ran /update on a fresher template).
+    # Syncing would silently regress /update's work.
+    local image_version="/etc/devcontainer-template/.template-version"
+    if [ -f "$marker" ] && [ -f "$image_version" ] && command -v jq &>/dev/null; then
+        local repo_updated image_updated
+        repo_updated=$(jq -r '.updated // empty' "$marker" 2>/dev/null || true)
+        image_updated=$(jq -r '.updated // empty' "$image_version" 2>/dev/null || true)
+        if [ -n "$repo_updated" ] && [ -n "$image_updated" ] && \
+           [[ "$repo_updated" > "$image_updated" ]]; then
+            log_info "Repo template-version ($repo_updated) newer than image ($image_updated), skipping features sync"
             return 0
         fi
     fi
