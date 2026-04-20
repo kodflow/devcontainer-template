@@ -72,6 +72,12 @@ COPY --chown=root:root scripts/vpn/ /tmp/vpn/
 COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
 COPY --chown=vscode:vscode mcp-fragments/ /etc/mcp/fragments/
 
+# Template features source — force-synced into /workspace/.devcontainer/features/
+# at every postStart (see hooks/lifecycle/postStart.sh step_sync_features).
+# The features/ directory is staged into the build context by CI before build;
+# for local builds run `cp -r .devcontainer/features .devcontainer/images/features` first.
+COPY --chown=root:root features/ /etc/devcontainer-template/features/
+
 # GrepAI config template (optimized for 12 languages)
 COPY --chown=vscode:vscode grepai.config.yaml /etc/grepai/config.yaml
 
