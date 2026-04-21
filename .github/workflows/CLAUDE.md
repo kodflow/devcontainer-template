@@ -1,4 +1,4 @@
-<!-- updated: 2026-04-10T12:00:00Z -->
+<!-- updated: 2026-04-21T15:27:23Z -->
 # GitHub Actions Workflows
 
 ## Purpose
@@ -47,7 +47,7 @@ CI/CD automation for the devcontainer template.
 
 - **Trigger**: Push to main, PRs
 - **Action**: Runs unit tests for hooks and scripts
-- **Uses**: `bats-core/bats-action@v3`
+- **Uses**: `bats-core/bats-action@4.0.0`
 
 ## Conventions
 
