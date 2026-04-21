@@ -356,7 +356,11 @@ auto_fix_stale_features() {
     └─ ghcr.io/kodflow/devcontainer-features/go:1
 
   Actions       : GHCR manifest refreshed, BuildKit cache pruned,
-                  devcontainer CLI feature cache wiped
+                  devcontainer CLI feature cache wiped,
+                  sync-toolchains.sh re-run (repopulates $GOPATH/bin on the
+                  package-cache volume — catches binaries that the feature's
+                  install.sh put under a volume-mounted path and which get
+                  masked at container start)
   CTA           : /tmp/claude-rebuild-request.json
 
   Next step     : Command Palette → "Dev Containers: Rebuild Without Cache"
