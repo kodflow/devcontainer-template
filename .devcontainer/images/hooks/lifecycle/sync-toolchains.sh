@@ -114,6 +114,19 @@ sync_go() {
                 goimports)
                     go install golang.org/x/tools/cmd/goimports@latest 2>/dev/null || true
                     ;;
+                ktn-linter)
+                    # ktn-linter is published as a release binary on GitHub, NOT as a Go
+                    # module — `go install ktn-linter@latest` silently fails (not a valid
+                    # module path). Must download the release asset directly, and do it
+                    # HERE at runtime so the write lands in the already-mounted
+                    # package-cache volume (build-time writes under $GOPATH/bin are
+                    # masked by the volume at container start).
+                    curl -fsSL --connect-timeout 10 --max-time 60 \
+                         "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}" \
+                         -o "$GOPATH/bin/ktn-linter" 2>/dev/null \
+                        && chmod +x "$GOPATH/bin/ktn-linter" \
+                        || true
+                    ;;
                 *)
                     go install "${tool}@latest" 2>/dev/null || true
                     ;;
