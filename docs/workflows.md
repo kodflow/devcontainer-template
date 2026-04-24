@@ -83,10 +83,11 @@ Priority: Makefile targets → Language-specific commands
 
 ## Search Strategy
 
-1. **Semantic search**: `grepai_search` for meaning-based queries
-2. **Call graphs**: `grepai_trace_callers/callees` for impact analysis
-3. **Official docs**: context7 for library documentation
-4. **Fallback**: Grep for exact strings, regex patterns
+1. **Exact strings / regex**: Grep (primary)
+2. **File discovery**: Glob
+3. **Read-then-understand**: Read full files; agents reason from context
+4. **Official docs**: context7 (`mcp__context7__*`) for library documentation
+5. **Token efficiency**: RTK PreToolUse hook auto-compresses Bash output
 
 ## Hooks
 

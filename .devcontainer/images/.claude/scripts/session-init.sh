@@ -25,7 +25,7 @@ if [ -n "$INPUT" ] && command -v jq &>/dev/null; then
 fi
 
 # Clean up orphaned worktrees FIRST (from crashed/interrupted sessions)
-# This prevents grepai from indexing duplicate copies of the project
+# Avoids leaving stale worktree directories around between sessions.
 # Must run before any early-exit so cleanup always happens
 WORKTREE_BASE="$HOME/.claude/worktrees"
 BUILTIN_BASE="$PROJECT_DIR/.claude/worktrees"

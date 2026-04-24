@@ -4,6 +4,15 @@ Notable changes to the devcontainer-template, generated from conventional commit
 
 ## Recent
 
+### Breaking changes
+
+- **devcontainer**: Removed `grepai` + `ollama` semantic-search stack (high CPU/RAM
+  cost for marginal benefit). RTK PreToolUse rewrite is now the canonical
+  token-savings mechanism. `/update` propagates the cleanup to downstream
+  projects (deletes `.grepai/`, `grepai.config.yaml`, runtime MCP entry, kills
+  orphan daemons). Action: rebuild image without cache; optionally
+  `brew uninstall ollama` / `sudo apt purge ollama` if no longer used elsewhere.
+
 ### Features
 
 - **agents**: Add parallel-safe plan/context files and OS specialist agents ([#205](https://github.com/kodflow/devcontainer-template/pull/205))

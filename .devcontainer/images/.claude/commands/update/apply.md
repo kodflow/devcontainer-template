@@ -124,12 +124,6 @@ apply_devcontainer_tarball() {
         echo "  ✓ settings"
     fi
 
-    # grepai config (container only)
-    if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/images/grepai.config.yaml" ]; then
-        cp -f "$src/.devcontainer/images/grepai.config.yaml" ".devcontainer/images/grepai.config.yaml"
-        echo "  ✓ grepai"
-    fi
-
     # MCP template (container only)
     if [ "$CONTEXT" = "container" ] && [ -f "$src/.devcontainer/images/mcp.json.tpl" ]; then
         mkdir -p ".devcontainer/images"
@@ -564,7 +558,7 @@ done
 
 # Migration: remove deprecated MCP servers from runtime mcp.json
 if [ -f "$HOME/.claude/mcp.json" ] && command -v jq &>/dev/null; then
-    for server in codacy taskmaster; do
+    for server in codacy taskmaster grepai; do
         if jq -e ".mcpServers.$server" "$HOME/.claude/mcp.json" &>/dev/null; then
             jq "del(.mcpServers.$server)" "$HOME/.claude/mcp.json" > "$HOME/.claude/mcp.json.tmp" && \
                 mv "$HOME/.claude/mcp.json.tmp" "$HOME/.claude/mcp.json"
@@ -575,6 +569,20 @@ fi
 
 # Migration: remove .taskmaster/ directory
 [ -d ".taskmaster" ] && rm -rf ".taskmaster" && echo "  Removed deprecated .taskmaster/"
+
+# Migration (v2026.04): legacy grepai/ollama removal — high CPU/RAM cost, replaced by RTK
+if [ -f ".devcontainer/images/grepai.config.yaml" ]; then
+    rm -f ".devcontainer/images/grepai.config.yaml"
+    echo "  Removed deprecated grepai.config.yaml"
+fi
+if [ -d ".grepai" ]; then
+    rm -rf ".grepai"
+    echo "  Removed deprecated .grepai/ workspace index"
+fi
+# Kill any leftover grepai daemon (transitive — image rebuild also handles this)
+pkill -f 'grepai watch' 2>/dev/null || true
+pkill -f 'grepai mcp-serve' 2>/dev/null || true
+rm -f /tmp/.grepai-init.pid /tmp/grepai-watchdog.pid 2>/dev/null || true
 ```
 
 ### 5.7: Update devcontainer version file
@@ -623,7 +631,6 @@ echo "  ✓ .template-version updated ($DC_COMMIT)"
     ✓ p10k           (powerlevel10k)
     ✓ settings       (settings.json)
     ✓ compose        (devcontainer service)
-    ✓ grepai         (bge-m3 config)
     ✓ mcp-template   (mcp.json.tpl)
     ✓ mcp-fragments  (context7, ktn-linter)
     ✓ features       (devcontainer features, 25 languages)
@@ -652,7 +659,7 @@ echo "  ✓ .template-version updated ($DC_COMMIT)"
   DevContainer components:
     ✓ hooks, commands, agents, lifecycle
     ✓ image-hooks, shared-utils, p10k, settings
-    ✓ compose, grepai
+    ✓ compose
 
   Infrastructure components:
     ✓ modules/ (12 files)

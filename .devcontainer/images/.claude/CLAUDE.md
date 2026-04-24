@@ -1,26 +1,31 @@
-<!-- updated: 2026-03-14T12:00:00Z -->
+<!-- updated: 2026-04-24T10:50:00Z -->
 # Claude Code Core Rules
 
 ## 1.0 MCP-FIRST (MANDATORY)
 
 Use MCP tools BEFORE CLI fallbacks:
-- `mcp__grepai__*` before Grep
 - `mcp__github__*` before `gh`
 - `mcp__gitlab__*` before GitLab API
+- `mcp__context7__*` for up-to-date library docs
 - `mcp__playwright__*` before npx playwright (when browser feature enabled)
 
 MCP has pre-configured auth. NEVER ask for tokens if MCP is configured.
 
-## 2.0 GREPAI-FIRST (MANDATORY)
+## 2.0 RTK-FIRST (MANDATORY)
+
+`rtk-rewrite.sh` is a `PreToolUse` hook that compresses Bash output for
+60–90 % token savings — automatic, transparent, never invoked by hand.
 
 | Need | Tool |
 |------|------|
-| Semantic search | `grepai_search` |
-| Find callers | `grepai_trace_callers` |
-| Exact string | Grep (fallback) |
-| Regex pattern | Grep (fallback) |
+| Git/test/build/lint output | `rtk` (auto via hook) |
+| Token savings analytics | `rtk gain` / `rtk gain --history` |
+| Find missed savings opportunities | `rtk discover` |
+| Exact string / regex search | `Grep` |
+| Cross-file understanding | `Read` + `Grep` + Task agents |
 
-Fallback to Grep only if: grepai returns 0 results, exact match needed, or MCP unavailable.
+**No semantic-embedding tooling.** `grepai`/`ollama` were dropped in 2026-04
+(high CPU/RAM cost, marginal benefit). Use targeted `Grep` + `Read` instead.
 
 ## 3.0 ZSH-FIRST (MANDATORY)
 

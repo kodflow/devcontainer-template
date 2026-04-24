@@ -1,4 +1,4 @@
-<!-- updated: 2026-03-26T18:00:00Z -->
+<!-- updated: 2026-04-24T10:50:00Z -->
 # DevContainer Hooks
 
 ## Purpose
@@ -11,7 +11,7 @@ All lifecycle hooks are now embedded in the Docker image at `/etc/devcontainer-h
 ```text
 hooks/
 ├── lifecycle/          # Host-side only
-│   └── initialize.sh   # Ollama + .env setup (runs on HOST before build)
+│   └── initialize.sh   # .env setup + feature validation (runs on HOST before build)
 ├── shared/             # Shared utilities
 │   ├── utils.sh        # Common functions (used by initialize.sh)
 │   └── .env.example    # Environment variable template
@@ -39,7 +39,7 @@ Hooks auto-update when the Docker image is rebuilt. No workspace stubs needed.
 | Shell env repair | `step_shell_env_repair` | v1→v3 upgrade, duplicate cleanup |
 | Completion cache | `step_cache_completions` | Pre-generate `~/.zsh_completions/` |
 | p10k segments | `step_generate_p10k_segments` | Dynamic `~/.p10k-segments.zsh` |
-| grepai watch | `init_semantic_search` | `.health-stamp` + watchdog (60s) |
+| Legacy cleanup | `cleanup_legacy_grepai` | One-shot kill of grepai/ollama leftovers (transitive after 2026-04 migration) |
 | VPN | `init_vpn` | 1Password profile detection |
 | Claude Code update | `step_update_claude_code` | Auto-update to latest version |
 | RTK init | `init_rtk` | Token savings proxy initialization |

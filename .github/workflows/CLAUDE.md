@@ -22,7 +22,7 @@ CI/CD automation for the devcontainer template.
 
 **Main image** (`devcontainer-template`):
 - **Trigger**: Push to main, PRs, daily (4AM UTC), ktn-linter-release
-- **Content**: kubectl, grepai, rtk, Claude Code, CodeRabbit, Qodo (~120MB delta)
+- **Content**: kubectl, rtk, Claude Code, CodeRabbit, Qodo (~100MB delta)
 
 - **Registry**: ghcr.io
 - **Tags**: latest, date, commit SHA

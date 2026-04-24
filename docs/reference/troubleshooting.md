@@ -11,13 +11,15 @@
 3. Clean up if needed: `docker system prune`
 4. Rebuild without cache: `Ctrl+Shift+P` → `Dev Containers: Rebuild Without Cache`
 
-### grepai does not work
+### RTK is not rewriting commands
 
-**Symptom**: `grepai_search` returns errors
+**Symptom**: `rtk gain` shows zero savings, or commands run raw
 
-1. Check Ollama: `curl http://host.docker.internal:11434/api/tags`
-2. If Ollama is not installed, grepai still works but without embeddings. The watchdog retries every 60s.
-3. Force a re-index: delete `~/.cache/grepai/` and rerun `/warmup`
+1. Check the binary: `rtk --version` (must be ≥ 0.23.0)
+2. Check the hook: `grep rtk-rewrite.sh ~/.claude/settings.json`
+3. Check `jq` is installed (the hook needs it): `command -v jq`
+4. Check stderr for `[rtk] WARNING:` lines on session start
+5. If still broken: `rm -rf ~/.cache/rtk && rtk init`
 
 ### MCP tokens are not recognized
 

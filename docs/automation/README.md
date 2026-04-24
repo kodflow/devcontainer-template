@@ -53,23 +53,23 @@ sequenceDiagram
     participant C as Container
     participant I as Image hooks<br/>(/etc/devcontainer-hooks/)
 
-    H->>H: initialize.sh<br/>.env, Ollama, features
+    H->>H: initialize.sh<br/>.env, features
     H->>C: Container created
     C->>I: onCreate.sh
     I->>I: Caches, CLAUDE.md
     C->>I: postCreate.sh
     I->>I: Git config, GPG, shell
     C->>I: postStart.sh
-    I->>I: MCP, grepai, VPN
+    I->>I: MCP, RTK, VPN
     C->>I: postAttach.sh<br/>Welcome message
 ```
 
 | Hook | Frequency | Main Actions |
 |------|-----------|--------------|
-| `initialize.sh` | 1x (host) | Creates `.env`, validates features, installs Ollama |
+| `initialize.sh` | 1x (host) | Creates `.env`, validates features, pulls latest image |
 | `onCreate.sh` | 1x | Creates cache directories |
 | `postCreate.sh` | 1x (guarded) | Configures git, GPG, creates `~/.devcontainer-env.sh` |
-| `postStart.sh` | Every start | Restores Claude from `/etc/claude-defaults/`, generates `mcp.json`, launches grepai, connects VPN, caches ZSH completions, generates dynamic p10k segments |
+| `postStart.sh` | Every start | Restores Claude from `/etc/claude-defaults/`, generates `mcp.json`, initializes RTK rewrite hook, connects VPN, caches ZSH completions, generates dynamic p10k segments |
 | `postAttach.sh` | Every IDE attach | Displays the welcome message |
 
 !!! info "Non-blocking"
@@ -81,7 +81,6 @@ sequenceDiagram
 
 | Server | What It Provides | Auth Required |
 |--------|------------------|---------------|
-| **grepai** | Semantic code search, call graphs | None (local) |
 | **GitHub** | PR, issue, and branch management via MCP | `GITHUB_TOKEN` |
 | **GitLab** | MR and pipeline management via MCP | `GITLAB_TOKEN` |
 | **context7** | Up-to-date library documentation (image fragment) | None |

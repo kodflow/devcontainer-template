@@ -41,10 +41,25 @@ The agent never sees the rewrite — only the compressed output.
 
 ## Commands NOT Rewritten (pass-through)
 
-- `echo`, `make`, `terraform`, `helm`, `grepai`
+- `echo`, `make`, `terraform`, `helm`
 - Commands already prefixed with `rtk`
 - Heredocs (`<<`)
 - Unrecognized commands
+
+## Migration from grepai (2026-04)
+
+The previous `grepai` + `ollama` semantic-search stack was removed: bge-m3
+embeddings on the host, daemon + watchdog inside the container, and an
+indexed `.grepai/` directory together cost more CPU/RAM than they saved
+in agent quality. RTK alone now covers the token-cost problem; semantic
+understanding is delegated to targeted `Grep`/`Read` inside specialist
+agents (which have access to file context anyway).
+
+If you previously relied on `mcp__grepai__*` tools, switch to:
+- `Grep` for exact strings / regex
+- `Read` for full-file inspection
+- `mcp__context7__*` for up-to-date library/framework documentation
+- `rtk discover` to find new commands worth rewriting
 
 ## Configuration
 

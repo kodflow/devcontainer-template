@@ -386,7 +386,7 @@ execute_workflow:
     rules:
       - "ALWAYS use git add -A (never selective staging by filename)"
       - "git add -A automatically includes: CLAUDE.md, .devcontainer/, .claude/commands/"
-      - "git add -A automatically excludes: .env, mcp.json, .grepai/, .claude/* (except gitignore exceptions)"
+      - "git add -A automatically excludes: .env, mcp.json, .claude/* (except gitignore exceptions)"
       - "Check git diff --name-only after staging — if non-empty, there is a problem"
       - "If a tracked file should NOT be committed → git restore <file> BEFORE staging, not after"
 

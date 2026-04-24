@@ -1,4 +1,4 @@
-<!-- updated: 2026-04-10T12:00:00Z -->
+<!-- updated: 2026-04-24T10:50:00Z -->
 # devcontainer-template
 
 ## Purpose
@@ -13,7 +13,6 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 ├── .github/         # GitHub Actions workflows
 ├── .githooks/       # Git hooks (pre-commit: regenerate assets)
 ├── .claude/         # Workspace Claude overrides (settings.local.json, features.json)
-├── .grepai/         # GrepAI project config (exclusions)
 ├── docs/            # Documentation (plain markdown: vision, architecture, guides)
 ├── src/             # All source code (created per project via /init)
 ├── tests/           # Unit tests (created per project via /init)
@@ -27,7 +26,7 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 - **Cloud CLIs**: AWS v2, GCP SDK, Azure CLI
 - **IaC**: Terraform, Vault, Consul, Nomad, Packer, Ansible
 - **Containers**: Docker, kubectl, Helm
-- **AI**: Claude Code, RTK (token savings), MCP servers (GitHub, GitLab, grepai, context7 + feature-based: Playwright, ktn-linter)
+- **AI**: Claude Code, RTK (token savings via PreToolUse hook), MCP servers (GitHub, GitLab, context7 + feature-based: Playwright, ktn-linter)
 
 ## How to Work
 
@@ -46,7 +45,7 @@ Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
 
 **Self-correction**: When linting or tests fail, agents fix and retry automatically.
 
-**Semantic search**: Use `grepai_search` for meaning-based queries. Fall back to Grep for exact strings.
+**Token efficiency**: RTK (`rtk-rewrite.sh` PreToolUse hook) auto-compresses Bash output for 60–90 % token savings. Use `rtk gain` for analytics, `rtk discover` to find missed opportunities. **No semantic-embedding tooling** (`grepai`/`ollama` were dropped in 2026-04 — high CPU/RAM cost, marginal benefit). Search with targeted `Grep` + `Read`.
 
 **Specialist agents**: Language conventions enforced by agents that know current stable versions.
 
