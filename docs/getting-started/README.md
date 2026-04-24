@@ -42,12 +42,12 @@ sequenceDiagram
     participant D as Docker
     participant C as Container
 
-    H->>H: initialize.sh (create .env, install Ollama)
+    H->>H: initialize.sh (create .env, validate features)
     H->>D: docker compose build
     D->>D: Dockerfile (base image + 25 languages)
     D->>C: onCreate.sh (caches, CLAUDE.md)
     C->>C: postCreate.sh (git config, GPG, shell env)
-    C->>C: postStart.sh (MCP, grepai, VPN)
+    C->>C: postStart.sh (MCP, RTK, VPN)
     C->>C: postAttach.sh (welcome message)
 ```
 
@@ -56,9 +56,9 @@ sequenceDiagram
 | Build image | ~5 min (first time) | Ubuntu 24.04, cloud tools, 25 languages |
 | onCreate | ~10s | Cache directories |
 | postCreate | ~15s | Git config, GPG, shell aliases |
-| postStart | ~20s | MCP servers, grepai index, VPN |
+| postStart | ~10s | MCP servers, RTK rewrite hook, VPN |
 
-Subsequent starts take ~30s (the image is cached).
+Subsequent starts take ~20s (the image is cached).
 
 ## Prerequisites
 
@@ -72,6 +72,5 @@ Subsequent starts take ~30s (the image is cached).
 
 | Tool | Why |
 |------|-----|
-| Ollama | Local semantic search (grepai) |
 | 1Password CLI | Secret management with `/secret` |
 | GPG key | Commit signing |

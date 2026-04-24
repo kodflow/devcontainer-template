@@ -43,9 +43,9 @@ flowchart TB
         end
 
         subgraph MCP["MCP Servers"]
-            G[grepai<br/>semantic search]
             C7[context7<br/>up-to-date docs]
             GH[GitHub MCP<br/>PRs, issues]
+            GL[GitLab MCP<br/>MRs, pipelines]
             PW[Playwright<br/>E2E tests]
         end
     end
@@ -62,7 +62,7 @@ flowchart TB
     classDef external fill:#6c76931a,stroke:#6c7693,color:#d4d8e0
 
     class CMD,AGT,HK primary
-    class G,C7,GH,PW data
+    class C7,GH,GL,PW data
     class L1,L2,L3,LN async
     class TOOLS,NET external
 ```
@@ -83,12 +83,12 @@ flowchart TB
 │       └── ...
 ├── hooks/
 │   └── lifecycle/             # Host-side only
-│       └── initialize.sh      # → host (Ollama, .env)
+│       └── initialize.sh      # → host (.env, feature validation)
 └── images/
     ├── Dockerfile.base        # Stable layer (apt, Cloud CLIs) — weekly
     ├── Dockerfile             # Dynamic layer (Claude, tools) — daily
     ├── mcp.json.tpl           # MCP template (tokens injected)
-    ├── grepai.config.yaml     # Semantic search config
+    ├── rtk.config.toml        # RTK PreToolUse rewrite config
     ├── hooks/                 # Real hooks (embedded in image)
     │   ├── shared/utils.sh    # 367 lines of utilities
     │   └── lifecycle/         # onCreate, postCreate, postStart

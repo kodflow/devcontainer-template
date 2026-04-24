@@ -53,7 +53,7 @@ Delegate the cheapest sufficient model via agent specialization.
 
 - Skills load on-demand (not all 17 at once)
 - Agent definitions loaded only when spawned
-- Design patterns (170+ files) accessed via grepai semantic search, not bulk reads
+- Design patterns (170+ files) accessed via targeted Read on specific category, not bulk reads
 - Hook profiles (`HOOK_PROFILE=minimal`) reduce hook output in context
 
 ## 5. Subagent Architecture

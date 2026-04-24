@@ -137,6 +137,9 @@ out/
 .github/instructions/codacy.instructions.md
 .codacy/
 plans/
+# Defensive: ignore legacy .grepai/ artifacts (removed 2026-04, cleanup_legacy_grepai
+# in postStart.sh deletes them on start, but keep ignored for safety during the
+# migration transition).
 .grepai/
 
 # ktn-linter cache (generated at runtime)

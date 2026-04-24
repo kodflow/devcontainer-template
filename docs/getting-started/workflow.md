@@ -87,8 +87,8 @@ The review launches 5 parallel analyses:
 # Search official docs
 /search "how to configure Express.js middleware"
 
-# Search semantically in the code
-# (grepai is used automatically before grep)
+# Search the codebase
+# (Grep + Read are the canonical tools — RTK auto-compresses output)
 ```
 
 ## Branch and Commit Conventions
