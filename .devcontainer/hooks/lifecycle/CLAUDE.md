@@ -1,4 +1,4 @@
-<!-- updated: 2026-03-26T18:00:00Z -->
+<!-- updated: 2026-04-24T10:50:00Z -->
 # Lifecycle Hooks
 
 ## Purpose
@@ -10,14 +10,12 @@ All other lifecycle hooks are image-embedded at `/etc/devcontainer-hooks/lifecyc
 
 | Script | Event | Runs on | Description |
 |--------|-------|---------|-------------|
-| `initialize.sh` | initializeCommand | Host | .env setup, Ollama install, feature validation |
+| `initialize.sh` | initializeCommand | Host | .env setup, feature validation, image pull |
 
 ## initialize.sh
 
 - Generates `.env` from `.env.example` (project name from git remote)
 - Validates feature structure (install.sh + devcontainer-feature.json)
-- Installs/starts Ollama on host with `OLLAMA_HOST=0.0.0.0` (container-accessible)
-- Pulls embedding model (`bge-m3`) for grepai semantic search
 - Pulls latest Docker image to bypass cache
 
 ## Execution Order

@@ -28,7 +28,6 @@ Without a token, the corresponding MCP server does not start. Commands (`/review
 |----------|-------|
 | `OP_SERVICE_ACCOUNT_TOKEN` | 1Password CLI auth for `/secret` |
 | `VPN_CONFIG_REF` | 1Password reference to VPN profile (e.g., `op://VPN/MyVPN/config`) |
-| `OLLAMA_HOST` | Ollama endpoint (default: `host.docker.internal:11434`) |
 
 ### Full Example
 

@@ -13,7 +13,7 @@ Base image (Ubuntu 24.04 + core tooling)
         |
 Lifecycle hooks + language features
         |
-Claude Code + MCP servers (github, gitlab, grepai, context7 + feature fragments)
+Claude Code + MCP servers (github, gitlab, context7 + feature fragments)
         |
 Specialist agents (25 language + 6 dev executor + 9 devops + 6 platform executor + 22 OS + 9 docs analyzers + 2 orchestrators)
 ```
@@ -63,7 +63,7 @@ User intent (slash command)
 - **IaC**: Terraform, Vault, Consul, Nomad, Packer, Ansible
 - **Containers**: kubectl, Helm, Docker Compose
 - **Languages**: Managed via devcontainer features (NVM, pyenv, rustup, etc.)
-- **AI**: Claude Code, MCP servers, grepai semantic search
+- **AI**: Claude Code, MCP servers, RTK token-savings hook (PreToolUse rewrite)
 
 ## External Dependencies
 
@@ -71,7 +71,6 @@ User intent (slash command)
 |---------|------|---------|
 | GitHub | `ghcr.io/github/github-mcp-server` | PR automation, code search |
 | GitLab | `@zereight/mcp-gitlab` | MR automation, pipelines |
-| grepai | Local MCP | Semantic code search, call graphs |
 | context7 | `@upstash/context7-mcp` | Official library documentation (image fragment) |
 | Playwright | `@playwright/mcp` | Browser automation, E2E testing (browser feature) |
 | ktn-linter | Local MCP | Code linting — MCP server + hook provider (Go feature fragment) |
