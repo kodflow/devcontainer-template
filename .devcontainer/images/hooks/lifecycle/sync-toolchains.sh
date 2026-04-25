@@ -141,9 +141,14 @@ sync_go() {
         local repo="$1"
         local auth=()
         [ -n "${GITHUB_TOKEN:-}" ] && auth=(-H "Authorization: token ${GITHUB_TOKEN}")
+        # Extract the X.Y.Z triple only — symmetric with installed_tool_version.
+        # Without this, a suffix like `2.11.4-rc1` from a non-stable tag would
+        # never match the installed binary's strict NN.NN.NN report and trigger
+        # a spurious reinstall on every onCreate. (CodeRabbit, PR #330)
         curl -fsS --connect-timeout 3 --max-time 8 "${auth[@]}" \
             "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
-            | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1
+            | sed -n 's/.*"tag_name": *"v\?\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p' \
+            | head -n 1
     }
 
     installed_tool_version() {
