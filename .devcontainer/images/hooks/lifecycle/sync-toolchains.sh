@@ -106,32 +106,106 @@ sync_go() {
         *) GO_ARCH="amd64" ;;
     esac
 
-    local tools=(golangci-lint gosec gofumpt gotestsum goimports ktn-linter)
-    for tool in "${tools[@]}"; do
-        if ! command -v "$tool" &>/dev/null; then
-            echo "    installing ${tool}..."
-            case "$tool" in
-                goimports)
-                    go install golang.org/x/tools/cmd/goimports@latest 2>/dev/null || true
-                    ;;
-                ktn-linter)
-                    # ktn-linter is published as a release binary on GitHub, NOT as a Go
-                    # module — `go install ktn-linter@latest` silently fails (not a valid
-                    # module path). Must download the release asset directly, and do it
-                    # HERE at runtime so the write lands in the already-mounted
-                    # package-cache volume (build-time writes under $GOPATH/bin are
-                    # masked by the volume at container start).
+    # Tool → full Go module path. The previous `go install ${tool}@latest`
+    # was broken: `golangci-lint`, `gosec`, `gofumpt`, `gotestsum` are not
+    # bare module names and silently failed (suffixed `|| true`). That mask
+    # is why issue #329 (v1.64.8 stuck after v2.0.0 EOL) survived rebuilds.
+    declare -A GO_TOOL_MODULES=(
+        [golangci-lint]="github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
+        [gosec]="github.com/securego/gosec/v2/cmd/gosec"
+        [gofumpt]="mvdan.cc/gofumpt"
+        [gotestsum]="gotest.tools/gotestsum"
+        [goimports]="golang.org/x/tools/cmd/goimports"
+    )
+    # Repo for upstream-version probe. Tools listed here are auto-refreshed
+    # to upstream `latest` on every sync — drift-resistant by design, so a
+    # stale volume can't pin us to an EOL major branch (issue #329). The set
+    # is deliberately small: only tools whose upstream has a history of
+    # major-version EOL transitions.
+    declare -A GO_TOOL_REPOS=(
+        [golangci-lint]="golangci/golangci-lint"
+        [gosec]="securego/gosec"
+    )
+
+    install_go_tool_latest() {
+        local tool="$1"
+        local module="${GO_TOOL_MODULES[$tool]:-}"
+        if [ -z "$module" ]; then
+            echo "    ${tool}: no module path mapping (skipped)"
+            return 1
+        fi
+        go install "${module}@latest" 2>/dev/null
+    }
+
+    upstream_latest_version() {
+        local repo="$1"
+        local auth=()
+        [ -n "${GITHUB_TOKEN:-}" ] && auth=(-H "Authorization: token ${GITHUB_TOKEN}")
+        curl -fsS --connect-timeout 3 --max-time 8 "${auth[@]}" \
+            "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+            | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1
+    }
+
+    installed_tool_version() {
+        local tool="$1"
+        command -v "$tool" >/dev/null 2>&1 || { echo ""; return; }
+        # The first NN.NN.NN triple in `<tool> version` output works for
+        # golangci-lint ("has version v2.11.4 ..."), gosec ("Version: 2.22.5"),
+        # gofumpt, gotestsum — the format is intentionally lax.
+        "$tool" version 2>&1 \
+            | sed -n 's/.*\bv\?\([0-9]\+\.[0-9]\+\.[0-9]\+\)\b.*/\1/p' \
+            | head -n 1
+    }
+
+    local tool installed upstream
+    for tool in golangci-lint gosec gofumpt gotestsum goimports ktn-linter; do
+        case "$tool" in
+            ktn-linter)
+                # ktn-linter is published as a release binary on GitHub, NOT as a Go
+                # module — `go install ktn-linter@latest` silently fails (not a valid
+                # module path). Must download the release asset directly, and do it
+                # HERE at runtime so the write lands in the already-mounted
+                # package-cache volume (build-time writes under $GOPATH/bin are
+                # masked by the volume at container start).
+                if ! command -v ktn-linter &>/dev/null; then
+                    echo "    installing ktn-linter..."
                     curl -fsSL --connect-timeout 10 --max-time 60 \
                          "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}" \
                          -o "$GOPATH/bin/ktn-linter" 2>/dev/null \
                         && chmod +x "$GOPATH/bin/ktn-linter" \
                         || true
-                    ;;
-                *)
-                    go install "${tool}@latest" 2>/dev/null || true
-                    ;;
-            esac
-        fi
+                fi
+                ;;
+            *)
+                if [ -n "${GO_TOOL_REPOS[$tool]:-}" ]; then
+                    # Auto-refresh path: probe upstream, reinstall on drift. A
+                    # missing binary or any version mismatch triggers reinstall.
+                    # Network/rate-limit failure → leave the existing binary in
+                    # place rather than blow away a working install.
+                    installed=$(installed_tool_version "$tool")
+                    upstream=$(upstream_latest_version "${GO_TOOL_REPOS[$tool]}")
+                    if [ -z "$upstream" ]; then
+                        # Network or rate-limit; ensure something is installed.
+                        if [ -z "$installed" ]; then
+                            echo "    ${tool}: upstream probe failed and tool missing — installing latest (best-effort)..."
+                            install_go_tool_latest "$tool" || true
+                        fi
+                        continue
+                    fi
+                    if [ "$installed" != "$upstream" ]; then
+                        echo "    ${tool}: ${installed:-none} → ${upstream}"
+                        install_go_tool_latest "$tool" || true
+                    fi
+                else
+                    # No repo mapping → install only if missing (gofumpt,
+                    # gotestsum, goimports — none have shipped an EOL major).
+                    if ! command -v "$tool" &>/dev/null; then
+                        echo "    installing ${tool}..."
+                        install_go_tool_latest "$tool" || true
+                    fi
+                fi
+                ;;
+        esac
     done
 }
 
