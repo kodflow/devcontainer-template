@@ -44,8 +44,35 @@ teardown() {
     grep -qE '\[gosec\]="securego/gosec"' "$SYNC_SH"
 }
 
-@test "sync_go probes upstream via api.github.com releases/latest" {
+@test "sync_go probes upstream via api.github.com releases endpoint" {
+    # Major-pinned tools use ?per_page=30 + grep filter; unpinned tools use
+    # /releases/latest. Both endpoints must be present (CodeRabbit, #330).
     grep -qF 'api.github.com/repos/${repo}/releases/latest' "$SYNC_SH"
+    grep -qF 'api.github.com/repos/${repo}/releases?per_page=30' "$SYNC_SH"
+}
+
+@test "sync_go pins drift check to module's major version (no infinite v3 loop)" {
+    # CodeRabbit major: when GO_TOOL_MODULES has /vN, the upstream search
+    # MUST be restricted to that major branch. Without this, a future v3
+    # release would cause permanent reinstall of v2.x on every onCreate.
+    grep -q 'module_major_pin' "$SYNC_SH"
+    grep -qE "sed -n 's\|.\*/v\\\\\(\[0-9\]" "$SYNC_SH"
+}
+
+@test "sync_go returns non-zero when critical tools are missing" {
+    # CodeRabbit critical + Qodo bug: failure to install a critical tool
+    # must NOT update the toolchain-version marker, otherwise every future
+    # onCreate skips the sync entirely (Qodo, CodeRabbit, #330).
+    grep -q 'local failed=0' "$SYNC_SH"
+    grep -q 'failed=1' "$SYNC_SH"
+    grep -qE 'return "?\$failed"?' "$SYNC_SH"
+}
+
+@test "sync_lang skips marker write when handler returns non-zero" {
+    grep -q 'sync incomplete (rc=' "$SYNC_SH"
+    # The marker write must be guarded by the rc check.
+    grep -B1 'toolchain-version-' "$SYNC_SH" | grep -q '"$rc" -ne 0' || \
+    grep -B6 -F '"$image_ver" > "${CACHE_DIR}/.toolchain-version-${lang}"' "$SYNC_SH" | grep -q 'rc.*-ne 0'
 }
 
 @test "sync_go honors GITHUB_TOKEN for upstream probe (rate-limit mitigation)" {

@@ -32,24 +32,32 @@ sync_lang() {
     echo "  ${lang}: version mismatch (image=${image_ver} volume=${volume_ver:-none})"
     echo "  ${lang}: syncing from image..."
 
+    # Capture the handler's exit status so a partial sync doesn't poison the
+    # volume marker. Without this, a transient network failure during cold
+    # install would still bump `.toolchain-version-${lang}`, causing every
+    # subsequent onCreate to short-circuit on the version match and skip the
+    # sync forever — leaving critical tools permanently absent (Qodo +
+    # CodeRabbit, #330).
+    local rc=0
+    set +e
     case "$lang" in
-        rust)
-            sync_rust
-            ;;
-        go)
-            sync_go
-            ;;
-        python)
-            sync_python
-            ;;
-        node)
-            sync_node
-            ;;
+        rust)   sync_rust ;;
+        go)     sync_go ;;
+        python) sync_python ;;
+        node)   sync_node ;;
         *)
             echo "  ${lang}: no sync handler, skipping"
+            set -e
             return 0
             ;;
     esac
+    rc=$?
+    set -e
+
+    if [ "$rc" -ne 0 ]; then
+        echo "  ${lang}: sync incomplete (rc=${rc}) — marker NOT updated, will retry next onCreate"
+        return 0
+    fi
 
     echo "$image_ver" > "${CACHE_DIR}/.toolchain-version-${lang}"
     echo "  ${lang}: synced"
@@ -137,18 +145,41 @@ sync_go() {
         go install "${module}@latest" 2>/dev/null
     }
 
+    # Extract the major version pinned in the Go module path (the `/vN` suffix
+    # — Go module convention for v2+). Returns empty for v0/v1 modules that
+    # don't carry a suffix. Without this, a /v2 module path against a repo
+    # whose `releases/latest` is on v3 produces a permanent installed≠upstream
+    # mismatch and an infinite reinstall loop on every onCreate. (CodeRabbit, #330)
+    module_major_pin() {
+        local tool="$1"
+        local module="${GO_TOOL_MODULES[$tool]:-}"
+        echo "$module" | sed -n 's|.*/v\([0-9]\+\)/.*|\1|p'
+    }
+
     upstream_latest_version() {
         local repo="$1"
+        local major="${2:-}"
         local auth=()
         [ -n "${GITHUB_TOKEN:-}" ] && auth=(-H "Authorization: token ${GITHUB_TOKEN}")
-        # Extract the X.Y.Z triple only — symmetric with installed_tool_version.
-        # Without this, a suffix like `2.11.4-rc1` from a non-stable tag would
-        # never match the installed binary's strict NN.NN.NN report and trigger
-        # a spurious reinstall on every onCreate. (CodeRabbit, PR #330)
-        curl -fsS --connect-timeout 3 --max-time 8 "${auth[@]}" \
-            "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
-            | sed -n 's/.*"tag_name": *"v\?\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p' \
-            | head -n 1
+        # X.Y.Z triple only — symmetric with installed_tool_version. When a
+        # major is supplied, restrict the search to releases on that major
+        # (paginated list, not /latest, so we can filter). v3+ releases of a
+        # /v2-pinned tool will never trigger a reinstall — we stay on v2.x
+        # latest until the module path is intentionally bumped.
+        local url
+        if [ -n "$major" ]; then
+            url="https://api.github.com/repos/${repo}/releases?per_page=30"
+        else
+            url="https://api.github.com/repos/${repo}/releases/latest"
+        fi
+        local raw
+        raw=$(curl -fsS --connect-timeout 3 --max-time 8 "${auth[@]}" "$url" 2>/dev/null \
+            | sed -n 's/.*"tag_name": *"v\?\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
+        if [ -n "$major" ]; then
+            echo "$raw" | grep -E "^${major}\." | head -n 1
+        else
+            echo "$raw" | head -n 1
+        fi
     }
 
     installed_tool_version() {
@@ -162,7 +193,14 @@ sync_go() {
             | head -n 1
     }
 
-    local tool installed upstream
+    # Per-iteration failure flag. Treat absent critical tools as a hard sync
+    # failure so sync_lang's marker write is preempted by `set -e` and the
+    # next onCreate retries (Qodo + CodeRabbit, #330). Without this, a
+    # transient network failure during the cold-install path would update
+    # the marker with tools missing, causing every future onCreate to
+    # short-circuit and skip Go sync entirely.
+    local failed=0
+    local tool installed upstream major_pin
     for tool in golangci-lint gosec gofumpt gotestsum goimports ktn-linter; do
         case "$tool" in
             ktn-linter)
@@ -174,44 +212,58 @@ sync_go() {
                 # masked by the volume at container start).
                 if ! command -v ktn-linter &>/dev/null; then
                     echo "    installing ktn-linter..."
-                    curl -fsSL --connect-timeout 10 --max-time 60 \
-                         "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}" \
-                         -o "$GOPATH/bin/ktn-linter" 2>/dev/null \
-                        && chmod +x "$GOPATH/bin/ktn-linter" \
-                        || true
+                    if ! { curl -fsSL --connect-timeout 10 --max-time 60 \
+                            "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}" \
+                            -o "$GOPATH/bin/ktn-linter" 2>/dev/null \
+                          && chmod +x "$GOPATH/bin/ktn-linter"; }; then
+                        echo "    ktn-linter: download failed"
+                        failed=1
+                    fi
                 fi
                 ;;
             *)
                 if [ -n "${GO_TOOL_REPOS[$tool]:-}" ]; then
-                    # Auto-refresh path: probe upstream, reinstall on drift. A
-                    # missing binary or any version mismatch triggers reinstall.
-                    # Network/rate-limit failure → leave the existing binary in
-                    # place rather than blow away a working install.
+                    # Auto-refresh path: probe upstream within the pinned
+                    # major branch, reinstall on drift. Network/rate-limit
+                    # failure leaves the existing binary alone (only installs
+                    # if truly missing, in which case we mark sync as failed).
                     installed=$(installed_tool_version "$tool")
-                    upstream=$(upstream_latest_version "${GO_TOOL_REPOS[$tool]}")
+                    major_pin=$(module_major_pin "$tool")
+                    upstream=$(upstream_latest_version "${GO_TOOL_REPOS[$tool]}" "$major_pin")
                     if [ -z "$upstream" ]; then
-                        # Network or rate-limit; ensure something is installed.
                         if [ -z "$installed" ]; then
                             echo "    ${tool}: upstream probe failed and tool missing — installing latest (best-effort)..."
-                            install_go_tool_latest "$tool" || true
+                            install_go_tool_latest "$tool" || failed=1
                         fi
                         continue
                     fi
                     if [ "$installed" != "$upstream" ]; then
                         echo "    ${tool}: ${installed:-none} → ${upstream}"
-                        install_go_tool_latest "$tool" || true
+                        install_go_tool_latest "$tool" || failed=1
                     fi
                 else
                     # No repo mapping → install only if missing (gofumpt,
                     # gotestsum, goimports — none have shipped an EOL major).
                     if ! command -v "$tool" &>/dev/null; then
                         echo "    installing ${tool}..."
-                        install_go_tool_latest "$tool" || true
+                        install_go_tool_latest "$tool" || failed=1
                     fi
                 fi
                 ;;
         esac
     done
+
+    # Final critical-tool gate: even if every install attempt above appeared
+    # to succeed, refuse to claim sync success if the lint hooks would still
+    # break for lack of a binary. Mirrors install.sh's CRITICAL_TOOLS set.
+    for tool in golangci-lint gofumpt goimports ktn-linter; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo "    ${tool}: still missing after sync — marking failure"
+            failed=1
+        fi
+    done
+
+    return "$failed"
 }
 
 sync_python() {
