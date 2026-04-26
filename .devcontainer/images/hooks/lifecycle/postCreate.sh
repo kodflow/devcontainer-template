@@ -300,17 +300,22 @@ sdk() {
 # ----------------------------------------------------------------------------
 
 # Detect permission flag once at shell init — avoids re-running `claude --help`
-# on every super-claude invocation. Auto mode (v2.1.113+) is Anthropic's
+# on every super-claude invocation. Auto mode (v2.1.113+) is the upstream
 # replacement for --dangerously-skip-permissions, which has been broken since
 # v2.1.113 for `.claude/` and `.git/` paths (regression: hardcoded protected
 # directories ignore bypassPermissions). Older containers without
 # --permission-mode fall back to the legacy bypass flag automatically.
+#
+# Stored as a bash ARRAY so the multi-token "--permission-mode auto" form
+# expands to two argv entries without unquoted word-splitting (shellcheck
+# SC2086, Qodo finding on PR #332). Use "${_CLAUDE_PERM_FLAG[@]}" at call sites.
 # See: ~/.claude/docs/learned/super-claude-auto-mode-fallback.md
 if claude --help 2>&1 | grep -q -- '--permission-mode'; then
-    _CLAUDE_PERM_FLAG="--permission-mode auto"
+    _CLAUDE_PERM_FLAG=(--permission-mode auto)
 else
-    _CLAUDE_PERM_FLAG="--dangerously-skip-permissions"
+    _CLAUDE_PERM_FLAG=(--dangerously-skip-permissions)
 fi
+export _CLAUDE_PERM_FLAG
 
 # super-claude: runs claude with auto/bypass mode + MCP config if available
 super-claude() {
@@ -320,17 +325,17 @@ super-claude() {
     if ! command -v jq &>/dev/null; then
         echo "Warning: jq not found, skipping MCP config validation" >&2
         if [ -s "$mcp_config" ] && LC_ALL=C tr -d ' \t\r\n' < "$mcp_config" 2>/dev/null | head -c 1 | grep -q '{'; then
-            claude ${_CLAUDE_PERM_FLAG} --mcp-config "$mcp_config" "$@"
+            claude "${_CLAUDE_PERM_FLAG[@]}" --mcp-config "$mcp_config" "$@"
         else
-            claude ${_CLAUDE_PERM_FLAG} "$@"
+            claude "${_CLAUDE_PERM_FLAG[@]}" "$@"
         fi
         return
     fi
 
     if [ -f "$mcp_config" ] && jq empty "$mcp_config" 2>/dev/null; then
-        claude ${_CLAUDE_PERM_FLAG} --mcp-config "$mcp_config" "$@"
+        claude "${_CLAUDE_PERM_FLAG[@]}" --mcp-config "$mcp_config" "$@"
     else
-        claude ${_CLAUDE_PERM_FLAG} "$@"
+        claude "${_CLAUDE_PERM_FLAG[@]}" "$@"
     fi
 }
 
