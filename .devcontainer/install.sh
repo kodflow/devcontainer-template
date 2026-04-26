@@ -40,7 +40,7 @@ Usage:
   DC_TARGET=/path curl -fsSL URL | bash    # Custom target directory
 
 Options:
-  --minimal    Skip documentation installation (saves ~2.4MB, 155 files)
+  --minimal    Skip 155 design-pattern docs (saves ~2.4MB). Learned patterns (operational guardrails) are still downloaded.
   --no-teams   Force-disable Agent Teams feature even if Claude Code supports it.
                Skills will always use the legacy Task-tool dispatch. Use this on
                third-party containers where you want zero experimental behavior.
@@ -511,8 +511,22 @@ download_scripts() {
 download_docs() {
     local target_dir="$1"
 
+    # Even in --minimal mode, always pull the `learned/` patterns. They are
+    # operational guardrails (e.g. "agents must not git stash") that protect
+    # the user's work and are cheap to ship (typically a handful of files).
+    # Skipping them in minimal mode silently drops protections users rely on.
     if [ "$INSTALL_MINIMAL" = true ]; then
-        echo "→ Skipping documentation (--minimal mode)"
+        mkdir -p "$target_dir/docs/learned"
+        echo "→ Downloading learned patterns only (--minimal mode)..."
+        local learned_files learned_count=0
+        learned_files=$(github_api_call "$API/.devcontainer/images/.claude/docs/learned" 2>/dev/null \
+            | jq -r '.[].name' 2>/dev/null | grep '\.md$' || echo "")
+        for file in $learned_files; do
+            if safe_download "$BASE/.devcontainer/images/.claude/docs/learned/$file" "$target_dir/docs/learned/$file"; then
+                learned_count=$((learned_count + 1))
+            fi
+        done
+        echo "  ✓ Downloaded $learned_count learned pattern(s) (full design-patterns docs skipped)"
         return 0
     fi
 
