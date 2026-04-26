@@ -93,6 +93,26 @@ teardown() {
     grep -q '\[INSTALL-GO\] step=' "$INSTALL_SH"
 }
 
+# --- install.sh: golangci-lint v1 rejection (issue #329) ---
+
+@test "install.sh rejects a v1 golangci-lint binary post-install (issue #329)" {
+    # The smoke test parses the installed binary's major version and exits 1
+    # if it is not 2. Guards against stale 'latest' tags resolved at build.
+    grep -q 'GOLANGCI_INSTALLED_MAJOR=' "$INSTALL_SH"
+    grep -qF 'v2.x required (issue #329)' "$INSTALL_SH"
+}
+
+@test "install.sh smoke test runs after the critical-tools check" {
+    # Order matters: a missing binary should fail with the existing
+    # "Feature installation INCOMPLETE" path, not silently skip the smoke test.
+    local critical_line smoke_line
+    critical_line=$(grep -n 'Feature installation INCOMPLETE' "$INSTALL_SH" | head -1 | cut -d: -f1)
+    smoke_line=$(grep -n 'GOLANGCI_INSTALLED_MAJOR=' "$INSTALL_SH" | head -1 | cut -d: -f1)
+    [ -n "$critical_line" ]
+    [ -n "$smoke_line" ]
+    [ "$critical_line" -lt "$smoke_line" ]
+}
+
 # --- postStart.sh: observability ---
 
 @test "postStart.sh has syntax valid" {
