@@ -61,11 +61,21 @@ jobs:
         run: |
           TAG="v$(date -u +'%Y.%m.%d')-${TARGET_SHA::7}"
 
-          # Delete existing 'latest' release if it exists (keep only one)
+          # Delete pre-existing release for THIS dated tag — same commit
+          # can produce TWO release.yml runs (push paths + workflow_run
+          # after Build Docker Images), and `gh release create $TAG`
+          # would fail on the second run because the tag already exists.
+          # Identified by Qodo on PR #333.
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+
+          # Delete the legacy "latest" tag too (back-compat with the
+          # pre-dated-tag scheme some old releases still use).
           gh release delete latest --yes 2>/dev/null || true
           git push origin :refs/tags/latest 2>/dev/null || true
 
-          # Create new release tagged 'latest' + dated tag
+          # Create new release tagged dated + flagged --latest. Idempotent
+          # now: a re-run for the same SHA/day will delete and recreate
+          # rather than fail.
           gh release create "$TAG" \
             claude-assets.tar.gz \
             --title "Release $TAG" \
