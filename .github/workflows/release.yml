@@ -3,12 +3,22 @@ name: Release
 on:
   push:
     branches: [main]
+    # Path filters: any change that gets bundled into claude-assets.tar.gz
+    # MUST trigger a re-release. The standalone install.sh fast-path downloads
+    # this archive — if it's stale, new users miss the latest patterns/agents.
     paths:
       - ".devcontainer/features/**"
       - ".devcontainer/hooks/**"
+      - ".devcontainer/images/.claude/**"
+      - ".devcontainer/scripts/generate-assets-archive.sh"
       - ".github/workflows/release.yml"
   workflow_run:
-    workflows: ["Build Docker Image"]
+    # MUST match the `name:` field of docker-images.yml exactly. Was
+    # "Build Docker Image" (singular) — typo silently broke the chain so
+    # release was only refreshed when push paths matched. Now `Build Docker
+    # Images` (plural), matching `name: Build Docker Images` in
+    # docker-images.yml. Verified by grep on 2026-04-26.
+    workflows: ["Build Docker Images"]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -51,11 +61,21 @@ jobs:
         run: |
           TAG="v$(date -u +'%Y.%m.%d')-${TARGET_SHA::7}"
 
-          # Delete existing 'latest' release if it exists (keep only one)
+          # Delete pre-existing release for THIS dated tag — same commit
+          # can produce TWO release.yml runs (push paths + workflow_run
+          # after Build Docker Images), and `gh release create $TAG`
+          # would fail on the second run because the tag already exists.
+          # Identified by Qodo on PR #333.
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+
+          # Delete the legacy "latest" tag too (back-compat with the
+          # pre-dated-tag scheme some old releases still use).
           gh release delete latest --yes 2>/dev/null || true
           git push origin :refs/tags/latest 2>/dev/null || true
 
-          # Create new release tagged 'latest' + dated tag
+          # Create new release tagged dated + flagged --latest. Idempotent
+          # now: a re-run for the same SHA/day will delete and recreate
+          # rather than fail.
           gh release create "$TAG" \
             claude-assets.tar.gz \
             --title "Release $TAG" \
