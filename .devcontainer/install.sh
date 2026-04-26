@@ -40,7 +40,7 @@ Usage:
   DC_TARGET=/path curl -fsSL URL | bash    # Custom target directory
 
 Options:
-  --minimal    Skip documentation installation (saves ~2.4MB, 155 files)
+  --minimal    Skip 155 design-pattern docs (saves ~2.4MB). Learned patterns (operational guardrails) are still downloaded.
   --no-teams   Force-disable Agent Teams feature even if Claude Code supports it.
                Skills will always use the legacy Task-tool dispatch. Use this on
                third-party containers where you want zero experimental behavior.
@@ -511,8 +511,62 @@ download_scripts() {
 download_docs() {
     local target_dir="$1"
 
+    # Even in --minimal mode, always pull the `learned/` patterns. They are
+    # operational guardrails (e.g. "agents must not git stash") that protect
+    # the user's work and are cheap to ship (typically a handful of files).
+    # Skipping them in minimal mode silently drops protections users rely on.
     if [ "$INSTALL_MINIMAL" = true ]; then
-        echo "→ Skipping documentation (--minimal mode)"
+        mkdir -p "$target_dir/docs/learned"
+        echo "→ Downloading learned patterns only (--minimal mode)..."
+
+        # Hard-coded fallback list — learned patterns are the operational
+        # guardrails users depend on, and silently shipping zero of them
+        # because the GitHub API or jq returned nothing defeats the whole
+        # reason this branch exists. The list MUST be kept in sync with
+        # .devcontainer/images/.claude/docs/learned/*.md (CodeRabbit/Qodo, #332).
+        local learned_fallback=(
+            "agent-git-stash-destruction.md"
+            "super-claude-auto-mode-fallback.md"
+        )
+
+        # Try API discovery first; fall back to the hard-coded list on failure.
+        local discovered_files
+        discovered_files=$(github_api_call "$API/.devcontainer/images/.claude/docs/learned" 2>/dev/null \
+            | jq -r '.[]?.name // empty' 2>/dev/null | grep '\.md$' || echo "")
+
+        local learned_files=()
+        if [ -n "$discovered_files" ]; then
+            # Read line-by-line so filenames with whitespace stay intact.
+            while IFS= read -r f; do
+                # Only accept simple basenames (defense against API
+                # poisoning / path traversal).
+                case "$f" in
+                    */*|.*|"") continue ;;
+                    *.md) learned_files+=("$f") ;;
+                esac
+            done <<<"$discovered_files"
+        fi
+
+        if [ "${#learned_files[@]}" -eq 0 ]; then
+            echo "  ⚠ API discovery returned no learned files — falling back to hard-coded list"
+            learned_files=("${learned_fallback[@]}")
+        fi
+
+        local learned_count=0
+        for file in "${learned_files[@]}"; do
+            if safe_download "$BASE/.devcontainer/images/.claude/docs/learned/$file" "$target_dir/docs/learned/$file"; then
+                learned_count=$((learned_count + 1))
+            fi
+        done
+
+        if [ "$learned_count" -eq 0 ]; then
+            echo "  ✗ Downloaded 0 learned pattern(s) — operational guardrails missing!" >&2
+            echo "    This is a hard failure: install MUST ship the safety patterns." >&2
+            echo "    Check network access to raw.githubusercontent.com." >&2
+            return 1
+        fi
+
+        echo "  ✓ Downloaded $learned_count learned pattern(s) (full design-patterns docs skipped)"
         return 0
     fi
 
