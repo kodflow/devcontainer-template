@@ -44,13 +44,22 @@ Claude Code and MCP servers are included; languages added via features.
 | `mcp.json.tpl` | `/etc/mcp/mcp.json.tpl` | - |
 | `hooks/` | `/etc/devcontainer-hooks/` | - |
 | `features/` (CI-staged) | `/etc/devcontainer-template/features/` | 3-way safe-synced to `.devcontainer/features/` |
+| `image-template-files.json` (CI-built) | `/etc/devcontainer-template/.template-files.json` | sha256 manifest powering the 3-way sync |
 
 **Note:** Claude files restored from `/etc/claude-defaults/` at each start via `postStart.sh`.
 Lifecycle hooks called directly from `devcontainer.json` → `/etc/devcontainer-hooks/` (no stubs).
 `.devcontainer/features/` is **3-way merged** from `/etc/devcontainer-template/features/` at every
-`postStart` (step `step_sync_features`, helper `shared/sync-features.sh`). Per-file protection:
-files with uncommitted consumer edits are **preserved** with a `[WARNING]` log (issue #334).
-Template repo self-skips via `.devcontainer/.template-version` commit match.
+`postStart` (step `step_sync_features`, helper `shared/sync-features.sh`). Per-file protection
+(issue #334):
+
+1. byte-identical → noop;
+2. tracked + git-dirty → preserved (`[WARNING]`);
+3. previous shipped sha256 (from `.template-files.json`) matches current dst → safe overwrite;
+4. otherwise → preserved (consumer modified after a previous sync).
+
+`--delete` only removes dst files whose sha256 still matches the previous manifest entry, so
+consumer-added files are never deleted. Template repo self-skips via `.devcontainer/.template-version`
+commit match.
 
 ## Design Patterns Knowledge Base
 

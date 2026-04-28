@@ -67,15 +67,23 @@ COPY --chown=root:root scripts/vpn/ /tmp/vpn/
 COPY --chown=vscode:vscode mcp.json.tpl /etc/mcp/mcp.json.tpl
 COPY --chown=vscode:vscode mcp-fragments/ /etc/mcp/fragments/
 
-# Template features source — force-synced into /workspace/.devcontainer/features/
-# at every postStart (see hooks/lifecycle/postStart.sh step_sync_features).
-# The features/ directory and image-template-version.json are staged into the
-# build context by CI before build; for local builds run:
+# Template features source — 3-way safe-synced into /workspace/.devcontainer/features/
+# at every postStart (see hooks/lifecycle/postStart.sh step_sync_features and
+# hooks/shared/sync-features.sh). The features/ directory, the version marker,
+# and the per-file sha256 manifest are staged into the build context by CI
+# (.github/workflows/docker-images.yml). For local builds run:
 #   cp -r .devcontainer/features .devcontainer/images/features
-#   printf '{"commit":"local","updated":"1970-01-01T00:00:00Z"}\n' > .devcontainer/images/image-template-version.json
+#   printf '{"commit":"local","updated":"1970-01-01T00:00:00Z"}\n' \
+#     > .devcontainer/images/image-template-version.json
+#   python3 .devcontainer/scripts/build-features-manifest.py \
+#     .devcontainer/images/features local "1970-01-01T00:00:00Z" \
+#     > .devcontainer/images/image-template-files.json
 # The version marker lets postStart skip sync when repo is ahead of image.
+# The files manifest lets postStart tell consumer-modified from pristine files
+# (issue #334) so only untouched files are overwritten.
 COPY --chown=root:root features/ /etc/devcontainer-template/features/
 COPY --chown=root:root image-template-version.json /etc/devcontainer-template/.template-version
+COPY --chown=root:root image-template-files.json /etc/devcontainer-template/.template-files.json
 
 # RTK config template (token savings proxy, root-owned system template)
 COPY --chown=root:root rtk.config.toml /etc/rtk/config.toml
