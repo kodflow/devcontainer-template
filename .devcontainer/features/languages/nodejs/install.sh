@@ -203,13 +203,45 @@ log_success "npm ${NPM_INSTALLED} installed"
 # Create cache directory
 mkdir_safe "$npm_config_cache"
 
+# Harden npm against transient registry timeouts (issue: ETIMEDOUT on registry.npmjs.org).
+# npm defaults retry only 2x with 10s mintimeout — too tight for flaky CI/proxy setups.
+npm config set fetch-retries 5
+npm config set fetch-retry-mintimeout 20000
+npm config set fetch-retry-maxtimeout 120000
+npm config set fetch-timeout 600000
+
+# npm install with retry — retries the whole batch on ETIMEDOUT/ECONNRESET.
+npm_install_global() {
+    retry 3 15 npm install -g --fetch-retries=5 --fetch-timeout=600000 "$@"
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Install Node.js Development Tools — batched for speed
 # ─────────────────────────────────────────────────────────────────────────────
 log_info "Installing Node.js development tools..."
 
-npm install -g pnpm@latest typescript@latest eslint@latest prettier@latest tsx@latest
-log_success "Core tools installed (pnpm, typescript, eslint, prettier, tsx)"
+if npm_install_global pnpm@latest typescript@latest eslint@latest prettier@latest tsx@latest; then
+    log_success "Core tools installed (pnpm, typescript, eslint, prettier, tsx)"
+else
+    # Batch failed after retries — fall back to per-package install so a single
+    # flaky package does not block the others. Critical core: pnpm + typescript.
+    log_warning "Batch install failed; falling back to per-package install"
+    CORE_FAILED=0
+    for core_pkg in pnpm@latest typescript@latest eslint@latest prettier@latest tsx@latest; do
+        if npm_install_global "$core_pkg"; then
+            log_success "Installed $core_pkg"
+        else
+            log_error "Failed to install $core_pkg after retries"
+            case "$core_pkg" in
+                pnpm@latest|typescript@latest) CORE_FAILED=1 ;;
+            esac
+        fi
+    done
+    if [ "$CORE_FAILED" -eq 1 ]; then
+        log_error "Critical core tool (pnpm or typescript) failed to install — aborting"
+        exit 1
+    fi
+fi
 
 # Install additional global packages from devcontainer-feature.json option
 GLOBAL_PACKAGES="${GLOBALPACKAGES:-}"
@@ -219,7 +251,7 @@ if [ -n "$GLOBAL_PACKAGES" ]; then
     for pkg in "${PKGS[@]}"; do
         pkg=$(echo "$pkg" | xargs)  # trim whitespace
         if [ -n "$pkg" ] && ! command -v "$pkg" &>/dev/null; then
-            npm install -g "$pkg" 2>/dev/null && log_success "Installed $pkg" || log_warning "Failed to install $pkg"
+            npm_install_global "$pkg" && log_success "Installed $pkg" || log_warning "Failed to install $pkg (non-critical)"
         fi
     done
 fi
@@ -230,27 +262,28 @@ fi
 log_info "Installing Desktop & WASM tools..."
 
 (
-    if npm install -g electron@latest && command -v electron &> /dev/null; then
+    if npm_install_global electron@latest && command -v electron &> /dev/null; then
         ELECTRON_VERSION=$(electron --version 2>/dev/null || echo "installed")
         log_success "Electron ${ELECTRON_VERSION} installed"
     else
-        log_warning "Electron installation failed or not in PATH"
+        log_warning "Electron installation failed or not in PATH (non-critical)"
     fi
 ) &
 ELECTRON_PID=$!
 
 (
-    if npm install -g assemblyscript@latest && command -v asc &> /dev/null; then
+    if npm_install_global assemblyscript@latest && command -v asc &> /dev/null; then
         ASC_VERSION=$(asc --version 2>/dev/null | head -n 1 || echo "installed")
         log_success "AssemblyScript ${ASC_VERSION} installed"
     else
-        log_warning "AssemblyScript installation failed or not in PATH"
+        log_warning "AssemblyScript installation failed or not in PATH (non-critical)"
     fi
 ) &
 ASC_PID=$!
 
-wait "$ELECTRON_PID" 2>/dev/null || true
-wait "$ASC_PID" 2>/dev/null || true
+# Per-PID wait so we surface real failures (bare `wait` returns 0 unconditionally).
+wait "$ELECTRON_PID" || log_warning "Electron subshell exited non-zero (non-critical)"
+wait "$ASC_PID" || log_warning "AssemblyScript subshell exited non-zero (non-critical)"
 log_success "Desktop & WASM tools installed"
 
 # Create global symlinks for node, npm, and npx
