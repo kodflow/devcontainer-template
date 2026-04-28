@@ -1354,22 +1354,34 @@ init_vpn() {
     return 0
 }
 
-# Force-sync .devcontainer/features/ from image-embedded copy (always overwrites).
-# Consumer projects get upstream template features at every container start.
-# Auto-skips when running inside the template repo itself (detected via
-# .devcontainer/.template-version matching git HEAD).
+# Sync .devcontainer/features/ from image-embedded copy with consumer-edit
+# protection (3-way safe). Consumer projects get upstream template features at
+# every container start without clobbering their own edits.
+#
+# Skip layers (in order):
+#   1. Self-exclusion when running inside the template repo itself.
+#   2. /update harmony when consumer ran /update on a fresher template.
+#   3. Per-file: see shared/sync-features.sh (_sync_file_safely):
+#      - byte-identical → noop
+#      - tracked + git-dirty → preserve consumer WIP, log warning
+#      - manifest-known + dst==prev_hash → safe overwrite (Phase 2)
+#      - otherwise → overwrite (narrowed by Phase 2 manifest)
+#
+# Bug ref: kodflow/devcontainer-template#334 (silent overwrite of edited
+# CLAUDE.md / consumer files when global .template-version lagged image).
 step_sync_features() {
     local src="/etc/devcontainer-template/features"
     local dst="${WORKSPACE_FOLDER:-/workspace}/.devcontainer/features"
-    local marker="${WORKSPACE_FOLDER:-/workspace}/.devcontainer/.template-version"
+    local ws="${WORKSPACE_FOLDER:-/workspace}"
+    local marker="$ws/.devcontainer/.template-version"
 
     if [ ! -d "$src" ]; then
         log_info "No embedded features dir in image, skipping sync"
         return 0
     fi
 
-    if [ ! -d "${WORKSPACE_FOLDER:-/workspace}/.devcontainer" ]; then
-        log_warn "No .devcontainer/ in workspace, skipping features sync"
+    if [ ! -d "$ws/.devcontainer" ]; then
+        log_warning "No .devcontainer/ in workspace, skipping features sync"
         return 0
     fi
 
@@ -1377,7 +1389,7 @@ step_sync_features() {
     if [ -f "$marker" ] && command -v jq &>/dev/null; then
         local marker_commit current_commit
         marker_commit=$(jq -r '.commit // empty' "$marker" 2>/dev/null || true)
-        current_commit=$(git -C "${WORKSPACE_FOLDER:-/workspace}" rev-parse --short HEAD 2>/dev/null || true)
+        current_commit=$(git -C "$ws" rev-parse --short HEAD 2>/dev/null || true)
         if [ -n "$marker_commit" ] && [ -n "$current_commit" ] && \
            { [[ "$current_commit" == "$marker_commit"* ]] || [[ "$marker_commit" == "$current_commit"* ]]; }; then
             log_info "Template repo detected (template-version matches HEAD), skipping features sync"
@@ -1400,24 +1412,17 @@ step_sync_features() {
         fi
     fi
 
-    log_info "Force-syncing .devcontainer/features/ from template image..."
-    if command -v rsync &>/dev/null; then
-        if rsync -a --delete --checksum "$src/" "$dst/"; then
-            log_success ".devcontainer/features/ synced ($(find "$dst" -type f 2>/dev/null | wc -l) files)"
-        else
-            log_error "rsync failed; features dir may be in inconsistent state"
-            return 1
-        fi
-    else
-        rm -rf "$dst"
-        mkdir -p "$dst"
-        if cp -a "$src/." "$dst/"; then
-            log_success ".devcontainer/features/ synced via cp ($(find "$dst" -type f 2>/dev/null | wc -l) files)"
-        else
-            log_error "cp fallback failed"
-            return 1
-        fi
+    # Per-file 3-way safe sync (replaces previous rsync -a --delete --checksum).
+    local helper="$SCRIPT_DIR/../shared/sync-features.sh"
+    if [ ! -f "$helper" ]; then
+        log_error "sync-features.sh helper missing at $helper; cannot sync safely"
+        return 1
     fi
+    # shellcheck source=../shared/sync-features.sh
+    source "$helper"
+
+    log_info "Syncing .devcontainer/features/ from template image (3-way safe)…"
+    sync_features_tree "$src" "$dst" "$ws"
 }
 
 # Clean up legacy workspace hook stubs (replaced by direct /etc/devcontainer-hooks/ calls)
