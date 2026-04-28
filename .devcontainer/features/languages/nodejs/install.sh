@@ -251,7 +251,11 @@ if [ -n "$GLOBAL_PACKAGES" ]; then
     for pkg in "${PKGS[@]}"; do
         pkg=$(echo "$pkg" | xargs)  # trim whitespace
         if [ -n "$pkg" ] && ! command -v "$pkg" &>/dev/null; then
-            npm_install_global "$pkg" && log_success "Installed $pkg" || log_warning "Failed to install $pkg (non-critical)"
+            if npm_install_global "$pkg"; then
+                log_success "Installed $pkg"
+            else
+                log_warning "Failed to install $pkg (non-critical)"
+            fi
         fi
     done
 fi
