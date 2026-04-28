@@ -286,9 +286,14 @@ ELECTRON_PID=$!
 ASC_PID=$!
 
 # Per-PID wait so we surface real failures (bare `wait` returns 0 unconditionally).
-wait "$ELECTRON_PID" || log_warning "Electron subshell exited non-zero (non-critical)"
-wait "$ASC_PID" || log_warning "AssemblyScript subshell exited non-zero (non-critical)"
-log_success "Desktop & WASM tools installed"
+electron_rc=0; asc_rc=0
+wait "$ELECTRON_PID" || { electron_rc=$?; log_warning "Electron subshell exited non-zero (non-critical)"; }
+wait "$ASC_PID" || { asc_rc=$?; log_warning "AssemblyScript subshell exited non-zero (non-critical)"; }
+if [ "$electron_rc" -eq 0 ] && [ "$asc_rc" -eq 0 ]; then
+    log_success "Desktop & WASM tools installed"
+else
+    log_warning "Desktop & WASM tools installed with non-critical failures"
+fi
 
 # Create global symlinks for node, npm, and npx
 # This ensures they're available for subsequent devcontainer features
