@@ -99,9 +99,8 @@ apply_devcontainer_tarball() {
     # Image-embedded hooks (container only)
     if [ "$CONTEXT" = "container" ] && [ -d "$src/.devcontainer/images/hooks" ]; then
         mkdir -p ".devcontainer/images/hooks/shared" ".devcontainer/images/hooks/lifecycle"
-        [ -f "$src/.devcontainer/images/hooks/shared/utils.sh" ] && \
-            cp -f "$src/.devcontainer/images/hooks/shared/utils.sh" ".devcontainer/images/hooks/shared/utils.sh" && \
-            chmod +x ".devcontainer/images/hooks/shared/utils.sh"
+        # All shared helpers (utils.sh, sync-features.sh, …)
+        safe_glob_copy "$src/.devcontainer/images/hooks/shared/*.sh" ".devcontainer/images/hooks/shared" "+x"
         safe_glob_copy "$src/.devcontainer/images/hooks/lifecycle/*.sh" ".devcontainer/images/hooks/lifecycle" "+x"
         echo "  ✓ image-hooks"
     fi
@@ -138,19 +137,37 @@ apply_devcontainer_tarball() {
         echo "  ✓ mcp-fragments"
     fi
 
-    # DevContainer features (container only) — mirror from tarball.
+    # DevContainer features (container only) — mirror from tarball using the
+    # 3-way safe sync helper (same code path as postStart's step_sync_features).
     # postStart also force-syncs from the image's embedded copy; /update brings
     # them current immediately without waiting for the next image rebuild.
     # The updated .template-version written in §5.7 tells postStart to yield
     # when the repo is ahead of the image.
+    # Bug ref: kodflow/devcontainer-template#334 — silent overwrite of
+    # consumer-modified files. Phase 1 protection: per-file git-dirty guard.
     if [ "$CONTEXT" = "container" ] && [ -d "$src/.devcontainer/features" ]; then
-        mkdir -p ".devcontainer/features"
-        if command -v rsync &>/dev/null; then
-            rsync -a --delete "$src/.devcontainer/features/" ".devcontainer/features/"
-        else
-            rm -rf ".devcontainer/features"
+        local helper="$src/.devcontainer/images/hooks/shared/sync-features.sh"
+        local utils="$src/.devcontainer/images/hooks/shared/utils.sh"
+        if [ -f "$helper" ] && [ -f "$utils" ]; then
+            # shellcheck source=/dev/null
+            source "$utils"
+            # shellcheck source=/dev/null
+            source "$helper"
             mkdir -p ".devcontainer/features"
-            cp -rf "$src/.devcontainer/features/." ".devcontainer/features/"
+            sync_features_tree "$src/.devcontainer/features" \
+                "$(pwd)/.devcontainer/features" "$(pwd)"
+        else
+            # Fallback: tarball missing the helper (older template) — keep the
+            # legacy behaviour but warn the user to re-run /update afterwards.
+            echo "  ⚠ sync-features.sh missing in tarball; falling back to rsync (#334)"
+            mkdir -p ".devcontainer/features"
+            if command -v rsync &>/dev/null; then
+                rsync -a --delete "$src/.devcontainer/features/" ".devcontainer/features/"
+            else
+                rm -rf ".devcontainer/features"
+                mkdir -p ".devcontainer/features"
+                cp -rf "$src/.devcontainer/features/." ".devcontainer/features/"
+            fi
         fi
         echo "  ✓ features"
     fi

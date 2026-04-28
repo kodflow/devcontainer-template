@@ -43,13 +43,14 @@ Claude Code and MCP servers are included; languages added via features.
 | `.claude/docs/` | `~/.claude/docs/` | `/etc/claude-defaults/docs/` |
 | `mcp.json.tpl` | `/etc/mcp/mcp.json.tpl` | - |
 | `hooks/` | `/etc/devcontainer-hooks/` | - |
-| `features/` (CI-staged) | `/etc/devcontainer-template/features/` | Force-synced to `.devcontainer/features/` |
+| `features/` (CI-staged) | `/etc/devcontainer-template/features/` | 3-way safe-synced to `.devcontainer/features/` |
 
 **Note:** Claude files restored from `/etc/claude-defaults/` at each start via `postStart.sh`.
 Lifecycle hooks called directly from `devcontainer.json` → `/etc/devcontainer-hooks/` (no stubs).
-`.devcontainer/features/` is rsync-mirrored from `/etc/devcontainer-template/features/` at every
-`postStart` in consumer projects (step `step_sync_features`). Template repo self-skips via
-`.devcontainer/.template-version` commit match.
+`.devcontainer/features/` is **3-way merged** from `/etc/devcontainer-template/features/` at every
+`postStart` (step `step_sync_features`, helper `shared/sync-features.sh`). Per-file protection:
+files with uncommitted consumer edits are **preserved** with a `[WARNING]` log (issue #334).
+Template repo self-skips via `.devcontainer/.template-version` commit match.
 
 ## Design Patterns Knowledge Base
 
