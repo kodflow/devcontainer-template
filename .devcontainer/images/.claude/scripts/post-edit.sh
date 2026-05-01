@@ -42,13 +42,25 @@ FMT_OUT=$("$SCRIPT_DIR/format.sh" "$FILE" 2>&1) || true
 # === ktn-linter: focused scan after edit ===
 # Calls ktn-linter HTTP endpoint to lint the modified file.
 # Can block via permissionDecision:"deny" if critical violation found.
+# Phase scope = phases 1..7 (excludes 'tests' and 'health' by default — same
+# semantics as the legacy YAML default, just made explicit at request time).
 KTN_PORT="${KTN_LINTER_PORT:-7717}"
 if command -v curl &>/dev/null && [[ "$FILE" != *.md ]] && [[ "$FILE" != *.json ]] && \
    [[ "$FILE" != *.yaml ]] && [[ "$FILE" != *.yml ]] && [[ "$FILE" != *.toml ]] && \
    [[ "$FILE" != /tmp/* ]] && [[ "$FILE" != *".claude/"* ]]; then
+    # Override via KTN_POST_PHASES env var, comma-separated.
+    KTN_PHASES_CSV="${KTN_POST_PHASES:-structural,signatures,logic,performance,modern,style,comment}"
+    KTN_PHASES_CSV="${KTN_PHASES_CSV// /}"
+    KTN_BODY="${INPUT:-}"
+    [ -z "$KTN_BODY" ] && KTN_BODY="{}"
+    if command -v jq &>/dev/null; then
+        KTN_TRY=$(printf '%s' "$KTN_BODY" | jq -c --arg p "$KTN_PHASES_CSV" \
+            '. + {phases: ($p | split(","))}' 2>/dev/null) \
+            && KTN_BODY="$KTN_TRY"
+    fi
     KTN_RESP=$(curl -sf --max-time 14 \
         -H "Content-Type: application/json" \
-        -d "${INPUT:-{\}}" \
+        -d "$KTN_BODY" \
         "http://localhost:${KTN_PORT}/hooks/post-tool-use" 2>/dev/null) || true
     if [ -n "$KTN_RESP" ] && [ "$KTN_RESP" != "{}" ] && [ "$KTN_RESP" != "null" ] && command -v jq &>/dev/null; then
         if printf '%s' "$KTN_RESP" | jq -e '.hookSpecificOutput' &>/dev/null; then

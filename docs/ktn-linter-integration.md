@@ -62,6 +62,7 @@ After protected file validation, calls `/hooks/pre-tool-use` to surface existing
 
 - Skips non-code files (*.md, *.json, *.yaml, /tmp/*, .claude/*)
 - Curl timeout: 4s (within 5s hook timeout)
+- Phase scope: `structural,signatures` (override: `KTN_PRE_PHASES`)
 - Fail-open: continues silently if ktn-linter unreachable
 
 ### `post-edit.sh` — PostToolUse (Write|Edit)
@@ -70,6 +71,7 @@ After formatting, calls `/hooks/post-tool-use` to lint the modified file.
 
 - Skips non-code files
 - Curl timeout: 14s (within 15s hook timeout)
+- Phase scope: `structural,signatures,logic,performance,modern,style,comment` (override: `KTN_POST_PHASES`)
 - Can block edits via `permissionDecision: "deny"` in response
 - Fail-open: continues silently if ktn-linter unreachable
 
@@ -79,8 +81,23 @@ Before session summary, calls `/hooks/stop` for session-level validation.
 
 - Adds `CLAUDE_SESSION_ID` to request payload
 - Curl timeout: 28s (within 30s hook timeout)
+- Phase scope: `structural,signatures,logic,performance,modern,style,comment,tests` (override: `KTN_STOP_PHASES`)
 - Outputs summary to stderr (visible to user)
 - Never blocks session stop
+
+### Phase scope (per-request override, ktn-linter ≥ #190)
+
+Each hook injects an explicit `phases` field into the JSON request body, scoped to what the event-type actually needs to surface. The server's YAML config (`.ktn-linter.yaml`) is **not** consulted when `phases` is present — it acts as a per-request override. Empty/absent `phases` → YAML default (back-compat for servers pre-#190, which ignore the unknown field).
+
+Override per-project via env vars (comma-separated, no spaces):
+
+```bash
+export KTN_PRE_PHASES=structural,signatures,modern
+export KTN_POST_PHASES=structural,signatures,logic,performance
+export KTN_STOP_PHASES=structural,signatures,logic,performance,modern,style,comment,tests,health
+```
+
+Defensive: if `jq` is missing, the scripts fall through to the raw `${INPUT:-{}}` body — server uses YAML default, no failure.
 
 ## Hook Flow
 
