@@ -190,13 +190,13 @@ Full inventory: See `.devcontainer/hooks/CLAUDE.md` and `CLAUDE.md` (root).
 
 **ktn-linter integration (embedded in existing hook scripts):**
 
-| Script | Endpoint called | Timeout | Purpose |
-|--------|----------------|---------|---------|
-| `pre-validate.sh` | `/hooks/pre-tool-use` | 4s | Package context before edit |
-| `post-edit.sh` | `/hooks/post-tool-use` | 14s | Lint scan, can block on critical |
-| `on-stop.sh` | `/hooks/stop` | 28s | Session validation report |
+| Script | Endpoint | Timeout | Phase scope (default) | Env override | Purpose |
+|--------|----------|---------|-----------------------|--------------|---------|
+| `pre-validate.sh` | `/hooks/pre-tool-use` | 4s | `structural,signatures` (1–2) | `KTN_PRE_PHASES` | Pre-edit fast check — only naming/signature breaks block before the edit |
+| `post-edit.sh` | `/hooks/post-tool-use` | 14s | `structural,signatures,logic,performance,modern,style,comment` (1–7) | `KTN_POST_PHASES` | Post-edit full check — can block on critical |
+| `on-stop.sh` | `/hooks/stop` | 28s | `structural,…,comment,tests` (1–8) | `KTN_STOP_PHASES` | Session-end report — includes test-quality phase |
 
-Graceful degradation: calls exit silently if ktn-linter is not running. See [docs/ktn-linter-integration.md](/workspace/docs/ktn-linter-integration.md).
+The `phases` field is injected into the JSON request body via `jq` (per-request override; server YAML config is preserved for any consumer that doesn't pass `phases`). Servers pre-ktn-linter-#190 ignore the unknown field and fall back to YAML — back-compat safe. Override per-project via the `KTN_*_PHASES` env vars (comma-separated, no spaces). Graceful degradation: calls exit silently if ktn-linter is not running or `jq` is missing (raw `${INPUT:-{}}` is sent unchanged). See [docs/ktn-linter-integration.md](/workspace/docs/ktn-linter-integration.md).
 
 **Makefile-first pattern:** Scripts check `make fmt/lint/typecheck/test FILE=<path>` first, then fall back to direct tool invocation.
 
