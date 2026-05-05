@@ -81,10 +81,17 @@ run_lint() {
     # SCOPED-FIRST: Always lint only changed files for incremental speed.
     # Makefile targets run on the entire project → too slow for pre-commit.
     if $HAS_GO && command -v golangci-lint &>/dev/null; then
-        local go_pkgs
-        go_pkgs=$(echo "$CHANGED_FILES" | grep '\.go$' | xargs -I{} dirname {} | sort -u | sed 's|^|./|' | paste -sd' ')
-        # shellcheck disable=SC2086 -- intentional word splitting on go_pkgs
-        golangci-lint run $go_pkgs >> "$out" 2>&1 || exit_code=1
+        local cfg
+        cfg=$(find_golangci_config "$PROJECT_ROOT") || cfg=""
+        if [ -n "$cfg" ]; then
+            local go_pkgs
+            go_pkgs=$(echo "$CHANGED_FILES" | grep '\.go$' | xargs -I{} dirname {} | sort -u | sed 's|^|./|' | paste -sd' ')
+            # shellcheck disable=SC2086
+            # Intentional word splitting on go_pkgs (space-separated list of dirs).
+            golangci-lint run --config "$cfg" $go_pkgs >> "$out" 2>&1 || exit_code=1
+        else
+            echo "[pre-commit-quality] golangci-lint skipped (no .golangci.{yml,yaml,toml})" >> "$out"
+        fi
     fi
     if $HAS_RUST && command -v cargo &>/dev/null; then
         cargo clippy -- -D warnings >> "$out" 2>&1 || exit_code=1
@@ -129,7 +136,8 @@ run_test() {
     if $HAS_GO && command -v go &>/dev/null; then
         local go_pkgs
         go_pkgs=$(echo "$CHANGED_FILES" | grep '\.go$' | xargs -I{} dirname {} | sort -u | sed 's|^|./|' | paste -sd' ')
-        # shellcheck disable=SC2086 -- intentional word splitting on go_pkgs
+        # shellcheck disable=SC2086
+        # Intentional word splitting on go_pkgs (space-separated list of dirs).
         go test -race -count=1 $go_pkgs >> "$out" 2>&1 || exit_code=1
     fi
     if $HAS_RUST && command -v cargo &>/dev/null; then

@@ -1,0 +1,90 @@
+#!/usr/bin/env bats
+# Tests for pre-commit-quality.sh — golangci-lint config gating (issue #342)
+
+setup() {
+    load '../helpers/setup'
+    common_setup
+
+    SCRIPT="${BATS_TEST_DIRNAME}/../../.devcontainer/images/.claude/scripts/pre-commit-quality.sh"
+
+    REPO="$TEST_TMPDIR/repo"
+    mkdir -p "$REPO"
+    git -C "$REPO" init -q -b main
+    git -C "$REPO" config user.email "test@test.com"
+    git -C "$REPO" config user.name "Test"
+    touch "$REPO/go.mod"
+    git -C "$REPO" add . && git -C "$REPO" commit -q -m "init"
+    git -C "$REPO" checkout -q -b feature
+
+    GOLANGCI_BIN_DIR="$TEST_TMPDIR/bin"
+    GOLANGCI_SENTINEL="$TEST_TMPDIR/golangci-called"
+    mkdir -p "$GOLANGCI_BIN_DIR"
+    cat > "$GOLANGCI_BIN_DIR/golangci-lint" <<EOF
+#!/bin/bash
+echo "\$@" > "$GOLANGCI_SENTINEL"
+exit 0
+EOF
+    chmod +x "$GOLANGCI_BIN_DIR/golangci-lint"
+    export PATH="$GOLANGCI_BIN_DIR:$PATH"
+
+    cat > "$REPO/main.go" <<'EOF'
+package main
+func main() {}
+EOF
+    git -C "$REPO" add main.go
+}
+
+teardown() {
+    common_teardown
+}
+
+@test "pre-commit-quality skips golangci-lint when no .golangci config" {
+    rm -f "$GOLANGCI_SENTINEL"
+    run bash -c "cd '$REPO' && CLAUDE_PROJECT_DIR='$REPO' bash '$SCRIPT' main"
+    [ "$status" -eq 0 ]
+    [ ! -f "$GOLANGCI_SENTINEL" ]
+}
+
+@test "pre-commit-quality runs golangci-lint with --config when .golangci.yml present" {
+    cat > "$REPO/.golangci.yml" <<'EOF'
+linters:
+  enable: []
+EOF
+    git -C "$REPO" add .golangci.yml
+
+    rm -f "$GOLANGCI_SENTINEL"
+    run bash -c "cd '$REPO' && CLAUDE_PROJECT_DIR='$REPO' bash '$SCRIPT' main"
+    [ "$status" -eq 0 ]
+    [ -f "$GOLANGCI_SENTINEL" ]
+    grep -q -- "--config" "$GOLANGCI_SENTINEL"
+    grep -q -- ".golangci.yml" "$GOLANGCI_SENTINEL"
+}
+
+@test "pre-commit-quality accepts .golangci.yaml as alternative config name" {
+    cat > "$REPO/.golangci.yaml" <<'EOF'
+linters:
+  enable: []
+EOF
+    git -C "$REPO" add .golangci.yaml
+
+    rm -f "$GOLANGCI_SENTINEL"
+    run bash -c "cd '$REPO' && CLAUDE_PROJECT_DIR='$REPO' bash '$SCRIPT' main"
+    [ "$status" -eq 0 ]
+    [ -f "$GOLANGCI_SENTINEL" ]
+    grep -q -- ".golangci.yaml" "$GOLANGCI_SENTINEL"
+}
+
+# Sanity: the helper itself should round-trip absent/present cases.
+@test "find_golangci_config returns 1 when no config" {
+    load_common
+    run find_golangci_config "$TEST_TMPDIR"
+    [ "$status" -eq 1 ]
+}
+
+@test "find_golangci_config echoes path when .golangci.toml present" {
+    load_common
+    touch "$TEST_TMPDIR/.golangci.toml"
+    run find_golangci_config "$TEST_TMPDIR"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$TEST_TMPDIR/.golangci.toml" ]
+}

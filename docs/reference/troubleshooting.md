@@ -16,7 +16,7 @@
 **Symptom**: `rtk gain` shows zero savings, or commands run raw
 
 1. Check the binary: `rtk --version` (must be ≥ 0.23.0)
-2. Check the hook: `grep rtk-rewrite.sh ~/.claude/settings.json`
+2. Check the hook: `grep "rtk hook claude" ~/.claude/settings.json` (and `rtk verify` for upstream confirmation)
 3. Check `jq` is installed (the hook needs it): `command -v jq`
 4. Check stderr for `[rtk] WARNING:` lines on session start
 5. If still broken: `rm -rf ~/.cache/rtk && rtk init`
