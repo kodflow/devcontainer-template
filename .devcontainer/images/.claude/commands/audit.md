@@ -92,7 +92,7 @@ Example: `Agent Teams    80/100  IN_PROCESS, 19 agents migrated`
 
 Start score at 0:
 - `+30` if `command -v rtk` succeeds (binary installed)
-- `+30` if `~/.claude/scripts/rtk-rewrite.sh` exists AND `~/.claude/settings.json` declares it as a `PreToolUse` hook (`grep -q rtk-rewrite.sh ~/.claude/settings.json`)
+- `+30` if `~/.claude/settings.json` declares `rtk hook claude` as a `PreToolUse` hook (`grep -q "rtk hook claude" ~/.claude/settings.json`)
 - `+20` if `rtk gain --history` returns at least one row (proof rewrites are firing)
 - `+20` if no warning is emitted by `rtk --version` (≥ 0.23.0 required by the hook)
 

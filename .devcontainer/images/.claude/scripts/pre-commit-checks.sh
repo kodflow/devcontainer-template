@@ -194,7 +194,15 @@ check_go() {
     if has_make_target "lint"; then
         run_check_verbose "Go lint (make)" "make lint" || failed=1
     elif command -v golangci-lint &> /dev/null; then
-        run_check_verbose "Go lint (golangci-lint)" "golangci-lint run ./..." || failed=1
+        local cfg=""
+        for f in .golangci.yml .golangci.yaml .golangci.toml; do
+            [[ -f "$f" ]] && { cfg="$f"; break; }
+        done
+        if [[ -n "$cfg" ]]; then
+            run_check_verbose "Go lint (golangci-lint)" "golangci-lint run --config '$cfg' ./..." || failed=1
+        else
+            echo -e "${YELLOW}[SKIP]${NC} Go lint (no .golangci.{yml,yaml,toml} in project)"
+        fi
     else
         echo -e "${YELLOW}[SKIP]${NC} Go lint (golangci-lint not found)"
     fi

@@ -6,7 +6,7 @@ Token usage directly impacts cost and context window management. This guide docu
 
 ## 1. RTK (Rust Token Killer)
 
-RTK transparently rewrites CLI commands to compress their output. Integrated via `rtk-rewrite.sh` PreToolUse hook.
+RTK transparently rewrites CLI commands to compress their output. Integrated via `rtk hook claude` PreToolUse hook (the rtk binary owns the hook protocol upstream — no shell wrapper).
 
 | Category | Avg Savings | Examples |
 |----------|-------------|---------|

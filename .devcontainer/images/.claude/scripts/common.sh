@@ -64,6 +64,22 @@ find_project_root() {
     echo "$fallback"
 }
 
+# Locate a consumer-authored golangci-lint config in $1.
+# Usage: cfg=$(find_golangci_config "$PROJECT_ROOT") || cfg=""
+# Why: golangci-lint should opt out by default — the gate stays silent unless
+# the consumer ships a config, mirroring the Rust/Cargo.toml gating pattern.
+find_golangci_config() {
+    local root="${1:-.}"
+    local f
+    for f in .golangci.yml .golangci.yaml .golangci.toml; do
+        if [ -f "$root/$f" ]; then
+            printf '%s\n' "$root/$f"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Check if Makefile has a specific target
 # Usage: has_makefile_target "lint" "$PROJECT_ROOT"
 has_makefile_target() {

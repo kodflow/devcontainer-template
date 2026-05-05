@@ -177,7 +177,7 @@ Core hooks (always active):
 | Hook | Trigger | Action |
 |------|---------|--------|
 | `git-guard.sh` | PreToolUse (Bash) | Block AI commits + secret scan + force-with-lease |
-| `rtk-rewrite.sh` | PreToolUse (Bash) | Rewrite commands via RTK for token savings |
+| `rtk hook claude` | PreToolUse (Bash) | Rewrite commands via RTK for token savings (native binary, replaces legacy `rtk-rewrite.sh`) |
 | `pre-validate.sh` | PreToolUse (Write/Edit) | Protect sensitive files |
 | `post-edit.sh` | PostToolUse (Write/Edit) | **Format only** (fast, ~100-500ms) |
 | `on-stop-quality.sh` | Stop (*) | **Batch lint + typecheck + test** (deduplicated) |
