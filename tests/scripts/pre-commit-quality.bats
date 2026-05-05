@@ -47,9 +47,13 @@ teardown() {
 
 @test "pre-commit-quality skips golangci-lint when no .golangci config" {
     rm -f "$GOLANGCI_SENTINEL"
-    run bash -c "cd '$REPO' && CLAUDE_PROJECT_DIR='$REPO' bash '$SCRIPT' main"
+    # Merge stderr into stdout so the visible-skip-message contract can be
+    # asserted: the script writes the skip reason to stderr (>&2) so users
+    # see it even when the lint output buffer (success path) is silent.
+    run bash -c "cd '$REPO' && CLAUDE_PROJECT_DIR='$REPO' bash '$SCRIPT' main 2>&1"
     [ "$status" -eq 0 ]
     [ ! -f "$GOLANGCI_SENTINEL" ]
+    [[ "$output" == *"golangci-lint skipped"* ]]
 }
 
 @test "pre-commit-quality runs golangci-lint with --config when .golangci.yml present" {
