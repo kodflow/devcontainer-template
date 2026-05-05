@@ -15,11 +15,14 @@
 
 **Symptom**: `rtk gain` shows zero savings, or commands run raw
 
-1. Check the binary: `rtk --version` (must be ≥ 0.23.0)
-2. Check the hook: `grep "rtk hook claude" ~/.claude/settings.json` (and `rtk verify` for upstream confirmation)
-3. Check `jq` is installed (the hook needs it): `command -v jq`
-4. Check stderr for `[rtk] WARNING:` lines on session start
-5. If still broken: `rm -rf ~/.cache/rtk && rtk init`
+1. Check the binary: `rtk --version` (and `rtk verify` for upstream confirmation)
+2. Check the hook: `grep "rtk hook claude" ~/.claude/settings.json`
+3. Check stderr for `[rtk] WARNING:` lines on session start
+4. If still broken: `rm -rf ~/.cache/rtk && rtk init`
+
+> Note: the native `rtk hook claude` binary parses Claude Code's hook JSON
+> internally — `jq` is no longer a runtime prerequisite (it was only needed
+> by the legacy `rtk-rewrite.sh` shell wrapper).
 
 ### MCP tokens are not recognized
 

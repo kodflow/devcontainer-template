@@ -90,7 +90,9 @@ run_lint() {
             # Intentional word splitting on go_pkgs (space-separated list of dirs).
             golangci-lint run --config "$cfg" $go_pkgs >> "$out" 2>&1 || exit_code=1
         else
-            echo "[pre-commit-quality] golangci-lint skipped (no .golangci.{yml,yaml,toml})" >> "$out"
+            # Emit on stderr so the skip reason is visible on the success path:
+            # "$out" is only printed back when lint fails, hiding the message otherwise.
+            echo "[pre-commit-quality] golangci-lint skipped (no .golangci.{yml,yaml,toml})" >&2
         fi
     fi
     if $HAS_RUST && command -v cargo &>/dev/null; then
