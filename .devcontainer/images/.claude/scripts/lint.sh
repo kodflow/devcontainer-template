@@ -57,10 +57,13 @@ case "$EXT" in
         fi
         ;;
 
-    # Go - golangci-lint is comprehensive
+    # Go - golangci-lint is comprehensive (skip silently when consumer has no config)
     go)
         if command -v golangci-lint &>/dev/null; then
-            golangci-lint run --fix "$FILE" 2>/dev/null || true
+            cfg=$(find_golangci_config "$PROJECT_ROOT") || cfg=""
+            if [ -n "$cfg" ]; then
+                golangci-lint run --config "$cfg" --fix "$FILE" 2>/dev/null || true
+            fi
         fi
         ;;
 

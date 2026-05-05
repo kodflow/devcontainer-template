@@ -45,7 +45,7 @@ Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
 
 **Self-correction**: When linting or tests fail, agents fix and retry automatically.
 
-**Token efficiency**: RTK (`rtk-rewrite.sh` PreToolUse hook) auto-compresses Bash output for 60–90 % token savings. Use `rtk gain` for analytics, `rtk discover` to find missed opportunities. **No semantic-embedding tooling** (`grepai`/`ollama` were dropped in 2026-04 — high CPU/RAM cost, marginal benefit). Search with targeted `Grep` + `Read`.
+**Token efficiency**: RTK (`rtk hook claude` PreToolUse hook) auto-compresses Bash output for 60–90 % token savings. Use `rtk gain` for analytics, `rtk discover` to find missed opportunities. **No semantic-embedding tooling** (`grepai`/`ollama` were dropped in 2026-04 — high CPU/RAM cost, marginal benefit). Search with targeted `Grep` + `Read`.
 
 **Specialist agents**: Language conventions enforced by agents that know current stable versions.
 
