@@ -204,7 +204,7 @@
           },
           {
             "type": "command",
-            "command": "/home/vscode/.claude/scripts/rtk-rewrite.sh",
+            "command": "rtk hook claude",
             "timeout": 5
           },
           {

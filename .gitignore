@@ -130,6 +130,7 @@ out/
 .devcontainer/docs/
 .devcontainer/.template-version
 .devcontainer/claude-assets.tar.gz
+.devcontainer/devcontainer-lock.json
 
 # ============================================
 # Ignore vscode AI rules

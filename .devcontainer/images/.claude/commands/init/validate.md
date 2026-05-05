@@ -79,7 +79,7 @@ When a problem is detected, auto-fix if possible:
 | `.env` missing | `cp .env.example .env` |
 | deps not installed | `npm ci` / `go mod download` |
 | rtk binary missing | Re-run image postStart `init_rtk` step |
-| rtk hook missing | Restore from `/etc/claude-defaults/scripts/rtk-rewrite.sh` |
+| rtk hook missing | Re-run image `postStart` `init_rtk` step (the rtk binary owns the hook — `rtk init -g` to reinstall) |
 
 ---
 

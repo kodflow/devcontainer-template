@@ -13,8 +13,9 @@ MCP has pre-configured auth. NEVER ask for tokens if MCP is configured.
 
 ## 2.0 RTK-FIRST (MANDATORY)
 
-`rtk-rewrite.sh` is a `PreToolUse` hook that compresses Bash output for
+`rtk hook claude` is a `PreToolUse` hook that compresses Bash output for
 60–90 % token savings — automatic, transparent, never invoked by hand.
+The rtk binary owns the hook protocol; no shell wrapper sits in front.
 
 | Need | Tool |
 |------|------|
