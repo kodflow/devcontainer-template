@@ -12,7 +12,14 @@ setup() {
     git -C "$REPO" init -q -b main
     git -C "$REPO" config user.email "test@test.com"
     git -C "$REPO" config user.name "Test"
-    touch "$REPO/go.mod"
+    # Valid go.mod is required when `go` is on PATH (ubuntu-latest CI):
+    # the script's parallel `run_test` calls `go test ./` which fails on an
+    # empty go.mod with "unexpected EOF, expecting module statement".
+    cat > "$REPO/go.mod" <<EOF
+module example.com/test
+
+go 1.21
+EOF
     git -C "$REPO" add . && git -C "$REPO" commit -q -m "init"
     git -C "$REPO" checkout -q -b feature
 
