@@ -129,7 +129,10 @@ EOF
         step_rtk_claude_init
     " 2>&1 | tee "$TEST_TMPDIR/out"
 
-    [ "${PIPESTATUS[0]:-0}" -eq 0 ] || true
+    # Strict: bash -c must exit 0 (the function returns 0 when rtk is missing).
+    # The previous `|| true` masked any non-zero return and made the assertion
+    # vacuous — drop it.
+    [ "${PIPESTATUS[0]:-0}" -eq 0 ]
     grep -q "skipping" "$TEST_TMPDIR/out" || grep -q "rtk not on PATH" "$TEST_TMPDIR/out"
 }
 

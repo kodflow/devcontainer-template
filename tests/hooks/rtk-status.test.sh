@@ -77,7 +77,10 @@ setup_good_sandbox() {
 {"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "rtk hook claude"}]}]}}
 EOF
     # valid rtk config (mirrors the new template; required for rtk config exit 0)
-    cp /workspace/.devcontainer/images/rtk.config.toml "$home/.config/rtk/config.toml"
+    # Resolve from $SCRIPT_DIR rather than a hardcoded /workspace path so the
+    # test runs the same way under bats/CI and outside a devcontainer.
+    local repo_rtk_toml="$SCRIPT_DIR/../../.devcontainer/images/rtk.config.toml"
+    cp "$repo_rtk_toml" "$home/.config/rtk/config.toml"
 }
 
 # === ENFORCING (happy path) ===

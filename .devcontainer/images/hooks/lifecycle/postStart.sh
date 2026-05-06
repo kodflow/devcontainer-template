@@ -1232,8 +1232,18 @@ init_rtk() {
     _rtk_write_mode() {
         local mode="$1" reason="$2"
         local branch_safe log_dir
-        branch_safe=$(git -C "${CLAUDE_PROJECT_DIR:-/workspace}" rev-parse --abbrev-ref HEAD 2>/dev/null \
-                      | tr '/ ' '__' || echo "default")
+        # The previous `git ... | tr ... || echo default` chain didn't fall back
+        # when git rev-parse produced empty output (e.g., unborn repo): tr saw
+        # empty stdin, exited 0, and branch_safe ended up as "" — landing the
+        # snapshot directly under .claude/logs/ instead of a branch dir.
+        # Use symbolic-ref (fails cleanly on unborn repos) and explicitly fall
+        # back to "default" on empty output OR git failure.
+        local raw
+        raw=$(git -C "${CLAUDE_PROJECT_DIR:-/workspace}" symbolic-ref --short HEAD 2>/dev/null \
+              || git -C "${CLAUDE_PROJECT_DIR:-/workspace}" rev-parse --abbrev-ref HEAD 2>/dev/null \
+              || true)
+        [ -z "$raw" ] || [ "$raw" = "HEAD" ] && raw="default"
+        branch_safe=$(printf '%s' "$raw" | tr '/ ' '__')
         log_dir="${CLAUDE_PROJECT_DIR:-/workspace}/.claude/logs/$branch_safe"
         mkdir -p "$log_dir" 2>/dev/null || return 0
         if command -v jq >/dev/null 2>&1; then

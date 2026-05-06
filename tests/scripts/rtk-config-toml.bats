@@ -31,22 +31,18 @@ teardown() {
 }
 
 @test "exclude_commands is exactly the safe-trivial builtins set" {
-    # Full canonical list: cd, pwd, set, export, echo. Each is a shell builtin
-    # or trivial passthrough where rewrite is meaningless. Adding more here
-    # weakens RTK's default coverage — per-project additions belong in
-    # filters.toml, not this template.
+    # Pin EXACT equality against the canonical list: cd, pwd, set, export, echo.
+    # Each is a shell builtin or trivial passthrough where rewrite is meaningless.
+    # Adding more here weakens RTK's default coverage — per-project additions
+    # belong in filters.toml, not this template.
     run grep -E '^exclude_commands' "$TEMPLATE"
     [ "$status" -eq 0 ]
-    [[ "$output" == *'"cd"'* ]]
-    [[ "$output" == *'"pwd"'* ]]
-    [[ "$output" == *'"set"'* ]]
-    [[ "$output" == *'"export"'* ]]
-    [[ "$output" == *'"echo"'* ]]
-    # Negative checks: these should NOT be in the default list (they are
-    # documented as per-project exceptions, not defaults).
-    [[ "$output" != *'"make"'* ]]
-    [[ "$output" != *'"terraform"'* ]]
-    [[ "$output" != *'"helm"'* ]]
+    # Strip the leading "exclude_commands = " and trailing whitespace, normalize
+    # the array to a canonical compact form, and assert exact equality.
+    local actual
+    actual=$(printf '%s' "$output" | sed -E 's/^exclude_commands[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//')
+    local expected='["cd", "pwd", "set", "export", "echo"]'
+    [ "$actual" = "$expected" ]
 }
 
 @test "max_file_size is present in [tee] (rtk >= 0.38 requirement)" {
