@@ -20,43 +20,39 @@ teardown() {
 }
 
 # Helper: run only the rtk-install slice of download_tools() with controlled env.
-# We extract the function via sed to avoid running the full install entrypoint.
+# We extract the function via sed and write a runner script to a temp file —
+# this avoids the complex quoting / line-numbering issues that can surface
+# when bats wraps `bash -c "..."` invocations on different runners.
 run_install_rtk() {
     local arch="$1" extra="${2:-}"
-    # Convert "VAR=val" into proper export so the inner bash inherits the env.
-    # This was the root cause of CI test 43 failing — RTK_INSTALL_TEST_FAIL
-    # set as a local var in bash -c was not exported, so the spawned
-    # 'bash /tmp/rtk-only-...' inherited an unset variable, which let curl
-    # actually download a real binary on the CI x86_64 runner and the test
-    # then asserted exit-non-zero against an exit-zero install.
-    local export_extra=""
-    if [ -n "$extra" ]; then
-        export_extra="export $extra"
-    fi
-    bash -c "
-        set -euo pipefail
-        export HOME_DIR='$HOME_DIR'
-        export ARCH='$arch'
-        export OS='linux'
-        # Strip /usr/local/bin from PATH so 'command -v rtk' on the test host
-        # (where rtk is pre-installed) returns false and the install path runs.
-        # Keeps /usr/bin and /bin so curl/grep/sed/tar still resolve.
-        export PATH='/usr/bin:/bin'
-        $export_extra
-        ok() { echo \"\$@\"; }; info() { echo \"\$@\"; }; warn() { echo \"\$@\"; }; log() { echo \"\$@\"; }
-        # Slice the entire download_tools function (rtk install + status-line
-        # + PATH wiring). When testing only the rtk slice for code-path
-        # invariants, see the dedicated narrower-grep tests below.
-        sed -n '651,744p' '$SCRIPT' > /tmp/rtk-only-\$\$.sh
-        echo 'tool_count=0' >> /tmp/rtk-only-\$\$.sh
-        echo 'download_tools' >> /tmp/rtk-only-\$\$.sh
-        # Merge stderr into stdout so bats 'run' captures the user-facing
-        # error messages (install.sh writes them to >&2 by design).
-        bash /tmp/rtk-only-\$\$.sh 2>&1
-        rc=\$?
-        rm -f /tmp/rtk-only-\$\$.sh
-        exit \$rc
-    "
+    local runner="$TEST_TMPDIR/rtk-runner-$$.sh"
+    {
+        echo "#!/bin/bash"
+        echo "export HOME_DIR='$HOME_DIR'"
+        echo "export ARCH='$arch'"
+        echo "export OS=linux"
+        # /usr/local/bin stripped → 'command -v rtk' fails → install path runs.
+        echo "export PATH=/usr/bin:/bin"
+        if [ -n "$extra" ]; then
+            echo "export $extra"
+        fi
+        # Stub log helpers used by install.sh.
+        echo 'ok()   { echo "$@"; }'
+        echo 'info() { echo "$@"; }'
+        echo 'warn() { echo "$@"; }'
+        echo 'log()  { echo "$@"; }'
+        # Slice the download_tools function and call it.
+        sed -n '651,744p' "$SCRIPT"
+        echo "tool_count=0"
+        echo "download_tools"
+    } > "$runner"
+    chmod +x "$runner"
+    # Merge stderr into stdout: install.sh writes user-facing failures to
+    # >&2 by design, but bats `run` only captures stdout.
+    bash "$runner" 2>&1
+    local rc=$?
+    rm -f "$runner"
+    return $rc
 }
 
 # === amd64 + arm64: simulated download failure must propagate exit-non-zero ===
