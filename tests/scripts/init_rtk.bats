@@ -67,56 +67,13 @@ run_init_rtk() {
     skip "covered by integration probe; tested manually via PATH stripping in CI matrix"
 }
 
-# === Fail-open: file system writes mode=degraded snapshot ===
-
-@test "init_rtk failure path writes rtk-mode.json with mode=degraded reason=no-binary" {
-    if ! command -v jq >/dev/null 2>&1; then
-        skip "jq required for snapshot"
-    fi
-
-    # We can't easily strip rtk from inside bats, but we CAN call the helper
-    # function _rtk_write_mode directly and verify the snapshot shape.
-    bash -c "
-        set -uo pipefail
-        export CLAUDE_PROJECT_DIR='$CLAUDE_PROJECT_DIR'
-        log_info()    { :; }
-        log_warning() { :; }
-        log_success() { :; }
-        $(extract_init_rtk)
-        # Expose the helper at top level by re-declaring it (it's nested in init_rtk).
-        _rtk_write_mode() {
-            local mode=\"\$1\" reason=\"\$2\"
-            local branch_safe log_dir
-            branch_safe=\$(git -C \"\${CLAUDE_PROJECT_DIR:-/workspace}\" rev-parse --abbrev-ref HEAD 2>/dev/null \\
-                          | tr '/ ' '__' || echo 'default')
-            log_dir=\"\${CLAUDE_PROJECT_DIR:-/workspace}/.claude/logs/\$branch_safe\"
-            mkdir -p \"\$log_dir\" 2>/dev/null || return 0
-            jq -n -c \\
-                --arg mode \"\$mode\" \\
-                --arg reason \"\$reason\" \\
-                --arg ts \"\$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \\
-                '{mode:\$mode,reason:\$reason,version:\"\",timestamp:\$ts}' \\
-                > \"\$log_dir/rtk-mode.json\"
-        }
-        _rtk_write_mode degraded no-binary
-    "
-    # Look up the snapshot by glob — the branch name resolution depends on
-    # how the test setup `git init -b` was honored by the CI runner's git
-    # version, so don't pin the exact branch dir name here.
-    local snapshots
-    snapshots=$(find "$CLAUDE_PROJECT_DIR/.claude/logs" -name 'rtk-mode.json' 2>/dev/null)
-    [ -n "$snapshots" ]
-    local snapshot
-    snapshot=$(echo "$snapshots" | head -1)
-
-    run jq -r '.mode' "$snapshot"
-    [ "$status" -eq 0 ]
-    [ "$output" = "degraded" ]
-    run jq -r '.reason' "$snapshot"
-    [ "$output" = "no-binary" ]
-}
-
 # === Code-path invariants ===
+# (We previously had a "writes rtk-mode.json" runtime test here. It re-declared
+# the nested _rtk_write_mode helper inside a bash -c block, then asserted on
+# git-branch-derived directory names. Both layers added flakiness with no
+# extra signal vs the static checks below — Tests 41/42 already pin every
+# failure path's call to _rtk_write_mode degraded ... and the nested helper
+# itself is exercised end-to-end by tests/hooks/rtk-status.test.sh.)
 
 @test "init_rtk: every failure path uses return 0 (never propagates non-zero)" {
     run extract_init_rtk
