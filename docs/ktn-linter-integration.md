@@ -50,9 +50,9 @@ This document defines the integration between `devcontainer-template` and `ktn-l
 
 | Responsibility | Details |
 |---------------|---------|
-| **PostToolUse hook** | Wire the native HTTP hook in `.claude/settings.json` (matcher `Edit\|Write\|MultiEdit`, `type: "http"`, `url: http://localhost:${KTN_LINTER_PORT:-7717}/hooks/post-tool-use`, `timeout: 15`). See PostToolUse section below. |
+| **PostToolUse hook** | Wire the native HTTP hook in `.claude/settings.json` (matcher `Edit\|Write\|MultiEdit`, `type: "http"`, `url: http://localhost:7717/hooks/post-tool-use`, `timeout: 15`). See PostToolUse section below for the full snippet. |
 | **PreToolUse / Stop** | Zero manual configuration — embedded in `pre-validate.sh` / `on-stop.sh`. |
-| **Optional** | Override via `settings.local.json` or `KTN_LINTER_PORT` env var |
+| **Port override** | If you change the port: edit the literal URL in your `.claude/settings.json` AND set `KTN_LINTER_PORT` so the template scripts (`pre-validate.sh`, `on-stop.sh`) match. JSON settings do not perform shell expansion. |
 
 ## Hook Integration Points
 
