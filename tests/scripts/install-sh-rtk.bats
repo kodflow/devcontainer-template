@@ -23,6 +23,16 @@ teardown() {
 # We extract the function via sed to avoid running the full install entrypoint.
 run_install_rtk() {
     local arch="$1" extra="${2:-}"
+    # Convert "VAR=val" into proper export so the inner bash inherits the env.
+    # This was the root cause of CI test 43 failing — RTK_INSTALL_TEST_FAIL
+    # set as a local var in bash -c was not exported, so the spawned
+    # 'bash /tmp/rtk-only-...' inherited an unset variable, which let curl
+    # actually download a real binary on the CI x86_64 runner and the test
+    # then asserted exit-non-zero against an exit-zero install.
+    local export_extra=""
+    if [ -n "$extra" ]; then
+        export_extra="export $extra"
+    fi
     bash -c "
         set -euo pipefail
         export HOME_DIR='$HOME_DIR'
@@ -32,8 +42,11 @@ run_install_rtk() {
         # (where rtk is pre-installed) returns false and the install path runs.
         # Keeps /usr/bin and /bin so curl/grep/sed/tar still resolve.
         export PATH='/usr/bin:/bin'
-        $extra
+        $export_extra
         ok() { echo \"\$@\"; }; info() { echo \"\$@\"; }; warn() { echo \"\$@\"; }; log() { echo \"\$@\"; }
+        # Slice the entire download_tools function (rtk install + status-line
+        # + PATH wiring). When testing only the rtk slice for code-path
+        # invariants, see the dedicated narrower-grep tests below.
         sed -n '651,744p' '$SCRIPT' > /tmp/rtk-only-\$\$.sh
         echo 'tool_count=0' >> /tmp/rtk-only-\$\$.sh
         echo 'download_tools' >> /tmp/rtk-only-\$\$.sh
@@ -89,7 +102,9 @@ run_install_rtk() {
 @test "code path: no '(optional)' fallbacks remain in the rtk install block" {
     # The previous fail-open behavior is gone. Any '(optional)' marker in the
     # rtk slice would be a regression toward the old silent-degradation path.
-    run sed -n '651,744p' "${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh"
+    # Narrow the slice to JUST the rtk-install block (656..712); status-line
+    # at 713+ is intentionally still advisory and lives outside this contract.
+    run sed -n '656,712p' "${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh"
     [ "$status" -eq 0 ]
     [[ "$output" != *"(optional"* ]]
 }
