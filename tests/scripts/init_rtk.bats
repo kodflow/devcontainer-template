@@ -100,11 +100,19 @@ run_init_rtk() {
         }
         _rtk_write_mode degraded no-binary
     "
-    [ -f "$CLAUDE_PROJECT_DIR/.claude/logs/feat_test/rtk-mode.json" ]
-    run jq -r '.mode' "$CLAUDE_PROJECT_DIR/.claude/logs/feat_test/rtk-mode.json"
+    # Look up the snapshot by glob — the branch name resolution depends on
+    # how the test setup `git init -b` was honored by the CI runner's git
+    # version, so don't pin the exact branch dir name here.
+    local snapshots
+    snapshots=$(find "$CLAUDE_PROJECT_DIR/.claude/logs" -name 'rtk-mode.json' 2>/dev/null)
+    [ -n "$snapshots" ]
+    local snapshot
+    snapshot=$(echo "$snapshots" | head -1)
+
+    run jq -r '.mode' "$snapshot"
     [ "$status" -eq 0 ]
     [ "$output" = "degraded" ]
-    run jq -r '.reason' "$CLAUDE_PROJECT_DIR/.claude/logs/feat_test/rtk-mode.json"
+    run jq -r '.reason' "$snapshot"
     [ "$output" = "no-binary" ]
 }
 
