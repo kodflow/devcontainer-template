@@ -13,17 +13,41 @@ MCP has pre-configured auth. NEVER ask for tokens if MCP is configured.
 
 ## 2.0 RTK-FIRST (MANDATORY)
 
-`rtk hook claude` is a `PreToolUse` hook that compresses Bash output for
-60–90 % token savings — automatic, transparent, never invoked by hand.
-The rtk binary owns the hook protocol; no shell wrapper sits in front.
+**Build/CI: mandatory.** `install.sh` and the image Dockerfile hard-fail if
+RTK can't be installed — a container without RTK never reaches a user.
+
+**Runtime/session: doctrine, never blocking.** `rtk hook claude` is a
+`PreToolUse` hook that compresses Bash output for 60–90 % token savings.
+If RTK is missing or misconfigured at runtime, every Bash call still runs;
+`session-init.sh` emits one `[rtk] mode=… reason=…` line per session and
+`/audit` surfaces the same mode, so degradation is **visible** but never
+**blocking**.
+
+**Bypass policy.** Set `RTK_BYPASS=1` for an explicit session-wide skip
+(probe reports `mode=advisory reason=session-bypass` — first-class signal,
+never conflated with degradation). For a single ad-hoc call, just type the
+command without the `rtk` prefix; it surfaces in `rtk discover` so you can
+review later.
 
 | Need | Tool |
 |------|------|
-| Git/test/build/lint output | `rtk` (auto via hook) |
+| Git/test/build/lint output | `rtk` (auto via hook) — default for every Bash call |
 | Token savings analytics | `rtk gain` / `rtk gain --history` |
 | Find missed savings opportunities | `rtk discover` |
+| Verify hook + RTK.md + @RTK.md import | `rtk init -g --show` |
 | Exact string / regex search | `Grep` |
 | Cross-file understanding | `Read` + `Grep` + Task agents |
+
+**Mode reference (probe in `session-init.sh`):**
+
+| Mode | Reason | Meaning |
+|------|--------|---------|
+| `enforcing` | (none) | Binary + RTK.md + @RTK.md import + hook entry + valid config + no bypass |
+| `advisory` | `session-bypass` | `RTK_BYPASS=1` set this session |
+| `advisory` | `hook-missing` | Binary + doctrine present but `~/.claude/settings.json` lacks the entry |
+| `degraded` | `no-binary` | `command -v rtk` fails |
+| `degraded` | `config-invalid` | `rtk config` exits non-zero (TOML parse error) |
+| `degraded` | `marker-missing` | `~/.claude/RTK.md` absent OR `@RTK.md` import absent from `~/.claude/CLAUDE.md` |
 
 **No semantic-embedding tooling.** `grepai`/`ollama` were dropped in 2026-04
 (high CPU/RAM cost, marginal benefit). Use targeted `Grep` + `Read` instead.

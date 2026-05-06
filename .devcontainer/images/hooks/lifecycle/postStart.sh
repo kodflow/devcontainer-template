@@ -1213,18 +1213,69 @@ connect_pptp() {
 }
 
 # --- RTK CLI proxy initialization ---
+#
+# Runtime is fail-OPEN by design (the build path in install.sh + Dockerfile
+# is fail-closed; once a container ships, we never brick it on RTK loss).
+# Every failure path here:
+#   1) returns 0 (non-blocking),
+#   2) writes ~/.claude/logs/<branch>/rtk-mode.json with mode=degraded + reason
+#      so /audit and session-init.sh's probe can surface the deviation,
+#   3) emits log_warning so the operator sees the deviation in postStart logs.
+#
+# CLAUDE_HOOKS_BOOTSTRAP=1 is exported around the curl/tar/jq calls so
+# session-init.sh's probe_rtk_mode skips its own emission during boot
+# (avoids confusing transient state with steady-state degradation).
 init_rtk() {
+    # Helper: write the rtk-mode.json snapshot consumed by /audit + probe.
+    # Resolves the branch-scoped log dir lazily (postStart's GH_BRANCH may
+    # not be exported yet at this stage).
+    _rtk_write_mode() {
+        local mode="$1" reason="$2"
+        local branch_safe log_dir
+        # The previous `git ... | tr ... || echo default` chain didn't fall back
+        # when git rev-parse produced empty output (e.g., unborn repo): tr saw
+        # empty stdin, exited 0, and branch_safe ended up as "" — landing the
+        # snapshot directly under .claude/logs/ instead of a branch dir.
+        # Use symbolic-ref (fails cleanly on unborn repos) and explicitly fall
+        # back to "default" on empty output OR git failure.
+        local raw
+        raw=$(git -C "${CLAUDE_PROJECT_DIR:-/workspace}" symbolic-ref --short HEAD 2>/dev/null \
+              || git -C "${CLAUDE_PROJECT_DIR:-/workspace}" rev-parse --abbrev-ref HEAD 2>/dev/null \
+              || true)
+        [ -z "$raw" ] || [ "$raw" = "HEAD" ] && raw="default"
+        branch_safe=$(printf '%s' "$raw" | tr '/ ' '__')
+        log_dir="${CLAUDE_PROJECT_DIR:-/workspace}/.claude/logs/$branch_safe"
+        mkdir -p "$log_dir" 2>/dev/null || return 0
+        if command -v jq >/dev/null 2>&1; then
+            jq -n -c \
+                --arg mode "$mode" \
+                --arg reason "$reason" \
+                --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                '{mode:$mode,reason:$reason,version:"",timestamp:$ts}' \
+                > "$log_dir/rtk-mode.json" 2>/dev/null || true
+        fi
+    }
+
+    export CLAUDE_HOOKS_BOOTSTRAP=1
+
     if ! command -v rtk &>/dev/null; then
         log_info "RTK not found, installing latest from GitHub..."
         if ! command -v jq >/dev/null 2>&1; then
             log_warning "RTK: jq not available, skipping installation"
+            _rtk_write_mode degraded no-binary
+            unset CLAUDE_HOOKS_BOOTSTRAP
             return 0
         fi
         local rtk_arch
         case "$(uname -m)" in
             x86_64)  rtk_arch="x86_64-unknown-linux-musl" ;;
             aarch64) rtk_arch="aarch64-unknown-linux-musl" ;;
-            *)       log_warning "RTK: unsupported architecture $(uname -m)"; return 0 ;;
+            *)
+                log_warning "RTK: unsupported architecture $(uname -m)"
+                _rtk_write_mode degraded no-binary
+                unset CLAUDE_HOOKS_BOOTSTRAP
+                return 0
+                ;;
         esac
         local curl_auth_args=()
         if [ -n "${GITHUB_API_TOKEN:-}" ]; then
@@ -1235,18 +1286,22 @@ init_rtk() {
             "https://api.github.com/repos/rtk-ai/rtk/releases/latest" 2>/dev/null | jq -r '.tag_name // empty')
         if [ -z "$rtk_tag" ] || ! [[ "$rtk_tag" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             log_warning "RTK: failed to fetch valid release tag"
+            _rtk_write_mode degraded no-binary
+            unset CLAUDE_HOOKS_BOOTSTRAP
             return 0
         fi
         if curl -fsSL --connect-timeout 5 --max-time 60 "https://github.com/rtk-ai/rtk/releases/download/${rtk_tag}/rtk-${rtk_arch}.tar.gz" \
             | sudo tar xz -C /usr/local/bin rtk 2>/dev/null; then
             log_success "RTK ${rtk_tag} installed to /usr/local/bin/rtk"
         else
-            log_warning "RTK: installation failed (non-blocking)"
+            log_warning "RTK: installation failed (non-blocking; build-time install.sh is the canonical mandatory gate)"
+            _rtk_write_mode degraded no-binary
+            unset CLAUDE_HOOKS_BOOTSTRAP
             return 0
         fi
     fi
 
-    # Sync config from template (with hash tracking for updates)
+    # Sync config from template (with hash tracking for updates).
     local RTK_CONFIG_DIR="$HOME/.config/rtk"
     local RTK_CONFIG_SRC="/etc/rtk/config.toml"
     if [ -f "$RTK_CONFIG_SRC" ]; then
@@ -1271,9 +1326,50 @@ init_rtk() {
         fi
     fi
 
-    local RTK_VER
-    RTK_VER=$(rtk --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    log_success "RTK ${RTK_VER:-unknown} ready (token savings active)"
+    # Verify the synced config actually parses under current rtk; if not,
+    # snapshot the failure for /audit but stay non-blocking. Track the degraded
+    # state locally so the closing log line below reflects reality (the
+    # previous unconditional "RTK ready" message contradicted the warning).
+    local rtk_degraded=false
+    if command -v rtk >/dev/null 2>&1 && ! rtk config &>/dev/null; then
+        log_warning "RTK: ~/.config/rtk/config.toml is invalid (rtk config exits non-zero)"
+        _rtk_write_mode degraded config-invalid
+        rtk_degraded=true
+    fi
+
+    if $rtk_degraded; then
+        log_warning "RTK degraded — see ~/.claude/logs/<branch>/rtk-mode.json for reason; runtime is non-blocking"
+    else
+        local RTK_VER
+        RTK_VER=$(rtk --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        log_success "RTK ${RTK_VER:-unknown} ready (token savings active)"
+    fi
+
+    unset CLAUDE_HOOKS_BOOTSTRAP
+}
+
+# --- Bootstrap canonical Claude memory via upstream `rtk init` ---
+#
+# `rtk init -g --auto-patch` (rtk >= 0.38) is upstream-supported and provably
+# byte-safe against arbitrary user content in ~/.claude/CLAUDE.md (only adds
+# `@RTK.md` if absent). We run it unconditionally and let upstream handle the
+# no-op when nothing needs touching. Format-stable shell-side: we never parse
+# the `--show` output (only display it for log/debug).
+#
+# Side effect: ensures the PreToolUse `rtk hook claude` entry is present in
+# ~/.claude/settings.json (the --auto-patch behavior).
+step_rtk_claude_init() {
+    if ! command -v rtk >/dev/null 2>&1; then
+        log_warning "rtk-init: skipping (rtk not on PATH; init_rtk will retry next start)"
+        return 0
+    fi
+    export CLAUDE_HOOKS_BOOTSTRAP=1
+    log_info "RTK claude init: pre-state ↓"
+    rtk init -g --show 2>&1 | sed 's/^/    /' || true
+    rtk init -g --auto-patch 2>&1 | sed 's/^/    /' || true
+    log_info "RTK claude init: post-state ↓"
+    rtk init -g --show 2>&1 | sed 's/^/    /' || true
+    unset CLAUDE_HOOKS_BOOTSTRAP
 }
 
 # --- Main VPN auto-connect orchestrator ---
@@ -1480,6 +1576,7 @@ run_step "Legacy grepai/ollama cleanup" cleanup_legacy_grepai
 init_vpn >> /tmp/vpn-init.log 2>&1 &
 echo $! > /tmp/.vpn-init.pid
 run_step "RTK init" init_rtk
+run_step "RTK claude init" step_rtk_claude_init
 
 # Export dynamic environment variables (appended to ~/.devcontainer-env.sh)
 # Note: ~/.devcontainer-env.sh is created by postCreate.sh with static content

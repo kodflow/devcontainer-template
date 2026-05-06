@@ -156,6 +156,46 @@ ktn-linter hooks are evolving toward a canonical model based on `ScanReport`:
 
 The template hook calls are **endpoint-agnostic** — they forward the full hook input JSON to ktn-linter and relay the response. When ktn-linter evolves its response format (ScanReport v2, new fields), the scripts don't need to change.
 
+### Health phase: `claude-rtk-hook` (proposed upstream)
+
+> **Status:** local spec, not yet wired upstream. Tracking issue:
+> `<TBD: open issue at kodflow/ktn-linter>` — when opened, link here and add
+> `claude-rtk-hook` to `KTN_STOP_PHASES` defaults in `on-stop.sh`. Until then,
+> **no template-side change** — this section documents intent only.
+
+A new `health` phase (8) sub-rule that fires once at session end via the
+`/hooks/stop` endpoint. Reports the same RTK mode/reason that
+`session-init.sh probe_rtk_mode` emits at session start, so `Stop` events
+double-check the doctrine after a session of edits.
+
+**Signal source.** The rule reads `~/.claude/logs/<branch>/rtk-mode.json`
+(written by `session-init.sh` and `postStart.sh init_rtk`); if absent, it
+re-runs the probe logic inline. The file schema is documented as a fixture
+in `tests/scripts/rtk-config-toml.bats` (runtime artifact, never committed).
+
+**Severity.** `info` — non-blocking, matches the project doctrine that
+runtime degradation is visible but never blocking. Could be elevated to
+`warning` upstream once the rule is stable; controllable per-project via
+`KTN_*_SEVERITY` env (existing override pattern).
+
+**Output (proposed).**
+
+```text
+[health][claude-rtk-hook] mode=enforcing version=0.38.0
+[health][claude-rtk-hook] mode=advisory  reason=session-bypass
+[health][claude-rtk-hook] mode=degraded  reason=no-binary
+                          fix=`rtk init -g --auto-patch` (re-applies wiring)
+[health][claude-rtk-hook] mode=degraded  reason=config-invalid
+                          fix=check ~/.config/rtk/config.toml schema
+[health][claude-rtk-hook] mode=degraded  reason=marker-missing
+                          fix=`rtk init -g --auto-patch` (re-creates RTK.md/@import)
+```
+
+**Why it matters at session end.** A degraded mode mid-session means every
+`rtk discover` entry from that session is a savings miss — visible in /audit
+but easy to miss across many short sessions. The `Stop` summary surfaces it
+when the operator is most likely to act.
+
 ## MCP Server Registration
 
 ```
