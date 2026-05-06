@@ -156,9 +156,9 @@ Agent wants to edit file.go
 
 | Hook | Timeout | Curl | Rationale |
 |------|---------|------|-----------|
-| PreToolUse | 5s | 4s | Must be fast — quick HTTP call to cached package state |
-| PostToolUse | 15s | 14s | Single file scan with 148 rules, must complete before agent proceeds |
-| Stop | 30s | 28s | Full project scan of all modified packages, runs once at session end |
+| PreToolUse | 5s | 4s (`pre-validate.sh`) | Must be fast — quick HTTP call to cached package state |
+| PostToolUse | 15s | N/A — project-level native HTTP hook | Single file scan with 148 rules, must complete before agent proceeds |
+| Stop | 30s | 28s (`on-stop.sh`) | Full project scan of all modified packages, runs once at session end |
 
 ## Canonical Hooks Doctrine (Future)
 
@@ -228,7 +228,7 @@ curl -sf http://localhost:7717/health && echo "OK" || echo "Not running"
 
 ### Change port
 
-Set `KTN_LINTER_PORT` environment variable (default: 7717). All 3 hook scripts read this.
+Set `KTN_LINTER_PORT` environment variable (default: 7717). Read by the template scripts that still call ktn-linter directly (`pre-validate.sh`, `on-stop.sh`). PostToolUse runs through the project-level native HTTP hook, where the URL is hard-coded in `.claude/settings.json` — adjust the URL there if you change the port.
 
 ### Disable ktn-linter hooks only
 
