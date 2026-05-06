@@ -50,7 +50,9 @@ run_install_rtk() {
         sed -n '651,744p' '$SCRIPT' > /tmp/rtk-only-\$\$.sh
         echo 'tool_count=0' >> /tmp/rtk-only-\$\$.sh
         echo 'download_tools' >> /tmp/rtk-only-\$\$.sh
-        bash /tmp/rtk-only-\$\$.sh
+        # Merge stderr into stdout so bats 'run' captures the user-facing
+        # error messages (install.sh writes them to >&2 by design).
+        bash /tmp/rtk-only-\$\$.sh 2>&1
         rc=\$?
         rm -f /tmp/rtk-only-\$\$.sh
         exit \$rc
