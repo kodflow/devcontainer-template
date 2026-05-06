@@ -10,7 +10,8 @@ This document defines the integration between `devcontainer-template` and `ktn-l
 ┌───────────────────────────────────────────────────────────────┐
 │                    TEMPLATE (devcontainer)                      │
 │  - ktn-linter calls embedded in existing hook scripts          │
-│  - pre-validate.sh, post-edit.sh, on-stop.sh                  │
+│  - pre-validate.sh, on-stop.sh                                 │
+│  - PostToolUse wired via project-level native HTTP hook        │
 │  - Graceful degradation if ktn-linter not running              │
 │  - MCP fragment system (requires_binary gate)                  │
 └──────────────────────────┬────────────────────────────────────┘
@@ -31,7 +32,7 @@ This document defines the integration between `devcontainer-template` and `ktn-l
 |---------------|---------|
 | **Binary** | Installs ktn-linter (Go feature) |
 | **MCP registration** | Fragment at `/etc/mcp/features/go.mcp.json` with `requires_binary` gate |
-| **Hook integration** | ktn-linter calls embedded in `pre-validate.sh`, `post-edit.sh`, `on-stop.sh` |
+| **Hook integration** | ktn-linter calls embedded in `pre-validate.sh`, `on-stop.sh` (PostToolUse moved to project-level native HTTP hook — see images/CLAUDE.md, issue #344) |
 | **Graceful degradation** | Calls exit silently if ktn-linter is not running (curl fails → continue) |
 | **Permissions** | `Bash(ktn-linter:*)` pre-authorized in settings.json |
 
@@ -65,15 +66,32 @@ After protected file validation, calls `/hooks/pre-tool-use` to surface existing
 - Phase scope: `structural,signatures` (override: `KTN_PRE_PHASES`)
 - Fail-open: continues silently if ktn-linter unreachable
 
-### `post-edit.sh` — PostToolUse (Write|Edit)
+### PostToolUse (Write|Edit|MultiEdit) — project-level native HTTP hook
 
-After formatting, calls `/hooks/post-tool-use` to lint the modified file.
+`post-edit.sh` deliberately does NOT call `/hooks/post-tool-use`. A script-level
+curl would race with the project's native HTTP hook (Claude Code keeps only the
+*last* JSON of a hook chain, silently dropping `decision: "block"` payloads —
+issue #344). Consumers wire ktn-linter directly in their `.claude/settings.json`:
 
-- Skips non-code files
-- Curl timeout: 14s (within 15s hook timeout)
-- Phase scope: `structural,signatures,logic,performance,modern,style,comment` (override: `KTN_POST_PHASES`)
-- Can block edits via `permissionDecision: "deny"` in response
-- Fail-open: continues silently if ktn-linter unreachable
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "http", "url": "http://localhost:7717/hooks/post-tool-use", "timeout": 15 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The native hook speaks the Claude Code hook payload protocol directly (decision
++ hookSpecificOutput) — no re-parse, no re-wrap. Phase scope falls through to
+ktn-linter's YAML config (`.ktn-linter.yaml`); per-request override via the
+project-level body is consumer-managed.
 
 ### `on-stop.sh` — Stop (*)
 
@@ -93,9 +111,11 @@ Override per-project via env vars (comma-separated, no spaces):
 
 ```bash
 export KTN_PRE_PHASES=structural,signatures,modern
-export KTN_POST_PHASES=structural,signatures,logic,performance
 export KTN_STOP_PHASES=structural,signatures,logic,performance,modern,style,comment,tests,health
 ```
+
+(`KTN_POST_PHASES` is no longer applicable — PostToolUse uses the project-level
+native HTTP hook, which forwards the body unchanged to ktn-linter's YAML config.)
 
 Defensive: if `jq` is missing, the scripts fall through to the raw `${INPUT:-{}}` body — server uses YAML default, no failure.
 
@@ -116,7 +136,7 @@ Agent wants to edit file.go
         ▼
 ┌─ PostToolUse ─────────────────────────────┐
 │  post-edit.sh        → format file        │
-│  ktn-post-tool-use.sh → lint scan         │  ← "ERROR: unused variable line 42"
+│  (project-level HTTP hook → lint scan)    │  ← "ERROR: unused variable line 42"
 │  log.sh (async)      → action logging     │
 └───────────────────────────────────────────┘
         │
@@ -193,7 +213,9 @@ which ktn-linter && ktn-linter --version
 jq '.mcpServers["ktn-linter"]' /workspace/mcp.json
 
 # 3. Hook scripts have ktn-linter integration?
-grep -l "ktn-linter" ~/.claude/scripts/{pre-validate,post-edit,on-stop}.sh
+grep -l "ktn-linter" ~/.claude/scripts/{pre-validate,on-stop}.sh
+# 3b. PostToolUse wired at project level?
+jq '.hooks.PostToolUse[].hooks[]? | select(.url | test("ktn|7717"))' .claude/settings.json
 
 # 4. Server responding?
 curl -sf http://localhost:7717/health && echo "OK" || echo "Not running"
