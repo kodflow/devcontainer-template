@@ -50,7 +50,8 @@ This document defines the integration between `devcontainer-template` and `ktn-l
 
 | Responsibility | Details |
 |---------------|---------|
-| **Nothing** | Zero manual configuration — hooks are in the template |
+| **PostToolUse hook** | Wire the native HTTP hook in `.claude/settings.json` (matcher `Edit\|Write\|MultiEdit`, `type: "http"`, `url: http://localhost:${KTN_LINTER_PORT:-7717}/hooks/post-tool-use`, `timeout: 15`). See PostToolUse section below. |
+| **PreToolUse / Stop** | Zero manual configuration — embedded in `pre-validate.sh` / `on-stop.sh`. |
 | **Optional** | Override via `settings.local.json` or `KTN_LINTER_PORT` env var |
 
 ## Hook Integration Points
@@ -214,8 +215,10 @@ jq '.mcpServers["ktn-linter"]' /workspace/mcp.json
 
 # 3. Hook scripts have ktn-linter integration?
 grep -l "ktn-linter" ~/.claude/scripts/{pre-validate,on-stop}.sh
-# 3b. PostToolUse wired at project level?
-jq '.hooks.PostToolUse[].hooks[]? | select(.url | test("ktn|7717"))' .claude/settings.json
+# 3b. PostToolUse wired at project level? (guard on hook type and optional .url
+# so a sibling type:"command" hook in the same array doesn't error the filter)
+jq '.hooks.PostToolUse[]?.hooks[]?
+    | select(.type == "http" and (.url? | test("ktn|7717")))' .claude/settings.json
 
 # 4. Server responding?
 curl -sf http://localhost:7717/health && echo "OK" || echo "Not running"
