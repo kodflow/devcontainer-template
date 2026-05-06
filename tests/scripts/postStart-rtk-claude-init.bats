@@ -42,7 +42,7 @@ run_step() {
 
 # === Happy path: fresh ~/.claude/ → all three artifacts created ===
 
-@test "step_rtk_claude_init: fresh sandbox produces RTK.md + CLAUDE.md + settings.json" {
+@test "step_rtk_claude_init: fresh sandbox produces RTK.md + CLAUDE.md + settings.json with rtk hook entry" {
     if ! command -v rtk >/dev/null 2>&1; then
         skip "rtk binary required"
     fi
@@ -52,6 +52,11 @@ run_step() {
     [ -f "$TEST_HOME/.claude/CLAUDE.md" ]
     [ -f "$TEST_HOME/.claude/settings.json" ]
     grep -q '^@RTK.md' "$TEST_HOME/.claude/CLAUDE.md"
+    # Settings.json must declare the canonical PreToolUse → Bash → "rtk hook claude"
+    # entry — that's the contract `rtk init -g --auto-patch` provides and the one
+    # session-init.sh's probe checks for. A passing existence check is necessary
+    # but not sufficient; the file must carry the hook command literally.
+    grep -q '"rtk hook claude"' "$TEST_HOME/.claude/settings.json"
 }
 
 # === Idempotency: re-running leaves the file byte-identical ===

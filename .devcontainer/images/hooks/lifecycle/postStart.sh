@@ -1327,15 +1327,23 @@ init_rtk() {
     fi
 
     # Verify the synced config actually parses under current rtk; if not,
-    # snapshot the failure for /audit but stay non-blocking.
+    # snapshot the failure for /audit but stay non-blocking. Track the degraded
+    # state locally so the closing log line below reflects reality (the
+    # previous unconditional "RTK ready" message contradicted the warning).
+    local rtk_degraded=false
     if command -v rtk >/dev/null 2>&1 && ! rtk config &>/dev/null; then
         log_warning "RTK: ~/.config/rtk/config.toml is invalid (rtk config exits non-zero)"
         _rtk_write_mode degraded config-invalid
+        rtk_degraded=true
     fi
 
-    local RTK_VER
-    RTK_VER=$(rtk --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    log_success "RTK ${RTK_VER:-unknown} ready (token savings active)"
+    if $rtk_degraded; then
+        log_warning "RTK degraded — see ~/.claude/logs/<branch>/rtk-mode.json for reason; runtime is non-blocking"
+    else
+        local RTK_VER
+        RTK_VER=$(rtk --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        log_success "RTK ${RTK_VER:-unknown} ready (token savings active)"
+    fi
 
     unset CLAUDE_HOOKS_BOOTSTRAP
 }
