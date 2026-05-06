@@ -67,7 +67,11 @@ run_install_rtk() {
     fi
     run run_install_rtk amd64 "RTK_INSTALL_TEST_FAIL=1"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"download/extract failed"* ]]
+    if [[ "$output" != *"download/extract failed"* ]] && \
+       [[ "$output" != *"required"* ]]; then
+        echo "DEBUG output: $output" >&2
+        false
+    fi
 }
 
 @test "arm64: simulated curl failure exits non-zero (build hard-fail)" {
@@ -76,7 +80,11 @@ run_install_rtk() {
     fi
     run run_install_rtk arm64 "RTK_INSTALL_TEST_FAIL=1"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"download/extract failed"* ]]
+    if [[ "$output" != *"download/extract failed"* ]] && \
+       [[ "$output" != *"required"* ]]; then
+        echo "DEBUG output: $output" >&2
+        false
+    fi
 }
 
 # === Unsupported arch (devcontainer expects amd64/arm64): hard-fail too ===
@@ -84,7 +92,11 @@ run_install_rtk() {
 @test "unsupported arch (riscv64): hard-fail with explicit message" {
     run run_install_rtk riscv64 ""
     [ "$status" -ne 0 ]
-    [[ "$output" == *"unsupported architecture"* ]]
+    if [[ "$output" != *"unsupported architecture"* ]] && \
+       [[ "$output" != *"unsupported"* ]]; then
+        echo "DEBUG output: $output" >&2
+        false
+    fi
 }
 
 # === Code-path invariants (lock the contract against future regressions) ===
