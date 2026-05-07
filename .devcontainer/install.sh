@@ -663,15 +663,15 @@ download_tools() {
     # Tested in tests/scripts/install-sh-rtk.bats. Set RTK_INSTALL_TEST_FAIL=1
     # to deterministically simulate a failed download and assert the
     # exit-non-zero path.
+    # Pinned rtk version. MUST stay in sync with ARG RTK_VERSION in
+    # .devcontainer/images/Dockerfile (drift caught by
+    # tests/scripts/install-sh-rtk.bats test 9). Bump policy in
+    # .devcontainer/images/.claude/CLAUDE.md §2.0: dedicated PR + smoke
+    # test against a freshly built container before bumping here.
+    local RTK_PINNED_VERSION="v0.38.0"
+
     if ! command -v rtk &>/dev/null; then
         mkdir -p "$HOME_DIR/.local/bin"
-
-        local rtk_latest
-        rtk_latest=$(curl -fsSL "https://api.github.com/repos/rtk-ai/rtk/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
-        if [[ -z "$rtk_latest" ]]; then
-            echo "  ✗ rtk: failed to resolve latest version (required)" >&2
-            return 1
-        fi
 
         local rtk_rust_arch
         case "${ARCH}" in
@@ -683,7 +683,7 @@ download_tools() {
                 ;;
         esac
 
-        local rtk_url="https://github.com/rtk-ai/rtk/releases/download/${rtk_latest}/rtk-${rtk_rust_arch}.tar.gz"
+        local rtk_url="https://github.com/rtk-ai/rtk/releases/download/${RTK_PINNED_VERSION}/rtk-${rtk_rust_arch}.tar.gz"
         local rtk_tmp rtk_extract
         rtk_tmp=$(mktemp)
         rtk_extract=$(mktemp -d)
@@ -702,7 +702,7 @@ download_tools() {
 
         install -m 0755 "$rtk_extract/rtk" "$HOME_DIR/.local/bin/rtk"
         tool_count=$((tool_count + 1))
-        echo "  ✓ rtk ${rtk_latest} installed"
+        echo "  ✓ rtk ${RTK_PINNED_VERSION} installed"
 
         rm -f "$rtk_tmp"
         rm -rf "$rtk_extract"

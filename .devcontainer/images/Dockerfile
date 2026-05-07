@@ -30,10 +30,13 @@ USER root
 # =============================================================================
 # Dynamic Binary Tools (rtk) — kubectl/helm/bazelisk/yq are in base
 # =============================================================================
-RUN RTK_LATEST=$(curl -fsSL ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} "https://api.github.com/repos/rtk-ai/rtk/releases/latest" | jq -r '.tag_name') && \
-    echo "Installing rtk ${RTK_LATEST}..." && \
+# Pinned to a known-good rtk release. See CLAUDE.md §2.0 bump policy.
+# MUST stay in sync with RTK_PINNED_VERSION in .devcontainer/install.sh
+# (drift caught by tests/scripts/install-sh-rtk.bats test 9).
+ARG RTK_VERSION=v0.38.0
+RUN echo "Installing rtk ${RTK_VERSION}..." && \
     RTK_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-gnu" || echo "x86_64-unknown-linux-musl") && \
-    curl -fsSL "https://github.com/rtk-ai/rtk/releases/download/${RTK_LATEST}/rtk-${RTK_ARCH}.tar.gz" | \
+    curl -fsSL "https://github.com/rtk-ai/rtk/releases/download/${RTK_VERSION}/rtk-${RTK_ARCH}.tar.gz" | \
     tar xz -C /usr/local/bin rtk
 
 # =============================================================================
