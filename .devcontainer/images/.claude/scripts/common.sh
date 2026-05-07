@@ -132,8 +132,10 @@ bazel_bin() {
 # Usage: label=$(bazel_label_for_dir "$DIR" "$PROJECT_ROOT")
 bazel_label_for_dir() {
     local dir project_root rel
-    dir="$(cd "$1" 2>/dev/null && pwd)" || { echo "//..."; return 0; }
-    project_root="$(cd "$2" 2>/dev/null && pwd)" || { echo "//..."; return 0; }
+    # `pwd -P` resolves symlinks so a path like /workdir/symlink/pkg/auth
+    # canonicalises to /workdir/proj/pkg/auth before the prefix strip.
+    dir="$(cd "$1" 2>/dev/null && pwd -P)" || { echo "//..."; return 0; }
+    project_root="$(cd "$2" 2>/dev/null && pwd -P)" || { echo "//..."; return 0; }
 
     if [ "$dir" = "$project_root" ]; then
         echo "//..."

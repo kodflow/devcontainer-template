@@ -238,3 +238,154 @@ EOF
     grep -q "^make test$" "$TEST_LOG"
     ! grep -q "^bazelisk " "$TEST_LOG"
 }
+
+# ---------- bazel_label_for_dir unit tests ----------
+
+@test "bazel_label_for_dir returns //... for project root" {
+    # shellcheck source=/dev/null
+    source "$SCRIPTS_DIR/common.sh"
+    mkdir -p "$TEST_TMPDIR/proj"
+    run bazel_label_for_dir "$TEST_TMPDIR/proj" "$TEST_TMPDIR/proj"
+    [ "$status" -eq 0 ]
+    [ "$output" = "//..." ]
+}
+
+@test "bazel_label_for_dir maps nested dir to //pkg/foo/bar/..." {
+    # shellcheck source=/dev/null
+    source "$SCRIPTS_DIR/common.sh"
+    mkdir -p "$TEST_TMPDIR/proj/pkg/foo/bar"
+    run bazel_label_for_dir "$TEST_TMPDIR/proj/pkg/foo/bar" "$TEST_TMPDIR/proj"
+    [ "$status" -eq 0 ]
+    [ "$output" = "//pkg/foo/bar/..." ]
+}
+
+@test "bazel_label_for_dir resolves through symlinks" {
+    # shellcheck source=/dev/null
+    source "$SCRIPTS_DIR/common.sh"
+    mkdir -p "$TEST_TMPDIR/proj/pkg/auth"
+    ln -s "$TEST_TMPDIR/proj" "$TEST_TMPDIR/symlink"
+    run bazel_label_for_dir "$TEST_TMPDIR/symlink/pkg/auth" "$TEST_TMPDIR/proj"
+    [ "$status" -eq 0 ]
+    [ "$output" = "//pkg/auth/..." ]
+}
+
+@test "bazel_label_for_dir falls back to //... on resolution failure" {
+    # shellcheck source=/dev/null
+    source "$SCRIPTS_DIR/common.sh"
+    run bazel_label_for_dir "$TEST_TMPDIR/does/not/exist" "$TEST_TMPDIR/also/missing"
+    [ "$status" -eq 0 ]
+    [ "$output" = "//..." ]
+}
+
+# ---------- pre-commit-checks.sh::check_go cascade ----------
+
+CHECKS_SCRIPT="${BATS_TEST_DIRNAME}/../../.devcontainer/images/.claude/scripts/pre-commit-checks.sh"
+
+run_checks() {
+    bash -c "cd '$REPO' && bash '$CHECKS_SCRIPT' '$REPO' 2>&1"
+}
+
+@test "pre-commit-checks check_go uses Makefile when test target present" {
+    cat > "$REPO/Makefile" <<'EOF'
+build:
+	@echo make build
+test:
+	@echo make test
+EOF
+    stub_cmd make
+    stub_cmd bazelisk
+    stub_cmd go
+
+    run run_checks
+
+    grep -q "^make test$" "$TEST_LOG"
+    grep -q "^make build$" "$TEST_LOG"
+    ! grep -q "^bazelisk " "$TEST_LOG"
+    ! grep -q "^go test" "$TEST_LOG"
+    ! grep -q "^go build" "$TEST_LOG"
+}
+
+@test "pre-commit-checks check_go uses Bazel for both build and test when MODULE.bazel" {
+    : > "$REPO/MODULE.bazel"
+    stub_cmd bazelisk
+    stub_cmd go     # must NOT be invoked
+    stub_cmd make   # must NOT be invoked
+
+    run run_checks
+
+    grep -qE "^bazelisk test --test_output=errors //\\.\\.\\." "$TEST_LOG"
+    grep -qE "^bazelisk build //\\.\\.\\." "$TEST_LOG"
+    ! grep -q "^go test" "$TEST_LOG"
+    ! grep -q "^go build" "$TEST_LOG"
+}
+
+@test "pre-commit-checks check_go falls back to go test when no Makefile and no Bazel" {
+    stub_cmd go
+
+    run run_checks
+
+    grep -q "^go test -race ./\\.\\.\\." "$TEST_LOG"
+    grep -q "^go build ./\\.\\.\\." "$TEST_LOG"
+}
+
+# ---------- test.sh per-file Bazel branch ----------
+
+TEST_SH="${BATS_TEST_DIRNAME}/../../.devcontainer/images/.claude/scripts/test.sh"
+
+@test "test.sh go) uses bazel for project-root _test.go (label //...) when MODULE.bazel" {
+    : > "$REPO/MODULE.bazel"
+    cat > "$REPO/foo_test.go" <<'EOF'
+package main
+EOF
+    stub_cmd bazelisk
+    stub_cmd go  # must NOT be invoked
+
+    run bash -c "bash '$TEST_SH' '$REPO/foo_test.go' 2>&1"
+
+    grep -qE "^bazelisk test --test_output=errors //\\.\\.\\." "$TEST_LOG"
+    ! grep -q "^go test" "$TEST_LOG"
+}
+
+@test "test.sh go) maps nested package to //pkg/auth/..." {
+    : > "$REPO/MODULE.bazel"
+    mkdir -p "$REPO/pkg/auth"
+    cat > "$REPO/pkg/auth/jwt_test.go" <<'EOF'
+package auth
+EOF
+    stub_cmd bazelisk
+
+    run bash -c "bash '$TEST_SH' '$REPO/pkg/auth/jwt_test.go' 2>&1"
+
+    grep -qE "^bazelisk test --test_output=errors //pkg/auth/\\.\\.\\." "$TEST_LOG"
+}
+
+@test "test.sh go) falls back to go test when no MODULE.bazel" {
+    cat > "$REPO/foo_test.go" <<'EOF'
+package main
+EOF
+    stub_cmd go
+    stub_cmd bazelisk  # present but no MODULE.bazel → not invoked
+
+    run bash -c "bash '$TEST_SH' '$REPO/foo_test.go' 2>&1"
+
+    grep -q "^go test -v -run \\." "$TEST_LOG"
+    ! grep -q "^bazelisk " "$TEST_LOG"
+}
+
+@test "test.sh go) Bazel branch is fail-open (|| true) — script always exits 0" {
+    : > "$REPO/MODULE.bazel"
+    cat > "$REPO/foo_test.go" <<'EOF'
+package main
+EOF
+    # Stub that exits non-zero — verify the script still returns 0.
+    cat > "$BIN/bazelisk" <<'EOF'
+#!/usr/bin/env bash
+echo "bazelisk $*" >> "$TEST_LOG"
+exit 1
+EOF
+    chmod +x "$BIN/bazelisk"
+
+    run bash -c "bash '$TEST_SH' '$REPO/foo_test.go' 2>&1"
+    [ "$status" -eq 0 ]
+    grep -q "^bazelisk " "$TEST_LOG"
+}
