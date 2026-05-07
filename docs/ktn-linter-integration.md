@@ -50,7 +50,7 @@ This document defines the integration between `devcontainer-template` and `ktn-l
 
 | Responsibility | Details |
 |---------------|---------|
-| **PostToolUse hook** | Wire the native HTTP hook in `.claude/settings.json` (matcher `Edit\|Write\|MultiEdit`, `type: "http"`, `url: http://localhost:7717/hooks/post-tool-use`, `timeout: 15`). See PostToolUse section below for the full snippet. |
+| **PostToolUse hook** | Wire the native HTTP hook in `.claude/settings.json` (matcher `Edit|Write|MultiEdit`, `type: "http"`, `url: http://localhost:7717/hooks/post-tool-use`, `timeout: 15`). See PostToolUse section below for the full snippet. |
 | **PreToolUse / Stop** | Zero manual configuration — embedded in `pre-validate.sh` / `on-stop.sh`. |
 | **Port override** | If you change the port: edit the literal URL in your `.claude/settings.json` AND set `KTN_LINTER_PORT` so the template scripts (`pre-validate.sh`, `on-stop.sh`) match. JSON settings do not perform shell expansion. |
 
@@ -106,7 +106,9 @@ Before session summary, calls `/hooks/stop` for session-level validation.
 
 ### Phase scope (per-request override, ktn-linter ≥ #190)
 
-Each hook injects an explicit `phases` field into the JSON request body, scoped to what the event-type actually needs to surface. The server's YAML config (`.ktn-linter.yaml`) is **not** consulted when `phases` is present — it acts as a per-request override. Empty/absent `phases` → YAML default (back-compat for servers pre-#190, which ignore the unknown field).
+Each script-backed hook (`pre-validate.sh`, `on-stop.sh`) injects an explicit `phases` field into the JSON request body, scoped to what the event-type actually needs to surface. The server's YAML config (`.ktn-linter.yaml`) is **not** consulted when `phases` is present — it acts as a per-request override. Empty/absent `phases` → YAML default (back-compat for servers pre-#190, which ignore the unknown field).
+
+> **Note:** PostToolUse runs through a project-level native HTTP hook (no script wrapper) and therefore **does not** inject `phases` — it forwards the request body unchanged to ktn-linter, which falls back to its YAML config.
 
 Override per-project via env vars (comma-separated, no spaces):
 
