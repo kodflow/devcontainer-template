@@ -673,10 +673,13 @@ download_tools() {
     if ! command -v rtk &>/dev/null; then
         mkdir -p "$HOME_DIR/.local/bin"
 
+        # rtk-ai/rtk has never released aarch64-unknown-linux-musl —
+        # arm64 ships only the gnu variant (verified for v0.38.0 + v0.39.0).
+        # Match the Dockerfile's logic. Issue #348.
         local rtk_rust_arch
         case "${ARCH}" in
             amd64) rtk_rust_arch="x86_64-unknown-linux-musl" ;;
-            arm64) rtk_rust_arch="aarch64-unknown-linux-musl" ;;
+            arm64) rtk_rust_arch="aarch64-unknown-linux-gnu" ;;
             *)
                 echo "  ✗ rtk: unsupported architecture ${ARCH} (devcontainer expects amd64 or arm64)" >&2
                 return 1
