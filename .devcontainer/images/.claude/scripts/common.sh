@@ -80,16 +80,72 @@ find_golangci_config() {
     return 1
 }
 
-# Check if Makefile has a specific target
+# Check if Makefile has a specific target.
+# Tight regex rejects `# target:`, `TARGET := foo`, `integration-target:`,
+# and `target:=foo` while accepting `target:` and `target: deps`.
 # Usage: has_makefile_target "lint" "$PROJECT_ROOT"
 has_makefile_target() {
     local target="$1"
     local root="${2:-.}"
+    local makefile=""
+
     if [ -f "$root/Makefile" ]; then
-        grep -qE "^${target}:" "$root/Makefile" 2>/dev/null
-        return $?
+        makefile="$root/Makefile"
+    elif [ -f "$root/makefile" ]; then
+        makefile="$root/makefile"
+    else
+        return 1
     fi
-    return 1
+
+    grep -Eq "^${target}([[:space:]]+[[:alnum:]_.-]+)*:[^=]*$" "$makefile" 2>/dev/null
+}
+
+# Detect a Bazel workspace at a given root.
+# Covers MODULE.bazel (bzlmod), WORKSPACE, WORKSPACE.bazel.
+# Usage: has_bazel_workspace "$PROJECT_ROOT"
+has_bazel_workspace() {
+    local root="${1:-.}"
+    [ -f "$root/MODULE.bazel" ] || \
+    [ -f "$root/WORKSPACE" ] || \
+    [ -f "$root/WORKSPACE.bazel" ]
+}
+
+# Resolve the preferred Bazel binary on PATH.
+# Prefers bazelisk (matches Dockerfile.base), falls back to bazel.
+# Echos the binary name on success; returns 1 if neither is available.
+# Usage: bz=$(bazel_bin) || skip_bazel_branch
+bazel_bin() {
+    if command -v bazelisk >/dev/null 2>&1; then
+        echo "bazelisk"
+    elif command -v bazel >/dev/null 2>&1; then
+        echo "bazel"
+    else
+        return 1
+    fi
+}
+
+# Map a directory to a Bazel target label rooted at PROJECT_ROOT.
+# - Project root → //...
+# - Nested dir   → //pkg/foo/bar/...
+# - Resolution failure (symlink loop, missing dir) → //...
+# Both inputs are normalised via cd && pwd to absorb symlinks.
+# Usage: label=$(bazel_label_for_dir "$DIR" "$PROJECT_ROOT")
+bazel_label_for_dir() {
+    local dir project_root rel
+    dir="$(cd "$1" 2>/dev/null && pwd)" || { echo "//..."; return 0; }
+    project_root="$(cd "$2" 2>/dev/null && pwd)" || { echo "//..."; return 0; }
+
+    if [ "$dir" = "$project_root" ]; then
+        echo "//..."
+        return 0
+    fi
+
+    rel="${dir#"$project_root"/}"
+    if [ "$rel" = "$dir" ] || [ -z "$rel" ]; then
+        echo "//..."
+    else
+        echo "//$rel/..."
+    fi
 }
 
 # Check if Makefile supports FILE= parameter

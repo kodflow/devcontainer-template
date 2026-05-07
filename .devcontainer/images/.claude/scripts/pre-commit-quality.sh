@@ -133,14 +133,33 @@ run_test() {
     local out="$1"
 
     # SCOPED-FIRST: Run tests only for changed packages/files.
-    # Makefile targets run full test suites → too slow for pre-commit.
+    # Cascade for Go: Makefile → Bazel → `go test`. Honours consumer intent
+    # and avoids the false-negative timeout on Bazel-driven repos (issue #350).
     local exit_code=0
-    if $HAS_GO && command -v go &>/dev/null; then
+    if $HAS_GO; then
         local go_pkgs
         go_pkgs=$(echo "$CHANGED_FILES" | grep '\.go$' | xargs -I{} dirname {} | sort -u | sed 's|^|./|' | paste -sd' ')
-        # shellcheck disable=SC2086
-        # Intentional word splitting on go_pkgs (space-separated list of dirs).
-        go test -race -count=1 $go_pkgs >> "$out" 2>&1 || exit_code=1
+
+        if has_makefile_target "test" "$PROJECT_ROOT"; then
+            # Makefile-first: lets the project decide (bazel test, gotestsum, ...).
+            (cd "$PROJECT_ROOT" && make test) >> "$out" 2>&1 || exit_code=1
+        elif has_bazel_workspace "$PROJECT_ROOT"; then
+            # Bazel-direct (when no Makefile but the project ships Bazel).
+            local bazel_cmd
+            if bazel_cmd="$(bazel_bin)"; then
+                local bazel_labels
+                bazel_labels=$(echo "$CHANGED_FILES" | grep '\.go$' | xargs -I{} dirname {} | sort -u | sed 's|^|//|;s|$|/...|' | paste -sd' ')
+                [ -z "$bazel_labels" ] && bazel_labels="//..."
+                # shellcheck disable=SC2086
+                (cd "$PROJECT_ROOT" && "$bazel_cmd" test --test_output=errors $bazel_labels) >> "$out" 2>&1 || exit_code=1
+            fi
+        elif command -v go &>/dev/null; then
+            # Last resort: drop -count=1 so Go's own test cache stays warm;
+            # -timeout 180s keeps the watchdog without pegging at 60s.
+            # shellcheck disable=SC2086
+            # Intentional word splitting on go_pkgs (space-separated list of dirs).
+            (cd "$PROJECT_ROOT" && go test -race -timeout 180s $go_pkgs) >> "$out" 2>&1 || exit_code=1
+        fi
     fi
     if $HAS_RUST && command -v cargo &>/dev/null; then
         cargo test >> "$out" 2>&1 || exit_code=1

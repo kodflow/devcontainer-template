@@ -130,7 +130,7 @@ incremental_quality:
     3_scoped_first: "Language-specific tools scoped to changed files/packages"
 
   supported_languages:
-    go: { lint: "golangci-lint run <changed_pkgs>", test: "go test -race <changed_pkgs>" }
+    go: { lint: "golangci-lint run <changed_pkgs>", test: "make test → bazel test //... → go test -race -timeout 180s <changed_pkgs>" }
     rust: { lint: "cargo clippy -- -D warnings", test: "cargo test" }
     node: { lint: "npx eslint <changed_files>", test: "npx vitest run" }
     python: { lint: "ruff check <changed_files>", test: "pytest" }
