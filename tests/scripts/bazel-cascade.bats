@@ -232,12 +232,14 @@ EOF
 @test "pre-commit-quality falls back to go test inside Bazel branch when no bazel binary" {
     # Regression guard: a Bazel workspace without bazel/bazelisk on PATH must
     # NOT silently pass the gate (CodeRabbit Major finding on PR #353).
+    # Restrict PATH to $BIN + core utils so bazel/bazelisk genuinely cannot
+    # resolve (system installs typically live in /usr/local/bin which we
+    # deliberately exclude).
     : > "$REPO/MODULE.bazel"
     git -C "$REPO" add MODULE.bazel
-    # Empty PATH stub dir — neither bazelisk nor bazel exists there. Stub go.
     stub_cmd go
 
-    run run_quality
+    run bash -c "cd '$REPO' && CLAUDE_PROJECT_DIR='$REPO' PATH='$BIN:/usr/bin:/bin' bash '$QUALITY_SCRIPT' main 2>&1"
 
     grep -qE "^go test -race -timeout 180s " "$TEST_LOG"
     ! grep -q "^bazel " "$TEST_LOG"
