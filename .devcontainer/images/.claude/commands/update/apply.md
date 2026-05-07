@@ -579,6 +579,26 @@ done
 ```bash
 [ -f ".coderabbit.yaml" ] && rm -f ".coderabbit.yaml" && echo "  Removed deprecated .coderabbit.yaml"
 
+# Migration (#341/#349): rewrite stale rtk-rewrite.sh references in
+# ~/.claude/settings.json. The legacy hook script was removed in favour of
+# the native `rtk hook claude` invocation (with rtk-hook-claude.sh as the
+# fail-open wrapper from #348). Consumers whose settings.json predates the
+# change still see "PreToolUse:Bash hook error: rtk-rewrite.sh: not found"
+# on every Bash call. postStart.sh runs the same migration on container
+# start; doing it here lets `/update` fix the file immediately without
+# waiting for the next session start.
+if [ -f "$HOME/.claude/settings.json" ] && \
+   grep -q "rtk-rewrite\.sh" "$HOME/.claude/settings.json" 2>/dev/null; then
+    if [ -x "$HOME/.claude/scripts/rtk-hook-claude.sh" ]; then
+        local _tmp_settings
+        _tmp_settings=$(mktemp) && \
+            sed 's|/home/vscode/\.claude/scripts/rtk-rewrite\.sh|/home/vscode/.claude/scripts/rtk-hook-claude.sh|g' \
+                "$HOME/.claude/settings.json" > "$_tmp_settings" && \
+            mv "$_tmp_settings" "$HOME/.claude/settings.json" && \
+            echo "  Migrated rtk-rewrite.sh → rtk-hook-claude.sh in settings.json"
+    fi
+fi
+
 # Migration: remove deprecated MCP servers from runtime mcp.json
 if [ -f "$HOME/.claude/mcp.json" ] && command -v jq &>/dev/null; then
     for server in codacy taskmaster grepai; do
