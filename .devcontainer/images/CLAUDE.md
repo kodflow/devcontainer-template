@@ -219,10 +219,32 @@ Full inventory: See `.devcontainer/hooks/CLAUDE.md` and `CLAUDE.md` (root).
 | Script | Endpoint | Timeout | Phase scope (default) | Env override | Purpose |
 |--------|----------|---------|-----------------------|--------------|---------|
 | `pre-validate.sh` | `/hooks/pre-tool-use` | 4s | `structural,signatures` (1–2) | `KTN_PRE_PHASES` | Pre-edit fast check — only naming/signature breaks block before the edit |
-| `post-edit.sh` | `/hooks/post-tool-use` | 14s | `structural,signatures,logic,performance,modern,style,comment` (1–7) | `KTN_POST_PHASES` | Post-edit full check — can block on critical |
 | `on-stop.sh` | `/hooks/stop` | 28s | `structural,…,comment,tests` (1–8) | `KTN_STOP_PHASES` | Session-end report — includes test-quality phase |
 
 The `phases` field is injected into the JSON request body via `jq` (per-request override; server YAML config is preserved for any consumer that doesn't pass `phases`). Servers pre-ktn-linter-#190 ignore the unknown field and fall back to YAML — back-compat safe. Override per-project via the `KTN_*_PHASES` env vars (comma-separated, no spaces). Graceful degradation: calls exit silently if ktn-linter is not running or `jq` is missing (raw `${INPUT:-{}}` is sent unchanged). See [docs/ktn-linter-integration.md](/workspace/docs/ktn-linter-integration.md).
+
+**Per-edit lint (PostToolUse) — project-level recipe.** `post-edit.sh` deliberately does NOT curl `/hooks/post-tool-use`: Claude Code keeps only the *last* JSON emitted by a hook chain, so a script-level call would race with the native HTTP hook and silently drop `decision: "block"` payloads (issue #344). Consumers needing per-edit lint wire the HTTP hook directly in their project's `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:7717/hooks/post-tool-use",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The native hook speaks the Claude Code hook payload protocol directly (decision + hookSpecificOutput) — no re-parse, no re-wrap, no payload mangling.
 
 **Makefile-first pattern:** Scripts check `make fmt/lint/typecheck/test FILE=<path>` first, then fall back to direct tool invocation.
 

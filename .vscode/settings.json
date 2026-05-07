@@ -24,7 +24,7 @@
     "*.tsx": "${capture}.ts, ${capture}.js, ${capture}.jsx, ${capture}.test.tsx, ${capture}.spec.tsx, ${capture}.stories.tsx, ${capture}.module.css, ${capture}.module.scss, ${capture}.styles.ts",
     "*.jsx": "${capture}.js, ${capture}.test.jsx, ${capture}.spec.jsx, ${capture}.stories.jsx",
     "*.js": "${capture}.js.map, ${capture}.min.js, ${capture}.test.js, ${capture}.spec.js, ${capture}.d.ts",
-    "*.go": "${capture}_test.go, ${capture}_internal_test.go, ${capture}_external_test.go, ${capture}_bench_test.go, ${capture}_mock.go, ${capture}_generated.go, ${capture}.pb.go, ${capture}_grpc.pb.go",
+    "*.go": "${capture}_test.go, ${capture}_internal_test.go, ${capture}_external_test.go, ${capture}_bench_test.go, ${capture}_compliance.go, ${capture}_mock.go, ${capture}_generated.go, ${capture}.pb.go, ${capture}_grpc.pb.go",
     "*.rs": "${capture}.test.rs, ${capture}_test.rs",
     "*.py": "${capture}_test.py, test_${capture}.py, ${capture}.pyi, ${capture}.pyc",
     "*.rb": "${capture}_test.rb, ${capture}_spec.rb",
