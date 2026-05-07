@@ -89,6 +89,35 @@ teardown() {
     grep -qF 'github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-' "$SYNC_SH"
 }
 
+@test "sync_go auto-refreshes ktn-linter against upstream (no skip-if-installed)" {
+    # Drift guard: the previous `if ! command -v ktn-linter` short-circuit
+    # masked a stale volume-cached binary even when a newer release shipped.
+    # The new code probes upstream tag and reinstalls on mismatch — symmetric
+    # with the GO_TOOL_REPOS path used for golangci-lint/gosec.
+    grep -qF 'upstream_latest_version "kodflow/ktn-linter"' "$SYNC_SH"
+    grep -q 'installed=\$(installed_tool_version ktn-linter)' "$SYNC_SH"
+    # Drift branch: `elif [ "$installed" != "$upstream" ]` triggers reinstall.
+    grep -qE 'elif \[ "\$installed" != "\$upstream" \]' "$SYNC_SH"
+    # Regression guard: the old `if ! command -v ktn-linter` short-circuit
+    # is gone. The remaining `command -v ktn-linter` reference must live in
+    # the final critical-tool gate (different intent: post-sync verification).
+    ! grep -qE 'if ! command -v ktn-linter &>/dev/null; then' "$SYNC_SH"
+}
+
+@test "sync_go falls back to install-only-if-missing when ktn-linter probe fails" {
+    # Network/rate-limit safety: an unreachable api.github.com must NOT clobber
+    # a working binary. Reinstall only when the tool is genuinely absent.
+    grep -B1 -A4 'ktn-linter: upstream probe failed' "$SYNC_SH" \
+        | grep -qE 'if \[ -z "\$installed" \]'
+}
+
+@test "sync_go writes ktn-linter binary atomically (sibling .download + mv)" {
+    # Without a temp+rename, a curl killed mid-stream leaves a half-written
+    # executable that subsequent runs treat as "installed" — permanent drift.
+    grep -qE 'tmp="\$\{?target\}?\.download"' "$SYNC_SH"
+    grep -qE 'mv -f "\$tmp" "\$target"' "$SYNC_SH"
+}
+
 @test "sync_go preserves the existing tarball/binary-cache layout" {
     # GOPATH/bin is the install target; build-time installs land here too.
     grep -qE 'mkdir -p "\$\{GOPATH\}/bin"' "$SYNC_SH"

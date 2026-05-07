@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - ".devcontainer/images/**"
+      - ".devcontainer/features/**"
       - ".github/workflows/docker-images.yml"
   pull_request:
     branches: [main]
     paths:
       - ".devcontainer/images/**"
+      - ".devcontainer/features/**"
       - ".github/workflows/docker-images.yml"
   schedule:
     # Daily build at 4:00 AM UTC (main image)
