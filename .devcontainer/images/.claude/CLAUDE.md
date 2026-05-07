@@ -16,12 +16,21 @@ MCP has pre-configured auth. NEVER ask for tokens if MCP is configured.
 **Build/CI: mandatory.** `install.sh` and the image Dockerfile hard-fail if
 RTK can't be installed — a container without RTK never reaches a user.
 
-**Runtime/session: doctrine, never blocking.** `rtk hook claude` is a
-`PreToolUse` hook that compresses Bash output for 60–90 % token savings.
-If RTK is missing or misconfigured at runtime, every Bash call still runs;
-`session-init.sh` emits one `[rtk] mode=… reason=…` line per session and
-`/audit` surfaces the same mode, so degradation is **visible** but never
-**blocking**.
+**Runtime/session: doctrine, never blocking.** The `PreToolUse` Bash hook
+compresses output for 60–90 % token savings. If RTK is missing or
+misconfigured at runtime, every Bash call still runs; `session-init.sh`
+emits one `[rtk] mode=… reason=…` line per session and `/audit` surfaces
+the same mode, so degradation is **visible** but never **blocking**.
+
+The non-blocking guarantee is implemented by `~/.claude/scripts/rtk-hook-claude.sh`,
+a fail-open wrapper that always exits 0 and always emits valid JSON on
+stdout. `settings.json` calls the wrapper, not `rtk` directly, so no rtk
+failure (binary missing, panic, removed subcommand, version drift) can
+ever propagate as a `PreToolUse` denial. Diagnostic stderr lands in
+`~/.claude/logs/<branch>/rtk-hook.log` for `/audit` visibility — never in
+the agent's chat. See issue #348 for the regression that motivated this
+layer; tests in `tests/scripts/rtk-hook-claude-wrapper.bats` lock the
+contract.
 
 **Bypass policy.** Set `RTK_BYPASS=1` for an explicit session-wide skip
 (probe reports `mode=advisory reason=session-bypass` — first-class signal,
