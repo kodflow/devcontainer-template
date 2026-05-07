@@ -168,6 +168,10 @@ run_test() {
     return $exit_code
 }
 
+# Override seam: source ~/.claude/scripts/pre-commit-quality.local.sh if present.
+# Loaded after run_lint/run_test definitions so consumer overrides win.
+load_local_override "${BASH_SOURCE[0]}"
+
 # === Run lint + test in PARALLEL ===
 run_lint "$LINT_OUT" &
 LINT_PID=$!

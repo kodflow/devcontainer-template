@@ -9,6 +9,11 @@
 
 set -euo pipefail
 
+# Source shared utilities (load_local_override, has_makefile_target helpers, …)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh
+[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -745,5 +750,8 @@ main() {
 
 # Run if executed directly (not sourced)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    # Override seam: source ~/.claude/scripts/pre-commit-checks.local.sh if present.
+    # Loaded after every check_* function so consumer overrides win.
+    load_local_override "${BASH_SOURCE[0]}"
     main "$@"
 fi

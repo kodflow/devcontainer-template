@@ -48,6 +48,12 @@ if has_makefile_target "test" "$PROJECT_ROOT"; then
     exit 0
 fi
 
+# Override seam: source ~/.claude/scripts/test.local.sh if present.
+# Loaded after the Makefile fast-path (which already exited) so consumer
+# overrides can pre-empt the per-extension case dispatch — e.g. handle
+# Bazel-purist projects without a Makefile, or short-circuit with `exit 0`.
+load_local_override "${BASH_SOURCE[0]}"
+
 # === Fallback: Direct test runners ===
 
 # Check if this is a test file

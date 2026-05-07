@@ -113,6 +113,34 @@ run_makefile_target() {
     fi
 }
 
+# Source a per-script *.local.sh override if present. Caller passes its
+# own ${BASH_SOURCE[0]} so the lookup resolves to the calling script's
+# directory and basename, not common.sh's.
+#
+# Placement contract: define this near the top of the caller (sourced via
+# common.sh), but CALL it after every upstream function is defined and
+# immediately before the script entrypoint. Shell uses last-definition-wins,
+# so .local.sh can replace any upstream function.
+#
+# Usage (in caller):
+#     load_local_override "${BASH_SOURCE[0]}"
+#     main "$@"
+load_local_override() {
+    local source_file="$1"
+    local script_dir script_name local_override
+
+    [ -n "$source_file" ] || return 0
+
+    script_dir="$(cd "$(dirname "$source_file")" 2>/dev/null && pwd)" || return 0
+    script_name="$(basename "$source_file" .sh)"
+    local_override="$script_dir/${script_name}.local.sh"
+
+    if [ -f "$local_override" ]; then
+        # shellcheck source=/dev/null
+        . "$local_override"
+    fi
+}
+
 # Get files changed on current branch vs base + working tree
 # Returns one path per line (relative to repo root), deduplicated.
 # On main/base branch: only working tree + index (no branch diff).

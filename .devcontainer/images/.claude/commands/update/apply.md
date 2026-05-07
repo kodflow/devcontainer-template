@@ -39,7 +39,9 @@ is_protected() {
 }
 
 # Copy devcontainer components from extracted tarball
-# Safe glob copy: copies matching files or silently skips if no match
+# Safe glob copy: copies matching files or silently skips if no match.
+# Always skips *.local.sh — those are consumer-authored override seams that must
+# survive /update (issue #352). The override pattern mirrors devcontainer.local.json.
 # Usage: safe_glob_copy <pattern> <dest_dir> [+x]
 safe_glob_copy() {
     local pattern="$1" dest="$2" make_exec="${3:-}"
@@ -48,6 +50,10 @@ safe_glob_copy() {
     local dir=$(dirname "$pattern")
     local glob=$(basename "$pattern")
     while IFS= read -r -d '' f; do
+        # Skip consumer override files — never overwritten by /update
+        case "$(basename "$f")" in
+            *.local.sh) continue ;;
+        esac
         cp -f "$f" "$dest/"
         [ "$make_exec" = "+x" ] && chmod +x "$dest/$(basename "$f")"
         found=1
