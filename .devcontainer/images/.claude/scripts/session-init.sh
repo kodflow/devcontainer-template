@@ -135,7 +135,10 @@ probe_rtk_mode() {
     elif [ "${RTK_BYPASS:-0}" = "1" ]; then
         mode="advisory"; reason="session-bypass"
     elif [ ! -f "$HOME/.claude/settings.json" ] || \
-         ! grep -q '"rtk hook claude"' "$HOME/.claude/settings.json" 2>/dev/null; then
+         ! grep -qE '"(rtk hook claude|[^"]*rtk-hook-claude\.sh)"' "$HOME/.claude/settings.json" 2>/dev/null; then
+        # Accept either form: legacy direct invocation OR the fail-open wrapper
+        # path (issue #348). Anchored on the closing `"` to avoid matching the
+        # string in a comment or in commented-out template lines.
         mode="advisory"; reason="hook-missing"
     else
         mode="enforcing"
