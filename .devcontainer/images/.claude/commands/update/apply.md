@@ -587,17 +587,20 @@ done
 # on every Bash call. postStart.sh runs the same migration on container
 # start; doing it here lets `/update` fix the file immediately without
 # waiting for the next session start.
+_legacy_rtk="$HOME/.claude/scripts/rtk-rewrite.sh"
+_wrapper_rtk="$HOME/.claude/scripts/rtk-hook-claude.sh"
 if [ -f "$HOME/.claude/settings.json" ] && \
-   grep -q "rtk-rewrite\.sh" "$HOME/.claude/settings.json" 2>/dev/null; then
-    if [ -x "$HOME/.claude/scripts/rtk-hook-claude.sh" ]; then
-        local _tmp_settings
-        _tmp_settings=$(mktemp) && \
-            sed 's|/home/vscode/\.claude/scripts/rtk-rewrite\.sh|/home/vscode/.claude/scripts/rtk-hook-claude.sh|g' \
-                "$HOME/.claude/settings.json" > "$_tmp_settings" && \
-            mv "$_tmp_settings" "$HOME/.claude/settings.json" && \
-            echo "  Migrated rtk-rewrite.sh → rtk-hook-claude.sh in settings.json"
-    fi
+   grep -qF "$_legacy_rtk" "$HOME/.claude/settings.json" 2>/dev/null && \
+   [ -x "$_wrapper_rtk" ]; then
+    _tmp_settings=$(mktemp) && \
+        sed "s|${_legacy_rtk}|${_wrapper_rtk}|g" \
+            "$HOME/.claude/settings.json" > "$_tmp_settings" && \
+        ! cmp -s "$HOME/.claude/settings.json" "$_tmp_settings" && \
+        mv "$_tmp_settings" "$HOME/.claude/settings.json" && \
+        echo "  Migrated rtk-rewrite.sh → rtk-hook-claude.sh in settings.json"
+    rm -f "$_tmp_settings" 2>/dev/null
 fi
+unset _legacy_rtk _wrapper_rtk _tmp_settings
 
 # Migration: remove deprecated MCP servers from runtime mcp.json
 if [ -f "$HOME/.claude/mcp.json" ] && command -v jq &>/dev/null; then

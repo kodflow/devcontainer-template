@@ -54,11 +54,11 @@ stub_wrapper() {
 }
 
 @test "settings.json without legacy reference → no-op, file untouched" {
-    cat > "$SETTINGS" <<'EOF'
+    cat > "$SETTINGS" <<EOF
 {
   "hooks": {
     "PreToolUse": [{
-      "command": "/home/vscode/.claude/scripts/rtk-hook-claude.sh"
+      "command": "$TEST_HOME/.claude/scripts/rtk-hook-claude.sh"
     }]
   }
 }
@@ -78,11 +78,11 @@ EOF
 # === Happy path ===
 
 @test "legacy reference + wrapper present → rewritten in place" {
-    cat > "$SETTINGS" <<'EOF'
+    cat > "$SETTINGS" <<EOF
 {
   "hooks": {
     "PreToolUse": [{
-      "command": "/home/vscode/.claude/scripts/rtk-rewrite.sh",
+      "command": "$TEST_HOME/.claude/scripts/rtk-rewrite.sh",
       "timeout": 5
     }]
   }
@@ -99,7 +99,7 @@ EOF
 }
 
 @test "rewrite preserves surrounding JSON keys (timeout, async, other hooks)" {
-    cat > "$SETTINGS" <<'EOF'
+    cat > "$SETTINGS" <<EOF
 {
   "permissions": {
     "allow": ["Bash(rtk:*)"]
@@ -111,7 +111,7 @@ EOF
         "timeout": 15
       },
       {
-        "command": "/home/vscode/.claude/scripts/rtk-rewrite.sh",
+        "command": "$TEST_HOME/.claude/scripts/rtk-rewrite.sh",
         "timeout": 5
       },
       {
@@ -134,14 +134,37 @@ EOF
     grep -q '"async": true' "$SETTINGS"
     grep -q '"timeout": 15' "$SETTINGS"
     # Only the rtk-rewrite line was touched; structure is otherwise byte-stable.
-    grep -q '"command": "/home/vscode/.claude/scripts/rtk-hook-claude.sh"' "$SETTINGS"
+    grep -q "\"command\": \"$TEST_HOME/.claude/scripts/rtk-hook-claude.sh\"" "$SETTINGS"
+}
+
+# === Non-vscode user safety (CodeRabbit thread on PR #353) ===
+
+@test "settings.json with foreign /home/vscode path is NOT mis-migrated when HOME differs" {
+    # Simulate a consumer running as a different user whose settings.json
+    # somehow contains the vscode-user path. Since we use $HOME-derived
+    # fixed-string match, this should be a silent no-op.
+    cat > "$SETTINGS" <<'EOF'
+{ "command": "/home/vscode/.claude/scripts/rtk-rewrite.sh" }
+EOF
+    local before
+    before=$(sha256sum "$SETTINGS" | awk '{print $1}')
+
+    stub_wrapper
+    run run_step
+    [ "$status" -eq 0 ]
+
+    local after
+    after=$(sha256sum "$SETTINGS" | awk '{print $1}')
+    [ "$before" = "$after" ]
+    # No false-positive success log
+    ! [[ "$output" == *"rtk settings migration:"*"→"* ]]
 }
 
 # === Idempotency ===
 
 @test "second invocation is a no-op (file unchanged after first migration)" {
-    cat > "$SETTINGS" <<'EOF'
-{ "command": "/home/vscode/.claude/scripts/rtk-rewrite.sh" }
+    cat > "$SETTINGS" <<EOF
+{ "command": "$TEST_HOME/.claude/scripts/rtk-rewrite.sh" }
 EOF
     stub_wrapper
 
@@ -161,8 +184,8 @@ EOF
 # === Failure mode: wrapper absent ===
 
 @test "legacy reference + wrapper missing → warn, leave file untouched" {
-    cat > "$SETTINGS" <<'EOF'
-{ "command": "/home/vscode/.claude/scripts/rtk-rewrite.sh" }
+    cat > "$SETTINGS" <<EOF
+{ "command": "$TEST_HOME/.claude/scripts/rtk-rewrite.sh" }
 EOF
     # NOTE: stub_wrapper NOT called — wrapper is missing.
     local before

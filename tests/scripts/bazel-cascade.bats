@@ -229,6 +229,21 @@ EOF
     grep -q "//pkg/foo/\.\.\." "$TEST_LOG"
 }
 
+@test "pre-commit-quality falls back to go test inside Bazel branch when no bazel binary" {
+    # Regression guard: a Bazel workspace without bazel/bazelisk on PATH must
+    # NOT silently pass the gate (CodeRabbit Major finding on PR #353).
+    : > "$REPO/MODULE.bazel"
+    git -C "$REPO" add MODULE.bazel
+    # Empty PATH stub dir — neither bazelisk nor bazel exists there. Stub go.
+    stub_cmd go
+
+    run run_quality
+
+    grep -qE "^go test -race -timeout 180s " "$TEST_LOG"
+    ! grep -q "^bazel " "$TEST_LOG"
+    ! grep -q "^bazelisk " "$TEST_LOG"
+}
+
 @test "pre-commit-quality falls back to go test -race -timeout 180s without -count=1" {
     # Neither Makefile target nor MODULE.bazel.
     stub_cmd go

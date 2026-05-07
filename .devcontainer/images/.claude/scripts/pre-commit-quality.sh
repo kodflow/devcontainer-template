@@ -161,6 +161,13 @@ run_test() {
                 [ -z "$bazel_labels" ] && bazel_labels="//..."
                 # shellcheck disable=SC2086
                 (cd "$PROJECT_ROOT" && "$bazel_cmd" test --test_output=errors $bazel_labels) >> "$out" 2>&1 || exit_code=1
+            elif command -v go &>/dev/null; then
+                # Bazel workspace detected but neither bazelisk nor bazel is
+                # installed — fall through to `go test` rather than silently
+                # passing the gate (false-positive). Same flags as the bare
+                # `go test` last-resort below.
+                # shellcheck disable=SC2086
+                (cd "$PROJECT_ROOT" && go test -race -timeout 180s $go_pkgs) >> "$out" 2>&1 || exit_code=1
             fi
         elif command -v go &>/dev/null; then
             # Last resort: drop -count=1 so Go's own test cache stays warm;

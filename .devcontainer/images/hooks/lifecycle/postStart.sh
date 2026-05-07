@@ -143,9 +143,13 @@ step_restore_claude_config() {
 step_rtk_settings_migration() {
     local settings="$HOME/.claude/settings.json"
     local wrapper="$HOME/.claude/scripts/rtk-hook-claude.sh"
+    local legacy="$HOME/.claude/scripts/rtk-rewrite.sh"
 
     [ -f "$settings" ] || return 0
-    grep -q "rtk-rewrite\\.sh" "$settings" 2>/dev/null || return 0
+    # Fixed-string match against the full $HOME-derived legacy path so the
+    # gate doesn't trigger for unrelated `rtk-rewrite.sh` mentions or for a
+    # different user's path that we wouldn't actually substitute.
+    grep -qF "$legacy" "$settings" 2>/dev/null || return 0
 
     if [ ! -x "$wrapper" ]; then
         log_warning "rtk settings migration: $wrapper missing; leaving stale rtk-rewrite.sh reference (will retry next start)"
@@ -153,15 +157,18 @@ step_rtk_settings_migration() {
     fi
 
     # Linux GNU sed and macOS BSD sed disagree on `sed -i` arity. Use a
-    # tempfile + mv to stay portable across both.
+    # tempfile + mv to stay portable across both. Only log success after the
+    # rewrite actually changed bytes — otherwise we report a migration that
+    # didn't happen (e.g., when paths diverge across users).
     local tmp
     tmp=$(mktemp) || return 0
-    if sed 's|/home/vscode/\.claude/scripts/rtk-rewrite\.sh|/home/vscode/.claude/scripts/rtk-hook-claude.sh|g' "$settings" > "$tmp"; then
-        mv "$tmp" "$settings"
+    if sed "s|${legacy}|${wrapper}|g" "$settings" > "$tmp" \
+        && ! cmp -s "$settings" "$tmp" \
+        && mv "$tmp" "$settings"; then
         log_success "rtk settings migration: rtk-rewrite.sh → rtk-hook-claude.sh in $settings"
     else
         rm -f "$tmp"
-        log_warning "rtk settings migration: sed failed on $settings; leaving file untouched"
+        log_warning "rtk settings migration: sed failed or no change in $settings; leaving file untouched"
     fi
 }
 
