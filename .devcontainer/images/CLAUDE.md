@@ -61,6 +61,32 @@ Lifecycle hooks called directly from `devcontainer.json` → `/etc/devcontainer-
 consumer-added files are never deleted. Template repo self-skips via `.devcontainer/.template-version`
 commit match.
 
+### Local script overrides (`*.local.sh`)
+
+Mirror of the `devcontainer.local.json` pattern, scoped to `~/.claude/scripts/`. To customise a
+hook script without forking the upstream copy, drop a `<name>.local.sh` next to it:
+
+| Upstream | Override seam |
+|----------|---------------|
+| `~/.claude/scripts/pre-commit-quality.sh` | `~/.claude/scripts/pre-commit-quality.local.sh` |
+| `~/.claude/scripts/pre-commit-checks.sh` | `~/.claude/scripts/pre-commit-checks.local.sh` |
+| `~/.claude/scripts/test.sh` | `~/.claude/scripts/test.local.sh` |
+
+The upstream script sources its `.local.sh` companion **after** every upstream function is
+defined and immediately before the entrypoint, so `.local.sh` can redefine any function (shell
+uses last-definition-wins). `/update` and `safe_glob_copy` skip every `*.local.sh` file, so the
+override survives template syncs. Issue ref: kodflow/devcontainer-template#352.
+
+Example (`~/.claude/scripts/pre-commit-quality.local.sh`):
+
+```bash
+# Force Bazel for this project; can be deleted once #350 lands.
+run_test() {
+    local out="$1"
+    (cd "$PROJECT_ROOT" && bazel test --test_output=errors //...) >> "$out" 2>&1 || return 1
+}
+```
+
 ## Design Patterns Knowledge Base
 
 **Container Location:** `~/.claude/docs/` (restored at startup)

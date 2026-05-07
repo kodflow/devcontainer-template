@@ -48,6 +48,12 @@ if has_makefile_target "test" "$PROJECT_ROOT"; then
     exit 0
 fi
 
+# Override seam: source ~/.claude/scripts/test.local.sh if present.
+# Loaded after the Makefile fast-path (which already exited) so consumer
+# overrides can pre-empt the per-extension case dispatch — e.g. handle
+# Bazel-purist projects without a Makefile, or short-circuit with `exit 0`.
+load_local_override "${BASH_SOURCE[0]}"
+
 # === Fallback: Direct test runners ===
 
 # Check if this is a test file
@@ -90,10 +96,20 @@ case "$EXT" in
         fi
         ;;
 
-    # Go - tests alongside source files
+    # Go - tests alongside source files. Bazel-aware (issue #351):
+    # Bazel-driven projects without a Makefile shadow `go test` with their
+    # action cache; falling through to raw `go test` on those projects
+    # produces minutes-long false negatives. Both branches keep `|| true`
+    # so a PostToolUse failure never blocks the agent.
     go)
         if [[ "$BASENAME" == *"_test.go" ]]; then
-            if command -v go &>/dev/null; then
+            if has_bazel_workspace "$PROJECT_ROOT"; then
+                BAZEL_CMD=""
+                if BAZEL_CMD="$(bazel_bin)"; then
+                    BAZEL_LABEL="$(bazel_label_for_dir "$DIR" "$PROJECT_ROOT")"
+                    (cd "$PROJECT_ROOT" && "$BAZEL_CMD" test --test_output=errors "$BAZEL_LABEL" 2>/dev/null) || true
+                fi
+            elif command -v go &>/dev/null; then
                 (cd "$DIR" && go test -v -run . 2>/dev/null) || true
             fi
         fi

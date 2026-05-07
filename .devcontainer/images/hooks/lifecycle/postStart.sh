@@ -130,6 +130,48 @@ step_restore_claude_config() {
     log_success "Claude configuration restored from image defaults"
 }
 
+# Migrate stale ~/.claude/settings.json references to the legacy
+# rtk-rewrite.sh hook (removed in #341/#349 in favor of the native
+# `rtk hook claude` invocation, with rtk-hook-claude.sh as the fail-open
+# wrapper from #348). Existing consumers whose settings.json predates the
+# change still point at the deleted script, producing a noisy
+# `PreToolUse:Bash hook error: rtk-rewrite.sh: not found` on every Bash call.
+#
+# The migration is in-place and minimal: only the offending command path is
+# rewritten. JSON shape, comments, and other entries are left untouched.
+# Idempotent: re-running on an already-migrated file is a no-op.
+step_rtk_settings_migration() {
+    local settings="$HOME/.claude/settings.json"
+    local wrapper="$HOME/.claude/scripts/rtk-hook-claude.sh"
+    local legacy="$HOME/.claude/scripts/rtk-rewrite.sh"
+
+    [ -f "$settings" ] || return 0
+    # Fixed-string match against the full $HOME-derived legacy path so the
+    # gate doesn't trigger for unrelated `rtk-rewrite.sh` mentions or for a
+    # different user's path that we wouldn't actually substitute.
+    grep -qF "$legacy" "$settings" 2>/dev/null || return 0
+
+    if [ ! -x "$wrapper" ]; then
+        log_warning "rtk settings migration: $wrapper missing; leaving stale rtk-rewrite.sh reference (will retry next start)"
+        return 0
+    fi
+
+    # Linux GNU sed and macOS BSD sed disagree on `sed -i` arity. Use a
+    # tempfile + mv to stay portable across both. Only log success after the
+    # rewrite actually changed bytes — otherwise we report a migration that
+    # didn't happen (e.g., when paths diverge across users).
+    local tmp
+    tmp=$(mktemp) || return 0
+    if sed "s|${legacy}|${wrapper}|g" "$settings" > "$tmp" \
+        && ! cmp -s "$settings" "$tmp" \
+        && mv "$tmp" "$settings"; then
+        log_success "rtk settings migration: rtk-rewrite.sh → rtk-hook-claude.sh in $settings"
+    else
+        rm -f "$tmp"
+        log_warning "rtk settings migration: sed failed or no change in $settings; leaving file untouched"
+    fi
+}
+
 # Ensure Claude directories exist (volume mount point)
 step_init_claude_dirs() {
     mkdir -p "$HOME/.claude/sessions" "$HOME/.claude/plans" "$HOME/.claude/contexts"
@@ -1545,6 +1587,7 @@ step_cleanup_legacy_stubs() {
 run_step "Sync features dir"        step_sync_features
 run_step "Cleanup legacy stubs"     step_cleanup_legacy_stubs
 run_step "Restore Claude config"    step_restore_claude_config
+run_step "RTK settings migration"   step_rtk_settings_migration
 run_step "Init Claude dirs"         step_init_claude_dirs
 run_step "Shell env repair"         step_shell_env_repair
 run_step "Cache completions"        step_cache_completions

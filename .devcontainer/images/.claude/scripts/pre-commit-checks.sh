@@ -9,6 +9,11 @@
 
 set -euo pipefail
 
+# Source shared utilities (load_local_override, has_makefile_target helpers, …)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh
+[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -209,12 +214,16 @@ check_go() {
 
     if has_make_target "build"; then
         run_check_verbose "Go build (make)" "make build" || failed=1
+    elif has_bazel_workspace . && bz_build_cmd="$(bazel_bin)"; then
+        run_check_verbose "Go build (bazel)" "$bz_build_cmd build //..." || failed=1
     else
         run_check_verbose "Go build" "go build ./..." || failed=1
     fi
 
     if has_make_target "test"; then
         run_check_verbose "Go tests (make)" "make test" || failed=1
+    elif has_bazel_workspace . && bz_test_cmd="$(bazel_bin)"; then
+        run_check_verbose "Go tests (bazel)" "$bz_test_cmd test --test_output=errors //..." || failed=1
     else
         run_check_verbose "Go tests (with race detection)" "go test -race ./..." || failed=1
     fi
@@ -745,5 +754,8 @@ main() {
 
 # Run if executed directly (not sourced)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    # Override seam: source ~/.claude/scripts/pre-commit-checks.local.sh if present.
+    # Loaded after every check_* function so consumer overrides win.
+    load_local_override "${BASH_SOURCE[0]}"
     main "$@"
 fi

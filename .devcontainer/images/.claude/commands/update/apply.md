@@ -39,7 +39,9 @@ is_protected() {
 }
 
 # Copy devcontainer components from extracted tarball
-# Safe glob copy: copies matching files or silently skips if no match
+# Safe glob copy: copies matching files or silently skips if no match.
+# Always skips *.local.sh — those are consumer-authored override seams that must
+# survive /update (issue #352). The override pattern mirrors devcontainer.local.json.
 # Usage: safe_glob_copy <pattern> <dest_dir> [+x]
 safe_glob_copy() {
     local pattern="$1" dest="$2" make_exec="${3:-}"
@@ -48,6 +50,10 @@ safe_glob_copy() {
     local dir=$(dirname "$pattern")
     local glob=$(basename "$pattern")
     while IFS= read -r -d '' f; do
+        # Skip consumer override files — never overwritten by /update
+        case "$(basename "$f")" in
+            *.local.sh) continue ;;
+        esac
         cp -f "$f" "$dest/"
         [ "$make_exec" = "+x" ] && chmod +x "$dest/$(basename "$f")"
         found=1
@@ -572,6 +578,29 @@ done
 
 ```bash
 [ -f ".coderabbit.yaml" ] && rm -f ".coderabbit.yaml" && echo "  Removed deprecated .coderabbit.yaml"
+
+# Migration (#341/#349): rewrite stale rtk-rewrite.sh references in
+# ~/.claude/settings.json. The legacy hook script was removed in favour of
+# the native `rtk hook claude` invocation (with rtk-hook-claude.sh as the
+# fail-open wrapper from #348). Consumers whose settings.json predates the
+# change still see "PreToolUse:Bash hook error: rtk-rewrite.sh: not found"
+# on every Bash call. postStart.sh runs the same migration on container
+# start; doing it here lets `/update` fix the file immediately without
+# waiting for the next session start.
+_legacy_rtk="$HOME/.claude/scripts/rtk-rewrite.sh"
+_wrapper_rtk="$HOME/.claude/scripts/rtk-hook-claude.sh"
+if [ -f "$HOME/.claude/settings.json" ] && \
+   grep -qF "$_legacy_rtk" "$HOME/.claude/settings.json" 2>/dev/null && \
+   [ -x "$_wrapper_rtk" ]; then
+    _tmp_settings=$(mktemp) && \
+        sed "s|${_legacy_rtk}|${_wrapper_rtk}|g" \
+            "$HOME/.claude/settings.json" > "$_tmp_settings" && \
+        ! cmp -s "$HOME/.claude/settings.json" "$_tmp_settings" && \
+        mv "$_tmp_settings" "$HOME/.claude/settings.json" && \
+        echo "  Migrated rtk-rewrite.sh → rtk-hook-claude.sh in settings.json"
+    rm -f "$_tmp_settings" 2>/dev/null
+fi
+unset _legacy_rtk _wrapper_rtk _tmp_settings
 
 # Migration: remove deprecated MCP servers from runtime mcp.json
 if [ -f "$HOME/.claude/mcp.json" ] && command -v jq &>/dev/null; then
