@@ -147,8 +147,17 @@ run_test() {
             # Bazel-direct (when no Makefile but the project ships Bazel).
             local bazel_cmd
             if bazel_cmd="$(bazel_bin)"; then
-                local bazel_labels
-                bazel_labels=$(echo "$CHANGED_FILES" | grep '\.go$' | xargs -I{} dirname {} | sort -u | sed 's|^|//|;s|$|/...|' | paste -sd' ')
+                # Build labels via bazel_label_for_dir so root-level Go files
+                # produce //... (canonical) instead of //./... (broken). The
+                # helper also normalises symlinks and falls back gracefully.
+                local bazel_labels=""
+                local _dir _label
+                while IFS= read -r _dir; do
+                    [ -z "$_dir" ] && continue
+                    _label="$(bazel_label_for_dir "$PROJECT_ROOT/$_dir" "$PROJECT_ROOT")"
+                    bazel_labels+="${_label}"$'\n'
+                done < <(echo "$CHANGED_FILES" | grep '\.go$' | xargs -I{} dirname {} | sort -u)
+                bazel_labels=$(printf '%s' "$bazel_labels" | sort -u | paste -sd' ')
                 [ -z "$bazel_labels" ] && bazel_labels="//..."
                 # shellcheck disable=SC2086
                 (cd "$PROJECT_ROOT" && "$bazel_cmd" test --test_output=errors $bazel_labels) >> "$out" 2>&1 || exit_code=1

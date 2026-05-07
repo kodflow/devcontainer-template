@@ -105,7 +105,10 @@ run_quality() {
     # shellcheck source=/dev/null
     source "$SCRIPTS_DIR/common.sh"
     stub_cmd bazel
-    run bazel_bin
+    # Isolate PATH to the stub dir only — CI runners have a system bazelisk
+    # that would otherwise shadow the absent-bazelisk semantics this test
+    # exercises (CodeRabbit/Qodo finding on PR #353).
+    PATH="$BIN" run bazel_bin
     [ "$status" -eq 0 ]
     [ "$output" = "bazel" ]
 }
@@ -192,6 +195,20 @@ EOF
 
     grep -q "^bazelisk test --test_output=errors " "$TEST_LOG"
     ! grep -q "^go test" "$TEST_LOG"
+}
+
+@test "pre-commit-quality maps root-level Go file to //... (NOT //./...)" {
+    # Regression guard: dirname of a root-level file is `.`; the Bazel branch
+    # must use bazel_label_for_dir so it canonicalises to //... rather than
+    # the broken //./... pattern (Qodo finding on PR #353).
+    : > "$REPO/MODULE.bazel"
+    git -C "$REPO" add MODULE.bazel
+    stub_cmd bazelisk
+
+    run run_quality
+
+    grep -qE "^bazelisk test --test_output=errors //\\.\\.\\." "$TEST_LOG"
+    ! grep -q "//\\./\\.\\.\\." "$TEST_LOG"
 }
 
 @test "pre-commit-quality maps changed package to //pkg/... label" {
