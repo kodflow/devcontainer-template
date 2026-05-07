@@ -201,6 +201,24 @@ sync_go() {
     # short-circuit and skip Go sync entirely.
     local failed=0
     local tool installed upstream major_pin
+    # Atomic binary install for ktn-linter (release asset, not a Go module).
+    # Writes to a sibling .download path then renames — protects against a
+    # half-fetched binary if curl is interrupted mid-stream. Returns non-zero
+    # on any failure so the caller can flag the sync as incomplete.
+    install_ktn_linter() {
+        local target="${GOPATH}/bin/ktn-linter"
+        local tmp="${target}.download"
+        if curl -fsSL --connect-timeout 10 --max-time 60 \
+                "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}" \
+                -o "$tmp" 2>/dev/null \
+            && chmod +x "$tmp" \
+            && mv -f "$tmp" "$target"; then
+            return 0
+        fi
+        rm -f "$tmp"
+        return 1
+    }
+
     for tool in golangci-lint gosec gofumpt gotestsum goimports ktn-linter; do
         case "$tool" in
             ktn-linter)
@@ -210,15 +228,24 @@ sync_go() {
                 # HERE at runtime so the write lands in the already-mounted
                 # package-cache volume (build-time writes under $GOPATH/bin are
                 # masked by the volume at container start).
-                if ! command -v ktn-linter &>/dev/null; then
-                    echo "    installing ktn-linter..."
-                    if ! { curl -fsSL --connect-timeout 10 --max-time 60 \
-                            "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}" \
-                            -o "$GOPATH/bin/ktn-linter" 2>/dev/null \
-                          && chmod +x "$GOPATH/bin/ktn-linter"; }; then
-                        echo "    ktn-linter: download failed"
-                        failed=1
+                #
+                # Auto-refresh: probe upstream tag, reinstall on drift. Without
+                # this guard, an old ktn-linter cached in the volume survived
+                # every container rebuild — `command -v` short-circuited the
+                # install path even when a newer release was available. Mirrors
+                # the GO_TOOL_REPOS pattern (#330) but with direct asset download.
+                installed=$(installed_tool_version ktn-linter)
+                upstream=$(upstream_latest_version "kodflow/ktn-linter")
+                if [ -z "$upstream" ]; then
+                    # Network/rate-limit failure: keep an existing binary, only
+                    # install when truly missing (best-effort cold-start path).
+                    if [ -z "$installed" ]; then
+                        echo "    ktn-linter: upstream probe failed and tool missing — installing latest (best-effort)..."
+                        install_ktn_linter || failed=1
                     fi
+                elif [ "$installed" != "$upstream" ]; then
+                    echo "    ktn-linter: ${installed:-none} → ${upstream}"
+                    install_ktn_linter || failed=1
                 fi
                 ;;
             *)
