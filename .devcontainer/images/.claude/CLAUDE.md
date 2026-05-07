@@ -16,12 +16,21 @@ MCP has pre-configured auth. NEVER ask for tokens if MCP is configured.
 **Build/CI: mandatory.** `install.sh` and the image Dockerfile hard-fail if
 RTK can't be installed — a container without RTK never reaches a user.
 
-**Runtime/session: doctrine, never blocking.** `rtk hook claude` is a
-`PreToolUse` hook that compresses Bash output for 60–90 % token savings.
-If RTK is missing or misconfigured at runtime, every Bash call still runs;
-`session-init.sh` emits one `[rtk] mode=… reason=…` line per session and
-`/audit` surfaces the same mode, so degradation is **visible** but never
-**blocking**.
+**Runtime/session: doctrine, never blocking.** The `PreToolUse` Bash hook
+compresses output for 60–90 % token savings. If RTK is missing or
+misconfigured at runtime, every Bash call still runs; `session-init.sh`
+emits one `[rtk] mode=… reason=…` line per session and `/audit` surfaces
+the same mode, so degradation is **visible** but never **blocking**.
+
+The non-blocking guarantee is implemented by `~/.claude/scripts/rtk-hook-claude.sh`,
+a fail-open wrapper that always exits 0 and always emits valid JSON on
+stdout. `settings.json` calls the wrapper, not `rtk` directly, so no rtk
+failure (binary missing, panic, removed subcommand, version drift) can
+ever propagate as a `PreToolUse` denial. Diagnostic stderr lands in
+`~/.claude/logs/<branch>/rtk-hook.log` for `/audit` visibility — never in
+the agent's chat. See issue #348 for the regression that motivated this
+layer; tests in `tests/scripts/rtk-hook-claude-wrapper.bats` lock the
+contract.
 
 **Bypass policy.** Set `RTK_BYPASS=1` for an explicit session-wide skip
 (probe reports `mode=advisory reason=session-bypass` — first-class signal,
@@ -51,6 +60,15 @@ review later.
 
 **No semantic-embedding tooling.** `grepai`/`ollama` were dropped in 2026-04
 (high CPU/RAM cost, marginal benefit). Use targeted `Grep` + `Read` instead.
+
+**Version pin policy.** RTK is pinned in two places in lockstep
+(`RTK_PINNED_VERSION` in `.devcontainer/install.sh` and `ARG RTK_VERSION`
+in `.devcontainer/images/Dockerfile`). Drift between the two fails CI via
+`tests/scripts/install-sh-rtk.bats`. Bump procedure: dedicated PR, both
+files in the same commit, run the full bats suite + manual smoke test
+(kill the rtk binary, confirm Bash still flows through the wrapper) in a
+freshly built container. Never bump because "latest is newer" — bump
+because the new version was validated against this template.
 
 ## 3.0 ZSH-FIRST (MANDATORY)
 

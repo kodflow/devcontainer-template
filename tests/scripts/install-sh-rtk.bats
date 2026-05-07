@@ -42,7 +42,7 @@ run_install_rtk() {
         echo 'warn() { echo "$@"; }'
         echo 'log()  { echo "$@"; }'
         # Slice the download_tools function and call it.
-        sed -n '651,744p' "$SCRIPT"
+        sed -n '651,747p' "$SCRIPT"
         echo "tool_count=0"
         echo "download_tools"
     } > "$runner"
@@ -101,10 +101,6 @@ run_install_rtk() {
     grep -E 'rtk: download/extract failed.*required' "${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh"
 }
 
-@test "code path: tag-resolution failure calls return 1 with 'required' message" {
-    grep -E 'rtk: failed to resolve latest version.*required' "${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh"
-}
-
 @test "code path: RTK_INSTALL_TEST_FAIL hook is wired" {
     grep -F 'RTK_INSTALL_TEST_FAIL' "${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh"
 }
@@ -112,9 +108,62 @@ run_install_rtk() {
 @test "code path: no '(optional)' fallbacks remain in the rtk install block" {
     # The previous fail-open behavior is gone. Any '(optional)' marker in the
     # rtk slice would be a regression toward the old silent-degradation path.
-    # Narrow the slice to JUST the rtk-install block (656..712); status-line
-    # at 713+ is intentionally still advisory and lives outside this contract.
-    run sed -n '656,712p' "${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh"
+    # Narrow the slice to JUST the rtk-install block (656..715); status-line
+    # at 716+ is intentionally still advisory and lives outside this contract.
+    run sed -n '656,715p' "${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh"
     [ "$status" -eq 0 ]
     [[ "$output" != *"(optional"* ]]
+}
+
+# === Pin invariants (issue #348 — no more dynamic 'latest' lottery) ===
+
+@test "pin: install.sh declares RTK_PINNED_VERSION matching /^v[0-9]+\\.[0-9]+\\.[0-9]+$/" {
+    local install_sh="${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh"
+    run grep -E '^[[:space:]]+local RTK_PINNED_VERSION="v[0-9]+\.[0-9]+\.[0-9]+"' "$install_sh"
+    [ "$status" -eq 0 ]
+}
+
+@test "pin: install.sh no longer resolves rtk via /releases/latest API" {
+    # The dynamic 'latest' resolution is the bug class issue #348 ships against:
+    # any upstream release lands in the next image rebuild without smoke-test.
+    # If this assertion ever flips, someone re-introduced the lottery.
+    local install_sh="${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh"
+    run grep -F 'rtk-ai/rtk/releases/latest' "$install_sh"
+    [ "$status" -ne 0 ]
+}
+
+@test "arch: arm64 uses aarch64-unknown-linux-gnu (rtk ships no musl variant for arm64)" {
+    # Issue #348: install.sh used to request aarch64-unknown-linux-musl,
+    # which rtk-ai/rtk has never published as an asset (verified for
+    # v0.38.0 + v0.39.0). arm64 standalone host install was therefore
+    # broken silently before PR #346 made install hard-fail. The Dockerfile
+    # already used the correct gnu variant; now install.sh matches.
+    local install_sh="${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh"
+    run grep -E 'arm64\)[[:space:]]*rtk_rust_arch="aarch64-unknown-linux-gnu"' "$install_sh"
+    [ "$status" -eq 0 ]
+    # And no leftover musl reference for arm64.
+    run grep -E 'arm64\).*aarch64-unknown-linux-musl' "$install_sh"
+    [ "$status" -ne 0 ]
+}
+
+@test "pin: drift guard — install.sh and Dockerfile pin the SAME rtk version" {
+    # Single source of truth would be cleaner, but the two files have
+    # different lifecycles (host install vs image build) and must each
+    # carry the version. This test catches the moment a future bump
+    # touches one file but not the other.
+    local install_sh="${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh"
+    local dockerfile="${BATS_TEST_DIRNAME}/../../.devcontainer/images/Dockerfile"
+    [ -f "$install_sh" ]
+    [ -f "$dockerfile" ]
+
+    local install_pin
+    install_pin=$(grep -oE 'RTK_PINNED_VERSION="v[0-9]+\.[0-9]+\.[0-9]+"' "$install_sh" \
+        | head -1 | cut -d'"' -f2)
+    local dockerfile_pin
+    dockerfile_pin=$(grep -oE 'ARG RTK_VERSION=v[0-9]+\.[0-9]+\.[0-9]+' "$dockerfile" \
+        | head -1 | cut -d= -f2)
+
+    [ -n "$install_pin" ]
+    [ -n "$dockerfile_pin" ]
+    [ "$install_pin" = "$dockerfile_pin" ]
 }
