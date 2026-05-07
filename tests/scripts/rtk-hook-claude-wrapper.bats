@@ -46,18 +46,22 @@ run_wrapper() {
 }
 
 # Build a stub rtk binary that echoes a fixed payload + chosen exit code.
-# Stub also captures stdin to a sentinel file so we can assert forwarding.
+# Stub also captures stdin to a sentinel file (so tests can assert forwarding)
+# and optionally emits a fixed payload on stderr (so tests can verify the
+# wrapper does not corrupt stdout JSON when rtk emits a warning).
 make_stub_rtk() {
     local stub_dir="$1"
     local stdout_payload="$2"
     local exit_code="${3:-0}"
     local stdin_capture="${4:-}"
+    local stderr_payload="${5:-}"
 
     mkdir -p "$stub_dir"
     cat > "$stub_dir/rtk" <<EOF
 #!/bin/bash
-# Stub rtk — captures stdin (if asked), emits fixed stdout, exits $exit_code.
+# Stub rtk — captures stdin (if asked), emits fixed stdout/stderr, exits $exit_code.
 $([ -n "$stdin_capture" ] && echo "cat > '$stdin_capture'")
+$([ -n "$stderr_payload" ] && echo "printf '%s' '$stderr_payload' >&2")
 printf '%s' '$stdout_payload'
 exit $exit_code
 EOF
@@ -130,6 +134,28 @@ EOF
     [ "$status" -eq 0 ]
     [ -f "$capture" ]
     grep -q "abc-marker-xyz" "$capture"
+}
+
+# === Test 5b: REGRESSION GUARD — stderr warning must not corrupt stdout JSON ===
+#
+# rtk could plausibly emit a deprecation notice or info log on stderr while
+# producing valid JSON on stdout. The first wrapper draft merged stderr into
+# stdout via 2>&1 before validating JSON, so the warning would corrupt the
+# stream and the wrapper would fall back to {} — silently disabling rtk for
+# that call. Fix: separate streams. The stderr payload is logged but the
+# stdout JSON is what gets validated and forwarded.
+
+@test "rtk-hook-wrapper: rtk emits stderr warning + valid stdout JSON → JSON passes through" {
+    local stub="$TEST_TMPDIR/stub-bin"
+    local payload='{"hookSpecificOutput":{"permissionDecision":"allow"}}'
+    make_stub_rtk "$stub" "$payload" 0 "" "warning: deprecated flag"
+    run run_wrapper "$stub"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'"permissionDecision":"allow"'* ]]
+    # The stderr warning must end up in the log, not corrupt stdout.
+    local log="$TEST_HOME/.claude/logs/test-branch/rtk-hook.log"
+    [ -f "$log" ]
+    grep -q "deprecated flag" "$log"
 }
 
 # === Test 6: log dir auto-created when ~/.claude/logs/<branch>/ missing ===

@@ -36,8 +36,17 @@ if ! command -v rtk >/dev/null 2>&1; then
     exit 0
 fi
 
-OUT="$(printf '%s' "$PAYLOAD" | rtk hook claude 2>&1)"
+# Separate stdout from stderr — merging would corrupt JSON if rtk ever emits
+# a warning/deprecation notice alongside a valid hook response. stderr always
+# flows to the log file (success OR failure); stdout is what we validate.
+ERR_FILE=$(mktemp 2>/dev/null) || ERR_FILE="${LOG_DIR}/.rtk-hook-stderr.$$"
+OUT="$(printf '%s' "$PAYLOAD" | rtk hook claude 2>"$ERR_FILE")"
 RC=$?
+
+if [ -s "$ERR_FILE" ]; then
+    cat "$ERR_FILE" >>"$LOG_FILE" 2>/dev/null
+fi
+rm -f "$ERR_FILE"
 
 if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | jq -e . >/dev/null 2>&1; then
     printf '%s\n' "$OUT"

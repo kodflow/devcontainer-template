@@ -104,7 +104,7 @@ Surface the mode at the **top** of this dimension's section:
 **Sub-scores (3, sum capped at 100):**
 
 - **binary** (`+30`): `command -v rtk` succeeds.
-- **hook** (`+30`): `grep -q '"rtk hook claude"' ~/.claude/settings.json`.
+- **hook** (`+30`): `grep -qE '"(rtk hook claude|[^"]*rtk-hook-claude\.sh)"' ~/.claude/settings.json` — accept either the legacy direct invocation OR the fail-open wrapper path shipped in issue #348.
 - **claude-md** (`+20`): `[ -f ~/.claude/RTK.md ]` AND `grep -qE '^@RTK\.md' ~/.claude/CLAUDE.md`.
 
 Plus a **rewrite-evidence** bonus (`+20`): `rtk gain --history` returns at

@@ -83,16 +83,33 @@ EOF
     cp "$repo_rtk_toml" "$home/.config/rtk/config.toml"
 }
 
-# === ENFORCING (happy path) ===
+# === ENFORCING (happy path, legacy "rtk hook claude" hook entry) ===
 setup_good_sandbox "$SANDBOX"
 TESTS_RUN=$((TESTS_RUN + 1))
 out=$(run_probe "$SANDBOX")
 if [[ "$out" == "[rtk] mode=enforcing version="* ]]; then
     TESTS_PASSED=$((TESTS_PASSED + 1))
-    printf "${GREEN}  PASS${NC}: enforcing mode (binary+marker+hook+config+no bypass)\n"
+    printf "${GREEN}  PASS${NC}: enforcing mode (binary+marker+hook+config+no bypass) — legacy hook form\n"
 else
     TESTS_FAILED=$((TESTS_FAILED + 1))
     printf "${RED}  FAIL${NC}: enforcing mode → got: %s\n" "$out"
+fi
+
+# === ENFORCING (wrapper hook entry — issue #348) ===
+# Same conditions as above but settings.json invokes the fail-open wrapper
+# rather than `rtk hook claude` directly. The probe must accept BOTH forms.
+setup_good_sandbox "$SANDBOX"
+cat > "$SANDBOX/.claude/settings.json" <<'EOF'
+{"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "/home/vscode/.claude/scripts/rtk-hook-claude.sh"}]}]}}
+EOF
+TESTS_RUN=$((TESTS_RUN + 1))
+out=$(run_probe "$SANDBOX")
+if [[ "$out" == "[rtk] mode=enforcing version="* ]]; then
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+    printf "${GREEN}  PASS${NC}: enforcing mode — wrapper hook form (issue #348)\n"
+else
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+    printf "${RED}  FAIL${NC}: enforcing mode (wrapper form) → got: %s\n" "$out"
 fi
 
 # === ADVISORY: session-bypass ===
