@@ -44,7 +44,9 @@ teardown() {
     # Lock-in: the old fatal branch ('Failed to resolve latest NVM version' + exit 1)
     # must never come back — tier 3 guarantees a usable fallback.
     ! grep -q 'Failed to resolve latest NVM version after retries' "$INSTALL_SH"
-    ! awk '/Failed to resolve latest NVM/{flag=1} flag && /exit 1/{print; exit 0} END{exit 1}' \
+    # awk: END unconditionally overrode previous exit() — set a flag instead so
+    # exit code reflects whether the forbidden pattern was actually found.
+    ! awk '/Failed to resolve latest NVM/{flag=1} flag && /exit 1/{found=1} END{exit(found?0:1)}' \
         "$INSTALL_SH"
 }
 
