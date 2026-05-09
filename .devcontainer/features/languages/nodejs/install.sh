@@ -158,22 +158,25 @@ apt_get_retry install -y curl git build-essential libssl-dev || {
 # Install NVM (Node Version Manager)
 log_info "Installing NVM..."
 mkdir_safe "$NVM_DIR"
-# Fetch latest NVM version from GitHub API
+# Resolve latest NVM tag with 3-tier fallback (issue #354):
+#   1. git ls-remote — not rate-limited, no auth
+#   2. GitHub REST API via shared helper — fallback for restricted networks
+#   3. Pinned NVM_FALLBACK_VERSION — guarantees the build never aborts here
+NVM_FALLBACK_VERSION="v0.40.4"
 NVM_LATEST=""
-_nvm_auth=()
-[[ -n "${GITHUB_TOKEN:-}" ]] && _nvm_auth=(-H "Authorization: token ${GITHUB_TOKEN}")
-for _attempt in 1 2 3; do
-    NVM_LATEST=$(curl -fsS --connect-timeout 5 --max-time 10 \
-        "${_nvm_auth[@]}" \
-        "https://api.github.com/repos/nvm-sh/nvm/releases/latest" 2>/dev/null \
-        | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4) || true
-    [[ -n "$NVM_LATEST" ]] && break
-    sleep $((_attempt * 2))
-done
+NVM_LATEST=$(git ls-remote --tags --refs --sort=-v:refname \
+    https://github.com/nvm-sh/nvm.git 'v[0-9]*' 2>/dev/null \
+    | head -n 1 | sed 's|.*refs/tags/||') || true
 if [ -z "$NVM_LATEST" ]; then
-    log_error "Failed to resolve latest NVM version after retries"
-    exit 1
+    log_warning "git ls-remote failed for nvm-sh/nvm; trying GitHub API"
+    NVM_LATEST=$(get_github_latest_version_or_empty "nvm-sh/nvm")
 fi
+if [ -z "$NVM_LATEST" ]; then
+    log_warning "GitHub API rate-limited; falling back to pinned ${NVM_FALLBACK_VERSION}"
+    NVM_LATEST="$NVM_FALLBACK_VERSION"
+fi
+# Helper strips the leading 'v'; NVM install URL expects it
+[[ "$NVM_LATEST" != v* ]] && NVM_LATEST="v${NVM_LATEST}"
 log_info "Using NVM ${NVM_LATEST}"
 download_and_pipe "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_LATEST}/install.sh" bash || {
     log_error "Failed to install NVM"
