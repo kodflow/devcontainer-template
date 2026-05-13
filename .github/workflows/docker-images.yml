@@ -88,6 +88,12 @@ jobs:
           context: .devcontainer/images
           file: .devcontainer/images/Dockerfile.base
           platforms: ${{ matrix.platform }}
+          # BuildKit secret mount — token is consumed by the helm-version
+          # curl call inside Dockerfile.base and is NOT persisted in any
+          # image layer history (unlike build-args). See Dockerfile rule
+          # secrets-used-in-arg-or-env.
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
           cache-from: type=gha,scope=base-${{ steps.platform.outputs.pair }}
           cache-to: type=gha,mode=max,scope=base-${{ steps.platform.outputs.pair }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
@@ -248,7 +254,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             CACHE_BUST_DYNAMIC=${{ steps.cachebust.outputs.value }}
-            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           cache-from: type=gha,scope=build-${{ steps.platform.outputs.pair }}
 
       # Push events: Build and push by digest
@@ -263,7 +268,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             CACHE_BUST_DYNAMIC=${{ steps.cachebust.outputs.value }}
-            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           cache-from: type=gha,scope=build-${{ steps.platform.outputs.pair }}
           cache-to: type=gha,mode=max,scope=build-${{ steps.platform.outputs.pair }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
