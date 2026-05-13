@@ -38,14 +38,61 @@ elif [[ "$NORMALIZED_CMD" =~ ^rtk[[:space:]]+ ]]; then
     NORMALIZED_CMD="${NORMALIZED_CMD#rtk }"
 fi
 
-# === FAST EXIT: not a git commit/push? Skip entirely ===
-if [[ ! "$NORMALIZED_CMD" =~ ^git[[:space:]]+(commit|push) ]]; then
+# === FAST EXIT: not a git commit/push/rebase/cherry-pick? Skip entirely ===
+#
+# rebase and cherry-pick are included because they replay upstream commits
+# whose messages may carry tainted AI attribution (see #358 D2 + #359 CR-11).
+# Letting them through the fast-exit means the --no-verify guard, the
+# AI-mention scan, and the secret scan all get a chance to evaluate them
+# (each scoped to its own subcommand check below).
+if [[ ! "$NORMALIZED_CMD" =~ ^git[[:space:]]+(commit|push|rebase|cherry-pick) ]]; then
     exit 0
 fi
 
 # ============================================================
 # From here: git commit or git push only
 # ============================================================
+
+# === 0. Reject --no-verify ===
+#
+# `--no-verify` bypasses every local git hook — pre-commit, commit-msg,
+# pre-push — which makes the layer-2 .githooks/commit-msg guard pointless if
+# Claude can route around it. We refuse it outright. The only valid escape
+# hatch is a deliberate human terminal action outside Claude's Bash tool.
+#
+# `-n` after `git commit` is git's documented alias for `--no-verify`
+# (see `man git-commit`). For `git push`, `-n` means `--dry-run` and is
+# harmless, so we only treat the bare `-n` as a bypass when preceded by
+# `commit`. Flag order doesn't matter to git, so `-n` anywhere after
+# `git commit` (e.g. `git commit -m msg -n`) is treated as --no-verify —
+# this is intentional (CR-2 PR #359 review).
+#
+# Combined short flags: git accepts `-nm`, `-anm`, `-anqv`, … as the same
+# thing as `-n -m`, `-a -n -m`, etc. Our regex catches `n` anywhere inside
+# the combined short-flag cluster (`-[a-zA-Z]*n[a-zA-Z]*`). Long options
+# like `--no-verify` are NOT matched because the second `-` is not in
+# `[a-zA-Z]`. (CR-9 PR #359 round 2.)
+#
+# To avoid false positives where the message itself contains the literal
+# text "-n" (e.g. `git commit -m "docs: explain -n flag"`), we strip every
+# "…" / '…' substring BEFORE running the regex on the command. That leaves
+# only the flag positions of the command for the scan to consider.
+# (CR-10 PR #359 round 3.)
+FLAGS_ONLY=$(printf '%s' "$NORMALIZED_CMD" | sed -E 's/"[^"]*"//g; s/'\''[^'\'']*'\''//g')
+if [[ "$FLAGS_ONLY" =~ --no-verify ]] \
+   || { [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit([[:space:]]|$) ]] \
+        && [[ "$FLAGS_ONLY" =~ [[:space:]]-[a-zA-Z]*n[a-zA-Z]*([[:space:]]|$) ]]; }; then
+    echo "═══════════════════════════════════════════════" >&2
+    echo "  ❌ COMMAND BLOCKED — --no-verify is forbidden" >&2
+    echo "═══════════════════════════════════════════════" >&2
+    echo "" >&2
+    echo "  Bypassing local git hooks defeats the AI-attribution and" >&2
+    echo "  secret-scan guards (defence-in-depth, issue #358)." >&2
+    echo "  If a hook is wrong, fix the hook — don't skip it." >&2
+    echo "" >&2
+    echo "═══════════════════════════════════════════════" >&2
+    exit 2
+fi
 
 # === 1. Auto-correct --force → --force-with-lease (push) ===
 if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+push ]] && \
@@ -61,62 +108,104 @@ if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+push ]] && \
 fi
 
 # === 2. Block AI mentions in commit messages ===
-if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit ]]; then
-    # Extract commit message
-    COMMIT_MSG=""
-    if [[ "$COMMAND" =~ -m[[:space:]]+[\"\']([^\"]+)[\"\'] ]]; then
-        COMMIT_MSG="${BASH_REMATCH[1]}"
+#
+# Build a HAYSTACK string covering every shape `git commit` accepts.
+#
+# Lesson from #359 review (CR-1, CR-3, Q-1): trying to *extract* individual
+# `-m` / `--message` values with greedy `sed` patterns is brittle — each
+# `.*-m` pattern anchors to the LAST occurrence, so earlier `-m` blocks
+# are silently dropped. Same problem with heredoc delimiters: hard-coding
+# `EOF` misses `<<END`, `<<COMMIT_MSG`, etc.
+#
+# Solution: don't extract — SCAN the raw $COMMAND string. Every `-m`/`-F`/
+# heredoc value is already a literal substring of $COMMAND; pattern matching
+# on the whole string catches them all regardless of count, quoting, or
+# heredoc delimiter. We only need to *augment* the haystack with content
+# that lives outside $COMMAND: file content from `-F file`, HEAD message
+# from `--amend`, replayed messages from `rebase`/`cherry-pick`.
+#
+# Catches every leak path in #358 D2:
+#   - git commit -m "..." | -m '...' | -m bare | -m "X" -m "Y"       ← in $COMMAND
+#   - git commit --message=... | --message X                          ← in $COMMAND
+#   - Heredoc bodies (any delimiter, single-line invocation)          ← in $COMMAND
+#   - git commit -F file                                              ← we read file
+#   - git commit -F - (stdin)                                         ← unreachable, documented
+#   - git commit --amend (no -m)                                      ← we read git log -1
+#   - git rebase --continue / git cherry-pick                         ← we scan recent log
+#   - git commit (editor mode) — caught by layer 2 (.githooks/commit-msg)
+if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+(commit|rebase|cherry-pick) ]]; then
+    # Start with the raw command string — covers every -m/--message/-F path/
+    # heredoc-body substring without any extraction step. (CR-1/CR-3/Q-1.)
+    HAYSTACK="$COMMAND"
+
+    # -F file content (skip "-F -" which means stdin — unreachable from here).
+    # Handle the three quoting shapes git accepts so paths with spaces work:
+    #   -F "path with spaces"   (double-quoted, CR #359 round 4 finding)
+    #   -F 'path with spaces'   (single-quoted)
+    #   -F bare/path            (unquoted, no spaces)
+    F_ARG=""
+    if [[ "$NORMALIZED_CMD" =~ -F[[:space:]]+\"([^\"]+)\" ]]; then
+        F_ARG="${BASH_REMATCH[1]}"
+    elif [[ "$NORMALIZED_CMD" =~ -F[[:space:]]+\'([^\']+)\' ]]; then
+        F_ARG="${BASH_REMATCH[1]}"
+    elif [[ "$NORMALIZED_CMD" =~ -F[[:space:]]+([^[:space:]]+) ]]; then
+        F_ARG="${BASH_REMATCH[1]}"
     fi
-    if [[ "$COMMAND" =~ cat[[:space:]]+\<\<[\'\"]?EOF ]]; then
-        COMMIT_MSG=$(echo "$COMMAND" | sed -n '/<<.*EOF/,/EOF/p' | grep -v "EOF" | grep -v "cat <<")
-    fi
-    if [[ "$COMMAND" =~ --message=[\"\']([^\"]+)[\"\'] ]]; then
-        COMMIT_MSG="${BASH_REMATCH[1]}"
+    if [ -n "$F_ARG" ] && [ "$F_ARG" != "-" ] && [ -r "$F_ARG" ]; then
+        HAYSTACK="$HAYSTACK"$'\n'"$(cat -- "$F_ARG" 2>/dev/null || true)"
     fi
 
-    if [ -n "$COMMIT_MSG" ]; then
-        COMMIT_MSG_LOWER=$(echo "$COMMIT_MSG" | tr '[:upper:]' '[:lower:]')
+    # --amend without -m reuses HEAD's commit message — fetch it.
+    if [[ "$NORMALIZED_CMD" =~ --amend ]] && [[ ! "$NORMALIZED_CMD" =~ -m[[:space:]]|--message ]]; then
+        HAYSTACK="$HAYSTACK"$'\n'"$(git log -1 --pretty=%B 2>/dev/null || true)"
+    fi
+
+    # rebase --continue / cherry-pick: defensive scan of recent commits.
+    # Note: scans the last 5 commits from HEAD, which may include commits
+    # not actually being replayed; that's a coverage/perf trade-off we
+    # accept (CR-5). Parsing .git/rebase-merge/git-rebase-todo to scope
+    # exactly to the operation's todo list would be more precise but
+    # significantly more complex for marginal gain — the cost of one
+    # extra `git log` call is negligible vs. the risk of a false negative.
+    if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+(rebase|cherry-pick) ]]; then
+        HAYSTACK="$HAYSTACK"$'\n'"$(git log -5 --pretty=%B 2>/dev/null || true)"
+    fi
+
+    # Editor mode (no -m, no -F, no --amend): the message is going to be typed
+    # in COMMIT_EDITMSG, which doesn't exist yet at PreToolUse time. We cannot
+    # block it here — the `.githooks/commit-msg` hook (layer 2, defence-in-depth)
+    # catches that path at git's `commit-msg` event. Documented in #358 D3.
+
+    if [ -n "$HAYSTACK" ]; then
+        HAYSTACK_LOWER=$(printf '%s' "$HAYSTACK" | tr '[:upper:]' '[:lower:]')
 
         FORBIDDEN_PATTERNS=(
-            "co-authored-by.*claude"
-            "co-authored-by.*anthropic"
-            "co-authored-by.*openai"
-            "co-authored-by.*gpt"
-            "co-authored-by.*ai"
-            "co-authored-by.*copilot"
-            "co-authored-by.*gemini"
-            "co-authored-by.*llm"
-            "generated.*with.*claude"
-            "generated.*by.*claude"
-            "generated.*with.*ai"
-            "generated.*by.*ai"
-            "generated.*with.*gpt"
-            "generated.*by.*gpt"
-            "ai.assisted"
-            "ai-assisted"
+            "co-authored-by:.*(claude|anthropic|openai|gpt|copilot|gemini|llm|ai)"
+            "generated[[:space:]]+(by|with)[[:space:]]+(claude|ai|gpt|anthropic|copilot)"
+            "ai[-.]assisted"
             "🤖"
-            "claude code"
-            "claude-code"
-            "anthropic"
-            "openai"
-            "chatgpt"
-            "copilot"
+            "claude[-[:space:]]code"
         )
 
         for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
-            if echo "$COMMIT_MSG_LOWER" | grep -qiE "$pattern"; then
+            if echo "$HAYSTACK_LOWER" | grep -qiE "$pattern"; then
                 echo "═══════════════════════════════════════════════" >&2
                 echo "  ❌ COMMIT BLOCKED - AI reference detected" >&2
                 echo "═══════════════════════════════════════════════" >&2
                 echo "" >&2
                 echo "  Forbidden pattern: $pattern" >&2
                 echo "  Remove AI references from the commit message." >&2
+                echo "  Defence-in-depth: layer 2 (.githooks/commit-msg) will" >&2
+                echo "  also block this on the git side if you bypass me." >&2
                 echo "" >&2
                 echo "═══════════════════════════════════════════════" >&2
                 exit 2
             fi
         done
     fi
+fi
+
+if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit ]]; then
 
     # === 3. Scan staged files for secrets (reads staged blobs, not working tree) ===
     ISSUES_FOUND=0

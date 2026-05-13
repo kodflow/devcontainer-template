@@ -133,6 +133,39 @@ step_gpg_signing() {
     fi
 }
 
+# Wire `core.hooksPath .githooks` for the workspace repo when a .githooks/
+# directory is shipped (defence-in-depth layer 2 from issue #358 D3).
+#
+# Per-repo, not global: install.sh sets a GLOBAL hooksPath for the standalone
+# Claude install path; that lives in ~/.claude/hooks/ and is unrelated. Here
+# we want the workspace's own .githooks/commit-msg (and pre-commit) to run
+# for any git client (VS Code SCM, GitKraken, terminal, …) — paths that
+# never go through Claude's Bash tool and therefore bypass git-guard.sh.
+step_git_hooks_path() {
+    local hooks_dir="${WORKSPACE_FOLDER:-/workspace}/.githooks"
+    if [ ! -d "$hooks_dir" ]; then
+        log_info "No workspace .githooks/ directory — skipping core.hooksPath wiring"
+        return 0
+    fi
+    # Make sure every hook file is executable (template ships them +x, but
+    # tarball extraction or filesystem sync can drop the bit on some hosts).
+    # Use `find` rather than a glob so empty dirs and filenames-with-spaces
+    # both behave correctly (PR #359 CR-6).
+    find "$hooks_dir" -maxdepth 1 -type f -exec chmod +x {} + 2>/dev/null || true
+
+    # Use REPO-LOCAL config (not --global) so this stays scoped to the
+    # consumer's project; multi-repo developers keep their other repos
+    # untouched. Idempotent: re-running just confirms the value.
+    # Guard on `.git/` existence — on a brand-new container the workspace
+    # may be cloned later or may be a plain directory (PR #359 CR-7).
+    if [ -d "${WORKSPACE_FOLDER:-/workspace}/.git" ] && \
+       git -C "${WORKSPACE_FOLDER:-/workspace}" config core.hooksPath ".githooks" 2>/dev/null; then
+        log_success "Wired core.hooksPath → .githooks/ for workspace repo"
+    else
+        log_info "Workspace not a git repo yet — core.hooksPath will be set on next postCreate"
+    fi
+}
+
 # Create environment initialization script (~/.devcontainer-env.sh)
 step_create_env_script() {
     log_info "Setting up environment variables and aliases..."
@@ -391,6 +424,7 @@ run_step "Git safe directory"    step_git_safe_directory
 run_step "Git global gitignore"  step_git_global_ignore
 run_step "Git SSL configuration" step_git_ssl_config
 run_step "GPG signing"           step_gpg_signing
+run_step "Git hooks path"        step_git_hooks_path
 
 # Note: status-line is baked into the Docker image
 # ktn-linter is installed by the Go feature (not in base image)

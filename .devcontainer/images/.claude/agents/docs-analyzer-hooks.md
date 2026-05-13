@@ -71,7 +71,7 @@ Analyze ALL hooks (DevContainer lifecycle + Claude Code hooks) and produce a con
     {"name": "postCreate.sh", "trigger": "postCreateCommand", "purpose": "One-time setup", "key_actions": ["install tools", "create env"]}
   ],
   "claude_hooks": [
-    {"name": "commit-validate.sh", "trigger": "PreToolUse", "matcher": "Bash", "purpose": "Block AI mentions in commits"}
+    {"name": "git-guard.sh", "trigger": "PreToolUse", "matcher": "Bash", "purpose": "Block AI mentions, --no-verify, and secrets in commits (defence-in-depth layer 1; layer 2 = .githooks/commit-msg)"}
   ],
   "execution_order": ["postCreate", "postStart", "postAttach"],
   "total_hooks": 8,
