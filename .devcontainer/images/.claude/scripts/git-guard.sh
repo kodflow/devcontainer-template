@@ -38,8 +38,14 @@ elif [[ "$NORMALIZED_CMD" =~ ^rtk[[:space:]]+ ]]; then
     NORMALIZED_CMD="${NORMALIZED_CMD#rtk }"
 fi
 
-# === FAST EXIT: not a git commit/push? Skip entirely ===
-if [[ ! "$NORMALIZED_CMD" =~ ^git[[:space:]]+(commit|push) ]]; then
+# === FAST EXIT: not a git commit/push/rebase/cherry-pick? Skip entirely ===
+#
+# rebase and cherry-pick are included because they replay upstream commits
+# whose messages may carry tainted AI attribution (see #358 D2 + #359 CR-11).
+# Letting them through the fast-exit means the --no-verify guard, the
+# AI-mention scan, and the secret scan all get a chance to evaluate them
+# (each scoped to its own subcommand check below).
+if [[ ! "$NORMALIZED_CMD" =~ ^git[[:space:]]+(commit|push|rebase|cherry-pick) ]]; then
     exit 0
 fi
 
@@ -66,9 +72,16 @@ fi
 # the combined short-flag cluster (`-[a-zA-Z]*n[a-zA-Z]*`). Long options
 # like `--no-verify` are NOT matched because the second `-` is not in
 # `[a-zA-Z]`. (CR-9 PR #359 round 2.)
-if [[ "$NORMALIZED_CMD" =~ --no-verify ]] \
+#
+# To avoid false positives where the message itself contains the literal
+# text "-n" (e.g. `git commit -m "docs: explain -n flag"`), we strip every
+# "…" / '…' substring BEFORE running the regex on the command. That leaves
+# only the flag positions of the command for the scan to consider.
+# (CR-10 PR #359 round 3.)
+FLAGS_ONLY=$(printf '%s' "$NORMALIZED_CMD" | sed -E 's/"[^"]*"//g; s/'\''[^'\'']*'\''//g')
+if [[ "$FLAGS_ONLY" =~ --no-verify ]] \
    || { [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit([[:space:]]|$) ]] \
-        && [[ "$NORMALIZED_CMD" =~ [[:space:]]-[a-zA-Z]*n[a-zA-Z]*([[:space:]]|$) ]]; }; then
+        && [[ "$FLAGS_ONLY" =~ [[:space:]]-[a-zA-Z]*n[a-zA-Z]*([[:space:]]|$) ]]; }; then
     echo "═══════════════════════════════════════════════" >&2
     echo "  ❌ COMMAND BLOCKED — --no-verify is forbidden" >&2
     echo "═══════════════════════════════════════════════" >&2
