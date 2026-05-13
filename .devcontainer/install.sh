@@ -486,7 +486,7 @@ download_scripts() {
 
     if [ -z "$scripts" ]; then
         echo "  ⚠ Could not discover scripts via API, using fallback"
-        scripts="commit-validate.sh format.sh lint.sh log.sh post-compact.sh post-edit.sh pre-commit-checks.sh pre-validate.sh security.sh test.sh typecheck.sh"
+        scripts="git-guard.sh format.sh lint.sh log.sh post-compact.sh post-edit.sh pre-commit-checks.sh pre-validate.sh test.sh typecheck.sh"
     fi
 
     local count=0
@@ -1093,10 +1093,10 @@ configure_git_hooks() {
 # Pre-commit hook - calls Claude Code validation scripts
 SCRIPTS_DIR="$HOME/.claude/scripts"
 
-# Run commit validation (blocks AI mentions)
-if [ -x "$SCRIPTS_DIR/commit-validate.sh" ]; then
-    "$SCRIPTS_DIR/commit-validate.sh" || exit 1
-fi
+# Pre-commit hook: git-guard.sh (PreToolUse) handles AI-attribution + secret
+# scanning at Claude's Bash layer; this git-native pre-commit only runs the
+# project-level lint/format/test gate. The git-native AI-attribution layer
+# lives in .githooks/commit-msg (defence-in-depth layer 2, issue #358).
 
 # Run pre-commit checks (lint, format, test)
 if [ -x "$SCRIPTS_DIR/pre-commit-checks.sh" ]; then
