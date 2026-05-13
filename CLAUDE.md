@@ -166,6 +166,7 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/search` | Documentation research with official sources |
 | `/test` | E2E testing with Playwright MCP |
 | `/lint` | Multi-language intelligent linting |
+| `/ktn` | Autonomous ktn-linter MCP lifecycle (binary, mcp.json, hooks, daemon, phases) |
 | `/infra` | Infrastructure automation (Terraform/Terragrunt) |
 | `/secret` | Secure secret management (1Password) |
 | `/vpn` | Multi-protocol VPN management |
