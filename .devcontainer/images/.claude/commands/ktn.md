@@ -34,6 +34,9 @@ allowed-tools:
   - "Bash([:*)"
   - "Bash(echo:*)"
   - "Bash(cat:*)"
+  - "Bash(head:*)"
+  - "Bash(sed:*)"
+  - "Bash(make:*)"
   - "Bash(rtk:*)"
   - "Bash(grep:*)"
   - "Bash(rg:*)"
@@ -43,6 +46,7 @@ allowed-tools:
   - "Grep(**/*)"
   - "WebFetch(api.github.com/*)"
   - "WebFetch(github.com/*)"
+  - "mcp__github__get_latest_release"
   - "Task(*)"
   - "TaskCreate(*)"
   - "TaskUpdate(*)"
@@ -66,8 +70,9 @@ $ARGUMENTS
 |---------|--------|
 | _(none)_ | Full parallel reconcile (default) |
 | `--check` | Read-only diagnostic — no writes, no daemon spawn |
-| `--phases <spec>` | Configure `.ktn-linter.yaml` then reconcile (see [Phases spec](#phases-spec)) |
+| `--phases <spec>` | Configure `.ktn-linter.yaml` then reconcile (spec syntax in `--help`) |
 | `--restart` | Force daemon respawn (skip health probe) |
+| `--uninstall` | Remove `mcp.json` ktn-linter entry + settings.json hook entries (binary kept) |
 | `--help` | Show this help and STOP |
 
 **IF `$ARGUMENTS` contains `--help`**: Print [Help](#help) verbatim and **STOP**. Do NOT spawn agents.
@@ -76,7 +81,7 @@ $ARGUMENTS
 
 ## Help
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   /ktn — ktn-linter MCP autonomous health + heal
 ═══════════════════════════════════════════════════════════════
@@ -90,6 +95,7 @@ $ARGUMENTS
     --check               Read-only — never writes
     --phases <spec>       Apply phase config then reconcile
     --restart             Force daemon respawn
+    --uninstall           Remove mcp.json + settings hook entries (binary kept)
     --help                Show this help
 
   PHASES SPEC (--phases)
@@ -148,6 +154,20 @@ file-disjoint:
 | `phases` | `.ktn-linter.yaml` | `.ktn-linter.yaml` (only with `--phases`) | — |
 
 No two agents touch the same path → safe to dispatch as **one parallel wave**.
+
+### `--uninstall` mode
+
+Reverses the lifecycle in a single parallel wave:
+
+| Agent | Action |
+|-------|--------|
+| `mcp` | Delete `ktn-linter` from both `.servers` and `.mcpServers` |
+| `settings` | Strip every hook whose URL begins with `http://localhost:7717/` from PreToolUse + PostToolUse; drop matchers whose hooks array becomes empty |
+| `daemon` | `pkill ktn-linter serve` (best-effort, no respawn) |
+| `binary` | Skipped — the binary is intentionally kept |
+| `phases` | Skipped — `.ktn-linter.yaml` belongs to the user |
+
+Restart prompt fires iff `.claude/settings.json` was modified.
 
 ---
 
@@ -263,7 +283,7 @@ Notes on the wording:
 
 Abort banner:
 
-```
+```text
 ═══════════════════════════════════════════════════════════════
   /ktn — cancelled
 ═══════════════════════════════════════════════════════════════
@@ -301,8 +321,15 @@ SETTINGS_FILE="$WORKSPACE/.claude/settings.json"
 MCP_FILE="$WORKSPACE/mcp.json"
 PHASES_FILE="$WORKSPACE/.ktn-linter.yaml"
 
-# Architecture for binary fetch
-GOOS="linux"
+# OS/arch for binary fetch. Devcontainer is Linux by construction, but derive
+# from `uname` so the skill stays correct if a user runs it on a host shell
+# outside the container (issue #356 mentions `go env GOOS/GOARCH`; we avoid
+# the `go` dependency since `uname` is universal).
+case "$(uname -s)" in
+    Linux)   GOOS="linux"  ;;
+    Darwin)  GOOS="darwin" ;;
+    *)       echo "✗ Unsupported OS: $(uname -s)"; exit 1 ;;
+esac
 case "$(uname -m)" in
     x86_64)         GOARCH="amd64" ;;
     aarch64|arm64)  GOARCH="arm64" ;;
@@ -324,12 +351,16 @@ esac
 
 FORCE_RESTART=0
 [[ "$ARGUMENTS" == *"--restart"* ]] && FORCE_RESTART=1
+
+# Track --uninstall (mutually exclusive with reconcile)
+UNINSTALL=0
+[[ "$ARGUMENTS" == *"--uninstall"* ]] && UNINSTALL=1
 ```
 
 Surface a single banner line:
 
-```
-[ktn] arch=linux/amd64 mode={reconcile|check} phases-spec={none|<spec>} restart={0|1}
+```text
+[ktn] os=<linux|darwin>/<arch> mode={reconcile|check|uninstall} phases-spec={none|<spec>} restart={0|1}
 ```
 
 ---
@@ -342,7 +373,7 @@ write its own file only.
 
 ### Agent A — `binary`
 
-```
+```yaml
 subagent_type: general-purpose
 description: "ktn-linter binary health + upgrade"
 prompt: |
@@ -372,7 +403,7 @@ prompt: |
         ~/.local/bin
         ~/bin
       mkdir -p $target_dir && ensure on $PATH
-      asset_url = https://github.com/kodflow/ktn-linter/releases/download/v{{latest_tag}}/ktn-linter-linux-{{GOARCH}}
+      asset_url = https://github.com/kodflow/ktn-linter/releases/download/v{{latest_tag}}/ktn-linter-{{GOOS}}-{{GOARCH}}
       curl -fsSL "$asset_url" -o /tmp/ktn-linter.new
       chmod +x /tmp/ktn-linter.new
       mv /tmp/ktn-linter.new $target_dir/ktn-linter
@@ -397,13 +428,21 @@ prompt: |
 
 ### Agent B — `mcp`
 
-```
+```yaml
 subagent_type: general-purpose
 description: "mcp.json ktn-linter registration"
 prompt: |
   You own the ktn-linter entry inside /workspace/mcp.json.
 
-  Mode: {{READ_ONLY ? "read-only" : "reconcile"}}
+  Mode: {{UNINSTALL ? "uninstall" : (READ_ONLY ? "read-only" : "reconcile")}}
+
+  Canonical schema for this repo: the postStart merger writes the merged
+  config under the top-level `.servers` key (see
+  /etc/mcp/mcp.json.tpl — `{"servers": {...}}`), with the Go feature
+  fragment defining ktn-linter as `command: "ktn-linter", args: ["serve"]`
+  (port 7717 is the upstream default in cmd/ktn-linter/cmd/serve.go).
+  Some setups use the legacy `.mcpServers` key — accept either on read,
+  but write to `.servers` to match this repo's template.
 
   STEP 1 — Read current mcp.json
     If file absent → drift=missing-file; the postStart MCP merger will
@@ -412,24 +451,35 @@ prompt: |
     template merger is unavailable. Otherwise report drift and exit.
 
   STEP 2 — Detect drift
-    Required shape (under either `.servers` OR `.mcpServers` key — Claude
-    Code accepts both; preserve the key already present in the file):
+    Required shape (under `.servers` for this repo, but accept `.mcpServers`
+    on read):
       "ktn-linter": {
         "command": "ktn-linter",
-        "args": ["serve", "--port", "7717"],
-        "env": {}
+        "args": ["serve"]          (canonical; "--port" "7717" also valid)
       }
-    drift = none if exact match; mismatched-args | missing-entry | missing-file otherwise.
+    drift = none if either args==["serve"] OR args==["serve","--port","7717"];
+            missing-entry | mismatched-args | missing-file otherwise.
 
   STEP 3 — Act (skip in --check mode)
-    Use `jq` to merge in-place (preserves comments-free JSON). NEVER rewrite
-    the whole file by hand. Example:
-      jq '.servers["ktn-linter"] = {command:"ktn-linter",args:["serve","--port","7717"],env:{}}' \
+    Prefer the canonical upstream entrypoint:
+      ktn-linter mcp install --port=7717
+    which writes mcp.json + merges .claude/settings.json in one idempotent
+    call (see upstream cmd/ktn-linter/cmd/mcp_install.go).
+    If `ktn-linter mcp install` is unavailable (older binary, missing
+    subcommand), fall back to a `jq` merge that writes ONLY the
+    ktn-linter entry under `.servers`, preserving every other server:
+      jq '.servers["ktn-linter"] = {command:"ktn-linter",args:["serve"]}' \
+        mcp.json > mcp.json.new && mv mcp.json.new mcp.json
+    NEVER rewrite the whole file by hand.
+
+    UNINSTALL mode: remove ktn-linter from .servers AND .mcpServers
+    (delete both keys; idempotent if absent):
+      jq 'del(.servers["ktn-linter"], .mcpServers["ktn-linter"])' \
         mcp.json > mcp.json.new && mv mcp.json.new mcp.json
 
   STEP 4 — Verify
-    `jq -e '.servers["ktn-linter"].args == ["serve","--port","7717"]' mcp.json`
-    (try both `.servers` and `.mcpServers` keys).
+    `jq -e '(.servers["ktn-linter"]? // .mcpServers["ktn-linter"]?) | (.command == "ktn-linter" and (.args[0]? == "serve"))' mcp.json`
+    For uninstall: the inverse — both keys must be null.
 
   RETURN:
   {
@@ -444,13 +494,13 @@ prompt: |
 
 ### Agent C — `settings`
 
-```
+```yaml
 subagent_type: general-purpose
 description: ".claude/settings.json hook wiring"
 prompt: |
   You own the ktn-linter HTTP hook entries inside /workspace/.claude/settings.json.
 
-  Mode: {{READ_ONLY ? "read-only" : "reconcile"}}
+  Mode: {{UNINSTALL ? "uninstall" : (READ_ONLY ? "read-only" : "reconcile")}}
 
   Required entries (idempotency key = URL prefix "http://localhost:7717"):
 
@@ -479,6 +529,14 @@ prompt: |
     If the matcher "Edit|Write|MultiEdit" already exists but lacks the HTTP
     hook, append the HTTP hook into THAT entry's "hooks" array — do NOT
     create a duplicate matcher entry.
+
+    UNINSTALL mode: delete every inner hook whose URL startswith
+    "http://localhost:7717/hooks/" from both PreToolUse and PostToolUse,
+    then drop any matcher whose hooks array becomes empty:
+      jq '(.hooks.PreToolUse, .hooks.PostToolUse) |= (map(.hooks |= map(select((.url? // "") | startswith("http://localhost:7717/") | not)) | select(.hooks | length > 0)))' \
+        settings.json > settings.json.new && mv settings.json.new settings.json
+    DO NOT touch unrelated hooks (git-guard, rtk, post-edit, …).
+
   STEP 4 — Verify
     `jq -e '
       (.hooks.PreToolUse  // []) | any(.hooks[]?; .url? // "" | startswith("http://localhost:7717/")) and
@@ -501,14 +559,19 @@ prompt: |
 
 ### Agent D — `daemon`
 
-```
+```yaml
 subagent_type: general-purpose
 description: "ktn-linter daemon health on :7717"
 prompt: |
   You verify and (if needed) respawn the ktn-linter MCP daemon on
   127.0.0.1:7717. You DO NOT write any file.
 
-  Mode: {{READ_ONLY ? "read-only" : (FORCE_RESTART ? "force-restart" : "reconcile")}}
+  Mode: {{UNINSTALL ? "uninstall" : (READ_ONLY ? "read-only" : (FORCE_RESTART ? "force-restart" : "reconcile"))}}
+
+  Canonical daemon command (matches Go feature MCP fragment in this repo):
+    ktn-linter serve --port=7717
+  (NOT `ktn-linter mcp serve` — the upstream entrypoint is the top-level
+  `serve` subcommand defined in cmd/ktn-linter/cmd/serve.go.)
 
   STEP 1 — Preconditions
     If `command -v ktn-linter` fails → status=skipped, reason=binary-missing,
@@ -521,17 +584,30 @@ prompt: |
     Decide alive = (health == 200).
 
   STEP 3 — Act (skip in --check mode)
+    UNINSTALL mode: stop the daemon (best-effort) and return:
+      pkill -f 'ktn-linter serve' || true
+      pkill -f 'ktn-linter mcp serve' || true   # legacy form, just in case
+      return status=fixed, action=stopped.
+
     NEEDS_RESPAWN = (not alive) OR force-restart
     If NEEDS_RESPAWN:
-      pkill -f 'ktn-linter (mcp )?serve' || true
-      sleep 1
-      nohup ktn-linter mcp serve --port=7717 \
-        >/tmp/ktn-linter-mcp.log 2>&1 < /dev/null & disown
-      # Poll /health up to 5 s
-      for i in 1 2 3 4 5; do
+      Prefer the canonical Makefile bootstrap when the project provides one
+      (matches upstream `scripts/install-hooks.sh` / `Makefile:hooks-install`):
+        if [ -f "$WORKSPACE/Makefile" ] && \
+           grep -qE '^hooks-install:' "$WORKSPACE/Makefile"; then
+            (cd "$WORKSPACE" && make hooks-install) && return
+        fi
+      Otherwise fall back to direct respawn:
+        pkill -f 'ktn-linter serve'     || true
+        pkill -f 'ktn-linter mcp serve' || true   # legacy
         sleep 1
-        curl -fsS --max-time 1 http://127.0.0.1:7717/health >/dev/null 2>&1 && break
-      done
+        nohup ktn-linter serve --port=7717 \
+          >/tmp/ktn-linter-mcp.log 2>&1 < /dev/null & disown
+        # Poll /health up to 5 s
+        for i in 1 2 3 4 5; do
+          sleep 1
+          curl -fsS --max-time 1 http://127.0.0.1:7717/health >/dev/null 2>&1 && break
+        done
 
   STEP 4 — Smoke-test hook endpoint (only after a successful respawn or when alive=true)
     curl -fsS -X POST http://127.0.0.1:7717/hooks/post-tool-use \
@@ -553,7 +629,7 @@ prompt: |
 
 ### Agent E — `phases`
 
-```
+```yaml
 subagent_type: general-purpose
 description: ".ktn-linter.yaml phase configuration"
 prompt: |
@@ -616,7 +692,7 @@ Collect the 5 JSON payloads. Decide the final user message in this order:
 2. **All `status: "ok"` AND no agent reports `wrote_file: true` AND
    `daemon.action: "noop"`** → silent OK:
 
-   ```
+   ```text
    ✓ ktn-linter healthy — nothing to do.
        binary    {version} ({path})
        mcp       registered  (key=servers|mcpServers)
@@ -627,7 +703,7 @@ Collect the 5 JSON payloads. Decide the final user message in this order:
 
 3. **Otherwise (any fix happened)** → consolidated report:
 
-   ```
+   ```text
    ═══════════════════════════════════════════════════════════════
      /ktn — reconcile complete
    ═══════════════════════════════════════════════════════════════
@@ -641,7 +717,7 @@ Collect the 5 JSON payloads. Decide the final user message in this order:
 
    **Conditional restart prompt** — print ONLY when `settings.wrote_file == true`:
 
-   ```
+   ```text
    ⚠ Restart the Claude Code session to activate the new hooks.
      (settings.json is read at session start — current session is unhooked.)
    ```
@@ -661,7 +737,7 @@ changes on the second run:
 | Agent | Idempotency key |
 |-------|----------------|
 | binary | local version == latest tag |
-| mcp | `.servers["ktn-linter"].args == ["serve","--port","7717"]` (or `.mcpServers`) |
+| mcp | `.servers["ktn-linter"].args` matches `["serve"]` or `["serve","--port","7717"]` (accept `.mcpServers` on read) |
 | settings | any inner hook URL startswith `http://localhost:7717/` under matcher `Edit\|Write\|MultiEdit` for both Pre and Post |
 | daemon | `/health` returns 200 |
 | phases | `.ktn-linter.yaml` parses; no spec passed |
