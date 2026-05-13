@@ -60,8 +60,15 @@ fi
 # `commit`. Flag order doesn't matter to git, so `-n` anywhere after
 # `git commit` (e.g. `git commit -m msg -n`) is treated as --no-verify —
 # this is intentional (CR-2 PR #359 review).
+#
+# Combined short flags: git accepts `-nm`, `-anm`, `-anqv`, … as the same
+# thing as `-n -m`, `-a -n -m`, etc. Our regex catches `n` anywhere inside
+# the combined short-flag cluster (`-[a-zA-Z]*n[a-zA-Z]*`). Long options
+# like `--no-verify` are NOT matched because the second `-` is not in
+# `[a-zA-Z]`. (CR-9 PR #359 round 2.)
 if [[ "$NORMALIZED_CMD" =~ --no-verify ]] \
-   || [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit([[:space:]].*)?[[:space:]]-n([[:space:]]|$) ]]; then
+   || { [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit([[:space:]]|$) ]] \
+        && [[ "$NORMALIZED_CMD" =~ [[:space:]]-[a-zA-Z]*n[a-zA-Z]*([[:space:]]|$) ]]; }; then
     echo "═══════════════════════════════════════════════" >&2
     echo "  ❌ COMMAND BLOCKED — --no-verify is forbidden" >&2
     echo "═══════════════════════════════════════════════" >&2
