@@ -187,6 +187,7 @@ Core servers in `mcp.json.tpl` (GitHub, GitLab). Additional servers added via MC
 | `/docs` | Deep project documentation generation (multi-agent) |
 | `/test` | E2E testing with Playwright MCP |
 | `/lint` | Intelligent linting with ktn-linter (148 rules) |
+| `/ktn` | ktn-linter MCP lifecycle: install/upgrade binary, wire hooks, heal daemon, phase config (5 parallel agents) |
 | `/infra` | Infrastructure automation (Terraform/Terragrunt) |
 | `/secret` | Secure secret management (1Password + Vault-like paths) |
 | `/vpn` | Multi-protocol VPN management (OpenVPN, WireGuard, IPsec, PPTP) |
