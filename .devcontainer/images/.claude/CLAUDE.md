@@ -102,6 +102,7 @@ Enforced by `commit-validate.sh` hook.
 | `/docs` | Deep project docs generation |
 | `/test` | E2E testing (Playwright) |
 | `/lint` | Multi-language intelligent linting |
+| `/ktn` | Autonomous ktn-linter MCP lifecycle (5 parallel agents) |
 | `/infra` | Infrastructure (Terraform) |
 | `/secret` | Secure secrets (1Password) |
 | `/vpn` | VPN management |
