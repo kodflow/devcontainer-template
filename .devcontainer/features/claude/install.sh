@@ -64,7 +64,7 @@ if [ "$BUNDLE_LEVEL" = "minimal" ]; then
 else
 echo "→ Downloading scripts..."
 download_failed=0
-for script in format imports lint post-edit pre-validate security test bash-validate commit-validate post-compact on-stop notification session-init; do
+for script in format imports lint post-edit pre-validate git-guard test bash-validate post-compact on-stop notification session-init; do
     script_tmp="$(mktemp)"
     if curl -fsL --retry 2 "$BASE/.claude/scripts/$script.sh" -o "$script_tmp" 2>/dev/null; then
         install -m 0755 "$script_tmp" "$TARGET/.claude/scripts/$script.sh"
