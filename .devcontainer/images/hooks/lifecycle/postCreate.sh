@@ -147,17 +147,22 @@ step_git_hooks_path() {
         log_info "No workspace .githooks/ directory — skipping core.hooksPath wiring"
         return 0
     fi
-    # Make sure every hook is executable (template ships them +x, but tarball
-    # extraction or filesystem sync can drop the bit on some hosts).
-    chmod +x "$hooks_dir"/* 2>/dev/null || true
+    # Make sure every hook file is executable (template ships them +x, but
+    # tarball extraction or filesystem sync can drop the bit on some hosts).
+    # Use `find` rather than a glob so empty dirs and filenames-with-spaces
+    # both behave correctly (PR #359 CR-6).
+    find "$hooks_dir" -maxdepth 1 -type f -exec chmod +x {} + 2>/dev/null || true
 
     # Use REPO-LOCAL config (not --global) so this stays scoped to the
     # consumer's project; multi-repo developers keep their other repos
     # untouched. Idempotent: re-running just confirms the value.
-    if git -C "${WORKSPACE_FOLDER:-/workspace}" config core.hooksPath ".githooks" 2>/dev/null; then
+    # Guard on `.git/` existence — on a brand-new container the workspace
+    # may be cloned later or may be a plain directory (PR #359 CR-7).
+    if [ -d "${WORKSPACE_FOLDER:-/workspace}/.git" ] && \
+       git -C "${WORKSPACE_FOLDER:-/workspace}" config core.hooksPath ".githooks" 2>/dev/null; then
         log_success "Wired core.hooksPath → .githooks/ for workspace repo"
     else
-        log_warning "Could not set core.hooksPath (workspace may not be a git repo yet)"
+        log_info "Workspace not a git repo yet — core.hooksPath will be set on next postCreate"
     fi
 }
 

@@ -57,7 +57,9 @@ fi
 # `-n` after `git commit` is git's documented alias for `--no-verify`
 # (see `man git-commit`). For `git push`, `-n` means `--dry-run` and is
 # harmless, so we only treat the bare `-n` as a bypass when preceded by
-# `commit`.
+# `commit`. Flag order doesn't matter to git, so `-n` anywhere after
+# `git commit` (e.g. `git commit -m msg -n`) is treated as --no-verify —
+# this is intentional (CR-2 PR #359 review).
 if [[ "$NORMALIZED_CMD" =~ --no-verify ]] \
    || [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+commit([[:space:]].*)?[[:space:]]-n([[:space:]]|$) ]]; then
     echo "═══════════════════════════════════════════════" >&2
@@ -87,36 +89,36 @@ fi
 
 # === 2. Block AI mentions in commit messages ===
 #
-# Build a HAYSTACK string that covers every shape `git commit` accepts. The
-# previous parser only saw -m "..." with double quotes; everything else (single
-# quotes, -F file, -F -, --amend reusing prior message, editor mode, multiple
-# -m flags, rebase/cherry-pick reusing tainted history) silently passed.
-# See issue #358 D2 for the leak catalogue.
+# Build a HAYSTACK string covering every shape `git commit` accepts.
 #
-# Catches:
-#   - git commit -m "..." | -m '...' | -m bare | -m "X" -m "Y"
-#   - git commit --message=... (= or space)
-#   - git commit -F file  (reads file content)
-#   - git commit -F -  (reads stdin — best-effort, scanned later if available)
-#   - git commit --amend (no -m) → looks up HEAD's message via git log -1
-#   - git commit (editor mode) → looks up COMMIT_EDITMSG when present
-#   - git rebase --continue / git cherry-pick (replay tainted commits)
-#   - Heredoc bodies (cat <<EOF ...)
+# Lesson from #359 review (CR-1, CR-3, Q-1): trying to *extract* individual
+# `-m` / `--message` values with greedy `sed` patterns is brittle — each
+# `.*-m` pattern anchors to the LAST occurrence, so earlier `-m` blocks
+# are silently dropped. Same problem with heredoc delimiters: hard-coding
+# `EOF` misses `<<END`, `<<COMMIT_MSG`, etc.
+#
+# Solution: don't extract — SCAN the raw $COMMAND string. Every `-m`/`-F`/
+# heredoc value is already a literal substring of $COMMAND; pattern matching
+# on the whole string catches them all regardless of count, quoting, or
+# heredoc delimiter. We only need to *augment* the haystack with content
+# that lives outside $COMMAND: file content from `-F file`, HEAD message
+# from `--amend`, replayed messages from `rebase`/`cherry-pick`.
+#
+# Catches every leak path in #358 D2:
+#   - git commit -m "..." | -m '...' | -m bare | -m "X" -m "Y"       ← in $COMMAND
+#   - git commit --message=... | --message X                          ← in $COMMAND
+#   - Heredoc bodies (any delimiter, single-line invocation)          ← in $COMMAND
+#   - git commit -F file                                              ← we read file
+#   - git commit -F - (stdin)                                         ← unreachable, documented
+#   - git commit --amend (no -m)                                      ← we read git log -1
+#   - git rebase --continue / git cherry-pick                         ← we scan recent log
+#   - git commit (editor mode) — caught by layer 2 (.githooks/commit-msg)
 if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+(commit|rebase|cherry-pick) ]]; then
-    HAYSTACK=""
+    # Start with the raw command string — covers every -m/--message/-F path/
+    # heredoc-body substring without any extraction step. (CR-1/CR-3/Q-1.)
+    HAYSTACK="$COMMAND"
 
-    # All -m / --message values, repeated. Tolerates both quote styles and
-    # bare-word forms. `re-quote` extraction is delegated to a sed pass that
-    # turns each occurrence into one line we can grep.
-    HAYSTACK="$HAYSTACK"$'\n'"$(printf '%s' "$COMMAND" | sed -nE '
-        s/.*--message=([^[:space:]].*)/\1/p
-        s/.*--message[[:space:]]+([^[:space:]].*)/\1/p
-        s/.*-m[[:space:]]+"([^"]+)".*/\1/p
-        s/.*-m[[:space:]]+'\''([^'\'']+)'\''.*/\1/p
-        s/.*-m[[:space:]]+([^[:space:]"'\''][^[:space:]]*).*/\1/p
-    ' 2>/dev/null)"
-
-    # -F file (skip "-F -" which means stdin — we cannot read it from here)
+    # -F file content (skip "-F -" which means stdin — unreachable from here)
     if [[ "$NORMALIZED_CMD" =~ -F[[:space:]]+([^[:space:]]+) ]]; then
         F_ARG="${BASH_REMATCH[1]}"
         if [ "$F_ARG" != "-" ] && [ -r "$F_ARG" ]; then
@@ -124,21 +126,20 @@ if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+(commit|rebase|cherry-pick) ]]; then
         fi
     fi
 
-    # Heredoc bodies (cat <<EOF ... EOF wrapped inside the command string)
-    if [[ "$COMMAND" =~ \<\<[\'\"]?[A-Z_]+ ]]; then
-        HAYSTACK="$HAYSTACK"$'\n'"$(printf '%s' "$COMMAND" | sed -n '/<<.*EOF/,/EOF/p' | grep -v "EOF" | grep -v "cat <<" 2>/dev/null || true)"
-    fi
-
-    # --amend without -m reuses HEAD's commit message — fetch it
-    # (also covers rebase/cherry-pick that reuse upstream messages)
+    # --amend without -m reuses HEAD's commit message — fetch it.
     if [[ "$NORMALIZED_CMD" =~ --amend ]] && [[ ! "$NORMALIZED_CMD" =~ -m[[:space:]]|--message ]]; then
         HAYSTACK="$HAYSTACK"$'\n'"$(git log -1 --pretty=%B 2>/dev/null || true)"
     fi
+
+    # rebase --continue / cherry-pick: defensive scan of recent commits.
+    # Note: scans the last 5 commits from HEAD, which may include commits
+    # not actually being replayed; that's a coverage/perf trade-off we
+    # accept (CR-5). Parsing .git/rebase-merge/git-rebase-todo to scope
+    # exactly to the operation's todo list would be more precise but
+    # significantly more complex for marginal gain — the cost of one
+    # extra `git log` call is negligible vs. the risk of a false negative.
     if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+(rebase|cherry-pick) ]]; then
-        # rebase --continue / cherry-pick: scan ALL commits being applied since
-        # they replay tainted messages from upstream history without going
-        # through `-m`. Best-effort: scan the last 20 commits.
-        HAYSTACK="$HAYSTACK"$'\n'"$(git log -20 --pretty=%B 2>/dev/null || true)"
+        HAYSTACK="$HAYSTACK"$'\n'"$(git log -5 --pretty=%B 2>/dev/null || true)"
     fi
 
     # Editor mode (no -m, no -F, no --amend): the message is going to be typed
