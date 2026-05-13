@@ -138,12 +138,21 @@ if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+(commit|rebase|cherry-pick) ]]; then
     # heredoc-body substring without any extraction step. (CR-1/CR-3/Q-1.)
     HAYSTACK="$COMMAND"
 
-    # -F file content (skip "-F -" which means stdin — unreachable from here)
-    if [[ "$NORMALIZED_CMD" =~ -F[[:space:]]+([^[:space:]]+) ]]; then
+    # -F file content (skip "-F -" which means stdin — unreachable from here).
+    # Handle the three quoting shapes git accepts so paths with spaces work:
+    #   -F "path with spaces"   (double-quoted, CR #359 round 4 finding)
+    #   -F 'path with spaces'   (single-quoted)
+    #   -F bare/path            (unquoted, no spaces)
+    F_ARG=""
+    if [[ "$NORMALIZED_CMD" =~ -F[[:space:]]+\"([^\"]+)\" ]]; then
         F_ARG="${BASH_REMATCH[1]}"
-        if [ "$F_ARG" != "-" ] && [ -r "$F_ARG" ]; then
-            HAYSTACK="$HAYSTACK"$'\n'"$(cat -- "$F_ARG" 2>/dev/null || true)"
-        fi
+    elif [[ "$NORMALIZED_CMD" =~ -F[[:space:]]+\'([^\']+)\' ]]; then
+        F_ARG="${BASH_REMATCH[1]}"
+    elif [[ "$NORMALIZED_CMD" =~ -F[[:space:]]+([^[:space:]]+) ]]; then
+        F_ARG="${BASH_REMATCH[1]}"
+    fi
+    if [ -n "$F_ARG" ] && [ "$F_ARG" != "-" ] && [ -r "$F_ARG" ]; then
+        HAYSTACK="$HAYSTACK"$'\n'"$(cat -- "$F_ARG" 2>/dev/null || true)"
     fi
 
     # --amend without -m reuses HEAD's commit message — fetch it.
