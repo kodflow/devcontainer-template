@@ -414,7 +414,7 @@ install_mcp_fragment "go" '{
   "servers": {
     "ktn-linter": {
       "command": "ktn-linter",
-      "args": ["serve"],
+      "args": ["serve", "--port=7717"],
       "requires_binary": "ktn-linter"
     }
   }
