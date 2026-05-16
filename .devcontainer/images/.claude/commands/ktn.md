@@ -614,29 +614,63 @@ prompt: |
           DAEMON_PID=$(lsof -tiTCP:7717 -sTCP:LISTEN 2>/dev/null | head -1 || true)
       fi
 
-  STEP 4 — Freshness gate (independent from liveness)
+  STEP 4 — Freshness gate (independent from liveness, FAIL-CLOSED)
+    # Default to STALE when alive but unverifiable. The whole point of the
+    # gate is to refuse reuse of a daemon we can't prove is running the
+    # current binary — silently leaving STALE=false on "I don't know" is
+    # exactly the fail-open hole that issue #361 exists to close.
     STALE=false
+    STALE_REASON=""
     DAEMON_EXE_RAW=""
-    if [ "$alive" = "true" ] && [ -n "$DAEMON_PID" ] \
-        && [ -r "/proc/$DAEMON_PID/exe" ]; then
-        DAEMON_EXE_RAW=$(readlink "/proc/$DAEMON_PID/exe" 2>/dev/null || true)
 
-        # Kernel marker for an unlinked inode whose process still holds the
-        # old image. Canonical "rebuilt while running" signature on Linux.
-        case "$DAEMON_EXE_RAW" in
-            *"(deleted)"*) STALE=true ;;
-        esac
+    if [ "$alive" = "true" ]; then
+        if [ -z "$DAEMON_PID" ]; then
+            # Daemon answers /health but ss/lsof couldn't identify the owner
+            # (e.g. busybox container with no port-discovery tools, namespace
+            # boundary, locked-down /proc). We cannot verify freshness →
+            # treat as stale so the reconcile path kills + respawns.
+            STALE=true
+            STALE_REASON="missing-exe-path"
+        elif [ ! -r "/proc/$DAEMON_PID/exe" ]; then
+            # PID known but /proc/<pid>/exe unreadable (perm, hidepid=2,
+            # PID raced and exited). Same conclusion: cannot verify →
+            # stale.
+            STALE=true
+            STALE_REASON="missing-exe-path"
+        else
+            DAEMON_EXE_RAW=$(readlink "/proc/$DAEMON_PID/exe" 2>/dev/null || true)
 
-        # Different on-disk paths with the same inode (hardlink / install
-        # copy) are acceptable; only a real mismatch triggers restart.
-        if [ "$STALE" = "false" ] && [ -n "$DAEMON_EXE_RAW" ] \
-                && [ "$DAEMON_EXE_RAW" != "$BIN_REAL" ]; then
-            if [ ! -f "$DAEMON_EXE_RAW" ] || [ ! -f "$BIN_REAL" ]; then
+            if [ -z "$DAEMON_EXE_RAW" ]; then
                 STALE=true
+                STALE_REASON="missing-exe-path"
             else
-                d_ino=$(stat -c %i "$DAEMON_EXE_RAW" 2>/dev/null || echo a)
-                b_ino=$(stat -c %i "$BIN_REAL"       2>/dev/null || echo b)
-                [ "$d_ino" != "$b_ino" ] && STALE=true
+                # Kernel marker for an unlinked inode whose process still
+                # holds the old image. Canonical "rebuilt while running"
+                # signature on Linux.
+                case "$DAEMON_EXE_RAW" in
+                    *"(deleted)"*)
+                        STALE=true
+                        STALE_REASON="exe-deleted"
+                        ;;
+                esac
+
+                # Different on-disk paths with the same inode (hardlink /
+                # install copy) are acceptable; only a real mismatch
+                # triggers restart.
+                if [ "$STALE" = "false" ] \
+                        && [ "$DAEMON_EXE_RAW" != "$BIN_REAL" ]; then
+                    if [ ! -f "$DAEMON_EXE_RAW" ] || [ ! -f "$BIN_REAL" ]; then
+                        STALE=true
+                        STALE_REASON="inode-mismatch"
+                    else
+                        d_ino=$(stat -c %i "$DAEMON_EXE_RAW" 2>/dev/null || echo a)
+                        b_ino=$(stat -c %i "$BIN_REAL"       2>/dev/null || echo b)
+                        if [ "$d_ino" != "$b_ino" ]; then
+                            STALE=true
+                            STALE_REASON="inode-mismatch"
+                        fi
+                    fi
+                fi
             fi
         fi
     fi
