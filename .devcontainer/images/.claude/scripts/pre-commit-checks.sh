@@ -693,7 +693,11 @@ main() {
     # Detect languages
     detect_languages "$workspace"
 
-    if [[ ${#DETECTED_LANGUAGES[@]} -eq 0 ]]; then
+    # Bash 5.2 + `set -u` raise an unbound-variable error on `${#arr[@]}` for
+    # an associative array that was declared but never assigned. The `[*]:-`
+    # form is safe and equivalent for "is the array empty?" (issue #361 fix
+    # spillover: the template repo itself has no root-level language marker).
+    if [[ -z "${DETECTED_LANGUAGES[*]:-}" ]]; then
         echo ""
         echo -e "${YELLOW}No supported languages detected.${NC}"
         echo "Supported dependency files: go.mod, Cargo.toml, package.json,"

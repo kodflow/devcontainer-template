@@ -23,6 +23,12 @@ allowed-tools:
   - "Bash(ktn-linter:*)"
   - "Bash(pkill:*)"
   - "Bash(pgrep:*)"
+  - "Bash(kill:*)"
+  - "Bash(ss:*)"
+  - "Bash(lsof:*)"
+  - "Bash(readlink:*)"
+  - "Bash(stat:*)"
+  - "Bash(cut:*)"
   - "Bash(nohup:*)"
   - "Bash(uname:*)"
   - "Bash(chmod:*)"
@@ -561,7 +567,7 @@ prompt: |
 
 ```yaml
 subagent_type: general-purpose
-description: "ktn-linter daemon health on :7717"
+description: "ktn-linter daemon health + freshness on :7717"
 prompt: |
   You verify and (if needed) respawn the ktn-linter MCP daemon on
   127.0.0.1:7717. You DO NOT write any file.
@@ -573,43 +579,149 @@ prompt: |
   (NOT `ktn-linter mcp serve` — the upstream entrypoint is the top-level
   `serve` subcommand defined in cmd/ktn-linter/cmd/serve.go.)
 
+  CRITICAL: "healthy" and "running the current binary" are two INDEPENDENT
+  gates. A daemon whose binary was rebuilt or replaced keeps serving from
+  its in-memory image — /health still returns 200, but the analyzer code is
+  frozen at the pre-rebuild commit. Linux marks this with
+  `/proc/<pid>/exe → <path> (deleted)`. Reusing such a daemon means phantom
+  findings against on-disk source the user has already fixed (issue #361).
+
   STEP 1 — Preconditions
     If `command -v ktn-linter` fails → status=skipped, reason=binary-missing,
     return immediately (Agent A will install it; you respawn on next /ktn run
     after session restart).
+    Resolve BIN_REAL once for later freshness checks:
+      BIN=$(command -v ktn-linter)
+      BIN_REAL=$(readlink -f "$BIN" 2>/dev/null || echo "$BIN")
 
-  STEP 2 — Probe
+  STEP 2 — Probe liveness
     health = curl -fsS --max-time 2 -o /dev/null -w '%{http_code}' http://127.0.0.1:7717/health
     ready  = same on /ready
     Decide alive = (health == 200).
 
-  STEP 3 — Act (skip in --check mode)
-    UNINSTALL mode: stop the daemon (best-effort) and return:
-      pkill -f 'ktn-linter serve' || true
-      pkill -f 'ktn-linter mcp serve' || true   # legacy form, just in case
+  STEP 3 — Discover the port owner (PID by port, NOT by pgrep pattern)
+    pgrep on a command-line pattern is fragile: this template's MCP fragment
+    spawns `ktn-linter serve --port 7717` (space-separated), but upstream
+    install-hooks.sh spawns `ktn-linter mcp serve --port=7717`. Port
+    ownership is unambiguous and covers every invocation shape.
+
+      DAEMON_PID=""
+      if command -v ss >/dev/null 2>&1; then
+          DAEMON_PID=$(ss -H -ltnp 'sport = :7717' 2>/dev/null \
+              | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2 || true)
+      fi
+      if [ -z "$DAEMON_PID" ] && command -v lsof >/dev/null 2>&1; then
+          DAEMON_PID=$(lsof -tiTCP:7717 -sTCP:LISTEN 2>/dev/null | head -1 || true)
+      fi
+
+  STEP 4 — Freshness gate (independent from liveness, FAIL-CLOSED)
+    # Default to STALE when alive but unverifiable. The whole point of the
+    # gate is to refuse reuse of a daemon we can't prove is running the
+    # current binary — silently leaving STALE=false on "I don't know" is
+    # exactly the fail-open hole that issue #361 exists to close.
+    STALE=false
+    STALE_REASON=""
+    DAEMON_EXE_RAW=""
+
+    if [ "$alive" = "true" ]; then
+        if [ -z "$DAEMON_PID" ]; then
+            # Daemon answers /health but ss/lsof couldn't identify the owner
+            # (e.g. busybox container with no port-discovery tools, namespace
+            # boundary, locked-down /proc). We cannot verify freshness →
+            # treat as stale so the reconcile path kills + respawns.
+            STALE=true
+            STALE_REASON="missing-exe-path"
+        elif [ ! -r "/proc/$DAEMON_PID/exe" ]; then
+            # PID known but /proc/<pid>/exe unreadable (perm, hidepid=2,
+            # PID raced and exited). Same conclusion: cannot verify →
+            # stale.
+            STALE=true
+            STALE_REASON="missing-exe-path"
+        else
+            DAEMON_EXE_RAW=$(readlink "/proc/$DAEMON_PID/exe" 2>/dev/null || true)
+
+            if [ -z "$DAEMON_EXE_RAW" ]; then
+                STALE=true
+                STALE_REASON="missing-exe-path"
+            else
+                # Kernel marker for an unlinked inode whose process still
+                # holds the old image. Canonical "rebuilt while running"
+                # signature on Linux.
+                case "$DAEMON_EXE_RAW" in
+                    *"(deleted)"*)
+                        STALE=true
+                        STALE_REASON="exe-deleted"
+                        ;;
+                esac
+
+                # Different on-disk paths with the same inode (hardlink /
+                # install copy) are acceptable; only a real mismatch
+                # triggers restart.
+                if [ "$STALE" = "false" ] \
+                        && [ "$DAEMON_EXE_RAW" != "$BIN_REAL" ]; then
+                    if [ ! -f "$DAEMON_EXE_RAW" ] || [ ! -f "$BIN_REAL" ]; then
+                        STALE=true
+                        STALE_REASON="inode-mismatch"
+                    else
+                        d_ino=$(stat -c %i "$DAEMON_EXE_RAW" 2>/dev/null || echo a)
+                        b_ino=$(stat -c %i "$BIN_REAL"       2>/dev/null || echo b)
+                        if [ "$d_ino" != "$b_ino" ]; then
+                            STALE=true
+                            STALE_REASON="inode-mismatch"
+                        fi
+                    fi
+                fi
+            fi
+        fi
+    fi
+
+  STEP 5 — Act (skip writes in --check mode)
+    UNINSTALL mode: SIGTERM the actual port owner, escalate to SIGKILL if it
+    lingers; do NOT respawn. Fallback to pkill only if PID discovery failed.
+      if [ -n "$DAEMON_PID" ] && kill -0 "$DAEMON_PID" 2>/dev/null; then
+          kill -TERM "$DAEMON_PID" || true
+          for _ in 1 2 3; do kill -0 "$DAEMON_PID" 2>/dev/null || break; sleep 1; done
+          kill -0 "$DAEMON_PID" 2>/dev/null && kill -KILL "$DAEMON_PID" || true
+      else
+          pkill -f 'ktn-linter serve'     || true
+          pkill -f 'ktn-linter mcp serve' || true   # legacy form
+      fi
       return status=fixed, action=stopped.
 
-    NEEDS_RESPAWN = (not alive) OR force-restart
+    NEEDS_RESPAWN = (not alive) OR STALE OR force-restart
     If NEEDS_RESPAWN:
-      Prefer the canonical Makefile bootstrap when the project provides one
-      (matches upstream `scripts/install-hooks.sh` / `Makefile:hooks-install`):
-        if [ -f "$WORKSPACE/Makefile" ] && \
-           grep -qE '^hooks-install:' "$WORKSPACE/Makefile"; then
-            (cd "$WORKSPACE" && make hooks-install) && return
-        fi
-      Otherwise fall back to direct respawn:
-        pkill -f 'ktn-linter serve'     || true
-        pkill -f 'ktn-linter mcp serve' || true   # legacy
-        sleep 1
-        nohup ktn-linter serve --port=7717 \
-          >/tmp/ktn-linter-mcp.log 2>&1 < /dev/null & disown
-        # Poll /health up to 5 s
-        for i in 1 2 3 4 5; do
-          sleep 1
-          curl -fsS --max-time 1 http://127.0.0.1:7717/health >/dev/null 2>&1 && break
-        done
+      # Read-only mode never writes/spawns — surface drift only.
+      if READ_ONLY: return without acting (see RETURN below).
 
-  STEP 4 — Smoke-test hook endpoint (only after a successful respawn or when alive=true)
+      # 5a. Kill the actual port owner first (TERM → KILL escalation).
+      if [ -n "$DAEMON_PID" ] && kill -0 "$DAEMON_PID" 2>/dev/null; then
+          kill -TERM "$DAEMON_PID" || true
+          for _ in 1 2 3; do kill -0 "$DAEMON_PID" 2>/dev/null || break; sleep 1; done
+          kill -0 "$DAEMON_PID" 2>/dev/null && kill -KILL "$DAEMON_PID" || true
+      else
+          # Fallback if ss/lsof unavailable (e.g. busybox container).
+          pkill -f 'ktn-linter serve'     || true
+          pkill -f 'ktn-linter mcp serve' || true   # legacy form
+      fi
+      sleep 1
+
+      # 5b. Prefer the canonical Makefile bootstrap when present (matches
+      # upstream scripts/install-hooks.sh / Makefile:hooks-install).
+      if [ -f "$WORKSPACE/Makefile" ] && \
+         grep -qE '^hooks-install:' "$WORKSPACE/Makefile"; then
+          (cd "$WORKSPACE" && make hooks-install) && return
+      fi
+
+      # 5c. Direct respawn fallback.
+      nohup "$BIN" serve --port=7717 \
+        >/tmp/ktn-linter-mcp.log 2>&1 < /dev/null & disown
+      # Poll /health up to 5 s.
+      for i in 1 2 3 4 5; do
+        sleep 1
+        curl -fsS --max-time 1 http://127.0.0.1:7717/health >/dev/null 2>&1 && break
+      done
+
+  STEP 6 — Smoke-test hook endpoint (only after a successful respawn or when alive=true && !STALE)
     curl -fsS -X POST http://127.0.0.1:7717/hooks/post-tool-use \
       -H 'content-type: application/json' \
       -d '{"session_id":"ktn-skill","cwd":"/workspace","tool_input":{},"tool_response":{}}' \
@@ -621,10 +733,22 @@ prompt: |
     "status": "ok|fixed|skipped|error",
     "before_health": "200|503|connection-refused|...",
     "after_health":  "200|...",
-    "action": "noop|respawned|forced-restart",
+    "fresh":         true|false,
+    "stale_reason":  null|"exe-deleted"|"inode-mismatch"|"missing-exe-path",
+    "action": "noop|respawned|forced-restart|stopped",
     "pid":    <int|null>,
+    "exe":    "<DAEMON_EXE_RAW or null>",
+    "bin":    "<BIN_REAL>",
     "notes":  "..."
   }
+
+  Status decision matrix:
+    - alive && !STALE && !force-restart   → status=ok,    action=noop
+    - alive &&  STALE && READ_ONLY        → status=ok,    action=noop  (surfaces drift via fresh=false)
+    - alive &&  STALE && !READ_ONLY       → status=fixed, action=respawned
+    - !alive && !READ_ONLY                → status=fixed, action=respawned
+    - force-restart && !READ_ONLY         → status=fixed, action=forced-restart
+    - error during kill/respawn           → status=error, notes=<diagnostic>
 ```
 
 ### Agent E — `phases`
@@ -690,15 +814,28 @@ Collect the 5 JSON payloads. Decide the final user message in this order:
    Exit non-zero in spirit (return code is informational; the user sees the report).
 
 2. **All `status: "ok"` AND no agent reports `wrote_file: true` AND
-   `daemon.action: "noop"`** → silent OK:
+   `daemon.action: "noop"` AND `daemon.fresh: true`** → silent OK:
 
    ```text
    ✓ ktn-linter healthy — nothing to do.
        binary    {version} ({path})
        mcp       registered  (key=servers|mcpServers)
        settings  pre+post hooks wired
-       daemon    :7717  health=200 ready=200
+       daemon    :7717  health=200 ready=200  fresh=yes
        phases    {active_set}  (source={default|yaml})
+   ```
+
+   When `daemon.fresh: false` is observed in `--check` mode (read-only, no
+   respawn), emit the **stale daemon banner** instead — drift surfaced,
+   no writes performed:
+
+   ```text
+   ⚠ ktn-linter daemon is alive but STALE
+       pid       {pid}
+       exe       {exe}
+       bin       {bin}
+       reason    {stale_reason}   # exe-deleted | inode-mismatch | missing-exe-path
+       action    rerun /ktn (without --check) to kill+respawn
    ```
 
 3. **Otherwise (any fix happened)** → consolidated report:
@@ -711,7 +848,7 @@ Collect the 5 JSON payloads. Decide the final user message in this order:
      binary    {before} → {after}   {action}
      mcp       {drift → none}        wrote={true|false}
      settings  {drift → none}        wrote={true|false}  +entries={pre,post}
-     daemon    health {before → after}  {action}  pid={pid}
+     daemon    health {before → after}  fresh={yes|no→yes}  {action}  pid={pid}
      phases    active={...}  source={default|yaml|cli}  wrote={true|false}
    ```
 
@@ -739,7 +876,7 @@ changes on the second run:
 | binary | local version == latest tag |
 | mcp | `.servers["ktn-linter"].args` matches `["serve"]` or `["serve","--port","7717"]` (accept `.mcpServers` on read) |
 | settings | any inner hook URL startswith `http://localhost:7717/` under matcher `Edit\|Write\|MultiEdit` for both Pre and Post |
-| daemon | `/health` returns 200 |
+| daemon | `/health` returns 200 AND `/proc/<pid>/exe` resolves to the same inode as the on-disk `ktn-linter` binary (no `(deleted)` marker) |
 | phases | `.ktn-linter.yaml` parses; no spec passed |
 
 If you find yourself patching the same file twice in a row, you have a bug in
