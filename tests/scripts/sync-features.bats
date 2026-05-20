@@ -249,3 +249,27 @@ seed_baseline() {
     [[ "$output" == *"Skipping features sync: template repo"* ]]
     grep -q "^alpha$" "$DST/alpha.md"  # dst untouched (the early-exit fires before any I/O)
 }
+
+# --- T14: v2-only deletion (file in previous_hashes only, dropped from files) ---
+@test "T14 v2 deletion: file removed upstream → previous_hashes drives deletion" {
+    echo "alpha-v1" > "$SRC/alpha.md"
+    echo "beta-v1" > "$SRC/beta.md"
+    seed_baseline                       # v1 manifest: files={alpha,beta}, previous_hashes={}
+    git -C "$WS" add . && git -C "$WS" commit -qm "baseline" 2>/dev/null || true
+
+    # Upstream removes beta; rebuild manifest v2 (--prev-manifest moves beta into previous_hashes)
+    rm "$SRC/beta.md"
+    python3 "$BUILDER" "$SRC" "test-v2" "2026-05-20T00:00:00Z" \
+        --prev-manifest "$MAN" > "${MAN}.new"
+    mv "${MAN}.new" "$MAN"
+
+    # Sanity: beta is gone from .files but lives in .previous_hashes
+    # (use bracket-form for keys containing dots — `.foo.bar` would walk into a nested object)
+    jq -e '.files["beta.md"] == null' "$MAN"
+    jq -e '.previous_hashes["beta.md"] | length > 0' "$MAN"
+
+    run sync_features_tree "$SRC" "$DST" "$WS"
+    [ "$status" -eq 0 ]
+    [ ! -e "$DST/beta.md" ]                          # deleted via previous_hashes path
+    [[ "$output" == *"1 removed"* ]]
+}

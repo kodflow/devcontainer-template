@@ -92,13 +92,27 @@ _sync_apply_deletions() {
     command -v sha256sum >/dev/null 2>&1 || return 0
 
     local rel src_path dst_path prev_hash dst_hash
+    # Iterate union of .files and .previous_hashes keys:
+    # - v1 manifests only have .files (the previously-shipped state).
+    # - v2 manifests have BOTH; deleted-upstream paths live only in
+    #   .previous_hashes (the builder drops them from .files when the file
+    #   is no longer present in the source tree). Without including
+    #   previous_hashes in the candidate set, v2 consumers would never
+    #   reclaim disk space for upstream-removed paths. Qodo #368 review.
     while IFS= read -r rel; do
         [ -n "$rel" ] || continue
         src_path="$src/$rel"
         dst_path="$dst/$rel"
         [ -e "$src_path" ] && continue            # still shipped upstream
         [ -e "$dst_path" ] || continue            # already gone
+        # Resolve the expected "previous shipped" hash: prefer .files (latest
+        # known shipped); fall back to the head of .previous_hashes (most
+        # recent prior generation), used in the v2-deletion case.
         prev_hash=$(jq -r --arg r "$rel" '.files[$r] // empty' "$FEATURES_MANIFEST" 2>/dev/null)
+        if [ -z "$prev_hash" ]; then
+            prev_hash=$(jq -r --arg r "$rel" '(.previous_hashes[$r] // [])[0] // empty' \
+                "$FEATURES_MANIFEST" 2>/dev/null)
+        fi
         [ -n "$prev_hash" ] || continue
         dst_hash="sha256:$(sha256sum "$dst_path" 2>/dev/null | awk '{print $1}')"
         if [ "$dst_hash" = "$prev_hash" ]; then
@@ -108,7 +122,8 @@ _sync_apply_deletions() {
             log_warning "Keeping features/${rel}: removed upstream but consumer modified"
             FEATURES_SYNC_SKIPPED=$((FEATURES_SYNC_SKIPPED + 1))
         fi
-    done < <(jq -r '.files | keys[]' "$FEATURES_MANIFEST" 2>/dev/null)
+    done < <(jq -r '((.files // {}) | keys) + ((.previous_hashes // {}) | keys) | unique | .[]' \
+        "$FEATURES_MANIFEST" 2>/dev/null)
     return 0
 }
 

@@ -186,7 +186,11 @@ step_gpg_signing() {
                 log_success "Git GPG signing configured ($source_label): $intent_key"
             else
                 # Pub-only: declare intent but don't enable signing yet.
+                # Unset BOTH signing flags symmetrically so a previous run that
+                # set tag.forceSignAnnotated doesn't keep failing tag creation.
+                # Qodo #368 review.
                 git config --global --unset commit.gpgsign 2>/dev/null || true
+                git config --global --unset tag.forceSignAnnotated 2>/dev/null || true
                 log_info "Signing key $intent_key present (pub only) — import the secret half to enable commit.gpgsign"
             fi
             return 0
@@ -227,6 +231,11 @@ step_gpg_signing() {
         git config --global gpg.program gpg
         log_success "Git GPG signing configured with key: $gpg_key (auto-matched $git_email)"
     else
+        # Mode 3 no-match: clear any stale signing flags from a previous run
+        # so git doesn't keep failing commit/tag operations. Symmetric with
+        # the no-keys and intent-key-missing paths. Qodo #368 review.
+        git config --global --unset commit.gpgsign 2>/dev/null || true
+        git config --global --unset tag.forceSignAnnotated 2>/dev/null || true
         log_info "No GPG key found for email '$git_email' — declare GPG_SIGNINGKEY in $env_file or run /git to configure"
     fi
 }
