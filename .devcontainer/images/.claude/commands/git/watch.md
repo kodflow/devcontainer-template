@@ -185,6 +185,10 @@ action_watch:
         - tool: "mcp__github__pull_request_read"
           params: { method: "get_review_comments" }
           captures: "inline_comments (CodeRabbit + Qodo + Human threads)"
+          note: |
+            get_review_comments returns thread metadata with isResolved,
+            isOutdated, isCollapsed. These flags drive the relevance
+            filter in step 2 — do not drop them on parse.
         - tool: "mcp__github__pull_request_read"
           params: { method: "get_comments" }
           captures: "issue_comments (CodeRabbit summary)"
@@ -193,14 +197,24 @@ action_watch:
           captures: "mr_notes (human + bot comments)"
         - tool: "mcp__gitlab__list_merge_request_discussions"
           captures: "mr_discussions (unresolved threads)"
-    # ── Step 2: Classify by Source ──────────────────────────
+    # ── Step 2: Classify by Source (hard filter on isResolved) ─
+    # WHY (v1.5 patch): if the user resolved a thread manually in the
+    # GitHub UI between two iterations, re-fetching MUST treat that
+    # thread as out-of-scope. Otherwise we re-fix what the user just
+    # marked done, churning the PR and confusing the bot.
     classify:
       coderabbit:
         detect: "author.login == 'coderabbitai[bot]'"
-        relevant: "unresolved AND NOT outdated"
+        relevant: |
+          jq filter applied to inline_comments threads:
+            select(.isResolved == false and .isOutdated == false)
+          (Any thread where isResolved is true — by us or by the user
+          in the UI — is dropped from the relevant set.)
       qodo:
         detect: "author.login IN ['qodo-merge-pro[bot]', 'qodo-code-review[bot]'] AND P0/P1"
-        relevant: "P0 or P1 only (P2 ignored)"
+        relevant: |
+          P0 or P1 only (P2 ignored) AND
+          select(.isResolved == false and .isOutdated == false)
       human:
         detect: "is_bot=false"
         action: "NEVER auto-handle — flag to user only"
@@ -272,12 +286,31 @@ action_watch:
                mcp__github__pull_request_review_write(method: create, event: COMMENT,
                  body: "Findings triaged: N fixed, M rejected with justification. See PR comments.")
                This creates a new COMMENT review that supersedes the CHANGES_REQUESTED state.
-            3. Post "@coderabbitai resolve" in same comment
-            4. CONTINUE POLLING — do NOT stop
+            3. Resolve each rejected thread at the thread level (v1.5 patch):
+               for each rejected_thread_id in $rejected_threads; do
+                 gh api graphql -F threadId="$rejected_thread_id" -f query='
+                   mutation Resolve($threadId: ID!) {
+                     resolveReviewThread(input: {threadId: $threadId}) {
+                       thread { id isResolved }
+                     }
+                   }' \
+                 || true  # don't abort the loop on a single thread failure
+               done
+               # WHY: dismissing the review at PR level (step 2) doesn't
+               # change the per-thread isResolved flag in the GitHub UI.
+               # Without GraphQL resolveReviewThread, the red dots stay
+               # next to each rejected comment and the user has to click
+               # through them manually. graphql does what the @coderabbitai
+               # resolve magic-string can't.
+            4. Post "@coderabbitai resolve" in same comment (belt + suspenders;
+               the GraphQL mutation in step 3 is what actually clears the dots)
+            5. CONTINUE POLLING — do NOT stop
 
         # CRITICAL: @coderabbitai resolve in issue comments does NOT resolve
         # individual review threads. It only works as a bot command.
-        # When it fails, fall back to dismissing the review via API.
+        # graphql resolveReviewThread (step 3 above) is the authoritative
+        # mechanism. The review-level dismiss in step 2 is a separate axis:
+        # it overrides CHANGES_REQUESTED → COMMENT at the review object.
         stall_recovery:
           description: "CodeRabbit status stuck at 'pending' for >5min"
           action: |
@@ -293,10 +326,19 @@ action_watch:
           action: "Fix + push (Qodo auto-re-reviews on push)"
         illegitimate_rejected:
           action: |
-            Post a reply on the Qodo comment thread:
-              "P{level} finding acknowledged but rejected:
-               [REASON — e.g., this pattern is intentional for performance].
-               Not a regression — consistent with project design."
+            1. Post a reply on the Qodo comment thread:
+                 "P{level} finding acknowledged but rejected:
+                  [REASON — e.g., this pattern is intentional for performance].
+                  Not a regression — consistent with project design."
+            2. Resolve the thread at the thread level (v1.5 patch):
+               gh api graphql -F threadId="$qodo_thread_id" -f query='
+                 mutation Resolve($threadId: ID!) {
+                   resolveReviewThread(input: {threadId: $threadId}) {
+                     thread { id isResolved }
+                   }
+                 }' || true
+               # Same rationale as CodeRabbit — Qodo threads also need
+               # explicit resolve to clear the red dots.
 
       human:
         action: "NEVER auto-handle. Display to user and wait."
