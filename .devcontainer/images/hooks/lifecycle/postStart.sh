@@ -1513,6 +1513,23 @@ step_sync_features() {
     local ws="${WORKSPACE_FOLDER:-/workspace}"
     local marker="$ws/.devcontainer/.template-version"
 
+    # Self-exclusion (primary): origin URL match — robust, no committed marker
+    # required. Covers the template repo itself (which does not ship
+    # .devcontainer/.template-version in its tree) and org-level forks that
+    # mirror the origin path expecting template-repo semantics. See #367.
+    # Placed BEFORE the embedded-dir existence check so it fires even when
+    # the image lacks /etc/devcontainer-template/ (e.g. CI test environments).
+    if [ -d "$ws/.git" ] && command -v git >/dev/null 2>&1; then
+        local remote_url
+        remote_url=$(git -C "$ws" remote get-url origin 2>/dev/null || true)
+        case "$remote_url" in
+            *kodflow/devcontainer-template*)
+                log_info "Skipping features sync: template repo (origin=$remote_url)"
+                return 0
+                ;;
+        esac
+    fi
+
     if [ ! -d "$src" ]; then
         log_info "No embedded features dir in image, skipping sync"
         return 0
@@ -1523,7 +1540,7 @@ step_sync_features() {
         return 0
     fi
 
-    # Self-exclusion: skip if we ARE the template repo (git HEAD matches marker commit).
+    # Self-exclusion (secondary): skip if we ARE the template repo (git HEAD matches marker commit).
     if [ -f "$marker" ] && command -v jq &>/dev/null; then
         local marker_commit current_commit
         marker_commit=$(jq -r '.commit // empty' "$marker" 2>/dev/null || true)
