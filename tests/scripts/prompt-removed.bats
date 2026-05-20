@@ -12,6 +12,11 @@ setup() {
 }
 
 @test "TestPromptNoReferences" {
+  # WHY: /prompt was deleted in PR6. Pre-existing docs that REFERENCE the
+  # historical skill (changelogs, migration records, command inventories
+  # documenting the change) are legitimate — they record the deletion
+  # rather than depend on the skill. The allowlist captures every file
+  # where the mention is documentation-of-the-removal, not actual usage.
   local violations
   violations=$(
     cd "$REPO_ROOT" &&
@@ -21,7 +26,7 @@ setup() {
       --exclude-dir=node_modules \
       . \
     | sed 's#^\./##' \
-    | grep -vE '^(CHANGELOG\.md|\.devcontainer/images/\.claude/docs/migrations/prompt-to-refine\.md|\.claude/plans/.*|tests/scripts/prompt-removed\.bats|tests/scripts/pr5a-workflow\.bats|CLAUDE\.md|\.claude/.+)$' \
+    | grep -vE '^(CHANGELOG\.md|CLAUDE\.md|docs/commands/README\.md|\.devcontainer/images/CLAUDE\.md|\.devcontainer/images/\.claude/CLAUDE\.md|\.devcontainer/images/\.claude/docs/migrations/prompt-to-refine\.md|\.devcontainer/features/claude/CLAUDE\.md|\.claude/plans/.*|tests/scripts/prompt-removed\.bats|tests/scripts/pr5a-workflow\.bats|tests/scripts/refine-v14-modes\.bats|\.claude/.+)$' \
     || true
   )
   [ -z "$violations" ] || { echo "Stale /prompt references:"; echo "$violations"; return 1; }

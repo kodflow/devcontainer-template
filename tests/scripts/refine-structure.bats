@@ -46,8 +46,9 @@ setup() {
 }
 
 @test "TestRefineDirectiveBudgetDeclared" {
-  grep -q '4096' "$REFINE_DIR/render.md"
-  grep -q '2000' "$REFINE_DIR/synthesis.md"
+  # v1.5: uniform 4000-char target (no more dual 4096/2000 split).
+  grep -q '4000' "$REFINE_DIR/render.md"
+  grep -q 'target = 4000' "$REFINE_DIR/synthesis.md"
 }
 
 @test "TestRefineEmitsGoalStateUpdate" {

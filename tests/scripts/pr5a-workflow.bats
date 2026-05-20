@@ -20,8 +20,11 @@ setup() {
 }
 
 @test "TestPromptHasDeprecationBanner" {
-  grep -q 'DEPRECATED' "$PROMPT_MD"
-  grep -q 'PR5a' "$PROMPT_MD"
+  # PR6 deleted prompt.md outright. The deprecation banner was a PR5a
+  # transition step that PR6 made obsolete; the migration doc
+  # (.devcontainer/images/.claude/docs/migrations/prompt-to-refine.md)
+  # is now the canonical historical record.
+  ! [ -e "$PROMPT_MD" ]
 }
 
 @test "TestSkillChainPlanToRefine" {

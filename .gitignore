@@ -137,7 +137,11 @@ out/
 # ============================================
 .github/instructions/codacy.instructions.md
 .codacy/
-plans/
+# Agent-managed planning scratchpad — but NOT test fixtures that happen to live
+# under a directory named "plans/" (e.g. tests/fixtures/refine/plans/*.md).
+# Anchor the ignore to the agent locations so fixtures stay tracked.
+.claude/plans/
+.devcontainer/images/.claude/plans/
 # Defensive: ignore legacy .grepai/ artifacts (removed 2026-04, cleanup_legacy_grepai
 # in postStart.sh deletes them on start, but keep ignored for safety during the
 # migration transition).
