@@ -46,3 +46,40 @@ source_function_from() {
         p && /^\}$/ {exit}
     ' "$file")"
 }
+
+# Build a TEST_TMPDIR-scoped GPG keyring from committed fixtures (tests/fixtures/gpg/).
+# Avoids runtime --quick-generate-key calls that block on CI entropy.
+# Usage: make_test_gpg_keyring with-secret | pub-only | both
+make_test_gpg_keyring() {
+    local mode="${1:-with-secret}"
+    export GNUPGHOME="$TEST_TMPDIR/.gnupg"
+    mkdir -p "$GNUPGHOME"
+    chmod 700 "$GNUPGHOME"
+    local fixtures
+    fixtures="${BATS_TEST_DIRNAME}/../fixtures/gpg"
+    case "$mode" in
+        with-secret)
+            gpg --batch --import "$fixtures/pubkey.asc" >/dev/null 2>&1
+            gpg --batch --import "$fixtures/seckey.asc" >/dev/null 2>&1
+            ;;
+        pub-only)
+            gpg --batch --import "$fixtures/pubkey-only.asc" >/dev/null 2>&1
+            ;;
+        both)
+            gpg --batch --import "$fixtures/pubkey.asc" >/dev/null 2>&1
+            gpg --batch --import "$fixtures/seckey.asc" >/dev/null 2>&1
+            gpg --batch --import "$fixtures/pubkey-only.asc" >/dev/null 2>&1
+            ;;
+    esac
+}
+
+# Print the long key ID of a key whose UID matches the given email pattern.
+# Returns empty string if no match. Usage: gpg_key_id_for "test@example.com"
+gpg_key_id_for() {
+    local uid_pattern="$1"
+    gpg --list-keys --keyid-format LONG 2>/dev/null \
+        | awk -v p="$uid_pattern" '
+            /^pub/ { split($2, a, "/"); kid = a[2] }
+            /^uid/ { if (index($0, p) > 0) { print kid; exit } }
+        '
+}
