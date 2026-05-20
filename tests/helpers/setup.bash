@@ -54,8 +54,12 @@ source_function_from() {
     eval "$definition"
 }
 
-# Build a TEST_TMPDIR-scoped GPG keyring from committed fixtures (tests/fixtures/gpg/).
-# Avoids runtime --quick-generate-key calls that block on CI entropy.
+# Build a TEST_TMPDIR-scoped GPG keyring.
+# - "with-secret"/"both": generates an ed25519 secret-bearing key at runtime
+#   (no committed PGP private key in source control, no CI entropy issues —
+#   ed25519 is generated in <1s on any modern runner).
+# - "pub-only": imports the committed pubkey-only.asc (a static pub key whose
+#   secret half is never generated; the absence-of-secret IS the test scenario).
 # Usage: make_test_gpg_keyring with-secret | pub-only | both
 make_test_gpg_keyring() {
     local mode="${1:-with-secret}"
@@ -66,15 +70,17 @@ make_test_gpg_keyring() {
     fixtures="${BATS_TEST_DIRNAME}/../fixtures/gpg"
     case "$mode" in
         with-secret)
-            gpg --batch --import "$fixtures/pubkey.asc" >/dev/null 2>&1
-            gpg --batch --import "$fixtures/seckey.asc" >/dev/null 2>&1
+            gpg --batch --pinentry-mode loopback --passphrase '' \
+                --quick-generate-key "test-with-secret@example.com" ed25519 default never \
+                >/dev/null 2>&1
             ;;
         pub-only)
             gpg --batch --import "$fixtures/pubkey-only.asc" >/dev/null 2>&1
             ;;
         both)
-            gpg --batch --import "$fixtures/pubkey.asc" >/dev/null 2>&1
-            gpg --batch --import "$fixtures/seckey.asc" >/dev/null 2>&1
+            gpg --batch --pinentry-mode loopback --passphrase '' \
+                --quick-generate-key "test-with-secret@example.com" ed25519 default never \
+                >/dev/null 2>&1
             gpg --batch --import "$fixtures/pubkey-only.asc" >/dev/null 2>&1
             ;;
         *)
