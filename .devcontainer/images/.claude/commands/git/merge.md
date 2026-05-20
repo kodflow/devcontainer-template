@@ -26,11 +26,33 @@ mcp_only_policy:
   FORBIDDEN:
     - "gh pr checks"
     - "gh run view"
+    - "gh pr merge"             # PR1 — Skills Architecture v1.3 (use mcp__github__merge_pull_request)
     - "glab ci status"
     - "glab ci view"
+    - "glab mr merge"           # PR1 — use mcp__gitlab__merge_merge_request when GitLab remote
     - "curl api.github.com"
     - "curl gitlab.com/api"
 ```
+
+### Merge call (PR1 — MCP-only, fix per v1.3 plan §4)
+
+```yaml
+merge_call:
+  github:
+    tool: "mcp__github__merge_pull_request"
+    args:
+      owner: "<from remote>"
+      repo: "<from remote>"
+      pullNumber: "<resolved>"
+      merge_method: "squash"     # or merge / rebase per project policy
+    on_failure: "raise — do NOT silently fall back to gh pr merge"
+  gitlab:
+    tool: "mcp__gitlab__merge_merge_request"
+    on_failure: "raise — no glab fallback"
+```
+
+On `PushNotification` primitive `present` (per PR0 probe), emit one
+`Merged <repo>#<pr> via <merge_method>` notification post-merge.
 
 ---
 

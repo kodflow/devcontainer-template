@@ -208,3 +208,28 @@ task_pattern:
 /do "Improve performance"
 → No benchmark metric defined
 ```
+
+---
+
+## Terminal-state notification (PR5b — Skills Architecture v1.3)
+
+When the loop reaches a terminal state, emit one `PushNotification` so
+the user gets a desktop/mobile signal even if they walked away. Gated
+by PR0's primitives.json — `absent` → fall back to stderr `[BELL]`.
+
+```yaml
+terminal_notify:
+  trigger_states:
+    - "success: all sub-objectives met"
+    - "abort: 3-fix escalation triggered"
+    - "max_iterations reached without success"
+
+  primitive:
+    PushNotification(
+      message: "/do <slug> {{state}} after {{N}} iterations ({{duration}}s)",
+      status: proactive
+    )
+
+  fallback_when_absent: |
+    echo "[BELL] /do <slug> {{state}}" >&2
+```

@@ -13,9 +13,32 @@ action_watch:
   # ─── ABSOLUTE RULE: NEVER STOP ─────────────────────────────
   # --watch runs in an infinite loop until ALL conditions are green.
   # Do NOT present "options" to the user. Do NOT suggest they retry.
-  # Do NOT stop because of stalls. Keep polling with sleep(60).
   # The ONLY exit is: all green OR Ctrl+C.
   # ────────────────────────────────────────────────────────────
+
+  # ─── PR5b — Skills Architecture v1.3: Monitor primitive ──────
+  # When the Monitor primitive is `present` per PR0's primitives.json,
+  # prefer event-driven streaming over polling. Polling sleep(60) is the
+  # documented fallback when Monitor is `absent` or `unknown`.
+  #
+  # Monitor invocation:
+  #   Monitor(
+  #     description: "PR #{{number}} CI status",
+  #     timeout_ms: 1800000,                # 30 min, restart if needed
+  #     command: |
+  #       prev=""
+  #       while true; do
+  #         cur=$(gh pr checks {{number}} --json name,bucket 2>/dev/null \
+  #               || gh api repos/{{owner}}/{{repo}}/commits/{{sha}}/check-runs --jq .check_runs)
+  #         comm -13 <(echo "$prev") <(echo "$cur")
+  #         prev=$cur
+  #         jq -e 'all(.bucket!="pending")' <<<"$cur" >/dev/null && break
+  #         sleep 30
+  #       done
+  #   )
+  #
+  # Each new check transition emits one notification — no polling loop in
+  # the agent's transcript, no 60s blind sleeps.
 
   # ─── Phase 1.0: Resolve PR/MR ───────────────────────────────
   phase_1_resolve:

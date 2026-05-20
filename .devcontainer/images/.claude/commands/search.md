@@ -274,3 +274,17 @@ local_first_rule:
 → Coverage: kubernetes.io, docs.docker.com, cloud.google.com
 → Strict validation 3+ sources
 ```
+
+---
+
+## Canonical workflow footer (PR5a — Skills Architecture v1.3)
+
+```
+/search <query> → /plan → /refine → /goal
+```
+
+When implementation intent is detected (keywords in
+`search/generate.md` Phase 9.5), `/search` chains into `/plan` via
+`Skill(skill="plan", args="--context <slug>")`. From there
+`/plan --goal` continues into `/refine` (PR5a). The legacy
+`→ EnterPlanMode` footer is removed.
