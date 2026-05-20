@@ -197,6 +197,19 @@ emit_entry() {
     }'
 }
 
+# WHY: emit_entry runs inside $(…). `exit 30` from a subshell only kills
+# the subshell — the parent script keeps going with $?=30 but never sees
+# it. We re-check $? after every call site and propagate the failure
+# explicitly. Without this, the test
+# TestRouterRejectsExpandedAgentWithoutFrontmatter never reaches the
+# expected exit code (CI failure on PR #370).
+propagate_emit_failure() {
+  local rc=$1
+  if [[ $rc -ge 20 ]]; then
+    exit "$rc"
+  fi
+}
+
 if [[ "$fanout" = "true" ]]; then
   # Emit all top-tier rules; expand templates if present
   while IFS= read -r rule; do
@@ -209,11 +222,13 @@ if [[ "$fanout" = "true" ]]; then
         [[ -z "$v" || "$v" = "null" ]] && continue
         agent=$(echo "$template" | sed -e "s/{language}/$v/" -e "s/{aspect}/$v/" -e "s/{framework}/$v/" -e "s/{cloud}/$v/")
         entry=$(emit_entry "$rule" "$agent" "true")
+        propagate_emit_failure $?
         entries=$(echo "$entries" | jq --argjson e "$entry" '. + [$e]')
       done
     else
       agent=$(echo "$rule" | jq -r '.agent')
       entry=$(emit_entry "$rule" "$agent" "false")
+      propagate_emit_failure $?
       entries=$(echo "$entries" | jq --argjson e "$entry" '. + [$e]')
     fi
   done < <(echo "$top_rules" | jq -c '.[]')
@@ -222,6 +237,7 @@ else
   rule=$(echo "$top_rules" | jq -c '.[0]')
   agent=$(echo "$rule" | jq -r '.agent')
   entry=$(emit_entry "$rule" "$agent" "false")
+  propagate_emit_failure $?
   entries=$(echo "$entries" | jq --argjson e "$entry" '. + [$e]')
 fi
 
