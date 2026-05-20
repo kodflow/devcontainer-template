@@ -61,10 +61,20 @@ def build_manifest(
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         files[rel] = f"sha256:{digest}"
 
-    if prev_manifest:
-        prev_files = prev_manifest.get("files", {}) or {}
-        prev_history = prev_manifest.get("previous_hashes", {}) or {}
+    # Defensive shape validation: a malformed prev_manifest (e.g. a top-level
+    # list instead of an object) would raise AttributeError on .get(). Treat
+    # any non-dict as empty so build_manifest stays a graceful degradation
+    # path rather than a CI-breaking crash. CodeRabbit #368.
+    if isinstance(prev_manifest, dict):
+        prev_files = prev_manifest.get("files", {})
+        prev_history = prev_manifest.get("previous_hashes", {})
+        if not isinstance(prev_files, dict):
+            prev_files = {}
+        if not isinstance(prev_history, dict):
+            prev_history = {}
         for rel, prev_current_hash in prev_files.items():
+            if not isinstance(prev_current_hash, str):
+                continue
             current_hash = files.get(rel)
             # If the file is unchanged this generation, there's no need to
             # accumulate history — the current hash already covers it.
@@ -72,6 +82,8 @@ def build_manifest(
                 continue
             history: list[str] = [prev_current_hash]
             for older in prev_history.get(rel, []) or []:
+                if not isinstance(older, str):
+                    continue
                 if older != current_hash and older not in history:
                     history.append(older)
             previous_hashes[rel] = history[:PREV_HISTORY_CAP]

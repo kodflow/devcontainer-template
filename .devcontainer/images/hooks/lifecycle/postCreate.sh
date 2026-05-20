@@ -153,6 +153,10 @@ step_gpg_signing() {
     local gnupghome="${GNUPGHOME:-/home/vscode/.gnupg}"
 
     if [ ! -d "$gnupghome" ] || ! gpg --list-keys 2>/dev/null | grep -q '^pub'; then
+        # Clear any stale signing flags from a previous run so git doesn't
+        # attempt to sign against a key that no longer exists. CodeRabbit #368.
+        git config --global --unset commit.gpgsign 2>/dev/null || true
+        git config --global --unset tag.forceSignAnnotated 2>/dev/null || true
         log_info "No GPG keys available - commit signing disabled"
         return 0
     fi
@@ -187,6 +191,10 @@ step_gpg_signing() {
             fi
             return 0
         fi
+        # Clear stale signing flags before warning — otherwise git keeps
+        # trying to sign against the missing key on every commit. CodeRabbit #368.
+        git config --global --unset commit.gpgsign 2>/dev/null || true
+        git config --global --unset tag.forceSignAnnotated 2>/dev/null || true
         log_warning "Declared signing key $intent_key not in keystore — import the pubkey or 'git config --global --unset user.signingkey'"
         return 0
     fi

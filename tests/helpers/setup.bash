@@ -39,12 +39,19 @@ set_env_file() {
 # (init_steps, set -u, …) that bats setup() cannot tolerate.
 # Usage: source_function_from "$path_to_sh" "function_name"
 source_function_from() {
-    local file="$1" func="$2"
-    eval "$(awk -v f="$func" '
+    local file="$1" func="$2" definition
+    definition=$(awk -v f="$func" '
         $0 ~ "^"f"\\(\\) \\{" {p=1}
         p {print}
         p && /^\}$/ {exit}
-    ' "$file")"
+    ' "$file") || return 1
+    # Fail loudly on a missing helper import — silent eval "" turns a config
+    # mistake into a hard-to-diagnose test failure later. CodeRabbit #368.
+    if [ -z "$definition" ]; then
+        echo "source_function_from: function '$func' not found in $file" >&2
+        return 1
+    fi
+    eval "$definition"
 }
 
 # Build a TEST_TMPDIR-scoped GPG keyring from committed fixtures (tests/fixtures/gpg/).
@@ -69,6 +76,12 @@ make_test_gpg_keyring() {
             gpg --batch --import "$fixtures/pubkey.asc" >/dev/null 2>&1
             gpg --batch --import "$fixtures/seckey.asc" >/dev/null 2>&1
             gpg --batch --import "$fixtures/pubkey-only.asc" >/dev/null 2>&1
+            ;;
+        *)
+            # Fail fast on typo'd modes — silent empty-keyring runs make
+            # the resulting test failures hard to attribute. CodeRabbit #368.
+            echo "make_test_gpg_keyring: unknown mode '$mode' (expected with-secret|pub-only|both)" >&2
+            return 1
             ;;
     esac
 }

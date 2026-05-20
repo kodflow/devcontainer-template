@@ -47,7 +47,17 @@ teardown() {
     # commit.gpgsign must NOT be set
     run git config --global commit.gpgsign
     [ "$status" -ne 0 ]
-    # And the message should mention "pub only"
+}
+
+@test "#366 mode 1: pub-only key → log output mentions 'pub only'" {
+    make_test_gpg_keyring pub-only
+    local key_id
+    key_id=$(gpg_key_id_for "test-pub-only@example.com")
+    [ -n "$key_id" ]
+    set_env_file "GPG_SIGNINGKEY=$key_id"
+    run step_gpg_signing
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"pub only"* ]]
 }
 
 @test "#366 mode 2: pre-configured user.signingkey + secret → commit.gpgsign=true" {
