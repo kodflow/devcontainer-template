@@ -27,7 +27,17 @@ NC='\033[0m' # No Color
 
 # Initialise empty so ${#DETECTED_LANGUAGES[@]} / ${!DETECTED_LANGUAGES[@]} are
 # bound under `set -u` even when detect_languages finds no markers (#363).
-declare -A DETECTED_LANGUAGES=()
+#
+# WHY two statements instead of `declare -A X=()`: kcov v43 instruments the
+# script with DEBUG traps that briefly desynchronise the variable's
+# associative-flag state from its value-initialisation when both happen on
+# the same statement. Symptom in CI: the test passes under raw bats but
+# fails under `Collect coverage` because `${#DETECTED_LANGUAGES[@]}` trips
+# set -u as if the array were unbound. Splitting the declaration from the
+# assignment makes each step a separate trap point and kcov sees a fully
+# bound array before the empty-init runs.
+declare -A DETECTED_LANGUAGES
+DETECTED_LANGUAGES=()
 
 detect_languages() {
     local workspace="${1:-/workspace}"
