@@ -97,6 +97,45 @@ step_git_ssl_config() {
     fi
 }
 
+# Propagate $ENV_FILE (default /workspace/.env) GIT_USER / GIT_EMAIL into
+# git config global. Without this step, the bind-mounted ~/.gitconfig
+# retains the stale personal email from a previous machine; step_gpg_signing
+# only reads GIT_EMAIL for GPG key lookup, leaving the committer field
+# to leak the wrong identity (#365).
+#
+# ENV_FILE env-var indirection makes the step bats-testable.
+# Idempotent: only writes git config when the value differs.
+step_git_identity() {
+    local env_file="${ENV_FILE:-/workspace/.env}"
+    if [ ! -f "$env_file" ]; then
+        log_info "No $env_file — skipping git identity propagation"
+        return 0
+    fi
+
+    local declared_user declared_email current_user current_email
+    declared_user=$(grep -E '^[[:space:]]*(export[[:space:]]+)?GIT_USER=' "$env_file" 2>/dev/null \
+        | head -1 | sed -E 's/^[[:space:]]*(export[[:space:]]+)?GIT_USER=//; s/^"//; s/"$//' || true)
+    declared_email=$(grep -E '^[[:space:]]*(export[[:space:]]+)?GIT_EMAIL=' "$env_file" 2>/dev/null \
+        | head -1 | sed -E 's/^[[:space:]]*(export[[:space:]]+)?GIT_EMAIL=//; s/^"//; s/"$//' || true)
+
+    if [ -z "$declared_user" ] && [ -z "$declared_email" ]; then
+        log_info "No GIT_USER / GIT_EMAIL in $env_file — keeping current git config"
+        return 0
+    fi
+
+    current_user=$(git config --global user.name 2>/dev/null || true)
+    current_email=$(git config --global user.email 2>/dev/null || true)
+
+    if [ -n "$declared_user" ] && [ "$current_user" != "$declared_user" ]; then
+        git config --global user.name "$declared_user"
+        log_success "Git user.name set from $env_file: $declared_user"
+    fi
+    if [ -n "$declared_email" ] && [ "$current_email" != "$declared_email" ]; then
+        git config --global user.email "$declared_email"
+        log_success "Git user.email set from $env_file: $declared_email"
+    fi
+}
+
 # GPG commit signing configuration
 step_gpg_signing() {
     if [ ! -d "/home/vscode/.gnupg" ] || ! gpg --list-secret-keys --keyid-format LONG 2>/dev/null | grep -q "^sec"; then
@@ -423,6 +462,7 @@ step_mark_initialized() {
 run_step "Git safe directory"    step_git_safe_directory
 run_step "Git global gitignore"  step_git_global_ignore
 run_step "Git SSL configuration" step_git_ssl_config
+run_step "Git identity"          step_git_identity
 run_step "GPG signing"           step_gpg_signing
 run_step "Git hooks path"        step_git_hooks_path
 
