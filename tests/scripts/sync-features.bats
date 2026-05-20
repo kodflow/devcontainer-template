@@ -80,7 +80,7 @@ seed_baseline() {
     [ "$status" -eq 0 ]
     grep -q "consumer-committed" "$DST/alpha.md"
     [[ "$output" == *"1 preserved"* ]]
-    [[ "$output" == *"sha256 differs"* ]]
+    [[ "$output" == *"divergent from upstream"* ]]
 }
 
 # --- T4: consumer-added file is left alone ---
@@ -182,4 +182,50 @@ seed_baseline() {
     [[ "$output" == *"0 copied"* ]]
     [[ "$output" == *"1 unchanged"* ]]
     [[ "$output" == *"0 preserved"* ]]
+}
+
+# --- T11: stale-but-clean (#367): previous_hashes match → fast-forward, silent ---
+@test "T11 stale-but-clean: previous_hashes match → fast-forward, silent" {
+    echo "alpha-v1" > "$SRC/alpha.md"
+    seed_baseline                       # baseline: SRC=alpha-v1, manifest v2 (empty previous_hashes)
+
+    # Consumer commits the v1 content (no edit, just lagging behind)
+    git -C "$WS" add . && git -C "$WS" commit -qm "consumer baseline" 2>/dev/null || true
+
+    # Upstream pushes a different version; rebuild manifest with --prev-manifest
+    echo "alpha-v2" > "$SRC/alpha.md"
+    python3 "$BUILDER" "$SRC" "test-v2" "2026-05-20T00:00:00Z" \
+        --prev-manifest "$MAN" > "${MAN}.new"
+    mv "${MAN}.new" "$MAN"
+
+    run sync_features_tree "$SRC" "$DST" "$WS"
+    [ "$status" -eq 0 ]
+    grep -q "alpha-v2" "$DST/alpha.md"               # fast-forwarded
+    [[ "$output" != *"consumer-modified"* ]]         # legacy wording absent
+    [[ "$output" != *"divergent"* ]]                 # new warning absent (it was clean)
+    [[ "$output" == *"1 fast-forwarded"* ]]          # summary counter
+}
+
+# --- T13: true committed fork (no prior shipped match) → preserved with improved warning ---
+@test "T13 committed fork → preserved with improved warning, no fast-forward" {
+    echo "alpha-v1" > "$SRC/alpha.md"
+    seed_baseline
+
+    # Consumer commits a TRUE fork (content never shipped)
+    echo "consumer-true-fork" > "$DST/alpha.md"
+    git -C "$WS" add . && git -C "$WS" commit -qm "consumer fork" 2>/dev/null || true
+
+    # Upstream pushes again; manifest knows alpha-v1 as previous, NOT the fork
+    echo "alpha-v2" > "$SRC/alpha.md"
+    python3 "$BUILDER" "$SRC" "test-v2" "2026-05-20T00:00:00Z" \
+        --prev-manifest "$MAN" > "${MAN}.new"
+    mv "${MAN}.new" "$MAN"
+
+    run sync_features_tree "$SRC" "$DST" "$WS"
+    [ "$status" -eq 0 ]
+    grep -q "consumer-true-fork" "$DST/alpha.md"     # preserved
+    [[ "$output" == *"divergent from upstream"* ]]   # new wording
+    [[ "$output" == *"git diff"* ]]                  # actionable hint present
+    [[ "$output" == *"1 preserved"* ]]               # counter
+    [[ "$output" == *"0 fast-forwarded"* ]]          # NOT fast-forwarded
 }

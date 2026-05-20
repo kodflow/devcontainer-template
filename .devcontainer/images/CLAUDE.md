@@ -50,16 +50,26 @@ Claude Code and MCP servers are included; languages added via features.
 Lifecycle hooks called directly from `devcontainer.json` → `/etc/devcontainer-hooks/` (no stubs).
 `.devcontainer/features/` is **3-way merged** from `/etc/devcontainer-template/features/` at every
 `postStart` (step `step_sync_features`, helper `shared/sync-features.sh`). Per-file protection
-(issue #334):
+(issue #334 + #367):
 
 1. byte-identical → noop;
 2. tracked + git-dirty → preserved (`[WARNING]`);
-3. previous shipped sha256 (from `.template-files.json`) matches current dst → safe overwrite;
-4. otherwise → preserved (consumer modified after a previous sync).
+3. previous shipped sha256 (from `.template-files.json::files`) matches current dst → safe overwrite;
+4. dst hash appears in `.template-files.json::previous_hashes[rel]` → fast-forward, silent overwrite (stale-but-clean);
+5. otherwise → preserved with an improved `[WARNING]` pointing at `git diff` (real consumer fork).
 
 `--delete` only removes dst files whose sha256 still matches the previous manifest entry, so
-consumer-added files are never deleted. Template repo self-skips via `.devcontainer/.template-version`
-commit match.
+consumer-added files are never deleted.
+
+Manifest schema v2 (CI-built by `build-features-manifest.py`, see `scripts/`): adds an optional
+`previous_hashes[rel] = [sha256, …]` list capped at 8 generations. The CI workflow
+(`docker-images.yml`) fetches the previous image's manifest via `docker pull + docker cp` and
+passes it as `--prev-manifest` to the builder; failure is non-fatal (one-build degradation,
+self-healing).
+
+Template repo self-skip: see `step_sync_features` in `postStart.sh` — primary path matches
+`origin` URL against `kodflow/devcontainer-template` (#367); legacy `.template-version`
+marker-file path stays as secondary opt-in.
 
 ### Local script overrides (`*.local.sh`)
 

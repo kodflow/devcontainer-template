@@ -77,6 +77,23 @@ Example (`.devcontainer/devcontainer.local.json`):
 Merge logic lives in `images/scripts/merge-devcontainer-json.mjs`, wired from
 `images/.claude/commands/update/apply.md` (`update_devcontainer_json_from_tarball`).
 
+## Features sync semantics (postStart)
+
+`step_sync_features` (helper: `images/hooks/shared/sync-features.sh`) performs a
+per-file 3-way merge from the image into `.devcontainer/features/`. Five outcomes:
+
+- **noop** — byte-identical;
+- **copied** — new file from upstream;
+- **fast-forwarded** — workspace lagged behind image build commit, no manual edit
+  (matched a `previous_hashes` entry from manifest v2); silent overwrite;
+- **preserved** — dirty or true committed fork; emits `[WARNING]` pointing at
+  `git diff -- .devcontainer/features/<path>` for inspection;
+- **removed** — upstream deleted + dst still matches previous manifest entry.
+
+Template repo (origin matches `kodflow/devcontainer-template`) self-excludes — its
+workspace is the canonical source. The legacy `.template-version` marker-file path
+stays as a secondary opt-in.
+
 ## .env propagation into git config
 
 `postCreate.sh::step_git_identity` reconciles `/workspace/.env` with `git config --global`:
