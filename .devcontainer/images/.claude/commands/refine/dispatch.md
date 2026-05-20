@@ -1,11 +1,11 @@
-# refine/dispatch.md — Skills Architecture v1.4 (PR3, fix #17)
+# refine/dispatch.md — Skills Architecture v1.5 (PR3, fix #17)
 
-> **v1.4 note:** this phase is FULL-mode only. `--bare` and
+> **v1.5 note:** this phase is FULL-mode only. `--bare` and
 > `--from-contract` skip lens dispatch entirely — they jump straight to
 > the synthesis pipeline (which itself adapts to the mode). The
-> single-source-of-truth budget logic in `synthesis.md` is what BARE and
-> FROM-CONTRACT reuse without reimplementing it.
-
+> single-source-of-truth char-cap logic in `synthesis.md` is what BARE
+> and FROM-CONTRACT reuse without reimplementing it. The char-cap is
+> always 4000; lens depth (4 critical vs all 10) is independent.
 
 ## Lenses (10)
 
@@ -22,7 +22,8 @@
 | `lens-9-scope`        | yes | developer-orchestrator           | medium |
 | `lens-10-goal-detect` | yes | developer-specialist-review      | high   |
 
-LIGHT mode runs only critical lenses (1, 5, 9, 10). FULL mode runs all 10.
+Light depth runs only critical lenses (1, 5, 9, 10). Full depth runs all 10.
+Char-cap stays 4000 in both cases.
 
 ## Dispatch sequence
 

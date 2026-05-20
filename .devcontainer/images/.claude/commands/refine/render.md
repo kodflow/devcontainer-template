@@ -1,4 +1,4 @@
-# refine/render.md — Skills Architecture v1.4 (PR3 + v1.4 modes)
+# refine/render.md — Skills Architecture v1.5
 
 ## FULL contract template (`.claude/goals/<slug>.md`)
 
@@ -7,7 +7,8 @@
 slug: <slug>
 plan: .claude/plans/<slug>.md
 context: .claude/contexts/<slug>.md
-mode: LIGHT|FULL
+mode: FULL
+lens_depth: light|full
 generated_at: <ISO8601>
 ---
 
@@ -70,7 +71,10 @@ The BARE contract is intentionally lean — no proof triplets, no
 rollback. The user is told this explicitly via the "Out of scope"
 section so they don't expect lens-level guarantees.
 
-## Runtime directive templates (compact)
+## Runtime directive templates
+
+The directive always targets **4000 chars**. Natural output may be
+shorter; never longer.
 
 ### FULL mode
 
@@ -91,9 +95,6 @@ Constraints: <HOW one-liner>. Done when: <DONE one-liner>."
 
 Re-derives the FULL directive shape from the existing contract on disk.
 No new shape; same compact output.
-
-Hard cap: 4096 chars (FULL, FROM-CONTRACT, BARE `--full-budget`).
-LIGHT target: 2000 chars (FULL `--light`, BARE default).
 
 ## Post-render side effects
 
@@ -128,8 +129,8 @@ echo "$DIRECTIVE"
 
 ## Slug derivation (BARE mode)
 
-When the user invokes `/refine --bare "<description>"` without
-`--slug <name>`, derive the slug deterministically:
+When the user invokes `/refine "<description>"` (auto-detected as BARE)
+without `--slug <name>`, derive the slug deterministically:
 
 ```bash
 derive_slug() {

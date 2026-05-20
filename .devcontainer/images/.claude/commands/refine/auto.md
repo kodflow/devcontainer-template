@@ -1,10 +1,9 @@
-# refine/auto.md — Skills Architecture v1.4 (PR3, fix #3, #4, #14, #15)
+# refine/auto.md — Skills Architecture v1.5
 
-> **v1.4 note:** this phase is FULL-mode only. `--bare` and
-> `--from-contract` skip it. BARE defaults to LIGHT budget (≤2000 char);
-> pass `--full-budget` to use the 4096 budget. FROM-CONTRACT always uses
-> the 4096 budget because the contract on disk was the analysis.
-
+> **Scope note**: AUTO mode controls **lens depth only** (4 critical vs
+> all 10). It does NOT control the char-cap — that's always 4000 in
+> every mode. `--bare` and `--from-contract` skip lens analysis
+> entirely, so this phase doesn't apply to them.
 
 ## Decision tree
 
@@ -12,7 +11,7 @@
 # Source the frontmatter helper (handles .md-with-YAML correctly)
 source ~/.claude/scripts/frontmatter.sh
 
-auto_select_mode() {
+auto_select_lens_depth() {
   local plan_path="$1"
 
   # WHY: read frontmatter via helper, never `yq` on the full .md file.
@@ -23,16 +22,16 @@ auto_select_mode() {
   sec=$(frontmatter_get "$plan_path" '.touches_security_surface // "missing"')
   devinf=$(frontmatter_get "$plan_path" '.touches_dev_infra // "missing"')
 
-  # Missing / non-numeric metadata → FULL (safe default per fix #4)
+  # Missing / non-numeric metadata → full lens depth (safe default)
   for field in "$risk" "$pub_api" "$sec" "$devinf"; do
-    [ "$field" = "missing" ] && { echo "FULL"; return; }
+    [ "$field" = "missing" ] && { echo "full"; return; }
   done
   case "$loc" in
-    ''|*[!0-9]*) echo "FULL"; return ;;
+    ''|*[!0-9]*) echo "full"; return ;;
   esac
 
-  # LIGHT criteria: ALL must hold
-  #   loc_estimate_max ≤ 500  (500 = LIGHT, 501 = FULL)
+  # Light criteria (4 critical lenses): ALL must hold
+  #   loc_estimate_max ≤ 500
   #   risk ∈ {low, medium}
   #   touches_public_api == false
   #   touches_security_surface == false
@@ -42,20 +41,22 @@ auto_select_mode() {
      && [ "$pub_api" = "false" ] \
      && [ "$sec" = "false" ] \
      && [ "$devinf" = "false" ]; then
-    echo "LIGHT"
+    echo "light"
   else
-    echo "FULL"
+    echo "full"
   fi
 }
 ```
 
 ## Boundaries (locked by tests)
 
-| `loc_estimate_max` | `risk` | `touches_*` | Mode |
+| `loc_estimate_max` | `risk` | `touches_*` | Lens depth |
 |---|---|---|---|
-| `≤ 500` | `low`/`medium` | all `false` | **LIGHT** |
-| `501+` | any | any | **FULL** |
-| any | `high`/`critical` | any | **FULL** |
-| any | any | any `true` | **FULL** |
-| missing | any | any | **FULL** |
-| non-numeric | any | any | **FULL** |
+| `≤ 500` | `low`/`medium` | all `false` | **light** (4 critical lenses) |
+| `501+` | any | any | **full** (all 10 lenses) |
+| any | `high`/`critical` | any | **full** |
+| any | any | any `true` | **full** |
+| missing | any | any | **full** |
+| non-numeric | any | any | **full** |
+
+The directive char-cap is **4000 in every row** — see `synthesis.md`.

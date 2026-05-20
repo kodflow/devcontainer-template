@@ -2,27 +2,38 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased] — Skills Architecture v1.4 (2026-05-20)
+## [Unreleased] — Skills Architecture v1.5 (2026-05-20)
+
+### Changed — v1.5 patch on top of v1.4
+
+- `/refine` directive char-cap is now **uniformly 4000 chars** (the
+  actual `/goal` tool limit, not 4096 — corrected from v1.4).
+- The cap is a **target**, not a floor: natural output may be shorter
+  when content warrants it; the skill never pads to hit 4000.
+- Dual budget removed (no more LIGHT 2000 / FULL 4096 split). LIGHT vs
+  FULL now affects only **lens depth** (4 critical vs all 10), never
+  char-cap.
+- `/refine` now **auto-detects mode** from argument shape + disk state.
+  Explicit `--bare` / `--from-contract` flags become **overrides** for
+  edge cases, not the primary entry point:
+  - `/refine "free-form text"` → auto BARE (arg has spaces)
+  - `/refine my-slug` (with plan+context on disk) → auto FULL
+  - `/refine my-slug` (only goal on disk) → auto FROM-CONTRACT
+  - `/refine inexistant-slug` → BARE (slug treated as description)
+- `--lenses light|full` replaces `--light` / `--full` for FULL mode
+  lens-depth override.
+
+## [Unreleased] — Skills Architecture v1.4 (2026-05-20) — superseded by v1.5
 
 ### Changed — v1.4 patch on top of v1.3
 
-- `/refine` gains three input modes via flags (single skill, three
-  entry points — no skill split, no resurrection of `/prompt`):
-  - default `<slug>` mode — unchanged FULL behaviour (10 lenses)
-  - `--bare "<description>"` — skip lens analysis, structure the
-    description through a WHAT/WHY/WHERE/HOW/DONE template, then run
-    the same budget+compact pipeline. LIGHT budget (≤2000 char) by
-    default; pass `--full-budget` for 4096.
-  - `--from-contract <slug>` — re-compact an existing
-    `.claude/goals/<slug>.md` without re-running the lenses (useful
-    after manual edits). 4096-char budget, contract file never
-    overwritten.
+- `/refine` gains three input modes (initial design used explicit
+  `--bare` / `--from-contract` flags; v1.5 supersedes with auto-detection).
 - Budget logic moves to single source of truth in
   `refine/synthesis.md`; BARE and FROM-CONTRACT reuse the same
-  budget/compact steps as FULL.
-- `--bare` answers the "standalone /goal" use case without bringing
-  back the deprecated `/prompt` skill — the migration doc remains
-  valid.
+  compact step as FULL.
+- The "standalone /goal" use case ships without bringing back the
+  deprecated `/prompt` skill — the migration doc remains valid.
 
 ## [Unreleased] — Skills Architecture v1.3 (2026-05-20)
 

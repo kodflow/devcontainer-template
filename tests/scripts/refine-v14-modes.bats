@@ -1,9 +1,10 @@
 #!/usr/bin/env bats
-# refine-v14-modes.bats — Skills Architecture v1.4
-# WHY: lock the 3-mode contract (FULL / BARE / FROM-CONTRACT) so a
-# future refactor can't silently re-couple the budget logic to a single
-# input shape. The free-form-to-/goal path is the one users will reach
-# for most often; it MUST keep working without a plan + context pair.
+# refine-v14-modes.bats — Skills Architecture v1.5
+# WHY: lock the 3-mode contract (FULL / BARE / FROM-CONTRACT) plus the
+# uniform 4000-char target and auto-detection from disk state. The
+# free-form-to-/goal path is the one users will reach for most often;
+# it MUST keep working without a plan + context pair and without an
+# explicit --bare flag.
 
 setup() {
   REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/../.." && pwd)"
@@ -15,6 +16,8 @@ setup() {
   DISPATCH="$REFINE_DIR/dispatch.md"
 }
 
+# -- Mode declaration -----------------------------------------------------
+
 @test "TestRefineDeclaresThreeModes" {
   grep -q 'FULL' "$REFINE_MD"
   grep -q '\-\-bare' "$REFINE_MD"
@@ -22,31 +25,70 @@ setup() {
 }
 
 @test "TestRefineBareFlagInArgumentsTable" {
-  grep -qE '`--bare "<description>"`' "$REFINE_MD"
+  grep -q '`--bare`' "$REFINE_MD"
 }
 
 @test "TestRefineFromContractFlagInArgumentsTable" {
   grep -qE '`--from-contract <slug>`' "$REFINE_MD"
 }
 
-@test "TestRefineBareDefaultsToLightBudget" {
-  # BARE default budget is 2000; --full-budget overrides
-  grep -q '2000 chars by default' "$SYNTH"
-  grep -q '\-\-full-budget' "$REFINE_MD"
+# -- Single 4000-char target ----------------------------------------------
+
+@test "TestRefineTargets4000Always" {
+  # Single rule, all modes
+  grep -q 'targets 4000 chars' "$REFINE_MD"
+  grep -q 'target = 4000 chars' "$SYNTH"
 }
 
-@test "TestRefineFromContractUses4096Budget" {
-  grep -q 'FROM-CONTRACT: 4096' "$SYNTH"
+@test "TestRefineNoDualBudget" {
+  # No leftover LIGHT-budget split (would be a v1.4 regression)
+  ! grep -E 'LIGHT.*2000|2000.*LIGHT|--full-budget' "$REFINE_MD"
+  ! grep -E '2000 chars by default|4096' "$SYNTH"
+  ! grep -E '4096' "$RENDER"
+  ! grep -E '4096' "$AUTO_MD"
+  ! grep -E '4096' "$DISPATCH"
 }
 
-@test "TestRefineFromContractNeverOverwritesInput" {
-  grep -q 'never overwritten' "$RENDER"
-  grep -q 'contract_written.*false' "$SYNTH"
+@test "TestRefineSchemaUses4000Target" {
+  grep -q '"directive_char_target": 4000' "$SYNTH"
+  grep -q '"directive": "<≤4000 chars>"' "$SYNTH"
 }
+
+@test "TestRefineAllowsShorterOutput" {
+  # WHY: 4000 is the target ceiling, not a floor — natural shorter is fine
+  grep -q 'never pads to hit 4000' "$SYNTH"
+  grep -q 'natural output may be shorter' "$SYNTH" \
+    || grep -q 'Natural output may be shorter' "$RENDER" \
+    || grep -q 'output may be shorter' "$REFINE_MD"
+}
+
+# -- Auto-detection -------------------------------------------------------
+
+@test "TestRefineAutoDetectsBareFromSpaces" {
+  grep -q 'contains spaces' "$REFINE_MD"
+  grep -q 'BARE (free-form description)' "$REFINE_MD"
+}
+
+@test "TestRefineAutoDetectsFullFromExistingFiles" {
+  grep -q 'plans/<arg>.md + contexts/<arg>.md both exist' "$REFINE_MD"
+  grep -qE '→ +FULL' "$REFINE_MD"
+}
+
+@test "TestRefineAutoDetectsFromContractWhenOnlyGoalExists" {
+  grep -q 'goals/<arg>.md exists, no plan/context' "$REFINE_MD"
+  grep -qE '→ +FROM-CONTRACT' "$REFINE_MD"
+}
+
+@test "TestRefineFlagsAreOverridesNotPrimary" {
+  grep -q 'Explicit overrides for the edge cases' "$REFINE_MD"
+  grep -q 'override the default detection' "$REFINE_MD"
+}
+
+# -- BARE pipeline --------------------------------------------------------
 
 @test "TestRefineBareSkipsLensDispatch" {
-  grep -q 'BARE.*skip' "$DISPATCH"
-  grep -q 'no proof triplets' "$REFINE_MD"
+  grep -q 'BARE.*skip\|skip.*BARE' "$DISPATCH"
+  grep -q 'no proof triplets' "$RENDER"
 }
 
 @test "TestRefineBareAppliesWhatWhyWhereHowDoneTemplate" {
@@ -63,15 +105,21 @@ setup() {
   grep -q 'mode: BARE' "$RENDER"
 }
 
-@test "TestRefineAutoMdNotesBareSkipsIt" {
-  grep -q 'FULL-mode only' "$AUTO_MD"
-  grep -q '\-\-bare' "$AUTO_MD"
+# -- FROM-CONTRACT pipeline -----------------------------------------------
+
+@test "TestRefineFromContractNeverOverwritesInput" {
+  grep -q 'never overwritten' "$RENDER"
+  grep -q 'contract_written.*false' "$SYNTH"
 }
 
-@test "TestRefineBareWorkflowAnswersStandaloneGoalQuestion" {
-  # The whole point of --bare per the user's question: skip /plan + /search
-  grep -q 'without going through /search and /plan' "$REFINE_MD"
+# -- AUTO lens depth (independent of char-cap) ----------------------------
+
+@test "TestRefineAutoControlsOnlyLensDepth" {
+  grep -q 'AUTO mode controls .*lens depth only' "$AUTO_MD"
+  grep -q 'does NOT control the char-cap' "$AUTO_MD"
 }
+
+# -- Slug derivation ------------------------------------------------------
 
 @test "TestRefineBareDerivesSlugDeterministically" {
   grep -q 'derive_slug' "$RENDER"
@@ -82,14 +130,22 @@ setup() {
   grep -qE '`--slug <name>`' "$REFINE_MD"
 }
 
+# -- Synthesis pipeline integrity -----------------------------------------
+
 @test "TestRefineSynthesisPipelineDiffersPerMode" {
-  # Single source of truth lives in synthesis.md; the per-mode pipeline
-  # rows must be present so future refactors can't drop one.
-  grep -q 'collect → dedup → rank → budget → render → compact' "$SYNTH"
-  grep -q 'template → budget → render → compact' "$SYNTH"
-  grep -q 'read → extract → budget → render → compact' "$SYNTH"
+  grep -q 'collect → dedup → rank → render → compact-to-4000' "$SYNTH"
+  grep -q 'template → render → compact-to-4000' "$SYNTH"
+  grep -q 'read → extract → render → compact-to-4000' "$SYNTH"
 }
 
-@test "TestRefineModeEnumExtendedInOutputSchema" {
-  grep -q 'FULL_LIGHT|FULL|BARE|FROM_CONTRACT' "$SYNTH"
+@test "TestRefineModeEnumInOutputSchema" {
+  grep -q 'FULL|BARE|FROM_CONTRACT' "$SYNTH"
+}
+
+# -- Workflow narrative ---------------------------------------------------
+
+@test "TestRefineQuickWorkflowSkipsPlanAndSearch" {
+  # The whole point of auto-BARE per the user's question
+  grep -q '/refine "fix race in worker.go pool init"' "$REFINE_MD"
+  grep -q 'No explicit mode flag needed' "$REFINE_MD"
 }
