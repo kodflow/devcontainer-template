@@ -81,7 +81,14 @@ def build_manifest(
             if current_hash == prev_current_hash:
                 continue
             history: list[str] = [prev_current_hash]
-            for older in prev_history.get(rel, []) or []:
+            # Validate prev_history[rel] is a list before iterating — a stray
+            # string would otherwise expand to its characters via `for ... in`.
+            # Symmetric with the prev_manifest/prev_files/prev_history shape
+            # checks above. CodeRabbit #368 round 2.
+            older_list = prev_history.get(rel, [])
+            if not isinstance(older_list, list):
+                older_list = []
+            for older in older_list:
                 if not isinstance(older, str):
                     continue
                 if older != current_hash and older not in history:
