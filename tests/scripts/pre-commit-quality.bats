@@ -99,3 +99,15 @@ EOF
     [ "$status" -eq 0 ]
     [ "$output" = "$TEST_TMPDIR/.golangci.toml" ]
 }
+
+# --- Issue #363: detect_languages bind-safety under set -u ---
+@test "issue #363: detect_languages with no markers does not abort under set -u" {
+    local empty_dir="$TEST_TMPDIR/empty-repo"
+    mkdir -p "$empty_dir"
+    run bash -c "set -euo pipefail
+        source '${BATS_TEST_DIRNAME}/../../.devcontainer/images/.claude/scripts/pre-commit-checks.sh'
+        detect_languages '$empty_dir'
+        echo \"count=\${#DETECTED_LANGUAGES[@]}\""
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"count=0"* ]]
+}

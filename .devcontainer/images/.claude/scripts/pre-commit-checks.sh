@@ -25,7 +25,9 @@ NC='\033[0m' # No Color
 # Language Detection
 # ============================================================================
 
-declare -A DETECTED_LANGUAGES
+# Initialise empty so ${#DETECTED_LANGUAGES[@]} / ${!DETECTED_LANGUAGES[@]} are
+# bound under `set -u` even when detect_languages finds no markers (#363).
+declare -A DETECTED_LANGUAGES=()
 
 detect_languages() {
     local workspace="${1:-/workspace}"

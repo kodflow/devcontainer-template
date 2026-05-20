@@ -133,3 +133,22 @@ Co-Authored-By: Claude <noreply@anthropic.com>'"
     run bash -c 'echo "$1" | bash "$2"' -- "$json" "$SCRIPT"
     [ "$status" -eq 0 ]
 }
+
+# --- Issue #364: workflow-internal leak patterns ---
+
+@test "#364: blocks 'Plan:' footer referencing .claude path" {
+    run_guard "Bash" "git commit -m 'docs: update
+
+Plan: .claude/plans/foo.md'"
+    [ "$status" -eq 2 ]
+}
+
+@test "#364: blocks bare .claude/ path reference" {
+    run_guard "Bash" "git commit -m 'fix: see .claude/contexts/foo.md'"
+    [ "$status" -eq 2 ]
+}
+
+@test "#364: 'plan ahead' in body is NOT blocked (anchoring intact)" {
+    run_guard "Bash" "git commit -m 'docs: plan ahead for v2 release'"
+    [ "$status" -eq 0 ]
+}
