@@ -1,4 +1,10 @@
-# refine/auto.md — Skills Architecture v1.3 (PR3, fix #3, #4, #14, #15)
+# refine/auto.md — Skills Architecture v1.4 (PR3, fix #3, #4, #14, #15)
+
+> **v1.4 note:** this phase is FULL-mode only. `--bare` and
+> `--from-contract` skip it. BARE defaults to LIGHT budget (≤2000 char);
+> pass `--full-budget` to use the 4096 budget. FROM-CONTRACT always uses
+> the 4096 budget because the contract on disk was the analysis.
+
 
 ## Decision tree
 

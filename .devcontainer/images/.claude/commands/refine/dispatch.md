@@ -1,4 +1,11 @@
-# refine/dispatch.md — Skills Architecture v1.3 (PR3, fix #17)
+# refine/dispatch.md — Skills Architecture v1.4 (PR3, fix #17)
+
+> **v1.4 note:** this phase is FULL-mode only. `--bare` and
+> `--from-contract` skip lens dispatch entirely — they jump straight to
+> the synthesis pipeline (which itself adapts to the mode). The
+> single-source-of-truth budget logic in `synthesis.md` is what BARE and
+> FROM-CONTRACT reuse without reimplementing it.
+
 
 ## Lenses (10)
 

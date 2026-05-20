@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased] — Skills Architecture v1.4 (2026-05-20)
+
+### Changed — v1.4 patch on top of v1.3
+
+- `/refine` gains three input modes via flags (single skill, three
+  entry points — no skill split, no resurrection of `/prompt`):
+  - default `<slug>` mode — unchanged FULL behaviour (10 lenses)
+  - `--bare "<description>"` — skip lens analysis, structure the
+    description through a WHAT/WHY/WHERE/HOW/DONE template, then run
+    the same budget+compact pipeline. LIGHT budget (≤2000 char) by
+    default; pass `--full-budget` for 4096.
+  - `--from-contract <slug>` — re-compact an existing
+    `.claude/goals/<slug>.md` without re-running the lenses (useful
+    after manual edits). 4096-char budget, contract file never
+    overwritten.
+- Budget logic moves to single source of truth in
+  `refine/synthesis.md`; BARE and FROM-CONTRACT reuse the same
+  budget/compact steps as FULL.
+- `--bare` answers the "standalone /goal" use case without bringing
+  back the deprecated `/prompt` skill — the migration doc remains
+  valid.
+
 ## [Unreleased] — Skills Architecture v1.3 (2026-05-20)
 
 ### Added
