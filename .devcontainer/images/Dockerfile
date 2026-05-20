@@ -129,17 +129,16 @@ USER vscode
 # =============================================================================
 # CodeRabbit CLI (AI-powered code review)
 # =============================================================================
-# WHY a retry loop: the installer script at https://cli.coderabbit.ai/install.sh
-# is fetched at build time and has a non-trivial intermittent failure rate
-# in GitHub Actions runners (observed exit code 2 from `curl | sh`,
-# sometimes from the curl itself, sometimes from a transient 5xx the
-# installer hits internally). The previous one-shot pipe would mark the
-# whole image build as failed on the first hiccup. 5 attempts with
-# linear backoff (5/10/15/20s) keep the failure rate near zero for
-# realistic outages without adding meaningful build time when the
-# service is healthy (first attempt succeeds → no sleep).
+# WHY mkdir -p first: the installer writes to /home/vscode/.local/bin/coderabbit
+# and aborts silently with exit 1 if the parent directory doesn't exist.
+# Line 173 (status-line install) creates ~/.local/bin via `mkdir -p`, but
+# it runs after this step in the Dockerfile, so the CR installer arrives
+# first and finds an empty $HOME with no .local/ tree. The retry loop
+# (kept for transient installer 5xx failures) is independent of this
+# fix — without the mkdir, every retry would hit the same ENOENT.
 # hadolint ignore=DL4006
-RUN set -e; \
+RUN mkdir -p "$HOME/.local/bin" && \
+    set -e; \
     for attempt in 1 2 3 4 5; do \
       if curl -fsSL --retry 3 --retry-delay 2 https://cli.coderabbit.ai/install.sh -o /tmp/cr-install.sh \
          && sh /tmp/cr-install.sh; then \
