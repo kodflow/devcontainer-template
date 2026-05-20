@@ -39,8 +39,9 @@ selection. The output may be **shorter** when the synthesized content
 genuinely fits in fewer chars; `/refine` decides that based on what it
 has to say, never on the input shape.
 
-There is no "LIGHT 2000-char" target. LIGHT vs FULL only affects **how
-many lenses run** (4 critical vs all 10), not the directive char-cap.
+There is no separate LIGHT char-cap. LIGHT vs FULL only affects **how
+many lenses run** (4 critical vs all 10), not the directive char-cap —
+the cap stays uniform across both lens depths.
 
 ## Mode auto-detection (v1.5)
 
