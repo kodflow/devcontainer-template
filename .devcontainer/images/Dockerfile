@@ -129,7 +129,31 @@ USER vscode
 # =============================================================================
 # CodeRabbit CLI (AI-powered code review)
 # =============================================================================
-RUN curl -fsSL https://cli.coderabbit.ai/install.sh | sh
+# WHY a retry loop: the installer script at https://cli.coderabbit.ai/install.sh
+# is fetched at build time and has a non-trivial intermittent failure rate
+# in GitHub Actions runners (observed exit code 2 from `curl | sh`,
+# sometimes from the curl itself, sometimes from a transient 5xx the
+# installer hits internally). The previous one-shot pipe would mark the
+# whole image build as failed on the first hiccup. 5 attempts with
+# linear backoff (5/10/15/20s) keep the failure rate near zero for
+# realistic outages without adding meaningful build time when the
+# service is healthy (first attempt succeeds → no sleep).
+# hadolint ignore=DL4006
+RUN set -e; \
+    for attempt in 1 2 3 4 5; do \
+      if curl -fsSL --retry 3 --retry-delay 2 https://cli.coderabbit.ai/install.sh -o /tmp/cr-install.sh \
+         && sh /tmp/cr-install.sh; then \
+        rm -f /tmp/cr-install.sh; \
+        break; \
+      fi; \
+      if [ "$attempt" = "5" ]; then \
+        echo "CodeRabbit CLI install failed after 5 attempts" >&2; \
+        rm -f /tmp/cr-install.sh; \
+        exit 1; \
+      fi; \
+      echo "CodeRabbit CLI install attempt $attempt failed, retrying in $((attempt * 5))s..." >&2; \
+      sleep $((attempt * 5)); \
+    done
 
 # =============================================================================
 # Qodo Command CLI (AI-powered code review + agents)
