@@ -229,3 +229,23 @@ seed_baseline() {
     [[ "$output" == *"1 preserved"* ]]               # counter
     [[ "$output" == *"0 fast-forwarded"* ]]          # NOT fast-forwarded
 }
+
+# --- T12: template-repo self-exclusion via origin URL (#367) ---
+@test "T12 origin=kodflow/devcontainer-template → step_sync_features short-circuits" {
+    local postStart="${BATS_TEST_DIRNAME}/../../.devcontainer/images/hooks/lifecycle/postStart.sh"
+    source_function_from "$postStart" step_sync_features
+
+    echo "alpha" > "$SRC/alpha.md"
+    seed_baseline
+    git -C "$WS" remote add origin "https://github.com/kodflow/devcontainer-template.git" 2>/dev/null || true
+
+    # Even with upstream change, no copy should happen — function early-exits.
+    echo "alpha-upstream-changed" > "$SRC/alpha.md"
+
+    export WORKSPACE_FOLDER="$WS"
+
+    run step_sync_features
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Skipping features sync: template repo"* ]]
+    grep -q "^alpha$" "$DST/alpha.md"  # dst untouched (the early-exit fires before any I/O)
+}

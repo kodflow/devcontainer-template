@@ -1523,7 +1523,22 @@ step_sync_features() {
         return 0
     fi
 
-    # Self-exclusion: skip if we ARE the template repo (git HEAD matches marker commit).
+    # Self-exclusion (primary): origin URL match — robust, no committed marker
+    # required. Covers the template repo itself (which does not ship
+    # .devcontainer/.template-version in its tree) and org-level forks that
+    # mirror the origin path expecting template-repo semantics. See #367.
+    if [ -d "$ws/.git" ] && command -v git >/dev/null 2>&1; then
+        local remote_url
+        remote_url=$(git -C "$ws" remote get-url origin 2>/dev/null || true)
+        case "$remote_url" in
+            *kodflow/devcontainer-template*)
+                log_info "Skipping features sync: template repo (origin=$remote_url)"
+                return 0
+                ;;
+        esac
+    fi
+
+    # Self-exclusion (secondary): skip if we ARE the template repo (git HEAD matches marker commit).
     if [ -f "$marker" ] && command -v jq &>/dev/null; then
         local marker_commit current_commit
         marker_commit=$(jq -r '.commit // empty' "$marker" 2>/dev/null || true)
