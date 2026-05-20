@@ -14,13 +14,17 @@ source ~/.claude/scripts/frontmatter.sh
 auto_select_lens_depth() {
   local plan_path="$1"
 
-  # WHY: read frontmatter via helper, never `yq` on the full .md file.
+  # WHY frontmatter_get_or and not the bare frontmatter_get: yq/jq's
+  # `// "missing"` operator treats `false` as missing, which would
+  # coerce a real touches_*: false value into the sentinel and force
+  # FULL mode on every plan. The _or helper uses has() so a
+  # present-but-false value stays false.
   local risk loc pub_api sec devinf
-  risk=$(frontmatter_get "$plan_path" '.risk // "missing"')
-  loc=$(frontmatter_get "$plan_path" '.loc_estimate_max // -1')
-  pub_api=$(frontmatter_get "$plan_path" '.touches_public_api // "missing"')
-  sec=$(frontmatter_get "$plan_path" '.touches_security_surface // "missing"')
-  devinf=$(frontmatter_get "$plan_path" '.touches_dev_infra // "missing"')
+  risk=$(frontmatter_get_or    "$plan_path" risk                      missing)
+  loc=$(frontmatter_get_or     "$plan_path" loc_estimate_max          -1)
+  pub_api=$(frontmatter_get_or "$plan_path" touches_public_api        missing)
+  sec=$(frontmatter_get_or     "$plan_path" touches_security_surface  missing)
+  devinf=$(frontmatter_get_or  "$plan_path" touches_dev_infra         missing)
 
   # Missing / non-numeric metadata → full lens depth (safe default)
   for field in "$risk" "$pub_api" "$sec" "$devinf"; do
