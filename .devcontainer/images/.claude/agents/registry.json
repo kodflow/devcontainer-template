@@ -120,7 +120,7 @@
     },
     "refine": {
       "entry": "/refine",
-      "chain": "developer-specialist-review (sonnet) → {10 lenses via routing-table.jsonl} (PR3)"
+      "chain": "developer-specialist-review (sonnet) → 10 lens phases (FULL mode only) → 10 refine-* post-lens pipeline phases → square-prompt validation (pre + post compaction) → compact-to-minimum (≤4000 char ceiling) (v1.6)"
     }
   },
   "model_distribution": {

@@ -160,7 +160,6 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 |---------|---------|
 | `/init` | Conversational project discovery + doc generation |
 | `/plan` | Analyze codebase and design implementation approach |
-| `/do` | Execute approved plans iteratively |
 | `/review` | Code review (3-tier: agents + Qodo + CodeRabbit) |
 | `/git` | Conventional commits, branch management |
 | `/search` | Documentation research with official sources |
@@ -178,16 +177,18 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/refine` | Skills Architecture v1.3 — goal contract generator (10-lens analysis) |
 | `/prompt` | **[DEPRECATED]** Use `/refine` instead — scheduled for deletion in PR6 |
 
-### Canonical workflow (Skills Architecture v1.3)
+### Canonical workflow (Skills Architecture v1.6)
 
 ```
-/search → /plan [--goal] → /refine → /goal → /do --goal-turn
+/search → /plan → /refine → /goal <slug>
 ```
 
 `/plan --goal` chains automatically into `/refine` once the plan is
-written; `/refine` emits `/goal` directive and a contract at
-`.claude/goals/<slug>.md`. `/do --goal-turn <slug>` then iterates against
-the persistent state in `.claude/state/goals/<slug>.json`.
+written. `/refine` writes a contract at `.claude/goals/<slug>.md` and
+prints a textual `Suggested next step: /goal <slug>` — there is no
+auto-chain. **`/goal` is a harness builtin** (not a repository
+command file): the user types `/goal <slug>` to enter goal iteration
+against the persistent state in `.claude/state/goals/<slug>.json`.
 
 ## Collaboration Rules
 
