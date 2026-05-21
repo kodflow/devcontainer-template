@@ -1,5 +1,33 @@
 # Phase 5.0: Synthesize (RLM Pattern)
 
+## Phase 6.0: ExitPlanMode invocation (PR1 — Skills Architecture v1.3)
+
+Once the plan is fully synthesized, `/plan` invokes `ExitPlanMode(plan=<full md>)`
+instead of rendering the legacy ASCII banner. This hands control back to the
+user for approval; the same flow drives `/do --plan <path>` thereafter.
+
+**Schema validation (PR1 fix #18)**: before calling `ExitPlanMode`, read
+`.claude/state/primitives.json` (emitted by PR0's `probe-primitives.sh`)
+and confirm:
+
+```bash
+jq -e '.ExitPlanMode.status == "present"
+       and (.ExitPlanMode.input_schema.properties.plan.type == "string")' \
+   .claude/state/primitives.json
+```
+
+If the check fails:
+
+1. Fall back to writing the plan to `${WORKSPACE_ROOT}/.claude/plans/<slug>.md` directly.
+2. Print a `[plan] ExitPlanMode unavailable — wrote plan to <path>` notice.
+3. Suggest `Skill(skill="do", args="--plan <path>")` as the manual hand-off.
+
+After the call, if `--goal` flag was present, chain into `/refine` via
+`Skill(skill="refine", args="<slug>")` (PR5a). Until W3 lands the refine
+skill is absent — the call is a no-op and the plan is still usable by `/do`.
+
+
+
 ## Path Resolution (MANDATORY)
 
 All `.claude/` paths MUST be absolute, anchored to workspace root:

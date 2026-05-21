@@ -19,6 +19,8 @@ allowed-tools:
   - "TaskList(*)"
   - "TaskGet(*)"
   - "AskUserQuestion(*)"
+  - "Skill(*)"
+  - "PushNotification(*)"
 ---
 
 # /do - Iterative Task Loop (RLM Architecture)
@@ -54,7 +56,27 @@ Iterative loop using **Recursive Language Model** decomposition:
 | `<task>` | Launch the interactive workflow |
 | _(empty)_ | Execute the approved plan (if exists) |
 | `--plan <path>` | Execute a specific plan file |
+| `--goal-turn <slug>` | Resume a goal-state turn (skips questions + worktree confirm) — Skills Architecture v1.3 / PR1 |
 | `--help` | Display help |
+
+### Goal-turn mode (PR1)
+
+`--goal-turn <slug>` reads `.claude/state/goals/<slug>.json` (managed by
+`goal-state.sh`) and runs ONE iteration of the loop without asking
+clarifying questions. State persists across invocations so a sequence of
+`/do --goal-turn <slug>` calls reaches the goal incrementally.
+
+```bash
+# State CRUD helper
+bash ~/.claude/scripts/goal-state.sh create <slug> <plan_path> <context_path>
+bash ~/.claude/scripts/goal-state.sh update <slug> --iteration N --decision met
+bash ~/.claude/scripts/goal-state.sh mark-stale <slug>   # safety net for orphaned sessions
+bash ~/.claude/scripts/goal-state.sh gc                  # purge completed/abandoned > 7d
+```
+
+If the state file is missing, `--goal-turn` aborts with exit 4. If
+`status` is `completed` or `abandoned`, it aborts with exit 5. If
+`iteration >= max_iterations`, it aborts with exit 6.
 
 ---
 

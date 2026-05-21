@@ -129,7 +129,38 @@ USER vscode
 # =============================================================================
 # CodeRabbit CLI (AI-powered code review)
 # =============================================================================
-RUN curl -fsSL https://cli.coderabbit.ai/install.sh | sh
+# Two installer quirks are handled here:
+#
+# 1. mkdir -p "$HOME/.local/bin" — without it the installer aborts before
+#    even attempting to write the binary (parent directory ENOENT).
+#
+# 2. The installer prints "[SUCCESS] Installation verified" + "[SUCCESS]
+#    Installation complete" and then exits non-zero anyway. Trusting the
+#    exit code rejects a working install, so we verify the binary
+#    artefact ($HOME/.local/bin/coderabbit is executable) and consider
+#    that the source of truth. `sh ... || true` keeps the pipeline
+#    going; the post-condition is what decides success.
+#
+# Retry loop is still useful for transient 5xx during download — those
+# fail before [SUCCESS] is printed, so the post-condition catches them.
+# hadolint ignore=DL4006
+RUN mkdir -p "$HOME/.local/bin" && \
+    for attempt in 1 2 3 4 5; do \
+      curl -fsSL --retry 3 --retry-delay 2 https://cli.coderabbit.ai/install.sh -o /tmp/cr-install.sh || true; \
+      sh /tmp/cr-install.sh || true; \
+      if [ -x "$HOME/.local/bin/coderabbit" ]; then \
+        echo "CodeRabbit CLI installed (attempt $attempt)" >&2; \
+        rm -f /tmp/cr-install.sh; \
+        exit 0; \
+      fi; \
+      if [ "$attempt" = "5" ]; then \
+        echo "CodeRabbit CLI binary missing after 5 attempts" >&2; \
+        rm -f /tmp/cr-install.sh; \
+        exit 1; \
+      fi; \
+      echo "CodeRabbit CLI binary missing after attempt $attempt, retrying in $((attempt * 5))s..." >&2; \
+      sleep $((attempt * 5)); \
+    done
 
 # =============================================================================
 # Qodo Command CLI (AI-powered code review + agents)

@@ -141,3 +141,23 @@ clear_workflow:
   "--clear": "Delete context matching current query slug"
   "--clear --all": "Delete all files in .claude/contexts/"
 ```
+
+---
+
+## Phase 9.5: Plan chain (PR1 — Skills Architecture v1.3)
+
+If the query exposed implementation-intent (keywords: *implement*, *build*,
+*add*, *migrate*, *refactor*, *plan how to*), chain into `/plan` so the
+context just generated immediately becomes the input for a structured plan.
+
+```yaml
+plan_chain:
+  trigger:
+    keywords: ["implement", "build", "add", "migrate", "refactor", "plan how to"]
+    OR explicit_flag: "--then-plan"
+  primitive: |
+    Skill(skill="plan", args="--context {slug}")
+  fallback_when_skill_absent: "/plan --context {slug}"
+```
+
+The 5th chain (`/plan → /refine`) is wired in PR5a once `/refine` lands.
