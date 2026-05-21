@@ -230,4 +230,12 @@ synthesis_workflow:
   step_3:
     loop: "Process any refinements, update context, repeat"
     exit: "User says 'generate' or confirms"
+
+  step_4_warmup_chain:
+    # PR1 — Skills Architecture v1.3: chain into /warmup once docs land so
+    # the new session starts with the full project context cached.
+    trigger: "After files are generated and committed"
+    primitive: |
+      Skill(skill="warmup")
+    fallback_when_skill_absent: "/warmup"
 ```

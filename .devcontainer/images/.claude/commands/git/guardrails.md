@@ -66,6 +66,33 @@ Reference document for all safety rules, conventions, and forbidden actions acro
 
 ---
 
+## Commit message guardrails — workflow-internal leak protection (#369)
+
+PR1 — Skills Architecture v1.3 documents the patterns blocked by
+`git-guard.sh` (PreToolUse hook) and `.githooks/commit-msg` (git-native).
+Both layers reject commits whose message body or subject matches any of:
+
+| Pattern (case-insensitive) | Why it's blocked |
+|---|---|
+| `.claude/` path reference | Workflow internals leak into commit history |
+| `^\s*plan:` footer | `Plan:` convention reveals internal planning workflow |
+| `see/ref/tracked-in .claude…` | Reverse leak through cross-references |
+| AI attribution lines (#358) | Co-Authored-By: Claude/AI/GPT/etc — see CLAUDE.md §4 |
+| `🤖` emoji | Robot emoji signals AI authorship |
+| `claude code` / `claude-code` literal | Same as above, literal form |
+
+False positives are avoided by anchored regexes: the body keyword
+"plan ahead" or "the plan is" remains legal because the patterns require
+`plan:` to appear at start-of-line or `plan` to be followed by literal
+`.claude` path.
+
+Bypassing via `--no-verify` or `-n` is also blocked (per CLAUDE.md §4).
+If a legitimate use case surfaces (e.g. backfilling history with
+upstream-published artifacts), open an issue rather than weakening the
+regex.
+
+---
+
 ## Auto-fix Timeouts
 
 | Element | Value | Reason |

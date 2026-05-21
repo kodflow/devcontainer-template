@@ -380,7 +380,11 @@ write its own file only.
 ### Agent A — `binary`
 
 ```yaml
-subagent_type: general-purpose
+# PR4 — Skills Architecture v1.3: routed via route-agent.sh to
+# devops-executor-linux instead of general-purpose. The route-agent
+# call returns {subagent_type, resolved_model, effort}; pass them
+# through to the Task primitive.
+subagent_type: devops-executor-linux
 description: "ktn-linter binary health + upgrade"
 prompt: |
   You manage the ktn-linter binary lifecycle. Goal: make sure the local
@@ -435,7 +439,11 @@ prompt: |
 ### Agent B — `mcp`
 
 ```yaml
-subagent_type: general-purpose
+# PR4 — Skills Architecture v1.3: routed via route-agent.sh to
+# devops-executor-linux instead of general-purpose. The route-agent
+# call returns {subagent_type, resolved_model, effort}; pass them
+# through to the Task primitive.
+subagent_type: devops-executor-linux
 description: "mcp.json ktn-linter registration"
 prompt: |
   You own the ktn-linter entry inside /workspace/mcp.json.
@@ -501,7 +509,11 @@ prompt: |
 ### Agent C — `settings`
 
 ```yaml
-subagent_type: general-purpose
+# PR4 — Skills Architecture v1.3: routed via route-agent.sh to
+# devops-executor-linux instead of general-purpose. The route-agent
+# call returns {subagent_type, resolved_model, effort}; pass them
+# through to the Task primitive.
+subagent_type: devops-executor-linux
 description: ".claude/settings.json hook wiring"
 prompt: |
   You own the ktn-linter HTTP hook entries inside /workspace/.claude/settings.json.
@@ -566,7 +578,11 @@ prompt: |
 ### Agent D — `daemon`
 
 ```yaml
-subagent_type: general-purpose
+# PR4 — Skills Architecture v1.3: routed via route-agent.sh to
+# devops-executor-linux instead of general-purpose. The route-agent
+# call returns {subagent_type, resolved_model, effort}; pass them
+# through to the Task primitive.
+subagent_type: devops-executor-linux
 description: "ktn-linter daemon health + freshness on :7717"
 prompt: |
   You verify and (if needed) respawn the ktn-linter MCP daemon on
@@ -754,7 +770,11 @@ prompt: |
 ### Agent E — `phases`
 
 ```yaml
-subagent_type: general-purpose
+# PR4 — Skills Architecture v1.3: routed via route-agent.sh to
+# devops-executor-linux instead of general-purpose. The route-agent
+# call returns {subagent_type, resolved_model, effort}; pass them
+# through to the Task primitive.
+subagent_type: devops-executor-linux
 description: ".ktn-linter.yaml phase configuration"
 prompt: |
   You manage /workspace/.ktn-linter.yaml. Upstream default active set is
@@ -911,3 +931,22 @@ the drift detection — fix the detection, not the write logic.
 | Wires hooks in `.claude/settings.json` | Reads hook output |
 | Configures `.ktn-linter.yaml` phases | Respects the configured phase set |
 | Spawns / heals the `:7717` daemon | Calls the daemon (or falls back) |
+
+## PR8 — Daily health probe (Skills Architecture v1.3)
+
+```bash
+# Schedules a daily health probe at 08:07 local time (avoids :00 spike).
+# CronCreate is gated by PR0's primitives.json.
+/ktn --schedule-daily
+
+# Equivalent:
+# CronCreate(
+#   cron: "7 8 * * *",
+#   prompt: "/ktn --check",
+#   recurring: true,
+#   durable: true
+# )
+```
+
+`/ktn --check` is read-only (see boundaries above). Only emits a
+`PushNotification` when drift is detected; silent on a healthy stack.

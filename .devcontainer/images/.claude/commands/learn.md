@@ -171,3 +171,18 @@ Show learning statistics:
 | Duplicate existing patterns | FORBIDDEN |
 | Save secrets or credentials | FORBIDDEN |
 | Modify existing non-learned patterns | FORBIDDEN |
+
+## PR8 — SessionEnd auto-propose (Skills Architecture v1.3)
+
+```yaml
+session_end_autopropose:
+  trigger: "SessionEnd hook"
+  condition: ">=3 user corrections detected in session.jsonl"
+  action: |
+    PushNotification(
+      message: "/learn detected {{N}} corrections — run /learn to extract patterns",
+      status: proactive
+    )
+  rate_limit: "once per session; do not nag"
+  fallback_when_pushnotification_absent: "stderr [LEARN] hint"
+```

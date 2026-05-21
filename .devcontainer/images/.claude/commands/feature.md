@@ -149,3 +149,18 @@ Phase 3: --checkup (Wave-Based Audit)
 | Delete parent with children | **WARN** | Offer cascade archive option |
 | Level > 5 | **FORBIDDEN** | Reject input (must be <= 5) |
 | Workdirs empty | **FORBIDDEN** | Reject input (required for hierarchy inference) |
+
+## PR8 — `--gh-sync` (Skills Architecture v1.3)
+
+Mirrors the RTM (`features.json`) to GitHub Issues + sub-issues so the
+external backlog stays in sync with the internal hierarchy.
+
+```bash
+/feature --gh-sync               # one-shot full sync
+/feature --gh-sync --dry-run     # report diff without writing
+```
+
+Implementation uses `mcp__github__issue_write` for create/update and
+`mcp__github__sub_issue_write` to mirror parent/child links. Title and
+labels are derived from `features.json`; the local file remains the
+source of truth.

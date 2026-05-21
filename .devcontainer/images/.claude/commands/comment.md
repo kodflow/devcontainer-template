@@ -81,3 +81,19 @@ If fix mode:
 - Trivial functions (getters, setters, simple constructors) are skipped
 - Comments that already explain WHY correctly are preserved unchanged
 - Use `/comment --check` in CI pipelines for comment quality gates
+
+## PR7 — Skills Architecture v1.3: file-extension routing
+
+The orchestrator routes each file to a `developer-commentator-worker`
+via `route-agent.sh --skill /comment --phase audit-<ext>`. The router's
+`agent_template` mechanism expands per detected language (Go, Python,
+Rust, TS, …) so language-specific docstring conventions are enforced
+by a worker that actually knows the convention — not a generic worker
+falling back to "good enough" rules.
+
+```bash
+ROUTER=~/.claude/scripts/route-agent.sh
+# Per-file dispatch (orchestrator iterates over files)
+DISPATCH=$(bash "$ROUTER" --skill /comment --phase audit-go \
+  --profile .claude/state/profile.json)
+```

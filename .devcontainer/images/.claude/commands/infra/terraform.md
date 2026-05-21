@@ -197,6 +197,22 @@ apply_workflow:
     action: "Remove tfplan file"
 ```
 
+### Monitor stream (PR5b — Skills Architecture v1.3)
+
+When `Monitor` primitive is `present` (per PR0), wrap the `terraform
+apply` invocation so progress events stream as notifications instead of
+filling the agent transcript with raw lines:
+
+```
+Monitor(
+  description: "terraform apply <module>",
+  timeout_ms: 1800000,
+  command: "terraform apply -auto-approve tfplan 2>&1 | grep --line-buffered -E '^(Apply complete|Error:|Plan:|\\s+\\w+\\.\\w+:.*[Cc]reat|\\s+\\w+\\.\\w+:.*[Dd]estroy)'"
+)
+```
+
+Emit one `PushNotification` on terminal state (success / error / drift detected).
+
 **Output:**
 
 ```

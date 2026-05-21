@@ -173,3 +173,23 @@ Rules:
 2. Collect scores and issues.
 3. Print the dashboard.
 4. Do NOT suggest fixes — only report findings (except the RTK `rtk discover` hint).
+
+## PR8 — `--watch` mode (Skills Architecture v1.3)
+
+```bash
+# Schedules weekly audit (Monday 09:13 — minute 13 avoids the :00 spike).
+# Cron primitive is gated by PR0's primitives.json; --watch is a no-op
+# when CronCreate is absent.
+/audit --watch
+
+# Equivalent CronCreate call:
+# CronCreate(
+#   cron: "13 9 * * 1",
+#   prompt: "/audit --auto",
+#   recurring: true,
+#   durable: true
+# )
+```
+
+The scheduled invocation writes its dashboard to `.claude/logs/audit/<ISO>.md`
+and emits a `PushNotification` only when overall score drops below 80.

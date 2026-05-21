@@ -16,6 +16,8 @@ allowed-tools:
   - "mcp__playwright__*"
   - "Write(.claude/plans/*.md)"
   - "Write(.claude/contexts/*.md)"
+  - "ExitPlanMode(*)"
+  - "Skill(*)"
 ---
 
 # /plan - Claude Code Planning Mode (RLM Architecture)
@@ -43,7 +45,22 @@ Planning mode with **RLM** patterns:
 | `--auto` | Auto mode: no questions, AI reasons internally and presents final plan |
 | `--context` | Auto-detect most recent `.claude/contexts/*.md` |
 | `--context=<name>` | Load specific `.claude/contexts/{name}.md` |
+| `--goal` | After plan write, chain into `/refine` to emit a `/goal` contract (PR5a) |
 | `--help` | Show help |
+
+### `--goal` flag (PR5a — Skills Architecture v1.3)
+
+```yaml
+goal_chain:
+  trigger: "--goal in $ARGUMENTS"
+  after_plan_write:
+    primitive: |
+      Skill(skill="refine", args="<slug>")
+    fallback_when_skill_absent:
+      message: "Run /refine <slug> manually to emit a goal contract."
+    fallback_when_refine_skill_absent_pre_w3:
+      message: "/refine ships in W3; plan written, run /do --plan <path> manually."
+```
 
 ---
 

@@ -100,10 +100,10 @@ if [ -f "$PROJECT_ROOT/Makefile" ]; then
     TARGETS=$(grep -oE '^[a-zA-Z_-]+:' "$PROJECT_ROOT/Makefile" 2>/dev/null | sed 's/://' | jq -R . | jq -s . 2>/dev/null || echo "[]")
 fi
 
-# --- Tool availability ---
+# --- Tool availability (extended for PR2a/PR2b — Skills Arch v1.3) ---
 tools_json() {
     local result="{}"
-    for tool in ktn-linter eslint ruff golangci-lint cargo-clippy rubocop phpstan ktlint swiftlint luacheck shellcheck hadolint clang-tidy mypy tsc prettier; do
+    for tool in ktn-linter eslint ruff golangci-lint cargo-clippy rubocop phpstan ktlint swiftlint luacheck shellcheck hadolint clang-tidy mypy tsc prettier wrangler psql postgres; do
         local safe_name
         safe_name=$(echo "$tool" | tr '-' '_')
         if command -v "$tool" &>/dev/null; then
@@ -112,10 +112,104 @@ tools_json() {
             result=$(echo "$result" | jq --arg k "$safe_name" '. + {($k): false}')
         fi
     done
+    if [ -f "$PROJECT_ROOT/package.json" ] && jq -e '.dependencies.react // .devDependencies.react' "$PROJECT_ROOT/package.json" &>/dev/null; then
+        result=$(echo "$result" | jq '. + {react: true}')
+    else
+        result=$(echo "$result" | jq '. + {react: false}')
+    fi
+    if { [ -f "$PROJECT_ROOT/package.json" ] && jq -e '.dependencies["@playwright/test"] // .devDependencies["@playwright/test"]' "$PROJECT_ROOT/package.json" &>/dev/null; } \
+       || [ -f "$PROJECT_ROOT/playwright.config.ts" ] || [ -f "$PROJECT_ROOT/playwright.config.js" ]; then
+        result=$(echo "$result" | jq '. + {playwright: true}')
+    else
+        result=$(echo "$result" | jq '. + {playwright: false}')
+    fi
+    if [ -f "$PROJECT_ROOT/wrangler.toml" ] || command -v wrangler &>/dev/null; then
+        result=$(echo "$result" | jq '. + {wrangler: true}')
+    fi
+    echo "$result"
+}
+
+# --- Facets (PR2a — Skills Architecture v1.3) ---
+# WHY: the router conditions on cloud[]/container[]/k8s/os/ci/test_frameworks[]
+# to dispatch cloud/container/k8s/CI specialists. Marker-first, binary fallback.
+cloud_facet() {
+    local result="[]"
+    if [ -d "$PROJECT_ROOT/.aws" ] || [ -f "$PROJECT_ROOT/aws-cli.yml" ] || ls "$PROJECT_ROOT"/*.tf 2>/dev/null | xargs grep -l 'provider "aws"' &>/dev/null; then
+        result=$(echo "$result" | jq '. + ["aws"]')
+    fi
+    if [ -d "$PROJECT_ROOT/.gcp" ] || ls "$PROJECT_ROOT"/*.tf 2>/dev/null | xargs grep -l 'provider "google"' &>/dev/null; then
+        result=$(echo "$result" | jq '. + ["gcp"]')
+    fi
+    if [ -d "$PROJECT_ROOT/.azure" ] || ls "$PROJECT_ROOT"/*.tf 2>/dev/null | xargs grep -l 'provider "azurerm"' &>/dev/null; then
+        result=$(echo "$result" | jq '. + ["azure"]')
+    fi
+    if [ -f "$PROJECT_ROOT/wrangler.toml" ]; then
+        result=$(echo "$result" | jq '. + ["cloudflare"]')
+    fi
+    echo "$result"
+}
+
+container_facet() {
+    local result="[]"
+    if [ -f "$PROJECT_ROOT/Dockerfile" ] || [ -f "$PROJECT_ROOT/docker-compose.yml" ] || [ -f "$PROJECT_ROOT/compose.yml" ]; then
+        result=$(echo "$result" | jq '. + ["docker"]')
+    fi
+    if [ -f "$PROJECT_ROOT/Containerfile" ]; then
+        result=$(echo "$result" | jq '. + ["podman"]')
+    fi
+    echo "$result"
+}
+
+k8s_facet() {
+    if [ -d "$PROJECT_ROOT/k8s" ] || [ -d "$PROJECT_ROOT/manifests" ] \
+       || [ -f "$PROJECT_ROOT/Chart.yaml" ] || [ -f "$PROJECT_ROOT/kustomization.yaml" ]; then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+os_facet() {
+    case "$OSTYPE" in
+        darwin*)        echo "macos" ;;
+        linux-gnu*)     echo "linux" ;;
+        msys*|cygwin*)  echo "windows" ;;
+        *)              echo "unknown" ;;
+    esac
+}
+
+ci_facet() {
+    if [ -d "$PROJECT_ROOT/.github/workflows" ]; then echo "github"
+    elif [ -f "$PROJECT_ROOT/.gitlab-ci.yml" ]; then echo "gitlab"
+    elif [ -f "$PROJECT_ROOT/.circleci/config.yml" ]; then echo "circleci"
+    elif [ -f "$PROJECT_ROOT/azure-pipelines.yml" ]; then echo "azure-devops"
+    else echo "none"
+    fi
+}
+
+test_frameworks_facet() {
+    local result="[]"
+    if [ -f "$PROJECT_ROOT/package.json" ]; then
+        jq -e '.dependencies["@playwright/test"] // .devDependencies["@playwright/test"]' "$PROJECT_ROOT/package.json" &>/dev/null \
+            && result=$(echo "$result" | jq '. + ["playwright"]')
+        jq -e '.dependencies.jest // .devDependencies.jest' "$PROJECT_ROOT/package.json" &>/dev/null \
+            && result=$(echo "$result" | jq '. + ["jest"]')
+        jq -e '.dependencies.vitest // .devDependencies.vitest' "$PROJECT_ROOT/package.json" &>/dev/null \
+            && result=$(echo "$result" | jq '. + ["vitest"]')
+    fi
+    if [ -f "$PROJECT_ROOT/pytest.ini" ] || { [ -d "$PROJECT_ROOT/tests" ] && grep -rql 'pytest' "$PROJECT_ROOT/tests" 2>/dev/null; }; then
+        result=$(echo "$result" | jq '. + ["pytest"]')
+    fi
     echo "$result"
 }
 
 TOOLS=$(tools_json)
+CLOUD=$(cloud_facet)
+CONTAINER=$(container_facet)
+K8S=$(k8s_facet)
+OS_NAME=$(os_facet)
+CI=$(ci_facet)
+TEST_FRAMEWORKS=$(test_frameworks_facet)
 
 # --- Project type ---
 PROJECT_TYPE="code"
@@ -131,12 +225,24 @@ jq -n \
     --argjson has_makefile "$HAS_MAKEFILE" \
     --argjson targets "$TARGETS" \
     --argjson tools "$TOOLS" \
+    --argjson cloud "$CLOUD" \
+    --argjson container "$CONTAINER" \
+    --argjson k8s "$K8S" \
+    --arg os "$OS_NAME" \
+    --arg ci "$CI" \
+    --argjson test_frameworks "$TEST_FRAMEWORKS" \
     --arg project_root "$PROJECT_ROOT" \
     --arg project_type "$PROJECT_TYPE" \
     '{
         languages: $languages,
         build_system: {makefile: $has_makefile, targets: $targets},
         tools: $tools,
+        cloud: $cloud,
+        container: $container,
+        k8s: $k8s,
+        os: $os,
+        ci: $ci,
+        test_frameworks: $test_frameworks,
         project_root: $project_root,
         project_type: $project_type
     }'

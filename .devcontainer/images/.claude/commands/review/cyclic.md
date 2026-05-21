@@ -56,7 +56,12 @@ language_specialist_dispatch:
     ".s":     "developer-specialist-assembly"
 
   dispatch:
-    command: "/do --plan .claude/plans/review-fixes-{timestamp}.md"
+    # PR1 — Skills Architecture v1.3: replace magic-string with Skill recursion.
+    # `Skill` makes the chain visible to TaskCreated hooks and gives the
+    # cycle-detection guard (max depth 5) something to actually count.
+    primitive: |
+      Skill(skill="do", args="--plan .claude/plans/review-fixes-{timestamp}.md")
+    fallback_when_skill_absent: "/do --plan .claude/plans/review-fixes-{timestamp}.md"
     executor: "developer-specialist-{lang}"
 
   integration_with_do:
