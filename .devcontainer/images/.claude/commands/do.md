@@ -27,6 +27,25 @@ allowed-tools:
 
 $ARGUMENTS
 
+## DEPRECATED
+
+`/do` is **deprecated** for goal iteration. Use `/goal <slug>` instead:
+it loads `.claude/state/goals/<slug>.json` directly through the
+harness builtin and runs the same iterative loop without an explicit
+skill hop. The manual entry point `/do <task>` and the plan-execution
+form `/do` (no args) still work, but new workflows should target
+`/goal <slug>` after a `/refine` run.
+
+This skill remains functional during the deprecation window:
+
+- `/do --goal-turn <slug>` continues to iterate goal state (used by
+  the `/goal` builtin internally on some host versions — back-compat).
+- `/do <task>` continues to run the interactive workflow.
+- `/do --plan <path>` continues to execute approved plans.
+
+Deletion is deferred to a follow-up PR after an audit confirms no
+hook or skill chain depends on `/do` as a published entry point.
+
 ## CONTEXT7 (RECOMMENDED)
 
 Use `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` to:

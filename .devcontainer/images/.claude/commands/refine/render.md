@@ -109,8 +109,8 @@ bash ~/.claude/scripts/goal-state.sh update "<slug>" \
   --decision met --decision-reason "refined" \
   --append-objective "directive-emitted"
 
-# 3. Echo directive to the agent's transcript so /do --goal-turn picks it up
-echo "$DIRECTIVE"
+# 3. Emit directive + manual-trigger suggestion (no auto-chain)
+printf '%s\n\nSuggested next step:\n  /goal %s\n' "$DIRECTIVE" "$SLUG"
 ```
 
 ### FROM-CONTRACT
@@ -123,9 +123,13 @@ bash ~/.claude/scripts/goal-state.sh update "<slug>" \
   --decision met --decision-reason "recompacted" \
   --append-objective "directive-re-emitted"
 
-# 3. Echo directive
-echo "$DIRECTIVE"
+# 3. Emit directive + manual-trigger suggestion (no auto-chain)
+printf '%s\n\nSuggested next step:\n  /goal %s\n' "$DIRECTIVE" "$SLUG"
 ```
+
+The trailing `Suggested next step:` line is the **only** post-emit
+hand-off. There is no `Skill(skill=…)` call, no auto-chain — the
+user remains the trigger for `/goal <slug>`.
 
 ## Slug derivation (BARE mode)
 

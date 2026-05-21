@@ -19,7 +19,10 @@ setup() {
 @test "TestRefineRenderMdExists"     { [ -r "$REFINE_DIR/render.md" ]; }
 
 @test "TestRefineAllowedTools" {
-  grep -qE '^\s*-\s+"Skill\(skill=do\)"' "$REFINE_MD"
+  # v1.6 amendment: Skill(skill=do) is no longer in allowed-tools; the
+  # auto-chain into /do was removed. /refine ends with a printed
+  # `Suggested next step: /goal <slug>` instead.
+  ! grep -qE '^\s*-\s+"Skill\(skill=do\)"' "$REFINE_MD"
   grep -qE '^\s*-\s+"Write\(\.claude/goals/\*\.md\)"' "$REFINE_MD"
 }
 
@@ -46,9 +49,10 @@ setup() {
 }
 
 @test "TestRefineDirectiveBudgetDeclared" {
-  # v1.5: uniform 4000-char target (no more dual 4096/2000 split).
+  # v1.6: uniform 4000-char ceiling (no more dual 4096/2000 split).
+  # The ceiling is enforced; the natural target is the minimum viable.
   grep -q '4000' "$REFINE_DIR/render.md"
-  grep -q 'target = 4000' "$REFINE_DIR/synthesis.md"
+  grep -qE '(ceiling|≤ ?4000)' "$REFINE_DIR/synthesis.md"
 }
 
 @test "TestRefineEmitsGoalStateUpdate" {

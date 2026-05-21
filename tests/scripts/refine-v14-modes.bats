@@ -32,12 +32,20 @@ setup() {
   grep -qE '`--from-contract <slug>`' "$REFINE_MD"
 }
 
-# -- Single 4000-char target ----------------------------------------------
+# -- 4000-char ceiling (not target) ---------------------------------------
 
-@test "TestRefineTargets4000Always" {
-  # Single rule, all modes
-  grep -q 'targets 4000 chars' "$REFINE_MD"
-  grep -q 'target = 4000 chars' "$SYNTH"
+@test "TestRefineCeilingIs4000" {
+  # v1.6 amendment: 4000 is the CEILING (hard tool limit), not the design
+  # target. The design target is the minimum viable length.
+  grep -q '4000-char ceiling' "$REFINE_MD"
+  grep -qE '(ceiling|≤ ?4000)' "$SYNTH"
+  grep -q 'ceiling   = 4000 chars' "$SYNTH"
+}
+
+@test "TestRefineHasFloorWarning" {
+  # v1.6 amendment: floor_warn = 800 catches over-compression
+  grep -q 'floor_warn = 800' "$SYNTH"
+  grep -q 'suspect-over-compression' "$SYNTH"
 }
 
 @test "TestRefineNoDualBudget" {
@@ -55,11 +63,11 @@ setup() {
 }
 
 @test "TestRefineAllowsShorterOutput" {
-  # WHY: 4000 is the target ceiling, not a floor — natural shorter is fine
-  grep -q 'never pads to hit 4000' "$SYNTH"
-  grep -q 'natural output may be shorter' "$SYNTH" \
-    || grep -q 'Natural output may be shorter' "$RENDER" \
-    || grep -q 'output may be shorter' "$REFINE_MD"
+  # WHY: 4000 is the ceiling, not a floor — natural shorter is fine.
+  # The synthesis explicitly states it never pads to hit the ceiling.
+  grep -qE 'never pads to hit (4000|the ceiling)' "$SYNTH"
+  grep -q 'minimum viable length' "$SYNTH" \
+    || grep -q 'minimum viable length' "$REFINE_MD"
 }
 
 # -- Auto-detection -------------------------------------------------------
@@ -133,9 +141,12 @@ setup() {
 # -- Synthesis pipeline integrity -----------------------------------------
 
 @test "TestRefineSynthesisPipelineDiffersPerMode" {
-  grep -q 'collect → dedup → rank → render → compact-to-4000' "$SYNTH"
-  grep -q 'template → render → compact-to-4000' "$SYNTH"
-  grep -q 'read → extract → render → compact-to-4000' "$SYNTH"
+  # v1.6 amendment: pipelines insert refine-pipeline between render and
+  # compact, and compact is renamed to compact-to-minimum (ceiling, not
+  # target). All three modes keep distinct entry sequences.
+  grep -q 'collect → dedup → rank → render → refine-pipeline → compact-to-minimum' "$SYNTH"
+  grep -q 'template → render → refine-pipeline → compact-to-minimum' "$SYNTH"
+  grep -q 'read → extract → render → refine-pipeline → compact-to-minimum' "$SYNTH"
 }
 
 @test "TestRefineModeEnumInOutputSchema" {

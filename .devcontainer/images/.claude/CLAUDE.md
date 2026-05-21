@@ -118,7 +118,8 @@ Enforced by two layers (defence-in-depth):
 |-------|---------|
 | `/init` | Personalize + validate |
 | `/plan` | Planning mode |
-| `/do` | Iterative task execution |
+| `/do` | Iterative task execution (deprecated → `/goal <slug>`) |
+| `/goal` | Harness builtin — iterate from goal-state file written by `/refine` |
 | `/review` | Code review (3 tiers: agents + Qodo + CodeRabbit) |
 | `/git` | Branch + commit + PR |
 | `/search` | Documentation research |
