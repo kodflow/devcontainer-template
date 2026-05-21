@@ -1,14 +1,19 @@
 ---
 name: refine
 description: |
-  Skills Architecture v1.5 — proof-bearing goal contract generator with
+  Skills Architecture v1.6 — proof-bearing goal contract generator with
   three entry modes (auto-detected from arguments). FULL mode reads
   .claude/contexts/<slug>.md + .claude/plans/<slug>.md and runs 4-10
   review lenses. BARE mode skips lens dispatch and structures a
   free-form description. FROM-CONTRACT mode re-compacts an existing
-  goal contract. Every mode always TARGETS 4000 chars on the /goal
-  directive (hard tool limit); natural output may be shorter when the
-  content genuinely warrants less.
+  goal contract. ALWAYS emits a predictable square-prompt directive
+  with the same 7-section shape (CONTEXT, OBJECTIVE, SCOPE,
+  CONSTRAINTS, ACCEPTANCE, VERIFY, STOP) so a vague input like
+  "fix ca" never reaches the goal state — synthesis rejects vague
+  verbs and forces binary measurable acceptance criteria paired 1:1
+  with verifiers. The /goal directive has a 4000-char ceiling (hard
+  tool limit); /refine aims for the minimum viable length that
+  preserves the contract, never pads to fill the budget.
 allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
@@ -17,7 +22,6 @@ allowed-tools:
   - "Agent(*)"
   - "TaskCreate(*)"
   - "TaskUpdate(*)"
-  - "Skill(skill=do)"
   - "Write(.claude/goals/*.md)"
   - "mcp__context7__*"
 ---
@@ -26,24 +30,25 @@ $ARGUMENTS
 
 @.devcontainer/images/.claude/commands/shared/team-mode.md
 
-# /refine — Goal Contract Generator (v1.5 — Skills Architecture)
+# /refine — Goal Contract Generator (v1.6 — Skills Architecture)
 
-## Directive char-cap — single rule, always
+## Directive char-cap — ceiling, not target
 
 The `/goal` tool accepts a maximum **4000-character directive string**.
-This is a hard runtime limit of the tool, not an aesthetic choice.
+This is a hard runtime limit of the tool — a **ceiling**, not a goal.
 
-`/refine` always **targets 4000 chars** on the directive — regardless of
-mode (FULL / BARE / FROM-CONTRACT) and regardless of LIGHT/FULL lens
-selection. The output may be **shorter** when the synthesized content
-genuinely fits in fewer chars; `/refine` decides that based on what it
-has to say, never on the input shape.
+`/refine` treats 4000 as the **ceiling** in every mode (FULL / BARE /
+FROM-CONTRACT) and regardless of LIGHT/FULL lens selection. The design
+**target is the minimum viable length** that still preserves the
+contract: enough chars to bind acceptance criteria, evidence, and
+scope; not a single char more. `/refine` decides the length from what
+it has to say, never from the input shape, and never pads to hit 4000.
 
-There is no separate LIGHT char-cap. LIGHT vs FULL only affects **how
-many lenses run** (4 critical vs all 10), not the directive char-cap —
-the cap stays uniform across both lens depths.
+There is no separate LIGHT ceiling. LIGHT vs FULL only affects **how
+many lenses run** (4 critical vs all 10), not the directive ceiling —
+the 4000-char cap stays uniform across both lens depths.
 
-## Mode auto-detection (v1.5)
+## Mode auto-detection (v1.6)
 
 `/refine <arg>` detects the mode from the argument shape + disk state:
 
@@ -137,12 +142,21 @@ Read `~/.claude/commands/refine/dispatch.md`. For each lens, call
 
 Read `~/.claude/commands/refine/synthesis.md`.
 
-- **FULL**: collect lens findings → dedup → rank → render → compact-to-4000.
-- **BARE**: apply WHAT/WHY/WHERE/HOW/DONE template → render → compact-to-4000.
-- **FROM-CONTRACT**: read contract → extract → render → compact-to-4000.
+- **FULL**: collect lens findings → dedup → rank → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate.
+- **BARE**: apply WHAT/WHY/WHERE/HOW/DONE template → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate.
+- **FROM-CONTRACT**: read contract → extract → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate.
 
-Output always **targets 4000 chars**; if the natural content is shorter,
-the directive is shorter — there is no padding.
+Every mode goes through `square-prompt-validate` TWICE — once before
+compaction (diagnostic) and once after (final guarantee). The directive
+is ALWAYS the same 7-section square-prompt shape. Vague verbs like
+"fix", "improve", or "make it work" are rejected **inside the
+`# ACCEPTANCE` section only** (CONTEXT / OBJECTIVE / SCOPE / etc. may
+freely use them in prose) and replaced with a visible
+`- [ ] <user-must-fill-acceptance>` sentinel so the user notices the
+gap before running `/goal`.
+
+Output is bounded by the **4000-char ceiling**; the natural target is
+the minimum viable length given the content. There is no padding.
 
 ## Phase 4: Emit (all modes)
 
@@ -155,16 +169,18 @@ Read `~/.claude/commands/refine/render.md`. Writes:
 The runtime directive is always appended to the goal-state file via
 `goal-state.sh update` (PR1).
 
-## Skill chain
+## Next step (manual, no auto-chain)
 
-After emit:
+`/refine` ends by printing a textual suggestion of the form:
 
-```bash
-Skill(skill="do", args="--goal-turn <slug>")
+```
+Suggested next step:
+  /goal <slug>
 ```
 
-launches the iterative loop. The goal-state CRUD helper accepts the
-slug regardless of which mode produced it.
+There is **no auto-chain** into another skill — the user remains the
+trigger. Run `/goal <slug>` to enter goal iteration once the contract
+on disk has been reviewed.
 
 ## Arguments
 
@@ -181,15 +197,19 @@ slug regardless of which mode produced it.
 | `--auto` | Default for FULL: pick lens depth from plan frontmatter |
 | `--help` | Display help |
 
-## Workflow patterns (v1.5)
+## Workflow patterns (v1.6)
 
 ```
-quick    : /refine "fix race in worker.go pool init"        →  /goal (auto-BARE, ≤4000 char)
-medium   : /plan ... --auto → /refine my-feature            →  /goal (auto-FULL, ≤4000 char)
-full     : /search → /plan → /refine my-feature             →  /goal (auto-FULL, ≤4000 char)
+quick    : /refine "fix race in worker.go pool init"        →  Suggested next: /goal fix-race-in-worker-go
+medium   : /plan ... --auto → /refine my-feature            →  Suggested next: /goal my-feature
+full     : /search → /plan → /refine my-feature             →  Suggested next: /goal my-feature
 edited   : (edit .claude/goals/my-feature.md) → /refine my-feature
-                                                            →  /goal (auto-FROM-CONTRACT, ≤4000 char)
+                                                            →  Suggested next: /goal my-feature
 ```
+
+Every chain ends with a printed suggestion; `/goal <slug>` is typed
+by the user. No auto-chain, no magic. The 4000-char ceiling applies
+in every case; the actual directive length is the minimum viable.
 
 No explicit mode flag needed in normal usage — the skill detects from
 the argument shape + disk state. Flags exist only for edge cases where
