@@ -160,7 +160,6 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 |---------|---------|
 | `/init` | Conversational project discovery + doc generation |
 | `/plan` | Analyze codebase and design implementation approach |
-| `/do` | **[DEPRECATED]** Use `/goal <slug>` for goal iteration — `/do` retained for back-compat |
 | `/review` | Code review (3-tier: agents + Qodo + CodeRabbit) |
 | `/git` | Conventional commits, branch management |
 | `/search` | Documentation research with official sources |

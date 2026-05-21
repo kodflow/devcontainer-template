@@ -87,11 +87,39 @@ setup() {
   ! grep -q 'Skill(skill="do"' "$RENDER"
 }
 
-# -- Invariant 8: /do carries a deprecation banner ------------------------
+# -- Invariant 8: /do is NOT advertised as deprecated --------------------
 
-@test "TestDoMdHasDeprecationBanner" {
-  # /do is deprecated for goal iteration; the banner is the contract
-  # the harness uses to discover the deprecation without parsing prose.
-  grep -q '^## DEPRECATED' "$DO_MD"
-  grep -q '/goal <slug>' "$DO_MD"
+@test "TestDoMdHasNoDeprecationBanner" {
+  # /do remains a working skill; we do not advertise it in the skill
+  # tables and we do NOT label it deprecated. If users find it, it
+  # works; if they don't, /goal <slug> is the documented path.
+  ! grep -q '^## DEPRECATED' "$DO_MD"
+}
+
+# -- Invariant 9: render.md defines the square-prompt template -----------
+
+@test "TestRenderDefinesSquarePromptTemplate" {
+  # All 7 canonical sections must appear in the template definition.
+  for section in '# CONTEXT' '# OBJECTIVE' '# SCOPE' \
+                 '# CONSTRAINTS' '# ACCEPTANCE' '# VERIFY' '# STOP'; do
+    grep -q "$section" "$RENDER" || { echo "missing section: $section"; return 1; }
+  done
+}
+
+# -- Invariant 10: synthesis enforces square-prompt validation -----------
+
+@test "TestSynthesisEnforcesSquarePromptValidation" {
+  # The validator step is named and called out from the pipeline tables.
+  grep -q 'square-prompt-validate' "$SYNTH"
+  # Vague-verb rejection table is present (catches "fix ca", "improve", etc.)
+  grep -q 'Vague-verb rejection table' "$SYNTH"
+  grep -q 'user-must-fill-acceptance' "$SYNTH"
+}
+
+# -- Invariant 11: ACCEPTANCE and VERIFY are 1:1 paired ------------------
+
+@test "TestSquarePromptAcceptanceVerifyPaired" {
+  # render.md documents the 1:1 rule between ACCEPTANCE checkboxes and
+  # VERIFY entries — the contract that makes "fix ca" impossible.
+  grep -qE '1:1 mapping|one per ACCEPTANCE' "$RENDER"
 }

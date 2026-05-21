@@ -6,7 +6,12 @@ description: |
   .claude/contexts/<slug>.md + .claude/plans/<slug>.md and runs 4-10
   review lenses. BARE mode skips lens dispatch and structures a
   free-form description. FROM-CONTRACT mode re-compacts an existing
-  goal contract. The /goal directive has a 4000-char ceiling (hard
+  goal contract. ALWAYS emits a predictable square-prompt directive
+  with the same 7-section shape (CONTEXT, OBJECTIVE, SCOPE,
+  CONSTRAINTS, ACCEPTANCE, VERIFY, STOP) so a vague input like
+  "fix ca" never reaches the goal state — synthesis rejects vague
+  verbs and forces binary measurable acceptance criteria paired 1:1
+  with verifiers. The /goal directive has a 4000-char ceiling (hard
   tool limit); /refine aims for the minimum viable length that
   preserves the contract, never pads to fill the budget.
 allowed-tools:
@@ -137,9 +142,14 @@ Read `~/.claude/commands/refine/dispatch.md`. For each lens, call
 
 Read `~/.claude/commands/refine/synthesis.md`.
 
-- **FULL**: collect lens findings → dedup → rank → render → compact-to-minimum.
-- **BARE**: apply WHAT/WHY/WHERE/HOW/DONE template → render → compact-to-minimum.
-- **FROM-CONTRACT**: read contract → extract → render → compact-to-minimum.
+- **FULL**: collect lens findings → dedup → rank → render → refine-pipeline → square-prompt-validate → compact-to-minimum.
+- **BARE**: apply WHAT/WHY/WHERE/HOW/DONE template → render → refine-pipeline → square-prompt-validate → compact-to-minimum.
+- **FROM-CONTRACT**: read contract → extract → render → refine-pipeline → square-prompt-validate → compact-to-minimum.
+
+Every mode goes through `square-prompt-validate` — the directive is
+ALWAYS the same 7-section square-prompt shape. Vague verbs like
+"fix", "improve", or "make it work" are rejected and replaced with a
+visible sentinel so the user notices the gap before running `/goal`.
 
 Output is bounded by the **4000-char ceiling**; the natural target is
 the minimum viable length given the content. There is no padding.

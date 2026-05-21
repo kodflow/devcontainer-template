@@ -1,17 +1,57 @@
-# refine/synthesis.md — Skills Architecture v1.5
+# refine/synthesis.md — Skills Architecture v1.6
 
 ## Pipeline per mode
 
 | Mode | Pipeline steps |
 |---|---|
-| FULL | `collect → dedup → rank → render → refine-pipeline → compact-to-minimum` |
-| BARE | `template → render → refine-pipeline → compact-to-minimum` |
-| FROM-CONTRACT | `read → extract → render → refine-pipeline → compact-to-minimum` |
+| FULL | `collect → dedup → rank → render → refine-pipeline → square-prompt-validate → compact-to-minimum` |
+| BARE | `template → render → refine-pipeline → square-prompt-validate → compact-to-minimum` |
+| FROM-CONTRACT | `read → extract → render → refine-pipeline → square-prompt-validate → compact-to-minimum` |
 
 The **refine-pipeline** step (post-lens, 10 mono-concern agents) is
-documented in `dispatch.md`. The **compact-to-minimum** step is
-mode-agnostic — single source of truth for the directive char-cap
-lives in this file.
+documented in `dispatch.md`. The **square-prompt-validate** step
+enforces the predictable output shape defined in `render.md`. The
+**compact-to-minimum** step is mode-agnostic — single source of
+truth for the directive char-cap lives in this file.
+
+## Square-prompt validation (mandatory, all modes)
+
+Every mode produces the **same** directive shape:
+CONTEXT, OBJECTIVE, SCOPE (In/Out), CONSTRAINTS, ACCEPTANCE, VERIFY,
+STOP. The validator runs after rendering and rejects any directive
+that fails any of these invariants:
+
+| Invariant | Rule |
+|---|---|
+| All 7 sections present | Each `# <SECTION>` header appears exactly once, in canonical order |
+| ACCEPTANCE non-empty | At least one `- [ ]` checkbox under `# ACCEPTANCE` |
+| VERIFY 1:1 with ACCEPTANCE | Each ACCEPTANCE checkbox maps to exactly one VERIFY entry |
+| No vague verbs in ACCEPTANCE | None of the rejected phrasings (see table below) |
+| STOP block is literal | Exactly the canonical STOP wording — no rephrasing |
+
+### Vague-verb rejection table (synthesis applies this before render)
+
+| Forbidden phrasing (in ACCEPTANCE) | Reject reason | Required rewrite |
+|---|---|---|
+| `fix <X>` | non-binary, no measure | `grep -c <symptom> <file> == 0` or equivalent |
+| `make <X> work` | non-binary, no measure | `<cmd> → exit 0` |
+| `improve <X>` | non-binary, comparative | `<bench> regression < N%` |
+| `make it better` | subjective | binary or dropped |
+| `looks correct` | subjective | binary or dropped |
+| `should work` | speculative | binary or dropped |
+| `handle <X> properly` | non-binary | `<probe-cmd> returns <value>` |
+
+If a candidate ACCEPTANCE bullet trips the table and synthesis cannot
+rewrite it from available evidence, the bullet is replaced with the
+sentinel `- [ ] <user-must-fill-acceptance>` and a matching VERIFY
+entry `<user-must-fill-acceptance> -> manual`. The gap is **visible**
+on disk rather than hidden behind soft prose, so the user notices
+and supplies a real binary check before running `/goal <slug>`.
+
+This is the mechanism that prevents directives like
+`/goal vasy execute le plan` or `/goal fix ca` from ever reaching
+the goal state: they would land as a single sentinel bullet and the
+user would see immediately that the prompt is unactionable.
 
 ### Char-cap — ceiling, not target (v1.5)
 

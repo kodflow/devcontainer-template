@@ -141,12 +141,12 @@ setup() {
 # -- Synthesis pipeline integrity -----------------------------------------
 
 @test "TestRefineSynthesisPipelineDiffersPerMode" {
-  # v1.6 amendment: pipelines insert refine-pipeline between render and
-  # compact, and compact is renamed to compact-to-minimum (ceiling, not
-  # target). All three modes keep distinct entry sequences.
-  grep -q 'collect → dedup → rank → render → refine-pipeline → compact-to-minimum' "$SYNTH"
-  grep -q 'template → render → refine-pipeline → compact-to-minimum' "$SYNTH"
-  grep -q 'read → extract → render → refine-pipeline → compact-to-minimum' "$SYNTH"
+  # v1.6 amendment: pipelines insert refine-pipeline + square-prompt-validate
+  # between render and compact, and compact is renamed to compact-to-minimum
+  # (ceiling, not target). All three modes keep distinct entry sequences.
+  grep -q 'collect → dedup → rank → render → refine-pipeline → square-prompt-validate → compact-to-minimum' "$SYNTH"
+  grep -q 'template → render → refine-pipeline → square-prompt-validate → compact-to-minimum' "$SYNTH"
+  grep -q 'read → extract → render → refine-pipeline → square-prompt-validate → compact-to-minimum' "$SYNTH"
 }
 
 @test "TestRefineModeEnumInOutputSchema" {
