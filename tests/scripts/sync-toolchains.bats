@@ -85,8 +85,16 @@ teardown() {
     ! grep -qE 'go install "\$\{?tool\}?@latest"' "$SYNC_SH"
 }
 
-@test "sync_go keeps ktn-linter on the binary-download path (not a Go module)" {
-    grep -qF 'github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-' "$SYNC_SH"
+@test "sync_go installs ktn-linter from the goreleaser release tarball (with go install fallback)" {
+    # The hyphenated raw-binary URL never existed as a published asset and
+    # 404'd every container build (#371). Asset is goreleaser-style:
+    # `ktn-linter_linux_<arch>.tar.gz` with the binary at the tarball root.
+    # A `go install …/cmd/ktn-linter` fallback covers CDN blips / asset
+    # rename drift so a single 404 cannot abort the entire Go feature.
+    grep -qF 'github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter_linux_' "$SYNC_SH"
+    grep -qF '.tar.gz' "$SYNC_SH"
+    grep -qF 'github.com/kodflow/ktn-linter/cmd/ktn-linter@latest' "$SYNC_SH"
+    ! grep -qF 'ktn-linter-linux-' "$SYNC_SH"
 }
 
 @test "sync_go auto-refreshes ktn-linter against upstream (no skip-if-installed)" {
@@ -111,11 +119,15 @@ teardown() {
         | grep -qE 'if \[ -z "\$installed" \]'
 }
 
-@test "sync_go writes ktn-linter binary atomically (sibling .download + mv)" {
-    # Without a temp+rename, a curl killed mid-stream leaves a half-written
-    # executable that subsequent runs treat as "installed" — permanent drift.
-    grep -qE 'tmp="\$\{?target\}?\.download"' "$SYNC_SH"
-    grep -qE 'mv -f "\$tmp" "\$target"' "$SYNC_SH"
+@test "sync_go writes ktn-linter binary atomically (tarball + extract + sibling rename)" {
+    # Without a temp+extract+rename, a curl killed mid-stream leaves a
+    # half-written executable that subsequent runs treat as "installed" —
+    # permanent drift. New shape: download tarball to .download.tgz, extract
+    # to .download, chmod +x, then `mv -f` onto the final target.
+    grep -qE 'tmp_tgz="\$\{?target\}?\.download\.tgz"' "$SYNC_SH"
+    grep -qE 'tmp_bin="\$\{?target\}?\.download"' "$SYNC_SH"
+    grep -qF 'tar -xzf "$tmp_tgz"' "$SYNC_SH"
+    grep -qE 'mv -f "\$tmp_bin" "\$target"' "$SYNC_SH"
 }
 
 @test "sync_go preserves the existing tarball/binary-cache layout" {
