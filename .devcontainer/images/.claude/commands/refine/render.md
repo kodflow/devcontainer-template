@@ -71,30 +71,91 @@ The BARE contract is intentionally lean — no proof triplets, no
 rollback. The user is told this explicitly via the "Out of scope"
 section so they don't expect lens-level guarantees.
 
-## Runtime directive templates
+## Runtime directive — the square-prompt template (single shape, all modes)
 
-The directive always targets **4000 chars**. Natural output may be
-shorter; never longer.
+`/refine` ALWAYS emits a single, predictable structured directive.
+There is no per-mode shape — FULL, BARE, and FROM-CONTRACT all
+produce the same template. What varies is only **how the slots are
+filled** (from lens findings, from a free-form description, or from
+a re-read of an existing contract).
 
-### FULL mode
+The directive is bounded by the **4000-char ceiling** of the /goal
+tool (see `synthesis.md` for the ceiling/floor doctrine). The
+template is dense by design — every section earns its bytes — and
+the natural target is the minimum viable length given the content.
+
+The shape is fixed so a harness reading the directive — and a human
+reviewing it — always knows where each datum lives, and so a vague
+condition like "fix it" never reaches the goal state because the
+template REQUIRES paired binary acceptance + verifier entries.
+
+### Canonical template
 
 ```
-/goal "Implement <plan title>: <top blockers compressed>. Acceptance:
-<≤3 bullet criteria>. Rollback: <one line>. Scope guard:
-<owned_paths>."
+/goal "<slug>
+
+# CONTEXT
+<1-3 sentences: the system state and why this work matters now>
+
+# OBJECTIVE
+<one sentence stating the END STATE — not a process>
+
+# SCOPE
+In:  <files, modules, or areas the work touches>
+Out: <explicit non-targets — sibling concerns, follow-up PRs>
+
+# CONSTRAINTS
+- <hard rule 1>
+- <hard rule 2>
+
+# ACCEPTANCE
+- [ ] <binary, measurable criterion 1>
+- [ ] <binary, measurable criterion 2>
+- [ ] <…each criterion is a checkbox the harness can mark TRUE/FALSE>
+
+# VERIFY
+- <criterion 1> -> <bash command, grep, test name, or tool invocation>
+- <criterion 2> -> <verifier — one per ACCEPTANCE line, 1:1 mapping>
+
+# STOP
+Halt only when every ACCEPTANCE box returns TRUE under its paired
+VERIFY entry. Do not stop on partial progress, on 'looks fine', or
+on a non-VERIFY heuristic. Vague conditions ('fix it', 'improve',
+'make it work') are forbidden in ACCEPTANCE and rejected at synthesis."
 ```
 
-### BARE mode
+### Slot population per mode
 
-```
-/goal "<WHAT>. <WHY in one clause>. Touches: <WHERE>.
-Constraints: <HOW one-liner>. Done when: <DONE one-liner>."
-```
+| Slot | FULL | BARE | FROM-CONTRACT |
+|---|---|---|---|
+| CONTEXT | top-of-plan summary | inferred from description | contract's `## Why` |
+| OBJECTIVE | plan title rewritten as end-state | first sentence of description | contract's first non-trivial bullet |
+| SCOPE In | plan's owned_paths + touched modules | WHERE slot | contract's `## Where` |
+| SCOPE Out | plan's "Out of scope" section | "(nothing explicit)" | contract's `## Out of scope` |
+| CONSTRAINTS | HOW from lens findings + plan constraints | HOW slot | contract's `## How` |
+| ACCEPTANCE | dedup'd findings → binary form | DONE slot decomposed | contract's `## Acceptance criteria` |
+| VERIFY | bound by `refine-verifier-binder` (one per criterion) | derived from acceptance | re-bound from contract |
+| STOP | always the verbatim STOP block (no per-mode variation) | same | same |
 
-### FROM-CONTRACT mode
+The STOP block is **literal** — never rephrased per mode. That is
+what makes the directive predictable: any consumer reading the
+directive sees the same termination contract every time.
 
-Re-derives the FULL directive shape from the existing contract on disk.
-No new shape; same compact output.
+### Forbidden ACCEPTANCE phrasings (rejected at synthesis)
+
+| Vague | Rewrite into |
+|---|---|
+| `fix the bug` | `grep -c 'race in worker.go:42' src/worker.go == 0` |
+| `make tests pass` | `make test → exit 0 with 0 failures` |
+| `improve performance` | `bench cmp baseline.txt new.txt → no regression > 5%` |
+| `looks correct` | binary command-bound assertion or it is dropped |
+| `should work` | binary command-bound assertion or it is dropped |
+
+If a slot is genuinely unknown (e.g. BARE mode with a one-line
+description and no DONE clause), synthesis emits a single
+`# ACCEPTANCE` bullet `- [ ] <user-must-fill-acceptance>` and a
+matching `# VERIFY` line `- <user-must-fill-acceptance> -> manual`
+— making the gap visible rather than hiding it behind soft prose.
 
 ## Post-render side effects
 
@@ -109,8 +170,10 @@ bash ~/.claude/scripts/goal-state.sh update "<slug>" \
   --decision met --decision-reason "refined" \
   --append-objective "directive-emitted"
 
-# 3. Echo directive to the agent's transcript so /do --goal-turn picks it up
-echo "$DIRECTIVE"
+# 3. Emit directive + manual-trigger suggestion (no auto-chain).
+#    The directive is the square-prompt template defined above; the
+#    suggestion is the SAME shape every time, regardless of mode.
+printf '%s\n\nSuggested next step:\n  /goal %s\n' "$DIRECTIVE" "$SLUG"
 ```
 
 ### FROM-CONTRACT
@@ -123,9 +186,16 @@ bash ~/.claude/scripts/goal-state.sh update "<slug>" \
   --decision met --decision-reason "recompacted" \
   --append-objective "directive-re-emitted"
 
-# 3. Echo directive
-echo "$DIRECTIVE"
+# 3. Emit directive + manual-trigger suggestion (no auto-chain)
+printf '%s\n\nSuggested next step:\n  /goal %s\n' "$DIRECTIVE" "$SLUG"
 ```
+
+The trailing `Suggested next step:` line is the **only** post-emit
+hand-off. There is no `Skill(skill=…)` call, no auto-chain — the
+user remains the trigger for `/goal <slug>`. The directive itself
+is always the square-prompt template; the user reading it sees the
+same CONTEXT / OBJECTIVE / SCOPE / CONSTRAINTS / ACCEPTANCE / VERIFY
+/ STOP structure every time.
 
 ## Slug derivation (BARE mode)
 

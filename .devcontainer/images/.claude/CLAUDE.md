@@ -118,7 +118,7 @@ Enforced by two layers (defence-in-depth):
 |-------|---------|
 | `/init` | Personalize + validate |
 | `/plan` | Planning mode |
-| `/do` | Iterative task execution |
+| `/goal` | **Harness builtin** (not a repository command file) — iterates from the goal contract (`.claude/goals/<slug>.md`) written by `/refine` against runtime state (`.claude/state/goals/<slug>.json`) managed by `goal-state.sh` |
 | `/review` | Code review (3 tiers: agents + Qodo + CodeRabbit) |
 | `/git` | Branch + commit + PR |
 | `/search` | Documentation research |
