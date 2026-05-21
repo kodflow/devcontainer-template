@@ -312,10 +312,15 @@ set +e
 TOOL_PIDS[goimports]=$!
 set -e
 
+# Release asset is goreleaser-style `ktn-linter_linux_<arch>.tar.gz` containing
+# the binary at the tarball root. The legacy hyphenated raw-binary URL never
+# existed as a published asset — that 404 broke every container build because
+# no go-install fallback was wired (issue #324 follow-up). The `cmd/ktn-linter`
+# fallback covers a Releases-CDN blip or future asset-naming skew.
 spawn_tool "ktn-linter" \
-    "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}" \
-    "" \
-    "binary"
+    "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter_linux_${GO_ARCH}.tar.gz" \
+    "github.com/kodflow/ktn-linter/cmd/ktn-linter" \
+    "tar.gz"
 
 # Bazel tooling — same release ships both binaries.
 if [[ -n "$BUILDTOOLS_VERSION" ]]; then
