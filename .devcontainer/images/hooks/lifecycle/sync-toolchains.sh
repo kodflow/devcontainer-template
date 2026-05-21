@@ -201,21 +201,30 @@ sync_go() {
     # short-circuit and skip Go sync entirely.
     local failed=0
     local tool installed upstream major_pin
-    # Atomic binary install for ktn-linter (release asset, not a Go module).
+    # Atomic install for ktn-linter (goreleaser tarball, not a Go module path).
     # Writes to a sibling .download path then renames — protects against a
-    # half-fetched binary if curl is interrupted mid-stream. Returns non-zero
-    # on any failure so the caller can flag the sync as incomplete.
+    # half-fetched payload if curl is interrupted mid-stream. Falls back to
+    # `go install …/cmd/ktn-linter` if the release CDN 404s (asset-naming
+    # drift) or times out. Returns non-zero only when both paths fail.
     install_ktn_linter() {
         local target="${GOPATH}/bin/ktn-linter"
-        local tmp="${target}.download"
+        local tmp_tgz="${target}.download.tgz"
+        local tmp_bin="${target}.download"
         if curl -fsSL --connect-timeout 10 --max-time 60 \
-                "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter-linux-${GO_ARCH}" \
-                -o "$tmp" 2>/dev/null \
-            && chmod +x "$tmp" \
-            && mv -f "$tmp" "$target"; then
+                "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter_linux_${GO_ARCH}.tar.gz" \
+                -o "$tmp_tgz" 2>/dev/null \
+            && tar -xzf "$tmp_tgz" -C "$(dirname "$tmp_bin")" ktn-linter 2>/dev/null \
+            && mv -f "$(dirname "$tmp_bin")/ktn-linter" "$tmp_bin" \
+            && chmod +x "$tmp_bin" \
+            && mv -f "$tmp_bin" "$target"; then
+            rm -f "$tmp_tgz"
             return 0
         fi
-        rm -f "$tmp"
+        rm -f "$tmp_tgz" "$tmp_bin"
+        if command -v go >/dev/null 2>&1 \
+            && go install "github.com/kodflow/ktn-linter/cmd/ktn-linter@latest" 2>/dev/null; then
+            return 0
+        fi
         return 1
     }
 
