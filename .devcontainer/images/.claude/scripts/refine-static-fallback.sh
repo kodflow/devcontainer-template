@@ -40,6 +40,10 @@ refine_static_lens() {
     fields)
       echo "$agent $effort $critical"
       ;;
+    *)
+      printf 'refine_static_lens: unsupported format %q (expected: json|fields)\n' "$format" >&2
+      return 2
+      ;;
   esac
 }
 
@@ -76,6 +80,10 @@ refine_static_pipeline_phase() {
       ;;
     fields)
       echo "$agent $effort"
+      ;;
+    *)
+      printf 'refine_static_pipeline_phase: unsupported format %q (expected: json|fields)\n' "$format" >&2
+      return 2
       ;;
   esac
 }

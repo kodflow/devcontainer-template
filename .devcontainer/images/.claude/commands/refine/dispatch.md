@@ -1,6 +1,6 @@
 # refine/dispatch.md — Skills Architecture v1.5 (PR3, fix #17)
 
-> **v1.5 note:** this phase is FULL-mode only. BARE and FROM-CONTRACT skip lens dispatch entirely — they jump straight to the synthesis pipeline (which itself adapts to the mode). The single-source-of-truth char-cap logic in `synthesis.md` is what BARE and FROM-CONTRACT reuse without reimplementing it. The char-cap is always 4000; lens depth (4 critical vs all 10) is independent.
+> **v1.6 note:** this phase is FULL-mode only. BARE and FROM-CONTRACT skip lens dispatch entirely — they jump straight to the synthesis pipeline (which itself adapts to the mode). The single-source-of-truth char-cap logic in `synthesis.md` is what BARE and FROM-CONTRACT reuse without reimplementing it. The char-cap is always 4000; lens depth (4 critical vs all 10) is independent.
 
 ## Lenses (10)
 
@@ -65,7 +65,7 @@ before its inputs exist.
 | 3 | `refine-constraint-distiller` | Lock constraints in canonical form before any voice rewrite touches their wording |
 | 4 | `refine-done-criteria-sharpener` | Sharpen acceptance criteria into binary, measurable assertions; output feeds the verifier binder |
 | 5 | `refine-verifier-binder` | Bind one verifier (grep / bats / make) to each criterion; output feeds the escalation isolator |
-| 6 | `refine-escalation-isolator` | Lift manual-only verifiers and ADR triggers into a dedicated escalation block; output feeds the chain stripper |
+| 6 | `refine-escalation-isolator` | Lift manual-only verifiers and ADR triggers into a dedicated escalation block; output feeds the sequence-causal-validator (step 7) which validates producer-before-consumer ordering before downstream steps 8–9 |
 | 7 | `refine-sequence-causal-validator` | Diagnostic pass: validate the step order is causal (producer before consumer); runs late so it sees the final step list |
 | 8 | `refine-imperative-rewriter` | Prose rewrite into imperative voice — runs only once semantics are stable |
 | 9 | `refine-chain-stripper` | Strip any auto-chain language pasted in by upstream synthesis (`Skill(skill=…)`, "next, run /do", etc.) |

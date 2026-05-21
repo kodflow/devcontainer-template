@@ -1,7 +1,7 @@
 ---
 name: refine
 description: |
-  Skills Architecture v1.5 — proof-bearing goal contract generator with
+  Skills Architecture v1.6 — proof-bearing goal contract generator with
   three entry modes (auto-detected from arguments). FULL mode reads
   .claude/contexts/<slug>.md + .claude/plans/<slug>.md and runs 4-10
   review lenses. BARE mode skips lens dispatch and structures a
@@ -30,7 +30,7 @@ $ARGUMENTS
 
 @.devcontainer/images/.claude/commands/shared/team-mode.md
 
-# /refine — Goal Contract Generator (v1.5 — Skills Architecture)
+# /refine — Goal Contract Generator (v1.6 — Skills Architecture)
 
 ## Directive char-cap — ceiling, not target
 
@@ -48,7 +48,7 @@ There is no separate LIGHT ceiling. LIGHT vs FULL only affects **how
 many lenses run** (4 critical vs all 10), not the directive ceiling —
 the 4000-char cap stays uniform across both lens depths.
 
-## Mode auto-detection (v1.5)
+## Mode auto-detection (v1.6)
 
 `/refine <arg>` detects the mode from the argument shape + disk state:
 
@@ -149,8 +149,11 @@ Read `~/.claude/commands/refine/synthesis.md`.
 Every mode goes through `square-prompt-validate` TWICE — once before
 compaction (diagnostic) and once after (final guarantee). The directive
 is ALWAYS the same 7-section square-prompt shape. Vague verbs like
-"fix", "improve", or "make it work" are rejected and replaced with a
-visible sentinel so the user notices the gap before running `/goal`.
+"fix", "improve", or "make it work" are rejected **inside the
+`# ACCEPTANCE` section only** (CONTEXT / OBJECTIVE / SCOPE / etc. may
+freely use them in prose) and replaced with a visible
+`- [ ] <user-must-fill-acceptance>` sentinel so the user notices the
+gap before running `/goal`.
 
 Output is bounded by the **4000-char ceiling**; the natural target is
 the minimum viable length given the content. There is no padding.
@@ -194,7 +197,7 @@ on disk has been reviewed.
 | `--auto` | Default for FULL: pick lens depth from plan frontmatter |
 | `--help` | Display help |
 
-## Workflow patterns (v1.5)
+## Workflow patterns (v1.6)
 
 ```
 quick    : /refine "fix race in worker.go pool init"        →  Suggested next: /goal fix-race-in-worker-go

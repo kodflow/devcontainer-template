@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# refine-v14-modes.bats — Skills Architecture v1.5
+# refine-v14-modes.bats — Skills Architecture v1.6
 # WHY: lock the 3-mode contract (FULL / BARE / FROM-CONTRACT) plus the
-# uniform 4000-char target and auto-detection from disk state. The
-# free-form-to-/goal path is the one users will reach for most often;
-# it MUST keep working without a plan + context pair and without an
-# explicit --bare flag.
+# uniform 4000-char ceiling (not target) and auto-detection from disk
+# state. The free-form-to-/goal path is the one users will reach for
+# most often; it MUST keep working without a plan + context pair and
+# without an explicit --bare flag.
 
 setup() {
   REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/../.." && pwd)"
