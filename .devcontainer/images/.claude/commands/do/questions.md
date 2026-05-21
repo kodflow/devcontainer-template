@@ -2,6 +2,12 @@
 
 **Ask these 4 questions ONLY if no approved plan is detected:**
 
+> **Goal-turn skip rule (PR1 — Skills Architecture v1.3)**:
+> if `mode == "GOAL_TURN"` (set by Phase 1.5 plan-detect), skip this
+> entire phase. The goal-state file already encodes everything that
+> would otherwise be asked here — re-prompting would block automated
+> turn-by-turn execution.
+
 ## Question 1: Task Type
 
 ```yaml

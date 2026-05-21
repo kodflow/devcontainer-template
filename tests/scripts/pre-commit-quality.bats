@@ -101,13 +101,25 @@ EOF
 }
 
 # --- Issue #363: detect_languages bind-safety under set -u ---
+#
+# WHY env -u BASH_ENV: kcov v43 sets BASH_ENV to a tracing script that
+# references variables not bound under set -u. Any `bash -c` subshell
+# inherits BASH_ENV and trips immediately on the first command,
+# regardless of what the test itself does. Unsetting BASH_ENV for the
+# subshell isolates this test from the coverage harness so it actually
+# verifies the production code (which is set -u safe) instead of the
+# kcov plumbing (which is not).
 @test "issue #363: detect_languages with no markers does not abort under set -u" {
     local empty_dir="$TEST_TMPDIR/empty-repo"
     mkdir -p "$empty_dir"
-    run bash -c "set -euo pipefail
+    run env -u BASH_ENV bash -c "set -euo pipefail
         source '${BATS_TEST_DIRNAME}/../../.devcontainer/images/.claude/scripts/pre-commit-checks.sh'
         detect_languages '$empty_dir'
         echo \"count=\${#DETECTED_LANGUAGES[@]}\""
+    if [ "$status" -ne 0 ]; then
+        echo "STATUS=$status"
+        echo "OUTPUT=$output"
+    fi
     [ "$status" -eq 0 ]
     [[ "$output" == *"count=0"* ]]
 }

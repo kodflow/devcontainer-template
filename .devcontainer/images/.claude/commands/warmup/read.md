@@ -57,7 +57,7 @@ parallel_analysis:
 
   agents:
     - task: "source-analyzer"
-      type: "Explore"
+      type: "docs-analyzer-architecture"   # PR4 — routed via route-agent.sh phase=read-architecture
       scope: "src/"
       prompt: |
         Analyze the source code structure:
@@ -67,7 +67,7 @@ parallel_analysis:
         Return: {packages[], patterns[], attention_points[]}
 
     - task: "config-analyzer"
-      type: "Explore"
+      type: "docs-analyzer-commands"       # PR4 — routed via route-agent.sh phase=read-commands
       scope: ".devcontainer/"
       prompt: |
         Analyze the DevContainer configuration:
@@ -77,7 +77,7 @@ parallel_analysis:
         Return: {features[], services[], mcp_servers[]}
 
     - task: "test-analyzer"
-      type: "Explore"
+      type: "docs-analyzer-agents"         # PR4 — routed via route-agent.sh phase=read-agents
       scope: "tests/ OR **/*_test.go OR **/*.test.ts"
       prompt: |
         Analyze the test coverage:
@@ -86,7 +86,7 @@ parallel_analysis:
         Return: {test_files[], patterns[], coverage_estimate}
 
     - task: "docs-analyzer"
-      type: "Explore"
+      type: "docs-analyzer-hooks"          # PR4 — routed via route-agent.sh phase=read-hooks
       scope: "~/.claude/docs/"
       prompt: |
         Analyze the knowledge base:

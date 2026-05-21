@@ -77,6 +77,46 @@ plan_detection:
       - "Continue to Phase 0 (questions)"
 ```
 
+## Phase 1.5: Goal-Turn Detection (PR1 — Skills Architecture v1.3)
+
+If `$ARGUMENTS` contains `--goal-turn <slug>`, the loop reads persistent
+state from `.claude/state/goals/<slug>.json` and skips Phase 3.0
+(questions) and Phase 5.5 (worktree-confirm). Iteration count, last
+decision and ownership all live in that file, managed by
+`~/.claude/scripts/goal-state.sh`.
+
+```yaml
+goal_turn_detection:
+  trigger: "--goal-turn <slug> in $ARGUMENTS"
+
+  load_state:
+    command: "bash ~/.claude/scripts/goal-state.sh read <slug>"
+    on_missing: "abort with exit code 4 (goal state not found)"
+
+  validate_state:
+    refuse_if:
+      - "status in {completed, abandoned}"   # exit 5
+      - "iteration >= max_iterations"        # exit 6
+    mark_stale:
+      command: "bash ~/.claude/scripts/goal-state.sh mark-stale <slug>"
+      condition: "last_updated_at older than GOAL_STALE_AFTER_HOURS (default 24h)"
+      on_stale: "abort with exit code 7 (goal stale, retry with --force-resume)"
+
+  on_success:
+    mode: "GOAL_TURN"
+    plan_path: "<from state .plan_path>"
+    context_path: "<from state .context_path>"
+    skip_phases: [3.0, 5.5]
+    persist_on_exit: |
+      bash ~/.claude/scripts/goal-state.sh update <slug> \
+        --iteration $((current_iter + 1)) \
+        --decision <met|unmet|partial> \
+        --decision-reason "<short>"
+```
+
+The `goal-condition:` line emitted by Phase 7.0 (synthesis) is parsed
+back into the state file via `goal-state.sh update --decision <met|unmet|partial>`.
+
 **Output Phase 1.0 (plan detected):**
 
 ```

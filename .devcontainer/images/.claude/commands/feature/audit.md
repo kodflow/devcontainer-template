@@ -27,7 +27,11 @@ checkup_workflow:
     mode: "Sequential waves, parallel agents within each wave"
     per_wave:
       per_feature:
-        subagent_type: "Explore"
+        # PR7 — Skills Architecture v1.3: replaces generic Explore with
+        # docs-analyzer-* per audit aspect, routed via route-agent.sh
+        # phase=audit-<aspect>. Falls back to docs-analyzer-architecture
+        # when no specific aspect can be derived from the feature workdir.
+        subagent_type: "docs-analyzer-architecture"
         model: "haiku"
         prompt: |
           Audit feature {id}: "{title}" [Level {level}]

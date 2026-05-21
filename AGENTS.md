@@ -1,6 +1,6 @@
 # Specialist Agents
 
-79 agents organized in 6 categories. All agents return condensed JSON to protect parent context.
+86 agents organized in 8 categories (incl. 5 new from PR2b: react, postgres, playwright, cloudflare, github-actions). All agents return condensed JSON to protect parent context.
 
 ## Orchestrators (2)
 

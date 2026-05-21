@@ -134,9 +134,19 @@ TaskCreate × 3:
   test-integration  → using developer-specialist-<detected-lang>
                       scope: tests/integration/
                       access_mode: read-only OR write
-  test-e2e          → using developer-specialist-review  (or Playwright agent if available)
+  test-e2e          → using developer-specialist-playwright  # PR7 — was developer-specialist-review fallback
                       scope: tests/e2e/ + Playwright traces
                       access_mode: read-only
+```
+
+### Framework routing (PR7 — Skills Architecture v1.3)
+
+```bash
+# Test framework dispatch via route-agent.sh phase=e2e
+ROUTER=~/.claude/scripts/route-agent.sh
+DISPATCH=$(bash "$ROUTER" --skill /test --phase e2e \
+  --profile .claude/state/profile.json)
+# Returns developer-specialist-playwright when test_frameworks contains "playwright".
 ```
 
 Wait for all 3 → aggregate coverage + failures → Phase 4.0 synthesis. Token ceiling ≤ 2x (test suites parallelize naturally).

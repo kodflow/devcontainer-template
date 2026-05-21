@@ -137,11 +137,22 @@ Branch:
 Lead: `devops-orchestrator`. Spawn cloud specialists only for clouds detected in the repo (via `.tf` provider scan). Up to 4 teammates:
 
 ```text
-TaskCreate × N (where N ≤ 4, only for present clouds):
-  cloud-aws        → using devops-specialist-aws        (if aws provider detected)
-  cloud-gcp        → using devops-specialist-gcp        (if google provider detected)
-  cloud-azure      → using devops-specialist-azure      (if azurerm provider detected)
-  cloud-hashicorp  → using devops-specialist-hashicorp  (if vault/consul/nomad detected)
+TaskCreate × N (where N ≤ 5, only for present clouds):
+  cloud-aws         → using devops-specialist-aws         (if aws provider detected)
+  cloud-gcp         → using devops-specialist-gcp         (if google provider detected)
+  cloud-azure       → using devops-specialist-azure       (if azurerm provider detected)
+  cloud-cloudflare  → using devops-specialist-cloudflare  # PR7 + PR2b — wrangler.toml or cloudflare provider
+  cloud-hashicorp   → using devops-specialist-hashicorp   (if vault/consul/nomad detected)
+```
+
+### Cloud routing (PR7 — Skills Architecture v1.3)
+
+```bash
+# Cloud dispatch via route-agent.sh phase=apply, expand_from=.cloud[]
+ROUTER=~/.claude/scripts/route-agent.sh
+DISPATCH=$(bash "$ROUTER" --skill /infra --phase apply \
+  --profile .claude/state/profile.json)
+# Returns one dispatch per cloud in the .cloud[] facet.
 ```
 
 Each task embeds a task-contract v1 block:

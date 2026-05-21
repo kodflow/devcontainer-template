@@ -175,7 +175,19 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/improve` | Documentation QA for design patterns |
 | `/learn` | Extract reusable patterns from the current session into `~/.claude/docs/learned/` |
 | `/feature` | Feature tracking RTM (CRUD, audit, auto-learn) |
-| `/prompt` | Generate ideal prompt structure for /plan requests |
+| `/refine` | Skills Architecture v1.3 — goal contract generator (10-lens analysis) |
+| `/prompt` | **[DEPRECATED]** Use `/refine` instead — scheduled for deletion in PR6 |
+
+### Canonical workflow (Skills Architecture v1.3)
+
+```
+/search → /plan [--goal] → /refine → /goal → /do --goal-turn
+```
+
+`/plan --goal` chains automatically into `/refine` once the plan is
+written; `/refine` emits `/goal` directive and a contract at
+`.claude/goals/<slug>.md`. `/do --goal-turn <slug>` then iterates against
+the persistent state in `.claude/state/goals/<slug>.json`.
 
 ## Collaboration Rules
 

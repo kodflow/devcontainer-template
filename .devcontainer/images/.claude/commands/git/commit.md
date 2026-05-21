@@ -472,3 +472,21 @@ URL: https://gitlab.com/<owner>/<repo>/-/merge_requests/42
 
 ═══════════════════════════════════════════════════════════════
 ```
+
+---
+
+## Phase 8.0: Post-commit Skill chain (PR1 — Skills Architecture v1.3)
+
+After the PR/MR is created, if the commit touched > 5 files OR the
+working tree still has staged changes, hand off to `/review --staged`
+through `Skill` recursion (cycle-detection guard limits depth to 5):
+
+```yaml
+post_commit_chain:
+  trigger: "PR/MR created AND (staged_files > 0 OR touched_files >= 5)"
+  primitive: |
+    Skill(skill="review", args="--staged")
+  fallback_when_skill_absent: "advise user to run /review --staged manually"
+```
+
+Skipped for trivial fixes (single `.md` file, < 20 lines changed).

@@ -99,7 +99,7 @@ parallel_analysis:
 
   agents:
     - task: "source-analyzer"
-      type: "Explore"
+      type: "docs-analyzer-structure"     # PR4 — routed via route-agent.sh, replaces generic Explore
       scope: "src/"
       prompt: |
         Analyze the source code structure:
@@ -109,7 +109,7 @@ parallel_analysis:
         Return: {packages[], patterns[], attention_points[]}
 
     - task: "config-analyzer"
-      type: "Explore"
+      type: "docs-analyzer-structure"     # PR4 — routed via route-agent.sh, replaces generic Explore
       scope: ".devcontainer/"
       prompt: |
         Analyze the DevContainer configuration:
@@ -119,7 +119,7 @@ parallel_analysis:
         Return: {features[], services[], mcp_servers[]}
 
     - task: "test-analyzer"
-      type: "Explore"
+      type: "docs-analyzer-structure"     # PR4 — routed via route-agent.sh, replaces generic Explore
       scope: "tests/ OR **/*_test.go OR **/*.test.ts"
       prompt: |
         Analyze the test coverage:
@@ -128,7 +128,7 @@ parallel_analysis:
         Return: {test_files[], patterns[], coverage_estimate}
 
     - task: "docs-analyzer"
-      type: "Explore"
+      type: "docs-analyzer-structure"     # PR4 — routed via route-agent.sh, replaces generic Explore
       scope: "~/.claude/docs/"
       prompt: |
         Analyze the knowledge base:
