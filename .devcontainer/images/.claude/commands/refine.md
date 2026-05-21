@@ -142,12 +142,13 @@ Read `~/.claude/commands/refine/dispatch.md`. For each lens, call
 
 Read `~/.claude/commands/refine/synthesis.md`.
 
-- **FULL**: collect lens findings → dedup → rank → render → refine-pipeline → square-prompt-validate → compact-to-minimum.
-- **BARE**: apply WHAT/WHY/WHERE/HOW/DONE template → render → refine-pipeline → square-prompt-validate → compact-to-minimum.
-- **FROM-CONTRACT**: read contract → extract → render → refine-pipeline → square-prompt-validate → compact-to-minimum.
+- **FULL**: collect lens findings → dedup → rank → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate.
+- **BARE**: apply WHAT/WHY/WHERE/HOW/DONE template → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate.
+- **FROM-CONTRACT**: read contract → extract → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate.
 
-Every mode goes through `square-prompt-validate` — the directive is
-ALWAYS the same 7-section square-prompt shape. Vague verbs like
+Every mode goes through `square-prompt-validate` TWICE — once before
+compaction (diagnostic) and once after (final guarantee). The directive
+is ALWAYS the same 7-section square-prompt shape. Vague verbs like
 "fix", "improve", or "make it work" are rejected and replaced with a
 visible sentinel so the user notices the gap before running `/goal`.
 

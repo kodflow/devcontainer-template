@@ -118,7 +118,7 @@ Enforced by two layers (defence-in-depth):
 |-------|---------|
 | `/init` | Personalize + validate |
 | `/plan` | Planning mode |
-| `/goal` | Harness builtin — iterate from goal-state file written by `/refine` |
+| `/goal` | **Harness builtin** (not a repository command file) — iterates from the goal-state file written by `/refine` |
 | `/review` | Code review (3 tiers: agents + Qodo + CodeRabbit) |
 | `/git` | Branch + commit + PR |
 | `/search` | Documentation research |

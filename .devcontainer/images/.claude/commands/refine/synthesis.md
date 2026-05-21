@@ -4,15 +4,36 @@
 
 | Mode | Pipeline steps |
 |---|---|
-| FULL | `collect → dedup → rank → render → refine-pipeline → square-prompt-validate → compact-to-minimum` |
-| BARE | `template → render → refine-pipeline → square-prompt-validate → compact-to-minimum` |
-| FROM-CONTRACT | `read → extract → render → refine-pipeline → square-prompt-validate → compact-to-minimum` |
+| FULL | `collect → dedup → rank → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate` |
+| BARE | `template → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate` |
+| FROM-CONTRACT | `read → extract → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate` |
 
 The **refine-pipeline** step (post-lens, 10 mono-concern agents) is
 documented in `dispatch.md`. The **square-prompt-validate** step
-enforces the predictable output shape defined in `render.md`. The
-**compact-to-minimum** step is mode-agnostic — single source of
-truth for the directive char-cap lives in this file.
+runs **TWICE** — once before `compact-to-minimum` for early
+diagnostics, and again after compaction as the final guarantee:
+compaction MUST NOT invalidate the section list, the STOP literal
+block, or the ACCEPTANCE/VERIFY 1:1 mapping. The **compact-to-minimum**
+step is mode-agnostic — single source of truth for the directive
+char-cap lives in this file.
+
+### Why validate twice
+
+Compaction is allowed to drop low-severity findings, abbreviate
+sub-bullets, and strip filler words. Without a post-compaction
+validation pass, the compactor could:
+
+- delete a verifier line and break the ACCEPTANCE/VERIFY 1:1 mapping,
+- collapse the STOP block into a single sentence (losing the literal
+  contract harness consumers rely on),
+- merge two sections (e.g. SCOPE + CONSTRAINTS) when trimming
+  whitespace, breaking the canonical section order.
+
+The post-compaction validator catches any of these regressions and
+either re-emits the canonical block (deterministic recovery) or
+fails the synthesis with exit code 25 so the user sees the issue
+before `/goal <slug>` ever runs. Failing **before** the user types
+`/goal` is the entire point of running the validator at all.
 
 ## Square-prompt validation (mandatory, all modes)
 

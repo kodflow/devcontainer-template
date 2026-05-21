@@ -43,7 +43,48 @@ refine_static_lens() {
   esac
 }
 
-# When sourced, expose the function. When executed directly, dispatch.
+# Print a JSON dispatch entry for a post-lens refine-* pipeline phase.
+# Usage: refine_static_pipeline_phase <phase> [json|fields]
+#
+# WHY: dispatch.md introduces 10 mono-concern refine-* agents in v1.6.
+# When route-agent.sh exits 20-31 these phases must still resolve, just
+# like the lens phases — otherwise the pipeline silently degrades to
+# general-purpose and the contract advertised in dispatch.md is fiction.
+# The agent mappings here are the SAME values that the routing-table
+# entries use, so router-success and static-fallback are bit-identical.
+refine_static_pipeline_phase() {
+  local phase="$1"
+  local format="${2:-json}"
+  local agent="" effort=""
+  case "$phase" in
+    refine-content-pruner)             agent="developer-executor-quality";     effort="medium" ;;
+    refine-scope-fencer)               agent="developer-orchestrator";         effort="medium" ;;
+    refine-constraint-distiller)       agent="developer-executor-correctness"; effort="medium" ;;
+    refine-done-criteria-sharpener)    agent="developer-executor-correctness"; effort="high"   ;;
+    refine-verifier-binder)            agent="developer-executor-quality";     effort="high"   ;;
+    refine-escalation-isolator)        agent="developer-orchestrator";         effort="medium" ;;
+    refine-sequence-causal-validator)  agent="developer-executor-correctness"; effort="medium" ;;
+    refine-imperative-rewriter)        agent="developer-executor-quality";     effort="low"    ;;
+    refine-chain-stripper)             agent="developer-executor-quality";     effort="low"    ;;
+    refine-density-optimizer)          agent="developer-executor-quality";     effort="medium" ;;
+    *) return 1 ;;
+  esac
+  case "$format" in
+    json)
+      printf '{"subagent_type":"%s","resolved_model":"unknown","model_source":"static-fallback","effort":"%s","count":1,"matched_rule_id":"static:%s","fallback_used":true,"expanded_from_template":false}\n' \
+        "$agent" "$effort" "$phase"
+      ;;
+    fields)
+      echo "$agent $effort"
+      ;;
+  esac
+}
+
+# When sourced, expose the functions. When executed directly, dispatch.
+# Direct dispatch tries the lens map first, then the pipeline map, so a
+# caller can hand any /refine phase to this script without knowing which
+# bucket it belongs to.
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  refine_static_lens "$@"
+  refine_static_lens "$@" 2>/dev/null && exit 0
+  refine_static_pipeline_phase "$@"
 fi

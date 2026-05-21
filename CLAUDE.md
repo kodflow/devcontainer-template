@@ -186,7 +186,8 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 `/plan --goal` chains automatically into `/refine` once the plan is
 written. `/refine` writes a contract at `.claude/goals/<slug>.md` and
 prints a textual `Suggested next step: /goal <slug>` — there is no
-auto-chain. The user types `/goal <slug>` to enter goal iteration
+auto-chain. **`/goal` is a harness builtin** (not a repository
+command file): the user types `/goal <slug>` to enter goal iteration
 against the persistent state in `.claude/state/goals/<slug>.json`.
 
 ## Collaboration Rules
