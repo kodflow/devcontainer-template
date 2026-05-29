@@ -39,6 +39,24 @@ Use `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` to verify:
 
 ---
 
+## Target-aware scenarios (skills-cleanup C7)
+
+`/review` is **target-aware**: it selects a scenario from the registry
+`commands/review/scenarios/*.md` by inspecting the argument, then runs that
+scenario's lenses on the workflow engine (fan-out → adversarial verify → synthesize).
+
+| Argument shape | Scenario | Writes |
+|---|---|---|
+| plan slug / path under the plans dir / `--plan` | `plan` | edits the plan in place (single-writer + `.history/` backup) |
+| PR number / git range / `--staged` / `--pr` / `--code` | `code` | review-fixes plan (handed to `/goal`) |
+| `--security` / auth·crypto·secrets·network diff | `security` | review-fixes plan |
+| `--architecture` / ADR / cross-module diff | `architecture` | review-fixes plan |
+
+Each scenario file carries a `<!-- scenario-contract v1 … -->` block (`name`,
+`selects_when`, `lenses`, `writes`, `engine`). Writes are bounded to authorized
+dirs (plans / goals / contexts / review/scenarios) — no path traversal (GI7).
+Auto-extension of the registry is **off by default** (see C8).
+
 ## Overview
 
 Intelligent code review using **Recursive Language Model** decomposition:
