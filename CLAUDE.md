@@ -175,7 +175,6 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/learn` | Extract reusable patterns from the current session into `~/.claude/docs/learned/` |
 | `/feature` | Feature tracking RTM (CRUD, audit, auto-learn) |
 | `/refine` | Skills Architecture v1.3 — goal contract generator (10-lens analysis) |
-| `/prompt` | **[DEPRECATED]** Use `/refine` instead — scheduled for deletion in PR6 |
 
 ### Canonical workflow (Skills Architecture v1.6)
 
