@@ -73,7 +73,8 @@ REFINE_PIPELINE_PHASES=(
 @test "TestRefineDensityPassIsTerminal" {
   # Pipeline causality: the density pass MUST run last so it does not
   # destroy the structure earlier passes would need to read.
-  grep -qE 'refine-density-pass.*(last|Final)|MUST run last' "$DISPATCH"
+  # anchored to the density-pass line (avoid the alternation matching "MUST run last" anywhere)
+  grep -qE 'refine-density-pass.*(last|Final|terminal)' "$DISPATCH"
 }
 
 # -- Invariant 5: synthesis uses ceiling semantics, not target ------------
