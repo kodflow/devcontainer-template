@@ -20,7 +20,6 @@ setup() {
   DISPATCH="$REPO_ROOT/.devcontainer/images/.claude/commands/refine/dispatch.md"
   SYNTH="$REPO_ROOT/.devcontainer/images/.claude/commands/refine/synthesis.md"
   RENDER="$REPO_ROOT/.devcontainer/images/.claude/commands/refine/render.md"
-  DO_MD="$REPO_ROOT/.devcontainer/images/.claude/commands/do.md"
   ROUTER="$REPO_ROOT/.devcontainer/images/.claude/scripts/route-agent.sh"
   TABLE="$REPO_ROOT/.devcontainer/images/.claude/agents/routing-table.jsonl"
   FALLBACK="$REPO_ROOT/.devcontainer/images/.claude/scripts/refine-static-fallback.sh"
@@ -36,16 +35,9 @@ teardown() { rm -rf "$TMP"; }
 # Canonical phase list — every test that loops over the refine-* pipeline
 # uses this list so a missed phase shows up as a hard test failure.
 REFINE_PIPELINE_PHASES=(
-  refine-content-pruner
-  refine-scope-fencer
-  refine-constraint-distiller
-  refine-done-criteria-sharpener
-  refine-verifier-binder
-  refine-escalation-isolator
-  refine-sequence-causal-validator
-  refine-imperative-rewriter
-  refine-chain-stripper
-  refine-density-optimizer
+  refine-correctness-pass
+  refine-scope-pass
+  refine-density-pass
 )
 
 # -- Invariant 1: no auto-chain from /refine to /do -----------------------
@@ -66,24 +58,23 @@ REFINE_PIPELINE_PHASES=(
 
 # -- Invariant 3: the 10 mono-concern refine-* agents are listed ----------
 
-@test "TestRefineDispatchListsAllTenAgents" {
-  # All 10 refine-* agents appear in dispatch.md, in canonical order.
-  # If any one is missing the post-lens pipeline drops a concern.
-  for agent in refine-content-pruner refine-scope-fencer \
-               refine-constraint-distiller refine-done-criteria-sharpener \
-               refine-verifier-binder refine-escalation-isolator \
-               refine-sequence-causal-validator refine-imperative-rewriter \
-               refine-chain-stripper refine-density-optimizer; do
-    grep -q "$agent" "$DISPATCH" || { echo "missing agent: $agent"; return 1; }
+@test "TestRefineDispatchListsThreePasses" {
+  # skills-cleanup C4: the 10 mono-concern labels collapsed onto 3 real passes.
+  # All three must appear in dispatch.md, in canonical order.
+  for pass in refine-correctness-pass refine-scope-pass refine-density-pass; do
+    grep -q "$pass" "$DISPATCH" || { echo "missing pass: $pass"; return 1; }
   done
+  # The legacy 10-agent label theater must be gone.
+  ! grep -q 'refine-content-pruner' "$DISPATCH"
 }
 
 # -- Invariant 4: refine-density-optimizer is documented as terminal -------
 
-@test "TestRefineDensityOptimizerIsTerminal" {
-  # Pipeline causality: density compression MUST run last so it does not
-  # destroy the structure later mono-concern agents would need to read.
-  grep -qE 'refine-density-optimizer.*(last|Final)|MUST run last' "$DISPATCH"
+@test "TestRefineDensityPassIsTerminal" {
+  # Pipeline causality: the density pass MUST run last so it does not
+  # destroy the structure earlier passes would need to read.
+  # anchored to the density-pass line (avoid the alternation matching "MUST run last" anywhere)
+  grep -qE 'refine-density-pass.*(last|Final|terminal)' "$DISPATCH"
 }
 
 # -- Invariant 5: synthesis uses ceiling semantics, not target ------------
@@ -116,13 +107,10 @@ REFINE_PIPELINE_PHASES=(
   ! grep -q 'Skill(skill="do"' "$RENDER"
 }
 
-# -- Invariant 8: /do is NOT advertised as deprecated --------------------
+# -- Invariant 8: /do is fully removed (skills-cleanup C2) ----------------
 
-@test "TestDoMdHasNoDeprecationBanner" {
-  # /do remains a working skill; we do not advertise it in the skill
-  # tables and we do NOT label it deprecated. If users find it, it
-  # works; if they don't, /goal <slug> is the documented path.
-  ! grep -q '^## DEPRECATED' "$DO_MD"
+@test "TestDoMdRemoved" {
+  ! [ -e "$REPO_ROOT/.devcontainer/images/.claude/commands/do.md" ]
 }
 
 # -- Invariant 9: render.md defines the square-prompt template -----------

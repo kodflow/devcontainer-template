@@ -134,7 +134,7 @@ on a non-VERIFY heuristic. Vague conditions ('fix it', 'improve',
 | SCOPE Out | plan's "Out of scope" section | "(nothing explicit)" | contract's `## Out of scope` |
 | CONSTRAINTS | HOW from lens findings + plan constraints | HOW slot | contract's `## How` |
 | ACCEPTANCE | dedup'd findings → binary form | DONE slot decomposed | contract's `## Acceptance criteria` |
-| VERIFY | bound by `refine-verifier-binder` (one per criterion) | derived from acceptance | re-bound from contract |
+| VERIFY | bound by `refine-density-pass` (one per criterion) | derived from acceptance | re-bound from contract |
 | STOP | always the verbatim STOP block (no per-mode variation) | same | same |
 
 The STOP block is **literal** — never rephrased per mode. That is
@@ -157,6 +157,42 @@ description and no DONE clause), synthesis emits a single
 matching `# VERIFY` line `- <user-must-fill-acceptance> -> manual`
 — making the gap visible rather than hiding it behind soft prose.
 
+## Proof-triplet CONTRACT form (skills-cleanup C5 / DD3)
+
+`/refine` chooses the directive **CONTRACT-FORM** by detecting the plan shape:
+
+```bash
+# Form detection: proof-triplet when the plan carries machine-detectable
+# acceptance structure (what /plan emits, AND hand-authored Acceptance PRn).
+if grep -qE '^## (Acceptance PR|Implementation Steps)' "$PLAN" \
+   && grep -qE '^## Testing Strategy' "$PLAN"; then
+  FORM=proof-triplet
+else
+  FORM=square-prompt   # v1.6 fallback, unchanged (GI4)
+fi
+```
+
+**proof-triplet** emits a copy-pasteable block where each numbered line is a
+**soldered triplet** (criterion + command + expected result), drawn from the
+plan's `[final-state]` acceptance lines:
+
+```
+/goal --plan <abs-plan-path> CONTRACT:
+
+1) test "$(grep -RIn 'X' src/ | wc -l)" -eq 0
+2) ! grep -RIn 'Y' src/
+3) cd /workspace && make test  [gate PR1]
+STOP: halt only when every numbered line returns its stated result; re-read
+--plan each iteration for the HOW.
+```
+
+`--plan` is a **model convention** (the builtin `/goal` reads no file): the agent
+re-reads the plan each iteration for detail, while the CONTRACT lines are the
+self-sufficient done-grid. Every line is validated by
+`refine-proof-triplet-validate.sh` (safe grammar; destructive/network lines →
+exit 25). `square-prompt` form is unchanged and remains the fallback for plans
+without the detectable structure.
+
 ## Post-render side effects
 
 ### FULL & BARE
@@ -165,12 +201,7 @@ matching `# VERIFY` line `- <user-must-fill-acceptance> -> manual`
 # 1. Write contract
 Write(file_path=".claude/goals/<slug>.md", content=<rendered>)
 
-# 2. Append directive to goal state (PR1)
-bash ~/.claude/scripts/goal-state.sh update "<slug>" \
-  --decision met --decision-reason "refined" \
-  --append-objective "directive-emitted"
-
-# 3. Emit directive + manual-trigger suggestion (no auto-chain).
+# 2. Emit directive + manual-trigger suggestion (no auto-chain, no state file).
 #    The directive is the square-prompt template defined above; the
 #    suggestion is the SAME shape every time, regardless of mode.
 printf '%s\n\nSuggested next step:\n  /goal %s\n' "$DIRECTIVE" "$SLUG"
@@ -181,12 +212,7 @@ printf '%s\n\nSuggested next step:\n  /goal %s\n' "$DIRECTIVE" "$SLUG"
 ```bash
 # 1. NO contract write — input file is the source of truth, never overwritten.
 
-# 2. Append directive to goal state
-bash ~/.claude/scripts/goal-state.sh update "<slug>" \
-  --decision met --decision-reason "recompacted" \
-  --append-objective "directive-re-emitted"
-
-# 3. Emit directive + manual-trigger suggestion (no auto-chain)
+# 2. Emit directive + manual-trigger suggestion (no auto-chain, no state file)
 printf '%s\n\nSuggested next step:\n  /goal %s\n' "$DIRECTIVE" "$SLUG"
 ```
 

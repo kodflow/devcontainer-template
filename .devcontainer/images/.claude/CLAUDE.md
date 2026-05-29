@@ -118,7 +118,7 @@ Enforced by two layers (defence-in-depth):
 |-------|---------|
 | `/init` | Personalize + validate |
 | `/plan` | Planning mode |
-| `/goal` | **Harness builtin** (not a repository command file) — iterates from the goal contract (`.claude/goals/<slug>.md`) written by `/refine` against runtime state (`.claude/state/goals/<slug>.json`) managed by `goal-state.sh` |
+| `/goal` | **Harness builtin** (not a repository command file) — loops the agent on the directive condition emitted by `/refine` (from the contract `.claude/goals/<slug>.md`); no runtime state file |
 | `/review` | Code review (3 tiers: agents + Qodo + CodeRabbit) |
 | `/git` | Branch + commit + PR |
 | `/search` | Documentation research |
@@ -133,18 +133,17 @@ Enforced by two layers (defence-in-depth):
 | `/update` | DevContainer update |
 | `/feature` | Feature tracking (RTM) |
 | `/improve` | Docs QA |
-| `/prompt` | Better /plan descriptions |
 
 ### Skill Classification
 
 | Type | Skills | Rule |
 |------|--------|------|
 | **Rigid** | `/review`, `/git`, hooks | Absolute discipline, no shortcuts |
-| **Flexible** | `/plan`, `/search`, `/do` | Adapt depth to context |
+| **Flexible** | `/plan`, `/search`, `/refine` | Adapt depth to context |
 
 ## 5.1 AGENT TEAMS
 
-Seven skills migrate to parallel multi-agent execution when Claude Code supports it: `/review`, `/plan`, `/docs`, `/do`, `/infra`, `/test`, `/improve`.
+Six skills migrate to parallel multi-agent execution when Claude Code supports it: `/review`, `/plan`, `/docs`, `/infra`, `/test`, `/improve`.
 
 **Single source of truth:** `commands/shared/team-mode.md`
 
@@ -159,7 +158,7 @@ Seven skills migrate to parallel multi-agent execution when Claude Code supports
 The capability file is a **hint**; the live probe (`detect_runtime_mode` in `~/.claude/scripts/team-mode-primitives.sh`) is the **source of truth** and overrides on divergence.
 
 ### NOT migrated
-`/git`, `/secret`, `/vpn`, `/update`, `/init`, `/warmup`, `/prompt`, `/search`, `/feature`, `/lint` (sequential, conflict-prone, or already has its own team integration).
+`/git`, `/secret`, `/vpn`, `/update`, `/init`, `/warmup`, `/search`, `/feature`, `/lint` (sequential, conflict-prone, or already has its own team integration).
 
 ### Task contract
 Every team task embeds a `<!-- task-contract v1 {...} -->` JSON block in `task_description`. See `shared/team-mode.md` §4 for the field rules. Parser: `extract_task_contract` in primitives library.
@@ -206,7 +205,7 @@ Before any action: MCP available? Tokens in env? On feature branch? CLAUDE.md re
 ### Question Discipline
 
 - During exploratory phases (brainstorming, init): ask ONE question at a time
-- Configuration phases (/do Phase 0) may batch related questions
+- Configuration phases (e.g. /init discovery) may batch related questions
 - Prefer multiple choice over open-ended
 
 @RTK.md

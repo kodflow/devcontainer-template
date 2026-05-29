@@ -453,7 +453,7 @@ download_commands() {
 
     if [ -z "$commands" ]; then
         echo "  ⚠ Could not discover commands via API, using fallback"
-        commands="git.md review.md plan.md do.md search.md update.md"
+        commands="git.md review.md plan.md refine.md search.md update.md"
     fi
 
     local count=0
@@ -1291,7 +1291,7 @@ main() {
     echo "    /git      - Git workflow (commit, branch, PR)"
     echo "    /review   - AI-powered code review"
     echo "    /plan     - Planning mode"
-    echo "    /do       - Iterative task execution"
+    echo "    /refine   - Goal contract generator"
     echo "    /search   - Documentation research"
     echo "    /update   - DevContainer template update"
     echo ""

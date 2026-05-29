@@ -55,8 +55,10 @@ setup() {
   grep -qE '(ceiling|≤ ?4000)' "$REFINE_DIR/synthesis.md"
 }
 
-@test "TestRefineEmitsGoalStateUpdate" {
-  grep -q 'goal-state.sh update' "$REFINE_DIR/render.md"
+@test "TestRefineNoGoalStateUpdate" {
+  # skills-cleanup C2: goal-state.sh removed; /refine emits the directive for
+  # /goal to loop on directly — no runtime state file.
+  ! grep -q 'goal-state' "$REFINE_DIR/render.md"
 }
 
 @test "TestRefineNoPromptReferences" {
