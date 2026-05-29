@@ -177,10 +177,12 @@ Acceptance criteria are tagged so `/refine` (proof-triplet) and `/goal` know whi
 to run as a gate vs which describe the finished state:
 
 ### Current-state diagnostics
+
 [current-state] commands that reflect the repo NOW (safe to run before implementation)
 - [ ] `test "$(grep -RIn 'legacy-thing' src/ | wc -l)" -eq <N>`
 
 ### Final-state acceptance
+
 [final-state] commands that describe the DONE state (fail until the work lands; never a write-gate)
 - [ ] `! grep -RIn 'legacy-thing' src/`
 - [ ] `test -f <new/file>`

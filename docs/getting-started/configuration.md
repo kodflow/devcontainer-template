@@ -29,6 +29,12 @@ Without a token, the corresponding MCP server does not start. Commands (`/review
 | `OP_SERVICE_ACCOUNT_TOKEN` | 1Password CLI auth for `/secret` |
 | `VPN_CONFIG_REF` | 1Password reference to VPN profile (e.g., `op://VPN/MyVPN/config`) |
 
+### Git signing (optional)
+
+| Variable | Usage |
+|----------|-------|
+| `GPG_SIGNINGKEY` | GPG key id for signed commits. `postCreate.sh::step_gpg_signing` sets `user.signingkey` from it, and enables `commit.gpgsign` only when the secret half of the key is present (so bootstrap never breaks). A preconfigured `git config user.signingkey` is also honored. |
+
 ### Full Example
 
 ```env

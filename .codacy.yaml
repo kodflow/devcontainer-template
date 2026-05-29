@@ -15,3 +15,9 @@ exclude_paths:
   # Claude agent and command files (Markdown used as prompts)
   - ".claude/**/*.md"
   - ".devcontainer/images/.claude/**/*.md"
+  # Workflow scripts: JS evaluated inside a harness-provided async function
+  # wrapper, so top-level return/await is the runtime contract (not valid
+  # standalone-ESM syntax). node --check validates them; static ESM parsers
+  # (Biome) false-positive on the top-level return.
+  - ".devcontainer/images/.claude/workflows/**"
+  - ".claude/workflows/**"
