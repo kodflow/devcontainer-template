@@ -49,41 +49,32 @@ Critical lenses (1, 5, 9, 10) MUST reach the agent invocation step even
 when `route-agent.sh` returns exit 20-31. This is enforced by the static
 fallback above and verified by `TestRefineFallsBackToStaticWhenRouterErrors`.
 
-## Refine pipeline (post-lens, 10 agents)
+## Refine pipeline (post-lens, 3 passes)
 
-After lens findings are collected (FULL mode only — BARE and
-FROM-CONTRACT skip lenses entirely), the synthesis step runs a
-**second**, mono-concern pipeline: ten `refine-*` agents that each
-compress one dimension of the directive. The pipeline is **ordered
-and causal** — every agent's output feeds the next. No agent runs
-before its inputs exist.
+> **skills-cleanup C4:** the ten mono-concern `refine-*` labels collapsed onto the
+> **3 real agents** they always routed to (quality ×N, orchestrator ×N, correctness ×N
+> — "label theater" removed). Behaviour is unchanged; the three passes carry the same
+> concerns, ordered and causal.
 
-| # | Agent | Role |
-|---|---|---|
-| 1 | `refine-content-pruner` | Cheapest cut first: strip filler prose, redundant restatements, and meta-commentary before structural agents waste tokens on noise |
-| 2 | `refine-scope-fencer` | Verify the pruner did not amputate in-scope work; flag scope creep introduced by upstream lenses |
-| 3 | `refine-constraint-distiller` | Lock constraints in canonical form before any voice rewrite touches their wording |
-| 4 | `refine-done-criteria-sharpener` | Sharpen acceptance criteria into binary, measurable assertions; output feeds the verifier binder |
-| 5 | `refine-verifier-binder` | Bind one verifier (grep / bats / make) to each criterion; output feeds the escalation isolator |
-| 6 | `refine-escalation-isolator` | Lift manual-only verifiers and ADR triggers into a dedicated escalation block; output feeds the sequence-causal-validator (step 7) which validates producer-before-consumer ordering before downstream steps 8–9 |
-| 7 | `refine-sequence-causal-validator` | Diagnostic pass: validate the step order is causal (producer before consumer); runs late so it sees the final step list |
-| 8 | `refine-imperative-rewriter` | Prose rewrite into imperative voice — runs only once semantics are stable |
-| 9 | `refine-chain-stripper` | Strip any auto-chain language pasted in by upstream synthesis (`Skill(skill=…)`, "next, run /do", etc.) |
-| 10 | `refine-density-optimizer` | Final density pass: token-cost compression that preserves structure — **MUST run last**, any earlier compression destroys the structure later agents need |
+After lens findings are collected (FULL mode only — BARE and FROM-CONTRACT skip
+lenses entirely), synthesis runs a **second**, ordered pipeline of three passes.
+Each pass's output feeds the next; no pass runs before its inputs exist.
+
+| # | Pass | Agent | Concerns merged |
+|---|---|---|---|
+| 1 | `refine-correctness-pass` | `developer-executor-correctness` | constraint distillation, binary done-criteria, producer→consumer sequence validation |
+| 2 | `refine-scope-pass` | `developer-orchestrator` | scope fencing (no creep / no amputation) + escalation isolation (manual verifiers, ADR triggers) |
+| 3 | `refine-density-pass` | `developer-executor-quality` | content pruning, verifier binding (1:1), imperative rewrite, auto-chain stripping, and final density compression — **MUST run last**, any earlier compression destroys structure |
 
 Pipeline invariants (locked by `refine-pipeline-rewire.bats`):
 
-- Order is fixed (1 → 10). Steps 7 and 8 are parallelizable in principle
-  but kept sequential for a linear synthesis log.
-- Each agent is single-concern; outputs are additive, never merged.
-- The density optimizer is **always** the terminal step; running it
-  earlier breaks the structural assumptions of agents 7-9.
-- BARE and FROM-CONTRACT skip steps 1-7 (no lens findings to compress);
-  steps 8-10 still run on the rendered directive.
+- Order is fixed (1 → 3); each pass is causal (producer before consumer).
+- `refine-density-pass` is **always** the terminal step.
+- BARE and FROM-CONTRACT skip pass 1-2 (no lens findings); pass 3 still runs on
+  the rendered directive.
 
 ### Static fallback (refine-* pipeline)
 
-If `route-agent.sh` cannot resolve a `refine-*` agent, fall back to
-the static map in `refine-static-fallback.sh`. The 10 agent names
-above are enumerated in the same order so the fallback preserves
-pipeline causality.
+If `route-agent.sh` cannot resolve a `refine-*` pass, fall back to the static map
+in `refine-static-fallback.sh` — the same three passes, bit-identical agent
+mappings, so router-success and fallback are interchangeable.

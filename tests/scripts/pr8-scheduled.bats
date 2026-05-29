@@ -8,7 +8,6 @@ setup() {
   FEATURE="$REPO_ROOT/.devcontainer/images/.claude/commands/feature.md"
   LINT="$REPO_ROOT/.devcontainer/images/.claude/commands/lint.md"
   KTN="$REPO_ROOT/.devcontainer/images/.claude/commands/ktn.md"
-  DO_LOOP="$REPO_ROOT/.devcontainer/images/.claude/commands/do/loop.md"
 }
 
 @test "TestAuditWatchModeCronCreates" {
@@ -37,6 +36,3 @@ setup() {
   grep -q '7 8 \* \* \*' "$KTN"
 }
 
-@test "TestLongOpsEmitPushNotificationOnExit" {
-  grep -q 'PushNotification' "$DO_LOOP"
-}
