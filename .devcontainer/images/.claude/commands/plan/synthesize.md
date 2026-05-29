@@ -93,13 +93,13 @@ synthesize_workflow:
     action: "Write plan to .claude/plans/{slug}.md"
     slug_rule: "Same as /search: lowercase, hyphens, max 40 chars from description"
     collision: "If file exists, append timestamp suffix (-YYYYMMDD-HHMM)"
-    purpose: "Survives context compaction; /do can detect from disk"
+    purpose: "Survives context compaction; /goal can detect from disk"
     note: "This is IN ADDITION to ExitPlanMode (which shows plan to user)"
 
   5_persist_context:
     action: "Write context file to .claude/contexts/{slug}.md"
     trigger: "Always after plan generation"
-    purpose: "Captures discoveries, relevant files, and implementation notes for /do recovery"
+    purpose: "Captures discoveries, relevant files, and implementation notes for /goal recovery"
     content:
       header: |
         # Context: {description}
@@ -163,7 +163,7 @@ When steps are independent (no shared files, no dependency), tag them for parall
 | 2 | src/api/ | developer-specialist-go | haiku | yes | - |
 | 3 | docs/ | developer-specialist-review | haiku | no | 1, 2 |
 
-`/do` will use this table to create worktrees and dispatch agents in parallel (semi-auto: user confirms before creating worktrees).
+`/goal` will use this table to create worktrees and dispatch agents in parallel (semi-auto: user confirms before creating worktrees).
 
 **Rules:**
 - Only tag `worktree: yes` if step touches DIFFERENT files than other parallel steps
@@ -246,7 +246,7 @@ complexity_check:
     action: |
       Rewrite the plan into numbered phases (Phase A, B, C...)
       Each phase: <= 15 files, independently testable
-      User approves each phase via /do
+      User approves each phase via /goal
 ```
 
 **If <= 15 files:** Skip this phase silently, proceed to Phase 6.0.
@@ -304,7 +304,7 @@ risk_review:
 
   Actions:
     → Review the plan above
-    → Run /do to execute (auto-detects plan)
+    → Run /goal to execute (auto-detects plan)
     → Or modify the plan manually
 
 ═══════════════════════════════════════════════════════════════
@@ -316,7 +316,7 @@ risk_review:
 
 | Before /plan | After /plan |
 |-------------|-------------|
-| `/search <topic>` | `/do` |
+| `/search <topic>` | `/goal` |
 | Generates `.claude/contexts/{slug}.md` | Executes the plan (auto-detected from conversation or `.claude/plans/`) |
 
 **Full workflow:**
@@ -332,11 +332,11 @@ Plan created, displayed, AND persisted to .claude/plans/add-jwt-auth-api.md
     ↓
 User: "OK, go ahead"
     ↓
-/do                          # Detects plan from conversation OR .claude/plans/
+/goal                          # Detects plan from conversation OR .claude/plans/
     ↓
 Implementation executed
 ```
 
-**Note**: `/do` automatically detects the approved plan from conversation context
+**Note**: `/goal` automatically detects the approved plan from conversation context
 or from `.claude/plans/*.md` on disk (conversation takes priority).
 Plans persist across context compaction.

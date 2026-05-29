@@ -82,6 +82,8 @@ Usage: /plan <description> [options]
 Options:
   <description>     What to implement
   --auto            No questions — AI reasons internally, presents final plan
+  --goal            After plan write, chain /review (gate) → /refine → /goal
+  --goal --fast     Skip the /review gate, chain straight to /refine
   --context         Load most recent .claude/contexts/*.md
   --context=<name>  Load specific .claude/contexts/{name}.md
   --help            Show this help

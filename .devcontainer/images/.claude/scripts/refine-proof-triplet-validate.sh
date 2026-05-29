@@ -33,13 +33,19 @@ validate_line() {
     /goal*|CONTRACT:*|STOP:*|Suggested\ next\ step:*) return 0 ;;
   esac
 
-  # DENY dangerous tokens anywhere.
+  # DENY dangerous metacharacters anywhere.
   case "$cmd" in
     *';'*|*'`'*|*'>'*) return 1 ;;
-    rm\ *|mv\ *|curl\ *|wget\ *|sudo\ *|chmod\ *|chown\ *|eval\ *) return 1 ;;
   esac
-  case " $cmd " in
+  # Normalize shell delimiters to spaces so a forbidden binary is caught even when
+  # nested inside a command substitution, e.g. test "$(rm -rf x)" -eq 0 (Qodo #2).
+  local scan
+  scan="$(printf '%s' "$cmd" | tr '()|;&{}<>' '         ')"
+  case " $scan " in
     *' eval '*|*' rm '*|*' mv '*|*' curl '*|*' wget '*|*' sudo '*|*' chmod '*|*' chown '*) return 1 ;;
+  esac
+  case "$scan" in
+    rm\ *|mv\ *|curl\ *|wget\ *|sudo\ *|chmod\ *|chown\ *|eval\ *) return 1 ;;
   esac
 
   # Strip one optional `cd <dir> && ` prefix (the only allowed compound).
