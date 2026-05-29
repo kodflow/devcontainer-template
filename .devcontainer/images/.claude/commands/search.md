@@ -227,7 +227,11 @@ web complement.
 > this path: the previous "accelerator, only if present" wording was a bug — the
 > probe never emitted a `Workflow` key, so the gate was unsatisfiable and the
 > engine never ran. Doing the web research inline with ad-hoc `Task`/`WebSearch`
-> calls instead of the Workflow is a **skill violation**.
+> calls instead of the Workflow is a **skill violation** — and so is declaring
+> `LOCAL_COMPLETE` for an internal/codebase topic (no `~/.claude/docs/` match) to
+> dodge the engine. `LOCAL_COMPLETE` is valid ONLY when you can cite the matched
+> validated-doc files; otherwise the engine runs. See `search/local.md`
+> `3_evaluate_coverage` / `anti_escape_hatch`.
 
 ```
 /search <query>
@@ -236,6 +240,10 @@ web complement.
   │     Grep/Read ~/.claude/docs/ + docs/*.md
   │     ├─ LOCAL_COMPLETE → early-exit: write .claude/contexts/<slug>.md from local, STOP
   │     │                   (the ONLY path that legitimately skips the Workflow)
+  │     │                   VALID ONLY if you can CITE the matched ~/.claude/docs/
+  │     │                   files holding the answer. A "100% internal / codebase"
+  │     │                   topic has NO docs entry → it is NEVER LOCAL_COMPLETE.
+  │     │                   Answering from source code / reasoning = GAP, not local.
   │     └─ LOCAL_PARTIAL / LOCAL_NONE → compute GAPS, then ALWAYS run the engine ↓
   │
   ├─ engine (ALWAYS, whenever web complement is needed):
@@ -264,6 +272,9 @@ skill is the sole writer of `.claude/contexts/`.
 | Action | Status |
 |--------|--------|
 | Skip local documentation | **FORBIDDEN** |
+| Declare `LOCAL_COMPLETE` without citing matched `~/.claude/docs/` files | **FORBIDDEN** |
+| Use `LOCAL_COMPLETE` to skip the engine on an internal/codebase topic | **FORBIDDEN** |
+| Skip the `research` Workflow when gate ≠ `LOCAL_COMPLETE` | **FORBIDDEN** |
 | Ignore local/external conflict | **FORBIDDEN** |
 | Prefer external over local without validation | **FORBIDDEN** |
 | Non-official source | **FORBIDDEN** |
