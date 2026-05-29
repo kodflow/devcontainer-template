@@ -73,7 +73,9 @@ Explicit overrides for the edge cases:
 | `--slug <name>` | Override the auto-derived slug in BARE mode |
 | `--lenses light` | Run only 4 critical lenses in FULL mode |
 | `--lenses full` | Run all 10 lenses in FULL mode (overrides AUTO) |
-| `--auto` | Default: AUTO picks light/full lens depth from plan frontmatter |
+| `--triplet` | Force proof-triplet CONTRACT form (overrides auto form-detection) |
+| `--square` | Force square-prompt form (overrides auto form-detection) |
+| `--auto` | Default: AUTO picks light/full lens depth + form-detection (proof-triplet vs square-prompt) |
 
 ## Phase 0: Mode + slug resolution
 
@@ -166,8 +168,8 @@ Read `~/.claude/commands/refine/render.md`. Writes:
 - **BARE**: `.claude/goals/<slug>.md` skeleton (WHAT/WHY/WHERE/HOW/DONE) + runtime directive.
 - **FROM-CONTRACT**: runtime directive only (input file is never overwritten).
 
-The runtime directive is always appended to the goal-state file via
-`goal-state.sh update` (PR1).
+The runtime directive is printed for the user to copy into `/goal`. There is no
+runtime state file (the `/goal` builtin loops on the directive condition directly).
 
 ## Next step (manual, no auto-chain)
 
@@ -194,7 +196,9 @@ on disk has been reviewed.
 | `--slug <name>` | Override auto-derived slug in BARE mode |
 | `--lenses light` | FULL mode: only 4 critical lenses |
 | `--lenses full` | FULL mode: all 10 lenses |
-| `--auto` | Default for FULL: pick lens depth from plan frontmatter |
+| `--triplet` | Force proof-triplet CONTRACT form (overrides auto form-detection) |
+| `--square` | Force square-prompt form (overrides auto form-detection) |
+| `--auto` | Default for FULL: pick lens depth + form-detection (proof-triplet vs square-prompt) |
 | `--help` | Display help |
 
 ## Workflow patterns (v1.6)
