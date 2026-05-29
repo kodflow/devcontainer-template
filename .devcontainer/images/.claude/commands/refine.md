@@ -73,7 +73,9 @@ Explicit overrides for the edge cases:
 | `--slug <name>` | Override the auto-derived slug in BARE mode |
 | `--lenses light` | Run only 4 critical lenses in FULL mode |
 | `--lenses full` | Run all 10 lenses in FULL mode (overrides AUTO) |
-| `--auto` | Default: AUTO picks light/full lens depth from plan frontmatter |
+| `--triplet` | Force proof-triplet CONTRACT form (overrides auto form-detection) |
+| `--square` | Force square-prompt form (overrides auto form-detection) |
+| `--auto` | Default: AUTO picks light/full lens depth + form-detection (proof-triplet vs square-prompt) |
 
 ## Phase 0: Mode + slug resolution
 

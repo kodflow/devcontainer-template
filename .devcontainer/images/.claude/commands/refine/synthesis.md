@@ -8,14 +8,20 @@
 | BARE | `template → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate` |
 | FROM-CONTRACT | `read → extract → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate` |
 
-The **refine-pipeline** step (post-lens, 10 mono-concern agents) is
-documented in `dispatch.md`. The **square-prompt-validate** step
-runs **TWICE** — once before `compact-to-minimum` for early
-diagnostics, and again after compaction as the final guarantee:
-compaction MUST NOT invalidate the section list, the STOP literal
-block, or the ACCEPTANCE/VERIFY 1:1 mapping. The **compact-to-minimum**
-step is mode-agnostic — single source of truth for the directive
-char-cap lives in this file.
+The **refine-pipeline** step (post-lens, 3 passes) is documented in
+`dispatch.md`. The **square-prompt-validate** step runs **TWICE** —
+once before `compact-to-minimum` for early diagnostics, and again
+after compaction as the final guarantee: compaction MUST NOT
+invalidate the section list, the STOP literal block, or the
+ACCEPTANCE/VERIFY 1:1 mapping. The **compact-to-minimum** step is
+mode-agnostic — single source of truth for the directive char-cap
+lives in this file.
+
+When the directive is rendered in **proof-triplet CONTRACT-FORM**
+(see `render.md`), the equivalent gate is **proof-triplet-validate**
+(`refine-proof-triplet-validate.sh`): every numbered line must parse
+as a safe-grammar command (no `;`/`>`/destructive/network); a failing
+line aborts with exit 25 before `/goal` ever runs.
 
 ### Why validate twice
 
