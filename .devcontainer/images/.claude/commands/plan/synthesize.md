@@ -4,7 +4,7 @@
 
 Once the plan is fully synthesized, `/plan` invokes `ExitPlanMode(plan=<full md>)`
 instead of rendering the legacy ASCII banner. This hands control back to the
-user for approval; the same flow drives `/do --plan <path>` thereafter.
+user for approval; `/goal` (the canonical executor) drives the plan thereafter.
 
 **Schema validation (PR1 fix #18)**: before calling `ExitPlanMode`, read
 `.claude/state/primitives.json` (emitted by PR0's `probe-primitives.sh`)
@@ -20,11 +20,12 @@ If the check fails:
 
 1. Fall back to writing the plan to `${WORKSPACE_ROOT}/.claude/plans/<slug>.md` directly.
 2. Print a `[plan] ExitPlanMode unavailable — wrote plan to <path>` notice.
-3. Suggest `Skill(skill="do", args="--plan <path>")` as the manual hand-off.
+3. Suggest `/goal "Read <path>, execute its CONTRACT, stop when all gates pass"` as the manual hand-off.
 
-After the call, if `--goal` flag was present, chain into `/refine` via
-`Skill(skill="refine", args="<slug>")` (PR5a). Until W3 lands the refine
-skill is absent — the call is a no-op and the plan is still usable by `/do`.
+After the call, if `--goal` flag was present, chain `Skill(skill="review", args="--plan <slug>")`
+(the plan gate, DD1) then `Skill(skill="refine", args="<slug>")` (PR5a). `--goal --fast`
+skips the review gate. If `/refine` is absent, the plan is usable directly via
+`/goal` with an explicit condition (`/goal "Read the plan, execute its CONTRACT…"`).
 
 
 
@@ -92,13 +93,13 @@ synthesize_workflow:
     action: "Write plan to .claude/plans/{slug}.md"
     slug_rule: "Same as /search: lowercase, hyphens, max 40 chars from description"
     collision: "If file exists, append timestamp suffix (-YYYYMMDD-HHMM)"
-    purpose: "Survives context compaction; /do can detect from disk"
+    purpose: "Survives context compaction; /goal can detect from disk"
     note: "This is IN ADDITION to ExitPlanMode (which shows plan to user)"
 
   5_persist_context:
     action: "Write context file to .claude/contexts/{slug}.md"
     trigger: "Always after plan generation"
-    purpose: "Captures discoveries, relevant files, and implementation notes for /do recovery"
+    purpose: "Captures discoveries, relevant files, and implementation notes for /goal recovery"
     content:
       header: |
         # Context: {description}
@@ -162,7 +163,7 @@ When steps are independent (no shared files, no dependency), tag them for parall
 | 2 | src/api/ | developer-specialist-go | haiku | yes | - |
 | 3 | docs/ | developer-specialist-review | haiku | no | 1, 2 |
 
-`/do` will use this table to create worktrees and dispatch agents in parallel (semi-auto: user confirms before creating worktrees).
+`/goal` will use this table to create worktrees and dispatch agents in parallel (semi-auto: user confirms before creating worktrees).
 
 **Rules:**
 - Only tag `worktree: yes` if step touches DIFFERENT files than other parallel steps
@@ -171,8 +172,23 @@ When steps are independent (no shared files, no dependency), tag them for parall
 - Steps with `depends_on` run sequentially AFTER dependencies complete
 
 ## Testing Strategy
-- [ ] Unit tests for `component`
-- [ ] Integration test for `flow`
+
+Acceptance criteria are tagged so `/refine` (proof-triplet) and `/goal` know which
+to run as a gate vs which describe the finished state:
+
+### Current-state diagnostics
+[current-state] commands that reflect the repo NOW (safe to run before implementation)
+- [ ] `test "$(grep -RIn 'legacy-thing' src/ | wc -l)" -eq <N>`
+
+### Final-state acceptance
+[final-state] commands that describe the DONE state (fail until the work lands; never a write-gate)
+- [ ] `! grep -RIn 'legacy-thing' src/`
+- [ ] `test -f <new/file>`
+- [ ] `cd /workspace && make test`
+
+Each line is a single executable command (see grammar in the goal contract): use
+`test "$(… | wc -l)" -eq N`, `! grep -RIn …`, `grep -Rq …`, `bats`, `make`, or
+`cd <dir> && <cmd>`. No `>`, `;`, or destructive commands.
 
 ## Rollback Plan
 How to rollback if issues
@@ -185,6 +201,24 @@ How to rollback if issues
 ```
 
 ---
+
+## Phase 5.5bis: Self-review lenses (skills-cleanup C3 / D9)
+
+Before `ExitPlanMode`, `/plan` runs its own plan through six durable authoring
+lenses. These are baked here so future plans are born reviewable, executable,
+and self-consistent — not patched after the fact.
+
+| Lens | Check |
+|---|---|
+| **executable-acceptance** | Each acceptance line is a real shell command. `/plan` **runs** every `[current-state]` line as a gate; for `[final-state]` lines it only validates (parse + non-destructive + plausible paths) and NEVER blocks when they fail before implementation. |
+| **reviewability / blast-radius** | If a step touches > ~15 files OR mixes > 1 structural concern, propose a split (extends Phase 5.5). |
+| **self-consistency** | Slogans ("never", "always") must match the plan's actions (deletions, rewrites). Flag contradictions. |
+| **keystone-propagation** | Every "verified" fact carries an explicit consequence line. |
+| **capability-vs-convention** | Any UX leaning on a documented convention (not a native capability) is marked as such. |
+| **security-by-default** | Any self-writing / shell-executing path is off-by-default + validated. |
+
+Rule: a plan whose `[current-state]` diagnostics fail to *run* (syntax/dangerous)
+is rejected; a plan whose `[final-state]` lines fail is NORMAL pre-implementation.
 
 ## Phase 5.5: Complexity Check
 
@@ -212,7 +246,7 @@ complexity_check:
     action: |
       Rewrite the plan into numbered phases (Phase A, B, C...)
       Each phase: <= 15 files, independently testable
-      User approves each phase via /do
+      User approves each phase via /goal
 ```
 
 **If <= 15 files:** Skip this phase silently, proceed to Phase 6.0.
@@ -270,7 +304,7 @@ risk_review:
 
   Actions:
     → Review the plan above
-    → Run /do to execute (auto-detects plan)
+    → Run /goal to execute (auto-detects plan)
     → Or modify the plan manually
 
 ═══════════════════════════════════════════════════════════════
@@ -282,7 +316,7 @@ risk_review:
 
 | Before /plan | After /plan |
 |-------------|-------------|
-| `/search <topic>` | `/do` |
+| `/search <topic>` | `/goal` |
 | Generates `.claude/contexts/{slug}.md` | Executes the plan (auto-detected from conversation or `.claude/plans/`) |
 
 **Full workflow:**
@@ -298,11 +332,11 @@ Plan created, displayed, AND persisted to .claude/plans/add-jwt-auth-api.md
     ↓
 User: "OK, go ahead"
     ↓
-/do                          # Detects plan from conversation OR .claude/plans/
+/goal                          # Detects plan from conversation OR .claude/plans/
     ↓
 Implementation executed
 ```
 
-**Note**: `/do` automatically detects the approved plan from conversation context
+**Note**: `/goal` automatically detects the approved plan from conversation context
 or from `.claude/plans/*.md` on disk (conversation takes priority).
 Plans persist across context compaction.

@@ -60,17 +60,12 @@ refine_static_pipeline_phase() {
   local phase="$1"
   local format="${2:-json}"
   local agent="" effort=""
+  # skills-cleanup C4: collapsed 10 mono-concern phases → 3 real passes.
+  # Mappings are bit-identical to the routing-table refine-pipeline-* rows.
   case "$phase" in
-    refine-content-pruner)             agent="developer-executor-quality";     effort="medium" ;;
-    refine-scope-fencer)               agent="developer-orchestrator";         effort="medium" ;;
-    refine-constraint-distiller)       agent="developer-executor-correctness"; effort="medium" ;;
-    refine-done-criteria-sharpener)    agent="developer-executor-correctness"; effort="high"   ;;
-    refine-verifier-binder)            agent="developer-executor-quality";     effort="high"   ;;
-    refine-escalation-isolator)        agent="developer-orchestrator";         effort="medium" ;;
-    refine-sequence-causal-validator)  agent="developer-executor-correctness"; effort="medium" ;;
-    refine-imperative-rewriter)        agent="developer-executor-quality";     effort="low"    ;;
-    refine-chain-stripper)             agent="developer-executor-quality";     effort="low"    ;;
-    refine-density-optimizer)          agent="developer-executor-quality";     effort="medium" ;;
+    refine-correctness-pass)  agent="developer-executor-correctness"; effort="high"   ;;
+    refine-scope-pass)        agent="developer-orchestrator";         effort="medium" ;;
+    refine-density-pass)      agent="developer-executor-quality";     effort="medium" ;;
     *) return 1 ;;
   esac
   case "$format" in
