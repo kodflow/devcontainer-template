@@ -12,6 +12,7 @@ allowed-tools:
   - "Glob(**/*)"
   - "Grep(**/*)"
   - "Write(.claude/contexts/*.md)"
+  - "Workflow(*)"
   - "Task(*)"
   - "AskUserQuestion(*)"
   - "mcp__context7__*"

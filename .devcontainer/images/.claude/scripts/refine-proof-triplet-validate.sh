@@ -54,6 +54,10 @@ validate_line() {
     body="${BASH_REMATCH[1]}"
   fi
 
+  # No further command chaining: a single command only (the lone `cd … &&` above
+  # is the only permitted compound). Rejects `make test && echo x`, etc.
+  [[ "$body" == *'&&'* ]] && return 1
+
   # A top-level pipe is forbidden; `|` is allowed only inside a test "$(...)" form.
   if [[ "$body" == *'|'* ]] && [[ ! "$body" =~ ^test\ \"\$\(.*\)\" ]]; then
     return 1
