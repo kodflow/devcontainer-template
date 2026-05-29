@@ -22,9 +22,10 @@ If the check fails:
 2. Print a `[plan] ExitPlanMode unavailable — wrote plan to <path>` notice.
 3. Suggest `/goal "Read <path>, execute its CONTRACT, stop when all gates pass"` as the manual hand-off.
 
-After the call, if `--goal` flag was present, chain into `/refine` via
-`Skill(skill="refine", args="<slug>")` (PR5a). Until W3 lands the refine
-skill is absent — the call is a no-op and the plan is still usable by `/do`.
+After the call, if `--goal` flag was present, chain `Skill(skill="review", args="--plan <slug>")`
+(the plan gate, DD1) then `Skill(skill="refine", args="<slug>")` (PR5a). `--goal --fast`
+skips the review gate. If `/refine` is absent, the plan is usable directly via
+`/goal` with an explicit condition (`/goal "Read the plan, execute its CONTRACT…"`).
 
 
 
@@ -171,8 +172,23 @@ When steps are independent (no shared files, no dependency), tag them for parall
 - Steps with `depends_on` run sequentially AFTER dependencies complete
 
 ## Testing Strategy
-- [ ] Unit tests for `component`
-- [ ] Integration test for `flow`
+
+Acceptance criteria are tagged so `/refine` (proof-triplet) and `/goal` know which
+to run as a gate vs which describe the finished state:
+
+### Current-state diagnostics
+[current-state] commands that reflect the repo NOW (safe to run before implementation)
+- [ ] `test "$(grep -RIn 'legacy-thing' src/ | wc -l)" -eq <N>`
+
+### Final-state acceptance
+[final-state] commands that describe the DONE state (fail until the work lands; never a write-gate)
+- [ ] `! grep -RIn 'legacy-thing' src/`
+- [ ] `test -f <new/file>`
+- [ ] `cd /workspace && make test`
+
+Each line is a single executable command (see grammar in the goal contract): use
+`test "$(… | wc -l)" -eq N`, `! grep -RIn …`, `grep -Rq …`, `bats`, `make`, or
+`cd <dir> && <cmd>`. No `>`, `;`, or destructive commands.
 
 ## Rollback Plan
 How to rollback if issues
@@ -185,6 +201,24 @@ How to rollback if issues
 ```
 
 ---
+
+## Phase 5.5bis: Self-review lenses (skills-cleanup C3 / D9)
+
+Before `ExitPlanMode`, `/plan` runs its own plan through six durable authoring
+lenses. These are baked here so future plans are born reviewable, executable,
+and self-consistent — not patched after the fact.
+
+| Lens | Check |
+|---|---|
+| **executable-acceptance** | Each acceptance line is a real shell command. `/plan` **runs** every `[current-state]` line as a gate; for `[final-state]` lines it only validates (parse + non-destructive + plausible paths) and NEVER blocks when they fail before implementation. |
+| **reviewability / blast-radius** | If a step touches > ~15 files OR mixes > 1 structural concern, propose a split (extends Phase 5.5). |
+| **self-consistency** | Slogans ("never", "always") must match the plan's actions (deletions, rewrites). Flag contradictions. |
+| **keystone-propagation** | Every "verified" fact carries an explicit consequence line. |
+| **capability-vs-convention** | Any UX leaning on a documented convention (not a native capability) is marked as such. |
+| **security-by-default** | Any self-writing / shell-executing path is off-by-default + validated. |
+
+Rule: a plan whose `[current-state]` diagnostics fail to *run* (syntax/dangerous)
+is rejected; a plan whose `[final-state]` lines fail is NORMAL pre-implementation.
 
 ## Phase 5.5: Complexity Check
 
