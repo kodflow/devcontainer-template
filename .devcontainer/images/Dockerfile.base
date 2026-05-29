@@ -103,7 +103,7 @@ RUN --mount=type=secret,id=github_token,required=false \
     echo "Installing kubectl ${KUBECTL_LATEST}..." && \
     curl -fsSL "https://dl.k8s.io/release/${KUBECTL_LATEST}/bin/linux/${ARCH}/kubectl" -o /usr/local/bin/kubectl && \
     chmod +x /usr/local/bin/kubectl && \
-    HELM_LATEST=$(curl -fsSL ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} "https://api.github.com/repos/helm/helm/releases/latest" | jq -r '.tag_name') && \
+    if [ -n "${GITHUB_TOKEN}" ]; then HELM_LATEST=$(curl -fsSL -H "Authorization: token ${GITHUB_TOKEN}" "https://api.github.com/repos/helm/helm/releases/latest" | jq -r '.tag_name'); else HELM_LATEST=$(curl -fsSL "https://api.github.com/repos/helm/helm/releases/latest" | jq -r '.tag_name'); fi && \
     echo "Installing Helm ${HELM_LATEST}..." && \
     curl -fsSL "https://get.helm.sh/helm-${HELM_LATEST}-linux-${ARCH}.tar.gz" | tar xz -C /tmp && \
     mv /tmp/linux-${ARCH}/helm /usr/local/bin/helm && \
