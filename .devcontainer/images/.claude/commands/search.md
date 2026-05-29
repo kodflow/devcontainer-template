@@ -12,6 +12,7 @@ allowed-tools:
   - "Glob(**/*)"
   - "Grep(**/*)"
   - "Write(.claude/contexts/*.md)"
+  - "Workflow(*)"
   - "Task(*)"
   - "AskUserQuestion(*)"
   - "mcp__context7__*"
@@ -214,6 +215,38 @@ Phase 9.0: Generate Context File
 
 ---
 
+## Workflow gateway (skills-cleanup C6)
+
+`/search` is a **gateway**, never a monolithic wrap. The local-first gate stays
+OUTSIDE the engine; the workflow only runs for the web complement.
+
+```
+/search <query>
+  │
+  ├─ Phase 0  local-first gate (in-skill, NO engine)
+  │     Grep/Read ~/.claude/docs/ + docs/*.md
+  │     ├─ LOCAL_COMPLETE → early-exit: write .claude/contexts/<slug>.md from local, STOP
+  │     └─ LOCAL_PARTIAL / LOCAL_NONE → compute GAPS, run the workflow below
+  │
+  ├─ engine (only if Workflow primitive present in primitives.json):
+  │     Workflow({ name: 'research', args: { query, gaps, whitelist } })
+  │       Scope → Search∥ → Fetch∥ → Verify(3-vote) → Synthesize   # writes NOTHING
+  │     returns { context_md, sources, confidence_map }
+  │
+  └─ Phase 9.0  the SKILL writes .claude/contexts/<slug>.md (sole writer)
+                merging local findings + the cited workflow report.
+```
+
+**Fallback (no regression):** if `primitives.json` reports the `Workflow` tool
+`absent`, `/search` falls back to the legacy parallel `Task`-agent path documented
+in `search/parallel.md`. The engine is an accelerator, never a hard dependency.
+
+**Invariants:** the official-domain whitelist (above) is injected into the
+`research` workflow's Search prompts; the workflow itself never writes disk — the
+skill is the sole writer of `.claude/contexts/`.
+
+---
+
 ## Guardrails
 
 | Action | Status |
@@ -280,11 +313,11 @@ local_first_rule:
 ## Canonical workflow footer (PR5a — Skills Architecture v1.3)
 
 ```
-/search <query> → /plan → /refine → /goal
+/search <query> → /plan → /review → /refine → /goal
 ```
 
 When implementation intent is detected (keywords in
 `search/generate.md` Phase 9.5), `/search` chains into `/plan` via
 `Skill(skill="plan", args="--context <slug>")`. From there
-`/plan --goal` continues into `/refine` (PR5a). The legacy
+`/plan --goal` chains `/review` (plan gate) then `/refine`. The legacy
 `→ EnterPlanMode` footer is removed.
