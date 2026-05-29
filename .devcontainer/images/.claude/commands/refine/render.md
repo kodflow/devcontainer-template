@@ -134,7 +134,7 @@ on a non-VERIFY heuristic. Vague conditions ('fix it', 'improve',
 | SCOPE Out | plan's "Out of scope" section | "(nothing explicit)" | contract's `## Out of scope` |
 | CONSTRAINTS | HOW from lens findings + plan constraints | HOW slot | contract's `## How` |
 | ACCEPTANCE | dedup'd findings → binary form | DONE slot decomposed | contract's `## Acceptance criteria` |
-| VERIFY | bound by `refine-verifier-binder` (one per criterion) | derived from acceptance | re-bound from contract |
+| VERIFY | bound by `refine-density-pass` (one per criterion) | derived from acceptance | re-bound from contract |
 | STOP | always the verbatim STOP block (no per-mode variation) | same | same |
 
 The STOP block is **literal** — never rephrased per mode. That is
