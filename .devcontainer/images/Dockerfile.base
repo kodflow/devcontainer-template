@@ -89,9 +89,16 @@ RUN ARCH_AWS=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") &
 # =============================================================================
 # Kubernetes + Stable Binary Tools (kubectl, Helm, Bazelisk, yq)
 # =============================================================================
-ARG GITHUB_TOKEN=
-
-RUN ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
+# GITHUB_TOKEN is read from a BuildKit secret mount (not an ARG) so the value
+# never lands in the image layer history. See Docker rule
+# `secrets-used-in-arg-or-env` and DL3035 / hadolint. The workflow passes the
+# secret via `secrets: github_token=…` on docker/build-push-action; local
+# `docker build` invocations can pass `--secret id=github_token,src=…` or
+# omit it entirely (we fail-open to an unauthenticated, rate-limited API
+# call, which still works for a single release-list fetch per build).
+RUN --mount=type=secret,id=github_token,required=false \
+    GITHUB_TOKEN="$( [ -r /run/secrets/github_token ] && cat /run/secrets/github_token || true )" && \
+    ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     KUBECTL_LATEST=$(curl -fsSL "https://dl.k8s.io/release/stable.txt") && \
     echo "Installing kubectl ${KUBECTL_LATEST}..." && \
     curl -fsSL "https://dl.k8s.io/release/${KUBECTL_LATEST}/bin/linux/${ARCH}/kubectl" -o /usr/local/bin/kubectl && \
