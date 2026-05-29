@@ -2,7 +2,7 @@
 # preflight-skills-cleanup.sh — capture l'état AVANT la série de commits.
 # But : figer la réalité (pas tout faire passer) pour comparer après chaque commit.
 set -uo pipefail
-cd "$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$(cd "$(dirname "$0")/../.." && pwd)" || { echo "preflight: cannot cd to repo root" >&2; exit 1; }
 
 echo "== Preflight skills-cleanup =="
 echo "do.md         : $(test -f .devcontainer/images/.claude/commands/do.md && echo present || echo absent)"
