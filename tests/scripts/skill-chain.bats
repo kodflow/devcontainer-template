@@ -12,8 +12,10 @@ setup() {
   SEARCH="$REPO_ROOT/.devcontainer/images/.claude/commands/search/generate.md"
 }
 
-@test "TestSkillChainReviewToDo" {
-  grep -q 'Skill(skill="do"' "$CYCLIC"
+@test "TestSkillChainReviewToGoal" {
+  # skills-cleanup C2: /do removed; /review --loop hands execution to /goal.
+  grep -q '/goal' "$CYCLIC"
+  ! grep -q 'Skill(skill="do"' "$CYCLIC"
 }
 
 @test "TestSkillChainCommitToReview" {
@@ -28,11 +30,10 @@ setup() {
   grep -q 'Skill(skill="plan", args="--context {slug}")' "$SEARCH"
 }
 
-@test "TestSkillRecursionMaxDepth" {
-  # WHY: the guard is documented in cyclic.md so future refactors don't
-  # silently remove the depth cap. Actual enforcement lives in team-mode
-  # primitives at runtime (out of scope for a static doc test).
-  grep -q 'max depth 5' "$CYCLIC"
+@test "TestReviewLoopHasIterationCap" {
+  # skills-cleanup C2: /do (and its Skill-recursion depth guard) removed.
+  # /review --loop keeps a bounded iteration cap so the cycle terminates.
+  grep -qE 'Max 5 iterations|--loop 5|--loop \[N\]' "$CYCLIC"
 }
 
 @test "TestSkillRecursionDetectsCycleGitReviewGit" {

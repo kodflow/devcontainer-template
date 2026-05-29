@@ -166,8 +166,8 @@ Read `~/.claude/commands/refine/render.md`. Writes:
 - **BARE**: `.claude/goals/<slug>.md` skeleton (WHAT/WHY/WHERE/HOW/DONE) + runtime directive.
 - **FROM-CONTRACT**: runtime directive only (input file is never overwritten).
 
-The runtime directive is always appended to the goal-state file via
-`goal-state.sh update` (PR1).
+The runtime directive is printed for the user to copy into `/goal`. There is no
+runtime state file (the `/goal` builtin loops on the directive condition directly).
 
 ## Next step (manual, no auto-chain)
 
