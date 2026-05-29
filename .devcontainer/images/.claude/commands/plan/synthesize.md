@@ -4,7 +4,7 @@
 
 Once the plan is fully synthesized, `/plan` invokes `ExitPlanMode(plan=<full md>)`
 instead of rendering the legacy ASCII banner. This hands control back to the
-user for approval; the same flow drives `/do --plan <path>` thereafter.
+user for approval; `/goal` (the canonical executor) drives the plan thereafter.
 
 **Schema validation (PR1 fix #18)**: before calling `ExitPlanMode`, read
 `.claude/state/primitives.json` (emitted by PR0's `probe-primitives.sh`)
@@ -20,7 +20,7 @@ If the check fails:
 
 1. Fall back to writing the plan to `${WORKSPACE_ROOT}/.claude/plans/<slug>.md` directly.
 2. Print a `[plan] ExitPlanMode unavailable — wrote plan to <path>` notice.
-3. Suggest `Skill(skill="do", args="--plan <path>")` as the manual hand-off.
+3. Suggest `/goal "Read <path>, execute its CONTRACT, stop when all gates pass"` as the manual hand-off.
 
 After the call, if `--goal` flag was present, chain into `/refine` via
 `Skill(skill="refine", args="<slug>")` (PR5a). Until W3 lands the refine

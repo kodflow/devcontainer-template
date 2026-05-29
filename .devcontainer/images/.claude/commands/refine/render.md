@@ -165,12 +165,7 @@ matching `# VERIFY` line `- <user-must-fill-acceptance> -> manual`
 # 1. Write contract
 Write(file_path=".claude/goals/<slug>.md", content=<rendered>)
 
-# 2. Append directive to goal state (PR1)
-bash ~/.claude/scripts/goal-state.sh update "<slug>" \
-  --decision met --decision-reason "refined" \
-  --append-objective "directive-emitted"
-
-# 3. Emit directive + manual-trigger suggestion (no auto-chain).
+# 2. Emit directive + manual-trigger suggestion (no auto-chain, no state file).
 #    The directive is the square-prompt template defined above; the
 #    suggestion is the SAME shape every time, regardless of mode.
 printf '%s\n\nSuggested next step:\n  /goal %s\n' "$DIRECTIVE" "$SLUG"
@@ -181,12 +176,7 @@ printf '%s\n\nSuggested next step:\n  /goal %s\n' "$DIRECTIVE" "$SLUG"
 ```bash
 # 1. NO contract write — input file is the source of truth, never overwritten.
 
-# 2. Append directive to goal state
-bash ~/.claude/scripts/goal-state.sh update "<slug>" \
-  --decision met --decision-reason "recompacted" \
-  --append-objective "directive-re-emitted"
-
-# 3. Emit directive + manual-trigger suggestion (no auto-chain)
+# 2. Emit directive + manual-trigger suggestion (no auto-chain, no state file)
 printf '%s\n\nSuggested next step:\n  /goal %s\n' "$DIRECTIVE" "$SLUG"
 ```
 

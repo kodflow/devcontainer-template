@@ -31,8 +31,8 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 ## How to Work
 
 1. **New project**: `/init` → conversational discovery → doc generation
-2. **New feature**: `/plan "description"` → planning mode → `/do` → `/git --commit`
-3. **Bug fix**: `/plan "description"` → planning mode → `/do` → `/git --commit`
+2. **New feature**: `/plan "description"` → `/review` → `/refine` → `/goal` → `/git --commit`
+3. **Bug fix**: `/plan "description"` → `/review` → `/refine` → `/goal` → `/git --commit`
 4. **Code review**: `/review` → 3-tier review (agents + Qodo + CodeRabbit)
 
 Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
@@ -104,7 +104,7 @@ Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.).
 
 ## Agent Teams (experimental)
 
-Parallel multi-agent execution for 6 high-value skills (`/review`, `/plan`, `/do`, `/infra`, `/test`, `/improve`). Each skill detects its runtime mode at invocation and branches:
+Parallel multi-agent execution for 5 high-value skills (`/review`, `/plan`, `/infra`, `/test`, `/improve`). Each skill detects its runtime mode at invocation and branches:
 
 | Capability (persisted) | Runtime mode | Where |
 |---|---|---|
@@ -133,7 +133,7 @@ Every team task embeds a `<!-- task-contract v1 ... -->` JSON block (contract_ve
 
 **Path convention:** `<org>/<repo>/<key>` (auto-resolved from git remote)
 **Backend:** 1Password CLI (`op`) with `OP_SERVICE_ACCOUNT_TOKEN`
-**Integration:** `/init` (check), `/git` (scan), `/do` (discover), `/infra` (TF_VAR_*)
+**Integration:** `/init` (check), `/git` (scan), `/goal` (discover), `/infra` (TF_VAR_*)
 
 ## Documentation Hierarchy
 
@@ -186,8 +186,10 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 written. `/refine` writes a contract at `.claude/goals/<slug>.md` and
 prints a textual `Suggested next step: /goal <slug>` — there is no
 auto-chain. **`/goal` is a harness builtin** (not a repository
-command file): the user types `/goal <slug>` to enter goal iteration
-against the persistent state in `.claude/state/goals/<slug>.json`.
+command file): the user types `/goal <slug>` (a documented model
+convention — the agent reads `.claude/goals/<slug>.md`) or pastes the
+explicit directive condition `/refine` emits. The builtin loops on the
+condition; there is no runtime state file.
 
 ## Collaboration Rules
 
