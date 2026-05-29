@@ -100,6 +100,7 @@ exitplanmode_schema() {
 
 jq -n \
   --arg monitor              "$(probe_tool Monitor)" \
+  --arg workflow             "$(probe_tool Workflow)" \
   --arg skill                "$(probe_tool Skill)" \
   --arg exitplanmode         "$(probe_tool ExitPlanMode)" \
   --arg enterplanmode        "$(probe_tool EnterPlanMode)" \
@@ -120,6 +121,7 @@ jq -n \
     schema_version: 1,
     probed_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
     Monitor: {status: $monitor},
+    Workflow: {status: $workflow},
     Skill: {status: $skill},
     ExitPlanMode: {status: $exitplanmode, input_schema: $epm_schema},
     EnterPlanMode: {status: $enterplanmode},
