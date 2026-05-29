@@ -86,9 +86,9 @@ step_restore_claude_config() {
     # Ensure base directory exists
     mkdir -p "$HOME/.claude"
 
-    # CLEAN commands, scripts, agents and docs to avoid legacy pollution
+    # CLEAN commands, scripts, agents, docs and workflows to avoid legacy pollution
     # Only these directories are managed by the image - sessions/plans are user data
-    rm -rf "$HOME/.claude/commands" "$HOME/.claude/scripts" "$HOME/.claude/agents" "$HOME/.claude/docs"
+    rm -rf "$HOME/.claude/commands" "$HOME/.claude/scripts" "$HOME/.claude/agents" "$HOME/.claude/docs" "$HOME/.claude/workflows"
 
     # Restore commands (fresh copy from image)
     if [ -d "$CLAUDE_DEFAULTS/commands" ]; then
@@ -114,6 +114,14 @@ step_restore_claude_config() {
     if [ -d "$CLAUDE_DEFAULTS/docs" ]; then
         mkdir -p "$HOME/.claude/docs"
         cp -r "$CLAUDE_DEFAULTS/docs/"* "$HOME/.claude/docs/" 2>/dev/null || true
+    fi
+
+    # Restore workflows (Workflow-tool scripts, e.g. research.js - fresh copy from image)
+    # WHY: /search hard-depends on Workflow({name:'research'}); without this the
+    # named workflow is unresolvable at runtime in consumer containers.
+    if [ -d "$CLAUDE_DEFAULTS/workflows" ]; then
+        mkdir -p "$HOME/.claude/workflows"
+        cp -r "$CLAUDE_DEFAULTS/workflows/"* "$HOME/.claude/workflows/" 2>/dev/null || true
     fi
 
     # Restore templates (Documentation and C4 templates - fresh copy from image)

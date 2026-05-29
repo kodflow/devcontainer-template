@@ -19,6 +19,20 @@ fallback, `unknown` defers the decision to the calling skill.
 - Fallback: inline polling loop with `sleep` — slower, no event semantics
 - Acceptance test: `TestClaudePrimitiveAvailability_Monitor`
 
+### Workflow
+- Required by: `/search` (web-complement engine — the `research` workflow)
+- Probe: `jq -e '.tools[] | select(.name=="Workflow")' <schema>`
+- **Status is MANDATORY-by-doctrine, NOT gate-by-probe.** `/search` always invokes
+  `Workflow({name:'research', …})` whenever the local-first gate does not
+  short-circuit; it does **not** consult this matrix entry to decide. The probe
+  records availability for diagnostics/`/audit` only. (History: `/search`
+  originally gated on a `primitives.json.Workflow` key that the probe never
+  emitted — an unsatisfiable gate that disabled the engine entirely. The key is
+  now emitted for completeness; the gate was removed.)
+- Fallback: legacy parallel `Task`-agent path in `search/parallel.md` — used ONLY
+  if the `Workflow` tool call itself errors, never as a routine choice.
+- Acceptance test: `TestClaudePrimitiveAvailability_Workflow`
+
 ### Skill
 - Required by: PR1 (4 active chains), PR3 (`/refine` → `/do`)
 - Probe: `jq -e '.tools[] | select(.name=="Skill")' <schema>`
