@@ -39,6 +39,44 @@ Use `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` to verify:
 
 ---
 
+## Target-aware scenarios (skills-cleanup C7)
+
+`/review` is **target-aware**: it selects a scenario from the registry
+`commands/review/scenarios/*.md` by inspecting the argument, then runs that
+scenario's lenses on the workflow engine (fan-out → adversarial verify → synthesize).
+
+| Argument shape | Scenario | Writes |
+|---|---|---|
+| plan slug / path under the plans dir / `--plan` | `plan` | edits the plan in place (single-writer + `.history/` backup) |
+| PR number / git range / `--staged` / `--pr` / `--code` | `code` | review-fixes plan (handed to `/goal`) |
+| `--security` / auth·crypto·secrets·network diff | `security` | review-fixes plan |
+| `--architecture` / ADR / cross-module diff | `architecture` | review-fixes plan |
+
+Each scenario file carries a `<!-- scenario-contract v1 … -->` block (`name`,
+`selects_when`, `lenses`, `writes`, `engine`). Writes are bounded to authorized
+dirs (plans / goals / contexts / review/scenarios) — no path traversal (GI7).
+
+### Scenario auto-extension (OFF by default — skills-cleanup C8 / GI6)
+
+When no registered scenario matches, `/review` may **propose** a new scenario by
+analogy with the existing ones — but **never writes one implicitly**.
+
+```
+REVIEW_SCENARIO_AUTOEXTEND=0     # default: OFF. /review only ever PROPOSES.
+```
+
+Enabling is explicit and gated:
+
+- activate per-invocation with `/review --extend-scenario <name>` (never implicit);
+- the candidate scenario is itself run through the `plan` scenario before write
+  ("mini-reviewed");
+- the write goes through the same advisory validator as `task-created.sh`
+  (rejects path-escape; requires the `scenario-contract v1` schema fields);
+- a user **confirmation token** must be present in the transcript before any write.
+
+Without both the flag AND the token, `/review` writes nothing under
+`review/scenarios/` — enforced by `review-scenario-autoextend.bats`.
+
 ## Overview
 
 Intelligent code review using **Recursive Language Model** decomposition:

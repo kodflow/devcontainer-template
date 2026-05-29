@@ -8,14 +8,20 @@
 | BARE | `template → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate` |
 | FROM-CONTRACT | `read → extract → render → refine-pipeline → square-prompt-validate → compact-to-minimum → square-prompt-validate` |
 
-The **refine-pipeline** step (post-lens, 10 mono-concern agents) is
-documented in `dispatch.md`. The **square-prompt-validate** step
-runs **TWICE** — once before `compact-to-minimum` for early
-diagnostics, and again after compaction as the final guarantee:
-compaction MUST NOT invalidate the section list, the STOP literal
-block, or the ACCEPTANCE/VERIFY 1:1 mapping. The **compact-to-minimum**
-step is mode-agnostic — single source of truth for the directive
-char-cap lives in this file.
+The **refine-pipeline** step (post-lens, 3 passes) is documented in
+`dispatch.md`. The **square-prompt-validate** step runs **TWICE** —
+once before `compact-to-minimum` for early diagnostics, and again
+after compaction as the final guarantee: compaction MUST NOT
+invalidate the section list, the STOP literal block, or the
+ACCEPTANCE/VERIFY 1:1 mapping. The **compact-to-minimum** step is
+mode-agnostic — single source of truth for the directive char-cap
+lives in this file.
+
+When the directive is rendered in **proof-triplet CONTRACT-FORM**
+(see `render.md`), the equivalent gate is **proof-triplet-validate**
+(`refine-proof-triplet-validate.sh`): every numbered line must parse
+as a safe-grammar command (no `;`/`>`/destructive/network); a failing
+line aborts with exit 25 before `/goal` ever runs.
 
 ### Why validate twice
 
@@ -95,7 +101,7 @@ note so a human reviewer can confirm the contract is still intact.
 
 | Mode | Typical directive length | Notes |
 |---|---|---|
-| FULL with all 10 lenses + heavy findings | usually near ceiling (3500-4000) | Risk of bumping ceiling — refine-density-optimizer trims |
+| FULL with all 10 lenses + heavy findings | usually near ceiling (3500-4000) | Risk of bumping ceiling — refine-density-pass trims |
 | FULL with only 4 critical lenses | often 1500-2500 | Minimum viable is naturally smaller |
 | BARE with terse description | often 600-1200 | Floor warning may fire — usually fine |
 | FROM-CONTRACT after manual trimming | whatever the contract holds | Re-derived directly from disk |
@@ -184,12 +190,11 @@ untouched on disk; we only re-derive the runtime directive.
 
 #### 5. Refine-pipeline (post-render, post-lens)
 
-The 10 mono-concern `refine-*` agents documented in `dispatch.md` run
-in canonical order against the rendered directive. Each agent
-compresses one dimension; outputs are additive, never merged. BARE
-and FROM-CONTRACT skip agents 1-7 (no lens findings to compress) but
-still run agents 8-10 (`refine-imperative-rewriter`,
-`refine-chain-stripper`, `refine-density-optimizer`) on the rendered
+The 3 `refine-*` passes documented in `dispatch.md` run in canonical
+order against the rendered directive. Each pass is causal; outputs are
+additive, never merged. BARE and FROM-CONTRACT skip pass 1-2
+(`refine-correctness-pass`, `refine-scope-pass` — no lens findings to
+compress) but still run pass 3 (`refine-density-pass`) on the rendered
 directive.
 
 #### 6. Compact-to-minimum

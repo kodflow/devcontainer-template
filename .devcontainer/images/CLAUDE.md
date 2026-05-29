@@ -190,7 +190,6 @@ Core servers in `mcp.json.tpl` (GitHub, GitLab). Additional servers added via MC
 |-------|-------------|
 | `/init` | Project initialization check |
 | `/plan` | Planning mode for implementation strategy |
-| `/do` | Iterative task execution loop (RLM) |
 | `/review` | AI-powered code review (3-tier: agents + Qodo + CodeRabbit) |
 | `/git` | Workflow Git automation (commit, push, PR, merge) |
 | `/search` | Documentation research with official sources |
@@ -205,7 +204,6 @@ Core servers in `mcp.json.tpl` (GitHub, GitLab). Additional servers added via MC
 | `/update` | DevContainer update from template |
 | `/improve` | Continuous docs enhancement & anti-pattern detection |
 | `/feature` | Feature tracking (RTM) with --add, --edit, --del, --list, --checkup |
-| `/prompt` | Generate ideal prompt structure for /plan |
 
 ## Hooks (31 scripts, 17 event types)
 

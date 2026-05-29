@@ -7,7 +7,6 @@
 setup() {
   REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/../.." && pwd)"
   WATCH="$REPO_ROOT/.devcontainer/images/.claude/commands/git/watch.md"
-  LOOP="$REPO_ROOT/.devcontainer/images/.claude/commands/do/loop.md"
   MERGE="$REPO_ROOT/.devcontainer/images/.claude/commands/git/merge.md"
   TERRAFORM="$REPO_ROOT/.devcontainer/images/.claude/commands/infra/terraform.md"
 }
@@ -23,12 +22,6 @@ primitive_status() {
   [ "$(primitive_status Monitor)" = "absent" ] && skip "Monitor absent — fallback used"
   grep -q 'Monitor primitive' "$WATCH"
   grep -q 'Monitor(' "$WATCH"
-}
-
-@test "TestDoLoopEmitsPushNotification" {
-  [ "$(primitive_status PushNotification)" = "absent" ] && skip "PushNotification absent"
-  grep -q 'PushNotification' "$LOOP"
-  grep -q 'terminal_notify' "$LOOP"
 }
 
 @test "TestInfraApplyUsesMonitor" {
