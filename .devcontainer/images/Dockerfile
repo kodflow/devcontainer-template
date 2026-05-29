@@ -19,7 +19,6 @@ ARG BASE_IMAGE=ghcr.io/kodflow/devcontainer-base:latest
 FROM ${BASE_IMAGE}
 
 ARG TARGETARCH
-ARG GITHUB_TOKEN=
 
 # CACHE_BUST_DYNAMIC: Forces cache invalidation for dynamic installations.
 # Set to current date (YYYY-MM-DD) during scheduled builds to pull latest versions.
