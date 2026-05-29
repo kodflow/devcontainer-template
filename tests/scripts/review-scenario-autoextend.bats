@@ -11,5 +11,9 @@ setup() {
 @test "TestAutoExtendOffByDefault" {
   grep -q 'REVIEW_SCENARIO_AUTOEXTEND' "$REVIEW" 2>/dev/null \
     || skip "auto-extension not yet implemented (pre-C8)"
-  grep -qE 'AUTOEXTEND=0|default.*off|off.*default|--extend-scenario' "$REVIEW"
+  # OFF by default
+  grep -qE 'AUTOEXTEND=0|default.*off|off.*default' "$REVIEW"
+  # explicit activation flag + confirmation token gate documented
+  grep -q -- '--extend-scenario' "$REVIEW"
+  grep -qiE 'confirmation token|token .*present' "$REVIEW"
 }
