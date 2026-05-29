@@ -10,7 +10,10 @@ setup() {
 
 @test "TestReviewScenariosDirIsBounded" {
   [ -d "$SCEN" ] || skip "review scenarios not yet implemented (pre-C7)"
-  # The scenario contract must declare a writes: path under an authorised dir.
-  run bash -c "grep -RIhE 'writes:' '$SCEN' | grep -vE '\.claude/(plans|goals|contexts)/|review/scenarios/'"
+  # Every `writes:` value must START (anchored) with an authorised dir — an
+  # unanchored substring match would accept `/etc/evil/.claude/plans/x` etc.
+  run bash -c "grep -RIhE '^[[:space:]]*writes:' '$SCEN' \
+    | sed -E 's/^[[:space:]]*writes:[[:space:]]*//' \
+    | grep -vE '^(\.claude/(plans|goals|contexts)/|[^[:space:]]*review/scenarios/)'"
   [ "$status" -ne 0 ]
 }

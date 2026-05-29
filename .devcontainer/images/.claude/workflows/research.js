@@ -145,18 +145,44 @@ const perAngle = await pipeline(
   },
 );
 
-// URL-dedup across angles
+// URL validation + dedup across angles.
+// Enforce scheme/host against the whitelist on the actual URLs (not just in the
+// prompts) — WebSearch results are untrusted input; reject non-http(s) and
+// off-whitelist hosts to prevent SSRF / prompt-injection via malicious URLs.
+function safeUrl(u) {
+  let parsed;
+  try {
+    parsed = new URL(u);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+  if (WHITELIST.length === 0) return true;
+  const host = parsed.hostname.toLowerCase();
+  return WHITELIST.some((d) => {
+    const dom = String(d).toLowerCase();
+    return host === dom || host.endsWith("." + dom);
+  });
+}
+
 const seen = new Set(),
   fetchList = [];
+let rejected = 0;
 for (const pa of perAngle.filter(Boolean)) {
   for (const r of pa.results) {
     if (!r.url || seen.has(r.url)) continue;
+    if (!safeUrl(r.url)) {
+      rejected++;
+      continue;
+    }
     seen.add(r.url);
     fetchList.push(r);
   }
 }
 const toFetch = fetchList.slice(0, MAX_FETCH);
-log(`${angles.length} angles → ${toFetch.length} unique sources to fetch`);
+log(
+  `${angles.length} angles → ${toFetch.length} unique sources to fetch (${rejected} off-whitelist/invalid URLs rejected)`,
+);
 
 // Fetch + extract claims (parallel)
 phase("Fetch");
@@ -212,6 +238,29 @@ const verified = await parallel(
   ),
 );
 const confirmed = verified.filter(Boolean).filter((c) => c.survived);
+
+// Guard: with zero verified claims, do NOT ask the model to answer (it would
+// hallucinate). Return an explicit "no confident findings" result instead.
+if (confirmed.length === 0) {
+  log(
+    "0 claims survived verification — returning no-findings result (no synthesis)",
+  );
+  return {
+    context_md:
+      `# ${QUERY}\n\nNo claims survived adversarial verification from the fetched ` +
+      `sources. The local docs did not cover this and the web complement produced ` +
+      `nothing confidently confirmable — treat as UNRESOLVED and narrow the query ` +
+      `or add sources.`,
+    sources: [],
+    confidence_map: [],
+    stats: {
+      angles: angles.length,
+      fetched: toFetch.length,
+      claims: claims.length,
+      confirmed: 0,
+    },
+  };
+}
 
 // Synthesize — cited report (returned, NOT written; the skill writes the context file)
 phase("Synthesize");

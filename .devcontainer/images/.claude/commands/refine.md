@@ -196,7 +196,9 @@ on disk has been reviewed.
 | `--slug <name>` | Override auto-derived slug in BARE mode |
 | `--lenses light` | FULL mode: only 4 critical lenses |
 | `--lenses full` | FULL mode: all 10 lenses |
-| `--auto` | Default for FULL: pick lens depth from plan frontmatter |
+| `--triplet` | Force proof-triplet CONTRACT form (overrides auto form-detection) |
+| `--square` | Force square-prompt form (overrides auto form-detection) |
+| `--auto` | Default for FULL: pick lens depth + form-detection (proof-triplet vs square-prompt) |
 | `--help` | Display help |
 
 ## Workflow patterns (v1.6)

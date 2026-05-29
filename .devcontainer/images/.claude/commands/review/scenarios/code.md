@@ -11,7 +11,7 @@ engine: workflow
 Reviews **code / a diff / a PR** (the legacy default `/review` behaviour). Selected
 when the argument is a PR number, a git range, or `--staged`/`--pr`/`--code`.
 
-## Lenses (7-way guarded fan-out → merge → challenge)
+## Lenses (5-lens guarded fan-out → merge → challenge)
 
 | Lens | Agent | Notes |
 |---|---|---|

