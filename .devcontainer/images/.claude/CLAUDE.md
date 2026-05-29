@@ -133,7 +133,6 @@ Enforced by two layers (defence-in-depth):
 | `/update` | DevContainer update |
 | `/feature` | Feature tracking (RTM) |
 | `/improve` | Docs QA |
-| `/prompt` | Better /plan descriptions |
 
 ### Skill Classification
 
@@ -159,7 +158,7 @@ Seven skills migrate to parallel multi-agent execution when Claude Code supports
 The capability file is a **hint**; the live probe (`detect_runtime_mode` in `~/.claude/scripts/team-mode-primitives.sh`) is the **source of truth** and overrides on divergence.
 
 ### NOT migrated
-`/git`, `/secret`, `/vpn`, `/update`, `/init`, `/warmup`, `/prompt`, `/search`, `/feature`, `/lint` (sequential, conflict-prone, or already has its own team integration).
+`/git`, `/secret`, `/vpn`, `/update`, `/init`, `/warmup`, `/search`, `/feature`, `/lint` (sequential, conflict-prone, or already has its own team integration).
 
 ### Task contract
 Every team task embeds a `<!-- task-contract v1 {...} -->` JSON block in `task_description`. See `shared/team-mode.md` §4 for the field rules. Parser: `extract_task_contract` in primitives library.
