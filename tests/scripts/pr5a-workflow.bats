@@ -16,7 +16,7 @@ setup() {
 }
 
 @test "TestSearchFooterPointsToPlanRefine" {
-  grep -q '/search <query> → /plan → /refine → /goal' "$SEARCH_MD"
+  grep -q '/search <query> → /plan → /review → /refine → /goal' "$SEARCH_MD"
 }
 
 @test "TestPromptHasDeprecationBanner" {
