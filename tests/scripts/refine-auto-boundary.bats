@@ -140,7 +140,7 @@ EOF
 }
 
 @test "TestRefineMdDeclaresSchemaValidation" {
-  # render.md must show the goal-state update call
-  grep -q 'goal-state.sh update' "$AUTO_MD" || \
-    grep -q 'goal-state.sh update' "$REPO_ROOT/.devcontainer/images/.claude/commands/refine/render.md"
+  # skills-cleanup C2: goal-state.sh removed — render.md must NOT call it.
+  ! grep -q 'goal-state' "$AUTO_MD"
+  ! grep -q 'goal-state' "$REPO_ROOT/.devcontainer/images/.claude/commands/refine/render.md"
 }

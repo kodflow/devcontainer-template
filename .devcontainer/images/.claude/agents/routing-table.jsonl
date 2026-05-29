@@ -24,13 +24,6 @@
 {"id": "refine-lens-8", "priority": 100, "skill": "/refine", "phase": "lens-8-observability", "guard": "true", "agent": "developer-executor-shell", "effort": "medium", "fanout": false}
 {"id": "refine-lens-9", "priority": 100, "skill": "/refine", "phase": "lens-9-scope", "guard": "true", "agent": "developer-orchestrator", "effort": "medium", "fanout": false, "critical": true}
 {"id": "refine-lens-10", "priority": 100, "skill": "/refine", "phase": "lens-10-goal-detect", "guard": "true", "agent": "developer-specialist-review", "effort": "high", "fanout": false, "critical": true}
-{"id": "refine-pipeline-1",  "priority": 100, "skill": "/refine", "phase": "refine-content-pruner",             "guard": "true", "agent": "developer-executor-quality",     "effort": "medium", "fanout": false}
-{"id": "refine-pipeline-2",  "priority": 100, "skill": "/refine", "phase": "refine-scope-fencer",               "guard": "true", "agent": "developer-orchestrator",         "effort": "medium", "fanout": false}
-{"id": "refine-pipeline-3",  "priority": 100, "skill": "/refine", "phase": "refine-constraint-distiller",       "guard": "true", "agent": "developer-executor-correctness", "effort": "medium", "fanout": false}
-{"id": "refine-pipeline-4",  "priority": 100, "skill": "/refine", "phase": "refine-done-criteria-sharpener",    "guard": "true", "agent": "developer-executor-correctness", "effort": "high",   "fanout": false}
-{"id": "refine-pipeline-5",  "priority": 100, "skill": "/refine", "phase": "refine-verifier-binder",            "guard": "true", "agent": "developer-executor-quality",     "effort": "high",   "fanout": false}
-{"id": "refine-pipeline-6",  "priority": 100, "skill": "/refine", "phase": "refine-escalation-isolator",        "guard": "true", "agent": "developer-orchestrator",         "effort": "medium", "fanout": false}
-{"id": "refine-pipeline-7",  "priority": 100, "skill": "/refine", "phase": "refine-sequence-causal-validator",  "guard": "true", "agent": "developer-executor-correctness", "effort": "medium", "fanout": false}
-{"id": "refine-pipeline-8",  "priority": 100, "skill": "/refine", "phase": "refine-imperative-rewriter",        "guard": "true", "agent": "developer-executor-quality",     "effort": "low",    "fanout": false}
-{"id": "refine-pipeline-9",  "priority": 100, "skill": "/refine", "phase": "refine-chain-stripper",             "guard": "true", "agent": "developer-executor-quality",     "effort": "low",    "fanout": false}
-{"id": "refine-pipeline-10", "priority": 100, "skill": "/refine", "phase": "refine-density-optimizer",          "guard": "true", "agent": "developer-executor-quality",     "effort": "medium", "fanout": false}
+{"id": "refine-pipeline-1", "priority": 100, "skill": "/refine", "phase": "refine-correctness-pass", "guard": "true", "agent": "developer-executor-correctness", "effort": "high",   "fanout": false}
+{"id": "refine-pipeline-2", "priority": 100, "skill": "/refine", "phase": "refine-scope-pass",       "guard": "true", "agent": "developer-orchestrator",         "effort": "medium", "fanout": false}
+{"id": "refine-pipeline-3", "priority": 100, "skill": "/refine", "phase": "refine-density-pass",     "guard": "true", "agent": "developer-executor-quality",     "effort": "medium", "fanout": false}
