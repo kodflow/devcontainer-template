@@ -210,3 +210,26 @@ IF multiple languages detected AND no Agent Teams:
 
 ═══════════════════════════════════════════════════════════════
 ```
+
+## PR8 — `--watch` mode (Skills Architecture v1.3)
+
+Reacts to file changes via `inotifywait`. Streamed by the `Monitor`
+primitive when present; falls back to polling otherwise.
+
+```bash
+/lint --watch                # watch src/ for relevant changes
+/lint --watch --path src/api # narrower scope
+```
+
+Monitor invocation:
+
+```
+Monitor(
+  description: "lint on file change",
+  timeout_ms: 3600000,
+  command: "inotifywait -m -r -e modify,create --exclude '\\.git/' src/ tests/ 2>&1 | grep --line-buffered -vE 'WATCHES_LIMIT|Setting up watches'"
+)
+```
+
+For each event, run the language detector + corresponding linter; emit
+a `PushNotification` only when a fresh issue appears (no spam on green).

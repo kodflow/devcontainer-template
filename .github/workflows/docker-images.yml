@@ -221,25 +221,60 @@ jobs:
             echo "value=stable" >> $GITHUB_OUTPUT
           fi
 
+      # Fetch the previous image's features manifest so the new manifest can
+      # carry up to 8 generations of previous_hashes per file. Best-effort:
+      # any fetch failure (first build, network blip, registry transient
+      # outage) yields an empty history and the sync falls back to current
+      # behaviour for stale-but-clean workspaces (one-build degradation,
+      # self-healing on the next successful fetch). See #367.
+      - name: Fetch previous manifest (best-effort)
+        id: prev-manifest
+        if: steps.base-check.outputs.available == 'true'
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          if docker pull ghcr.io/${{ github.repository }}:latest 2>/dev/null; then
+              cid=$(docker create ghcr.io/${{ github.repository }}:latest)
+              if docker cp "$cid:/etc/devcontainer-template/.template-files.json" \
+                   .devcontainer/images/prev-manifest.json 2>/dev/null; then
+                  echo "found=true" >> "$GITHUB_OUTPUT"
+              else
+                  echo "found=false" >> "$GITHUB_OUTPUT"
+                  echo "::warning::previous manifest not present in :latest image"
+              fi
+              docker rm "$cid" >/dev/null 2>&1 || true
+          else
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::could not pull :latest — previous_hashes will be empty"
+          fi
+
       # Stage .devcontainer/features/ + image-template-version.json + the
       # per-file sha256 manifest into the build context so the Dockerfile can
       # embed them. Build context is .devcontainer/images/; features/ and the
       # version markers live one level up.
       # The version marker lets postStart skip the sync when the consumer has
       # already pulled a newer template via /update (avoids /update regression).
-      # The files manifest powers postStart's 3-way merge: only files whose
-      # current on-disk sha256 matches the previously-shipped manifest entry
-      # are eligible for safe overwrite. See issue #334.
+      # The files manifest powers postStart's 3-way merge: files whose current
+      # on-disk sha256 matches the previously-shipped manifest entry are
+      # eligible for safe overwrite (#334); files matching a previous_hashes
+      # entry are fast-forwarded silently (#367).
       - name: Stage features, version + manifest
         if: steps.base-check.outputs.available == 'true'
         run: |
+          set -euo pipefail
           cp -r .devcontainer/features .devcontainer/images/features
           SHA="$(echo "${{ github.sha }}" | cut -c1-7)"
           NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           printf '{"commit": "%s", "updated": "%s"}\n' "$SHA" "$NOW" \
             > .devcontainer/images/image-template-version.json
+          PREV_ARG=()
+          if [ "${{ steps.prev-manifest.outputs.found }}" = "true" ] && \
+             [ -f .devcontainer/images/prev-manifest.json ]; then
+              PREV_ARG=(--prev-manifest .devcontainer/images/prev-manifest.json)
+          fi
           python3 .devcontainer/scripts/build-features-manifest.py \
             .devcontainer/images/features "$SHA" "$NOW" \
+            "${PREV_ARG[@]}" \
             > .devcontainer/images/image-template-files.json
 
       # PR: Build only (no push)

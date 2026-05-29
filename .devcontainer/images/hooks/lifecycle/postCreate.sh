@@ -97,28 +97,131 @@ step_git_ssl_config() {
     fi
 }
 
-# GPG commit signing configuration
+# Propagate $ENV_FILE (default /workspace/.env) GIT_USER / GIT_EMAIL into
+# git config global. Without this step, the bind-mounted ~/.gitconfig
+# retains the stale personal email from a previous machine; step_gpg_signing
+# only reads GIT_EMAIL for GPG key lookup, leaving the committer field
+# to leak the wrong identity (#365).
+#
+# ENV_FILE env-var indirection makes the step bats-testable.
+# Idempotent: only writes git config when the value differs.
+step_git_identity() {
+    local env_file="${ENV_FILE:-/workspace/.env}"
+    if [ ! -f "$env_file" ]; then
+        log_info "No $env_file — skipping git identity propagation"
+        return 0
+    fi
+
+    local declared_user declared_email current_user current_email
+    declared_user=$(grep -E '^[[:space:]]*(export[[:space:]]+)?GIT_USER=' "$env_file" 2>/dev/null \
+        | head -1 | sed -E 's/^[[:space:]]*(export[[:space:]]+)?GIT_USER=//; s/^"//; s/"$//' || true)
+    declared_email=$(grep -E '^[[:space:]]*(export[[:space:]]+)?GIT_EMAIL=' "$env_file" 2>/dev/null \
+        | head -1 | sed -E 's/^[[:space:]]*(export[[:space:]]+)?GIT_EMAIL=//; s/^"//; s/"$//' || true)
+
+    if [ -z "$declared_user" ] && [ -z "$declared_email" ]; then
+        log_info "No GIT_USER / GIT_EMAIL in $env_file — keeping current git config"
+        return 0
+    fi
+
+    current_user=$(git config --global user.name 2>/dev/null || true)
+    current_email=$(git config --global user.email 2>/dev/null || true)
+
+    if [ -n "$declared_user" ] && [ "$current_user" != "$declared_user" ]; then
+        git config --global user.name "$declared_user"
+        log_success "Git user.name set from $env_file: $declared_user"
+    fi
+    if [ -n "$declared_email" ] && [ "$current_email" != "$declared_email" ]; then
+        git config --global user.email "$declared_email"
+        log_success "Git user.email set from $env_file: $declared_email"
+    fi
+}
+
+# GPG commit signing configuration (#366: three-tier resolution).
+#
+# Modes (priority order, first match wins):
+#   1. GPG_SIGNINGKEY declared in $ENV_FILE or environment
+#   2. Existing git config --global user.signingkey (key must be in keystore)
+#   3. UID match between $GIT_EMAIL and a secret key (legacy auto-discovery)
+#
+# Modes 1 & 2 set user.signingkey even if only the public half is present —
+# this declares operator intent and survives the bootstrap window where the
+# secret hasn't been imported into the bind-mounted ~/.gnupg yet.
+# commit.gpgsign flips on only when a SECRET key is actually available, so
+# commits never start failing mid-bootstrap.
 step_gpg_signing() {
-    if [ ! -d "/home/vscode/.gnupg" ] || ! gpg --list-secret-keys --keyid-format LONG 2>/dev/null | grep -q "^sec"; then
+    local env_file="${ENV_FILE:-/workspace/.env}"
+    local gnupghome="${GNUPGHOME:-/home/vscode/.gnupg}"
+
+    if [ ! -d "$gnupghome" ] || ! gpg --list-keys 2>/dev/null | grep -q '^pub'; then
+        # Clear any stale signing flags from a previous run so git doesn't
+        # attempt to sign against a key that no longer exists. CodeRabbit #368.
+        git config --global --unset commit.gpgsign 2>/dev/null || true
+        git config --global --unset tag.forceSignAnnotated 2>/dev/null || true
         log_info "No GPG keys available - commit signing disabled"
         return 0
     fi
 
-    # Get GIT_EMAIL from .env or git config
+    # --- Mode 1: GPG_SIGNINGKEY from .env or environment ---
+    local declared_key=""
+    if [ -f "$env_file" ]; then
+        declared_key=$(grep -E '^[[:space:]]*(export[[:space:]]+)?GPG_SIGNINGKEY=' "$env_file" 2>/dev/null \
+            | head -1 | sed -E 's/^[[:space:]]*(export[[:space:]]+)?GPG_SIGNINGKEY=//; s/^"//; s/"$//' || true)
+    fi
+    [ -z "$declared_key" ] && declared_key="${GPG_SIGNINGKEY:-}"
+
+    # --- Mode 2: pre-existing global config ---
+    local preconfigured_key
+    preconfigured_key=$(git config --global user.signingkey 2>/dev/null || true)
+
+    local intent_key="${declared_key:-$preconfigured_key}"
+    if [ -n "$intent_key" ]; then
+        if gpg --list-keys "$intent_key" >/dev/null 2>&1; then
+            git config --global user.signingkey "$intent_key"
+            git config --global gpg.program gpg
+            if gpg --list-secret-keys "$intent_key" 2>/dev/null | grep -q '^sec'; then
+                git config --global commit.gpgsign true
+                git config --global tag.forceSignAnnotated true
+                local source_label="declared via GPG_SIGNINGKEY"
+                [ -z "$declared_key" ] && source_label="pre-configured user.signingkey"
+                log_success "Git GPG signing configured ($source_label): $intent_key"
+            else
+                # Pub-only: declare intent but don't enable signing yet.
+                # Unset BOTH signing flags symmetrically so a previous run that
+                # set tag.forceSignAnnotated doesn't keep failing tag creation.
+                # Qodo #368 review.
+                git config --global --unset commit.gpgsign 2>/dev/null || true
+                git config --global --unset tag.forceSignAnnotated 2>/dev/null || true
+                log_info "Signing key $intent_key present (pub only) — import the secret half to enable commit.gpgsign"
+            fi
+            return 0
+        fi
+        # Clear stale signing flags before warning — otherwise git keeps
+        # trying to sign against the missing key on every commit. CodeRabbit #368.
+        git config --global --unset commit.gpgsign 2>/dev/null || true
+        git config --global --unset tag.forceSignAnnotated 2>/dev/null || true
+        log_warning "Declared signing key $intent_key not in keystore — import the pubkey or 'git config --global --unset user.signingkey'"
+        return 0
+    fi
+
+    # --- Mode 3: legacy UID match (downgraded log_warning → log_info on miss) ---
     local git_email=""
-    if [ -f "/workspace/.env" ]; then
-        git_email=$(grep -E "^GIT_EMAIL=" /workspace/.env 2>/dev/null | cut -d'=' -f2 | tr -d '"' || true)
+    if [ -f "$env_file" ]; then
+        git_email=$(grep -E '^[[:space:]]*(export[[:space:]]+)?GIT_EMAIL=' "$env_file" 2>/dev/null \
+            | head -1 | sed -E 's/^[[:space:]]*(export[[:space:]]+)?GIT_EMAIL=//; s/^"//; s/"$//' || true)
     fi
-    if [ -z "$git_email" ]; then
-        git_email=$(git config --global user.email 2>/dev/null || true)
-    fi
+    [ -z "$git_email" ] && git_email=$(git config --global user.email 2>/dev/null || true)
 
     local gpg_key=""
     if [ -n "$git_email" ]; then
-        # Priority: Find GPG key matching the configured GIT_EMAIL
-        gpg_key=$(gpg --list-secret-keys --keyid-format LONG 2>/dev/null | \
-            grep -B1 "$git_email" 2>/dev/null | \
-            grep -E "^sec" 2>/dev/null | head -1 | awk '{print $2}' | cut -d'/' -f2 || true)
+        # Parse --with-colons output (stable across gpg versions, unlike
+        # the human-readable format whose layout shifted between gpg 1.x
+        # and 2.x — the previous grep -B1 pipeline silently never matched
+        # on modern gpg).
+        gpg_key=$(gpg --list-secret-keys --with-colons --keyid-format LONG 2>/dev/null \
+            | awk -v email="$git_email" -F: '
+                /^sec:/ { sec_kid = $5 }
+                /^uid:/ { if (index($10, email) > 0) { print sec_kid; exit } }
+            ' || true)
     fi
 
     if [ -n "$gpg_key" ]; then
@@ -126,10 +229,14 @@ step_gpg_signing() {
         git config --global commit.gpgsign true
         git config --global tag.forceSignAnnotated true
         git config --global gpg.program gpg
-        log_success "Git GPG signing configured with key: $gpg_key (matching $git_email)"
+        log_success "Git GPG signing configured with key: $gpg_key (auto-matched $git_email)"
     else
-        # No matching key found - GPG signing will be configured via /git skill
-        log_warning "No GPG key found for email '$git_email' - configure via /git skill"
+        # Mode 3 no-match: clear any stale signing flags from a previous run
+        # so git doesn't keep failing commit/tag operations. Symmetric with
+        # the no-keys and intent-key-missing paths. Qodo #368 review.
+        git config --global --unset commit.gpgsign 2>/dev/null || true
+        git config --global --unset tag.forceSignAnnotated 2>/dev/null || true
+        log_info "No GPG key found for email '$git_email' — declare GPG_SIGNINGKEY in $env_file or run /git to configure"
     fi
 }
 
@@ -423,6 +530,7 @@ step_mark_initialized() {
 run_step "Git safe directory"    step_git_safe_directory
 run_step "Git global gitignore"  step_git_global_ignore
 run_step "Git SSL configuration" step_git_ssl_config
+run_step "Git identity"          step_git_identity
 run_step "GPG signing"           step_gpg_signing
 run_step "Git hooks path"        step_git_hooks_path
 

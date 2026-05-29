@@ -1,12 +1,31 @@
 # Phase 3.0: Parallel Search (RLM Pattern: Partition + Map)
 
-**For each sub-query, launch a Task agent:**
+**Per PR4 — Skills Architecture v1.3, /search dispatches per-language
+specialists via the router rather than the generic Explore agent.**
+
+```bash
+# Route once per concept; expand to per-language specialists via agent_template
+ROUTER=~/.claude/scripts/route-agent.sh
+DISPATCHES=$(bash "$ROUTER" --skill /search --phase external \
+  --profile .claude/state/profile.json)
+
+# For local-source lookups (~/.claude/docs/) use the patterns analyzer
+LOCAL_DISPATCH=$(bash "$ROUTER" --skill /search --phase local \
+  --profile .claude/state/profile.json)
+```
+
+Each dispatch returns `{subagent_type, resolved_model, effort}`. Hand
+those values to the `Task` primitive — agents handle language-specific
+documentation (Go: go.dev, Python: docs.python.org, Node: nodejs.org)
+plus the local Design-Patterns KB via `docs-analyzer-patterns`.
+
+Legacy `Explore`-based dispatch (kept for unrouted contexts):
 
 ```
 Task({
   subagent_type: "Explore",
   prompt: "Search <concept> on <domain>. Extract: definition, usage, examples.",
-  model: "haiku"  // Fast for search
+  model: "haiku"
 })
 ```
 

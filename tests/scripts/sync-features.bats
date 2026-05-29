@@ -80,7 +80,7 @@ seed_baseline() {
     [ "$status" -eq 0 ]
     grep -q "consumer-committed" "$DST/alpha.md"
     [[ "$output" == *"1 preserved"* ]]
-    [[ "$output" == *"sha256 differs"* ]]
+    [[ "$output" == *"divergent from upstream"* ]]
 }
 
 # --- T4: consumer-added file is left alone ---
@@ -182,4 +182,94 @@ seed_baseline() {
     [[ "$output" == *"0 copied"* ]]
     [[ "$output" == *"1 unchanged"* ]]
     [[ "$output" == *"0 preserved"* ]]
+}
+
+# --- T11: stale-but-clean (#367): previous_hashes match → fast-forward, silent ---
+@test "T11 stale-but-clean: previous_hashes match → fast-forward, silent" {
+    echo "alpha-v1" > "$SRC/alpha.md"
+    seed_baseline                       # baseline: SRC=alpha-v1, manifest v2 (empty previous_hashes)
+
+    # Consumer commits the v1 content (no edit, just lagging behind)
+    git -C "$WS" add . && git -C "$WS" commit -qm "consumer baseline" 2>/dev/null || true
+
+    # Upstream pushes a different version; rebuild manifest with --prev-manifest
+    echo "alpha-v2" > "$SRC/alpha.md"
+    python3 "$BUILDER" "$SRC" "test-v2" "2026-05-20T00:00:00Z" \
+        --prev-manifest "$MAN" > "${MAN}.new"
+    mv "${MAN}.new" "$MAN"
+
+    run sync_features_tree "$SRC" "$DST" "$WS"
+    [ "$status" -eq 0 ]
+    grep -q "alpha-v2" "$DST/alpha.md"               # fast-forwarded
+    [[ "$output" != *"consumer-modified"* ]]         # legacy wording absent
+    [[ "$output" != *"divergent"* ]]                 # new warning absent (it was clean)
+    [[ "$output" == *"1 fast-forwarded"* ]]          # summary counter
+}
+
+# --- T13: true committed fork (no prior shipped match) → preserved with improved warning ---
+@test "T13 committed fork → preserved with improved warning, no fast-forward" {
+    echo "alpha-v1" > "$SRC/alpha.md"
+    seed_baseline
+
+    # Consumer commits a TRUE fork (content never shipped)
+    echo "consumer-true-fork" > "$DST/alpha.md"
+    git -C "$WS" add . && git -C "$WS" commit -qm "consumer fork" 2>/dev/null || true
+
+    # Upstream pushes again; manifest knows alpha-v1 as previous, NOT the fork
+    echo "alpha-v2" > "$SRC/alpha.md"
+    python3 "$BUILDER" "$SRC" "test-v2" "2026-05-20T00:00:00Z" \
+        --prev-manifest "$MAN" > "${MAN}.new"
+    mv "${MAN}.new" "$MAN"
+
+    run sync_features_tree "$SRC" "$DST" "$WS"
+    [ "$status" -eq 0 ]
+    grep -q "consumer-true-fork" "$DST/alpha.md"     # preserved
+    [[ "$output" == *"divergent from upstream"* ]]   # new wording
+    [[ "$output" == *"git diff"* ]]                  # actionable hint present
+    [[ "$output" == *"1 preserved"* ]]               # counter
+    [[ "$output" == *"0 fast-forwarded"* ]]          # NOT fast-forwarded
+}
+
+# --- T12: template-repo self-exclusion via origin URL (#367) ---
+@test "T12 origin=kodflow/devcontainer-template → step_sync_features short-circuits" {
+    local postStart="${BATS_TEST_DIRNAME}/../../.devcontainer/images/hooks/lifecycle/postStart.sh"
+    source_function_from "$postStart" step_sync_features
+
+    echo "alpha" > "$SRC/alpha.md"
+    seed_baseline
+    git -C "$WS" remote add origin "https://github.com/kodflow/devcontainer-template.git" 2>/dev/null || true
+
+    # Even with upstream change, no copy should happen — function early-exits.
+    echo "alpha-upstream-changed" > "$SRC/alpha.md"
+
+    export WORKSPACE_FOLDER="$WS"
+
+    run step_sync_features
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Skipping features sync: template repo"* ]]
+    grep -q "^alpha$" "$DST/alpha.md"  # dst untouched (the early-exit fires before any I/O)
+}
+
+# --- T14: v2-only deletion (file in previous_hashes only, dropped from files) ---
+@test "T14 v2 deletion: file removed upstream → previous_hashes drives deletion" {
+    echo "alpha-v1" > "$SRC/alpha.md"
+    echo "beta-v1" > "$SRC/beta.md"
+    seed_baseline                       # v1 manifest: files={alpha,beta}, previous_hashes={}
+    git -C "$WS" add . && git -C "$WS" commit -qm "baseline" 2>/dev/null || true
+
+    # Upstream removes beta; rebuild manifest v2 (--prev-manifest moves beta into previous_hashes)
+    rm "$SRC/beta.md"
+    python3 "$BUILDER" "$SRC" "test-v2" "2026-05-20T00:00:00Z" \
+        --prev-manifest "$MAN" > "${MAN}.new"
+    mv "${MAN}.new" "$MAN"
+
+    # Sanity: beta is gone from .files but lives in .previous_hashes
+    # (use bracket-form for keys containing dots — `.foo.bar` would walk into a nested object)
+    jq -e '.files["beta.md"] == null' "$MAN"
+    jq -e '.previous_hashes["beta.md"] | length > 0' "$MAN"
+
+    run sync_features_tree "$SRC" "$DST" "$WS"
+    [ "$status" -eq 0 ]
+    [ ! -e "$DST/beta.md" ]                          # deleted via previous_hashes path
+    [[ "$output" == *"1 removed"* ]]
 }

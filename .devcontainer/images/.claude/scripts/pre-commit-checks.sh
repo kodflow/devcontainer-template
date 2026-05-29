@@ -25,7 +25,19 @@ NC='\033[0m' # No Color
 # Language Detection
 # ============================================================================
 
+# Initialise empty so ${#DETECTED_LANGUAGES[@]} / ${!DETECTED_LANGUAGES[@]} are
+# bound under `set -u` even when detect_languages finds no markers (#363).
+#
+# WHY two statements instead of `declare -A X=()`: kcov v43 instruments the
+# script with DEBUG traps that briefly desynchronise the variable's
+# associative-flag state from its value-initialisation when both happen on
+# the same statement. Symptom in CI: the test passes under raw bats but
+# fails under `Collect coverage` because `${#DETECTED_LANGUAGES[@]}` trips
+# set -u as if the array were unbound. Splitting the declaration from the
+# assignment makes each step a separate trap point and kcov sees a fully
+# bound array before the empty-init runs.
 declare -A DETECTED_LANGUAGES
+DETECTED_LANGUAGES=()
 
 detect_languages() {
     local workspace="${1:-/workspace}"
@@ -693,7 +705,11 @@ main() {
     # Detect languages
     detect_languages "$workspace"
 
-    if [[ ${#DETECTED_LANGUAGES[@]} -eq 0 ]]; then
+    # Bash 5.2 + `set -u` raise an unbound-variable error on `${#arr[@]}` for
+    # an associative array that was declared but never assigned. The `[*]:-`
+    # form is safe and equivalent for "is the array empty?" (issue #361 fix
+    # spillover: the template repo itself has no root-level language marker).
+    if [[ -z "${DETECTED_LANGUAGES[*]:-}" ]]; then
         echo ""
         echo -e "${YELLOW}No supported languages detected.${NC}"
         echo "Supported dependency files: go.mod, Cargo.toml, package.json,"

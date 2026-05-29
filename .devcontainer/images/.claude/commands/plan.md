@@ -16,6 +16,8 @@ allowed-tools:
   - "mcp__playwright__*"
   - "Write(.claude/plans/*.md)"
   - "Write(.claude/contexts/*.md)"
+  - "ExitPlanMode(*)"
+  - "Skill(*)"
 ---
 
 # /plan - Claude Code Planning Mode (RLM Architecture)
@@ -43,7 +45,28 @@ Planning mode with **RLM** patterns:
 | `--auto` | Auto mode: no questions, AI reasons internally and presents final plan |
 | `--context` | Auto-detect most recent `.claude/contexts/*.md` |
 | `--context=<name>` | Load specific `.claude/contexts/{name}.md` |
+| `--goal` | After plan write, chain `/review` (plan gate) → `/refine` (contract) → suggest `/goal` |
+| `--goal --fast` | Skip the `/review` gate — chain straight to `/refine` (trivial plans) |
 | `--help` | Show help |
+
+### `--goal` flag (PR5a — Skills Architecture v1.3)
+
+```yaml
+goal_chain:
+  trigger: "--goal in $ARGUMENTS"
+  after_plan_write:
+    # skills-cleanup C3 (DD1): gate the plan through /review BEFORE /refine.
+    primitive: |
+      Skill(skill="review", args="--plan <slug>")   # gate — review the plan in place
+      Skill(skill="refine", args="<slug>")           # then compact to a /goal CONTRACT
+    fast_bypass:
+      trigger: "--goal --fast"
+      message: "skips the /review gate; runs /refine directly (trivial plans only)."
+    fallback_when_review_absent:
+      message: "fall back to --fast (plan → refine) with a warning."
+    fallback_when_refine_absent:
+      message: "plan written; run /goal with the explicit condition manually."
+```
 
 ---
 
@@ -59,6 +82,8 @@ Usage: /plan <description> [options]
 Options:
   <description>     What to implement
   --auto            No questions — AI reasons internally, presents final plan
+  --goal            After plan write, chain /review (gate) → /refine → /goal
+  --goal --fast     Skip the /review gate, chain straight to /refine
   --context         Load most recent .claude/contexts/*.md
   --context=<name>  Load specific .claude/contexts/{name}.md
   --help            Show this help
@@ -70,7 +95,7 @@ RLM Patterns:
   4. Synthesize - Structured plan
 
 Workflow:
-  /search <topic> → /plan <feature> → (approve) → /do
+  /search <topic> → /plan <feature> → /review → /refine → /goal
 
 Examples:
   /plan "Add user authentication with JWT"

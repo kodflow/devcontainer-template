@@ -8,7 +8,7 @@ All `.claude/` paths MUST be absolute: `${WORKSPACE_ROOT}/.claude/plans/` (resol
 
 ## Phase 14.0: Language-Specialist Dispatch
 
-**Route fixes to language-specialist agent via /do:**
+**Route fixes to language-specialist agents via /goal:**
 
 ```yaml
 language_specialist_dispatch:
@@ -56,18 +56,22 @@ language_specialist_dispatch:
     ".s":     "developer-specialist-assembly"
 
   dispatch:
-    command: "/do --plan .claude/plans/review-fixes-{timestamp}.md"
+    # skills-cleanup C2: /do is removed. /review --loop writes the fixes plan,
+    # then hands execution to /goal (the canonical executor). The condition
+    # drives the fixes plan to completion; no custom loop engine.
+    primitive: |
+      /goal "Read the review-fixes-{timestamp} plan, apply each fix_patch grouped by
+             language via developer-specialist-{lang}, and stop when a re-review
+             reports 0 CRITICAL and 0 HIGH findings."
+    fallback_when_goal_absent: "apply the fixes listed in the review-fixes plan manually"
     executor: "developer-specialist-{lang}"
 
-  integration_with_do:
+  integration_with_goal:
     workflow:
       1: "/review generates plan with findings + fix_patch"
-      2: "/do loads plan"
-      3: "/do groups by language"
-      4: "/do dispatches to language-specialist agents"
-      5: "Language-specialists apply fixes"
-      6: "/do returns control to /review"
-      7: "If --loop, re-run /review"
+      2: "/goal loads the plan (convention) and groups fixes by language"
+      3: "language-specialist agents apply fixes until the stop condition holds"
+      4: "if --loop, re-run /review to confirm 0 CRITICAL/HIGH"
 ```
 
 ---
@@ -89,7 +93,7 @@ cyclic_workflow:
     iteration_1:
       1_review: "Full analysis (15 phases, 5 agents)"
       2_generate_plan: ".claude/plans/review-fixes-{timestamp}.md"
-      3_dispatch_to_do: "/do --plan {plan_file}"
+      3_dispatch_to_goal: "/goal \"execute the review-fixes plan to 0 CRITICAL/HIGH\""
 
     iteration_2_to_N:
       1_review_validation: "/review (re-scan post-fix)"
