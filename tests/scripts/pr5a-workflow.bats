@@ -33,6 +33,6 @@ setup() {
 }
 
 @test "TestRootClaudeMdMentionsRefine" {
+  # /prompt fully purged (skills-cleanup C1) — only /refine must be present now.
   grep -q '/refine' "$ROOT_CLAUDE"
-  grep -q '/prompt.*\*\*\[DEPRECATED\]\*\*' "$ROOT_CLAUDE" || grep -q '/prompt.*DEPRECATED' "$ROOT_CLAUDE"
 }

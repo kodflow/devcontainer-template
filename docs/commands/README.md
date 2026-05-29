@@ -69,4 +69,3 @@ flowchart TD
 |---------|-----------|--------------|
 | `/update` | `--check`, `--force` | Updates the devcontainer from the official template |
 | `/improve` | — | Quality audit for pattern files in `~/.claude/docs/` |
-| `/prompt` | — | Displays the ideal format for `/plan` descriptions |
