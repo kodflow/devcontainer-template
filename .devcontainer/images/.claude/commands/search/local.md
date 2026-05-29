@@ -22,16 +22,33 @@ local_first:
       output: local_knowledge
 
     3_evaluate_coverage:
+      # "Local" means VALIDATED docs ONLY: ~/.claude/docs/** and the repo's
+      # docs/*.md. Project SOURCE CODE, git history, and your own reasoning are
+      # NOT "local coverage" — answering from them is a GAP, not a short-circuit.
+      # This is the rule #382 enforces: the engine is the DEFAULT; LOCAL_COMPLETE
+      # is the rare exception, never an escape hatch to skip the Workflow.
       rule: |
-        IF local_knowledge covers >= 80% of the query:
+        Let matched_docs = the validated-doc files (~/.claude/docs/**, docs/*.md)
+        that ACTUALLY CONTAIN the answer. You MUST be able to name them.
+
+        IF matched_docs is non-empty AND those files cover >= 80% of the query:
           status = "LOCAL_COMPLETE"
-          → Skip Phase 1-3, go to Phase 6
-        ELSE IF local_knowledge covers >= 40%:
-          status = "LOCAL_PARTIAL"
-          → Continue Phase 0+ for gaps only
+          → write .claude/contexts/<slug>.md from local, STOP (skip the engine)
+          → MUST list matched_docs as evidence in the Phase 1.0 output below
         ELSE:
-          status = "LOCAL_NONE"
-          → Continue normal workflow
+          # Covers: zero matched validated-doc files; the answer would come from
+          # project code / git history / reasoning; only partial doc coverage.
+          status = (matched_docs cover >= 40% of the query) ? "LOCAL_PARTIAL"
+                                                            : "LOCAL_NONE"
+          → compute GAPS, then Workflow({name:'research', ...}) is MANDATORY
+
+      anti_escape_hatch: |
+        A topic being "100% internal to this repo" does NOT make it
+        LOCAL_COMPLETE. Internal/codebase topics have NO entry in ~/.claude/docs/
+        → matched_docs is empty → LOCAL_NONE (or PARTIAL) → the engine MUST run.
+        If you cannot cite validated-doc files that hold the answer, you are NOT
+        LOCAL_COMPLETE. Reading source code to synthesize an answer is exactly the
+        case the engine exists for — run it.
 
   categories_mapping:
     design_patterns: "creational/, structural/, behavioral/"
