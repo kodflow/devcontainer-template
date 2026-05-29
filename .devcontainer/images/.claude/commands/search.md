@@ -218,7 +218,16 @@ Phase 9.0: Generate Context File
 ## Workflow gateway (skills-cleanup C6)
 
 `/search` is a **gateway**, never a monolithic wrap. The local-first gate stays
-OUTSIDE the engine; the workflow only runs for the web complement.
+OUTSIDE the engine; the `research` Workflow is the **mandatory** engine for the
+web complement.
+
+> **MANDATORY — Workflow is not optional.** Whenever the local-first gate does
+> NOT short-circuit (`LOCAL_PARTIAL` / `LOCAL_NONE`), `/search` MUST invoke
+> `Workflow({ name: 'research', … })`. There is **no `primitives.json` gate** on
+> this path: the previous "accelerator, only if present" wording was a bug — the
+> probe never emitted a `Workflow` key, so the gate was unsatisfiable and the
+> engine never ran. Doing the web research inline with ad-hoc `Task`/`WebSearch`
+> calls instead of the Workflow is a **skill violation**.
 
 ```
 /search <query>
@@ -226,9 +235,10 @@ OUTSIDE the engine; the workflow only runs for the web complement.
   ├─ Phase 0  local-first gate (in-skill, NO engine)
   │     Grep/Read ~/.claude/docs/ + docs/*.md
   │     ├─ LOCAL_COMPLETE → early-exit: write .claude/contexts/<slug>.md from local, STOP
-  │     └─ LOCAL_PARTIAL / LOCAL_NONE → compute GAPS, run the workflow below
+  │     │                   (the ONLY path that legitimately skips the Workflow)
+  │     └─ LOCAL_PARTIAL / LOCAL_NONE → compute GAPS, then ALWAYS run the engine ↓
   │
-  ├─ engine (only if Workflow primitive present in primitives.json):
+  ├─ engine (ALWAYS, whenever web complement is needed):
   │     Workflow({ name: 'research', args: { query, gaps, whitelist } })
   │       Scope → Search∥ → Fetch∥ → Verify(3-vote) → Synthesize   # writes NOTHING
   │     returns { context_md, sources, confidence_map }
@@ -237,9 +247,11 @@ OUTSIDE the engine; the workflow only runs for the web complement.
                 merging local findings + the cited workflow report.
 ```
 
-**Fallback (no regression):** if `primitives.json` reports the `Workflow` tool
-`absent`, `/search` falls back to the legacy parallel `Task`-agent path documented
-in `search/parallel.md`. The engine is an accelerator, never a hard dependency.
+**Degraded path (error-recovery only, NOT a routine gate):** the legacy parallel
+`Task`-agent path in `search/parallel.md` is used **only** if the `Workflow` tool
+call itself errors (genuinely unavailable in the runtime). It is a last-resort
+safety net for a broken environment — never the default, and never chosen by
+consulting `primitives.json`. If you fall back, say so explicitly in the output.
 
 **Invariants:** the official-domain whitelist (above) is injected into the
 `research` workflow's Search prompts; the workflow itself never writes disk — the
