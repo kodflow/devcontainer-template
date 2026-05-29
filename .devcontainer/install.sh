@@ -453,7 +453,7 @@ download_commands() {
 
     if [ -z "$commands" ]; then
         echo "  ⚠ Could not discover commands via API, using fallback"
-        commands="git.md review.md plan.md do.md search.md update.md"
+        commands="git.md review.md plan.md refine.md search.md update.md"
     fi
 
     local count=0
