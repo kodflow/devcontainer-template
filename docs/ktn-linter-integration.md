@@ -122,6 +122,59 @@ native HTTP hook, which forwards the body unchanged to ktn-linter's YAML config.
 
 Defensive: if `jq` is missing, the scripts fall through to the raw `${INPUT:-{}}` body — server uses YAML default, no failure.
 
+## Review Scope (diff | full)
+
+`review_scope` is a ROOT field in `.ktn-linter.yaml` (sibling of `phases:`), default `diff`:
+
+```yaml
+version: 1
+review_scope: diff   # diff (default) | full
+phases:
+  enabled: [1,2,3,4,5,6,7,8]
+```
+
+- **diff** = the MCP daemon surfaces ONLY issues on code changed vs the default branch (3-dot merge-base + staged + unstaged + untracked); pre-existing debt on untouched lines stays hidden.
+- **full** = surface every issue across the whole project (legacy behaviour).
+- **Fail-safe & loud:** no `.git`, shallow clone, or unresolved default branch ⇒ automatic full scan + `diff_warning` in the response (never a silent empty diff).
+- **Filtering is response-time only:** the analysis cache always holds the full set, so switching diff↔full never triggers a re-scan.
+
+> **Default changed.** An existing MCP user with NO `review_scope` field silently moves from whole-project to diff-only. Set `review_scope: full` to restore the old view.
+
+### Per-command behaviour
+
+`review_scope` is honoured by the daemon/MCP surface ONLY; the CLI `lint` is unaffected.
+
+| Surface | Honours `review_scope`? | Behaviour |
+|---|---|---|
+| `ktn-linter serve` (daemon) | yes | diff by default |
+| MCP `scan` tool | yes | diff by default; per-request `scope: "full"\|"diff"` override → full set from the same cached scan, no re-analysis |
+| MCP `dump` tool | yes (full) | whole-project enumeration |
+| HTTP `/scan` | yes | same per-request `scope` override |
+| PostToolUse hook | yes (diff, by design) | blocks only on in-diff issues |
+| `ktn-linter lint` (CLI) | no | always full (CI/audit path) |
+| `make lint` | no | wraps the CLI → full |
+
+### Per-request override
+
+The MCP `scan` tool accepts a per-request `scope` that overrides the server default:
+
+```jsonc
+{ "path": "./...", "mode": "cached", "scope": "full" }   // whole project, instant, no rescan
+{ "path": "./...", "scope": "diff" }                      // force diff even if server default is full
+```
+
+Note: empty/unknown `scope` falls back to the server's configured `review_scope`.
+
+### Daemon guard on `ktn-linter lint`
+
+The CLI now preflights `GET :7717/health` and ABORTS (exit code `DaemonActive=42`) if the daemon is live, steering the caller to the MCP `scan`/`dump` tools to avoid redundant from-scratch rescans. Bypass (exceptional): `--force` or `KTN_FORCE_LOCAL=1` — prints a loud "EXCEPTIONAL OVERRIDE" notice.
+
+IMPORTANT: a template-consumer project's `make lint` should NOT blindly add `--force` — the guard is the desired behaviour there (only ktn-linter's own repo passes `--force` because it self-lints with its own daemon live).
+
+### Recommendation
+
+Consumer projects that ship a `.ktn-linter.yaml` should PIN `review_scope: diff` explicitly with a comment, so the default-change is visible to readers. (The devcontainer-template itself is not a Go project and ships no `.ktn-linter.yaml`.)
+
 ## Hook Flow
 
 ```
