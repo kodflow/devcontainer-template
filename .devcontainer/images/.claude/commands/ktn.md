@@ -77,6 +77,7 @@ $ARGUMENTS
 | _(none)_ | Full parallel reconcile (default) |
 | `--check` | Read-only diagnostic — no writes, no daemon spawn |
 | `--phases <spec>` | Configure `.ktn-linter.yaml` then reconcile (spec syntax in `--help`) |
+| `--scope <diff\|full\|show>` | Set `review_scope` in `.ktn-linter.yaml` (`show` = read-only, prints resolved scope) |
 | `--restart` | Force daemon respawn (skip health probe) |
 | `--uninstall` | Remove `mcp.json` ktn-linter entry + settings.json hook entries (binary kept) |
 | `--help` | Show this help and STOP |
@@ -100,6 +101,7 @@ $ARGUMENTS
     (none)                Full reconcile (default)
     --check               Read-only — never writes
     --phases <spec>       Apply phase config then reconcile
+    --scope <spec>        Set review_scope (diff|full|show) then reconcile
     --restart             Force daemon respawn
     --uninstall           Remove mcp.json + settings hook entries (binary kept)
     --help                Show this help
@@ -114,6 +116,16 @@ $ARGUMENTS
     -comment              Remove phase 7 from current set
     show                  Print resolved active set + source
 
+  SCOPE SPEC (--scope)
+    diff                  Surface only issues on code changed vs default branch (default)
+    full                  Surface every issue across the whole project (legacy)
+    show                  Print resolved review_scope + source (no write)
+
+  REVIEW SCOPE (who honours it)
+    Daemon / MCP scan / HTTP /scan / hooks   honour review_scope (diff default)
+    ktn-linter lint (CLI) / make lint        ALWAYS full (CI/audit path)
+    MCP scan accepts a per-request scope override from the same cached scan.
+
   PROJECT GATE (always first)
     Detects Go via rtk grep (go.mod, *.go, BUILD.bazel rules, etc).
     If no signal: pauses with a Yes/No AskUserQuestion prompt.
@@ -124,13 +136,15 @@ $ARGUMENTS
     2. mcp          Ensure mcp.json registers ktn-linter
     3. settings     Wire PreToolUse + PostToolUse HTTP hooks
     4. daemon       Health-check :7717 + respawn if dead
-    5. phases       Validate .ktn-linter.yaml (or write if --phases)
+    5. phases       Validate .ktn-linter.yaml phases + review_scope (write if --phases/--scope)
 
   EXAMPLES
     /ktn                  First-run / fresh container reconcile
     /ktn --check          CI-style read-only audit
     /ktn --phases 1,3,6   Restrict to structural+logic+style
     /ktn --phases +tests  Opt into phase 8 (KTN-TEST-*)
+    /ktn --scope full     Surface whole-project issues (restore legacy view)
+    /ktn --scope show     Print the resolved review_scope
     /ktn --restart        After kernel-suspend / OOM kill
 
   EXIT BEHAVIOR
@@ -160,6 +174,22 @@ file-disjoint:
 | `phases` | `.ktn-linter.yaml` | `.ktn-linter.yaml` (only with `--phases`) | — |
 
 No two agents touch the same path → safe to dispatch as **one parallel wave**.
+
+### Daemon guard
+
+> `/ktn` drives the **MCP daemon** on `:7717`, NOT the `ktn-linter lint` CLI.
+> The CLI now preflights `GET :7717/health` and **ABORTS** (exit code
+> `DaemonActive=42`) when the daemon is live, steering you to the MCP scan /
+> dump surface instead of running a second, divergent analysis. Bypass with
+> `--force` or `KTN_FORCE_LOCAL=1` (prints a loud EXCEPTIONAL OVERRIDE notice).
+> A template-consumer project's `make lint` should **NOT** add `--force` — the
+> guard is desired there (it keeps CI and the live daemon from disagreeing).
+>
+> Note the scope asymmetry: the daemon / MCP scan / HTTP `/scan` honour the
+> root `review_scope` field (default `diff` — only issues on code changed vs
+> the default branch), while `ktn-linter lint` and `make lint` ALWAYS run
+> `full`. An existing project with NO `review_scope` field silently moves from
+> whole-project to `diff`; pin `review_scope: full` to restore the legacy view.
 
 ### `--uninstall` mode
 
@@ -352,6 +382,14 @@ PHASES_SPEC=""
 case "$ARGUMENTS" in
     *"--phases "*)
         PHASES_SPEC="$(echo "$ARGUMENTS" | sed -n 's/.*--phases \([^ ]*\).*/\1/p')"
+        ;;
+esac
+
+# Track --scope <spec> was passed (extract the spec: diff|full|show)
+SCOPE_SPEC=""
+case "$ARGUMENTS" in
+    *"--scope "*)
+        SCOPE_SPEC="$(echo "$ARGUMENTS" | sed -n 's/.*--scope \([^ ]*\).*/\1/p')"
         ;;
 esac
 
@@ -782,12 +820,19 @@ prompt: |
   PHASES_SPEC was provided OR the file is invalid.
 
   PHASES_SPEC: {{PHASES_SPEC or "(none)"}}
+  SCOPE_SPEC: {{SCOPE_SPEC or "(none)"}}
   Mode: {{READ_ONLY ? "read-only" : "reconcile"}}
 
   STEP 1 — Read .ktn-linter.yaml if present.
     Parse `phases.enabled` and `phases.disabled`. Reject if BOTH are set
     (ErrPhasesEnabledDisabledMutex) — surface drift=mutex-violation.
     Reject legacy `max_phase:` (ErrMaxPhaseRemoved) — drift=legacy-max-phase.
+
+    Also parse the ROOT `review_scope` field (sibling of `phases:`).
+    Validate it is one of {diff, full}; a typo like `difff` →
+    surface drift=invalid-review-scope (mirror ErrInvalidReviewScope).
+    Absent field → resolved scope is the default `diff` (scope_source=default,
+    or scope_source=yaml when the field is present and valid).
 
     Token parser (per pkg/config/phasetoken.go):
       ints 1..9 OR canonical/variant aliases (case-insensitive):
@@ -807,17 +852,29 @@ prompt: |
     "show"           → DO NOT write; just report the resolved active set
                        with source precedence (CLI > YAML > default)
 
+  STEP 2b — Apply SCOPE_SPEC (if any, skip writes in --check / read-only mode)
+    "diff"   → set root review_scope: diff (scope_source=cli)
+    "full"   → set root review_scope: full (scope_source=cli)
+    "show"   → DO NOT write; report the resolved review_scope + source
+               with precedence (CLI > YAML > default)
+    unknown  → drift=invalid-review-scope, do NOT write
+    Writing review_scope MUST preserve the existing `phases:` block — it is a
+    sibling root key; merge it in, never overwrite the file wholesale.
+
   STEP 3 — Validate after write
-    Re-parse the file: every entry must be an int 1..9 and
-    enabled/disabled cannot both be set.
+    Re-parse the file: every phase entry must be an int 1..9 and
+    enabled/disabled cannot both be set; `review_scope`, if present, must be
+    one of {diff, full}.
 
   RETURN:
   {
     "agent": "phases",
     "status": "ok|fixed|error",
-    "drift": "none|mutex-violation|legacy-max-phase|invalid-alias|out-of-range|none-spec-applied",
+    "drift": "none|mutex-violation|legacy-max-phase|invalid-alias|out-of-range|invalid-review-scope|none-spec-applied",
     "active_set": [1,2,3,4,5,6,7],
     "source": "default|yaml|cli",
+    "review_scope": "diff|full",
+    "scope_source": "default|yaml|cli",
     "wrote_file": true|false,
     "notes": "..."
   }
@@ -842,7 +899,7 @@ Collect the 5 JSON payloads. Decide the final user message in this order:
        mcp       registered  (key=servers|mcpServers)
        settings  pre+post hooks wired
        daemon    :7717  health=200 ready=200  fresh=yes
-       phases    {active_set}  (source={default|yaml})
+       phases    {active_set}  scope={diff|full}  (source={default|yaml})
    ```
 
    When `daemon.fresh: false` is observed in `--check` mode (read-only, no
@@ -869,7 +926,7 @@ Collect the 5 JSON payloads. Decide the final user message in this order:
      mcp       {drift → none}        wrote={true|false}
      settings  {drift → none}        wrote={true|false}  +entries={pre,post}
      daemon    health {before → after}  fresh={yes|no→yes}  {action}  pid={pid}
-     phases    active={...}  source={default|yaml|cli}  wrote={true|false}
+     phases    active={...}  scope={diff|full}  source={default|yaml|cli}  wrote={true|false}
    ```
 
    **Conditional restart prompt** — print ONLY when `settings.wrote_file == true`:
