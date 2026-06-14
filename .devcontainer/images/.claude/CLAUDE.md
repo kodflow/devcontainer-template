@@ -133,6 +133,7 @@ Enforced by two layers (defence-in-depth):
 | `/update` | DevContainer update |
 | `/feature` | Feature tracking (RTM) |
 | `/improve` | Docs QA |
+| `/issues:fixer` | Continuous issue-triage loop (60s, never stops) |
 
 ### Skill Classification
 
