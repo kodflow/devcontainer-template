@@ -35,6 +35,12 @@
 #                         ('@@'), or carries >12 identifiers (a pasted line/diff).
 #                       - hunk-accounting (C4): each file's hunks MUST equal the
 #                         git per-file @@ count AND sum(files[].hunks)==hunks_total.
+#                       - untracked-coverage (WORKTREE only): a brand-new
+#                         uncommitted file is invisible to 'git diff BASE --',
+#                         so it would go unreviewed while uninspected stays [].
+#                         When HEAD==WORKTREE every 'git ls-files --others
+#                         --exclude-standard' path MUST appear in manifest.files[]
+#                         or coverage FAILS.
 #   3. tier-authenticity each manifest.tiers[] entry with status ran|failed MUST
 #                       map to a real captured .out file in DET, and its recorded
 #                       exit/findings MUST match what is parsed from that .out
@@ -169,8 +175,12 @@ esac
 # hunk count, symbol/class/hunk recomputation, --print-facts). Pinned flags
 # (no autocrlf rewrite, rename detection on, default a/ b/ prefixes) remove
 # git-config / platform drift so the byte stream — and its sha256 — is stable.
-# WORKTREE mode diffs BASE against the working tree (tracked changes only;
-# untracked files must be `git add`-ed to enter scope).
+# WORKTREE mode diffs BASE against the working tree (tracked changes only).
+# Untracked, non-ignored files are INVISIBLE to this diff, so a brand-new
+# uncommitted file would never enter `order` and could go unreviewed while
+# coverage looks complete. Check 2 closes that blind spot by separately
+# enumerating `git ls-files --others --exclude-standard` and requiring each
+# such file to appear in manifest.files[] (see check_coverage).
 # ---------------------------------------------------------------------------
 pinned_diff() {
   # $@ = extra diff args (e.g. --numstat, --name-status); none = full patch.
@@ -264,6 +274,7 @@ check_diff_integrity() {
 # ===========================================================================
 # CHECK 2 - coverage (single python recomputation, PER FILE):
 #   file-class (C2) + symbol-coverage (C1/C3) + anti-paste (C1) + hunks (C4)
+#   + untracked-coverage (WORKTREE-only, bash) for files invisible to the diff.
 # Language-agnostic, best-effort, tolerant. All set logic in python3.
 # Python prints its own [PASS]/[FAIL] lines and a final machine line
 #   __FAILS__ name1,name2,...
@@ -642,6 +653,38 @@ PY
       [ -n "$name" ] && STRUCT_FAILS+=("$name")
     done
     IFS="$oldifs"
+  fi
+
+  # --- WORKTREE untracked-file coverage (blind-spot fix) ---
+  # `git diff BASE --` only shows TRACKED changes, so a brand-new uncommitted
+  # file never enters the python recomputation above: uninspected can stay []
+  # while a whole new file goes unreviewed and coverage looks complete. In
+  # WORKTREE mode, enumerate untracked, non-ignored files and require each to
+  # appear in manifest.files[]; any absentee FAILS coverage (a present entry is
+  # then subject to the normal pass-completeness gate in check 4).
+  if [ "$HEAD_IS_WORKTREE" -eq 1 ]; then
+    local untracked mani_paths missing_untracked="" uf f
+    untracked="$(git -C "$REPO" ls-files --others --exclude-standard)"
+    if [ -n "$untracked" ]; then
+      # normalize manifest paths the same way python's norm() does (strip a/ b/)
+      mani_paths="$(jq -r '(.files // [])[] | (.path // "")' "$MANIFEST" \
+        | sed 's#^[ab]/##')"
+      while IFS= read -r uf; do
+        [ -n "$uf" ] || continue
+        if ! printf '%s\n' "$mani_paths" | grep -qxF -- "$uf"; then
+          missing_untracked+="${missing_untracked:+$'\n'}$uf"
+        fi
+      done <<< "$untracked"
+    fi
+    if [ -n "$missing_untracked" ]; then
+      fail "untracked-coverage: untracked (uncommitted) file(s) absent from manifest.files[] (WORKTREE blind spot):"
+      while IFS= read -r f; do
+        [ -n "$f" ] && printf '       %s\n' "$f"
+      done <<< "$missing_untracked"
+      STRUCT_FAILS+=("untracked-coverage")
+    elif [ -n "$untracked" ]; then
+      pass "untracked-coverage: all untracked WORKTREE file(s) present in manifest.files[]"
+    fi
   fi
 }
 

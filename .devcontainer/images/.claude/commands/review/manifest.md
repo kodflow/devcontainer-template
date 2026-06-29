@@ -41,7 +41,7 @@ file_class:
       rule: "*.tf|*.tfvars|*.hcl|*.proto|*.asn1|*.asn OR path under k8s/|helm/|charts/|.github/workflows/|ansible/ OR *.yaml/*.yml that is a k8s/helm/compose/CI manifest OR Dockerfile|*.dockerfile"
       note: "C10 — .proto/.asn1/.asn are classed `iac` so the wire-break micro_per_hunk checklist (field renumber, required<->optional, ETSI/3GPP X1/X2/X3) is reachable. The verifier treats `config`<->`iac` as interchangeable."
     config:
-      rule: "*.json|*.yaml|*.yml|*.toml|*.ini|*.env|*.properties|*.conf NOT already iac/lockfile/generated"
+      rule: "*.json|*.yaml|*.yml|*.toml|*.ini|*.cfg|*.env|*.properties|*.conf NOT already iac/lockfile/generated"
     docs:
       rule: "*.md|*.rst|*.txt|*.adoc|docs/** NOT generated"
     code:
@@ -312,14 +312,18 @@ verifier_checks:                   # review-verify-manifest.sh — mirror EXACTL
     fail_if: "uninspected != []  OR  canary_artifact missing / its JSON lacks seeded==true AND detected==true."
     catches: "green manifest with unread hunks or a mis-calibrated / no-op detection engine."
 
-  exit_contract:
-    "0  => manifest is internally + git-consistent; APPROVE is permitted (other gates still apply)."
-    "!=0 => run is INVALID; verdict cannot be APPROVE — emit INCONCLUSIVE and surface the failed check."
+  exit_contract:                   # FOUR codes — never collapse to "0 vs nonzero"
+    "0 => PASS: manifest is internally + git-consistent; APPROVE is permitted (other gates still apply)."
+    "1 => INVALID: a coverage/integrity check (1–4) failed; verdict cannot be APPROVE — emit INCONCLUSIVE and surface the failed check."
+    "2 => not-approve-eligible: manifest is well-formed but check 5 fails (uninspected != [] OR canary not seeded/detected); verdict cannot be APPROVE — emit INCONCLUSIVE."
+    "3 => usage: bad/missing CLI arguments (e.g. no --manifest, unresolvable --base/--head); not a verdict — fix the invocation and re-run."
+    "Any nonzero exit blocks APPROVE; report the SPECIFIC code so INVALID (1), not-approve-eligible (2), and usage (3) are not conflated."
 ```
 
 ```yaml
 validity_rules:                    # verbatim from the binding spec Phase 8
-  - "Verifier nonzero exit -> run is INVALID (not APPROVE)."
+  - "Verifier exit 0 -> PASS; exit 1 -> INVALID; exit 2 -> not-approve-eligible (emit INCONCLUSIVE);
+     exit 3 -> usage error. Any nonzero exit blocks APPROVE."
   - "Any code/config/iac file with macro_pass=false OR micro_pass false/missing -> INVALID."
   - "Empty findings array is valid ONLY with verifier-pass + canary artifact detected==true + per-dimension positive statement per file."
   - "An applicable deterministic tier with status=absent lowers confidence and is named, but does not alone force INVALID; status=failed with findings is hard-blocking."

@@ -39,6 +39,17 @@ scope: "code + config|iac (CLI flags, config keys count as symbols). generated|v
         binary|lockfile|rename(pure) -> SKIP graphing (record blast_radius: 0, reason)."
 ```
 
+> **WORKTREE mode — untracked files are IN SCOPE.** When `HEAD` is the `WORKTREE`
+> sentinel (local `/review` on a dirty tree), `git diff BASE --` shows TRACKED changes
+> only. A brand-new *uncommitted* file is invisible to that diff yet is part of the change
+> under review. Enumerate it explicitly and treat it as a full added file:
+> `git -C "$PROJECT_DIR" ls-files --others --exclude-standard` (untracked, non-ignored).
+> Each such path MUST get a `manifest.files[]` entry (classified + graphed + macro/micro
+> reviewed) exactly like a tracked add — otherwise it goes unreviewed while `uninspected`
+> stays `[]`. The external verifier enforces this: in WORKTREE mode it re-enumerates the
+> same `ls-files --others --exclude-standard` set and FAILS coverage for any untracked
+> file missing from `manifest.files[]`. (`.gitignore`d files are out of scope by design.)
+
 ### Step 0 — Preflight: refs must be resolvable, else degrade to INCONCLUSIVE (C13)
 
 `git diff "$BASE...$HEAD"` is only meaningful when **both refs resolve** and a **merge-base
@@ -342,6 +353,7 @@ superset so this never trips on a real, fully-inspected diff.
 | Set `blast_radius_done`/`change_coupling_done` before the work ran | FORBIDDEN (verifier-checked) |
 | Flag an absent-change without the git co-occurrence count | FORBIDDEN (count is the evidence) |
 | Skip graphing because the diff "looks small" | FORBIDDEN (small diffs break callers too) |
+| In WORKTREE mode, ignore untracked (uncommitted) non-ignored files | FORBIDDEN — enumerate `git ls-files --others --exclude-standard`; each needs a `manifest.files[]` entry or the verifier FAILS coverage |
 | `git diff`/`git log` with an empty or unresolvable `BASE`/`HEAD` | FORBIDDEN — Step 0 preflight bails to INCONCLUSIVE first |
 | Emit a blast radius from a shallow clone without deepening | FORBIDDEN — deepen once, else degrade to INCONCLUSIVE (C13) |
 | `die`/non-zero abort on unresolvable refs | FORBIDDEN — degrade GRACEFULLY (`inconclusive` + scoped stop -> INCONCLUSIVE), never crash the review |

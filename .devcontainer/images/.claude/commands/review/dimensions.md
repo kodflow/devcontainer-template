@@ -25,7 +25,7 @@ consume_protocol:
 |---|-----------|-------------|-------------------------|------|
 | 1 | Correctness / logic | `developer-executor-correctness` | **repro** (input -> wrong output) | always |
 | 2 | Security (+ data-privacy/PII, licensing) | `developer-executor-security` | **source->sink** (+ POC where feasible) | always |
-| 3 | Language idioms & conventions | `developer-specialist-{lang}` | **repro** (footgun -> wrong output); pure style -> nitpick, no CE | always (per matched ext) |
+| 3 | Language idioms & conventions | `developer-specialist-{lang}` (SQL: `data-specialist-postgres`) | **repro** (footgun -> wrong output); pure style -> nitpick, no CE | always (per matched ext) |
 | 4 | Architecture & folder (+ maintainability) | `developer-executor-design` (maintainability: `developer-executor-quality`) | **contract-diff** (offending dep/import edge) | always |
 | 5 | Cross-platform portability | `developer-specialist-{lang}` | **repro** (per target: wrong output on target T) | **Phase 0.7 `cross_platform==true`** |
 | 6 | Performance | `developer-executor-design` | **benchmark** (A/B before vs after) | always |
@@ -133,6 +133,50 @@ micro_by_language:                     # verbatim per-language footgun lists
     - "buffer bounds, signed/unsigned, integer overflow, use-after-free/double-free, missing free, format-string, uninitialized memory, alignment"
   cpp:                                 # developer-specialist-cpp
     - "buffer bounds, signed/unsigned, integer overflow, use-after-free/double-free, missing free, format-string, uninitialized memory, alignment (plus RAII, rule-of-5, move/forwarding, span/iterator invalidation, packing/alignment)"
+  java:                                # developer-specialist-java (lint: error-prone + spotbugs + checkstyle/PMD)
+    - "NPE / Optional misuse, equals/hashCode contract break, == vs .equals on String/boxed, mutable static + non-thread-safe SimpleDateFormat, raw generics, missing try-with-resources (leak), swallowed checked exception, Stream with side effects / reused stream, autoboxing in hot loop, finalizer/Cleaner misuse"
+  csharp:                              # developer-specialist-csharp (lint: roslyn analyzers + dotnet format)
+    - "async void (except handlers), missing ConfigureAwait(false) / sync-over-async deadlock, missing using/IDisposable, nullable-ref warnings ignored, multiple enumeration of IEnumerable (deferred LINQ), struct copy semantics, == vs .Equals, ValueTask reuse, swallowed exception, mutable struct"
+  vbnet:                               # developer-specialist-vbnet (Visual Basic; lint: roslyn analyzers + dotnet format)
+    - "Option Strict Off (late binding / implicit narrowing), = Nothing vs Is Nothing, And/Or vs short-circuit AndAlso/OrElse, On Error GoTo instead of Try/Catch, implicit type conversion, default array lower-bound assumptions, missing Using for IDisposable"
+  r:                                   # developer-specialist-r (lint: lintr + styler)
+    - "= vs <- assignment, scalar loops instead of vectorized ops, NA propagation (== NA, sum without na.rm), factor/stringsAsFactors surprises, sapply type instability (use vapply), 1-based indexing, integer vs double, recycling silently misaligning vectors"
+  pascal:                              # developer-specialist-pascal (lint: fpc -vw -Sew + ptop)
+    - "range/overflow checks disabled, uninitialized locals, ShortString vs AnsiString truncation, pointer New/Dispose mismatch (leak/dangling), case-insensitive identifier collisions, 1-based off-by-one, set/enum range overflow, with-statement scope ambiguity"
+  perl:                                # developer-specialist-perl (lint: perlcritic + perltidy)
+    - "missing use strict + use warnings, scalar vs list context confusion, my-scoping leaks, == vs eq (numeric vs string compare), autovivification mutating hashes, two-arg open / unsanitized open, regex global-state ($1 after failed match), missing taint mode on untrusted input"
+  fortran:                             # developer-specialist-fortran (lint: gfortran -Wall -Wextra -fcheck=all)
+    - "missing implicit none, array bounds, wrong intent(in/out/inout), uninitialized vars, real KIND/precision mismatch, integer division truncation, SAVE-attribute statefulness on locals, assumed-shape vs explicit-shape mismatch, 1-based indexing"
+  php:                                 # developer-specialist-php (lint: phpstan + psalm + php-cs-fixer)
+    - "== vs === (type juggling), loose comparison of 0/'' /null, missing declare(strict_types=1), foreach-by-reference dangling after loop, superglobal injection ($_GET into SQL/shell), @ error suppression, str_* vs mb_* on UTF-8, array vs null access"
+  ada:                                 # developer-specialist-ada (lint: gnatcheck + gnat -gnatwa)
+    - "constraint/range violations, 'Access vs 'Unchecked_Access lifetime, uninitialized objects, tasking races / unprotected shared data, fixed-vs-float precision, exception not propagated past task boundary, subtype range assumptions, aliasing of mode-out params"
+  matlab:                              # developer-specialist-matlab (lint: checkcode / mlint)
+    - "array grown in loop (no preallocation), 1-based indexing, element-wise .* / ./ vs matrix * /, implicit broadcasting size mismatch, == on floats, global/persistent state, end keyword in indexing, integer vs double class coercion"
+  assembly:                            # developer-specialist-assembly (lint: assembler -W + manual ABI review)
+    - "caller/callee-saved register clobbering, ABI/calling-convention violation, stack misalignment (16-byte SysV), flags consumed across a clobbering op, missing sign/zero extension on narrow loads, addressing-mode/segment errors, missing memory barriers on shared state"
+  kotlin:                              # developer-specialist-kotlin (lint: ktlint + detekt)
+    - "!! not-null assertion, unchecked platform types from Java, lateinit accessed before init, coroutine scope/Job leak (GlobalScope), runBlocking on main thread, nullable receiver chains, data-class equals on mutable fields, scope-function (let/apply/run) misuse"
+  swift:                               # developer-specialist-swift (lint: swiftlint + swift-format)
+    - "force unwrap ! / try! on optionals, strong self in escaping closure (retain cycle), value vs reference (struct copy) confusion, integer-overflow trap on arithmetic, implicitly unwrapped optionals, @escaping lifetime, error swallowed via try?, Array index out of range"
+  cobol:                               # developer-specialist-cobol (lint: cobc -fsyntax-only -W)
+    - "PIC clause overflow / MOVE truncation, COMP vs DISPLAY usage mismatch, uninitialized WORKING-STORAGE, PERFORM THRU fall-through, OCCURS subscript out of bounds, level-88 condition gaps, GO TO spaghetti, numeric class test before arithmetic"
+  ruby:                                # developer-specialist-ruby (lint: rubocop)
+    - "nil safety (&. vs .), mutating frozen/shared constants, == vs eql? vs equal?, symbol vs string hash keys, block vs proc/lambda return semantics, monkey-patch collisions, unsafe send/eval, missing frozen_string_literal causing mutation"
+  dart:                                # developer-specialist-dart (lint: dart analyze + dart format)
+    - "null-safety late/! misuse, unawaited Future, == vs identical, dynamic defeating type checks, StreamSubscription not cancelled (leak), const constructor omission, integer/double division (~/ vs /), uncaught async error"
+  lua:                                 # developer-specialist-lua (lint: luacheck + selene)
+    - "implicit global (missing local), 1-based indexing, # length undefined on tables with holes/nil, == across types never coerces, integer vs float subtype (5.3+), metatable __index surprises, missing pcall around fallible calls, off-by-one in ipairs vs pairs"
+  scala:                               # developer-specialist-scala (lint: scalafix + wartremover + scalafmt)
+    - "null instead of Option, ambiguous/missing implicit resolution, var vs val, == vs eq, non-exhaustive pattern match, side-effecting map/foreach, Future without explicit ExecutionContext, mutable collection shared across threads, by-name param re-evaluation"
+  elixir:                              # developer-specialist-elixir (lint: credo + dialyzer + mix format)
+    - "unhandled pattern-match failure (MatchError), atom exhaustion from user input (String.to_atom), unsupervised process / mailbox leak, charlist vs binary confusion, == vs === (1 == 1.0), with/else fall-through, GenServer.call timeout / blocking handle_call, rescue swallowing"
+  sql:                                 # data-specialist-postgres (lint: sqlfluff; pg: EXPLAIN ANALYZE)
+    - "injection-safe params: parameterized queries / bind vars ONLY — string-concatenated user input into SQL is a source->sink finding, never an idiom nitpick"
+    - "N+1: per-row query inside an application loop instead of a set-based JOIN/IN; cite the loop site + the query (counterexample: benchmark or row-count projection)"
+    - "index usage: predicate not sargable (function on column, leading-wildcard LIKE, implicit cast defeating index), missing index on join/filter/FK columns, SELECT * on wide tables (counterexample: EXPLAIN showing Seq Scan)"
+    - "migration safety: destructive vs additive (column drop/rename breaks rolling deploy), lock-heavy DDL on large tables (ALTER without CREATE INDEX CONCURRENTLY), non-reversible migration (no down), unbatched backfill (counterexample: contract-diff before vs after schema)"
+    - "correctness footguns: NOT IN with NULL (silently empty), missing transaction boundary on multi-statement mutation, float for money, ambiguous ORDER BY without deterministic tiebreak"
 clean_template: 'clean: "linter green for changed ext + project conventions matched @ <file:line>"'
 ```
 

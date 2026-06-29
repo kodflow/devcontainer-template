@@ -22,13 +22,24 @@ external_tiers:
 
     coderabbit:
       tier: "T3"
-      trigger: "command -v coderabbit && ~/.coderabbit/auth.json exists"
+      trigger: "command -v coderabbit"   # binary present is enough to TRY; auth is probed below
+      # CodeRabbit requires a prior `coderabbit auth login`. Probe auth FIRST so an
+      # unauthenticated CLI is skipped-with-note instead of erroring mid-review.
+      bootstrap: |
+        if ! command -v coderabbit >/dev/null 2>&1; then
+          echo "T3 CodeRabbit: SKIP (binary absent)"          # tool-absent, not a failure
+        elif ! coderabbit auth status >/dev/null 2>&1; then
+          echo "T3 CodeRabbit: SKIP (unauthenticated — run 'coderabbit auth login' to enable)"
+        else
+          CODERABBIT_OK=1                                       # authenticated -> run review below
+        fi
       command: |
+        # Only runs when bootstrap set CODERABBIT_OK=1 (binary present AND auth status OK).
         coderabbit review --plain --no-color --type committed \
           --base "{base_branch}" --cwd /workspace \
           > /tmp/coderabbit-review-{timestamp}.md 2>&1
       timeout: 120000  # 2 minutes max
-      fallback: "skip (T3 unavailable)"
+      fallback: "skip-with-note (T3 unavailable: binary absent OR unauthenticated) — does NOT fail the run"
 ```
 
 **Tier Selection:**
