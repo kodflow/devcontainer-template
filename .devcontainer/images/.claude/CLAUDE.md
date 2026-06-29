@@ -132,7 +132,8 @@ Enforced by two layers (defence-in-depth):
 | `/warmup` | Context pre-loading |
 | `/update` | DevContainer update |
 | `/feature` | Feature tracking (RTM) |
-| `/improve` | Docs QA |
+| `/debug` | Systematic root-cause-first debugging |
+| `/adr` | Architecture Decision Records (wired into `/plan`, `/git`) |
 
 ### Skill Classification
 
