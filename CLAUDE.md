@@ -171,7 +171,6 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/vpn` | Multi-protocol VPN management |
 | `/warmup` | Context pre-loading and CLAUDE.md update |
 | `/update` | DevContainer update from template |
-| `/improve` | Documentation QA for design patterns |
 | `/learn` | Extract reusable patterns from the current session into `~/.claude/docs/learned/` |
 | `/feature` | Feature tracking RTM (CRUD, audit, auto-learn) |
 | `/refine` | Skills Architecture v1.3 — goal contract generator (10-lens analysis) |

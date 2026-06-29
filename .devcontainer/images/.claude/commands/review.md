@@ -121,6 +121,12 @@ $ARGUMENTS
    The model may not define the denominator of its own coverage metric.
 7. **Anti-theater.** Editing a comment, posting "LGTM", or re-emitting a prior summary is
    NOT a review. The run is invalid without a verifier-passed coverage manifest.
+8. **Honest limit of the verifier.** The non-LLM verifier proves *coverage* (the diff was
+   enumerated, symbols inspected, tiers real) — it does NOT prove *quality*. A pass that is
+   structurally complete but lazy (fabricated `clean:` lines, an auto-asserted
+   `canary: passed`) will satisfy the script. YOU remain the judge of finding quality; the
+   verifier only stops you from skipping work, not from doing it badly. Do not treat
+   `VERIFIER: PASS` as "the review is good" — only as "the review was actually performed."
 
 ---
 

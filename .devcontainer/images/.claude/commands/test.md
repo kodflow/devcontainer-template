@@ -80,12 +80,12 @@ RLM Patterns:
   3. Parallelize - Simultaneous assertions
   4. Synthesize - Consolidated report
 
-MCP Tools:
-  browser_navigate    Open a URL
-  browser_click       Click element
-  browser_type        Type text
-  browser_snapshot    Capture state
-  browser_expect      Assertions
+MCP Tools (see test/playwright.md for the full, verified list):
+  browser_navigate              Open a URL
+  browser_click                 Click element
+  browser_type                  Type text
+  browser_snapshot              Capture accessibility tree (act from this)
+  browser_verify_text_visible   Assertion (testing capability)
 
 Examples:
   /test https://example.com
