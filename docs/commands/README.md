@@ -68,4 +68,3 @@ flowchart TD
 | Command | Arguments | What It Does |
 |---------|-----------|--------------|
 | `/update` | `--check`, `--force` | Updates the devcontainer from the official template |
-| `/improve` | — | Quality audit for pattern files in `~/.claude/docs/` |

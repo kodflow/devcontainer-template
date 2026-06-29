@@ -145,7 +145,7 @@ Enforced by two layers (defence-in-depth):
 
 ## 5.1 AGENT TEAMS
 
-Six skills migrate to parallel multi-agent execution when Claude Code supports it: `/review`, `/plan`, `/docs`, `/infra`, `/test`, `/improve`.
+Five skills migrate to parallel multi-agent execution when Claude Code supports it: `/review`, `/plan`, `/docs`, `/infra`, `/test`.
 
 **Single source of truth:** `commands/shared/team-mode.md`
 
