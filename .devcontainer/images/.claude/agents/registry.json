@@ -107,7 +107,7 @@
       "chain": "developer-specialist-review (sonnet) → {developer-executor-correctness, developer-executor-security, developer-executor-design, developer-executor-quality, developer-executor-shell}"
     },
     "language_task": {
-      "entry": "/do, /plan",
+      "entry": "/plan",
       "chain": "developer-orchestrator (opus) → developer-specialist-{lang} (sonnet) via route-agent.sh"
     },
     "infrastructure": {

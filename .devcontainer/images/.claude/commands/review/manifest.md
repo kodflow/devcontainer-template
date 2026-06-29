@@ -226,6 +226,19 @@ coverage_manifest:                 # .claude/review-manifest-{ts}.json
 
   blast_radius_done: true          # Phase 3.5 call/dependency graph completed
   change_coupling_done: true       # Phase 3.7 git-log co-occurrence completed
+
+  doc_sync:                        # Phase 5.7 — Documentation & CLAUDE.md sync (verifier-gated)
+    claude_md:                     # ONE entry per touched directory + EVERY ancestor up to the
+                                   # repo root (repo root => the bare "CLAUDE.md"). The verifier
+                                   # RECOMPUTES this required set from the diff's changed paths and
+                                   # FAILS (exit 1, INVALID) if any required folder's CLAUDE.md is
+                                   # absent here or carries a status outside {updated,created,current}.
+                                   # Scope is touched-folders+ancestors, NOT the whole repo.
+      - {path: "<dir>/CLAUDE.md", status: "updated|created|current"}
+      - {path: "CLAUDE.md",       status: "updated|created|current"}   # repo root
+    docs:                          # human docs impacted/stale vs the diff (informational; not gated)
+      - {path: "<README|docs/**|API doc>", status: "updated|created|current"}
+
   uninspected: []                  # files/hunks not inspected; MUST be [] for an APPROVE-eligible run
 
   # optional, populated by the Judge (Phase 7.5)
@@ -247,6 +260,7 @@ coverage_manifest:                 # .claude/review-manifest-{ts}.json
 | code/config/iac files | `macro_pass=true` AND `micro_pass` true-or-valid-N/A (never false/missing) |
 | `uninspected` | `[]` for any APPROVE-eligible run |
 | `canary_artifact` | points at a real JSON artifact with `seeded==true` AND `detected==true` (C6) |
+| `doc_sync.claude_md` | verifier recomputes the required set (touched dirs + ancestors to repo root; root => `CLAUDE.md`); every required path MUST be present with status in {updated,created,current} (C-docsync) |
 
 ---
 
@@ -273,10 +287,12 @@ echo "verifier exit=$?"           # NONZERO => run is INVALID, regardless of mod
 ```
 
 The verifier is a project script using only `git`, `jq`, and `python3` (all present in the
-container — no ast-grep/tree-sitter dependency). It performs **exactly these 5 checks**:
+container — no ast-grep/tree-sitter dependency). It performs **exactly these checks** (four
+numbered structural checks 1-4, the structural `doc-sync` check, and the approve-eligibility
+check 5):
 
 ```yaml
-verifier_checks:                   # review-verify-manifest.sh — mirror EXACTLY (5 checks)
+verifier_checks:                   # review-verify-manifest.sh — mirror EXACTLY
   1_diff_integrity:
     do:  "Recompute diff_hash + hunks_total from the PINNED diff (C5):
           git -c core.autocrlf=false -c diff.renames=true -c diff.noprefix=false diff <range>
@@ -307,6 +323,16 @@ verifier_checks:                   # review-verify-manifest.sh — mirror EXACTL
     fail_if: "any code|config|iac file has macro_pass=false OR micro_pass false/missing."
     catches: "skipped macro/micro on a real source/config/IaC file."
 
+  6_doc_sync:                       # STRUCTURAL (exit 1, like checks 1-4)
+    do:  "RECOMPUTE, from the pinned diff's changed file paths (name-status, new path for
+          renames/copies), the required CLAUDE.md set = every touched directory + ALL ancestor
+          directories up to the repo root (repo root => the bare \"CLAUDE.md\"). For each derive
+          <dir>/CLAUDE.md and look it up in manifest.doc_sync.claude_md[]."
+    fail_if: "any required folder's CLAUDE.md is ABSENT from doc_sync.claude_md[] OR present with
+              status not in {updated,created,current}."
+    catches: "a change that drifts a folder's CLAUDE.md (or omits a new one) and leaves it unsynced
+              for the next iteration; scope is touched-folders+ancestors, not the whole repo."
+
   5_approve_eligibility:
     do:  "Gate the APPROVE-eligible state. READ the canary artifact (manifest.canary_artifact, C6)."
     fail_if: "uninspected != []  OR  canary_artifact missing / its JSON lacks seeded==true AND detected==true."
@@ -314,7 +340,7 @@ verifier_checks:                   # review-verify-manifest.sh — mirror EXACTL
 
   exit_contract:                   # FOUR codes — never collapse to "0 vs nonzero"
     "0 => PASS: manifest is internally + git-consistent; APPROVE is permitted (other gates still apply)."
-    "1 => INVALID: a coverage/integrity check (1–4) failed; verdict cannot be APPROVE — emit INCONCLUSIVE and surface the failed check."
+    "1 => INVALID: a structural check (1–4 or doc-sync) failed; verdict cannot be APPROVE — emit INCONCLUSIVE and surface the failed check."
     "2 => not-approve-eligible: manifest is well-formed but check 5 fails (uninspected != [] OR canary not seeded/detected); verdict cannot be APPROVE — emit INCONCLUSIVE."
     "3 => usage: bad/missing CLI arguments (e.g. no --manifest, unresolvable --base/--head); not a verdict — fix the invocation and re-run."
     "Any nonzero exit blocks APPROVE; report the SPECIFIC code so INVALID (1), not-approve-eligible (2), and usage (3) are not conflated."
@@ -325,6 +351,7 @@ validity_rules:                    # verbatim from the binding spec Phase 8
   - "Verifier exit 0 -> PASS; exit 1 -> INVALID; exit 2 -> not-approve-eligible (emit INCONCLUSIVE);
      exit 3 -> usage error. Any nonzero exit blocks APPROVE."
   - "Any code/config/iac file with macro_pass=false OR micro_pass false/missing -> INVALID."
+  - "Any required CLAUDE.md (touched dir + ancestors to repo root) absent from doc_sync.claude_md[] OR with status not in {updated,created,current} -> INVALID (doc-sync)."
   - "Empty findings array is valid ONLY with verifier-pass + canary artifact detected==true + per-dimension positive statement per file."
   - "An applicable deterministic tier with status=absent lowers confidence and is named, but does not alone force INVALID; status=failed with findings is hard-blocking."
 ```
@@ -343,6 +370,7 @@ validity_rules:                    # verbatim from the binding spec Phase 8
 | Check 2 (per-file hunk accounting) | miscounting the per-file coverage denominator |
 | Check 3 (tier `.out` grounding) | hand-typed exit codes / finding counts |
 | Check 4 (class coverage) | macro/micro skipped on a real code/config/iac file |
+| Check doc-sync (CLAUDE.md set recompute) | shipping a change that leaves a touched folder's CLAUDE.md stale / uncreated for the next iteration |
 | Check 5 (uninspected + real canary artifact) | green verdict over unread hunks or a no-op detection engine |
 | Judge: demote-not-delete | dropping the hardest true positives (races, logic bugs) |
 | Judge: per-dimension `clean:` line | unfalsifiable `checked:true` boxes |

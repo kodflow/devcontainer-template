@@ -48,6 +48,16 @@
 #                       numbers FAIL.
 #   4. pass-completeness no file with file_class in {code,config,iac} may have
 #                       macro_pass=false, or a missing/false micro_pass.
+#   6. doc-sync         (STRUCTURAL, exit 1 like 1-4) recompute, from the pinned
+#                       diff's changed file paths, the set of TOUCHED directories +
+#                       ALL ancestor directories up to the repo root; derive
+#                       <dir>/CLAUDE.md for each ("CLAUDE.md" for the repo root) and
+#                       require manifest.doc_sync.claude_md[] to list that path with
+#                       status in {updated,created,current}. A required CLAUDE.md
+#                       that is absent, or present with any other status, FAILS. This
+#                       keeps every touched folder's CLAUDE.md iso with the change
+#                       (/warmup:update semantics) for future review iterations.
+#                       Scope is touched-folders+ancestors, NOT the whole repo.
 #   5. approve-eligible manifest.uninspected MUST be [] AND manifest.canary_artifact
 #                       MUST point at a REAL canary JSON artifact (C6) whose
 #                       {seeded:true, detected:true}. The verifier READS the
@@ -58,8 +68,8 @@
 #
 # EXIT CODES:
 #   0  VERIFIER: PASS  (all checks pass; run is valid AND approve-eligible)
-#   1  VERIFIER: FAIL  (one of checks 1-4 failed -> run is INVALID)
-#   2  VERIFIER: FAIL (approve-eligibility) (checks 1-4 sound but canary not
+#   1  VERIFIER: FAIL  (a structural check [1-4 or doc-sync] failed -> run is INVALID)
+#   2  VERIFIER: FAIL (approve-eligibility) (structural checks sound but canary not
 #                      detected or uninspected non-empty -> valid run, NOT
 #                      approve-eligible)
 #   3  usage / argument / environment error
@@ -802,6 +812,130 @@ check_pass_completeness() {
 }
 
 # ===========================================================================
+# CHECK 6 - doc-sync (STRUCTURAL; exit 1 on failure, same as checks 1-4)
+#   Recompute, from the PINNED diff's changed file paths (name-status, new path
+#   for renames/copies), the set of TOUCHED directories + ALL ancestor dirs up to
+#   the repo root. For each derive <dir>/CLAUDE.md (the repo root maps to the bare
+#   "CLAUDE.md"). Require manifest.doc_sync.claude_md[] to carry that path with
+#   status in {updated,created,current}. Missing/other-status -> FAIL.
+#   Scope is touched-folders+ancestors only (NOT the whole repo). This keeps every
+#   touched folder's CLAUDE.md iso with the change (/warmup:update semantics).
+# Python prints its own [PASS]/[FAIL] lines and a final machine line:
+#   __DOCSYNC_FAIL__ 0|1
+# ===========================================================================
+check_doc_sync() {
+  local out="$WORK/docsync.out" pyrc=0
+  set +e
+  python3 - "$NAMESTATUS_FILE" "$MANIFEST" > "$out" 2>&1 <<'PY'
+import sys, json, os
+
+namestatus_path, manifest_path = sys.argv[1:3]
+
+def norm(p):
+    p = p.strip()
+    if p.startswith('a/') or p.startswith('b/'):
+        p = p[2:]
+    while p.startswith('./'):
+        p = p[2:]
+    return p
+
+# --- changed file paths from name-status (new path for renames/copies) ---
+changed = []
+try:
+    with open(namestatus_path, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            parts = line.rstrip('\n').split('\t')
+            if not parts or not parts[0]:
+                continue
+            code = parts[0]
+            if code[:1] in ('R', 'C') and len(parts) >= 3:
+                changed.append(norm(parts[2]))
+            elif len(parts) >= 2:
+                changed.append(norm(parts[1]))
+except OSError as e:
+    print("doc-sync: cannot read name-status: %s" % e)
+    print("__DOCSYNC_FAIL__ 1")
+    sys.exit(0)
+
+# --- required CLAUDE.md set: touched dir + all ancestors up to repo root ---
+required = set()
+for p in changed:
+    d = os.path.dirname(p)
+    while True:
+        if d in ('', '.'):
+            required.add("CLAUDE.md")          # repo root sentinel
+            break
+        required.add(d + "/CLAUDE.md")
+        parent = os.path.dirname(d)
+        if parent == d:
+            required.add("CLAUDE.md")
+            break
+        d = parent
+
+# An empty diff has no required CLAUDE.md -> trivially satisfied.
+if not required:
+    print("[PASS] doc-sync: no touched directories (empty diff) -> nothing to sync")
+    print("__DOCSYNC_FAIL__ 0")
+    sys.exit(0)
+
+# --- manifest.doc_sync.claude_md[] -> {normpath: status} ---
+try:
+    with open(manifest_path, encoding="utf-8", errors="replace") as fh:
+        man = json.load(fh)
+except (OSError, ValueError) as e:
+    print("doc-sync: cannot read manifest: %s" % e)
+    print("__DOCSYNC_FAIL__ 1")
+    sys.exit(0)
+
+ds = man.get("doc_sync") or {}
+have = {}
+for e in (ds.get("claude_md") or []):
+    if isinstance(e, dict):
+        have[norm(str(e.get("path", "")))] = e.get("status")
+
+OK = {"updated", "created", "current"}
+missing, badstatus = [], []
+for r in sorted(required):
+    if r not in have:
+        missing.append(r)
+    elif have[r] not in OK:
+        badstatus.append((r, have[r]))
+
+fail = 0
+if missing:
+    print("[FAIL] doc-sync: required CLAUDE.md absent from doc_sync.claude_md[]:")
+    for m in missing:
+        print("        %s" % m)
+    fail = 1
+if badstatus:
+    print("[FAIL] doc-sync: CLAUDE.md present but status not in {updated,created,current}:")
+    for p, s in badstatus:
+        print("        %s: status=%s" % (p, s))
+    fail = 1
+if fail == 0:
+    print("[PASS] doc-sync: all %d required CLAUDE.md (touched dirs + ancestors) synced"
+          % len(required))
+print("__DOCSYNC_FAIL__ %d" % fail)
+sys.exit(0)
+PY
+  pyrc=$?
+  set -e
+
+  # echo python's human-readable lines (everything but the machine line)
+  grep -v '^__DOCSYNC_FAIL__ ' "$out" || true
+
+  if ! grep -q '^__DOCSYNC_FAIL__ ' "$out"; then
+    fail "doc-sync: internal verifier error (python rc=$pyrc, no result line)"
+    STRUCT_FAILS+=("doc-sync-internal")
+    return 0
+  fi
+
+  local fl
+  fl="$(grep '^__DOCSYNC_FAIL__ ' "$out" | tail -1 | sed 's/^__DOCSYNC_FAIL__ //')"
+  [ "$fl" = "0" ] || STRUCT_FAILS+=("doc-sync")
+}
+
+# ===========================================================================
 # CHECK 5 - approve-eligibility (uninspected==[] AND real canary artifact, C6)
 # Soft gate: does NOT mark the run INVALID, but DOES force nonzero exit so the
 # model cannot APPROVE. The verifier READS the canary artifact and requires
@@ -858,6 +992,7 @@ check_diff_integrity
 check_coverage
 check_tier_authenticity
 check_pass_completeness
+check_doc_sync
 check_approve_eligibility
 
 # ---------------------------------------------------------------------------

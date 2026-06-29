@@ -37,6 +37,7 @@ consume_protocol:
 | 12 | Dependency / supply-chain | `developer-executor-security` | **source->sink** (CVE reachability); license -> **contract-diff** | manifest/lockfile touched |
 | 13 | Observability | `developer-executor-shell` | **repro** (failure path that emits no log/metric/trace) | always |
 | 14 | Accessibility / i18n | `developer-specialist-react` / `developer-specialist-nodejs` | **repro** (keyboard/SR fail or wrong locale output) | **UI-touch / user-facing strings** |
+| 15 | Documentation & CLAUDE.md sync | `developer-commentator` (or general specialist) | **contract-diff** (cited doc/CLAUDE.md line that contradicts the new code) | always |
 
 Counterexample-type contract: **§Counterexample Reference** at the bottom.
 
@@ -433,6 +434,39 @@ clean_template: 'clean: "ARIA/keyboard/contrast checked; strings externalized & 
 
 ---
 
+## 15. Documentation & CLAUDE.md sync  (MANDATORY, GATED)
+
+```yaml
+dimension: doc_sync
+owner: developer-commentator           # docs/commentator specialist; or a general specialist when no commentator routes
+counterexample: contract-diff          # a cited doc/CLAUDE.md line that CONTRADICTS the new code
+gate: always
+why: |
+  Code drifts the prose. Stale docs and a stale CLAUDE.md hierarchy mislead the NEXT review
+  iteration (and every human reader). This dimension keeps human docs honest and keeps every
+  touched folder's CLAUDE.md *iso* with the change. It is gated: the non-LLM verifier
+  recomputes the required CLAUDE.md set from the diff and INVALIDATES the run (exit 1) if any
+  required folder's CLAUDE.md is absent from manifest.doc_sync.claude_md[]. Review is
+  LOCAL-ONLY and NON-MUTATING — this dimension DETECTS and EMITS the updates into the plan;
+  they are applied via /refine -> /goal, never written here.
+macro:                                 # impacted PROJECT documentation (stale vs the diff)
+  - "From the diff, find human docs now stale vs the code that MUST be updated: README*, docs/** (vision / architecture / workflow / guides), API docs (OpenAPI, *.proto doc comments), changelog, and any *.md whose claims the diff contradicts."
+  - "Each stale doc is a finding with a cited doc line that contradicts the new code (contract-diff: doc claim vs actual post-change behavior). New docs/*.md must be registered in the project's nav/index where one exists."
+  - "Record impacted docs in manifest.doc_sync.docs[] as {path, status}."
+micro:                                 # CLAUDE.md re-sync — touched folders + ALL ancestors
+  - "Compute the required set = EVERY directory touched by the change AND all its ANCESTOR directories up to the repo root (the repo root maps to the bare top-level CLAUDE.md). Scope is touched-folders+ancestors ONLY — NOT the whole repo."
+  - "For each required directory, re-synchronize <dir>/CLAUDE.md following /warmup:update refresh mechanics (~/.claude/commands/warmup/update.md): keep < 200 lines, reflect new/removed files, structure, and decisions so it stays iso for future iterations."
+  - "If a touched folder has NO CLAUDE.md, one is CREATED (status: created). An existing-and-already-accurate CLAUDE.md is status: current; an edited one is status: updated."
+  - "Emit each required CLAUDE.md into manifest.doc_sync.claude_md[] as {path, status: updated|created|current}. The verifier FAILS the run if any required path is missing or carries any other status."
+emit: |
+  The concrete doc + CLAUDE.md edits are written into .claude/plans/review-fixes-{ts}.md
+  (applied by /refine -> /goal), and summarized in manifest.doc_sync. Nothing is written to
+  the repo by /review itself.
+clean_template: 'clean: "all touched-dir+ancestor CLAUDE.md iso with change; no doc line contradicts code @ <file:line>"'
+```
+
+---
+
 ## Counterexample Reference (binding per category)
 
 ```yaml
@@ -450,8 +484,8 @@ counterexample_contract:               # review.md §5.5 / §Severity — missin
     must_contain: "A/B measurement (before vs after) on a representative workload in scratch, with the measured delta. Not isolable -> demote."
     used_by: [perf]
   contract-diff:
-    must_contain: "before vs after of the contract artifact (signature / schema / wire field / CLI flag / config key / docstring / license) showing the break or divergence."
-    used_by: [api_contract, architecture, docs, deps(license)]
+    must_contain: "before vs after of the contract artifact (signature / schema / wire field / CLI flag / config key / docstring / license / doc or CLAUDE.md line) showing the break or divergence."
+    used_by: [api_contract, architecture, docs, deps(license), doc_sync]
 demotion_rule: "A finding lacking its required counterexample is DEMOTED to Needs-Verification (which gates: any CRITICAL/HIGH there caps merge score <=3 and blocks --loop exit). Demotion is the default; proof is the bonus. Never silently dropped."
 ```
 

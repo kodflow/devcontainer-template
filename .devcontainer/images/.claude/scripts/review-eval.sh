@@ -21,6 +21,8 @@
 #   canary detected=false        2   (structurally valid, NOT approve-eligible)
 #   code micro_pass="N/A"        1   (pass-completeness -> INVALID)
 #   docs-only PR (.md only)      0   (legit -> must NOT false-FAIL)
+#   doc-sync omit subdir CLAUDE  1   (doc-sync -> INVALID: touched-dir CLAUDE.md absent)
+#   doc-sync all ancestors sync  0   (legit -> touched dir + ancestors all present)
 #
 # It ALSO runs review-canary.sh for real and asserts the emitted artifact has
 # detected==true (the engine is not a no-op).
@@ -115,6 +117,17 @@ git -C "$REPO" add -A
 git -C "$REPO" commit -q -m "docs: update guide"
 C2="$(git -C "$REPO" rev-parse HEAD)"
 
+# --- C3 (subdir code change): add a code file in a NESTED directory so the
+# doc-sync check requires src/pkg/CLAUDE.md + src/CLAUDE.md + CLAUDE.md (root). ---
+mkdir -p "$REPO/src/pkg"
+cat > "$REPO/src/pkg/mod.py" <<'EOF'
+def helper(n):
+    return n + 1
+EOF
+git -C "$REPO" add -A
+git -C "$REPO" commit -q -m "feat: add nested src/pkg/mod.py"
+C3="$(git -C "$REPO" rev-parse HEAD)"
+
 # ---------------------------------------------------------------------------
 # Authoritative facts from the verifier itself (--print-facts) for each range.
 # The model would copy these verbatim; here the harness does the same.
@@ -126,8 +139,13 @@ FACTS_B="$("$VERIFIER" --repo "$REPO" --base "$C1" --head "$C2" --print-facts)"
 DB="$(jq -r '.diff_hash'   <<<"$FACTS_B")"
 HB="$(jq -r '.hunks_total' <<<"$FACTS_B")"
 
+FACTS_C="$("$VERIFIER" --repo "$REPO" --base "$C2" --head "$C3" --print-facts)"
+DC="$(jq -r '.diff_hash'   <<<"$FACTS_C")"
+HC="$(jq -r '.hunks_total' <<<"$FACTS_C")"
+
 [ -n "$DA" ] && [ "$HA" != "0" ] || die "range A produced no hunks (setup broken)"
 [ -n "$DB" ] && [ "$HB" != "0" ] || die "range B produced no hunks (setup broken)"
+[ -n "$DC" ] && [ "$HC" != "0" ] || die "range C produced no hunks (setup broken)"
 
 # ---------------------------------------------------------------------------
 # Run the REAL canary on the code change -> a genuine detected==true artifact.
@@ -141,6 +159,10 @@ CANARY_DETECTED="$(jq -r '.detected' "$ART_A")"
 # so the legitimate docs-only manifest can be approve-eligible.
 ART_B="$("$CANARY" --repo "$REPO" --base "$C1" --head "$C2" --out-dir "$WORK/canaryB" | tail -1)"
 [ -f "$ART_B" ] || die "canary (range B) produced no artifact"
+
+# Real canary on the nested subdir change (range C) for the doc-sync cases.
+ART_C="$("$CANARY" --repo "$REPO" --base "$C2" --head "$C3" --out-dir "$WORK/canaryC" | tail -1)"
+[ -f "$ART_C" ] || die "canary (range C) produced no artifact"
 
 # A hand-built artifact whose detector reported FAILURE (engine mis-calibrated):
 # structurally fine manifest, but APPROVE must be blocked (verifier exit 2).
@@ -160,13 +182,16 @@ M_OMIT="$WORK/m_omit.json"
 M_CANARY_FALSE="$WORK/m_canary_false.json"
 M_MICRO_NA="$WORK/m_micro_na.json"
 M_DOCS="$WORK/m_docs.json"
+M_DOCSYNC_MISS="$WORK/m_docsync_miss.json"
+M_DOCSYNC_OK="$WORK/m_docsync_ok.json"
 
 # correct: app.py code file, symbol covered, canary detected==true
 jq -n --arg dh "$DA" --argjson ht "$HA" --arg art "$ART_A" '{
   diff_hash:$dh, hunks_total:$ht,
   files:[{path:"app.py", file_class:"code", hunks:$ht,
           symbols_inspected:["process_data"], macro_pass:true, micro_pass:true}],
-  tiers:[], uninspected:[], canary_artifact:$art
+  tiers:[], uninspected:[], canary_artifact:$art,
+  doc_sync:{claude_md:[{path:"CLAUDE.md",status:"updated"}],docs:[]}
 }' > "$M_CORRECT"
 
 # paste-the-diff: a symbols_inspected token carrying a raw '@@' diff hunk header
@@ -175,7 +200,8 @@ jq -n --arg dh "$DA" --argjson ht "$HA" --arg art "$ART_A" '{
   files:[{path:"app.py", file_class:"code", hunks:$ht,
           symbols_inspected:["process_data","@@ -1,3 +1,4 @@ def process_data"],
           macro_pass:true, micro_pass:true}],
-  tiers:[], uninspected:[], canary_artifact:$art
+  tiers:[], uninspected:[], canary_artifact:$art,
+  doc_sync:{claude_md:[{path:"CLAUDE.md",status:"updated"}],docs:[]}
 }' > "$M_PASTE"
 
 # relabel: a real code file declared as docs (file-class mismatch)
@@ -183,7 +209,8 @@ jq -n --arg dh "$DA" --argjson ht "$HA" --arg art "$ART_A" '{
   diff_hash:$dh, hunks_total:$ht,
   files:[{path:"app.py", file_class:"docs", hunks:$ht,
           symbols_inspected:["process_data"], macro_pass:true, micro_pass:true}],
-  tiers:[], uninspected:[], canary_artifact:$art
+  tiers:[], uninspected:[], canary_artifact:$art,
+  doc_sync:{claude_md:[{path:"CLAUDE.md",status:"updated"}],docs:[]}
 }' > "$M_RELABEL"
 
 # omit changed symbol: empty symbols_inspected for a code file with a changed def
@@ -191,7 +218,8 @@ jq -n --arg dh "$DA" --argjson ht "$HA" --arg art "$ART_A" '{
   diff_hash:$dh, hunks_total:$ht,
   files:[{path:"app.py", file_class:"code", hunks:$ht,
           symbols_inspected:[], macro_pass:true, micro_pass:true}],
-  tiers:[], uninspected:[], canary_artifact:$art
+  tiers:[], uninspected:[], canary_artifact:$art,
+  doc_sync:{claude_md:[{path:"CLAUDE.md",status:"updated"}],docs:[]}
 }' > "$M_OMIT"
 
 # canary detected=false: structurally sound, but the canary artifact failed
@@ -199,7 +227,8 @@ jq -n --arg dh "$DA" --argjson ht "$HA" --arg art "$ART_FALSE" '{
   diff_hash:$dh, hunks_total:$ht,
   files:[{path:"app.py", file_class:"code", hunks:$ht,
           symbols_inspected:["process_data"], macro_pass:true, micro_pass:true}],
-  tiers:[], uninspected:[], canary_artifact:$art
+  tiers:[], uninspected:[], canary_artifact:$art,
+  doc_sync:{claude_md:[{path:"CLAUDE.md",status:"updated"}],docs:[]}
 }' > "$M_CANARY_FALSE"
 
 # code file dodging micro via micro_pass="N/A" (only generated/vendored/... may)
@@ -207,7 +236,8 @@ jq -n --arg dh "$DA" --argjson ht "$HA" --arg art "$ART_A" '{
   diff_hash:$dh, hunks_total:$ht,
   files:[{path:"app.py", file_class:"code", hunks:$ht,
           symbols_inspected:["process_data"], macro_pass:true, micro_pass:"N/A"}],
-  tiers:[], uninspected:[], canary_artifact:$art
+  tiers:[], uninspected:[], canary_artifact:$art,
+  doc_sync:{claude_md:[{path:"CLAUDE.md",status:"updated"}],docs:[]}
 }' > "$M_MICRO_NA"
 
 # docs-only PR: only a markdown file changed (range B). Must NOT false-FAIL.
@@ -215,8 +245,42 @@ jq -n --arg dh "$DB" --argjson ht "$HB" --arg art "$ART_B" '{
   diff_hash:$dh, hunks_total:$ht,
   files:[{path:"docs/guide.md", file_class:"docs", hunks:$ht,
           symbols_inspected:[], macro_pass:true, micro_pass:true}],
-  tiers:[], uninspected:[], canary_artifact:$art
+  tiers:[], uninspected:[], canary_artifact:$art,
+  doc_sync:{claude_md:[{path:"docs/CLAUDE.md",status:"updated"},
+                       {path:"CLAUDE.md",status:"current"}],
+            docs:[{path:"docs/guide.md",status:"updated"}]}
 }' > "$M_DOCS"
+
+# ---------------------------------------------------------------------------
+# doc-sync regression (range C: nested src/pkg/mod.py added). The doc-sync check
+# recomputes the required CLAUDE.md set = touched dir + ancestors to repo root:
+#   src/pkg/CLAUDE.md , src/CLAUDE.md , CLAUDE.md
+# (a) MISS: omit src/pkg/CLAUDE.md from doc_sync.claude_md[] -> exit 1 (doc-sync).
+# (b) OK:   list all three with status updated/created -> exit 0.
+# Both manifests are otherwise fully valid (symbol covered, canary detected).
+# ---------------------------------------------------------------------------
+# (a) omits the deepest touched folder's CLAUDE.md -> doc-sync must fire (exit 1)
+jq -n --arg dh "$DC" --argjson ht "$HC" --arg art "$ART_C" '{
+  diff_hash:$dh, hunks_total:$ht,
+  files:[{path:"src/pkg/mod.py", file_class:"code", hunks:$ht,
+          symbols_inspected:["helper"], macro_pass:true, micro_pass:true}],
+  tiers:[], uninspected:[], canary_artifact:$art,
+  doc_sync:{claude_md:[{path:"src/CLAUDE.md",status:"updated"},
+                       {path:"CLAUDE.md",status:"updated"}],
+            docs:[]}
+}' > "$M_DOCSYNC_MISS"
+
+# (b) lists touched folder + ALL ancestors -> doc-sync passes (exit 0)
+jq -n --arg dh "$DC" --argjson ht "$HC" --arg art "$ART_C" '{
+  diff_hash:$dh, hunks_total:$ht,
+  files:[{path:"src/pkg/mod.py", file_class:"code", hunks:$ht,
+          symbols_inspected:["helper"], macro_pass:true, micro_pass:true}],
+  tiers:[], uninspected:[], canary_artifact:$art,
+  doc_sync:{claude_md:[{path:"src/pkg/CLAUDE.md",status:"created"},
+                       {path:"src/CLAUDE.md",status:"created"},
+                       {path:"CLAUDE.md",status:"updated"}],
+            docs:[]}
+}' > "$M_DOCSYNC_OK"
 
 # ---------------------------------------------------------------------------
 # WORKTREE untracked-file coverage (regression for the untracked-coverage check
@@ -228,10 +292,10 @@ M_WT_MISS="$WORK/m_wt_miss.json"
 M_WT_OK="$WORK/m_wt_ok.json"
 printf '\n# worktree tweak\nextra = 1\n' >> "$REPO/app.py"
 printf 'package newpkg\n\nfunc BrandNew() int { return 1 }\n' > "$REPO/newfile.go"
-FACTS_W="$("$VERIFIER" --repo "$REPO" --base "$C2" --head WORKTREE --print-facts)"
+FACTS_W="$("$VERIFIER" --repo "$REPO" --base "$C3" --head WORKTREE --print-facts)"
 DW="$(jq -r '.diff_hash'   <<<"$FACTS_W")"
 HW="$(jq -r '.hunks_total' <<<"$FACTS_W")"
-ART_W="$("$CANARY" --repo "$REPO" --base "$C2" --head WORKTREE --out-dir "$WORK/canaryW" | tail -1)"
+ART_W="$("$CANARY" --repo "$REPO" --base "$C3" --head WORKTREE --out-dir "$WORK/canaryW" | tail -1)"
 [ -f "$ART_W" ] || die "canary (WORKTREE) produced no artifact"
 
 # omits newfile.go -> untracked-coverage must fire (exit 1)
@@ -239,7 +303,8 @@ jq -n --arg dh "$DW" --argjson ht "$HW" --arg art "$ART_W" '{
   diff_hash:$dh, hunks_total:$ht,
   files:[{path:"app.py", file_class:"code", hunks:$ht,
           symbols_inspected:["process_data"], macro_pass:true, micro_pass:true}],
-  tiers:[], uninspected:[], canary_artifact:$art
+  tiers:[], uninspected:[], canary_artifact:$art,
+  doc_sync:{claude_md:[{path:"CLAUDE.md",status:"updated"}],docs:[]}
 }' > "$M_WT_MISS"
 
 # includes newfile.go (untracked, 0 tracked hunks) -> accepted (exit 0)
@@ -249,7 +314,8 @@ jq -n --arg dh "$DW" --argjson ht "$HW" --arg art "$ART_W" '{
           symbols_inspected:["process_data"], macro_pass:true, micro_pass:true},
          {path:"newfile.go", file_class:"code", hunks:0,
           symbols_inspected:["BrandNew"], macro_pass:true, micro_pass:true}],
-  tiers:[], uninspected:[], canary_artifact:$art
+  tiers:[], uninspected:[], canary_artifact:$art,
+  doc_sync:{claude_md:[{path:"CLAUDE.md",status:"updated"}],docs:[]}
 }' > "$M_WT_OK"
 
 # ---------------------------------------------------------------------------
@@ -298,8 +364,10 @@ run_case "omit-symbol"        1 "$M_OMIT"         "$C0" "$C1"
 run_case "canary-false"       2 "$M_CANARY_FALSE" "$C0" "$C1"
 run_case "code-micro-N/A"     1 "$M_MICRO_NA"     "$C0" "$C1"
 run_case "docs-only-no-fail"  0 "$M_DOCS"         "$C1" "$C2"
-run_case "worktree-untracked-miss" 1 "$M_WT_MISS" "$C2" WORKTREE
-run_case "worktree-untracked-ok"   0 "$M_WT_OK"   "$C2" WORKTREE
+run_case "worktree-untracked-miss" 1 "$M_WT_MISS" "$C3" WORKTREE
+run_case "worktree-untracked-ok"   0 "$M_WT_OK"   "$C3" WORKTREE
+run_case "doc-sync-omit-subdir"    1 "$M_DOCSYNC_MISS" "$C2" "$C3"
+run_case "doc-sync-all-present"    0 "$M_DOCSYNC_OK"   "$C2" "$C3"
 
 # ---------------------------------------------------------------------------
 # Per-case PASS/FAIL table.

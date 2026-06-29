@@ -99,7 +99,7 @@ external_tiers:
     │
     ├── Phase 6-6.5: Output (LOCAL ONLY)
     │       ├── 6: Generate report + /plan file
-    │       └── 6.5: Dispatch to language-specialist via /do
+    │       └── 6.5: Apply to language-specialist via /goal
     │
     └── Phase 7: Cyclic Validation (--loop)
           Loop: review → fix → review until perfect

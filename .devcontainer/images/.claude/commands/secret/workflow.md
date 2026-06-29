@@ -32,10 +32,10 @@ git_integration:
 
 ---
 
-## From /do
+## From /goal
 
 ```yaml
-do_integration:
+goal_integration:
   phase: "Phase 0 (before Questions)"
   check:
     - "If the task mentions: secret, token, credential, password, API key"

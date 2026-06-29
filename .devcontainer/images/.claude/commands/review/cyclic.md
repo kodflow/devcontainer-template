@@ -56,8 +56,8 @@ language_specialist_dispatch:
     ".s":     "developer-specialist-assembly"
 
   dispatch:
-    # skills-cleanup C2: /do is removed. /review --loop writes the fixes plan,
-    # then hands execution to /goal (the canonical executor). The condition
+    # skills-cleanup C2: fixes are not auto-applied here. /review --loop writes
+    # the fixes plan, then hands execution to /goal (the canonical executor). The condition
     # drives the fixes plan to completion; no custom loop engine.
     primitive: |
       /goal "Read the review-fixes-{timestamp} plan, apply each fix_patch grouped by

@@ -161,13 +161,14 @@ A hallucinated "this API is wrong" is itself a finding against you.
 | 4 | **Macro Pass** | Per-file architecture/layering/placement/intent + Mermaid + can_be_split |
 | 5 | **Micro Pass** | Per-function projection-simulation; per-hunk for non-function files |
 | 5.5 | **POC / A-B** | Attempt repro for bugs / benchmark for perf; else demote |
+| 5.7 | **Doc & CLAUDE.md Sync** | Compute touched-dirs+ancestors; list stale docs; emit CLAUDE.md re-sync into the plan (gated by verifier `doc-sync`) |
 | 6 | Specialist Dispatch | Cross-cutting executors + language specialist (via routing table) |
 | 7 | Generate-then-Filter | Over-generate -> dedup -> evidence-check -> confidence -> learnings |
 | 7.5 | **Judge / Verifier** | Re-ground every finding against cited code; demote/drop with logged reason |
 | 8 | **Coverage Manifest** | Emit machine file; **run external verifier** (gates APPROVE) |
 | 9 | Synthesis | Decoupled verdict (0–5 / INCONCLUSIVE), tiers, Needs-Verification, LOCAL report |
-| 9.5 | Fix Patches | Per actionable finding: /do-ready patch, validated in worktree when buildable |
-| 10 | Cyclic | --loop: review -> /do -> re-review until correctness-clear AND verifier-green |
+| 9.5 | Fix Patches | Per actionable finding: /refine→/goal-ready patch, validated in worktree when buildable |
+| 10 | Cyclic | --loop: review -> /refine -> /goal -> re-review until correctness-clear AND verifier-green |
 
 **RLM:** Peek -> Decompose -> Parallelize -> Synthesize.
 
@@ -501,6 +502,58 @@ Full taxonomy (macro + micro checks per dimension): **read
 
 POCs/benchmarks live under the scratchpad, never in the repo.
 
+### Phase 5.7 — Documentation & CLAUDE.md Sync (MANDATORY, GATED)
+
+Every change drifts the project's prose. This phase makes that drift a **first-class,
+verifier-gated** review dimension so docs and the CLAUDE.md hierarchy stay *iso* with the
+code for future review iterations. It is **local-only and non-mutating**: like every other
+/review output, it does NOT write repo files — it DETECTS the required updates and EMITS
+them into the generated plan, applied later via `/refine` -> `/goal`.
+
+**MACRO — impacted project documentation.** From the diff, identify human docs now stale
+vs the code: `README*`, `docs/**` (vision/architecture/workflow/guide), API docs
+(OpenAPI/`*.proto` doc comments), changelog, and any `*.md` whose claims the diff
+contradicts. Each entry is a finding owned by `developer-commentator` (or a general
+specialist), with a **cited doc line that contradicts the new code** as the required
+counterexample (a `contract-diff`: doc claim vs actual behavior).
+
+**MICRO — CLAUDE.md re-synchronization (touched-folders + ancestors).** Compute the
+required CLAUDE.md set and emit a re-sync action for each, following `/warmup:update`
+semantics so every touched folder's CLAUDE.md describes the post-change reality:
+
+```bash
+# Touched directories + ALL ancestor directories up to the repo root.
+# Scope is touched-folders+ancestors, NOT the whole repo. The repo root maps to
+# the bare "CLAUDE.md". This is EXACTLY what the verifier's doc-sync check recomputes.
+DOC_DIRS="$(
+  printf '%s\n' $CHANGED_FILES | while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    d="$(dirname "$f")"
+    while :; do
+      if [ "$d" = "." ] || [ "$d" = "/" ] || [ -z "$d" ]; then echo "."; break; fi
+      echo "$d"; d="$(dirname "$d")"
+    done
+  done | sort -u
+)"
+# Derive the required CLAUDE.md path per dir ("." -> repo-root "CLAUDE.md").
+printf '%s\n' "$DOC_DIRS" | while IFS= read -r d; do
+  [ "$d" = "." ] && echo "CLAUDE.md" || echo "$d/CLAUDE.md"
+done | sort -u
+```
+
+For each required CLAUDE.md: if it exists, re-synchronize it (`/warmup:update` refresh
+mechanics — keep < 200 lines, reflect new files/structure/decisions); **if a touched folder
+has no CLAUDE.md, one is CREATED**. Route every CLAUDE.md/doc edit to the docs/commentator
+specialist (`developer-commentator`) — see `~/.claude/commands/review/dimensions.md`
+dimension "Documentation & CLAUDE.md sync".
+
+**Emit into the manifest + plan.** Record the outcome in `coverage_manifest.doc_sync`
+(§Phase 8): per required CLAUDE.md a `{path, status: updated|created|current}` entry, plus
+the stale `docs[]`. The non-LLM verifier RECOMPUTES the required CLAUDE.md set from the diff
+and **FAILS (exit 1, INVALID) if any required folder's CLAUDE.md is absent** from
+`doc_sync.claude_md[]` or carries a status outside `{updated,created,current}`. The concrete
+edits go into `.claude/plans/review-fixes-{ts}.md`, applied by `/refine` -> `/goal`.
+
 ---
 
 ## Phase 6 — Specialist + Executor Dispatch (the real producers)
@@ -628,6 +681,12 @@ coverage_manifest:                # written to .claude/review-manifest-{ts}.json
   tiers: [{tool, status, exit, findings}, ...]           # generated from _table.tsv
   blast_radius_done: true
   change_coupling_done: true
+  doc_sync:                       # Phase 5.7 — verifier RECOMPUTES required CLAUDE.md set
+    claude_md:                    # one entry per touched-dir + ancestor (repo root => "CLAUDE.md")
+      - {path: "CLAUDE.md", status: "updated"}        # status in {updated, created, current}
+      # ... <dir>/CLAUDE.md for every touched dir AND its ancestors up to repo root ...
+    docs:                         # stale human docs impacted by the diff (informational)
+      - {path: "docs/architecture.md", status: "updated"}
   uninspected: []                 # MUST be empty for a valid APPROVE
 ```
 
@@ -684,6 +743,11 @@ The verifier (authored as a project script) does, with git+jq+python3 (all prese
 5. Assert `uninspected == []` for any APPROVE-eligible run, and OPEN the
    `canary_artifact` file and require `detected == true` (a bare `canary: passed` string in
    the manifest is NOT sufficient — C6).
+6. **doc-sync (structural, exit 1):** recompute the required CLAUDE.md set (every touched
+   directory + ALL ancestors to the repo root; repo root => `CLAUDE.md`) from the diff and
+   assert each path appears in `doc_sync.claude_md[]` with status in
+   `{updated,created,current}`. A missing or wrong-status required CLAUDE.md FAILS the run
+   as INVALID — so the loop cannot converge while a touched-folder CLAUDE.md is unsynced.
 
 ```yaml
 validity_rules:
@@ -693,6 +757,8 @@ validity_rules:
   - "Any code/config/iac file with macro_pass=false OR micro_pass false/missing -> INVALID."
   - "A code file whose micro_pass is 'N/A' or 'deferred' -> INVALID (code must be truly micro-passed)."
   - "canary_artifact.detected != true (read from the file, not the manifest string) -> INVALID."
+  - "doc_sync: any required CLAUDE.md (touched dir + ancestors to repo root) absent from
+     doc_sync.claude_md[] or with status not in {updated,created,current} -> INVALID."
   - "Empty findings array is valid ONLY with verifier-pass + canary detected==true + per-dimension positive statement per file."
   - "An applicable deterministic tier with status=absent lowers confidence and is named, but does not alone force INVALID; status=failed with findings is hard-blocking."
 ```
@@ -713,7 +779,7 @@ finding.**
 
 Cross-tag category (Logic/Security/Concurrency/Perf/Arch/ErrorHandling/API/Test/Docs/
 Deps/Observability/Privacy/Licensing/Portability/Style) and an actionability flag
-(**Blocking** vs Non-blocking). Blocking findings gate the generated /do plan.
+(**Blocking** vs Non-blocking). Blocking findings gate the generated `/refine` -> `/goal` plan.
 
 **Axis 2 — Confidence (0–100)**, derived from EVIDENCE, not vibes. Anchored at
 0/25/50/75/100. Boosters: deterministic-tool confirmation, multi-pass/ensemble agreement
@@ -759,6 +825,7 @@ Full rubric anchors + JSON schema: **read `~/.claude/commands/review/triage.md`*
 | Counterexample per category | repro / source->sink / interleaving / benchmark, else demote (gating) |
 | External manifest verifier | `review-verify-manifest.sh` recomputes hunks+symbols from git; exit 0=PASS, 1=INVALID, 2=not-approve-eligible, 3=usage (any nonzero blocks APPROVE) |
 | Symbol-set binding | `symbols_inspected` must ⊇ verifier's diff-extracted symbol set; under-count = INVALID |
+| Doc & CLAUDE.md sync | verifier recomputes required CLAUDE.md set (touched dirs + ancestors); any absent/wrong-status entry in `doc_sync.claude_md[]` = INVALID; blocks loop exit |
 | Tier table from output | exit/findings PARSED from `.out`; model-authored tier numbers = INVALID |
 | Dimension ownership | every `checked:true` names an owner that emitted a finding or a cited `clean:` line |
 | Canary self-test | seeded defect must be flagged; failure -> empty-findings verdict becomes INCONCLUSIVE |
@@ -774,7 +841,7 @@ Full rubric anchors + JSON schema: **read `~/.claude/commands/review/triage.md`*
 
 ## Phase 9.5 — Verified Fix Patches
 
-For each **actionable** finding, produce a `/do`-ready patch and validate it in an
+For each **actionable** finding, produce a `/refine`->`/goal`-ready patch and validate it in an
 isolated worktree (build + tests via the allow-listed `go/cargo/npm/pytest/make`
 commands) before presenting. When the project is not buildable in-container, the patch is
 marked "proposed (unverified)". A stable **patch-ID** per finding tracks resolution across
@@ -788,7 +855,7 @@ marked "proposed (unverified)". A stable **patch-ID** per finding tracks resolut
 /review --loop
   - Phases 0–8: full review + manifest + EXTERNAL verifier
   - Phase 9.5: emit verified fix patches -> .claude/plans/review-fixes-{ts}.md
-  - /do applies fixes via language specialists
+  - /refine -> /goal applies fixes (incl. doc & CLAUDE.md re-sync) via specialists
   - re-review (patch-ID aware: skip resolved)
 ```
 
@@ -796,16 +863,20 @@ marked "proposed (unverified)". A stable **patch-ID** per finding tracks resolut
 1. No CRITICAL/HIGH Confirmed remaining, AND
 2. No CRITICAL/HIGH in Needs-Verification (the gate), AND
 3. External manifest verifier passes (0 uninspected, symbol set matched, canary
-   `detected==true`), AND
+   `detected==true`, **doc-sync satisfied**), AND
 4. `verdict != INCONCLUSIVE` (C11 — an absent CRITICAL-capable tier, a `--no-poc` run, or a
    TRIAGE micro-defer forces INCONCLUSIVE, which can NEVER satisfy loop exit), AND
 5. All *applicable* deterministic tiers are green OR justified N/A; tiers that are merely
    `absent` are named and acknowledged but do not block convergence (they cap confidence,
    and if they gate a CRITICAL-capable dimension they make the verdict INCONCLUSIVE, which
-   condition 4 already blocks).
+   condition 4 already blocks), AND
+6. **Every touched-folder + ancestor CLAUDE.md is synced** (verifier `doc-sync` check
+   passes); the loop may NOT converge while a touched-folder CLAUDE.md is unsynced or a
+   project doc is left stale vs the diff.
 
 The loop may NOT converge while sub-threshold real bugs, uninspected hunks, an
-INCONCLUSIVE verdict, or a failing verifier remain. Cyclic details: **read
+INCONCLUSIVE verdict, an unsynced touched-folder CLAUDE.md, or a failing verifier remain.
+Cyclic details: **read
 `~/.claude/commands/review/cyclic.md`**.
 
 ---
@@ -820,7 +891,7 @@ mention rule applied to the draft text). Generates:
   nitpicks bucket, tier-status table (from `.out`), verifier result, coverage-manifest
   summary, suppression appendix.
 - `.claude/review-manifest-{ts}.json` (machine, verifier-checked).
-- `.claude/plans/review-fixes-{timestamp}.md` for `/do`.
+- `.claude/plans/review-fixes-{timestamp}.md` for `/refine` -> `/goal`.
 
 Synthesis details: **read `~/.claude/commands/review/synthesis.md`**.
 
@@ -875,7 +946,7 @@ explicit and downgrade the verdict.
 |--------|--------|--------|
 | `~/.claude/commands/review/dispatch.md` | exists | Phases 0–1.5: context, repo profile, intent/risk, auto-describe (draft) |
 | `~/.claude/commands/review/triage.md` | exists | Feedback/questions (draft), finding JSON schema, severity rubric, executor/specialist dispatch (TEAMS/SUBAGENTS) |
-| `~/.claude/commands/review/dimensions.md` | **author** | Full taxonomy (correctness, security, idioms, architecture, portability, perf, concurrency, error-handling, API/contract, testing, docs, deps/supply-chain, observability, data-privacy/PII, licensing, maintainability, a11y/i18n): macro+micro checks + owner agent per dimension |
+| `~/.claude/commands/review/dimensions.md` | **author** | Full taxonomy (correctness, security, idioms, architecture, portability, perf, concurrency, error-handling, API/contract, testing, docs, deps/supply-chain, observability, data-privacy/PII, licensing, maintainability, a11y/i18n, doc & CLAUDE.md sync): macro+micro checks + owner agent per dimension |
 | `~/.claude/commands/review/deterministic.md` | **author** | Tier runner: per-language/IaC commands, `run()` helper, `_table.tsv` parsing, tool-status model |
 | `~/.claude/commands/review/graph.md` | **author** | Bounded call-graph/blast-radius + change-coupling (git diff hunk headers + ast-grep-if-present + rg; NEVER `sg`) |
 | `~/.claude/commands/review/manifest.md` | **author** | Manifest schema, file-class enum, micro_per_hunk, Judge protocol, and the `review-verify-manifest.sh` contract |
