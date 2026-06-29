@@ -1,0 +1,28 @@
+{
+  "id": "ai-clis",
+  "version": "0.1.0",
+  "name": "AI Coding CLIs",
+  "description": "Opt-in extra agentic coding CLIs alongside Claude Code: OpenAI Codex (Apache-2.0), opencode (MIT), Crush (MIT). Inert without the user's own API keys — no keys are ever baked. See challenge-setup-2026 audit Q4 / issue tracking.",
+  "documentationURL": "https://github.com/kodflow/devcontainer-template",
+  "options": {
+    "enableCodex": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install OpenAI Codex CLI (codex) — native binary, Apache-2.0"
+    },
+    "enableOpencode": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install opencode (opencode-ai) — MIT"
+    },
+    "enableCrush": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install Charm Crush (crush) — MIT (Go binary)"
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/kodflow/devcontainer-features/go",
+    "ghcr.io/kodflow/devcontainer-features/nodejs"
+  ]
+}
