@@ -134,6 +134,7 @@ Enforced by two layers (defence-in-depth):
 | `/feature` | Feature tracking (RTM) |
 | `/debug` | Systematic root-cause-first debugging |
 | `/adr` | Architecture Decision Records (wired into `/plan`, `/git`) |
+| `/review-doctor` | Health-and-heal the /review v2 stack (5 parallel concerns) |
 
 ### Skill Classification
 
