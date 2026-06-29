@@ -536,7 +536,10 @@ step_mcp_configuration() {
     }
 
     # Migrate legacy .mcp.json to mcp.json (renamed in v2)
-    if [ -f "${WORKSPACE_FOLDER:-/workspace}/.mcp.json" ] && [ ! -e "$MCP_OUTPUT" ]; then
+    # #388: only a *regular* legacy .mcp.json is migrated. Once the dot-file is
+    # the symlink → mcp.json we create at the end of this step, this branch is
+    # skipped (the [ ! -L ] guard) so we never delete the file Claude reads.
+    if [ -f "${WORKSPACE_FOLDER:-/workspace}/.mcp.json" ] && [ ! -L "${WORKSPACE_FOLDER:-/workspace}/.mcp.json" ] && [ ! -e "$MCP_OUTPUT" ]; then
         log_info "Migrating legacy .mcp.json to mcp.json..."
 
         if ! command -v jq >/dev/null 2>&1; then
@@ -763,6 +766,31 @@ step_mcp_configuration() {
                 if [ "$n" -gt 0 ]; then
                     printf '\033[1;31m⚠ %s MCP server(s) dropped due to missing binaries. Run /update to diagnose.\033[0m\n' "$n" >&2
                 fi
+            fi
+        fi
+    fi
+
+    # --- Make .mcp.json (the path Claude Code reads) point at mcp.json --------
+    # Claude Code discovers project-scoped MCP servers ONLY at `.mcp.json`
+    # (leading dot). This script + the GIT_ASKPASS helper maintain `mcp.json`
+    # (no dot). Without this link the generated config is invisible to Claude
+    # and project MCP servers (github, gitlab, context7, …) never load — the
+    # exact symptom in issue #388. A relative symlink keeps both consumers on a
+    # single rendered file, so token rotation only ever touches mcp.json.
+    if [ -f "$MCP_OUTPUT" ]; then
+        local MCP_DOT="${WORKSPACE_FOLDER:-/workspace}/.mcp.json"
+        if [ -L "$MCP_DOT" ] && [ "$(readlink "$MCP_DOT" 2>/dev/null)" = "mcp.json" ]; then
+            : # already linked — idempotent no-op
+        elif [ -e "$MCP_DOT" ] && [ ! -L "$MCP_DOT" ]; then
+            # A real (non-symlink) .mcp.json remains — legacy content the
+            # migration above could not fold in (e.g. invalid JSON). Leave it
+            # untouched rather than clobber user data; Claude still reads it.
+            log_warning ".mcp.json is a regular file, not a symlink to mcp.json — leaving as-is (run /update to reconcile)"
+        else
+            if ln -sfn mcp.json "$MCP_DOT" 2>/dev/null; then
+                log_success "Linked .mcp.json → mcp.json (Claude Code MCP discovery)"
+            else
+                log_warning "Could not create .mcp.json symlink — Claude may not load project MCP servers"
             fi
         fi
     fi
