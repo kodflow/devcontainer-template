@@ -312,6 +312,18 @@ set +e
 TOOL_PIDS[goimports]=$!
 set -e
 
+# govulncheck — Go's official supply-chain vulnerability scanner. The /review v2
+# deterministic Go tier and the Go specialist's approval gate both expect it, but
+# it was never installed (challenge-setup-2026 audit, Q1). Distributed only via
+# `go install` (no release tarball), so compile from source like goimports.
+set +e
+( trap - ERR; \
+  echo -e "${YELLOW}Installing govulncheck...${NC}" && \
+  go install golang.org/x/vuln/cmd/govulncheck@latest && \
+  echo -e "${GREEN}✓ govulncheck installed${NC}" ) &
+TOOL_PIDS[govulncheck]=$!
+set -e
+
 # Release asset is goreleaser-style `ktn-linter_linux_<arch>.tar.gz` containing
 # the binary at the tarball root. The legacy hyphenated raw-binary URL never
 # existed as a published asset — that 404 broke every container build because
@@ -359,7 +371,7 @@ done
 # server binary (ktn-linter). A missing critical tool is a hard error: ship a
 # broken container and we reproduce exactly issue #324.
 CRITICAL_TOOLS=("golangci-lint" "gofumpt" "goimports" "ktn-linter")
-OPTIONAL_TOOLS=("gosec" "gotestsum" "buildifier" "buildozer")
+OPTIONAL_TOOLS=("gosec" "gotestsum" "buildifier" "buildozer" "govulncheck")
 
 missing_critical=()
 for tool in "${CRITICAL_TOOLS[@]}"; do

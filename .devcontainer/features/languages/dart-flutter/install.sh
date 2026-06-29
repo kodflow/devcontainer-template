@@ -32,24 +32,33 @@ sudo apt-get update && sudo apt-get install -y \
 # Install Flutter (includes Dart)
 echo -e "${YELLOW}Installing Flutter...${NC}"
 
-# Clone with retry
-MAX_RETRIES=3
-RETRY_COUNT=0
+# Idempotence guard: a prior run (or a persisted cache volume) already has the
+# SDK — re-cloning the full repo on every container-create cost 4-8 min for
+# nothing (challenge-setup-2026 audit, Q5).
+if [ -d "$FLUTTER_ROOT/.git" ]; then
+    echo -e "${GREEN}✓ Flutter already present at ${FLUTTER_ROOT} (cached), skipping clone${NC}"
+else
+    # Clone with retry. --depth 1 fetches only the stable tip: building the SDK
+    # does not need full git history, and the shallow clone is a fraction of the
+    # size and time of the full-history clone.
+    MAX_RETRIES=3
+    RETRY_COUNT=0
 
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if git clone https://github.com/flutter/flutter.git -b stable "$FLUTTER_ROOT"; then
-        break
-    fi
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-        echo -e "${YELLOW}Git clone failed, retrying (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)...${NC}"
-        rm -rf "$FLUTTER_ROOT"
-        sleep 5
-    else
-        echo -e "${RED}Failed to clone Flutter repository after $MAX_RETRIES attempts${NC}"
-        exit 1
-    fi
-done
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        if git clone --depth 1 https://github.com/flutter/flutter.git -b stable "$FLUTTER_ROOT"; then
+            break
+        fi
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo -e "${YELLOW}Git clone failed, retrying (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)...${NC}"
+            rm -rf "$FLUTTER_ROOT"
+            sleep 5
+        else
+            echo -e "${RED}Failed to clone Flutter repository after $MAX_RETRIES attempts${NC}"
+            exit 1
+        fi
+    done
+fi
 
 # Setup Flutter
 export PATH="$FLUTTER_ROOT/bin:$PATH"
