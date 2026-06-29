@@ -48,7 +48,7 @@
 #                       numbers FAIL.
 #   4. pass-completeness no file with file_class in {code,config,iac} may have
 #                       macro_pass=false, or a missing/false micro_pass.
-#   6. doc-sync         (STRUCTURAL, exit 1 like 1-4) recompute, from the pinned
+#   5. doc-sync         (STRUCTURAL, exit 1 like 1-4) recompute, from the pinned
 #                       diff's changed file paths, the set of TOUCHED directories +
 #                       ALL ancestor directories up to the repo root; derive
 #                       <dir>/CLAUDE.md for each ("CLAUDE.md" for the repo root) and
@@ -58,17 +58,17 @@
 #                       keeps every touched folder's CLAUDE.md iso with the change
 #                       (/warmup:update semantics) for future review iterations.
 #                       Scope is touched-folders+ancestors, NOT the whole repo.
-#   5. approve-eligible manifest.uninspected MUST be [] AND manifest.canary_artifact
+#   6. approve-eligible manifest.uninspected MUST be [] AND manifest.canary_artifact
 #                       MUST point at a REAL canary JSON artifact (C6) whose
 #                       {seeded:true, detected:true}. The verifier READS the
 #                       artifact (not a bare "passed" string). When only this
-#                       check fails (structure 1-4 sound) the script prints a
+#                       check fails (structure 1-5 sound) the script prints a
 #                       distinct 'NOT APPROVE-ELIGIBLE' note but STILL exits
 #                       nonzero so the model cannot emit APPROVE.
 #
 # EXIT CODES:
 #   0  VERIFIER: PASS  (all checks pass; run is valid AND approve-eligible)
-#   1  VERIFIER: FAIL  (a structural check [1-4 or doc-sync] failed -> run is INVALID)
+#   1  VERIFIER: FAIL  (a structural check [1-5, incl. doc-sync] failed -> run is INVALID)
 #   2  VERIFIER: FAIL (approve-eligibility) (structural checks sound but canary not
 #                      detected or uninspected non-empty -> valid run, NOT
 #                      approve-eligible)
@@ -812,7 +812,7 @@ check_pass_completeness() {
 }
 
 # ===========================================================================
-# CHECK 6 - doc-sync (STRUCTURAL; exit 1 on failure, same as checks 1-4)
+# CHECK 5 - doc-sync (STRUCTURAL; exit 1 on failure, same as checks 1-4)
 #   Recompute, from the PINNED diff's changed file paths (name-status, new path
 #   for renames/copies), the set of TOUCHED directories + ALL ancestor dirs up to
 #   the repo root. For each derive <dir>/CLAUDE.md (the repo root maps to the bare
@@ -936,7 +936,7 @@ PY
 }
 
 # ===========================================================================
-# CHECK 5 - approve-eligibility (uninspected==[] AND real canary artifact, C6)
+# CHECK 6 - approve-eligibility (uninspected==[] AND real canary artifact, C6)
 # Soft gate: does NOT mark the run INVALID, but DOES force nonzero exit so the
 # model cannot APPROVE. The verifier READS the canary artifact and requires
 # {seeded:true, detected:true} — not a bare "passed" string.
