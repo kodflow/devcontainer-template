@@ -176,6 +176,7 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/refine` | Skills Architecture v1.3 — goal contract generator (10-lens analysis) |
 | `/debug` | Systematic root-cause-first debugging (reproduce → isolate → prove → fix) |
 | `/adr` | Architecture Decision Records (docs/adr/NNNN-*.md + index), wired into `/plan` and `/git` |
+| `/review-doctor` | Health-and-heal the /review v2 stack (verifier, modules, scanners, routing, canary) |
 
 ### Canonical workflow (Skills Architecture v1.6)
 
