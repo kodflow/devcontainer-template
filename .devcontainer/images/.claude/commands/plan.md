@@ -164,6 +164,17 @@ The AI documents its reasoning in the plan file under a "## Reasoning" section s
 
 ---
 
+## Architecture decisions → `/adr`
+
+When the plan settles a non-obvious architectural trade-off (a new dependency or
+service, a layering/pattern choice, a public-contract or wire-format change, a
+notable perf-vs-simplicity call), record the *why* before implementing. After the
+plan is written, emit a textual `Suggested next step: /adr <decision>` so the
+decision is captured as `docs/adr/NNNN-*.md` rather than lost. Routine
+implementation choices evident from the code do NOT warrant an ADR.
+
+---
+
 ## Auto-Grouping (Parallelization Table)
 
 When generating the Parallelization table, the AI MUST:

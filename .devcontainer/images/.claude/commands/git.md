@@ -136,6 +136,12 @@ Examples:
 
 **Platform auto-detected:** `git remote get-url origin` → github.com | gitlab.*
 
+**ADR check before architectural PRs:** before opening a PR whose diff changes
+architecture (adds/removes a dependency or service, alters a public API / wire
+format / schema, introduces a pattern or cross-cutting convention), check for a
+matching record under `docs/adr/`. If none exists, suggest `/adr <decision>` and
+include the new ADR in the PR. Skip for routine changes.
+
 ### GitHub (PRs)
 
 | Action | Priority 1 (MCP) | Fallback (CLI) |
