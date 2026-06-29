@@ -4,6 +4,16 @@ services:
     # Ollama runs on HOST for GPU acceleration (installed via initialize.sh)
     # Accessible via host.docker.internal:11434
 
+    # ── Rebuild-time keystone (challenge-setup-2026 audit, Q5) ──────────────
+    # The ~3h "rebuild" is the local Dockerfile build + per-language install.sh
+    # running on the developer's machine. docker-images.yml ALREADY builds and
+    # pushes the full image to GHCR. Uncomment `image:` below to pull that
+    # prebuilt image instead of building locally — a rebuild collapses to a
+    # `docker pull` of cached layers (~3h -> minutes). Keep `build:` as the
+    # fallback for `docker compose build`. Flip only once the GHCR publish is
+    # green for your platform(s); see docs/adr/0001 and
+    # docs/guides/rebuild-optimization.md.
+    # image: ghcr.io/kodflow/devcontainer-template:latest
     # Build from Dockerfile (uses GHCR base image)
     build:
       context: .
