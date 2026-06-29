@@ -1,312 +1,990 @@
 ---
 name: review
 description: |
-  AI-powered code review (RLM decomposition) for PRs/MRs or local diffs.
-  Focus: correctness, security, design, quality, shell safety.
-  15 phases, 3 tiers: T1 (5 agents), T2 (Qodo), T3 (CodeRabbit).
-  Cyclic workflow: /review --loop for iterative perfection.
-  Local-only output with /plan generation for /do execution.
+  Brutally rigorous, evidence-bound AI code review (RLM decomposition) for GitHub PRs,
+  GitLab MRs, or local diffs. Every FILE and every changed FUNCTION/HUNK gets a macro
+  (blast-radius / architecture / placement) and micro (line-level projection-simulation)
+  pass. No finding ships without file:line of real cited code + a category-appropriate
+  counterexample (repro / source->sink / interleaving / benchmark). Severity and
+  confidence are DECOUPLED: a high-severity low-confidence finding is NEVER dropped, only
+  routed to a gating "Needs Verification" tier. Deterministic tiers (linters/SAST/SCA/
+  secrets/IaC + build+test) run for real with captured exit codes; the tier table is
+  generated from captured output, not narrated. An EXTERNAL, non-LLM manifest verifier
+  recomputes hunks+symbols from git and INVALIDATES the run on mismatch — this is what
+  makes fake-pass mechanically detectable. Tool-absent is distinct from N/A. Cyclic:
+  /review --loop converges on correctness, not tone.
 allowed-tools:
-  - "Bash(git *)"
-  - "Bash(gh *)"
-  - "Bash(glab *)"
+  - "Bash(git:*)"
+  - "Bash(gh:*)"
+  - "Bash(glab:*)"
+  - "Bash(jq:*)"
+  - "Bash(rg:*)"
+  - "Bash(python3:*)"
+  - "Bash(mktemp:*)"
+  - "Bash(awk:*)"
+  - "Bash(sha256sum:*)"
+  - "Bash(bash ~/.claude/scripts/review-context.sh:*)"
+  - "Bash(bash ~/.claude/scripts/review-verify-manifest.sh:*)"
+  - "Bash(bash ~/.claude/scripts/review-canary.sh:*)"
+  - "Bash(bash ~/.claude/scripts/route-agent.sh:*)"
+  - "Bash(date:*)"
+  - "Bash(mkdir:*)"
+  - "Bash(printf:*)"
+  - "Bash(ast-grep:*)"
+  - "Bash(semgrep:*)"
+  - "Bash(gitleaks:*)"
+  - "Bash(trufflehog:*)"
+  - "Bash(detect-secrets:*)"
+  - "Bash(osv-scanner:*)"
+  - "Bash(trivy:*)"
+  - "Bash(govulncheck:*)"
+  - "Bash(golangci-lint:*)"
+  - "Bash(go vet:*)"
+  - "Bash(go build:*)"
+  - "Bash(go test:*)"
+  - "Bash(staticcheck:*)"
+  - "Bash(cargo clippy:*)"
+  - "Bash(cargo build:*)"
+  - "Bash(cargo test:*)"
+  - "Bash(ruff:*)"
+  - "Bash(mypy:*)"
+  - "Bash(pytest:*)"
+  - "Bash(eslint:*)"
+  - "Bash(tsc:*)"
+  - "Bash(npm:*)"
+  - "Bash(pnpm:*)"
+  - "Bash(clang-tidy:*)"
+  - "Bash(cppcheck:*)"
+  - "Bash(actionlint:*)"
+  - "Bash(hadolint:*)"
+  - "Bash(checkov:*)"
+  - "Bash(tflint:*)"
+  - "Bash(tfsec:*)"
+  - "Bash(ansible-lint:*)"
+  - "Bash(kube-linter:*)"
+  - "Bash(kubeconform:*)"
+  - "Bash(yamllint:*)"
+  - "Bash(sqlfluff:*)"
+  - "Bash(buf:*)"
+  - "Bash(rubocop:*)"
+  - "Bash(phpstan:*)"
+  - "Bash(detekt:*)"
+  - "Bash(swiftlint:*)"
+  - "Bash(shellcheck:*)"
+  - "Bash(coderabbit review:*)"
+  - "Bash(coderabbit auth:*)"
+  - "Bash(qodo:*)"
+  - "Bash(make:*)"
   - "Read(**/*)"
   - "Glob(**/*)"
   - "Grep(**/*)"
   - "mcp__github__*"
   - "mcp__gitlab__*"
-
   - "mcp__context7__*"
   - "Task(*)"
   - "TaskCreate(*)"
   - "TaskUpdate(*)"
   - "TaskList(*)"
   - "TaskGet(*)"
-  - "Bash(qodo run review *)"
-  - "Bash(coderabbit review *)"
 ---
 
-# Review - AI Code Review (RLM Architecture)
+# /review — Brutal, Evidence-Bound Code Review (RLM Architecture)
 
 $ARGUMENTS
 
-## CONTEXT7 (RECOMMENDED)
-
-Use `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` to verify:
-- Library API usage correctness (design/correctness executors)
-- Security best practices for frameworks (security executor)
-- Deprecated API detection (quality executor)
+> **Stance.** Adversarial toward the diff, never toward the author. Call bad code bad —
+> plainly, with proof. No politeness inflation, no "looks great overall," no LGTM. A
+> review that finds nothing is valid ONLY when the external manifest verifier confirms
+> every hunk was actually inspected. Silence is not approval; **machine-checked proof of
+> inspection** is approval. When you cannot complete the work, the honest verdict is
+> **INCONCLUSIVE** — never a green manifest you did not earn.
 
 ---
 
-## Target-aware scenarios (skills-cleanup C7)
+## Core Doctrine (read before anything else)
 
-`/review` is **target-aware**: it selects a scenario from the registry
-`commands/review/scenarios/*.md` by inspecting the argument, then runs that
-scenario's lenses on the workflow engine (fan-out → adversarial verify → synthesize).
+1. **Evidence or it didn't happen.** Every finding carries `file:line(s)` of real cited
+   code AND a category-appropriate counterexample. No concrete location -> auto-rejected
+   by the Judge before output.
+2. **Pure intelligence over pattern-matching.** You do not just grep for smells. You
+   *projection-simulate* code paths with boundary inputs, *compare* the diff against its
+   stated intent, and where a perf/correctness claim is made you *attempt* a runnable POC
+   / A-B benchmark. Where isolation is infeasible, you **demote to Needs-Verification with
+   the simulation trace** — demotion is the default, proof is the bonus.
+3. **Macro + micro on EVERY file and EVERY changed function/hunk.** No file is "too small
+   to read." No function ships un-simulated. Non-function hunks (config/IaC/SQL/schema/
+   protobuf/Dockerfile/YAML) get `micro_per_hunk`. The verifier enforces this.
+4. **Severity and confidence are DECOUPLED.** A real HIGH-severity bug with weak
+   confidence is **never deleted** — it lands in the gating "Needs Verification" tier
+   (see §Severity). The old "drop if <75 / HIGH needs repro -> drop" rules are abolished.
+5. **Deterministic tiers run for real.** Tools execute; the report's tier table is
+   **generated by parsing captured `.out` files**, never narrated by the model. A tool's
+   status is one of `ran | absent | na | failed` (§Phase 3) — `absent != na`.
+6. **The manifest is verified by a non-LLM script.** `review-verify-manifest.sh`
+   recomputes hunks and changed symbols from `git diff` and FAILS the run on any mismatch.
+   The model may not define the denominator of its own coverage metric.
+7. **Anti-theater.** Editing a comment, posting "LGTM", or re-emitting a prior summary is
+   NOT a review. The run is invalid without a verifier-passed coverage manifest.
+8. **Honest limit of the verifier.** The non-LLM verifier proves *coverage* (the diff was
+   enumerated, symbols inspected, tiers real) — it does NOT prove *quality*. A pass that is
+   structurally complete but lazy (fabricated `clean:` lines, an auto-asserted
+   `canary: passed`) will satisfy the script. YOU remain the judge of finding quality; the
+   verifier only stops you from skipping work, not from doing it badly. Do not treat
+   `VERIFIER: PASS` as "the review is good" — only as "the review was actually performed."
 
-| Argument shape | Scenario | Writes |
-|---|---|---|
-| plan slug / path under the plans dir / `--plan` | `plan` | edits the plan in place (single-writer + `.history/` backup) |
-| PR number / git range / `--staged` / `--pr` / `--code` | `code` | review-fixes plan (handed to `/goal`) |
-| `--security` / auth·crypto·secrets·network diff | `security` | review-fixes plan |
-| `--architecture` / ADR / cross-module diff | `architecture` | review-fixes plan |
+---
 
-Each scenario file carries a `<!-- scenario-contract v1 … -->` block (`name`,
-`selects_when`, `lenses`, `writes`, `engine`). Writes are bounded to authorized
-dirs (plans / goals / contexts / review/scenarios) — no path traversal (GI7).
+## CONTEXT7 (use it, don't guess)
 
-### Scenario auto-extension (OFF by default — skills-cleanup C8 / GI6)
+Before asserting any library/API correctness, security best practice, deprecation, or
+license, ground it with `mcp__context7__resolve-library-id` + `mcp__context7__query-docs`.
+A hallucinated "this API is wrong" is itself a finding against you.
 
-When no registered scenario matches, `/review` may **propose** a new scenario by
-analogy with the existing ones — but **never writes one implicitly**.
+---
 
-```
-REVIEW_SCENARIO_AUTOEXTEND=0     # default: OFF. /review only ever PROPOSES.
-```
-
-Enabling is explicit and gated:
-
-- activate per-invocation with `/review --extend-scenario <name>` (never implicit);
-- the candidate scenario is itself run through the `plan` scenario before write
-  ("mini-reviewed");
-- the write goes through the same advisory validator as `task-created.sh`
-  (rejects path-escape; requires the `scenario-contract v1` schema fields);
-- a user **confirmation token** must be present in the transcript before any write.
-
-Without both the flag AND the token, `/review` writes nothing under
-`review/scenarios/` — enforced by `review-scenario-autoextend.bats`.
-
-## Overview
-
-Intelligent code review using **Recursive Language Model** decomposition:
+## Overview — Phase Map
 
 | Phase | Name | Action |
-|-------|------|--------|
-| 0 | Context | Detect PR/MR, branch, CI status (GitHub/GitLab) |
-| 0.5 | **Repo Profile** | Cache conventions, architecture, ownership (7d TTL) |
-| 1 | Intent | Analyze PR/MR + **Risk Model** calibration |
-| 1.5 | Describe | Auto-generate PR/MR description (drift detection) |
-| 2 | Feedback | Collect ALL comments/reviews |
-| 2.3 | **CI Diagnostics** | Extract CI failure context (conditional) |
-| 2.5 | Questions | Handle human questions |
-| 3 | Peek | Snapshot diff, categorize files, route agents |
-| 4 | **Analyze** | **5 parallel agents + external tiers** (T1: agents, T2: Qodo, T3: CodeRabbit) |
-| 4.7 | **Merge & Dedupe** | Normalize findings, deduplicate, require evidence |
-| 5 | Challenge | Evaluate feedback relevance with context |
-| 6 | Output | Generate LOCAL report + /plan file (no GitHub/GitLab post) |
-| 6.5 | **Dispatch** | Route fixes to language-specialist via /do |
-| 7 | **Cyclic** | Loop until perfect OR --loop limit |
+|------|------|--------|
+| 0 | Context | `review-context.sh <project_dir>`: platform, branch, diff, PR/MR, CI |
+| 0.5 | Repo Profile | Cached conventions, architecture style, ownership (7d TTL) |
+| 0.6 | **File Classification** | Tag each changed file: code/config/iac/generated/vendored/binary/rename |
+| 0.7 | **Platform Probe** | Detect cross-platform scope (OS/arch/runtime matrix) — else skip portability |
+| 0.8 | **Canary Self-Test** | Seed a known defect in a scratch copy; assert the pipeline flags it |
+| 1 | Intent + Risk | Parse PR/MR + linked issue; risk tags; acceptance criteria |
+| 1.5 | Describe | Auto-generate PR/MR description only if missing (drafted for user) |
+| 2 | Feedback | Collect ALL comments/reviews (human vs bot) |
+| 2.5 | Questions | Draft answers to human questions (NO AI mention — delivered as DRAFTS only) |
+| 3 | **Deterministic Tiers** | Run linters/SAST/SCA/secrets/IaC + build + existing tests; capture exit codes |
+| 3.5 | **Call/Dependency Graph** | Per changed symbol: callers/dependents (bounded blast radius) |
+| 3.7 | **Change-Coupling** | git-log co-occurrence: flag missed sibling/test/doc/migration edits |
+| 4 | **Macro Pass** | Per-file architecture/layering/placement/intent + Mermaid + can_be_split |
+| 5 | **Micro Pass** | Per-function projection-simulation; per-hunk for non-function files |
+| 5.5 | **POC / A-B** | Attempt repro for bugs / benchmark for perf; else demote |
+| 5.7 | **Doc & CLAUDE.md Sync** | Compute touched-dirs+ancestors; list stale docs; emit CLAUDE.md re-sync into the plan (gated by verifier `doc-sync`) |
+| 6 | Specialist Dispatch | Cross-cutting executors + language specialist (via routing table) |
+| 7 | Generate-then-Filter | Over-generate -> dedup -> evidence-check -> confidence -> learnings |
+| 7.5 | **Judge / Verifier** | Re-ground every finding against cited code; demote/drop with logged reason |
+| 8 | **Coverage Manifest** | Emit machine file; **run external verifier** (gates APPROVE) |
+| 9 | Synthesis | Decoupled verdict (0–5 / INCONCLUSIVE), tiers, Needs-Verification, LOCAL report |
+| 9.5 | Fix Patches | Per actionable finding: /refine→/goal-ready patch, validated in worktree when buildable |
+| 10 | Cyclic | --loop: review -> /refine -> /goal -> re-review until correctness-clear AND verifier-green |
 
-**RLM Principle:** Peek → Decompose → Parallelize → Synthesize
-
-**3-Tier Review Architecture:**
-
-| Tier | Source | Execution | Output |
-|------|--------|-----------|--------|
-| T1 (Internal) | 5 Claude agents (opus+haiku) | Task subagents | JSON findings |
-| T2 (Qodo) | `qodo run review` | Bash `--ci --silent --log` | Text → parsed |
-| T3 (CodeRabbit) | `coderabbit review --plain` | Bash `--plain --base` | Text → parsed |
-
-**T1 Agents (opus/sonnet for reasoning, haiku for patterns):**
-- `developer-executor-correctness` (sonnet) - Algorithmic errors, invariants, silent failures
-- `developer-executor-security` (opus) - Taint analysis, OWASP, supply chain
-- `developer-executor-design` (sonnet) - Antipatterns, DDD, layering, SOLID
-- `developer-executor-quality` (haiku) - Style, complexity, metrics
-- `developer-executor-shell` (haiku) - Shell safety, Dockerfile, CI/CD
-
-**Confidence Scoring:** All agents score findings 0-100. Only findings above reporting threshold are reported (see triage.md: MEDIUM>=75, HIGH>=85, CRITICAL>=95).
-**FP Filtering:** Pre-existing issues, non-modified lines, linter-catchable issues are excluded.
-**Platform Support:** GitHub (PRs) + GitLab (MRs) - auto-detected from git remote.
-**Output:** LOCAL only (no comments posted). Generates /plan for /do execution.
+**RLM:** Peek -> Decompose -> Parallelize -> Synthesize.
 
 ---
 
-## Usage
+## Phase 0–2 — Setup (delegated)
 
-```
-/review                    # Single review (no loop, no fix)
-/review --loop             # Cyclic review until PERFECT (infinite)
-/review --loop 5           # Cyclic review (max 5 iterations)
-/review --pr [number]      # Review specific PR (GitHub)
-/review --mr [number]      # Review specific MR (GitLab)
-/review --staged           # Review staged changes only
-/review --file <path>      # Review specific file
-/review --security         # Security-focused review only
-/review --correctness      # Correctness-focused review only
-/review --design           # Design/architecture review only
-/review --quality          # Quality-focused review only
-/review --triage           # Large PR/MR mode (>30 files or >1500 lines)
-/review --describe         # Force auto-describe even if PR/MR has description
-/review --tier all          # All tiers: T1+T2+T3 (default)
-/review --tier internal     # T1 only (5 agents, no external)
-/review --tier external     # T2+T3 only (qodo + coderabbit)
-/review --tier qodo         # T2 only
-/review --tier coderabbit   # T3 only
-```
-
-**Cyclic Workflow:**
-```
-/review --loop
-    │
-    ├── Phase 0-6: Full analysis (5 agents)
-    ├── Phase 6.5: Generate /plan with fixes
-    ├── /do executes fixes via language-specialist
-    ├── Loop: re-review → fix → re-review
-    └── Exit when: no HIGH/CRITICAL OR limit reached
-```
-
----
-
-## Budget Controller (MANDATORY)
-
-```yaml
-budget_controller:
-  thresholds:
-    normal_mode:
-      max_files: 30
-      max_lines: 1500
-      max_comments_ingested: 80
-    triage_mode:
-      trigger: "files > 30 OR lines > 1500"
-      action: "Focus on: unresolved threads, modified lines, security only"
-
-  output_limits:
-    critical: unlimited
-    high: 10
-    medium: 5
-    low: 3
-
-  comment_priority:
-    1: "Unresolved threads"
-    2: "Comments on modified lines"
-    3: "Human reviews"
-    4: "AI bot suggestions"
-```
-
-**Automatic decision:**
-
-| Situation | Mode |
-|-----------|------|
-| diff < 1500 lines, files < 30 | NORMAL |
-| diff >= 1500 OR files >= 30 | TRIAGE |
-| comments > 80 | FILTER (unresolved + modified lines only) |
-
----
-
-## Quick Reference (Phase Dispatch)
-
-| Phase | Action | Module |
-|-------|--------|--------|
-| 0-0.5 | Context detection, repo profile | Read ~/.claude/commands/review/dispatch.md |
-| 1-1.5 | Intent analysis, auto-describe | Read ~/.claude/commands/review/dispatch.md |
-| 2-2.5 | Feedback collection, CI, questions | Read ~/.claude/commands/review/triage.md |
-| 3 | Peek & decompose (diff snapshot) | Read ~/.claude/commands/review/dispatch.md |
-| 4 | Parallel analysis (5 agents) | Read ~/.claude/commands/review/triage.md |
-| 4.7 | Merge & dedupe (normalize findings) | Read ~/.claude/commands/review/triage.md |
-| 5 | Challenge & synthesize | Read ~/.claude/commands/review/synthesis.md |
-| 6 | Output generation (LOCAL report) | Read ~/.claude/commands/review/synthesis.md |
-| 6.5 | Language-specialist dispatch | Read ~/.claude/commands/review/cyclic.md |
-| 7 | Cyclic validation (--loop) | Read ~/.claude/commands/review/cyclic.md |
-| T2+T3 | Qodo + CodeRabbit integration | Read ~/.claude/commands/review/tiers.md |
-
-**To execute a phase**, read the corresponding module file for full instructions.
-
----
-
-## Execution Mode Detection (Agent Teams)
-
-@.devcontainer/images/.claude/commands/shared/team-mode.md
-
-Before Phase 4 (parallel analysis), determine the runtime mode via the canonical block from section 3 of `shared/team-mode.md`:
+Run the single-call bootstrap **with an explicit project dir** (cwd may not be a repo;
+`CLAUDE_PROJECT_DIR` may be empty):
 
 ```bash
-source "$HOME/.claude/scripts/team-mode-primitives.sh"
-MODE=$(detect_runtime_mode)
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+CTX="$(bash ~/.claude/scripts/review-context.sh "$PROJECT_DIR")"
+printf '%s\n' "$CTX"
+
+# --- C9: assign the review-wide variables ONCE, here, before any later phase ---
+# Derive BASE/HEAD/CHANGED_FILES from the review-context.sh JSON (fall back to git).
+mkdir -p "$PROJECT_DIR/.claude"
+BASE="$(printf '%s' "$CTX" | jq -r '.git.base // .git.default_branch // empty')"
+HEAD="$(printf '%s' "$CTX" | jq -r '.git.head // empty')"
+CHANGED_FILES="$(printf '%s' "$CTX" | jq -r '.diff.files[]?.path // .diff.files[]? // empty')"
+TS="$(date -u +%Y%m%dT%H%M%SZ)"
+
+# Resolve BASE if the JSON did not carry it (PR base, else merge-base vs default branch).
+[ -z "$BASE" ] && BASE="$(git -C "$PROJECT_DIR" merge-base HEAD "origin/$(git -C "$PROJECT_DIR" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@' || echo main)" 2>/dev/null || true)"
+# Local dirty-tree review: normalize an unresolved HEAD to the WORKTREE sentinel ONCE here.
+# review-canary.sh rejects an empty --head and review/graph.md Step 0 must resolve HEAD, so
+# binding it now keeps Phases 0.8, 3.5, 3.7 and 8 on the same contract (BASE...working-tree).
+HEAD="${HEAD:-WORKTREE}"
+[ -z "$CHANGED_FILES" ] && CHANGED_FILES="$(git -C "$PROJECT_DIR" diff --name-only "${BASE:-HEAD}" 2>/dev/null || true)"
+
+# C13: shallow clone / unresolvable BASE => graceful INCONCLUSIVE, never die.
+if [ -z "$BASE" ]; then
+  echo "review: BASE unresolvable (shallow clone or detached?) -> verdict INCONCLUSIVE"
+  # do NOT exit hard inside a sub-shell pipeline; the synthesis phase records INCONCLUSIVE.
+fi
 ```
 
-Branch on `$MODE`:
-- `TEAMS_TMUX` or `TEAMS_INPROCESS` → Phase 4 dispatches via **Agent Teams** (5 parallel teammates, see triage.md §10 TEAMS execution)
-- `SUBAGENTS` → Phase 4 dispatches via the legacy `Task` tool path (see triage.md §10 SUBAGENTS execution — unchanged from today)
+Use its JSON (`git{platform,org,repo,branch,default_branch,base,head}`, `diff{files,stats}`,
+`repo_profile{lint_configs,languages}`, `pr{exists,number}`) for ALL routing. Do not
+re-run individual git commands. If the JSON shows an empty diff or non-repo dir, STOP and
+report "no reviewable diff in <dir>" — do not fabricate findings.
 
-Both paths MUST be functionally, schema-, and semantically equivalent. No new user-visible sections in the SUBAGENTS fallback.
+`$BASE`, `$HEAD`, `$CHANGED_FILES`, `$TS` are now bound and consumed unchanged by Phases
+3.5, 3.7, 8 (manifest + verifier). Later phases MUST NOT redefine them.
 
----
+Full setup instructions: **read `~/.claude/commands/review/dispatch.md`** (Phases 0, 0.5,
+1, 1.5). Feedback/questions: **read `~/.claude/commands/review/triage.md`**.
 
-## Success Criteria (Agent Teams migration)
+### Phase 0.5 — Repo Profile (write the routing input; C7)
 
-- **Functional equivalence**: same set of findings across modes on a given PR (set comparison, not ordered)
-- **Schema equivalence**: synthesis report has identical sections, severity levels, finding fields
-- **Semantic equivalence**: a "critical" in legacy mode is still "critical" in TEAMS mode
-- **Fallback invariant**: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=0 /review` runs the SUBAGENTS path unchanged
-- **Performance floor** (TEAMS_TMUX): ≥ 1.5x faster wall-clock on a 30+ file PR
-- **Pilot token ceiling**: ≤ 2.5x legacy cost (B1-specific, not a universal norm)
-- **Stability**: 5 consecutive runs without manual intervention
-- **Hook cleanliness**: 0 false-positive TaskCreated rejections across 10 runs
+The router in Phase 6 reads a JSON profile from disk, so it MUST exist before then.
+Persist the `repo_profile` block from `review-context.sh` to a stable path. The shape
+matches `review-context.sh`: a top-level `.languages` array (plus `lint_configs`,
+architecture/ownership when cached).
 
----
-
-## --help
-
-```text
-═══════════════════════════════════════════════════════════════
-  /review - AI Code Review (RLM Architecture)
-═══════════════════════════════════════════════════════════════
-
-Usage: /review [options]
-
-Options:
-  (none)            Single review (no loop)
-  --loop [N]        Cyclic review (infinite or max N)
-  --pr [number]     Review specific PR (GitHub)
-  --mr [number]     Review specific MR (GitLab)
-  --staged          Review staged changes only
-  --file <path>     Review specific file
-  --security        Security-focused review only
-  --correctness     Correctness-focused only
-  --design          Design/architecture only
-  --quality         Quality-focused only
-  --triage          Large PR/MR mode
-  --describe        Force auto-describe
-  --tier <tier>     all|internal|external|qodo|coderabbit
-  --help            Display this help
-
-Tiers:
-  T1 (Internal)   5 Claude agents (correctness, security, design, quality, shell)
-  T2 (Qodo)       qodo run review (P0/P1/P2 triage)
-  T3 (CodeRabbit) coderabbit review --plain
-
-Modes:
-  NORMAL    diff < 1500 lines, files < 30
-  TRIAGE    diff >= 1500 OR files >= 30
-
-Cyclic Workflow:
-  /review --loop → review → fix → review → ... → PERFECT
-  Exit: no HIGH/CRITICAL OR limit reached OR Ctrl+C
-
-Output:
-  LOCAL only (no PR/MR comments posted)
-  Generates .claude/plans/review-fixes-{timestamp}.md
-  Run /do to apply fixes
-
-Workflow:
-  /review → /do (apply fixes) → /git --commit
-
-═══════════════════════════════════════════════════════════════
+```bash
+# Materialize the routing profile (C7). Top-level .languages is required by route-agent.sh.
+printf '%s' "$CTX" | jq '.repo_profile // {languages: []}' \
+  > "$PROJECT_DIR/.claude/repo-profile.json"
+# Guarantee the contract even if repo_profile was absent/empty.
+jq -e '.languages | type == "array"' "$PROJECT_DIR/.claude/repo-profile.json" >/dev/null 2>&1 \
+  || printf '{"languages":[]}\n' > "$PROJECT_DIR/.claude/repo-profile.json"
 ```
 
-**IF `$ARGUMENTS` contains `--help`**: Display the help above and STOP.
+This file is the `--profile` argument consumed verbatim by Phase 6's `route-agent.sh`
+call. Do not point the router at a path that this phase did not write.
+
+### Phase 0.6 — File Classification (mandatory; defines the coverage denominator)
+
+Classify every changed file so coverage is honestly definable:
+
+```yaml
+file_class:                     # per file in diff.files
+  enum: [code, config, iac, generated, vendored, binary, rename, lockfile, docs]
+  detection:
+    generated: "path matches *_generated.*|*.pb.go|*.pb.*|openapi*/|*.gen.* OR header line contains 'DO NOT EDIT'/'autogenerated'"
+    vendored:  "path under vendor/|node_modules/|third_party/|.venv/"
+    lockfile:  "package-lock.json|yarn.lock|pnpm-lock.yaml|Cargo.lock|go.sum|poetry.lock|Gemfile.lock|composer.lock"
+    binary:    "git diff --numstat shows '-' '-' (non-text)"
+    rename:    "git diff status R### with 100% similarity (no content change)"
+    iac:       "*.proto|*.asn1|*.asn classified as iac (wire schema) -> micro_per_hunk REQUIRED (C10; matches verifier classify() + manifest.md). .cfg also -> config."
+  rule: |
+    code            -> macro + micro_per_function REQUIRED.
+    config|iac|sql|schema|protobuf|.proto|.asn1|.asn|Dockerfile|yaml -> macro + micro_per_hunk REQUIRED.
+       (.proto/.asn1/.asn are wire schemas: micro_per_hunk MUST run the wire-break checklist —
+        field renumber, required<->optional, ETSI/3GPP X1/X2/X3 — see Phase 5 micro_per_hunk.)
+    generated|vendored|binary|lockfile|rename(pure)|docs -> macro=light, micro_pass: "N/A (<class>)"
+       with a one-line justification; lockfiles still get a supply-chain tier check.
+       (docs may instead carry a docs-accuracy micro check — see manifest.md coverage_rule.docs.)
+       NOTE: only generated|vendored|binary|lockfile|rename(pure)|docs may use N/A — a `code`
+       file may NEVER carry micro_pass "N/A" or "deferred" (the verifier rejects it).
+```
+
+### Phase 0.7 — Platform Probe (cross-platform, only when in scope)
+
+```bash
+rg -l --no-messages \
+  -e 'runs-on:\s*\[' -e 'matrix:' -e 'GOOS|GOARCH' \
+  -e '#if(def)?\s+_WIN32|__linux__|__APPLE__' \
+  -e 'cfg!\(target_os' -e '//go:build' \
+  "$PROJECT_DIR/.github/workflows" "$PROJECT_DIR/.gitlab-ci.yml" "$PROJECT_DIR/Makefile" 2>/dev/null
+```
+
+```yaml
+platform_probe:
+  cross_platform: true   # IF matrix/build-tags/cfg!/ifdef found OR CLAUDE.md says so
+  targets: [linux/amd64, darwin/arm64, windows/amd64, ...]   # from CI matrix
+  rule: |
+    cross_platform == false -> SKIP portability dimension (manifest: "portability: N/A — single target").
+    else -> per changed file, check EVERY target: path separators, line endings,
+      case-sensitive FS, endianness, word size, syscalls, hardcoded paths (/tmp, C:\),
+      GNU-vs-BSD flags, locale/tz/encoding, 32/64-bit truncation, struct packing/alignment
+      for wire formats, conditional-compilation correctness (build tags/#ifdef/cfg!).
+```
+
+### Phase 0.8 — Canary Self-Test (false-negative guard; REAL artifact, C6)
+
+On any non-trivial diff, run the **real** canary script — it seeds a known defect into a
+scratch copy of ONE changed code file, runs a micro detection, and writes a JSON artifact
+the verifier later READS. Do NOT self-assert "canary: passed":
+
+```bash
+# C6: real canary. Picks one changed CODE file; seeds + micro-detects; writes the artifact.
+# CLI (must match review-canary.sh exactly): --repo --base --head [--out-dir].
+# The artifact path is the LAST stdout line (absolute) — take `| tail -1` exactly as
+# review-eval.sh does, so any progress line printed ahead of it cannot poison the path.
+# Do NOT jq-parse it and do NOT reconstruct the filename ($TS here != the canary's internal timestamp).
+CANARY_ARTIFACT="$(RTK_BYPASS=1 bash ~/.claude/scripts/review-canary.sh \
+  --repo "$PROJECT_DIR" --base "$BASE" --head "$HEAD" | tail -1)"
+# -> writes <repo>/.claude/review-canary-<ts>.json : {seeded:true, detected:bool, defect, file}
+CANARY_DETECTED="$(jq -r '.detected // false' "$CANARY_ARTIFACT" 2>/dev/null || echo false)"
+```
+
+**If `detected != true`, the review engine is mis-calibrated -> the verdict for an empty
+findings array becomes INCONCLUSIVE** (do not trust "no findings"). Record the **artifact
+path** (not a bare boolean) in the manifest as `canary_artifact`, and set `canary:
+passed|failed` from `detected`. The verifier opens the artifact and requires
+`detected==true`. Scratch only; never touch the repo.
 
 ---
 
-## Guardrails (Quick Reference)
+## Phase 3 — Deterministic Tiers (ENFORCED, table generated from captured output)
+
+Each tool writes stdout+stderr to a temp `.out`; the final tier table is produced by
+**parsing those files with jq/awk**, not by the model authoring numbers. Run only tools
+matching languages/artifacts actually present in the diff.
+
+```bash
+DET=$(mktemp -d "${TMPDIR:-/tmp}/review-det.XXXXXX")
+run() {                                   # run <tool> [args...]  (see review/deterministic.md for the canonical helper)
+  local tool="$1"
+  local label="$*"                          # FULL invocation -> go vet / go test / go build stay distinct rows
+  local slug="${label//[^a-zA-Z0-9]/_}"     # unique per invocation -> .out files never collide
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    printf '%s\tabsent\t\t0\n' "$label" >> "$DET/_table.tsv"; return 0
+  fi
+  local rc=0                                # `|| rc=$?` captures the real exit safely (no set -e abort, no $? clobber by wc)
+  "$@" > "$DET/$slug.out" 2>&1 || rc=$?
+  printf '%s\tran\t%s\t%s\n' "$label" "$rc" "$(wc -l <"$DET/$slug.out")" >> "$DET/_table.tsv"
+}
+
+# Idioms / static analysis (fire only on extensions present in diff)
+run golangci-lint run ./...;  run go vet ./...;  run staticcheck ./...
+run cargo clippy --all-targets -- -D warnings
+run ruff check .;  run mypy .
+run eslint .;  run tsc --noEmit
+run clang-tidy <changed>;  run cppcheck --enable=all <changed>
+run shellcheck <changed.sh>;  run actionlint;  run hadolint <Dockerfile>
+run rubocop;  run phpstan analyse;  run detekt;  run swiftlint
+# IaC
+run checkov -d .;  run tflint;  run tfsec .;  run ansible-lint
+run kube-linter lint .;  run kubeconform <manifests>;  run yamllint .
+# Data / schema
+run sqlfluff lint <changed.sql>;  run buf lint
+# Security
+run semgrep --config auto --error
+run gitleaks detect --no-banner;  run trufflehog filesystem .;  run detect-secrets scan
+# Supply chain (lockfiles always)
+run osv-scanner -r .;  run trivy fs .;  run govulncheck ./...
+# BUILD + EXISTING TESTS (catch breakage even with no CI)
+run make test;  run go test ./...;  run cargo test;  run pytest -q
+```
+
+Then render the table programmatically:
+
+```bash
+awk -F'\t' '{printf "%-16s status=%s exit=%s findings=%s\n",$1,$2,$3,$4}' "$DET/_table.tsv"
+```
+
+```yaml
+tier_status_model:                 # MUST appear in the report, generated from _table.tsv
+  ran:    "tool executed; exit + finding count are REAL (parsed from .out)."
+  absent: "tool not installed -> dimension marked 'unverified (tool absent)'. NOT a failure,
+           NOT a pass. Surfaced LOUDLY. Does not by itself block convergence."
+  na:     "tool not applicable to this diff's languages -> 'N/A (unsupported language)'."
+  failed: "exit != 0 with findings -> findings ingested as FIRST-CLASS hard-blocking candidates."
+  rules:
+    - "Tool findings are deduped vs LLM findings; a tool-confirmed finding gets a confidence boost."
+    - "CI / make test / make lint logs ingested as dual-validation hard blockers."
+    - "A genuinely-applicable tool that is 'absent' lowers MAX achievable confidence for that
+       dimension and is named in the report — but the run can still reach a valid (qualified) verdict."
+```
+
+External tiers (Qodo T2 — absent in default container, skip-with-note; CodeRabbit T3 —
+requires `coderabbit auth login` first, probe `coderabbit auth status` before
+`coderabbit review`): **read `~/.claude/commands/review/tiers.md`**.
+
+---
+
+## Phase 3.5 — Call / Dependency Graph (bounded blast radius)
+
+Diff-only review is the #1 source of missed bugs. For **every changed symbol** (function,
+method, type, exported const, config key, CLI flag), enumerate callers/dependents across
+the **whole repo**. AST-aware when available; otherwise git+rg. **Never use `sg`** —
+`/usr/bin/sg` is `newgrp`, not ast-grep.
+
+```bash
+# Changed symbols: derive from git diff hunk headers (the @@ ... @@ context names the
+# enclosing function for most languages) + added/removed signatures.
+git diff "$BASE...$HEAD" -U0 | rg '^@@.*@@ (.+)$' -or '$1'
+
+# Callers (prefer ast-grep IF installed; else ripgrep):
+command -v ast-grep >/dev/null && ast-grep run -p 'DoThing($$$)' --lang go "$PROJECT_DIR"
+rg -n --no-heading '\bDoThing\b' "$PROJECT_DIR"        # fallback / cross-lang
+```
+
+Caps (avoid context blowup): **max 40 changed symbols graphed**, **max 25 callers per
+symbol** (record `+N more` as a count). For each: `{symbol, def_loc, callers:[file:line],
+dependents:[...]}`. Verify the change does not break any caller's contract (arg
+count/types, nullability, error semantics, ordering, side effects). A locally-correct
+change that breaks a caller is **CRITICAL/HIGH** with the caller's `file:line` as evidence.
+
+## Phase 3.7 — Change-Coupling (change-implies-change)
+
+```bash
+for f in $CHANGED_FILES; do
+  git -C "$PROJECT_DIR" log --pretty=format: --name-only -- "$f" \
+    | rg -v '^$' | sort | uniq -c | sort -rn | head
+done
+```
+
+Flag the "absent change pattern": lib changed but its test / doc / migration / sibling
+impl untouched -> probable missed edit (MEDIUM–HIGH, co-occurrence count as evidence).
+
+---
+
+## Phase 4 — MACRO PASS (per file, mandatory)
+
+For **each changed file**, before touching lines, record in the manifest:
+
+```yaml
+macro_per_file:
+  - file: <path>
+    file_class: <from Phase 0.6>
+    role: "domain | infra | api | ui | test | config | build | docs"
+    layering_ok: true|false        # no domain->infra / ui->db inversion; correct dep direction
+    placement_ok: true|false       # file lives where the project structure dictates
+    public_surface_intentional: true|false   # new exports deliberate, not accidental
+    cohesion: "ok | god-class-growth | low-LCOM"
+    intent_alignment: "Fully | Partially | Not | Requires-Verification"   # vs PR/issue
+    blast_radius: <n callers/dependents from Phase 3.5>
+    can_be_split: true|false       # does this file mix unrelated themes?
+```
+
+Whole-PR macro artifacts (emit once): **plain-language walkthrough**; **change-cohort
+grouping + can_be_split** for the whole PR; a **Mermaid diagram** (sequence/flow/ER) when
+the change touches multiple services, a schema, or core business logic.
+
+Architecture micro-smells to flag at file level: Brain/God class growth, deep nesting,
+cross-cutting concerns leaking across modules, primitive obsession, constructor
+over-injection. Weight by **behavioral hotspot** (git change-frequency × complexity) and
+**complexity trend** (worse than prior revision -> escalate; being refactored ->
+soft-pedal). Complexity is judged by the `developer-executor-quality` agent
+(maintainability/metrics owner); when a metric tool is absent, label the judgment
+"static-heuristic" rather than asserting a number.
+
+---
+
+## Phase 5 — MICRO PASS (per function AND per non-function hunk, mandatory)
+
+For **each changed function** (and each new branch), do NOT eyeball —
+**projection-simulate**: execute the function mentally/programmatically with boundary
+inputs and derive a concrete counterexample where it breaks.
+
+```yaml
+micro_per_function:
+  - symbol: <pkg.Func / Class.method>
+    loc: <file:line-range>
+    simulated_inputs: ["empty", "single", "max/min", "overflow", "nil/None", "concurrent"]
+    dimensions_checked:        # owner agent in (); recorded with finding_ids in manifest
+      correctness:    {checked: true, owner: developer-executor-correctness, finding_ids: [...]}
+      security:       {checked: true, owner: developer-executor-security,    finding_ids: [...]}
+      concurrency:    {checked: true, owner: developer-executor-correctness, finding_ids: [...]}
+      error_handling: {checked: true, owner: developer-executor-correctness, finding_ids: [...]}
+      perf:           {checked: true, owner: developer-executor-design,      finding_ids: [...]}
+      architecture:   {checked: true, owner: developer-executor-design,      finding_ids: [...]}
+      maintainability:{checked: true, owner: developer-executor-quality,     finding_ids: [...]}
+      idioms:         {checked: true, owner: <language specialist Phase 6>,   finding_ids: [...]}
+      api_contract:   {checked: true, owner: developer-executor-design,      finding_ids: [...]}
+      testing:        {checked: true, owner: developer-executor-quality,     finding_ids: [...]}
+      docs:           {checked: true, owner: developer-executor-quality,     finding_ids: [...]}
+      observability:  {checked: true, owner: developer-executor-shell,       finding_ids: [...]}
+      data_privacy:   {checked: true, owner: developer-executor-security,    finding_ids: [...]}  # PII at-rest/in-transit, retention, ETSI/3GPP/LI handling
+      licensing:      {checked: true, owner: developer-executor-security,    finding_ids: [...]}  # new-dep license/legal
+      portability:    {checked: true|N/A, owner: <language specialist>}                            # only if Phase 0.7 cross_platform
+      a11y_i18n:      {checked: true|N/A, owner: developer-specialist-react/nodejs}                # only if diff touches UI / user-facing strings
+
+micro_per_hunk:                # for config|iac|sql|schema|protobuf|Dockerfile|yaml
+  - hunk: <file:line-range>
+    kind: "iac | k8s | sql | protobuf/asn1 | dockerfile | ci | config"
+    checks: "schema validity, secret material, privilege/scope creep, breaking wire/field
+             changes, default drift, idempotency, resource limits, image pinning"
+    owner: developer-executor-security + relevant specialist (devops-specialist-* for IaC)
+    finding_ids: [...]
+```
+
+**Dimension ownership is binding:** a dimension marked `checked: true` MUST name an owner
+agent that actually produced a verdict for it. The Judge (Phase 7.5) rejects any
+`checked: true` whose owner emitted neither a finding nor an explicit "clean: <reason +
+line>". This kills unfalsifiable check-marks.
+
+Full taxonomy (macro + micro checks per dimension): **read
+`~/.claude/commands/review/dimensions.md`**.
+
+### Phase 5.5 — POC / A-B (attempt to prove; demote by default)
+
+- **Correctness** -> produce an `input -> wrong output` pair (runnable repro when
+  feasible). Infeasible isolation -> demote to Needs-Verification with the simulation
+  trace. Demotion is the default, not a failure.
+- **Concurrency** -> a concrete interleaving (`thread A:lineX / thread B:lineY`). Never
+  dismissed as "theoretical."
+- **Security** -> exact source line + sink line; minimal exploit POC where feasible.
+- **Perf / optimization claim** -> when the function is isolable, generate a minimal
+  optimized variant + A/B benchmark in scratch (build/test tools are allow-listed) and
+  report the measured delta. When not isolable, demote — an asserted speedup with no
+  benchmark cannot raise confidence.
+
+POCs/benchmarks live under the scratchpad, never in the repo.
+
+### Phase 5.7 — Documentation & CLAUDE.md Sync (MANDATORY, GATED)
+
+Every change drifts the project's prose. This phase makes that drift a **first-class,
+verifier-gated** review dimension so docs and the CLAUDE.md hierarchy stay *iso* with the
+code for future review iterations. It is **local-only and non-mutating**: like every other
+/review output, it does NOT write repo files — it DETECTS the required updates and EMITS
+them into the generated plan, applied later via `/refine` -> `/goal`.
+
+**MACRO — impacted project documentation.** From the diff, identify human docs now stale
+vs the code: `README*`, `docs/**` (vision/architecture/workflow/guide), API docs
+(OpenAPI/`*.proto` doc comments), changelog, and any `*.md` whose claims the diff
+contradicts. Each entry is a finding owned by `developer-commentator` (or a general
+specialist), with a **cited doc line that contradicts the new code** as the required
+counterexample (a `contract-diff`: doc claim vs actual behavior).
+
+**MICRO — CLAUDE.md re-synchronization (touched-folders + ancestors).** Compute the
+required CLAUDE.md set and emit a re-sync action for each, following `/warmup:update`
+semantics so every touched folder's CLAUDE.md describes the post-change reality:
+
+```bash
+# Touched directories + ALL ancestor directories up to the repo root.
+# Scope is touched-folders+ancestors, NOT the whole repo. The repo root maps to
+# the bare "CLAUDE.md". This is EXACTLY what the verifier's doc-sync check recomputes.
+DOC_DIRS="$(
+  printf '%s\n' "$CHANGED_FILES" | while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    d="$(dirname "$f")"
+    while :; do
+      if [ "$d" = "." ] || [ "$d" = "/" ] || [ -z "$d" ]; then echo "."; break; fi
+      echo "$d"; d="$(dirname "$d")"
+    done
+  done | sort -u
+)"
+# Derive the required CLAUDE.md path per dir ("." -> repo-root "CLAUDE.md").
+printf '%s\n' "$DOC_DIRS" | while IFS= read -r d; do
+  [ "$d" = "." ] && echo "CLAUDE.md" || echo "$d/CLAUDE.md"
+done | sort -u
+```
+
+For each required CLAUDE.md: if it exists, re-synchronize it (`/warmup:update` refresh
+mechanics — keep < 200 lines, reflect new files/structure/decisions); **if a touched folder
+has no CLAUDE.md, one is CREATED**. Route every CLAUDE.md/doc edit to the docs/commentator
+specialist (`developer-commentator`) — see `~/.claude/commands/review/dimensions.md`
+dimension "Documentation & CLAUDE.md sync".
+
+**Emit into the manifest + plan.** Record the outcome in `coverage_manifest.doc_sync`
+(§Phase 8): per required CLAUDE.md a `{path, status: updated|created|current}` entry, plus
+the stale `docs[]`. The non-LLM verifier RECOMPUTES the required CLAUDE.md set from the diff
+and **FAILS (exit 1, INVALID) if any required folder's CLAUDE.md is absent** from
+`doc_sync.claude_md[]` or carries a status outside `{updated,created,current}`. The concrete
+edits go into `.claude/plans/review-fixes-{ts}.md`, applied by `/refine` -> `/goal`.
+
+---
+
+## Phase 6 — Specialist + Executor Dispatch (the real producers)
+
+Findings come from TWO producer classes, both real agents on disk:
+
+**Cross-cutting executors (own the dimensions):** `developer-executor-correctness`,
+`developer-executor-security` (taint/OWASP/PII), `developer-executor-design`,
+`developer-executor-quality`, `developer-executor-shell`.
+
+**Language specialists (own idioms + portability):** resolve via the canonical routing
+layer rather than a hand-maintained table that drifts:
+
+```bash
+bash ~/.claude/scripts/route-agent.sh --skill /review --phase review \
+  --profile "$PROJECT_DIR/.claude/repo-profile.json"   # reads ~/.claude/agents/routing-table.jsonl
+# --phase review selects the /review rules (language-specialist fanout + protobuf/asn1 route);
+# --profile is the file Phase 0.5 wrote (top-level .languages array). Omitting --phase, or
+# pointing at a non-existent profile, makes route-agent.sh exit 2/20 on every run.
+```
+
+The routing table provides guard+priority selection, `agent_template:
+developer-specialist-{language}` multi-language fan-out, and tool routes (e.g.
+`developer-specialist-react` when react detected, `data-specialist-postgres` for psql).
+Per-extension correctness for the common stacks (corrected names — verified on disk):
+
+| Ext | Specialist |
+|-----|-----------|
+| `.go` | `developer-specialist-go` (error wrapping `%w`, ctx propagation, goroutine leaks, defer-in-loop, nil interface) |
+| `.rs` | `developer-specialist-rust` (unwrap/expect in libs, needless clone, unsafe justification, blocking-in-async) |
+| `.py` | `developer-specialist-python` (mutable defaults, bare except, `==` vs `is`, Decimal for money, f-string injection) |
+| `.ts/.tsx/.js/.jsx` | `developer-specialist-nodejs` (+`developer-specialist-react` when react detected): `any`, `==` vs `===`, floating promises, non-null abuse, exhaustive switch |
+| `.c/.h` | `developer-specialist-c` (bounds, signed/unsigned, UAF/double-free, format string, uninit memory) |
+| `.cpp/.hpp/.cc/.cxx` | `developer-specialist-cpp` (RAII, rule-of-5, move/forwarding, span/iterator invalidation, packing/alignment) |
+| `.java` | `developer-specialist-java` · `.kt` `developer-specialist-kotlin` · `.cs` `developer-specialist-csharp` · `.scala` `developer-specialist-scala` |
+| `.swift` `-swift` · `.dart` `-dart` · `.lua` `-lua` · `.r` `-r` · `.pl` `-perl` · `.php` `-php` · `.rb` `-ruby` · `.ex/.exs` `-elixir` | (and `-ada -assembly -cobol -fortran -pascal -vbnet -matlab` for the rest of the 26-language stack) |
+| `.sh`/Dockerfile/CI/`.tf`/`.yaml` | `developer-executor-shell` + `devops-specialist-*` for cloud/IaC |
+
+Dispatch in parallel. **Execution mode**: read
+`~/.claude/commands/shared/team-mode.md`; branch on `detect_runtime_mode` (from
+`~/.claude/scripts/team-mode-primitives.sh`) -> `TEAMS_TMUX`/`TEAMS_INPROCESS` (Agent
+Teams) vs `SUBAGENTS` (Task tool). Both paths MUST be schema- and severity-equivalent.
+
+Each producer receives: the repo profile, the file's macro record, its changed
+functions/hunks, the blast-radius callers, and the deterministic-tier hits for that file.
+Each returns findings in the strict JSON schema (see triage.md).
+
+Two-tier effort: a fast default pass; a **deep pass** (whole-repo exploration, ensemble
+over N shuffled passes — set N=3 only under `--deep` or for security-sensitive/
+cross-service/large diffs; do NOT promise per-subagent model selection that Task cannot
+guarantee). Stamp which tier and N ran in the report.
+
+---
+
+## Phase 7 — Generate-then-Filter
+
+Over-generate candidates from all producers (executors + language specialists + tiers),
+then a deterministic pipeline:
+
+```
+candidates
+  -> dedup            (key: {category}:{file}:{line}:{normalized_title}, keep-highest-severity)
+  -> cross-tier merge (tool-confirmed -> +confidence, tag "multi-tier-confirmed")
+  -> evidence-check   (no file:line OR no counterexample -> mark for Judge)
+  -> learnings filter (.claude/review-learnings.md, create-if-absent: categories rejected Nx -> auto-suppress, LOGGED)
+  -> output
+```
+
+**Every drop/suppression is logged** in a transparent appendix (what + why + cited
+evidence). Silent discard is forbidden.
+
+## Phase 7.5 — Judge / Verifier (separate stage; guards both directions)
+
+A dedicated verifier agent re-reads each surviving finding **against the cited code** and:
+- Records the actual `grep`/`ast-grep`/`Read`/linter command + output that grounds it.
+- **Demotes** (never silently deletes) any finding it cannot ground -> Needs-Verification
+  with an explicit "could not confirm because …" note.
+- Drops ONLY hallucinations (cited line does not exist / says the opposite) — logged.
+  "A grep returning nothing is not proof of a bug."
+- **False-negative guard:** cross-checks the Phase 0.8 canary result and the per-dimension
+  `clean:` justifications; if any owner marked a dimension clean with no cited line, that
+  dimension reverts to `unverified` and the verdict cannot be APPROVE.
+
+For high-stakes diffs run the ensemble: findings in >1 pass -> full confidence; single-pass
+-> Needs-Verification.
+
+---
+
+## Phase 8 — Coverage Manifest + EXTERNAL Verifier (proof-of-work, mandatory)
+
+The run emits a machine-readable manifest file AND runs a non-LLM verifier that gates
+APPROVE. The model may not self-attest coverage.
+
+**Step 0 — get the authoritative diff facts (do NOT compute them yourself).**
+The RTK PreToolUse hook rewrites your `git diff`, so a hash you compute by hand
+diverges from what the verifier recomputes internally and every run goes
+INCONCLUSIVE. Ask the verifier for the canonical numbers and copy them verbatim:
+
+```bash
+# For a PR/branch review use the real head sha; for a local dirty tree use the
+# sentinel HEAD=WORKTREE (reviews uncommitted tracked changes vs $BASE).
+RTK_BYPASS=1 bash ~/.claude/scripts/review-verify-manifest.sh \
+  --repo "$PROJECT_DIR" --base "$BASE" --head "${HEAD:-WORKTREE}" --print-facts
+# -> {"diff_hash":"…","hunks_total":N,"head":"…"}  copy both into the manifest
+```
+
+```yaml
+coverage_manifest:                # written to .claude/review-manifest-{ts}.json
+  diff_hash: <sha>                # COPY from --print-facts (canonical, RTK-safe)
+  base: <sha>  head: <sha|WORKTREE>
+  canary: passed|failed           # mirrors canary_artifact.detected
+  canary_artifact: ".claude/review-canary-<ts>.json"   # C6: REAL artifact path; verifier READS it and requires detected==true
+  hunks_total: <n>                # COPY from --print-facts; verifier re-asserts
+  files:
+    - path: <file>
+      file_class: <enum>
+      hunks: <n>                  # C4: sum(files[].hunks) MUST equal hunks_total
+      macro_pass: true
+      # micro_pass for a CODE file MUST be true — "N/A"/"deferred" are REJECTED for code.
+      # Only generated|vendored|binary|lockfile|rename(pure)|docs may use "N/A (<class> — <justification>)".
+      # low-risk non-code under TRIAGE may use "deferred(<reason>)"; a code file may NOT.
+      micro_pass: true|"N/A (<class> — <justification>)"|"deferred(<reason>)"
+      dimensions: {correctness: checked, security: checked, ..., portability: N/A}
+      symbols_inspected: ["<pkg.Func@file:line>", ...]   # PER-FILE; MUST ⊇ this file's verifier-extracted symbols
+  tiers: [{tool, status, exit, findings}, ...]           # generated from _table.tsv
+  blast_radius_done: true
+  change_coupling_done: true
+  doc_sync:                       # Phase 5.7 — verifier RECOMPUTES required CLAUDE.md set
+    claude_md:                    # one entry per touched-dir + ancestor (repo root => "CLAUDE.md")
+      - {path: "CLAUDE.md", status: "updated"}        # status in {updated, created, current}
+      # ... <dir>/CLAUDE.md for every touched dir AND its ancestors up to repo root ...
+    docs:                         # stale human docs impacted by the diff (informational)
+      - {path: "docs/architecture.md", status: "updated"}
+  uninspected: []                 # MUST be empty for a valid APPROVE
+```
+
+Then invoke the external verifier (must pass):
+
+```bash
+RTK_BYPASS=1 bash ~/.claude/scripts/review-verify-manifest.sh \
+  --repo "$PROJECT_DIR" --base "$BASE" --head "${HEAD:-WORKTREE}" \
+  --manifest ".claude/review-manifest-${TS}.json" --det "$DET"
+VERIFIER_EXIT=$?                  # capture immediately (C8)
+
+# C8: HARD-BRANCH on the exit code. Never narrate it and proceed to APPROVE.
+if [ "$VERIFIER_EXIT" -ne 0 ]; then
+  echo "VERIFIER: FAIL (exit=$VERIFIER_EXIT) -> verdict INVALID/INCONCLUSIVE; APPROVE is impossible."
+  VERDICT="INCONCLUSIVE"         # consumed by Phase 9 synthesis; abort any APPROVE path
+else
+  echo "VERIFIER: PASS (exit=0) -> coverage proven (NOT quality; see Core Doctrine §8)."
+fi
+```
+
+The branch is binding: `VERIFIER_EXIT != 0` forces `VERDICT=INCONCLUSIVE` (or INVALID) and
+Phase 9 may not emit a 0–5 merge score in that state. A bare `echo` of the exit code is
+NOT compliant — the verdict must mechanically follow the exit code.
+
+The verifier has **FOUR exit codes** — do not collapse them to "0 vs nonzero":
+
+| Exit | Meaning | Verdict consequence |
+|------|---------|---------------------|
+| `0` | **PASS** — manifest internally + git-consistent | APPROVE permitted (other gates still apply) |
+| `1` | **INVALID** — a coverage/integrity check failed (diff_hash, symbol set, tier `.out`, class coverage) | verdict cannot be APPROVE -> INVALID; emit INCONCLUSIVE and surface the failed check |
+| `2` | **not-approve-eligible** — manifest is well-formed but the run is not APPROVE-eligible (`uninspected != []`, canary not `detected`) | verdict cannot be APPROVE -> emit INCONCLUSIVE |
+| `3` | **usage** — bad/missing CLI arguments | not a verdict; fix the invocation and re-run |
+
+The `-ne 0` guard above is the safe superset (1/2/3 all block APPROVE); when reporting,
+name the specific code so INVALID (1), not-approve-eligible (2), and usage (3) are never
+conflated.
+
+`$HEAD` is a real sha for PR/branch reviews; for a local review of an uncommitted
+tree pass `--head WORKTREE` (BASE...working-tree). The verifier pins one canonical
+diff command (`git -c core.autocrlf=false -c diff.renames=true -c diff.noprefix=false diff`)
+so its numbers match `--print-facts` exactly (C5: identical flags everywhere).
+
+The verifier (authored as a project script) does, with git+jq+python3 (all present):
+1. Recompute `diff_hash` and `hunks_total` from the canonical diff; assert equal to the
+   manifest values (which you copied from `--print-facts`).
+2. Extract changed symbols from diff hunk headers + signature lines; assert
+   `symbols_inspected` ⊇ that set (under-enumeration FAILS).
+3. Assert each `tiers[]` entry maps to a real captured `.out` file in `$DET` and that
+   exit/findings match the parsed values (fabricated tier numbers FAIL).
+4. Assert no `code`/`config`/`iac` file has `macro_pass=false` or missing `micro_pass`;
+   additionally a `code` file with `micro_pass` of `"N/A …"` or `"deferred …"` FAILS
+   (only generated|vendored|binary|lockfile|rename|docs may use N/A; only low-risk non-code
+   may use deferred).
+5. Assert `uninspected == []` for any APPROVE-eligible run, and OPEN the
+   `canary_artifact` file and require `detected == true` (a bare `canary: passed` string in
+   the manifest is NOT sufficient — C6).
+6. **doc-sync (structural, exit 1):** recompute the required CLAUDE.md set (every touched
+   directory + ALL ancestors to the repo root; repo root => `CLAUDE.md`) from the diff and
+   assert each path appears in `doc_sync.claude_md[]` with status in
+   `{updated,created,current}`. A missing or wrong-status required CLAUDE.md FAILS the run
+   as INVALID — so the loop cannot converge while a touched-folder CLAUDE.md is unsynced.
+
+```yaml
+validity_rules:
+  - "Verifier exit 0 -> PASS (APPROVE permitted, other gates still apply); exit 1 -> INVALID;
+     exit 2 -> not-approve-eligible (emit INCONCLUSIVE); exit 3 -> usage error (fix invocation).
+     Any nonzero exit blocks APPROVE."
+  - "Any code/config/iac file with macro_pass=false OR micro_pass false/missing -> INVALID."
+  - "A code file whose micro_pass is 'N/A' or 'deferred' -> INVALID (code must be truly micro-passed)."
+  - "canary_artifact.detected != true (read from the file, not the manifest string) -> INVALID."
+  - "doc_sync: any required CLAUDE.md (touched dir + ancestors to repo root) absent from
+     doc_sync.claude_md[] or with status not in {updated,created,current} -> INVALID."
+  - "Empty findings array is valid ONLY with verifier-pass + canary detected==true + per-dimension positive statement per file."
+  - "An applicable deterministic tier with status=absent lowers confidence and is named, but does not alone force INVALID; status=failed with findings is hard-blocking."
+```
+
+---
+
+## Severity & Confidence Model (decoupled — and the gate is real)
+
+**Two independent axes plus a gating verification status. Confidence NEVER deletes a
+finding.**
+
+**Axis 1 — Severity / impact:**
+- `CRITICAL` — exploitable security, data loss/corruption, crash on common path,
+  money/safety, PII/LI-data leakage.
+- `HIGH` — real bug or vuln needing specific conditions.
+- `MEDIUM` — quality/maintainability/perf with bounded impact.
+- `LOW` — nit/style (collapsed into a nitpicks bucket).
+
+Cross-tag category (Logic/Security/Concurrency/Perf/Arch/ErrorHandling/API/Test/Docs/
+Deps/Observability/Privacy/Licensing/Portability/Style) and an actionability flag
+(**Blocking** vs Non-blocking). Blocking findings gate the generated `/refine` -> `/goal` plan.
+
+**Axis 2 — Confidence (0–100)**, derived from EVIDENCE, not vibes. Anchored at
+0/25/50/75/100. Boosters: deterministic-tool confirmation, multi-pass/ensemble agreement
+(cap 100), a working POC/repro/exploit, cross-tier confirmation. Confidence is
+**recomputed from objective signals** — the model cannot low-ball it to dodge work, and a
+missing-but-applicable tool caps the achievable confidence for that dimension.
+
+**Verification status (replaces all "drop" rules — and it GATES):**
+- `Confirmed` — grounded with command trail + counterexample.
+- `Needs Verification` — genuine severity, weak/absent confirmation. Surfaced in its own
+  clearly-labeled tier. **Any CRITICAL/HIGH in this tier caps the merge score at <=3 and
+  blocks `--loop` exit.** This is a gate, not a soft-drop. (Subtle races / logic bugs with
+  no clean repro live here and still block.)
+- `Rejected (hallucination)` — Judge could not ground it; logged in the appendix.
+
+**Mandatory evidence per finding:** `file:line(s)` + tool/command trail +
+category-appropriate counterexample (repro / source->sink / interleaving / benchmark).
+Missing the counterexample -> **demote** (which now gates), never drop.
+
+**Verdict synthesis:** one **0–5 PR merge score** fusing max severity + blast-radius/
+complexity + pattern-alignment: `5 = merge`, `3 = address-first`, `0–1 = rethink`. Plus a
+sixth terminal state **INCONCLUSIVE** (see below). A **ratchet/delta gate** blocks only
+when the change makes a *touched* file WORSE, not on pre-existing debt.
+
+**INCONCLUSIVE (non-APPROVE) is forced when:** verifier failed; canary failed; `--no-poc`
+was used; TRIAGE deferred micro on risk-touched files; or an applicable tier needed for a
+CRITICAL-capable dimension is absent and no manual grounding replaced it. INCONCLUSIVE is
+the honest outcome and is preferred over a fabricated green manifest.
+
+**Output discipline:** rank by severity × confidence; collapse a nitpicks bucket; cap
+surfaced findings per tier with a verbose appendix; tunable strictness (`--strictness
+chill|assertive`, default assertive). Every filtered finding + reason is logged.
+
+Full rubric anchors + JSON schema: **read `~/.claude/commands/review/triage.md`**.
+
+---
+
+## Anti-Theater Guardrails (hard rules)
+
+| Guardrail | Enforcement |
+|-----------|-------------|
+| Evidence-or-reject | No `file:line` -> Judge auto-rejects before output |
+| Counterexample per category | repro / source->sink / interleaving / benchmark, else demote (gating) |
+| External manifest verifier | `review-verify-manifest.sh` recomputes hunks+symbols from git; exit 0=PASS, 1=INVALID, 2=not-approve-eligible, 3=usage (any nonzero blocks APPROVE) |
+| Symbol-set binding | `symbols_inspected` must ⊇ verifier's diff-extracted symbol set; under-count = INVALID |
+| Doc & CLAUDE.md sync | verifier recomputes required CLAUDE.md set (touched dirs + ancestors); any absent/wrong-status entry in `doc_sync.claude_md[]` = INVALID; blocks loop exit |
+| Tier table from output | exit/findings PARSED from `.out`; model-authored tier numbers = INVALID |
+| Dimension ownership | every `checked:true` names an owner that emitted a finding or a cited `clean:` line |
+| Canary self-test | seeded defect must be flagged; failure -> empty-findings verdict becomes INCONCLUSIVE |
+| Needs-Verification gate | any CRITICAL/HIGH there caps score <=3 and blocks loop exit (no "unexamined" weasel) |
+| --no-poc / TRIAGE micro-defer | forces INCONCLUSIVE, never a clean APPROVE |
+| Judge stage | re-grounds every finding; logs all drops; "empty grep != proof" |
+| No theater edits | replying/LGTM/re-emitting a summary is NOT a review; diff_hash mismatch detects no-op |
+| Tool-absent honesty | `absent` is loud and caps confidence; never silently treated as pass |
+| Auditable suppression | every FP exclusion MUST cite the justifying line; unjustified exclusion is itself a finding |
+| Hard gates live here | the verdict-gating rules live in THIS file + the verifier script, not only in "read the module" prose |
+
+---
+
+## Phase 9.5 — Verified Fix Patches
+
+For each **actionable** finding, produce a `/refine`->`/goal`-ready patch and validate it in an
+isolated worktree (build + tests via the allow-listed `go/cargo/npm/pytest/make`
+commands) before presenting. When the project is not buildable in-container, the patch is
+marked "proposed (unverified)". A stable **patch-ID** per finding tracks resolution across
+`--loop` iterations — resolved items are auto-resolved and never re-reported.
+
+---
+
+## Phase 10 — Cyclic Loop (--loop)
+
+```
+/review --loop
+  - Phases 0–8: full review + manifest + EXTERNAL verifier
+  - Phase 9.5: emit verified fix patches -> .claude/plans/review-fixes-{ts}.md
+  - /refine -> /goal applies fixes (incl. doc & CLAUDE.md re-sync) via specialists
+  - re-review (patch-ID aware: skip resolved)
+```
+
+**Exit ONLY when ALL hold:**
+1. No CRITICAL/HIGH Confirmed remaining, AND
+2. No CRITICAL/HIGH in Needs-Verification (the gate), AND
+3. External manifest verifier passes (0 uninspected, symbol set matched, canary
+   `detected==true`, **doc-sync satisfied**), AND
+4. `verdict != INCONCLUSIVE` (C11 — an absent CRITICAL-capable tier, a `--no-poc` run, or a
+   TRIAGE micro-defer forces INCONCLUSIVE, which can NEVER satisfy loop exit), AND
+5. All *applicable* deterministic tiers are green OR justified N/A; tiers that are merely
+   `absent` are named and acknowledged but do not block convergence (they cap confidence,
+   and if they gate a CRITICAL-capable dimension they make the verdict INCONCLUSIVE, which
+   condition 4 already blocks), AND
+6. **Every touched-folder + ancestor CLAUDE.md is synced** (verifier `doc-sync` check
+   passes); the loop may NOT converge while a touched-folder CLAUDE.md is unsynced or a
+   project doc is left stale vs the diff.
+
+The loop may NOT converge while sub-threshold real bugs, uninspected hunks, an
+INCONCLUSIVE verdict, an unsynced touched-folder CLAUDE.md, or a failing verifier remain.
+Cyclic details: **read
+`~/.claude/commands/review/cyclic.md`**.
+
+---
+
+## Output
+
+LOCAL only — **never posts** review comments or MR/PR replies. Phase 2.5 answers and Phase
+1.5 descriptions are emitted as **drafts the user may choose to post** (with the NO-AI-
+mention rule applied to the draft text). Generates:
+- Console report: walkthrough, Mermaid (when applicable), verdict (0–5 or INCONCLUSIVE),
+  Confirmed findings (by severity×confidence), **Needs-Verification tier (gating)**,
+  nitpicks bucket, tier-status table (from `.out`), verifier result, coverage-manifest
+  summary, suppression appendix.
+- `.claude/review-manifest-{ts}.json` (machine, verifier-checked).
+- `.claude/plans/review-fixes-{timestamp}.md` for `/refine` -> `/goal`.
+
+Synthesis details: **read `~/.claude/commands/review/synthesis.md`**.
+
+---
+
+## Usage / Flags
+
+```
+/review                     # Single review (no fix, no loop)
+/review --loop [N]          # Cyclic until correctness-clear AND verifier-green
+/review --pr <n>            # GitHub PR    /review --mr <n>   # GitLab MR
+/review --staged            # Staged changes only
+/review --file <path>       # Single file (still macro+micro+manifest+verifier for it)
+/review --security|--correctness|--design|--quality|--concurrency|--perf|--portability|--privacy
+/review --deep              # Force deep pass + ensemble (N=3)
+/review --strictness chill|assertive       # default: assertive
+/review --triage            # Large-diff mode (>30 files OR >1500 lines); micro-deferral -> INCONCLUSIVE
+/review --describe          # Force auto-describe (draft only)
+/review --tier all|internal|external|qodo|coderabbit|deterministic
+/review --no-poc            # Skip POC/benchmark (findings demoted; verdict forced INCONCLUSIVE)
+/review --help
+```
+
+**IF `$ARGUMENTS` contains `--help`**: print this Usage block and STOP.
+
+---
+
+## Budget Controller
+
+```yaml
+budget:
+  normal: {max_files: 30, max_lines: 1500, max_comments: 80}
+  graph:  {max_symbols: 40, max_callers_per_symbol: 25}     # hard caps to bound context
+  manifest: "compact form: counts + ranges, not full source echoes"
+  triage:
+    trigger: "files > 30 OR lines > 1500"
+    action: "Prioritize risk-touched + security; STILL emit a manifest covering 100% of hunks
+             at macro level. Deferred micro on risk-touched files -> verdict INCONCLUSIVE
+             (never a clean pass); deferred micro on low-risk files -> listed as
+             micro_pass: deferred(reason), never silently omitted."
+  output_caps: {critical: unlimited, high: 10, medium: 5, low(nitpicks): collapsed}
+```
+
+Even in TRIAGE the verifier accounts for **every** hunk; deferred micro passes are
+explicit and downgrade the verdict.
+
+---
+
+## Module Breakdown
+
+| Module | Status | Covers |
+|--------|--------|--------|
+| `~/.claude/commands/review/dispatch.md` | exists | Phases 0–1.5: context, repo profile, intent/risk, auto-describe (draft) |
+| `~/.claude/commands/review/triage.md` | exists | Feedback/questions (draft), finding JSON schema, severity rubric, executor/specialist dispatch (TEAMS/SUBAGENTS) |
+| `~/.claude/commands/review/dimensions.md` | **author** | Full taxonomy (correctness, security, idioms, architecture, portability, perf, concurrency, error-handling, API/contract, testing, docs, deps/supply-chain, observability, data-privacy/PII, licensing, maintainability, a11y/i18n, doc & CLAUDE.md sync): macro+micro checks + owner agent per dimension |
+| `~/.claude/commands/review/deterministic.md` | **author** | Tier runner: per-language/IaC commands, `run()` helper, `_table.tsv` parsing, tool-status model |
+| `~/.claude/commands/review/graph.md` | **author** | Bounded call-graph/blast-radius + change-coupling (git diff hunk headers + ast-grep-if-present + rg; NEVER `sg`) |
+| `~/.claude/commands/review/manifest.md` | **author** | Manifest schema, file-class enum, micro_per_hunk, Judge protocol, and the `review-verify-manifest.sh` contract |
+| `~/.claude/scripts/review-verify-manifest.sh` | **author** | Non-LLM gate (git+jq+python3): recompute hunks/symbols/diff_hash, validate tier `.out`; exit 0=PASS / 1=INVALID / 2=not-approve-eligible / 3=usage |
+| `~/.claude/commands/review/tiers.md` | exists | T2 Qodo (absent-skip) + T3 CodeRabbit (auth-probe) integration |
+| `~/.claude/commands/review/synthesis.md` | exists | Verdict (incl. INCONCLUSIVE), Needs-Verification gate, LOCAL report + /plan output |
+| `~/.claude/commands/review/cyclic.md` | exists | --loop correctness gate, patch-ID tracking, guardrails |
+
+To execute a phase, read its module. The verdict-gating guardrails are duplicated in THIS
+file and the verifier script so a budget-pressured agent cannot bypass them by skipping a
+module.
+
+---
+
+## Guardrails (quick reference)
 
 | Action | Status |
 |--------|--------|
-| Auto-approve/merge | FORBIDDEN |
-| Skip security issues | FORBIDDEN |
-| Modify code directly | FORBIDDEN |
-| Post comment without user validation | FORBIDDEN |
-| Mention AI in PR responses | **ABSOLUTE FORBIDDEN** |
-| Expose secrets in evidence/output | FORBIDDEN |
-| Ignore budget limits | FORBIDDEN |
+| Auto-approve / auto-merge | FORBIDDEN |
+| APPROVE without a verifier-passed coverage manifest | FORBIDDEN (invalid run) |
+| Self-attest coverage without the external verifier | FORBIDDEN |
+| Drop a high-severity finding for low confidence | FORBIDDEN (demote to gating Needs-Verification) |
+| Report a finding without file:line + counterexample | FORBIDDEN |
+| Author tier exit codes/counts by hand | FORBIDDEN (parse `.out`) |
+| Treat an absent tool as a pass | FORBIDDEN (status=absent, confidence-capped) |
+| Mark a dimension checked with no owner/cited line | FORBIDDEN |
+| Return APPROVE after --no-poc or TRIAGE micro-defer | FORBIDDEN (INCONCLUSIVE) |
+| Use `sg` for AST search | FORBIDDEN (it is newgrp) |
+| Suppress a finding without citing the justifying line | FORBIDDEN (itself a finding) |
+| Modify repo code directly | FORBIDDEN (patches go to /plan) |
+| Post comments / MR-PR replies | FORBIDDEN (drafts for user only) |
+| Mention AI in PR/MR draft responses | ABSOLUTE FORBIDDEN |
+| Expose secrets in evidence/output | FORBIDDEN (mask AWS/PAT/JWT/PEM/Bearer) |
+| Politeness inflation / "LGTM" without proof | FORBIDDEN |

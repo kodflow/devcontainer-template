@@ -23,4 +23,4 @@ when the argument is a PR number, a git range, or `--staged`/`--pr`/`--code`.
 
 Findings are merged (evidence-gated, 3×MED→HIGH) then challenged (Grep-verified
 KEEP/REJECT/DEFER). On `--loop`, fixes are written to a `review-fixes-<timestamp>`
-plan under `.claude/plans/` and handed to `/goal` (no `/do`).
+plan under `.claude/plans/` and handed to `/refine` → `/goal`.

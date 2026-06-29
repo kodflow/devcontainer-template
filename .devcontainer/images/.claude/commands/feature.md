@@ -21,6 +21,14 @@ allowed-tools:
   - "TaskList(*)"
   - "TaskGet(*)"
   - "AskUserQuestion(*)"
+  # --gh-sync (PR8) mirrors RTM features to GitHub issues. These grants were
+  # missing, so --gh-sync called ungranted tools and silently no-op'd
+  # (challenge-setup-2026 audit, Q3). MCP-first per repo doctrine.
+  - "mcp__github__issue_write(*)"
+  - "mcp__github__sub_issue_write(*)"
+  - "mcp__github__search_issues(*)"
+  - "mcp__github__list_issues(*)"
+  - "mcp__github__issue_read(*)"
 ---
 
 # /feature - Feature Tracking RTM (Requirements Traceability Matrix)

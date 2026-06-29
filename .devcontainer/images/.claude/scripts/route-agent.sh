@@ -64,13 +64,11 @@ if ! PROFILE_JSON="$(cat "$PROFILE_PATH" 2>/dev/null)" \
   exit 20
 fi
 
-# --- Parse routing-table line-by-line ---
-[[ -r "$ROUTING_TABLE" ]] || {
-  # No table = always fallback
-  emit_fallback "no-routing-table" "$PHASE"
-  exit 10
-}
-
+# WHY: defined BEFORE the routing-table guard below. Bash does not hoist
+# functions, so the missing-table guard (which calls emit_fallback) must
+# see the definition first — otherwise an absent routing table dies with
+# exit 127 (command not found) instead of emitting the JSON fallback +
+# exit 10. Regression fixed upstream from supervizio/agent#84 (issue #387).
 emit_fallback() {
   local reason="$1" phase="$2"
   mkdir -p "$(dirname "$TELEMETRY_LOG")"
@@ -87,6 +85,13 @@ emit_fallback() {
     fallback_used: true,
     expanded_from_template: false
   } | [.]'
+}
+
+# --- Parse routing-table line-by-line ---
+[[ -r "$ROUTING_TABLE" ]] || {
+  # No table = always fallback
+  emit_fallback "no-routing-table" "$PHASE"
+  exit 10
 }
 
 # --- Validate each rule ---

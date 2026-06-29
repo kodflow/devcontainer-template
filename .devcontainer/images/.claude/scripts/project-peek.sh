@@ -5,7 +5,7 @@
 # Exit 0 = always (fail-open)
 #
 # Replaces ~12 sequential tool calls with 1 script call.
-# Used by: /warmup (Phase 1), /init (Phase 1), /improve (Phase 1), /search (Phase 1)
+# Used by: /warmup (Phase 1), /init (Phase 1), /search (Phase 1)
 # ============================================================================
 
 set +e

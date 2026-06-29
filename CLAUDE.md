@@ -104,7 +104,7 @@ Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.).
 
 ## Agent Teams (experimental)
 
-Parallel multi-agent execution for 5 high-value skills (`/review`, `/plan`, `/infra`, `/test`, `/improve`). Each skill detects its runtime mode at invocation and branches:
+Parallel multi-agent execution for 4 high-value skills (`/review`, `/plan`, `/infra`, `/test`). Each skill detects its runtime mode at invocation and branches:
 
 | Capability (persisted) | Runtime mode | Where |
 |---|---|---|
@@ -171,10 +171,12 @@ Principle: More detail deeper in tree. Target < 200 lines each.
 | `/vpn` | Multi-protocol VPN management |
 | `/warmup` | Context pre-loading and CLAUDE.md update |
 | `/update` | DevContainer update from template |
-| `/improve` | Documentation QA for design patterns |
 | `/learn` | Extract reusable patterns from the current session into `~/.claude/docs/learned/` |
 | `/feature` | Feature tracking RTM (CRUD, audit, auto-learn) |
 | `/refine` | Skills Architecture v1.3 — goal contract generator (10-lens analysis) |
+| `/debug` | Systematic root-cause-first debugging (reproduce → isolate → prove → fix) |
+| `/adr` | Architecture Decision Records (docs/adr/NNNN-*.md + index), wired into `/plan` and `/git` |
+| `/review-doctor` | Health-and-heal the /review v2 stack (verifier, modules, scanners, routing, canary) |
 
 ### Canonical workflow (Skills Architecture v1.6)
 

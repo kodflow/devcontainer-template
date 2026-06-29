@@ -247,10 +247,9 @@ Predictable names so users can reference them and `/audit` can track them.
 | `/review` | `reviewer-correctness`, `reviewer-security`, `reviewer-design`, `reviewer-quality`, `reviewer-shell` |
 | `/plan` | `explorer-backend`, `explorer-frontend`, `explorer-test`, `explorer-patterns` |
 | `/docs` | `docs-architect`, `docs-agents`, `docs-commands`, `docs-hooks`, `docs-config`, `docs-structure`, `docs-mcp`, `docs-patterns`, `docs-languages` |
-| `/do` | `impl-<language>` (picked from plan parallelization table) |
+| `/goal` | `impl-<language>` (picked from plan parallelization table) |
 | `/infra` | `cloud-aws`, `cloud-gcp`, `cloud-azure`, `cloud-hashicorp` |
 | `/test` | `test-e2e`, `test-unit`, `test-integration` |
-| `/improve` | `improve-design`, `improve-quality`, `improve-security`, `improve-shell` |
 
 Leads ask users to assign custom names via spawn prompts when the above don't fit.
 
