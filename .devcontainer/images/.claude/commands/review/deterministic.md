@@ -52,12 +52,21 @@ reprinted in the table footer so they cannot hide.
 DET=$(mktemp -d "${TMPDIR:-/tmp}/review-det.XXXXXX")
 git -C "$PROJECT_DIR" diff --name-only "$BASE...$HEAD" > "$DET/_files.txt"
 
+# Per-tool wall-clock cap. A hung/slow tool must NEVER stall the whole review;
+# timeout sends SIGTERM at the deadline (exit 124), which run() records as a real
+# nonzero exit -> derived status=failed, note 'timeout'. Override per-project /
+# per-suite via REVIEW_TOOL_TIMEOUT (seconds). 180s is sane for a diff-scoped lint;
+# long build/test suites get the wider REVIEW_TEST_TIMEOUT below.
+RUN_TIMEOUT="${REVIEW_TOOL_TIMEOUT:-180}"
+TEST_TIMEOUT="${REVIEW_TEST_TIMEOUT:-600}"
+
 # _table.tsv columns:  invocation <TAB> status(ran|absent|na) <TAB> exit <TAB> out_lines
 #   col1 is the FULL invocation ("go vet ./...") so multi-subcommand binaries (go, cargo)
 #   each get one UNIQUE row + one UNIQUE .out; the verifier re-derives the slug identically.
 # 'failed' is DERIVED at render time (ran + exit!=0); it is never written as a raw status.
 
-run() {                                    # run <tool> [args...]  -> executes or records absent
+_run_with() {                              # _run_with <timeout_s> <tool> [args...]
+  local to="$1"; shift
   local tool="$1"
   local label="$*"                          # full invocation -> distinguishes go vet/build/test
   local slug="${label//[^a-zA-Z0-9]/_}"     # unique per invocation -> NO .out collision
@@ -65,11 +74,19 @@ run() {                                    # run <tool> [args...]  -> executes o
     printf '%s\tabsent\t\t0\n' "$label" >> "$DET/_table.tsv"   # loud-by-counting; never a pass
     return 0
   fi
-  "$@" > "$DET/$slug.out" 2>&1
+  # Subshell cd: deterministic CWD ($PROJECT_DIR) for relative-path tools WITHOUT
+  # leaking the chdir into the rest of the pipeline. timeout bounds every tool.
+  ( cd "$PROJECT_DIR" && timeout "$to" "$@" ) > "$DET/$slug.out" 2>&1
   local rc=$?                               # captured BEFORE any other command clobbers $?
+  if [ "$rc" -eq 124 ]; then               # timeout's SIGTERM deadline -> loud, not silent
+    printf 'TIMEOUT after %ss\n' "$to" >> "$DET/$slug.out"
+  fi
   printf '%s\tran\t%s\t%s\n' "$label" "$rc" "$(wc -l < "$DET/$slug.out")" >> "$DET/_table.tsv"
   return 0                                  # NEVER abort the pipeline on a tool's nonzero exit
 }
+
+run()      { _run_with "$RUN_TIMEOUT"  "$@"; }   # default-bounded tool
+run_long() { _run_with "$TEST_TIMEOUT" "$@"; }   # build/test suites (wider cap)
 
 na() {                                      # na <tool> <reason>  -> language/artifact not in diff
   printf '%s\tna\t\t0\n' "$1" >> "$DET/_table.tsv"
@@ -79,6 +96,19 @@ na() {                                      # na <tool> <reason>  -> language/ar
 # Fire a tool ONLY when its language/artifact is present in the diff.
 changed_has() { grep -Eq "$1" "$DET/_files.txt"; }                      # predicate
 changed_of()  { grep -E "$1" "$DET/_files.txt" | sed "s#^#$PROJECT_DIR/#"; }  # absolute paths
+
+# Diff-scope file list (zsh + bash safe). UNQUOTED $(changed_of …) is a footgun:
+# zsh does NOT word-split command substitutions by default, so the whole multi-line
+# blob would arrive as ONE argv. Read line-by-line into the CHANGED array instead and
+# always pass it quoted-splatted ("${CHANGED[@]}"). Empty array -> zero args (gated by
+# changed_has upstream, so this stays non-empty in practice).
+collect() {                                 # collect <regex> -> fills global CHANGED[]
+  CHANGED=()
+  local f
+  while IFS= read -r f; do
+    [ -n "$f" ] && CHANGED+=("$f")
+  done < <(changed_of "$1")
+}
 ```
 
 Invariants:
@@ -88,6 +118,11 @@ Invariants:
   (and the three `cargo` subcommands) never overwrite each other's captured output.
 - Output capped at `.out`; the table stores only `exit` + line-count. The model reads the
   `.out` to extract findings (§5), it does **not** invent counts.
+- Every tool runs **from `$PROJECT_DIR`** (subshell `cd`, never leaked) and **under
+  `timeout`** (`RUN_TIMEOUT`, or `TEST_TIMEOUT` via `run_long`). A timeout = exit 124 =
+  derived `failed` with note `timeout` — counted, never silently dropped.
+- Multi-file invocations expand via `collect` + `"${CHANGED[@]}"` (zsh-safe array), never
+  unquoted `$(changed_of …)` — zsh would pass the whole blob as a single argv.
 
 ---
 
@@ -98,6 +133,8 @@ Languages **absent from the diff** are recorded once via `na` for an honest mani
 
 ```bash
 # ---- Static analysis / idioms (per language) ----------------------------------------
+# Diff-scope where the tool accepts paths; whole-package only where it must
+# (go/cargo are package-graph tools — './...' is correct, not laziness).
 if changed_has '\.go$'; then
   run golangci-lint run ./...; run go vet ./...; run staticcheck ./...
 fi
@@ -105,16 +142,19 @@ if changed_has '\.rs$'; then
   run cargo clippy --all-targets -- -D warnings
 fi
 if changed_has '\.py$'; then
-  run ruff check .; run mypy .
+  collect '\.py$'
+  run ruff check "${CHANGED[@]}"; run mypy "${CHANGED[@]}"
 fi
 if changed_has '\.(ts|tsx|js|jsx)$'; then
-  run eslint .; run tsc --noEmit
+  collect '\.(ts|tsx|js|jsx)$'
+  run eslint "${CHANGED[@]}"; run tsc --noEmit          # tsc needs the project graph
 fi
 if changed_has '\.(c|h)$|\.(cpp|hpp|cc|cxx)$'; then
-  run clang-tidy $(changed_of '\.(c|h|cpp|hpp|cc|cxx)$')
-  run cppcheck --enable=all $(changed_of '\.(c|h|cpp|hpp|cc|cxx)$')
+  collect '\.(c|h|cpp|hpp|cc|cxx)$'
+  run clang-tidy "${CHANGED[@]}"
+  run cppcheck --enable=all "${CHANGED[@]}"
 fi
-if changed_has '\.sh$';        then run shellcheck $(changed_of '\.sh$'); fi
+if changed_has '\.sh$';        then collect '\.sh$'; run shellcheck "${CHANGED[@]}"; fi
 if changed_has '\.rb$';        then run rubocop; fi
 if changed_has '\.php$';       then run phpstan analyse; fi
 if changed_has '\.kt$';        then run detekt; fi
@@ -124,17 +164,22 @@ if changed_has '\.swift$';     then run swiftlint; fi
 if changed_has '\.tf$';                         then run tflint; run tfsec .; run checkov -d .; fi
 if changed_has '\.ya?ml$';                      then run yamllint .; fi
 if changed_has '(^|/)\.github/workflows/.*\.ya?ml$'; then run actionlint; fi
-if changed_has '(^|/)Dockerfile';               then run hadolint $(changed_of 'Dockerfile'); fi
-if changed_has '\.ya?ml$' && grep -rqsl 'apiVersion:' $(changed_of '\.ya?ml$') 2>/dev/null; then
-  run kube-linter lint .; run kubeconform $(changed_of '\.ya?ml$')
+if changed_has '(^|/)Dockerfile';               then collect 'Dockerfile'; run hadolint "${CHANGED[@]}"; fi
+if changed_has '\.ya?ml$'; then
+  collect '\.ya?ml$'
+  if grep -rqsl 'apiVersion:' "${CHANGED[@]}" 2>/dev/null; then
+    run kube-linter lint .; run kubeconform "${CHANGED[@]}"
+  fi
 fi
 if changed_has '(playbook|roles/|tasks/).*\.ya?ml$'; then run ansible-lint; fi
 
 # ---- Data / schema ------------------------------------------------------------------
-if changed_has '\.sql$';   then run sqlfluff lint $(changed_of '\.sql$'); fi
+if changed_has '\.sql$';   then collect '\.sql$'; run sqlfluff lint "${CHANGED[@]}"; fi
 if changed_has '\.proto$'; then run buf lint; fi
 
 # ---- Security (taint/SAST + secrets) ------------------------------------------------
+# Secret/SAST scans stay repo-wide on purpose: a secret or taint sink can live
+# OUTSIDE the diff yet be reachable from it. Diff-scoping these would create blind spots.
 run semgrep --config auto --error                 # broad — fire on any code diff
 run gitleaks detect --no-banner
 run trufflehog filesystem .
@@ -147,12 +192,13 @@ fi
 if changed_has '\.go$|go\.(mod|sum)$'; then run govulncheck ./...; fi
 
 # ---- BUILD + EXISTING TESTS (catch breakage even with no CI) ------------------------
+# run_long => wider TEST_TIMEOUT; a timeout still lands as exit 124 -> failed (note 'timeout').
 if [ -f "$PROJECT_DIR/Makefile" ] && grep -qE '^test:' "$PROJECT_DIR/Makefile"; then
-  run make test                                   # make is present here
+  run_long make test                              # make is present here
 fi
-if changed_has '\.go$';   then run go build ./...; run go test ./...; fi    # present
-if changed_has '\.rs$';   then run cargo build;    run cargo test;    fi    # present
-if changed_has '\.py$';   then run pytest -q; fi                            # absent here -> loud
+if changed_has '\.go$';   then run go build ./...; run_long go test ./...; fi   # present
+if changed_has '\.rs$';   then run cargo build;    run_long cargo test;    fi   # present
+if changed_has '\.py$';   then run_long pytest -q; fi                           # absent here -> loud
 ```
 
 **N/A bookkeeping** (optional but recommended for a clean manifest): for the dominant
@@ -301,3 +347,7 @@ to pass before `coderabbit review`) — are a separate handoff:
 | Substitute `sg` for `ast-grep` | FORBIDDEN — `/usr/bin/sg` is `newgrp` |
 | Fire a language tool when that language is not in the diff | Avoid — record `na` instead |
 | Report build/test "skipped" when the tool is absent | FORBIDDEN — report `absent` (e.g. pytest here) |
+| Run a tool without `timeout` | FORBIDDEN — every tool goes through `run`/`run_long` (bounded; 124 -> failed) |
+| Run a tool from the wrong CWD | FORBIDDEN — `run()` subshell-`cd`s to `$PROJECT_DIR`; never `cd` the parent shell |
+| Pass `$(changed_of …)` unquoted | FORBIDDEN — zsh won't word-split it; use `collect` + `"${CHANGED[@]}"` |
+| Leave a literal `<changed>` / `<Dockerfile>` placeholder in a command | FORBIDDEN — use real `collect`/`"${CHANGED[@]}"` substitution |

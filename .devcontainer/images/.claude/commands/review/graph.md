@@ -39,6 +39,55 @@ scope: "code + config|iac (CLI flags, config keys count as symbols). generated|v
         binary|lockfile|rename(pure) -> SKIP graphing (record blast_radius: 0, reason)."
 ```
 
+### Step 0 — Preflight: refs must be resolvable, else degrade to INCONCLUSIVE (C13)
+
+`git diff "$BASE...$HEAD"` is only meaningful when **both refs resolve** and a **merge-base
+exists**. A shallow clone (`checkout --depth=1`), a force-pushed/squashed base, or a
+brand-new repo makes the range diff silently compare against an empty or garbage ref and
+fabricate a blast radius. **Never run the diff with an empty/unresolvable ref** — detect
+the condition first and degrade to a HONEST `INCONCLUSIVE` (Phase 8 hard-branches on it;
+it must NEVER become APPROVE). Best-effort deepen once, then bail.
+
+```bash
+# Emit a structured INCONCLUSIVE signal. The STOP must run in the phase's own scope,
+# NOT inside a helper — a `return` inside a `bail()` function would only return from
+# that function and let the diff run anyway. So `inconclusive` only records; each call
+# site stops with `{ ...; return 0 2>/dev/null || exit 0; }` (sourced => return,
+# run directly => exit; never `die`).
+inconclusive() {                            # inconclusive <reason>  (record only)
+  printf '{"phase":"3.5","blast_radius_done":false,"verdict":"INCONCLUSIVE","reason":"%s"}\n' "$1" \
+    > "$DET/graph_inconclusive.json"
+  echo "[graph] INCONCLUSIVE — $1" >&2
+}
+
+# 1) Refs present? (Phase 0 assigns BASE/HEAD; empty => unresolved upstream.)
+[ -n "${BASE:-}" ] && [ -n "${HEAD:-}" ] \
+  || { inconclusive "BASE/HEAD unset (Phase 0 did not resolve refs)"; return 0 2>/dev/null || exit 0; }
+
+# 2) Both refs exist as real commits? (force-push / squashed base / new repo => no.)
+git -C "$PROJECT_DIR" rev-parse --verify --quiet "${BASE}^{commit}" >/dev/null \
+  || { inconclusive "BASE '$BASE' unresolvable (force-push / squashed / unrelated)"; return 0 2>/dev/null || exit 0; }
+git -C "$PROJECT_DIR" rev-parse --verify --quiet "${HEAD}^{commit}" >/dev/null \
+  || { inconclusive "HEAD '$HEAD' unresolvable"; return 0 2>/dev/null || exit 0; }
+
+# 3) Shallow clone => history truncated => merge-base/coupling unreliable. Deepen once
+#    (bounded), then re-check; if still shallow, degrade rather than diff a partial tree.
+if [ "$(git -C "$PROJECT_DIR" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+  timeout 60 git -C "$PROJECT_DIR" fetch --deepen=200 --quiet 2>/dev/null || true
+  if [ "$(git -C "$PROJECT_DIR" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+    inconclusive "shallow clone — cannot resolve merge-base for blast-radius"
+    return 0 2>/dev/null || exit 0
+  fi
+fi
+
+# 4) A real merge-base must exist (the 3-dot range below depends on it).
+git -C "$PROJECT_DIR" merge-base "$BASE" "$HEAD" >/dev/null 2>&1 \
+  || { inconclusive "no merge-base between BASE and HEAD (unrelated histories)"; return 0 2>/dev/null || exit 0; }
+```
+
+Only once all four checks pass does the range diff in Step 1 run. The same guard protects
+Phase 3.7 (change-coupling `git log`), which is equally meaningless on a truncated history.
+
 ### Step 1 — Extract the changed symbol set (must match the verifier's extraction)
 
 The external verifier (`review-verify-manifest.sh`) recomputes this same set from git and
@@ -293,3 +342,6 @@ superset so this never trips on a real, fully-inspected diff.
 | Set `blast_radius_done`/`change_coupling_done` before the work ran | FORBIDDEN (verifier-checked) |
 | Flag an absent-change without the git co-occurrence count | FORBIDDEN (count is the evidence) |
 | Skip graphing because the diff "looks small" | FORBIDDEN (small diffs break callers too) |
+| `git diff`/`git log` with an empty or unresolvable `BASE`/`HEAD` | FORBIDDEN — Step 0 preflight bails to INCONCLUSIVE first |
+| Emit a blast radius from a shallow clone without deepening | FORBIDDEN — deepen once, else degrade to INCONCLUSIVE (C13) |
+| `die`/non-zero abort on unresolvable refs | FORBIDDEN — degrade GRACEFULLY (`inconclusive` + scoped stop -> INCONCLUSIVE), never crash the review |

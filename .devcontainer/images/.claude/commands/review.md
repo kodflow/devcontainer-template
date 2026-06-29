@@ -25,7 +25,11 @@ allowed-tools:
   - "Bash(sha256sum:*)"
   - "Bash(bash ~/.claude/scripts/review-context.sh:*)"
   - "Bash(bash ~/.claude/scripts/review-verify-manifest.sh:*)"
+  - "Bash(bash ~/.claude/scripts/review-canary.sh:*)"
   - "Bash(bash ~/.claude/scripts/route-agent.sh:*)"
+  - "Bash(date:*)"
+  - "Bash(mkdir:*)"
+  - "Bash(printf:*)"
   - "Bash(ast-grep:*)"
   - "Bash(semgrep:*)"
   - "Bash(gitleaks:*)"
@@ -176,16 +180,58 @@ Run the single-call bootstrap **with an explicit project dir** (cwd may not be a
 
 ```bash
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
-bash ~/.claude/scripts/review-context.sh "$PROJECT_DIR"
+CTX="$(bash ~/.claude/scripts/review-context.sh "$PROJECT_DIR")"
+printf '%s\n' "$CTX"
+
+# --- C9: assign the review-wide variables ONCE, here, before any later phase ---
+# Derive BASE/HEAD/CHANGED_FILES from the review-context.sh JSON (fall back to git).
+mkdir -p "$PROJECT_DIR/.claude"
+BASE="$(printf '%s' "$CTX" | jq -r '.git.base // .git.default_branch // empty')"
+HEAD="$(printf '%s' "$CTX" | jq -r '.git.head // empty')"
+CHANGED_FILES="$(printf '%s' "$CTX" | jq -r '.diff.files[]?.path // .diff.files[]? // empty')"
+TS="$(date -u +%Y%m%dT%H%M%SZ)"
+
+# Resolve BASE if the JSON did not carry it (PR base, else merge-base vs default branch).
+[ -z "$BASE" ] && BASE="$(git -C "$PROJECT_DIR" merge-base HEAD "origin/$(git -C "$PROJECT_DIR" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@' || echo main)" 2>/dev/null || true)"
+# Local dirty-tree review: leave HEAD empty -> the verifier sentinel WORKTREE is used below.
+[ -z "$CHANGED_FILES" ] && CHANGED_FILES="$(git -C "$PROJECT_DIR" diff --name-only "${BASE:-HEAD}" 2>/dev/null || true)"
+
+# C13: shallow clone / unresolvable BASE => graceful INCONCLUSIVE, never die.
+if [ -z "$BASE" ]; then
+  echo "review: BASE unresolvable (shallow clone or detached?) -> verdict INCONCLUSIVE"
+  # do NOT exit hard inside a sub-shell pipeline; the synthesis phase records INCONCLUSIVE.
+fi
 ```
 
-Use its JSON (`git{platform,org,repo,branch,default_branch}`, `diff{files,stats}`,
+Use its JSON (`git{platform,org,repo,branch,default_branch,base,head}`, `diff{files,stats}`,
 `repo_profile{lint_configs,languages}`, `pr{exists,number}`) for ALL routing. Do not
 re-run individual git commands. If the JSON shows an empty diff or non-repo dir, STOP and
 report "no reviewable diff in <dir>" — do not fabricate findings.
 
+`$BASE`, `$HEAD`, `$CHANGED_FILES`, `$TS` are now bound and consumed unchanged by Phases
+3.5, 3.7, 8 (manifest + verifier). Later phases MUST NOT redefine them.
+
 Full setup instructions: **read `~/.claude/commands/review/dispatch.md`** (Phases 0, 0.5,
 1, 1.5). Feedback/questions: **read `~/.claude/commands/review/triage.md`**.
+
+### Phase 0.5 — Repo Profile (write the routing input; C7)
+
+The router in Phase 6 reads a JSON profile from disk, so it MUST exist before then.
+Persist the `repo_profile` block from `review-context.sh` to a stable path. The shape
+matches `review-context.sh`: a top-level `.languages` array (plus `lint_configs`,
+architecture/ownership when cached).
+
+```bash
+# Materialize the routing profile (C7). Top-level .languages is required by route-agent.sh.
+printf '%s' "$CTX" | jq '.repo_profile // {languages: []}' \
+  > "$PROJECT_DIR/.claude/repo-profile.json"
+# Guarantee the contract even if repo_profile was absent/empty.
+jq -e '.languages | type == "array"' "$PROJECT_DIR/.claude/repo-profile.json" >/dev/null 2>&1 \
+  || printf '{"languages":[]}\n' > "$PROJECT_DIR/.claude/repo-profile.json"
+```
+
+This file is the `--profile` argument consumed verbatim by Phase 6's `route-agent.sh`
+call. Do not point the router at a path that this phase did not write.
 
 ### Phase 0.6 — File Classification (mandatory; defines the coverage denominator)
 
@@ -200,11 +246,16 @@ file_class:                     # per file in diff.files
     lockfile:  "package-lock.json|yarn.lock|pnpm-lock.yaml|Cargo.lock|go.sum|poetry.lock"
     binary:    "git diff --numstat shows '-' '-' (non-text)"
     rename:    "git diff status R### with 100% similarity (no content change)"
+    config:    "*.proto|*.asn1|*.asn treated as config-like (wire schema) -> micro_per_hunk REQUIRED (C10)"
   rule: |
     code            -> macro + micro_per_function REQUIRED.
-    config|iac|sql|schema|protobuf|Dockerfile|yaml -> macro + micro_per_hunk REQUIRED.
+    config|iac|sql|schema|protobuf|.proto|.asn1|.asn|Dockerfile|yaml -> macro + micro_per_hunk REQUIRED.
+       (.proto/.asn1/.asn are wire schemas: micro_per_hunk MUST run the wire-break checklist —
+        field renumber, required<->optional, ETSI/3GPP X1/X2/X3 — see Phase 5 micro_per_hunk.)
     generated|vendored|binary|lockfile|rename(pure) -> macro=light, micro_pass: "N/A (<class>)"
        with a one-line justification; lockfiles still get a supply-chain tier check.
+       NOTE: only generated|vendored|binary|lockfile|rename(pure)|docs may use N/A — a `code`
+       file may NEVER carry micro_pass "N/A" or "deferred" (the verifier rejects it).
 ```
 
 ### Phase 0.7 — Platform Probe (cross-platform, only when in scope)
@@ -229,14 +280,27 @@ platform_probe:
       for wire formats, conditional-compilation correctness (build tags/#ifdef/cfg!).
 ```
 
-### Phase 0.8 — Canary Self-Test (false-negative guard)
+### Phase 0.8 — Canary Self-Test (false-negative guard; REAL artifact, C6)
 
-On any non-trivial diff, copy ONE changed code file into the scratchpad, inject a known
-defect (e.g. off-by-one, swallowed error, nil deref), and run the micro pipeline against
-the copy. **If the pipeline does not flag the seeded defect, the review engine is
-mis-calibrated -> the verdict for an empty findings array becomes INCONCLUSIVE** (do not
-trust "no findings"). Record `canary: passed|failed` in the manifest. Scratch only; never
-touch the repo.
+On any non-trivial diff, run the **real** canary script — it seeds a known defect into a
+scratch copy of ONE changed code file, runs a micro detection, and writes a JSON artifact
+the verifier later READS. Do NOT self-assert "canary: passed":
+
+```bash
+# C6: real canary. Picks one changed CODE file; seeds + micro-detects; writes the artifact.
+CANARY_OUT="$(bash ~/.claude/scripts/review-canary.sh \
+  --repo "$PROJECT_DIR" --ts "$TS" --changed-files "$CHANGED_FILES")"
+# -> writes .claude/review-canary-<ts>.json : {seeded:true, detected:bool, defect, file}
+CANARY_ARTIFACT="$(printf '%s' "$CANARY_OUT" | jq -r '.artifact // empty')"
+[ -z "$CANARY_ARTIFACT" ] && CANARY_ARTIFACT=".claude/review-canary-${TS}.json"
+CANARY_DETECTED="$(jq -r '.detected // false' "$PROJECT_DIR/$CANARY_ARTIFACT" 2>/dev/null || echo false)"
+```
+
+**If `detected != true`, the review engine is mis-calibrated -> the verdict for an empty
+findings array becomes INCONCLUSIVE** (do not trust "no findings"). Record the **artifact
+path** (not a bare boolean) in the manifest as `canary_artifact`, and set `canary:
+passed|failed` from `detected`. The verifier opens the artifact and requires
+`detected==true`. Scratch only; never touch the repo.
 
 ---
 
@@ -450,8 +514,11 @@ Findings come from TWO producer classes, both real agents on disk:
 layer rather than a hand-maintained table that drifts:
 
 ```bash
-bash ~/.claude/scripts/route-agent.sh --skill /review \
+bash ~/.claude/scripts/route-agent.sh --skill /review --phase review \
   --profile "$PROJECT_DIR/.claude/repo-profile.json"   # reads ~/.claude/agents/routing-table.jsonl
+# --phase review selects the /review rules (language-specialist fanout + protobuf/asn1 route);
+# --profile is the file Phase 0.5 wrote (top-level .languages array). Omitting --phase, or
+# pointing at a non-existent profile, makes route-agent.sh exit 2/20 on every run.
 ```
 
 The routing table provides guard+priority selection, `agent_template:
@@ -543,16 +610,20 @@ RTK_BYPASS=1 bash ~/.claude/scripts/review-verify-manifest.sh \
 coverage_manifest:                # written to .claude/review-manifest-{ts}.json
   diff_hash: <sha>                # COPY from --print-facts (canonical, RTK-safe)
   base: <sha>  head: <sha|WORKTREE>
-  canary: passed|failed
+  canary: passed|failed           # mirrors canary_artifact.detected
+  canary_artifact: ".claude/review-canary-<ts>.json"   # C6: REAL artifact path; verifier READS it and requires detected==true
   hunks_total: <n>                # COPY from --print-facts; verifier re-asserts
   files:
     - path: <file>
       file_class: <enum>
-      hunks: <n>
+      hunks: <n>                  # C4: sum(files[].hunks) MUST equal hunks_total
       macro_pass: true
+      # micro_pass for a CODE file MUST be true — "N/A"/"deferred" are REJECTED for code.
+      # Only generated|vendored|binary|lockfile|rename(pure)|docs may use "N/A (<class> — <justification>)".
+      # low-risk non-code under TRIAGE may use "deferred(<reason>)"; a code file may NOT.
       micro_pass: true|"N/A (<class> — <justification>)"|"deferred(<reason>)"
       dimensions: {correctness: checked, security: checked, ..., portability: N/A}
-      symbols_inspected: ["<pkg.Func@file:line>", ...]   # MUST equal verifier's extraction
+      symbols_inspected: ["<pkg.Func@file:line>", ...]   # PER-FILE; MUST ⊇ this file's verifier-extracted symbols
   tiers: [{tool, status, exit, findings}, ...]           # generated from _table.tsv
   blast_radius_done: true
   change_coupling_done: true
@@ -565,8 +636,20 @@ Then invoke the external verifier (must pass):
 RTK_BYPASS=1 bash ~/.claude/scripts/review-verify-manifest.sh \
   --repo "$PROJECT_DIR" --base "$BASE" --head "${HEAD:-WORKTREE}" \
   --manifest ".claude/review-manifest-${TS}.json" --det "$DET"
-echo "verifier exit=$?"          # NONZERO => run is INVALID, regardless of model output
+VERIFIER_EXIT=$?                  # capture immediately (C8)
+
+# C8: HARD-BRANCH on the exit code. Never narrate it and proceed to APPROVE.
+if [ "$VERIFIER_EXIT" -ne 0 ]; then
+  echo "VERIFIER: FAIL (exit=$VERIFIER_EXIT) -> verdict INVALID/INCONCLUSIVE; APPROVE is impossible."
+  VERDICT="INCONCLUSIVE"         # consumed by Phase 9 synthesis; abort any APPROVE path
+else
+  echo "VERIFIER: PASS (exit=0) -> coverage proven (NOT quality; see Core Doctrine §8)."
+fi
 ```
+
+The branch is binding: `VERIFIER_EXIT != 0` forces `VERDICT=INCONCLUSIVE` (or INVALID) and
+Phase 9 may not emit a 0–5 merge score in that state. A bare `echo` of the exit code is
+NOT compliant — the verdict must mechanically follow the exit code.
 
 `$HEAD` is a real sha for PR/branch reviews; for a local review of an uncommitted
 tree pass `--head WORKTREE` (BASE...working-tree). The verifier pins one canonical
@@ -580,14 +663,21 @@ The verifier (authored as a project script) does, with git+jq+python3 (all prese
    `symbols_inspected` ⊇ that set (under-enumeration FAILS).
 3. Assert each `tiers[]` entry maps to a real captured `.out` file in `$DET` and that
    exit/findings match the parsed values (fabricated tier numbers FAIL).
-4. Assert no `code`/`config`/`iac` file has `macro_pass=false` or missing `micro_pass`.
-5. Assert `uninspected == []` and `canary == passed` for any APPROVE-eligible run.
+4. Assert no `code`/`config`/`iac` file has `macro_pass=false` or missing `micro_pass`;
+   additionally a `code` file with `micro_pass` of `"N/A …"` or `"deferred …"` FAILS
+   (only generated|vendored|binary|lockfile|rename|docs may use N/A; only low-risk non-code
+   may use deferred).
+5. Assert `uninspected == []` for any APPROVE-eligible run, and OPEN the
+   `canary_artifact` file and require `detected == true` (a bare `canary: passed` string in
+   the manifest is NOT sufficient — C6).
 
 ```yaml
 validity_rules:
   - "Verifier nonzero exit -> run is INVALID (not APPROVE)."
   - "Any code/config/iac file with macro_pass=false OR micro_pass false/missing -> INVALID."
-  - "Empty findings array is valid ONLY with verifier-pass + canary-pass + per-dimension positive statement per file."
+  - "A code file whose micro_pass is 'N/A' or 'deferred' -> INVALID (code must be truly micro-passed)."
+  - "canary_artifact.detected != true (read from the file, not the manifest string) -> INVALID."
+  - "Empty findings array is valid ONLY with verifier-pass + canary detected==true + per-dimension positive statement per file."
   - "An applicable deterministic tier with status=absent lowers confidence and is named, but does not alone force INVALID; status=failed with findings is hard-blocking."
 ```
 
@@ -689,12 +779,18 @@ marked "proposed (unverified)". A stable **patch-ID** per finding tracks resolut
 **Exit ONLY when ALL hold:**
 1. No CRITICAL/HIGH Confirmed remaining, AND
 2. No CRITICAL/HIGH in Needs-Verification (the gate), AND
-3. External manifest verifier passes (0 uninspected, symbol set matched, canary passed), AND
-4. All *applicable* deterministic tiers are green OR justified N/A; tiers that are merely
-   `absent` are named and acknowledged but do not block convergence (they cap confidence).
+3. External manifest verifier passes (0 uninspected, symbol set matched, canary
+   `detected==true`), AND
+4. `verdict != INCONCLUSIVE` (C11 — an absent CRITICAL-capable tier, a `--no-poc` run, or a
+   TRIAGE micro-defer forces INCONCLUSIVE, which can NEVER satisfy loop exit), AND
+5. All *applicable* deterministic tiers are green OR justified N/A; tiers that are merely
+   `absent` are named and acknowledged but do not block convergence (they cap confidence,
+   and if they gate a CRITICAL-capable dimension they make the verdict INCONCLUSIVE, which
+   condition 4 already blocks).
 
-The loop may NOT converge while sub-threshold real bugs, uninspected hunks, or a failing
-verifier remain. Cyclic details: **read `~/.claude/commands/review/cyclic.md`**.
+The loop may NOT converge while sub-threshold real bugs, uninspected hunks, an
+INCONCLUSIVE verdict, or a failing verifier remain. Cyclic details: **read
+`~/.claude/commands/review/cyclic.md`**.
 
 ---
 

@@ -5,8 +5,9 @@
 >
 > **The manifest is the proof-of-work.** It is written to
 > **`.claude/review-manifest-{ts}.json`** (`{ts}` = `$(date +%Y%m%dT%H%M%SZ)` UTC). A
-> non-LLM script, `~/.claude/scripts/review-verify-manifest.sh`, recomputes hunks,
-> symbols, and `diff_hash` from `git` and **INVALIDATES the run on any mismatch**. The model
+> non-LLM script, `~/.claude/scripts/review-verify-manifest.sh`, recomputes per-file hunks,
+> per-file symbols, `file_class`, and `diff_hash` from `git`, and READS the real canary
+> artifact, and **INVALIDATES the run on any mismatch**. The model
 > may NOT self-attest coverage: an APPROVE without a verifier-passed manifest is an invalid
 > run. This is what makes fake-pass mechanically detectable.
 
@@ -37,7 +38,8 @@ file_class:
     vendored:
       rule: "path under vendor/|node_modules/|third_party/|.venv/|Pods/|.cargo/"
     iac:
-      rule: "*.tf|*.tfvars|*.hcl OR path under k8s/|helm/|charts/|.github/workflows/|ansible/ OR *.yaml/*.yml that is a k8s/helm/compose/CI manifest OR Dockerfile|*.dockerfile"
+      rule: "*.tf|*.tfvars|*.hcl|*.proto|*.asn1|*.asn OR path under k8s/|helm/|charts/|.github/workflows/|ansible/ OR *.yaml/*.yml that is a k8s/helm/compose/CI manifest OR Dockerfile|*.dockerfile"
+      note: "C10 — .proto/.asn1/.asn are classed `iac` so the wire-break micro_per_hunk checklist (field renumber, required<->optional, ETSI/3GPP X1/X2/X3) is reachable. The verifier treats `config`<->`iac` as interchangeable."
     config:
       rule: "*.json|*.yaml|*.yml|*.toml|*.ini|*.env|*.properties|*.conf NOT already iac/lockfile/generated"
     docs:
@@ -57,8 +59,10 @@ file_class:
 
 **Class affects the verifier directly:** Check 4 (below) fails the run if any `code`,
 `config`, or `iac` file has `macro_pass=false` or a missing/false `micro_pass`. Marking a
-real code file as `generated` to dodge micro is detectable — the verifier re-derives the
-class from the same rules and from `git diff --numstat`/`--name-status`.
+real code file as `generated` to dodge micro is detectable — Check 2 (C2) re-derives the
+class from these same rules + `git diff --numstat`/`--name-status` and FAILS the run when the
+declared `file_class` disagrees with the recomputed one. The only tolerated disagreement is
+`config`<->`iac` (identical coverage tier); a `code` file relabelled to ANY other class FAILS.
 
 ---
 
@@ -140,8 +144,8 @@ judge_protocol:
 
   false_negative_crosscheck:       # the anti-theater half of the Judge
     canary:
-      action: "Read Phase 0.8 canary result from the manifest."
-      rule: "canary == failed  =>  an EMPTY findings array becomes INCONCLUSIVE
+      action: "Read the Phase 0.8 canary artifact (manifest.canary_artifact, written by review-canary.sh)."
+      rule: "detected != true  =>  an EMPTY findings array becomes INCONCLUSIVE
              (the engine is mis-calibrated; 'no findings' is untrustworthy)."
     per_dimension_clean:
       action: "For every dimension marked checked:true in micro_per_function / micro_per_hunk,
@@ -175,13 +179,19 @@ coverage_manifest:                 # .claude/review-manifest-{ts}.json
                                    # (canonical, RTK-safe diff). Verifier recomputes; mismatch => INVALID
   base: <sha>                      # $BASE commit
   head: <sha|WORKTREE>             # $HEAD commit, or WORKTREE for an uncommitted local review
-  canary: passed | failed          # Phase 0.8 self-test result
+  canary_artifact: <path>          # C6 — abs or repo-relative path to the REAL canary self-test
+                                   # JSON written by review-canary.sh:
+                                   #   {seeded:true, detected:bool, defect, file, ts, scratch}
+                                   # The verifier READS it and requires seeded==true AND detected==true
+                                   # (not a bare "passed" string).
   hunks_total: <n>                 # total changed hunks across all files (verifier recomputes; mismatch => INVALID)
 
   files:
     - path: <file>
-      file_class: <enum>           # §1 — verifier re-derives and compares
-      hunks: <n>                   # changed hunks in THIS file (sum over files == hunks_total)
+      file_class: <enum>           # §1 — verifier re-derives (C2) and compares; disagreement FAILS
+                                   # (config<->iac interchangeable; .proto/.asn1/.asn => iac, C10)
+      hunks: <n>                   # changed hunks in THIS file (C4): MUST equal this file's git @@
+                                   # count AND sum over files == hunks_total
       macro_pass: true             # Phase 4 macro record exists for this file
       micro_pass: true | "N/A (<class> — <justification>)" | "deferred(<reason>)"
       dimensions:                  # per-dimension status for this file
@@ -201,7 +211,13 @@ coverage_manifest:                 # .claude/review-manifest-{ts}.json
         licensing:   checked
         portability: N/A           # only "checked" when Phase 0.7 cross_platform == true
         a11y_i18n:   N/A           # only "checked" when diff touches UI / user-facing strings
-      symbols_inspected:           # MUST be a superset of the verifier's diff-extracted symbol set
+      symbols_inspected:           # PER-FILE (C1): MUST be a superset of THIS file's diff-extracted
+                                   # symbols. In-body edits bind to their enclosing symbol (nearest
+                                   # preceding def / hunk-header context); comments, string literals
+                                   # and fenced ```code``` blocks are stripped before extraction (C3).
+                                   # Only `code` files carry a required set. Anti-paste (C1): a token is
+                                   # rejected if it has a newline, exceeds 120 chars, contains '@@', or
+                                   # holds >12 identifiers (kills "paste the diff into one string").
         - "<pkg.Func@file:line>"
         - "<Class.method@file:line>"
 
@@ -221,13 +237,16 @@ coverage_manifest:                 # .claude/review-manifest-{ts}.json
 
 | Invariant | Rule |
 |-----------|------|
-| `diff_hash` | equals the verifier's canonical diff hash (`--print-facts`); never hand-computed |
-| `hunks_total` | equals `sum(files[].hunks)` and the verifier's git count |
-| `symbols_inspected` | ⊇ verifier's diff-extracted symbol set (under-enumeration FAILS) |
+| `diff_hash` | equals the verifier's canonical PINNED diff hash (`--print-facts`, C5); never hand-computed |
+| `hunks_total` | equals `sum(files[].hunks)` (C4) AND the verifier's git `@@` count |
+| `files[].hunks` | equals that file's git per-file `@@` count (C4) |
+| `files[].file_class` | equals the verifier's recomputed class (C2); `config`<->`iac` interchangeable |
+| `files[].symbols_inspected` | per-file ⊇ THAT file's diff-extracted symbols (C1/C3); under-enumeration FAILS |
+| anti-paste | no `symbols_inspected` token may contain a newline, exceed 120 chars, contain `@@`, or hold >12 identifiers (C1) |
 | `tiers[]` | each entry maps to a real `$DET/<tool>.out`; exit/findings match parsed values |
 | code/config/iac files | `macro_pass=true` AND `micro_pass` true-or-valid-N/A (never false/missing) |
 | `uninspected` | `[]` for any APPROVE-eligible run |
-| `canary` | `passed` for any APPROVE-eligible run |
+| `canary_artifact` | points at a real JSON artifact with `seeded==true` AND `detected==true` (C6) |
 
 ---
 
@@ -242,7 +261,11 @@ MANIFEST=".claude/review-manifest-${TS}.json"
 # Step 0: copy canonical facts into $MANIFEST (RTK-safe; do NOT hand-compute):
 RTK_BYPASS=1 bash ~/.claude/scripts/review-verify-manifest.sh \
   --repo "$PROJECT_DIR" --base "$BASE" --head "${HEAD:-WORKTREE}" --print-facts
-# ... write $MANIFEST (diff_hash + hunks_total copied verbatim) ...
+# Step 0.8: REAL canary self-test (C6) — seeds a defect into a scratch copy of a changed
+# code file, detects it, writes {seeded,detected,...}; capture the artifact path:
+CANARY=$(RTK_BYPASS=1 bash ~/.claude/scripts/review-canary.sh \
+  --repo "$PROJECT_DIR" --base "$BASE" --head "${HEAD:-WORKTREE}")
+# ... write $MANIFEST (diff_hash + hunks_total verbatim; canary_artifact="$CANARY") ...
 RTK_BYPASS=1 bash ~/.claude/scripts/review-verify-manifest.sh \
   --repo "$PROJECT_DIR" --base "$BASE" --head "${HEAD:-WORKTREE}" \
   --manifest "$MANIFEST" --det "$DET"
@@ -253,33 +276,41 @@ The verifier is a project script using only `git`, `jq`, and `python3` (all pres
 container — no ast-grep/tree-sitter dependency). It performs **exactly these 5 checks**:
 
 ```yaml
-verifier_checks:                   # review-verify-manifest.sh — mirror EXACTLY
+verifier_checks:                   # review-verify-manifest.sh — mirror EXACTLY (5 checks)
   1_diff_integrity:
-    do:  "Recompute diff_hash = git diff \"$BASE...$HEAD\" | sha256sum, and hunks_total
-          by counting @@ hunk headers across the diff."
+    do:  "Recompute diff_hash + hunks_total from the PINNED diff (C5):
+          git -c core.autocrlf=false -c diff.renames=true -c diff.noprefix=false diff <range>
+          (<range> = $BASE...$HEAD, or `$BASE --` for a WORKTREE review). diff_hash = that byte
+          stream | sha256sum; hunks_total = count of @@ headers. Identical command to --print-facts."
     fail_if: "manifest.diff_hash != recomputed OR manifest.hunks_total != recomputed."
     catches: "no-op / theater runs (diff_hash mismatch) and miscounted coverage denominator."
 
-  2_symbol_superset:
-    do:  "Extract changed symbols from diff hunk headers (@@ ... @@ enclosing-decl) plus
-          added/removed signature lines."
-    fail_if: "manifest symbols_inspected (union over files) does NOT ⊇ the extracted set."
-    catches: "under-enumeration — claiming inspection while skipping changed functions."
+  2_coverage:                       # one python recomputation, PER FILE
+    file_class: "C2 — re-derive class from path/ext + git --numstat/--name-status; a declared
+                 file_class that disagrees FAILS (config<->iac interchangeable; .proto/.asn1/.asn => iac, C10)."
+    symbol_superset: "C1/C3 — each CODE file's symbols_inspected MUST ⊇ THAT file's required symbols.
+                 Extraction strips comments/strings/fenced code blocks, runs DEF_PATTERNS, and binds
+                 in-body edits to their enclosing symbol (nearest preceding def / hunk-header context)."
+    anti_paste: "C1 — reject any symbols_inspected token with a newline, >120 chars, '@@', or >12 identifiers."
+    hunk_accounting: "C4 — each file's hunks == its git @@ count AND sum(files[].hunks) == hunks_total."
+    fail_if: "any of the four sub-checks above fails."
+    catches: "under-enumeration, diff-paste bypass, class-relabel bypass, miscounted per-file denominator."
 
   3_tier_grounding:
-    do:  "For each tiers[] entry, locate the captured $DET/<tool>.out and re-parse exit+count."
+    do:  "For each tiers[] entry, locate the captured $DET/<tool>.out and re-parse exit+count
+          (cross-checked against $DET/_table.tsv)."
     fail_if: "an entry references a missing .out OR its exit/findings disagree with the .out."
     catches: "fabricated tier numbers — model-authored exit codes / finding counts."
 
-  4_class_coverage:
-    do:  "Re-derive file_class (§1 rules + git --numstat/--name-status) and check passes."
+  4_pass_completeness:
+    do:  "Check macro+micro passes on every declared code|config|iac file."
     fail_if: "any code|config|iac file has macro_pass=false OR micro_pass false/missing."
-    catches: "skipped macro/micro on a real source/config/IaC file (incl. mislabeled class)."
+    catches: "skipped macro/micro on a real source/config/IaC file."
 
   5_approve_eligibility:
-    do:  "Gate the APPROVE-eligible state."
-    fail_if: "uninspected != []  OR  canary != passed."
-    catches: "green manifest with unread hunks or a mis-calibrated engine."
+    do:  "Gate the APPROVE-eligible state. READ the canary artifact (manifest.canary_artifact, C6)."
+    fail_if: "uninspected != []  OR  canary_artifact missing / its JSON lacks seeded==true AND detected==true."
+    catches: "green manifest with unread hunks or a mis-calibrated / no-op detection engine."
 
   exit_contract:
     "0  => manifest is internally + git-consistent; APPROVE is permitted (other gates still apply)."
@@ -290,7 +321,7 @@ verifier_checks:                   # review-verify-manifest.sh — mirror EXACTL
 validity_rules:                    # verbatim from the binding spec Phase 8
   - "Verifier nonzero exit -> run is INVALID (not APPROVE)."
   - "Any code/config/iac file with macro_pass=false OR micro_pass false/missing -> INVALID."
-  - "Empty findings array is valid ONLY with verifier-pass + canary-pass + per-dimension positive statement per file."
+  - "Empty findings array is valid ONLY with verifier-pass + canary artifact detected==true + per-dimension positive statement per file."
   - "An applicable deterministic tier with status=absent lowers confidence and is named, but does not alone force INVALID; status=failed with findings is hard-blocking."
 ```
 
@@ -303,10 +334,12 @@ validity_rules:                    # verbatim from the binding spec Phase 8
 | Manifest written to `.claude/review-manifest-{ts}.json` | "I reviewed it" with no record |
 | External non-LLM verifier gates APPROVE | model self-attesting its own coverage |
 | Check 1 (diff_hash) | no-op / re-emitted-summary runs |
-| Check 2 (symbol superset) | claiming inspection of un-opened functions |
+| Check 2 (per-file symbol superset + anti-paste) | claiming inspection of un-opened functions; pasting the diff into one string |
+| Check 2 (file_class recompute) | mislabeling code as generated/docs to skip micro |
+| Check 2 (per-file hunk accounting) | miscounting the per-file coverage denominator |
 | Check 3 (tier `.out` grounding) | hand-typed exit codes / finding counts |
-| Check 4 (class coverage) | mislabeling code as generated to skip micro |
-| Check 5 (uninspected/canary) | green verdict over unread hunks or mis-calibrated engine |
+| Check 4 (class coverage) | macro/micro skipped on a real code/config/iac file |
+| Check 5 (uninspected + real canary artifact) | green verdict over unread hunks or a no-op detection engine |
 | Judge: demote-not-delete | dropping the hardest true positives (races, logic bugs) |
 | Judge: per-dimension `clean:` line | unfalsifiable `checked:true` boxes |
 | Judge: "empty grep != proof" | absence-of-evidence masquerading as evidence |
