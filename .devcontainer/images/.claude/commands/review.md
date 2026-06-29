@@ -246,7 +246,7 @@ file_class:                     # per file in diff.files
     lockfile:  "package-lock.json|yarn.lock|pnpm-lock.yaml|Cargo.lock|go.sum|poetry.lock"
     binary:    "git diff --numstat shows '-' '-' (non-text)"
     rename:    "git diff status R### with 100% similarity (no content change)"
-    config:    "*.proto|*.asn1|*.asn treated as config-like (wire schema) -> micro_per_hunk REQUIRED (C10)"
+    iac:       "*.proto|*.asn1|*.asn classified as iac (wire schema) -> micro_per_hunk REQUIRED (C10; matches verifier classify() + manifest.md). .cfg also -> config."
   rule: |
     code            -> macro + micro_per_function REQUIRED.
     config|iac|sql|schema|protobuf|.proto|.asn1|.asn|Dockerfile|yaml -> macro + micro_per_hunk REQUIRED.
@@ -288,12 +288,13 @@ the verifier later READS. Do NOT self-assert "canary: passed":
 
 ```bash
 # C6: real canary. Picks one changed CODE file; seeds + micro-detects; writes the artifact.
-CANARY_OUT="$(bash ~/.claude/scripts/review-canary.sh \
-  --repo "$PROJECT_DIR" --ts "$TS" --changed-files "$CHANGED_FILES")"
-# -> writes .claude/review-canary-<ts>.json : {seeded:true, detected:bool, defect, file}
-CANARY_ARTIFACT="$(printf '%s' "$CANARY_OUT" | jq -r '.artifact // empty')"
-[ -z "$CANARY_ARTIFACT" ] && CANARY_ARTIFACT=".claude/review-canary-${TS}.json"
-CANARY_DETECTED="$(jq -r '.detected // false' "$PROJECT_DIR/$CANARY_ARTIFACT" 2>/dev/null || echo false)"
+# CLI (must match review-canary.sh exactly): --repo --base --head [--out-dir].
+# stdout is the BARE artifact path (absolute) — capture it directly, do NOT jq-parse it
+# and do NOT reconstruct the filename ($TS here != the canary's internal timestamp).
+CANARY_ARTIFACT="$(bash ~/.claude/scripts/review-canary.sh \
+  --repo "$PROJECT_DIR" --base "$BASE" --head "$HEAD")"
+# -> writes <repo>/.claude/review-canary-<ts>.json : {seeded:true, detected:bool, defect, file}
+CANARY_DETECTED="$(jq -r '.detected // false' "$CANARY_ARTIFACT" 2>/dev/null || echo false)"
 ```
 
 **If `detected != true`, the review engine is mis-calibrated -> the verdict for an empty
@@ -653,8 +654,8 @@ NOT compliant — the verdict must mechanically follow the exit code.
 
 `$HEAD` is a real sha for PR/branch reviews; for a local review of an uncommitted
 tree pass `--head WORKTREE` (BASE...working-tree). The verifier pins one canonical
-diff command (`git -c core.pager=cat diff --no-color --no-ext-diff -U3`) so its
-numbers match `--print-facts` exactly.
+diff command (`git -c core.autocrlf=false -c diff.renames=true -c diff.noprefix=false diff`)
+so its numbers match `--print-facts` exactly (C5: identical flags everywhere).
 
 The verifier (authored as a project script) does, with git+jq+python3 (all present):
 1. Recompute `diff_hash` and `hunks_total` from the canonical diff; assert equal to the
