@@ -781,6 +781,11 @@ step_mcp_configuration() {
         local MCP_DOT="${WORKSPACE_FOLDER:-/workspace}/.mcp.json"
         if [ -L "$MCP_DOT" ] && [ "$(readlink "$MCP_DOT" 2>/dev/null)" = "mcp.json" ]; then
             : # already linked — idempotent no-op
+        elif [ -L "$MCP_DOT" ]; then
+            # A symlink pointing somewhere other than mcp.json is user-managed —
+            # don't silently retarget it on startup. Treat it like the
+            # regular-file case: warn and leave it in place.
+            log_warning ".mcp.json already points elsewhere ($(readlink "$MCP_DOT" 2>/dev/null)) — leaving existing symlink in place (run /update to reconcile)"
         elif [ -e "$MCP_DOT" ] && [ ! -L "$MCP_DOT" ]; then
             # A real (non-symlink) .mcp.json remains — legacy content the
             # migration above could not fold in (e.g. invalid JSON). Leave it

@@ -194,7 +194,10 @@ TS="$(date -u +%Y%m%dT%H%M%SZ)"
 
 # Resolve BASE if the JSON did not carry it (PR base, else merge-base vs default branch).
 [ -z "$BASE" ] && BASE="$(git -C "$PROJECT_DIR" merge-base HEAD "origin/$(git -C "$PROJECT_DIR" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@' || echo main)" 2>/dev/null || true)"
-# Local dirty-tree review: leave HEAD empty -> the verifier sentinel WORKTREE is used below.
+# Local dirty-tree review: normalize an unresolved HEAD to the WORKTREE sentinel ONCE here.
+# review-canary.sh rejects an empty --head and review/graph.md Step 0 must resolve HEAD, so
+# binding it now keeps Phases 0.8, 3.5, 3.7 and 8 on the same contract (BASE...working-tree).
+HEAD="${HEAD:-WORKTREE}"
 [ -z "$CHANGED_FILES" ] && CHANGED_FILES="$(git -C "$PROJECT_DIR" diff --name-only "${BASE:-HEAD}" 2>/dev/null || true)"
 
 # C13: shallow clone / unresolvable BASE => graceful INCONCLUSIVE, never die.
@@ -253,8 +256,9 @@ file_class:                     # per file in diff.files
     config|iac|sql|schema|protobuf|.proto|.asn1|.asn|Dockerfile|yaml -> macro + micro_per_hunk REQUIRED.
        (.proto/.asn1/.asn are wire schemas: micro_per_hunk MUST run the wire-break checklist —
         field renumber, required<->optional, ETSI/3GPP X1/X2/X3 — see Phase 5 micro_per_hunk.)
-    generated|vendored|binary|lockfile|rename(pure) -> macro=light, micro_pass: "N/A (<class>)"
+    generated|vendored|binary|lockfile|rename(pure)|docs -> macro=light, micro_pass: "N/A (<class>)"
        with a one-line justification; lockfiles still get a supply-chain tier check.
+       (docs may instead carry a docs-accuracy micro check — see manifest.md coverage_rule.docs.)
        NOTE: only generated|vendored|binary|lockfile|rename(pure)|docs may use N/A — a `code`
        file may NEVER carry micro_pass "N/A" or "deferred" (the verifier rejects it).
 ```
@@ -290,10 +294,11 @@ the verifier later READS. Do NOT self-assert "canary: passed":
 ```bash
 # C6: real canary. Picks one changed CODE file; seeds + micro-detects; writes the artifact.
 # CLI (must match review-canary.sh exactly): --repo --base --head [--out-dir].
-# stdout is the BARE artifact path (absolute) — capture it directly, do NOT jq-parse it
-# and do NOT reconstruct the filename ($TS here != the canary's internal timestamp).
+# The artifact path is the LAST stdout line (absolute) — take `| tail -1` exactly as
+# review-eval.sh does, so any progress line printed ahead of it cannot poison the path.
+# Do NOT jq-parse it and do NOT reconstruct the filename ($TS here != the canary's internal timestamp).
 CANARY_ARTIFACT="$(RTK_BYPASS=1 bash ~/.claude/scripts/review-canary.sh \
-  --repo "$PROJECT_DIR" --base "$BASE" --head "$HEAD")"
+  --repo "$PROJECT_DIR" --base "$BASE" --head "$HEAD" | tail -1)"
 # -> writes <repo>/.claude/review-canary-<ts>.json : {seeded:true, detected:bool, defect, file}
 CANARY_DETECTED="$(jq -r '.detected // false' "$CANARY_ARTIFACT" 2>/dev/null || echo false)"
 ```
@@ -314,14 +319,16 @@ matching languages/artifacts actually present in the diff.
 
 ```bash
 DET=$(mktemp -d "${TMPDIR:-/tmp}/review-det.XXXXXX")
-run() {                                   # run <tool> [args...]
+run() {                                   # run <tool> [args...]  (see review/deterministic.md for the canonical helper)
   local tool="$1"
+  local label="$*"                          # FULL invocation -> go vet / go test / go build stay distinct rows
+  local slug="${label//[^a-zA-Z0-9]/_}"     # unique per invocation -> .out files never collide
   if ! command -v "$tool" >/dev/null 2>&1; then
-    printf '%s\tabsent\t\t\n' "$tool" >> "$DET/_table.tsv"; return 0
+    printf '%s\tabsent\t\t0\n' "$label" >> "$DET/_table.tsv"; return 0
   fi
-  "$@" >"$DET/${tool//[^a-zA-Z0-9]/_}.out" 2>&1
-  printf '%s\tran\t%s\t%s\n' "$tool" "$?" \
-    "$(wc -l <"$DET/${tool//[^a-zA-Z0-9]/_}.out")" >> "$DET/_table.tsv"
+  local rc=0                                # `|| rc=$?` captures the real exit safely (no set -e abort, no $? clobber by wc)
+  "$@" > "$DET/$slug.out" 2>&1 || rc=$?
+  printf '%s\tran\t%s\t%s\n' "$label" "$rc" "$(wc -l <"$DET/$slug.out")" >> "$DET/_table.tsv"
 }
 
 # Idioms / static analysis (fire only on extensions present in diff)
@@ -526,7 +533,7 @@ semantics so every touched folder's CLAUDE.md describes the post-change reality:
 # Scope is touched-folders+ancestors, NOT the whole repo. The repo root maps to
 # the bare "CLAUDE.md". This is EXACTLY what the verifier's doc-sync check recomputes.
 DOC_DIRS="$(
-  printf '%s\n' $CHANGED_FILES | while IFS= read -r f; do
+  printf '%s\n' "$CHANGED_FILES" | while IFS= read -r f; do
     [ -n "$f" ] || continue
     d="$(dirname "$f")"
     while :; do

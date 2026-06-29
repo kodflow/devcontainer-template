@@ -76,8 +76,9 @@ _run_with() {                              # _run_with <timeout_s> <tool> [args.
   fi
   # Subshell cd: deterministic CWD ($PROJECT_DIR) for relative-path tools WITHOUT
   # leaking the chdir into the rest of the pipeline. timeout bounds every tool.
-  ( cd "$PROJECT_DIR" && timeout "$to" "$@" ) > "$DET/$slug.out" 2>&1
-  local rc=$?                               # captured BEFORE any other command clobbers $?
+  local rc=0                                # `|| rc=$?` suspends errexit so a failing tool
+  ( cd "$PROJECT_DIR" && timeout "$to" "$@" ) > "$DET/$slug.out" 2>&1 || rc=$?
+  #                                         # NEVER aborts the phase under `set -e`; rc captured here
   if [ "$rc" -eq 124 ]; then               # timeout's SIGTERM deadline -> loud, not silent
     printf 'TIMEOUT after %ss\n' "$to" >> "$DET/$slug.out"
   fi

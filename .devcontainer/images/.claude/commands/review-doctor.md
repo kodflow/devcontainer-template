@@ -86,6 +86,7 @@ Send all five in one message (independent, no shared writes). Each returns a
 `{concern, status: ok|healed|broken, detail}` record.
 
 ### Concern 1 — Verifier (keystone)
+
 - `command -v bash git jq python3 sha256sum awk wc` — all required tools present.
 - **Verifier file exists and is executable.** Resolve via `resolve_asset
   scripts/review-verify-manifest.sh`; `[ -x "$V" ]` — heal a missing exec bit
@@ -102,6 +103,7 @@ Send all five in one message (independent, no shared writes). Each returns a
   must also FAIL a tampered manifest, else PASS is meaningless).
 
 ### Concern 2 — Modules
+
 - All four `review/{dimensions,deterministic,graph,manifest}.md` exist and are
   non-empty.
 - Cross-consistency with `review.md`: every module `review.md` references in its
@@ -109,6 +111,7 @@ Send all five in one message (independent, no shared writes). Each returns a
   `manifest.md`'s contract. Report drift; heal only trivial path typos.
 
 ### Concern 3 — Scanner matrix (deterministic tiers)
+
 - Probe each deterministic tool the `deterministic.md` matrix expects:
   `semgrep gitleaks trufflehog detect-secrets osv-scanner trivy ast-grep
   golangci-lint staticcheck govulncheck ruff mypy eslint shellcheck actionlint
@@ -120,6 +123,7 @@ Send all five in one message (independent, no shared writes). Each returns a
   (which is `newgrp`). Flag loudly if `sg` shadows it.
 
 ### Concern 4 — Routing
+
 - `route-agent.sh` present + executable; `routing-table.jsonl` readable + valid
   JSONL (each line parses).
 - Every language specialist referenced by `review.md` / `dimensions.md` resolves
@@ -145,31 +149,9 @@ for s in "$V" "$C"; do
 done
 ```
 
-**(1) Positive — `review-canary.sh` must DETECT its seeded defect.** Run the
-real script (it seeds a known defect into a scratch copy of a changed code file,
-runs a micro detection, and writes `.claude/review-canary-<ts>.json`). READ the
-artifact and require `detected == true` — never a bare "passed" string (C6):
-
-```bash
-ART="$(bash "$C" --emit-artifact-path 2>/dev/null \
-       | tail -n1)"                                  # script prints its path …
-[ -f "$ART" ] || ART="$(ls -t "$PROJECT_DIR"/.claude/review-canary-*.json \
-       2>/dev/null | head -n1)"                      # … or pick the newest
-pos_ok=0
-if [ -f "$ART" ] && jq -e '.seeded==true and .detected==true' "$ART" >/dev/null 2>&1; then
-  pos_ok=1
-fi
-# pos_ok==0  => the detector did NOT catch a defect it planted => gate is blind.
-```
-
-**(2) Negative/Tamper — the verifier must FAIL a known-bad manifest.** Build a
-scratch repo with one real in-body code change, take the authoritative facts
-from `--print-facts` (so checks 1/diff-integrity can never be the reason for the
-failure), then run the verifier on a CLEAN manifest and a TAMPERED one and
-require the verdict to FLIP. The tamper plants exactly the two bypasses the
-SHARED CONTRACT kills: a **relabeled `file_class`** (C2: `auth.go` → `docs`) and
-**pasted-diff symbols** (C1: the whole multi-line diff shoved into one
-`symbols_inspected` token). Everything else is identical:
+Both sub-tests share ONE scratch repo carrying a real in-body code change, so
+the canary seeds a genuine defect and the verifier's diff-integrity check (1)
+can never be the reason a manifest is rejected. Build it once:
 
 ```bash
 S="$(mktemp -d "${TMPDIR:-/tmp}/rd-canary.XXXXXX")"
@@ -181,25 +163,55 @@ git -C "$S" -c user.email=d@d -c user.name=d add -A
 git -C "$S" -c user.email=d@d -c user.name=d commit -qm base
 BASE="$(git -C "$S" rev-parse HEAD)"
 printf 'package auth\nfunc Login(u string) bool {\n\treturn len(u) > 3\n}\n' > "$S/auth.go"  # in-body edit
+```
 
+**(1) Positive — `review-canary.sh` must DETECT its seeded defect.** Run the
+real script with its documented arguments (`--repo/--base/--head`, plus
+`--out-dir` so the artifact lands in scratch, not the repo). It seeds a known
+defect into a scratch copy of the changed file, runs a micro detection, and
+prints the artifact path on stdout. READ that artifact and require
+`detected == true` — never a bare "passed" string (C6):
+
+```bash
+ART="$(bash "$C" --repo "$S" --base "$BASE" --head WORKTREE --out-dir "$W" \
+       2>/dev/null | tail -n1)"                       # script prints its path
+pos_ok=0
+if [ -f "$ART" ] && jq -e '.seeded==true and .detected==true' "$ART" >/dev/null 2>&1; then
+  pos_ok=1
+fi
+# pos_ok==0  => the detector did NOT catch a defect it planted => gate is blind.
+```
+
+**(2) Negative/Tamper — the verifier must FAIL a known-bad manifest.** Reuse
+the same scratch repo. Take the authoritative facts from `--print-facts` (so
+checks 1/diff-integrity can never be the reason for the failure), then run the
+verifier on a CLEAN manifest and a TAMPERED one and require the verdict to
+FLIP. BOTH manifests carry the real `canary_artifact` produced in step (1), so
+the approve-eligibility gate (C6) is satisfied and only the planted defect can
+flip the verdict. The tamper plants exactly the two bypasses the SHARED
+CONTRACT kills: a **relabeled `file_class`** (C2: `auth.go` → `docs`) and
+**pasted-diff symbols** (C1: the whole multi-line diff shoved into one
+`symbols_inspected` token). Everything else is identical:
+
+```bash
 FACTS="$(bash "$V" --repo "$S" --base "$BASE" --head WORKTREE --print-facts)" || { echo broken; exit; }
 DH="$(jq -r '.diff_hash'   <<<"$FACTS")"
 HN="$(jq -rc '.hunks_total' <<<"$FACTS")"
 BLOB="$(git -C "$S" -c core.pager=cat diff --no-color "$BASE" -- )"   # the WHOLE diff, one string
 mkdir -p "$W/det"; : > "$W/det/_table.tsv"
 
-# CLEAN: correct class + tight, per-file enclosing symbol -> must PASS.
-jq -n --arg dh "$DH" --argjson hn "$HN" '{
+# CLEAN: correct class + tight, per-file enclosing symbol + real canary -> must PASS.
+jq -n --arg dh "$DH" --argjson hn "$HN" --arg art "$ART" '{
   diff_hash:$dh, hunks_total:$hn, uninspected:[], canary:"passed",
-  canary_artifact:"", tiers:[],
+  canary_artifact:$art, tiers:[],
   files:[{path:"auth.go", file_class:"code", hunks:$hn, macro_pass:true,
           micro_pass:true, symbols_inspected:["Login"]}]
 }' > "$W/clean.json"
 
 # TAMPERED: file_class relabel (C2) + pasted-diff symbols (C1) -> must FAIL.
-jq -n --arg dh "$DH" --argjson hn "$HN" --arg blob "$BLOB" '{
+jq -n --arg dh "$DH" --argjson hn "$HN" --arg blob "$BLOB" --arg art "$ART" '{
   diff_hash:$dh, hunks_total:$hn, uninspected:[], canary:"passed",
-  canary_artifact:"", tiers:[],
+  canary_artifact:$art, tiers:[],
   files:[{path:"auth.go", file_class:"docs", hunks:$hn, macro_pass:true,
           micro_pass:true, symbols_inspected:[$blob]}]
 }' > "$W/tampered.json"
@@ -275,10 +287,13 @@ records, so it cannot be greener than the worst real check.
   gate is reported for human eyes, not patched blind.
 - `--check` ⇒ never write (export `CHECK_ONLY=1`; the exec-bit heal degrades to a
   `broken` report instead of `chmod`).
-- Exit nonzero if any concern is `broken` (keystone, routing, or a non-biting
-  canary gate) or `inconclusive` — `absent` scanners are `⚠`, not failure. A
-  green dashboard with a slipped tamper is the exact failure mode this skill
-  exists to catch, so the canary concern gates the exit code too.
+- Exit nonzero if **any** concern is `broken` — verifier (keystone), Modules,
+  routing, OR the Canary self-test (a non-biting gate) — or if any concern is
+  `inconclusive`/missing. Mirror the mechanical verdict rule exactly: only an
+  `absent`/`degraded` scanner is non-fatal (`⚠`, degrades cleanly); every other
+  `broken` record gates the exit code. A green dashboard with a slipped tamper,
+  or a broken Modules cross-consistency check, is the exact failure mode this
+  skill exists to catch, so none of them may exit `0`.
 
 ## Notes
 

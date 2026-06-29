@@ -127,8 +127,11 @@ git -C "$PROJECT_DIR" diff "$BASE...$HEAD" -U0 \
   # exported const/var/etc names
   rg -o -e '\b(?:const|let|var|public|private|static)\s+([A-Za-z_][A-Za-z0-9_]*)' \
         -r '$1' "$DET/_diff_pm.txt"
-  # config keys / JSON / YAML
-  rg -o -e '"([A-Za-z0-9_.-]+)"\s*[:=]'  -r '$1' "$DET/_diff_pm.txt"
+  # config keys / JSON / YAML — quoted AND bare keys. _diff_pm.txt lines keep their
+  # leading +/- marker, so anchor on it (^[+-]) rather than ^\s* to capture forms like
+  # `apiVersion:` or `foo = bar` without swallowing the diff sign into the symbol.
+  rg -o -e '^[+-]\s*([A-Za-z0-9_.-]+)\s*[:=]' -r '$1' "$DET/_diff_pm.txt"
+  rg -o -e '"([A-Za-z0-9_.-]+)"\s*[:=]'       -r '$1' "$DET/_diff_pm.txt"
   # CLI flags
   rg -o -e '(--[a-z][a-z0-9-]+)'         -r '$1' "$DET/_diff_pm.txt"
 } 2>/dev/null | sort -u > "$DET/sym_decls.txt"   # any pass may match nothing (exit 1); harmless

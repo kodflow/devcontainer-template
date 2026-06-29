@@ -58,6 +58,15 @@
 #                       keeps every touched folder's CLAUDE.md iso with the change
 #                       (/warmup:update semantics) for future review iterations.
 #                       Scope is touched-folders+ancestors, NOT the whole repo.
+#                       SCOPE NOTE: doc-sync is a CLAUDE.md-ONLY structural gate.
+#                       manifest.doc_sync.docs[] (README/OpenAPI/changelog) is
+#                       ADVISORY only and intentionally NOT gated here: unlike
+#                       <dir>/CLAUDE.md (deterministically derivable from touched
+#                       dirs), the set of human docs a given code change "should"
+#                       update has no ground truth the verifier can recompute, so
+#                       gating it would be unsound (false pass/FAIL). Human-doc
+#                       staleness stays a reviewer-judgment dimension, not a
+#                       mechanical gate.
 #   6. approve-eligible manifest.uninspected MUST be [] AND manifest.canary_artifact
 #                       MUST point at a REAL canary JSON artifact (C6) whose
 #                       {seeded:true, detected:true}. The verifier READS the
@@ -210,6 +219,15 @@ trap cleanup EXIT
 DIFF_FILE="$WORK/diff.patch"
 NUMSTAT_FILE="$WORK/numstat.tsv"
 NAMESTATUS_FILE="$WORK/namestatus.tsv"
+# UNTRACKED_FILE: WORKTREE-only list of untracked, non-ignored files (invisible
+# to the diff). CLASS_TSV: per-path file_class RE-DERIVED by the coverage python,
+# consumed by check_pass_completeness so check 4 never trusts the manifest's own
+# file_class (anti-theater: a code file mislabeled docs/generated can't dodge the
+# macro/micro gate).
+UNTRACKED_FILE="$WORK/untracked.txt"
+CLASS_TSV="$WORK/recomputed_class.tsv"
+: > "$UNTRACKED_FILE"
+: > "$CLASS_TSV"
 pinned_diff               > "$DIFF_FILE"
 pinned_diff --numstat     > "$NUMSTAT_FILE"
 pinned_diff --name-status > "$NAMESTATUS_FILE"
@@ -223,6 +241,15 @@ if [ "$PRINT_FACTS" -eq 1 ]; then
   jq -n --arg h "$pf_hash" --argjson n "$pf_hunks" --arg head "$HEAD" \
         '{diff_hash:$h, hunks_total:$n, head:$head}'
   exit 0
+fi
+
+# WORKTREE blind-spot: untracked, non-ignored files never enter `git diff BASE`,
+# so they must be enumerated separately and fed through the SAME class+symbol
+# coverage recomputation as diff-backed files (not just checked for manifest
+# presence). See check_coverage's python untracked sub-check.
+if [ "$HEAD_IS_WORKTREE" -eq 1 ]; then
+  git -C "$REPO" ls-files --others --exclude-standard > "$UNTRACKED_FILE" 2>/dev/null \
+    || : > "$UNTRACKED_FILE"
 fi
 
 printf '== review-verify-manifest ==\n'
@@ -295,10 +322,13 @@ check_coverage() {
   local out="$WORK/cov.out" pyrc=0
   set +e
   python3 - "$DIFF_FILE" "$NUMSTAT_FILE" "$NAMESTATUS_FILE" "$MANIFEST" "$REPO" \
+            "$UNTRACKED_FILE" "$CLASS_TSV" \
       > "$out" 2>&1 <<'PY'
 import sys, json, re, os
 
 diff_path, numstat_path, namestatus_path, manifest_path, repo = sys.argv[1:6]
+untracked_path = sys.argv[6] if len(sys.argv) > 6 else ""
+class_tsv_path = sys.argv[7] if len(sys.argv) > 7 else ""
 
 # Multi-language keyword / primitive stoplist: NOT symbols, must never enter the
 # REQUIRED set (else generic "name before (" or control-statement contexts would
@@ -538,6 +568,51 @@ for f in (man.get("files") or []):
 
 recomputed = {p: classify(p) for p in order}
 
+# --- WORKTREE untracked files (invisible to the diff) -------------------------
+# A brand-new uncommitted file never enters `order`, so without this it could
+# fake-pass by being declared (e.g.) docs/generated with micro_pass "N/A" while
+# its real source goes unreviewed. Feed each through the SAME recomputation:
+#   * re-derive file_class from path/content (so a mislabel is caught here);
+#   * for code files, require symbols_inspected to cover the file's top-level
+#     defs (the whole new file is "changed", so every def is in scope).
+untracked = []
+if untracked_path and os.path.exists(untracked_path):
+    try:
+        with open(untracked_path, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                up = norm(line.strip())
+                if up:
+                    untracked.append(up)
+    except OSError:
+        pass
+
+untracked_class = {up: classify(up) for up in untracked}
+untracked_req = {}
+for up in untracked:
+    if untracked_class[up] != 'code':
+        continue
+    req = set()
+    try:
+        with open(os.path.join(repo, up), encoding="utf-8", errors="replace") as f:
+            for raw in f:
+                req |= names_from_text(raw, signatures_only=True)
+    except OSError:
+        pass
+    untracked_req[up] = req
+
+# Emit the RE-DERIVED class for every diff-backed AND untracked path so
+# check_pass_completeness (check 4) gates on the recomputed class, never the
+# manifest's self-declared file_class.
+if class_tsv_path:
+    try:
+        with open(class_tsv_path, "w", encoding="utf-8") as cf:
+            for p in order:
+                cf.write("%s\t%s\n" % (p, recomputed[p]))
+            for up in untracked:
+                cf.write("%s\t%s\n" % (up, untracked_class[up]))
+    except OSError:
+        pass
+
 # --- sub-check: file-class (C2) ---
 class_fail = []
 for p in order:
@@ -601,6 +676,23 @@ htotal = man.get("hunks_total")
 sum_manifest = sum(v for v in manifest_hunks.values() if isinstance(v, int))
 sum_mismatch = isinstance(htotal, int) and sum_manifest != htotal
 
+# --- sub-check: untracked-coverage (WORKTREE) — real class+symbol gate ---
+untracked_fail = []
+for up in untracked:
+    toks = mfiles.get(up)
+    if toks is None:
+        untracked_fail.append((up, "absent from manifest.files[]", []))
+        continue
+    dec = manifest_class.get(up)
+    if dec is not None and not class_ok(untracked_class[up], dec):
+        untracked_fail.append(
+            (up, "file-class recomputed=%s manifest=%s" % (untracked_class[up], dec), []))
+    req = untracked_req.get(up, set())
+    if req:
+        missing = sorted(n for n in req if n not in toks)
+        if missing:
+            untracked_fail.append((up, "symbols missing", missing[:20]))
+
 # --- report ---
 fails = []
 
@@ -639,6 +731,16 @@ if hunk_fail or sum_mismatch:
 else:
     print("[PASS] hunk-accounting: per-file hunks match git and sum==hunks_total")
 
+if untracked_fail:
+    print("[FAIL] untracked-coverage: WORKTREE untracked file(s) under-covered "
+          "(real class+symbol gate, not mere manifest presence):")
+    for up, why, names in untracked_fail:
+        print("        %s (%s): %s" % (up, why, ", ".join(names)))
+    fails.append("untracked-coverage")
+elif untracked:
+    print("[PASS] untracked-coverage: all %d untracked WORKTREE file(s) pass "
+          "class+symbol coverage" % len(untracked))
+
 print("__FAILS__ " + ",".join(fails))
 sys.exit(0)
 PY
@@ -664,38 +766,11 @@ PY
     done
     IFS="$oldifs"
   fi
-
-  # --- WORKTREE untracked-file coverage (blind-spot fix) ---
-  # `git diff BASE --` only shows TRACKED changes, so a brand-new uncommitted
-  # file never enters the python recomputation above: uninspected can stay []
-  # while a whole new file goes unreviewed and coverage looks complete. In
-  # WORKTREE mode, enumerate untracked, non-ignored files and require each to
-  # appear in manifest.files[]; any absentee FAILS coverage (a present entry is
-  # then subject to the normal pass-completeness gate in check 4).
-  if [ "$HEAD_IS_WORKTREE" -eq 1 ]; then
-    local untracked mani_paths missing_untracked="" uf f
-    untracked="$(git -C "$REPO" ls-files --others --exclude-standard)"
-    if [ -n "$untracked" ]; then
-      # normalize manifest paths the same way python's norm() does (strip a/ b/)
-      mani_paths="$(jq -r '(.files // [])[] | (.path // "")' "$MANIFEST" \
-        | sed 's#^[ab]/##')"
-      while IFS= read -r uf; do
-        [ -n "$uf" ] || continue
-        if ! printf '%s\n' "$mani_paths" | grep -qxF -- "$uf"; then
-          missing_untracked+="${missing_untracked:+$'\n'}$uf"
-        fi
-      done <<< "$untracked"
-    fi
-    if [ -n "$missing_untracked" ]; then
-      fail "untracked-coverage: untracked (uncommitted) file(s) absent from manifest.files[] (WORKTREE blind spot):"
-      while IFS= read -r f; do
-        [ -n "$f" ] && printf '       %s\n' "$f"
-      done <<< "$missing_untracked"
-      STRUCT_FAILS+=("untracked-coverage")
-    elif [ -n "$untracked" ]; then
-      pass "untracked-coverage: all untracked WORKTREE file(s) present in manifest.files[]"
-    fi
-  fi
+  # NOTE: WORKTREE untracked-file coverage is now enforced INSIDE the python
+  # recomputation above (untracked-coverage sub-check): every untracked file is
+  # run through the same file_class re-derivation AND symbol coverage gate as a
+  # diff-backed file, not merely checked for manifest presence. The list comes
+  # from $UNTRACKED_FILE (populated once, before the checks run).
 }
 
 # ===========================================================================
@@ -722,6 +797,21 @@ check_tier_authenticity() {
         continue ;;
     esac
 
+    # status implies a real run (ran|failed|...): the manifest MUST carry numeric
+    # exit + findings. A null/absent/non-numeric value is a fabricated tier (the
+    # .out file alone does NOT encode exit status), so it FAILS rather than being
+    # silently skipped.
+    if [ -z "$exit_f" ] || [ "$exit_f" = "null" ] || ! printf '%s' "$exit_f" | grep -Eq '^-?[0-9]+$'; then
+      fail "tier-authenticity: $tool status=$status but exit is null/absent/non-numeric ($exit_f)"
+      c3_fail=1
+      continue
+    fi
+    if [ -z "$findings_f" ] || [ "$findings_f" = "null" ] || ! printf '%s' "$findings_f" | grep -Eq '^[0-9]+$'; then
+      fail "tier-authenticity: $tool status=$status but findings is null/absent/non-numeric ($findings_f)"
+      c3_fail=1
+      continue
+    fi
+
     # Resolve the captured .out file (sanitised whole string and first token)
     local san_full san_first first out cand
     san_full="${tool//[^a-zA-Z0-9]/_}"
@@ -743,32 +833,42 @@ check_tier_authenticity() {
     local actual_lines
     actual_lines="$(wc -l < "$out")"; actual_lines="${actual_lines// /}"
 
-    if [ -n "$findings_f" ] && [ "$findings_f" != "null" ] && [ "$findings_f" != "$actual_lines" ]; then
+    if [ "$findings_f" != "$actual_lines" ]; then
       fail "tier-authenticity: $tool findings mismatch"
       printf '       expected (%s line count): %s\n' "$(basename "$out")" "$actual_lines"
       printf '       actual (manifest): %s\n' "$findings_f"
       c3_fail=1
     fi
 
-    # Cross-check exit + findings against the runner's DET/_table.tsv row
-    if [ -f "$DET/_table.tsv" ]; then
-      local row tbl_exit tbl_find
-      row="$(awk -F'\t' -v t="$tool" -v t2="$first" '$1==t || $1==t2 {print; exit}' "$DET/_table.tsv")"
-      if [ -n "$row" ]; then
-        tbl_exit="$(printf '%s' "$row" | awk -F'\t' '{print $3}')"
-        tbl_find="$(printf '%s' "$row" | awk -F'\t' '{print $4}')"
-        if [ -n "$exit_f" ] && [ "$exit_f" != "null" ] && [ -n "$tbl_exit" ] && [ "$exit_f" != "$tbl_exit" ]; then
-          fail "tier-authenticity: $tool exit mismatch"
-          printf '       expected (_table.tsv): %s\n' "$tbl_exit"
-          printf '       actual (manifest): %s\n' "$exit_f"
-          c3_fail=1
-        fi
-        if [ -n "$tbl_find" ] && [ "$tbl_find" != "$actual_lines" ]; then
-          fail "tier-authenticity: $tool captured table/.out inconsistent (tampering)"
-          printf '       _table.tsv findings: %s , .out line count: %s\n' "$tbl_find" "$actual_lines"
-          c3_fail=1
-        fi
-      fi
+    # _table.tsv is the ONLY source of truth for exit codes (.out files do not
+    # encode exit status), so it is MANDATORY for any run-implying tier: a
+    # missing file or a missing row means the exit code cannot be validated ->
+    # FAIL rather than pass with no evidence.
+    if [ ! -f "$DET/_table.tsv" ]; then
+      fail "tier-authenticity: $tool status=$status but DET/_table.tsv is missing (exit code unverifiable)"
+      c3_fail=1
+      continue
+    fi
+    local row tbl_exit tbl_find
+    row="$(awk -F'\t' -v t="$tool" -v t2="$first" '$1==t || $1==t2 {print; exit}' "$DET/_table.tsv")"
+    if [ -z "$row" ]; then
+      fail "tier-authenticity: $tool status=$status but no matching row in DET/_table.tsv"
+      printf '       looked for tool label: %s (or %s)\n' "$tool" "$first"
+      c3_fail=1
+      continue
+    fi
+    tbl_exit="$(printf '%s' "$row" | awk -F'\t' '{print $3}')"
+    tbl_find="$(printf '%s' "$row" | awk -F'\t' '{print $4}')"
+    if [ -z "$tbl_exit" ] || [ "$exit_f" != "$tbl_exit" ]; then
+      fail "tier-authenticity: $tool exit mismatch"
+      printf '       expected (_table.tsv): %s\n' "$tbl_exit"
+      printf '       actual (manifest): %s\n' "$exit_f"
+      c3_fail=1
+    fi
+    if [ -n "$tbl_find" ] && [ "$tbl_find" != "$actual_lines" ]; then
+      fail "tier-authenticity: $tool captured table/.out inconsistent (tampering)"
+      printf '       _table.tsv findings: %s , .out line count: %s\n' "$tbl_find" "$actual_lines"
+      c3_fail=1
     fi
 
     [ "$c3_fail" -eq 1 ] || info "tier-authenticity: $tool ok (exit=$exit_f findings=$actual_lines)"
@@ -785,41 +885,112 @@ check_tier_authenticity() {
 # CHECK 4 - pass-completeness (code/config/iac need macro+micro)
 # ===========================================================================
 check_pass_completeness() {
-  local offenders
-  offenders="$(jq -r '
-    .files[]?
-    | select(.file_class=="code" or .file_class=="config" or .file_class=="iac")
-    | select(
-        (.macro_pass != true)
-        or (has("micro_pass")|not)
-        or (.micro_pass == false)
-        # code files may NOT dodge micro via an "N/A …" / "deferred …" string
-        # (only generated|vendored|binary|lockfile|rename|docs may use N/A).
-        or (.file_class=="code"
-            and (.micro_pass|type=="string")
-            and (.micro_pass|ascii_downcase|test("^(n/?a|deferred)")))
-      )
-    | "\(.path)\tfile_class=\(.file_class)\tmacro_pass=\(.macro_pass)\tmicro_pass=\(if has("micro_pass") then .micro_pass else "MISSING" end)"
-  ' "$MANIFEST")"
+  # The gate keys on the RE-DERIVED file_class (CLASS_TSV, written by
+  # check_coverage's python) — NOT the manifest's self-declared file_class — so a
+  # changed code/config/iac file cannot dodge the macro/micro gate by mislabeling
+  # itself docs/generated. A code|config|iac file FAILS when macro_pass!=true, or
+  # micro_pass is missing / false / null, or (code only) micro_pass is an
+  # "N/A …"/"deferred …" string.
+  local out="$WORK/passcomp.out" pyrc=0
+  set +e
+  python3 - "$MANIFEST" "$CLASS_TSV" > "$out" 2>&1 <<'PY'
+import sys, json, re
 
-  if [ -n "$offenders" ]; then
-    fail "pass-completeness: code/config/iac file(s) with failed/missing passes:"
-    while IFS= read -r line; do printf '       %s\n' "$line"; done <<< "$offenders"
-    STRUCT_FAILS+=("pass-completeness")
-  else
-    pass "pass-completeness: all code/config/iac files have macro+micro passes"
+manifest_path, class_tsv_path = sys.argv[1:3]
+
+def norm(p):
+    p = p.strip()
+    if p.startswith('a/') or p.startswith('b/'):
+        return p[2:]
+    return p
+
+# RE-DERIVED class map (path -> class) from the coverage recomputation.
+recomputed = {}
+try:
+    with open(class_tsv_path, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            parts = line.rstrip('\n').split('\t')
+            if len(parts) >= 2 and parts[0]:
+                recomputed[parts[0]] = parts[1]
+except OSError:
+    pass
+
+try:
+    with open(manifest_path, encoding="utf-8", errors="replace") as fh:
+        man = json.load(fh)
+except (OSError, ValueError) as e:
+    print("pass-completeness: cannot read manifest: %s" % e)
+    print("__PASSCOMP_FAIL__ 1")
+    sys.exit(0)
+
+GATED = {"code", "config", "iac"}
+NA_RE = re.compile(r'^(n/?a|deferred)')
+offenders = []
+for f in (man.get("files") or []):
+    p = norm(str(f.get("path", "")))
+    # Prefer the recomputed class; fall back to the declared one only when the
+    # path was neither in the diff nor an untracked file (defensive — should be
+    # rare). A genuine class disagreement is itself caught by check 2.
+    cls = recomputed.get(p, f.get("file_class"))
+    if cls not in GATED:
+        continue
+    macro = f.get("macro_pass")
+    has_micro = "micro_pass" in f
+    micro = f.get("micro_pass") if has_micro else None
+    bad = False
+    if macro is not True:
+        bad = True
+    # micro_pass must be present and a real outcome: missing, false, or JSON null
+    # all FAIL (null was previously an unintended bypass).
+    if (not has_micro) or (micro is False) or (micro is None):
+        bad = True
+    elif cls == "code" and isinstance(micro, str) and NA_RE.match(micro.strip().lower()):
+        # only generated|vendored|binary|lockfile|rename|docs may use an N/A string
+        bad = True
+    if bad:
+        offenders.append((p, cls, macro, micro if has_micro else "MISSING"))
+
+if offenders:
+    print("[FAIL] pass-completeness: code/config/iac file(s) with failed/missing passes "
+          "(class re-derived from git/path, not the manifest):")
+    for p, cls, macro, micro in offenders:
+        print("        %s\tfile_class=%s\tmacro_pass=%s\tmicro_pass=%s"
+              % (p, cls, macro, micro))
+    print("__PASSCOMP_FAIL__ 1")
+else:
+    print("[PASS] pass-completeness: all code/config/iac files have macro+micro passes")
+    print("__PASSCOMP_FAIL__ 0")
+sys.exit(0)
+PY
+  pyrc=$?
+  set -e
+
+  grep -v '^__PASSCOMP_FAIL__ ' "$out" || true
+
+  if ! grep -q '^__PASSCOMP_FAIL__ ' "$out"; then
+    fail "pass-completeness: internal verifier error (python rc=$pyrc, no result line)"
+    STRUCT_FAILS+=("pass-completeness-internal")
+    return 0
   fi
+
+  local fl
+  fl="$(grep '^__PASSCOMP_FAIL__ ' "$out" | tail -1 | sed 's/^__PASSCOMP_FAIL__ //')"
+  [ "$fl" = "0" ] || STRUCT_FAILS+=("pass-completeness")
 }
 
 # ===========================================================================
 # CHECK 5 - doc-sync (STRUCTURAL; exit 1 on failure, same as checks 1-4)
-#   Recompute, from the PINNED diff's changed file paths (name-status, new path
-#   for renames/copies), the set of TOUCHED directories + ALL ancestor dirs up to
-#   the repo root. For each derive <dir>/CLAUDE.md (the repo root maps to the bare
-#   "CLAUDE.md"). Require manifest.doc_sync.claude_md[] to carry that path with
-#   status in {updated,created,current}. Missing/other-status -> FAIL.
+#   Recompute, from the PINNED diff's changed file paths (name-status; BOTH the
+#   destination AND the source path for renames/copies), the set of TOUCHED
+#   directories + ALL ancestor dirs up to the repo root. For each derive
+#   <dir>/CLAUDE.md (the repo root maps to the bare "CLAUDE.md"). Require
+#   manifest.doc_sync.claude_md[] to carry that path with status in
+#   {updated,created,current}. Missing/other-status -> FAIL.
 #   Scope is touched-folders+ancestors only (NOT the whole repo). This keeps every
 #   touched folder's CLAUDE.md iso with the change (/warmup:update semantics).
+#   CLAUDE.md-ONLY: manifest.doc_sync.docs[] (human docs) is advisory, NOT gated
+#   here — the required human-doc set is not deterministically derivable (see the
+#   SCOPE NOTE in the top-of-file check-5 contract).
 # Python prints its own [PASS]/[FAIL] lines and a final machine line:
 #   __DOCSYNC_FAIL__ 0|1
 # ===========================================================================
@@ -849,6 +1020,10 @@ try:
                 continue
             code = parts[0]
             if code[:1] in ('R', 'C') and len(parts) >= 3:
+                # Rename/copy: gate BOTH the destination AND the source folder.
+                # Keeping only parts[2] would let a rename like old/foo -> new/foo
+                # leave old/CLAUDE.md stale while the verifier still passes.
+                changed.append(norm(parts[1]))
                 changed.append(norm(parts[2]))
             elif len(parts) >= 2:
                 changed.append(norm(parts[1]))

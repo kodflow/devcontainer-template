@@ -29,7 +29,7 @@ file_class:
       probe: "git diff --numstat \"$BASE...$HEAD\" -- <f> | awk '$1==\"-\"&&$2==\"-\"'"
     rename:
       rule: "git diff status R### with 100% similarity (pure rename, no content change)"
-      probe: "git diff --find-renames --name-status \"$BASE...$HEAD\" | rg '^R100\\b'"
+      probe: "git diff --find-renames --name-status \"$BASE...$HEAD\" -- <f> | rg '^R100\\b'"
     lockfile:
       rule: "package-lock.json|yarn.lock|pnpm-lock.yaml|Cargo.lock|go.sum|poetry.lock|Gemfile.lock|composer.lock"
     generated:
@@ -324,7 +324,8 @@ verifier_checks:                   # review-verify-manifest.sh — mirror EXACTL
     catches: "skipped macro/micro on a real source/config/IaC file."
 
   6_doc_sync:                       # STRUCTURAL (exit 1, like checks 1-4)
-    do:  "RECOMPUTE, from the pinned diff's changed file paths (name-status, new path for
+    do:  "RECOMPUTE, from the pinned diff's changed file paths plus any untracked, non-ignored
+          WORKTREE additions (name-status, new path for
           renames/copies), the required CLAUDE.md set = every touched directory + ALL ancestor
           directories up to the repo root (repo root => the bare \"CLAUDE.md\"). For each derive
           <dir>/CLAUDE.md and look it up in manifest.doc_sync.claude_md[]."

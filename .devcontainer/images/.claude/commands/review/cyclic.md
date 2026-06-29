@@ -56,22 +56,24 @@ language_specialist_dispatch:
     ".s":     "developer-specialist-assembly"
 
   dispatch:
-    # skills-cleanup C2: fixes are not auto-applied here. /review --loop writes
-    # the fixes plan, then hands execution to /goal (the canonical executor). The condition
-    # drives the fixes plan to completion; no custom loop engine.
+    # skills-cleanup C2: fixes are not auto-applied here. /review --loop writes the fixes
+    # plan; /refine compacts it into a goal contract; /goal (the canonical executor) then
+    # drives that contract to completion. The handoff is /refine -> /goal, matching the
+    # other review modules (review.md Phase 5 "applied by /refine -> /goal"); no custom loop engine.
     primitive: |
-      /goal "Read the review-fixes-{timestamp} plan, apply each fix_patch grouped by
-             language via developer-specialist-{lang}, and stop when a re-review
-             reports 0 CRITICAL and 0 HIGH findings."
+      /refine review-fixes-{timestamp}      # prepares the goal contract from the fixes plan
+      # -> emits a /goal directive that applies each fix_patch grouped by language via
+      #    developer-specialist-{lang}, stopping when a re-review reports 0 CRITICAL and 0 HIGH.
     fallback_when_goal_absent: "apply the fixes listed in the review-fixes plan manually"
     executor: "developer-specialist-{lang}"
 
   integration_with_goal:
     workflow:
       1: "/review generates plan with findings + fix_patch"
-      2: "/goal loads the plan (convention) and groups fixes by language"
-      3: "language-specialist agents apply fixes until the stop condition holds"
-      4: "if --loop, re-run /review to confirm 0 CRITICAL/HIGH"
+      2: "/refine compacts the review-fixes plan into a goal contract (.claude/goals/<slug>.md)"
+      3: "/goal loads the contract (convention) and groups fixes by language"
+      4: "language-specialist agents apply fixes until the stop condition holds"
+      5: "if --loop, re-run /review to confirm 0 CRITICAL/HIGH"
 ```
 
 ---

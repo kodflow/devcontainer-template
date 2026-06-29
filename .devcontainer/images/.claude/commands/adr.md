@@ -10,7 +10,7 @@ allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
   - "Grep(**/*)"
-  - "Edit(**/*)"
+  - "Edit(docs/adr/**)"
   - "Write(docs/adr/**)"
   - "Bash(*)"
 ---

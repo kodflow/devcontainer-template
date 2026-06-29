@@ -46,6 +46,7 @@ costs more later. This skill forces evidence before edits.
 ## Workflow
 
 ### Phase 1 — Reproduce
+
 - Establish the smallest reliable reproduction (a failing test, a curl, a script).
 - Record the exact observed behaviour vs the expected behaviour.
 - If non-deterministic: capture the conditions (timing, concurrency, data, env)
@@ -54,6 +55,7 @@ costs more later. This skill forces evidence before edits.
   flaky-rate). If not, stay here.
 
 ### Phase 2 — Isolate
+
 - Bisect the surface: narrow by file/function/input/commit (`git bisect`,
   binary-search logs, disable half the inputs) until the fault localizes.
 - Build the call/data path to the failure point (use the blast-radius idea from
@@ -62,6 +64,7 @@ costs more later. This skill forces evidence before edits.
   ("if the cause is X, then changing Y will flip the outcome").
 
 ### Phase 3 — Prove the cause
+
 - Run the experiment that confirms or refutes the hypothesis. Add an assertion,
   a log line, a breakpoint, or a unit test that observes the cause directly.
 - State the causal chain explicitly: `root cause -> mechanism -> symptom`.
@@ -69,6 +72,7 @@ costs more later. This skill forces evidence before edits.
   evidence. A grep returning nothing is not proof. If unproven, return to Phase 2.
 
 ### Phase 4 — Fix & verify
+
 - Apply the minimal change that breaks the causal chain (with `--fix`, or propose
   the diff for approval).
 - Verify: the Phase-1 reproduction now passes AND nothing adjacent regressed

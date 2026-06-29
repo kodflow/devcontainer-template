@@ -38,6 +38,11 @@ print_banner "AI Coding CLIs" 2>/dev/null || echo "== AI Coding CLIs =="
 # --- Codex (openai/codex) — native Rust binary, musl static, Apache-2.0 -------
 if [ "$ENABLE_CODEX" = "true" ]; then
     CXV="$(get_github_latest_version_or_empty openai/codex)"
+    # openai/codex tags releases as `rust-v<semver>`. get_github_latest_version
+    # only strips a leading bare `v`, so CXV still carries the `rust-v` prefix.
+    # Normalize it off here and re-add a single `rust-v` when building the URL,
+    # otherwise the path double-prefixes to `rust-vrust-v…` and 404s.
+    CXV="${CXV#rust-v}"; CXV="${CXV#v}"
     if [ -n "$CXV" ]; then
         cx_triple="x86_64-unknown-linux-musl"; [ "$ARCH_DEB" = "arm64" ] && cx_triple="aarch64-unknown-linux-musl"
         tmp="$(mktemp -d)"
@@ -60,7 +65,7 @@ if [ "$ENABLE_OPENCODE" = "true" ]; then
     if command -v npm >/dev/null 2>&1 && sudo npm install -g opencode-ai 2>/dev/null; then
         :
     else
-        curl -fsSL https://opencode.ai/install 2>/dev/null | bash 2>/dev/null || log_warning "opencode install failed"
+        log_warning "opencode npm install failed; skipping remote installer fallback"
     fi
 fi
 
