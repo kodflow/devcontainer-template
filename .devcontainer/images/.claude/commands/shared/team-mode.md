@@ -250,7 +250,6 @@ Predictable names so users can reference them and `/audit` can track them.
 | `/do` | `impl-<language>` (picked from plan parallelization table) |
 | `/infra` | `cloud-aws`, `cloud-gcp`, `cloud-azure`, `cloud-hashicorp` |
 | `/test` | `test-e2e`, `test-unit`, `test-integration` |
-| `/improve` | `improve-design`, `improve-quality`, `improve-security`, `improve-shell` |
 
 Leads ask users to assign custom names via spawn prompts when the above don't fit.
 

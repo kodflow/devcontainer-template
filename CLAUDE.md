@@ -104,7 +104,7 @@ Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.).
 
 ## Agent Teams (experimental)
 
-Parallel multi-agent execution for 5 high-value skills (`/review`, `/plan`, `/infra`, `/test`, `/improve`). Each skill detects its runtime mode at invocation and branches:
+Parallel multi-agent execution for 4 high-value skills (`/review`, `/plan`, `/infra`, `/test`). Each skill detects its runtime mode at invocation and branches:
 
 | Capability (persisted) | Runtime mode | Where |
 |---|---|---|
