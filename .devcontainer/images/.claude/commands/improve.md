@@ -1,5 +1,16 @@
 # Improve - Continuous Enhancement (RLM Multi-Agent)
 
+> **⚠️ DEPRECATED (challenge-setup-2026 audit, Q3 — score 30/100).**
+> `/improve` has no surviving unique capability: its review/lint mode overlaps
+> `/review` + `/lint`, and its docs-QA mode reintroduces the CPU/RAM cost profile
+> that got grepai/ollama dropped in 2026-04. A known footgun: in a downstream
+> consumer repo it can file issues against the upstream `kodflow` template.
+>
+> **Use instead:** `/review` (correctness/quality/security), `/lint` (multi-language
+> linting), `/comment` (comment accuracy). This file is retained for one
+> deprecation cycle and is no longer listed in the command tables; it will be
+> removed in a follow-up once references are migrated.
+
 ## Description
 
 Automatic continuous improvement. Detects context and acts.
