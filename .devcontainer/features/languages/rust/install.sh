@@ -60,6 +60,19 @@ rustup default stable
 rustup component add rust-analyzer clippy rustfmt
 ok "Toolchain: $(rustc --version)"
 
+# miri (undefined-behaviour detector) ships ONLY for the nightly channel. The
+# Rust specialist's `cargo +nightly miri test` gate — run when a diff touches
+# `unsafe` — was a dead gate with no nightly/miri installed (challenge-setup-2026
+# audit, Q1). Install a minimal nightly + miri here. Optional / non-fatal: a brief
+# nightly outage must not break the build (cargo-nextest + cargo-deny coverage
+# and the tarpaulin gate are already provisioned below on stable).
+echo -e "${YELLOW}Installing nightly + miri (unsafe-code UB gate)...${NC}"
+if rustup toolchain install nightly --profile minimal --component miri 2>/dev/null; then
+    ok "nightly + miri"
+else
+    warn "nightly/miri unavailable — 'cargo +nightly miri test' gate will be absent"
+fi
+
 # =============================================================================
 # Targets (idempotent installation)
 # =============================================================================
