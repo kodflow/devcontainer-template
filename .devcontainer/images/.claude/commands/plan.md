@@ -160,7 +160,18 @@ When `--auto` is passed, ALL interactive checkpoints are skipped:
 
 The AI documents its reasoning in the plan file under a "## Reasoning" section so the user can review why choices were made.
 
-**When to use `--auto`:** When you trust the AI's judgment and want speed over interaction. You always review the final plan before `/do`.
+**When to use `--auto`:** When you trust the AI's judgment and want speed over interaction. You always review the final plan before `/refine → /goal`.
+
+---
+
+## Architecture decisions → `/adr`
+
+When the plan settles a non-obvious architectural trade-off (a new dependency or
+service, a layering/pattern choice, a public-contract or wire-format change, a
+notable perf-vs-simplicity call), record the *why* before implementing. After the
+plan is written, emit a textual `Suggested next step: /adr <decision>` so the
+decision is captured as `docs/adr/NNNN-*.md` rather than lost. Routine
+implementation choices evident from the code do NOT warrant an ADR.
 
 ---
 
@@ -224,7 +235,7 @@ Phase 5.8: Frontend Guidelines (conditional)
     - "Each design must feel context-specific, never cookie-cutter"
 
 Phase 6.0: Validation Request
-  → Wait for user approval before /do
+  → Wait for user approval before /refine → /goal
 ```
 
 ---
@@ -232,7 +243,7 @@ Phase 6.0: Validation Request
 ## HARD GATE (ABSOLUTE)
 
 ```
-Do NOT invoke /do, write any code, scaffold any project, or take ANY 
+Do NOT invoke /refine → /goal, write any code, scaffold any project, or take ANY 
 implementation action until the plan is approved by the user.
 This applies to EVERY task regardless of perceived simplicity.
 Anti-pattern: "This is too simple to need a plan" — EVERY task gets a plan.
@@ -249,4 +260,4 @@ Anti-pattern: "This is too simple to need a plan" — EVERY task gets a plan.
 | Plan without concrete steps | **FORBIDDEN** |
 | Plan without rollback strategy | **WARNING** |
 | Skip spec self-review | **FORBIDDEN** |
-| Start /do before user approval | **FORBIDDEN** |
+| Start /refine → /goal before user approval | **FORBIDDEN** |

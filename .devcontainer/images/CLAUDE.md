@@ -202,7 +202,6 @@ Core servers in `mcp.json.tpl` (GitHub, GitLab). Additional servers added via MC
 | `/vpn` | Multi-protocol VPN management (OpenVPN, WireGuard, IPsec, PPTP) |
 | `/warmup` | Context pre-loading and CLAUDE.md update |
 | `/update` | DevContainer update from template |
-| `/improve` | Continuous docs enhancement & anti-pattern detection |
 | `/feature` | Feature tracking (RTM) with --add, --edit, --del, --list, --checkup |
 
 ## Hooks (31 scripts, 17 event types)

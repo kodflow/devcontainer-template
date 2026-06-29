@@ -132,7 +132,9 @@ Enforced by two layers (defence-in-depth):
 | `/warmup` | Context pre-loading |
 | `/update` | DevContainer update |
 | `/feature` | Feature tracking (RTM) |
-| `/improve` | Docs QA |
+| `/debug` | Systematic root-cause-first debugging |
+| `/adr` | Architecture Decision Records (wired into `/plan`, `/git`) |
+| `/review-doctor` | Health-and-heal the /review v2 stack (5 parallel concerns) |
 
 ### Skill Classification
 
@@ -143,7 +145,7 @@ Enforced by two layers (defence-in-depth):
 
 ## 5.1 AGENT TEAMS
 
-Six skills migrate to parallel multi-agent execution when Claude Code supports it: `/review`, `/plan`, `/docs`, `/infra`, `/test`, `/improve`.
+Five skills migrate to parallel multi-agent execution when Claude Code supports it: `/review`, `/plan`, `/docs`, `/infra`, `/test`.
 
 **Single source of truth:** `commands/shared/team-mode.md`
 
