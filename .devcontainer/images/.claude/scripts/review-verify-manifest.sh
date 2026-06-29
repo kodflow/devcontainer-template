@@ -736,7 +736,16 @@ check_pass_completeness() {
   offenders="$(jq -r '
     .files[]?
     | select(.file_class=="code" or .file_class=="config" or .file_class=="iac")
-    | select((.macro_pass != true) or (has("micro_pass")|not) or (.micro_pass == false))
+    | select(
+        (.macro_pass != true)
+        or (has("micro_pass")|not)
+        or (.micro_pass == false)
+        # code files may NOT dodge micro via an "N/A …" / "deferred …" string
+        # (only generated|vendored|binary|lockfile|rename|docs may use N/A).
+        or (.file_class=="code"
+            and (.micro_pass|type=="string")
+            and (.micro_pass|ascii_downcase|test("^(n/?a|deferred)")))
+      )
     | "\(.path)\tfile_class=\(.file_class)\tmacro_pass=\(.macro_pass)\tmicro_pass=\(if has("micro_pass") then .micro_pass else "MISSING" end)"
   ' "$MANIFEST")"
 
