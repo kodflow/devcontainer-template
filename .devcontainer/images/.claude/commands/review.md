@@ -520,12 +520,25 @@ For high-stakes diffs run the ensemble: findings in >1 pass -> full confidence; 
 The run emits a machine-readable manifest file AND runs a non-LLM verifier that gates
 APPROVE. The model may not self-attest coverage.
 
+**Step 0 — get the authoritative diff facts (do NOT compute them yourself).**
+The RTK PreToolUse hook rewrites your `git diff`, so a hash you compute by hand
+diverges from what the verifier recomputes internally and every run goes
+INCONCLUSIVE. Ask the verifier for the canonical numbers and copy them verbatim:
+
+```bash
+# For a PR/branch review use the real head sha; for a local dirty tree use the
+# sentinel HEAD=WORKTREE (reviews uncommitted tracked changes vs $BASE).
+RTK_BYPASS=1 bash ~/.claude/scripts/review-verify-manifest.sh \
+  --repo "$PROJECT_DIR" --base "$BASE" --head "${HEAD:-WORKTREE}" --print-facts
+# -> {"diff_hash":"…","hunks_total":N,"head":"…"}  copy both into the manifest
+```
+
 ```yaml
 coverage_manifest:                # written to .claude/review-manifest-{ts}.json
-  diff_hash: <sha>                # = git diff "$BASE...$HEAD" | sha256sum
-  base: <sha>  head: <sha>
+  diff_hash: <sha>                # COPY from --print-facts (canonical, RTK-safe)
+  base: <sha>  head: <sha|WORKTREE>
   canary: passed|failed
-  hunks_total: <n>                # verifier recomputes; mismatch => INVALID
+  hunks_total: <n>                # COPY from --print-facts; verifier re-asserts
   files:
     - path: <file>
       file_class: <enum>
@@ -543,14 +556,20 @@ coverage_manifest:                # written to .claude/review-manifest-{ts}.json
 Then invoke the external verifier (must pass):
 
 ```bash
-bash ~/.claude/scripts/review-verify-manifest.sh \
-  --repo "$PROJECT_DIR" --base "$BASE" --head "$HEAD" \
+RTK_BYPASS=1 bash ~/.claude/scripts/review-verify-manifest.sh \
+  --repo "$PROJECT_DIR" --base "$BASE" --head "${HEAD:-WORKTREE}" \
   --manifest ".claude/review-manifest-${TS}.json" --det "$DET"
 echo "verifier exit=$?"          # NONZERO => run is INVALID, regardless of model output
 ```
 
+`$HEAD` is a real sha for PR/branch reviews; for a local review of an uncommitted
+tree pass `--head WORKTREE` (BASE...working-tree). The verifier pins one canonical
+diff command (`git -c core.pager=cat diff --no-color --no-ext-diff -U3`) so its
+numbers match `--print-facts` exactly.
+
 The verifier (authored as a project script) does, with git+jq+python3 (all present):
-1. Recompute `diff_hash` and `hunks_total` from `git diff "$BASE...$HEAD"`; assert equal.
+1. Recompute `diff_hash` and `hunks_total` from the canonical diff; assert equal to the
+   manifest values (which you copied from `--print-facts`).
 2. Extract changed symbols from diff hunk headers + signature lines; assert
    `symbols_inspected` ⊇ that set (under-enumeration FAILS).
 3. Assert each `tiers[]` entry maps to a real captured `.out` file in `$DET` and that

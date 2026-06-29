@@ -171,9 +171,10 @@ full source echoes. Every field below is required unless marked optional.
 
 ```yaml
 coverage_manifest:                 # .claude/review-manifest-{ts}.json
-  diff_hash: <sha256>              # = git diff "$BASE...$HEAD" | sha256sum   (verifier recomputes; mismatch => INVALID)
+  diff_hash: <sha256>              # COPY from `review-verify-manifest.sh --print-facts`
+                                   # (canonical, RTK-safe diff). Verifier recomputes; mismatch => INVALID
   base: <sha>                      # $BASE commit
-  head: <sha>                      # $HEAD commit
+  head: <sha|WORKTREE>             # $HEAD commit, or WORKTREE for an uncommitted local review
   canary: passed | failed          # Phase 0.8 self-test result
   hunks_total: <n>                 # total changed hunks across all files (verifier recomputes; mismatch => INVALID)
 
@@ -220,7 +221,7 @@ coverage_manifest:                 # .claude/review-manifest-{ts}.json
 
 | Invariant | Rule |
 |-----------|------|
-| `diff_hash` | equals `git diff "$BASE...$HEAD" \| sha256sum` |
+| `diff_hash` | equals the verifier's canonical diff hash (`--print-facts`); never hand-computed |
 | `hunks_total` | equals `sum(files[].hunks)` and the verifier's git count |
 | `symbols_inspected` | ⊇ verifier's diff-extracted symbol set (under-enumeration FAILS) |
 | `tiers[]` | each entry maps to a real `$DET/<tool>.out`; exit/findings match parsed values |
@@ -238,9 +239,12 @@ define the denominator of its own coverage metric.
 ```bash
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 MANIFEST=".claude/review-manifest-${TS}.json"
-# ... write $MANIFEST ...
-bash ~/.claude/scripts/review-verify-manifest.sh \
-  --repo "$PROJECT_DIR" --base "$BASE" --head "$HEAD" \
+# Step 0: copy canonical facts into $MANIFEST (RTK-safe; do NOT hand-compute):
+RTK_BYPASS=1 bash ~/.claude/scripts/review-verify-manifest.sh \
+  --repo "$PROJECT_DIR" --base "$BASE" --head "${HEAD:-WORKTREE}" --print-facts
+# ... write $MANIFEST (diff_hash + hunks_total copied verbatim) ...
+RTK_BYPASS=1 bash ~/.claude/scripts/review-verify-manifest.sh \
+  --repo "$PROJECT_DIR" --base "$BASE" --head "${HEAD:-WORKTREE}" \
   --manifest "$MANIFEST" --det "$DET"
 echo "verifier exit=$?"           # NONZERO => run is INVALID, regardless of model output
 ```

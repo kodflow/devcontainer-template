@@ -66,14 +66,19 @@ $PROG - non-LLM coverage-manifest verifier for /review (anti-theater gate)
 
 USAGE:
   $PROG --repo <dir> --base <sha> --head <sha> --manifest <file.json> --det <det_dir>
+  $PROG --repo <dir> --base <sha> --head <sha> --print-facts
 
 ARGUMENTS:
   --repo <dir>          git repository the review ran against
   --base <sha>          base ref/sha of the reviewed range
-  --head <sha>          head ref/sha of the reviewed range
+  --head <sha>          head ref/sha of the reviewed range, OR the sentinel
+                        WORKTREE to review the uncommitted working tree vs BASE
   --manifest <file>     coverage manifest JSON emitted by the review run
   --det <det_dir>       directory of captured deterministic tier .out files
                         (and the DET/_table.tsv produced by the tier runner)
+  --print-facts         print canonical {diff_hash, hunks_total} as JSON and
+                        exit 0 (manifest/det not required); the model copies
+                        these verbatim instead of recomputing (avoids RTK drift)
   -h, --help            show this help and exit
 
 EXIT: 0 PASS | 1 INVALID run | 2 not approve-eligible | 3 usage/env error
@@ -83,25 +88,33 @@ EOF
 # ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
-REPO="" BASE="" HEAD="" MANIFEST="" DET=""
+REPO="" BASE="" HEAD="" MANIFEST="" DET="" PRINT_FACTS=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --repo)     REPO="${2:-}";     shift 2 || die "--repo needs a value" ;;
-    --base)     BASE="${2:-}";     shift 2 || die "--base needs a value" ;;
-    --head)     HEAD="${2:-}";     shift 2 || die "--head needs a value" ;;
-    --manifest) MANIFEST="${2:-}"; shift 2 || die "--manifest needs a value" ;;
-    --det)      DET="${2:-}";      shift 2 || die "--det needs a value" ;;
-    -h|--help)  usage; exit 0 ;;
-    *)          usage >&2; die "unknown argument: $1" ;;
+    --repo)        REPO="${2:-}";     shift 2 || die "--repo needs a value" ;;
+    --base)        BASE="${2:-}";     shift 2 || die "--base needs a value" ;;
+    --head)        HEAD="${2:-}";     shift 2 || die "--head needs a value" ;;
+    --manifest)    MANIFEST="${2:-}"; shift 2 || die "--manifest needs a value" ;;
+    --det)         DET="${2:-}";      shift 2 || die "--det needs a value" ;;
+    # --print-facts: compute the canonical diff_hash + hunks_total from git and
+    # print them as JSON, then exit. The model copies these into the manifest
+    # INSTEAD of computing them itself — closing the RTK-rewrite divergence
+    # (the model's `git diff` is rewritten by the RTK PreToolUse hook, this
+    # script's internal `git diff` is not). Only --repo/--base/--head needed.
+    --print-facts) PRINT_FACTS=1;     shift ;;
+    -h|--help)     usage; exit 0 ;;
+    *)             usage >&2; die "unknown argument: $1" ;;
   esac
 done
 
 [ -n "$REPO" ]     || { usage >&2; die "--repo is required"; }
 [ -n "$BASE" ]     || { usage >&2; die "--base is required"; }
 [ -n "$HEAD" ]     || { usage >&2; die "--head is required"; }
-[ -n "$MANIFEST" ] || { usage >&2; die "--manifest is required"; }
-[ -n "$DET" ]      || { usage >&2; die "--det is required"; }
+if [ "$PRINT_FACTS" -eq 0 ]; then
+  [ -n "$MANIFEST" ] || { usage >&2; die "--manifest is required"; }
+  [ -n "$DET" ]      || { usage >&2; die "--det is required"; }
+fi
 
 # ---------------------------------------------------------------------------
 # Environment validation
@@ -112,26 +125,59 @@ done
 
 [ -d "$REPO" ]      || die "repo dir does not exist: $REPO"
 git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $REPO"
-[ -f "$MANIFEST" ]  || die "manifest file not found: $MANIFEST"
-jq -e . "$MANIFEST" >/dev/null 2>&1 || die "manifest is not valid JSON: $MANIFEST"
-[ -d "$DET" ]       || die "det dir does not exist: $DET"
+if [ "$PRINT_FACTS" -eq 0 ]; then
+  [ -f "$MANIFEST" ]  || die "manifest file not found: $MANIFEST"
+  jq -e . "$MANIFEST" >/dev/null 2>&1 || die "manifest is not valid JSON: $MANIFEST"
+  [ -d "$DET" ]       || die "det dir does not exist: $DET"
+fi
 
 if ! git -C "$REPO" rev-parse --verify --quiet "${BASE}^{commit}" >/dev/null; then
   die "base ref not resolvable in repo: $BASE"
 fi
-if ! git -C "$REPO" rev-parse --verify --quiet "${HEAD}^{commit}" >/dev/null; then
-  die "head ref not resolvable in repo: $HEAD"
-fi
+# HEAD may be the sentinel WORKTREE / WORKING-TREE — meaning "review the
+# uncommitted working tree against BASE" (the common local `/review` on a dirty
+# tree). In that mode there is no HEAD commit to resolve.
+case "$HEAD" in
+  WORKTREE|WORKING-TREE) HEAD_IS_WORKTREE=1 ;;
+  *)
+    HEAD_IS_WORKTREE=0
+    if ! git -C "$REPO" rev-parse --verify --quiet "${HEAD}^{commit}" >/dev/null; then
+      die "head ref not resolvable in repo: $HEAD"
+    fi ;;
+esac
 
 # ---------------------------------------------------------------------------
-# Capture the canonical diff exactly once (same bytes the manifest hashed)
+# Canonical diff — the ONE deterministic byte stream both this verifier and
+# the manifest's diff_hash must agree on. Pinned flags (no color, no external
+# differ, fixed -U3 context, default prefixes) remove git-config / TTY drift.
+# WORKTREE mode diffs BASE against the working tree (tracked changes; untracked
+# files are out of scope and must be committed/added to be reviewed).
 # ---------------------------------------------------------------------------
+canonical_diff() {
+  if [ "$HEAD_IS_WORKTREE" -eq 1 ]; then
+    git -C "$REPO" -c core.pager=cat diff --no-color --no-ext-diff -U3 "${BASE}" --
+  else
+    git -C "$REPO" -c core.pager=cat diff --no-color --no-ext-diff -U3 "${BASE}...${HEAD}"
+  fi
+}
+
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/review-verify.XXXXXX")"
 cleanup() { rm -rf "$WORK"; }
 trap cleanup EXIT
 
 DIFF_FILE="$WORK/diff.patch"
-git -C "$REPO" diff "${BASE}...${HEAD}" > "$DIFF_FILE"
+canonical_diff > "$DIFF_FILE"
+
+# --print-facts: emit the authoritative diff_hash + hunks_total and exit 0.
+# The model MUST copy these verbatim into the manifest rather than recompute
+# them (its own `git diff` runs through the RTK rewrite and would diverge).
+if [ "$PRINT_FACTS" -eq 1 ]; then
+  pf_hash="$(sha256sum < "$DIFF_FILE" | awk '{print tolower($1)}')"
+  pf_hunks="$(awk '/^@@/ {n++} END {print n+0}' "$DIFF_FILE")"
+  jq -n --arg h "$pf_hash" --argjson n "$pf_hunks" --arg head "$HEAD" \
+        '{diff_hash:$h, hunks_total:$n, head:$head}'
+  exit 0
+fi
 
 printf '== review-verify-manifest ==\n'
 printf 'repo=%s base=%s head=%s\n' "$REPO" "$BASE" "$HEAD"
