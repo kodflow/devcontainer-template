@@ -13,6 +13,29 @@ source "${FEATURE_DIR}/../shared/feature-utils.sh" 2>/dev/null || {
     log_error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
     ok() { echo -e "${GREEN}✓${NC} $*"; }
     warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+    # #387: this script calls get_github_latest_version_or_empty below. With
+    # set -e, an undefined symbol here (when shared/feature-utils.sh cannot be
+    # sourced — e.g. local feature builds that drop the sibling shared dir)
+    # aborts with exit 127. Mirror the canonical helpers into the fallback,
+    # matching go/install.sh. (supervizio/agent#84.)
+    get_github_latest_version() {
+        local repo="$1" version auth_args=()
+        [[ -n "${GITHUB_TOKEN:-}" ]] && auth_args=(-H "Authorization: token ${GITHUB_TOKEN}")
+        local attempt
+        for attempt in 1 2 3; do
+            version=$(curl -fsS --connect-timeout 5 --max-time 10 \
+                "${auth_args[@]}" \
+                "https://api.github.com/repos/${repo}/releases/latest" 2>/dev/null \
+                | sed -n 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/p' | head -n 1)
+            [[ -n "$version" ]] && break
+            sleep $((attempt * 2))
+        done
+        [[ -n "$version" ]] || { echo -e "${RED}✗ Failed to resolve latest version for ${repo}${NC}" >&2; return 1; }
+        echo "$version"
+    }
+    get_github_latest_version_or_empty() {
+        get_github_latest_version "$1" 2>/dev/null || echo ""
+    }
 }
 
 # Retry function

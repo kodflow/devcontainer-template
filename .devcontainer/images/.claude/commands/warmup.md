@@ -94,7 +94,7 @@ Examples:
   /warmup --update --dry-run    Preview changes
 
 Workflow:
-  /warmup → /plan → /do → /git
+  /warmup → /plan → /refine → /goal → /git
 
 ═══════════════════════════════════════════════════════════════
 ```
@@ -172,7 +172,7 @@ Workflow:
     ↓
 /plan "feature X"           # Plan with context
     ↓
-/do                         # Execute the plan
+/refine → /goal             # Refine into contract, then execute
     ↓
 /warmup --update            # Update documentation
     ↓
@@ -183,7 +183,7 @@ Workflow:
 
 | Before /warmup | After /warmup |
 |----------------|---------------|
-| Container start | /plan, /review, /do |
+| Container start | /plan, /review, /goal |
 | /init | Any complex task |
 
 ---

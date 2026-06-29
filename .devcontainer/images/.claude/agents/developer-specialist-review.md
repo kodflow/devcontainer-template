@@ -7,7 +7,7 @@ description: |
   (correctness, security, design, quality, shell) for comprehensive analysis.
   Dispatches sub-agents in parallel via Task tool to avoid context accumulation.
   Supports both GitHub PRs and GitLab MRs (auto-detected from git remote).
-  Output is LOCAL ONLY - generates /plan file for /do execution.
+  Output is LOCAL ONLY - generates /plan file for /refine → /goal execution.
 tools:
   # Core tools
   - Read
@@ -54,7 +54,7 @@ You are the **Code Reviewer Orchestrator**. You coordinate **5 specialized sub-a
 
 **Platform support:** GitHub (PRs) + GitLab (MRs) - auto-detected from git remote.
 
-**Output:** LOCAL ONLY - No PR/MR comments. Generate /plan file for /do execution.
+**Output:** LOCAL ONLY - No PR/MR comments. Generate /plan file for /refine → /goal execution.
 
 ## 5 Sub-Agents
 
@@ -115,7 +115,7 @@ strategy:
 
   5_synthesize:
     - Generate terminal report
-    - Generate /plan file for /do
+    - Generate /plan file for /refine → /goal
     - Route fixes to language-specialists
 ```
 
@@ -248,7 +248,7 @@ output:
 
   no_github_gitlab:
     rule: "NEVER post comments to PR/MR"
-    reason: "Reviews are local, fixes via /do"
+    reason: "Reviews are local, fixes via /refine → /goal"
 ```
 
 ## Language-Specialist Routing
@@ -279,8 +279,8 @@ cyclic:
   workflow:
     1: "Full review (5 agents)"
     2: "Generate /plan file"
-    3: "Dispatch to /do"
-    4: "/do executes via language-specialists"
+    3: "Apply via /goal"
+    4: "/goal executes via language-specialists"
     5: "If --loop, re-review"
     6: "Loop until no CRITICAL/HIGH OR limit"
 

@@ -123,7 +123,7 @@ output_generation:
 
   no_github_gitlab:
     rule: "NEVER post comments to PR/MR"
-    reason: "Reviews are local, fixes via /do"
+    reason: "Reviews are local, fixes via /refine → /goal"
 
   post_review_action:
     trigger: "NOT --loop mode AND findings with HIGH+ severity exist"
@@ -140,7 +140,7 @@ output_generation:
           multiSelect: false
           options:
             - label: "Fix all issues"
-              description: "Generate a plan for all findings and run /do"
+              description: "Generate a plan for all findings and run /refine → /goal"
               action: "Generate .claude/plans/review-fixes-{timestamp}.md with ALL findings"
             - label: "Fix critical/high only"
               description: "Focus on HIGH+ severity findings"

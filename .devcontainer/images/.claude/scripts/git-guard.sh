@@ -136,7 +136,23 @@ fi
 if [[ "$NORMALIZED_CMD" =~ ^git[[:space:]]+(commit|rebase|cherry-pick) ]]; then
     # Start with the raw command string — covers every -m/--message/-F path/
     # heredoc-body substring without any extraction step. (CR-1/CR-3/Q-1.)
+    #
+    # #387: but first drop word-split tokens of $COMMAND that exist on disk
+    # (pathspecs, -F paths). Without this, a legitimate path ARGUMENT
+    # containing '.claude/' — e.g.
+    #   git commit .devcontainer/images/.claude/scripts/git-guard.sh -m "..."
+    # — trips the #364 workflow-leak pattern '\.claude/' as a false positive.
+    # Message content is quoted inside $COMMAND, so its word-split fragments
+    # carry quote characters and never match an on-disk path; -F file CONTENT
+    # is still appended below and scanned. Trade-off: a path leaked inside an
+    # unquoted heredoc body is dropped too — layer 2 (.githooks/commit-msg)
+    # still catches that. (supervizio/agent#84, issue #387.)
     HAYSTACK="$COMMAND"
+    set -f  # no glob expansion while word-splitting the raw command
+    for _tok in $COMMAND; do
+        [ -e "$_tok" ] && HAYSTACK="${HAYSTACK//"$_tok"/}"
+    done
+    set +f
 
     # -F file content (skip "-F -" which means stdin — unreachable from here).
     # Handle the three quoting shapes git accepts so paths with spaces work:

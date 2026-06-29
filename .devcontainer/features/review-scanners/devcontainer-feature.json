@@ -1,0 +1,33 @@
+{
+  "id": "review-scanners",
+  "version": "0.1.0",
+  "name": "Review Deterministic Scanners",
+  "description": "Cross-language SAST / secrets / SCA / lint scanners that ground /review v2's deterministic tiers (semgrep, gitleaks, trufflehog, detect-secrets, osv-scanner, trivy, hadolint, actionlint, ast-grep, checkov, yamllint). Opt-in: not enabled by default. See issue #392.",
+  "documentationURL": "https://github.com/kodflow/devcontainer-template/issues/392",
+  "options": {
+    "enableSast": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install SAST + secret scanners (semgrep, gitleaks, trufflehog, detect-secrets)"
+    },
+    "enableSca": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install supply-chain scanners (osv-scanner, trivy)"
+    },
+    "enableLinters": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install config/CI/container linters (hadolint, actionlint, yamllint, checkov)"
+    },
+    "enableAstGrep": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install ast-grep (structural search used by /review graph.md). NB: the binary is 'ast-grep', never 'sg' (/usr/bin/sg is newgrp)."
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/kodflow/devcontainer-features/python",
+    "ghcr.io/kodflow/devcontainer-features/nodejs"
+  ]
+}

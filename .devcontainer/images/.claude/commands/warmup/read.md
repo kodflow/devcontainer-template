@@ -156,7 +156,7 @@ synthesize_workflow:
   Ready for:
     → /plan <feature>
     → /review
-    → /do <task>
+    → /refine → /goal
 
   Skill Discipline:
     Red flags (NEVER rationalize these):
