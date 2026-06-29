@@ -281,30 +281,23 @@ action_watch:
 
         illegitimate_rejected:
           action: |
-            1. Post justification as issue comment (NOT thread reply — thread replies fail with 422)
-            2. Dismiss the CHANGES_REQUESTED state via:
-               mcp__github__pull_request_review_write(method: create, event: COMMENT,
-                 body: "Findings triaged: N fixed, M rejected with justification. See PR comments.")
-               This creates a new COMMENT review that supersedes the CHANGES_REQUESTED state.
-            3. Resolve each rejected thread at the thread level (v1.5 patch):
-               for each rejected_thread_id in $rejected_threads; do
-                 gh api graphql -F threadId="$rejected_thread_id" -f query='
-                   mutation Resolve($threadId: ID!) {
-                     resolveReviewThread(input: {threadId: $threadId}) {
-                       thread { id isResolved }
-                     }
-                   }' \
-                 || true  # don't abort the loop on a single thread failure
+            1. Reply ON THE THREAD with the concrete rationale (this is the per-finding
+               response the user reviews). The replies endpoint WORKS — the 422 myth
+               comes from POSTing a NEW top-level review comment without a position;
+               replying to an existing comment id does not 422:
+                 gh api -X POST \
+                   repos/{owner}/{repo}/pulls/{number}/comments/{comment_id}/replies \
+                   -f body="Triaged (rejected): <why this does not apply — cite the actual code/convention>"
+            2. Resolve each rejected thread (clears the red dots — a PR-level dismiss does NOT):
+               for tid in $rejected_thread_ids; do
+                 gh api graphql -F threadId="$tid" -f query='
+                   mutation($threadId: ID!){ resolveReviewThread(input:{threadId:$threadId}){ thread{ id isResolved } } }' || true
                done
-               # WHY: dismissing the review at PR level (step 2) doesn't
-               # change the per-thread isResolved flag in the GitHub UI.
-               # Without GraphQL resolveReviewThread, the red dots stay
-               # next to each rejected comment and the user has to click
-               # through them manually. graphql does what the @coderabbitai
-               # resolve magic-string can't.
-            4. Post "@coderabbitai resolve" in same comment (belt + suspenders;
-               the GraphQL mutation in step 3 is what actually clears the dots)
-            5. CONTINUE POLLING — do NOT stop
+            3. CONTINUE POLLING — do NOT stop
+            # NOTE: replying + resolving threads clears the dots but does NOT clear the
+            # review-object CHANGES_REQUESTED gate. That is done ONCE, after the whole
+            # triage, in `unblock_gate` below — never by posting another COMMENT review
+            # (a COMMENT review by a different author does NOT supersede CHANGES_REQUESTED).
 
         # CRITICAL: @coderabbitai resolve in issue comments does NOT resolve
         # individual review threads. It only works as a bot command.
@@ -342,6 +335,46 @@ action_watch:
 
       human:
         action: "NEVER auto-handle. Display to user and wait."
+
+    # ── Step 5.5: Unblock Gate (THE missing piece — run ONCE after triage) ──
+    #
+    # This is why PRs used to stay BLOCKED and the user had to step in: replying
+    # to threads and resolving them clears the per-comment dots, but a reviewer's
+    # CHANGES_REQUESTED review (CodeRabbit/Qodo) keeps the PR's reviewDecision at
+    # CHANGES_REQUESTED until that SAME reviewer re-approves OR the review is
+    # DISMISSED. Posting another COMMENT review does NOT supersede it. The only
+    # programmatic clear is the dismissals API.
+    #
+    unblock_gate:
+      when: "After the fix_loop converges (all relevant findings fixed-and-pushed or rejected-with-reply+resolved)."
+      precondition: "reviewDecision is still CHANGES_REQUESTED — re-read it: mcp__github__pull_request_read(get) or `gh pr view N --json reviewDecision`."
+      steps:
+        1_prefer_reapproval: |
+          First give the bot a chance to re-approve on its own: post "@coderabbitai review"
+          (CodeRabbit) / push (Qodo auto-re-reviews), wait up to 120s, re-read reviewDecision.
+          If it flips to APPROVED/empty -> done, no dismissal needed.
+        2_dismiss_stale_BOT_reviews: |
+          If still CHANGES_REQUESTED after re-review, every finding from that reviewer is now
+          fixed or rejected-with-rationale, so DISMISS its stale review(s). BOT REVIEWS ONLY:
+            # enumerate the reviewer's CHANGES_REQUESTED review ids
+            ids=$(gh api repos/{owner}/{repo}/pulls/{number}/reviews --paginate \
+                  -q '.[] | select(.user.login=="coderabbitai[bot]" or (.user.login|test("qodo.*\\[bot\\]")))
+                         | select(.state=="CHANGES_REQUESTED") | .id')
+            for rid in $ids; do
+              gh api -X PUT repos/{owner}/{repo}/pulls/{number}/reviews/$rid/dismissals \
+                -f message="All findings triaged (N fixed + pushed, M rejected with inline rationale per thread). Bot review is non-binding signal per CLAUDE.md; dismissing the stale automated gate. Regression harness green." \
+                -f event="DISMISS"
+            done
+            # re-read: reviewDecision should now be "" and mergeStateStatus leave BLOCKED.
+        3_NEVER_dismiss_humans: |
+          A human CHANGES_REQUESTED is NEVER auto-dismissed — surface it and wait.
+          The reviewer-login allowlist above is the guard: only coderabbitai[bot] /
+          qodo*[bot] are eligible. Any other login -> human path, do not touch.
+      guardrail: |
+        Dismissal is legitimate ONLY because every finding got an inline resolution
+        first (fix or reasoned rejection). Dismissing WITHOUT triaging is the
+        FORBIDDEN "auto-dismiss without fixing" from git/guardrails.md. Order is
+        mandatory: triage -> reply/resolve -> (re-review) -> dismiss -> merge.
 
     # ── Step 6: Escalation ──────────────────────────────────
     escalation:
