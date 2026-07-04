@@ -51,7 +51,9 @@ one-command answer.
 ## Parse Arguments
 
 - **No args**: full health check + auto-heal of anything broken.
-- **`--check`**: report only, never modify (dry run).
+- **`--check`**: report only, never modify (dry run) — never installs.
+- **`--install`**: for the `scanners` concern, run the review-scanners installer to
+  provision missing cross-language tools (see Concern 3). No-op under `--check`.
 - **`--concern <name>`**: run a single concern (`verifier|modules|scanners|routing|canary`).
 
 ## Resolution paths
@@ -117,8 +119,26 @@ Send all five in one message (independent, no shared writes). Each returns a
   golangci-lint staticcheck govulncheck ruff mypy eslint shellcheck actionlint
   hadolint checkov` (extend from `deterministic.md`).
 - Emit a `ran|absent` table. **Absent is not failure** — `/review` degrades
-  cleanly (caps confidence, never silent-pass). Do NOT install here; point at the
-  scanners feature (#392) and report coverage %.
+  cleanly (caps confidence, never silent-pass) and reports coverage %.
+- **On-demand install (heal action, closes the #392 gap without bloating the
+  default image).** Rather than baking 18 scanners into every build (which fights
+  the rebuild-time goal, Q5), the cross-language tier is an opt-in feature whose
+  installer this skill can run when tools are missing:
+  - `--check` (and the default health check) → report the matrix only, **never
+    install**. Installing requires the explicit `--install` flag.
+  - `--install` → run the review-scanners installer, fail-soft per tool (absent
+    stays a supported state); re-probe and update the matrix.
+  - **SECURITY: resolve the installer from a TRUSTED path only — never the
+    workspace checkout.** The installer pipes upstream scripts into `sudo sh`, so
+    executing a copy that a PR under review could have modified is a supply-chain
+    RCE. Use the image-baked path
+    (`/etc/devcontainer-template/features/review-scanners/install.sh`) or the
+    packaged runtime copy; if neither is present, **do not fall back to
+    `.devcontainer/features/...` in the working tree** — report `absent` and tell
+    the user to enable the feature. `/review-doctor` heals the *owner's* healthy
+    container, it is not an action to run against an untrusted PR checkout.
+  - Per-language analyzers (golangci-lint, clippy, ruff…) stay owned by their
+    language feature — heal those by pointing at the feature, don't reinstall here.
 - Footgun guard: assert `ast-grep` resolves to ast-grep and NOT `/usr/bin/sg`
   (which is `newgrp`). Flag loudly if `sg` shadows it.
 
