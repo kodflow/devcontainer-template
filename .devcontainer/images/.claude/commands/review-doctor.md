@@ -117,8 +117,18 @@ Send all five in one message (independent, no shared writes). Each returns a
   golangci-lint staticcheck govulncheck ruff mypy eslint shellcheck actionlint
   hadolint checkov` (extend from `deterministic.md`).
 - Emit a `ran|absent` table. **Absent is not failure** — `/review` degrades
-  cleanly (caps confidence, never silent-pass). Do NOT install here; point at the
-  scanners feature (#392) and report coverage %.
+  cleanly (caps confidence, never silent-pass) and reports coverage %.
+- **On-demand install (heal action, closes the #392 gap without bloating the
+  default image).** Rather than baking 18 scanners into every build (which fights
+  the rebuild-time goal, Q5), the cross-language tier is an opt-in feature whose
+  installer this skill can run when tools are missing:
+  - `--check` → report the matrix only, never install.
+  - default / `--install` → run the `review-scanners` feature installer
+    (`bash .devcontainer/features/review-scanners/install.sh`, or the runtime
+    copy) which is fail-soft per tool (absent stays a supported state). Re-probe
+    and update the matrix. Per-language analyzers (golangci-lint, clippy, ruff…)
+    stay owned by their language feature — heal those by pointing at the feature,
+    don't reinstall them here.
 - Footgun guard: assert `ast-grep` resolves to ast-grep and NOT `/usr/bin/sg`
   (which is `newgrp`). Flag loudly if `sg` shadows it.
 
