@@ -34,8 +34,8 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: kodflow/devcontainer-template
-  BASE_IMAGE_NAME: kodflow/devcontainer-base
+  IMAGE_NAME: ${{ github.repository }}
+  BASE_IMAGE_NAME: ${{ github.repository_owner }}/devcontainer-base
 
 jobs:
   # =============================================================================
