@@ -9,7 +9,7 @@
 
 set +e  # Fail-open
 
-PROJECT_DIR="${1:-${CLAUDE_PROJECT_DIR:-/workspace}}"
+PROJECT_DIR="${1:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 
 # Require jq for JSON output
 if ! command -v jq &>/dev/null; then

@@ -19,7 +19,7 @@ if [ -z "$FILE" ]; then
 fi
 
 # Configuration file paths
-PROTECTED_PATHS_FILE="/workspace/.claude/protected-paths.yml"
+PROTECTED_PATHS_FILE="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/protected-paths.yml"
 PROTECTED_PATHS_DEFAULT="$HOME/.claude/protected-paths.yml"
 
 # Use yq if available, otherwise fall back to hardcoded patterns

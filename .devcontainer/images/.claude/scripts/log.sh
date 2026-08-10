@@ -23,7 +23,7 @@
 set -uo pipefail
 
 # === Configuration ===
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 LOGS_BASE="$PROJECT_DIR/.claude/logs"
 MAX_COMMAND_LEN=500
 MAX_OUTPUT_LEN=2000

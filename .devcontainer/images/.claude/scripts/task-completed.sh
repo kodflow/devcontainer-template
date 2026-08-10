@@ -22,7 +22,7 @@ TEAMMATE_NAME=$(printf '%s' "$INPUT" | jq -r '.teammate_name // ""' 2>/dev/null 
 TEAM_NAME=$(printf '%s' "$INPUT" | jq -r '.team_name // ""' 2>/dev/null || echo "")
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")
 BRANCH_SAFE=$(printf '%s' "$BRANCH" | tr '/ ' '__')
 

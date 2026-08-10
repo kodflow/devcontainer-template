@@ -205,7 +205,7 @@ load_local_override() {
 # Usage: CHANGED=$(get_branch_changed_files [base_branch] [project_dir])
 get_branch_changed_files() {
     local base="${1:-main}"
-    local project_dir="${2:-${CLAUDE_PROJECT_DIR:-/workspace}}"
+    local project_dir="${2:-${CLAUDE_PROJECT_DIR:-$PWD}}"
     (
         cd "$project_dir" 2>/dev/null || return
         local current_branch
@@ -220,4 +220,50 @@ get_branch_changed_files() {
             git diff --cached --name-only 2>/dev/null
         } | sort -u
     )
+}
+
+# Run a command under a wall-clock budget, on any platform.
+# GNU coreutils `timeout` ships in the devcontainer but NOT on stock macOS, where
+# the bare call died with "command not found" — silently voiding the time bound
+# and returning 127 as if the command itself had failed. Prefer the real binary
+# (or homebrew's gtimeout), else fall back to a background watchdog.
+# Usage: portable_timeout <seconds> <command> [args...]
+# Returns the command's exit code, or 124 when the watchdog killed it.
+portable_timeout() {
+    local secs="$1"
+    shift
+
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$secs" "$@"
+        return $?
+    fi
+    if command -v gtimeout >/dev/null 2>&1; then
+        gtimeout "$secs" "$@"
+        return $?
+    fi
+
+    "$@" &
+    local cmd_pid=$!
+
+    # The watchdog MUST NOT inherit stdout: call sites capture output via $(...),
+    # and a subshell holding the pipe open would stall the substitution for the
+    # full budget even after the command finished.
+    (
+        sleep "$secs"
+        kill -TERM "$cmd_pid" 2>/dev/null
+    ) >/dev/null 2>&1 &
+    local watch_pid=$!
+
+    local rc=0
+    wait "$cmd_pid" 2>/dev/null || rc=$?
+
+    # rc 143 = SIGTERM: the watchdog fired, so report the conventional 124.
+    if [ "$rc" -eq 143 ]; then
+        rc=124
+    fi
+
+    kill -TERM "$watch_pid" 2>/dev/null
+    wait "$watch_pid" 2>/dev/null || true
+
+    return $rc
 }

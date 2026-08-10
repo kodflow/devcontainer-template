@@ -428,5 +428,8 @@
   "spinnerTipsEnabled": false,
   "alwaysThinkingEnabled": true,
   "promptSuggestionEnabled": true,
-  "skipDangerousModePermissionPrompt": true
+  "skipDangerousModePermissionPrompt": true,
+  "worktree": {
+    "baseRef": "head"
+  }
 }

@@ -13,7 +13,7 @@
 
 set +e  # Fail-open: never block
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 # Read stdin for session metadata
 INPUT="$(cat 2>/dev/null || true)"

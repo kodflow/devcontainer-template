@@ -41,7 +41,7 @@ STALE_SECONDS=300  # 5 minutes
 {
     if flock -w 1 9; then
         if [ -f "$STOP_COUNTER_FILE" ]; then
-            FILE_AGE=$(( $(date +%s) - $(stat -c %Y "$STOP_COUNTER_FILE" 2>/dev/null || echo "0") ))
+            FILE_AGE=$(( $(date +%s) - $(stat -c %Y "$STOP_COUNTER_FILE" 2>/dev/null || stat -f %m "$STOP_COUNTER_FILE" 2>/dev/null || echo "0") ))
             if [ "$FILE_AGE" -gt "$STALE_SECONDS" ]; then
                 rm -f "$STOP_COUNTER_FILE"
             else
@@ -71,7 +71,7 @@ fi
 printf '\a'
 
 # Project directory used by ktn-linter and session summary
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 # === ktn-linter HTTP /hooks/stop: session-end validation report ===
 # Forwards the full hook input JSON (with session_id) to the server, with an
@@ -134,7 +134,7 @@ if [ -n "$SESSION_EDITED_FILES" ] && command -v ktn-linter &>/dev/null; then
             echo "  go packages: $(echo "$CHANGED_GO_PKGS" | wc -l)" >&2
         fi
         # shellcheck disable=SC2086
-        KTN_OUTPUT=$(cd "$PROJECT_DIR" && timeout 20 ktn-linter lint $CHANGED_GO_PKGS 2>&1) || true
+        KTN_OUTPUT=$(cd "$PROJECT_DIR" && portable_timeout 20 ktn-linter lint $CHANGED_GO_PKGS 2>&1) || true
         if [ -n "$KTN_OUTPUT" ]; then
             KTN_TRUNCATED=$(printf '%s' "$KTN_OUTPUT" | tail -50)
             [ ${#KTN_TRUNCATED} -gt 2000 ] && KTN_TRUNCATED="${KTN_TRUNCATED:0:2000}...(truncated)"

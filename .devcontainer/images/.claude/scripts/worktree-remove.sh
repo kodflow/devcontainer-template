@@ -15,7 +15,7 @@ if command -v jq &>/dev/null && [ -n "$INPUT" ]; then
     WORKTREE_PATH=$(printf '%s' "$INPUT" | jq -r '.worktree_path // ""' 2>/dev/null || echo "")
 fi
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Log the removal
