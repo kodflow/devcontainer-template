@@ -234,13 +234,23 @@ portable_timeout() {
     shift
 
     if command -v timeout >/dev/null 2>&1; then
-        timeout "$secs" "$@"
+        timeout -k 5 "$secs" "$@"
         return $?
     fi
     if command -v gtimeout >/dev/null 2>&1; then
-        gtimeout "$secs" "$@"
+        gtimeout -k 5 "$secs" "$@"
         return $?
     fi
+
+    # Job control puts the command in its own process group, so the watchdog can
+    # signal the whole tree. Without it a background job shares this shell's
+    # group and `kill -- -$pid` would signal the caller too.
+    local had_monitor=0
+    case "$-" in *m*) had_monitor=1 ;; esac
+    set -m
+
+    local fired
+    fired=$(mktemp 2>/dev/null) || fired=""
 
     "$@" &
     local cmd_pid=$!
@@ -248,22 +258,33 @@ portable_timeout() {
     # The watchdog MUST NOT inherit stdout: call sites capture output via $(...),
     # and a subshell holding the pipe open would stall the substitution for the
     # full budget even after the command finished.
+    #
+    # TERM alone is not a time bound: a command that traps or ignores it would
+    # leave `wait` blocked forever, and children of a wrapper like `make` would
+    # outlive it. Signal the group, then escalate to KILL after a grace period.
     (
         sleep "$secs"
-        kill -TERM "$cmd_pid" 2>/dev/null
+        [ -n "$fired" ] && echo 1 > "$fired"
+        kill -TERM -- "-$cmd_pid" 2>/dev/null || kill -TERM "$cmd_pid" 2>/dev/null
+        sleep 5
+        kill -KILL -- "-$cmd_pid" 2>/dev/null || kill -KILL "$cmd_pid" 2>/dev/null
     ) >/dev/null 2>&1 &
     local watch_pid=$!
 
     local rc=0
     wait "$cmd_pid" 2>/dev/null || rc=$?
 
-    # rc 143 = SIGTERM: the watchdog fired, so report the conventional 124.
-    if [ "$rc" -eq 143 ]; then
-        rc=124
-    fi
+    [ "$had_monitor" -eq 1 ] || set +m
 
     kill -TERM "$watch_pid" 2>/dev/null
     wait "$watch_pid" 2>/dev/null || true
+
+    # A command can exit 143 on its own, so the exit code cannot tell us whether
+    # the watchdog fired — only the flag file can.
+    if [ -n "$fired" ] && [ -s "$fired" ]; then
+        rc=124
+    fi
+    [ -n "$fired" ] && rm -f "$fired"
 
     return $rc
 }
