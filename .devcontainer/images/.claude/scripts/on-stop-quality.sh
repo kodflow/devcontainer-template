@@ -31,7 +31,7 @@ check_hook_profile "standard" || exit 0
 
 # === Sanitize external inputs ===
 # Strip anything that's not alphanumeric, dash, underscore, or dot
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 PROJECT_DIR="${PROJECT_DIR//[^a-zA-Z0-9\/._-]/}"
 [ -d "$PROJECT_DIR" ] || exit 0
 
@@ -308,7 +308,7 @@ for target in "${TARGETS_TO_RUN[@]}"; do
     if [ "$target" = "test" ]; then
         TARGET_TIMEOUT=300
     fi
-    OUTPUT=$(timeout "$TARGET_TIMEOUT" make "$target" 2>&1)
+    OUTPUT=$(portable_timeout "$TARGET_TIMEOUT" make "$target" 2>&1)
     EXIT_CODE=$?
 
     if [ "$EXIT_CODE" -ne 0 ]; then

@@ -31,7 +31,7 @@ fi
 STOP_COUNTER_FILE="/tmp/.claude-stop-counter-${CB_SESSION_ID}"
 rm -f "$STOP_COUNTER_FILE" "${STOP_COUNTER_FILE}.lock" 2>/dev/null || true
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 
 # Find most recent active plan

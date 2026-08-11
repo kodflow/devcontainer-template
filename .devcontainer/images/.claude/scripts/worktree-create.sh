@@ -16,7 +16,7 @@ if command -v jq &>/dev/null && [ -n "$INPUT" ]; then
     WORKTREE_NAME=$(printf '%s' "$INPUT" | jq -r '.name // ""' 2>/dev/null || echo "")
 fi
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Create worktree in a standard location

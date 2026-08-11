@@ -6,7 +6,7 @@ set +e
 
 INPUT="$(cat 2>/dev/null || true)"
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$PROJECT_DIR" 2>/dev/null || exit 0
 
 # Skip if not a git repo

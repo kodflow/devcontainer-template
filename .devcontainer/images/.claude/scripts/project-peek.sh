@@ -10,7 +10,7 @@
 
 set +e
 
-PROJECT_DIR="${1:-${CLAUDE_PROJECT_DIR:-/workspace}}"
+PROJECT_DIR="${1:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 cd "$PROJECT_DIR" 2>/dev/null || exit 0
 
 # --- CLAUDE.md hierarchy ---

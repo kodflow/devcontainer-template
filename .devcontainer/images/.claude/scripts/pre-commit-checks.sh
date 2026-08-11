@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ============================================================================
 # pre-commit-checks.sh - Auto-detect project languages and run checks
 # Issue #141: Multi-language pre-commit validation
@@ -40,7 +40,7 @@ declare -A DETECTED_LANGUAGES
 DETECTED_LANGUAGES=()
 
 detect_languages() {
-    local workspace="${1:-/workspace}"
+    local workspace="${1:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 
     # Go
     if [[ -f "$workspace/go.mod" ]]; then
@@ -694,7 +694,7 @@ check_vbnet() {
 # ============================================================================
 
 main() {
-    local workspace="${1:-/workspace}"
+    local workspace="${1:-${CLAUDE_PROJECT_DIR:-$PWD}}"
     local total_failed=0
 
     echo ""
