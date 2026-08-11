@@ -9,6 +9,10 @@
 
 set +e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh disable=SC1091
+[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
+
 INPUT="$(cat 2>/dev/null || true)"
 WORKTREE_PATH=""
 if command -v jq &>/dev/null && [ -n "$INPUT" ]; then
@@ -32,10 +36,13 @@ fi
 
 # Actually remove the worktree directory (with safety checks)
 # Canonicalize all paths to prevent directory traversal attacks
-WORKTREE_REAL=$(realpath -m "$WORKTREE_PATH" 2>/dev/null || echo "")
-WORKTREE_BASE_REAL=$(realpath -m "$HOME/.claude/worktrees" 2>/dev/null || echo "")
-BUILTIN_BASE_REAL=$(realpath -m "$PROJECT_DIR/.claude/worktrees" 2>/dev/null || echo "")
-TMP_BASE_REAL=$(realpath -m "/tmp/claude-worktrees" 2>/dev/null || echo "/tmp/claude-worktrees")
+# portable_realpath_m, not `realpath -m`: BSD realpath (macOS) rejects -m, so
+# every one of these collapsed to "" and the `[ -n "$WORKTREE_REAL" ]` guard
+# below silently skipped the removal entirely — the cleanup looked like it ran.
+WORKTREE_REAL=$(portable_realpath_m "$WORKTREE_PATH" 2>/dev/null || echo "")
+WORKTREE_BASE_REAL=$(portable_realpath_m "$HOME/.claude/worktrees" 2>/dev/null || echo "")
+BUILTIN_BASE_REAL=$(portable_realpath_m "$PROJECT_DIR/.claude/worktrees" 2>/dev/null || echo "")
+TMP_BASE_REAL=$(portable_realpath_m "/tmp/claude-worktrees" 2>/dev/null || echo "/tmp/claude-worktrees")
 
 if [ -n "$WORKTREE_REAL" ] && \
    { [[ "$WORKTREE_REAL" == "$WORKTREE_BASE_REAL/"* ]] || \

@@ -13,6 +13,10 @@
 
 set +e  # Fail-open: never block
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh disable=SC1091
+[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
+
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 # Read stdin for session metadata
@@ -29,8 +33,8 @@ fi
 # Must run before any early-exit so cleanup always happens
 WORKTREE_BASE="$HOME/.claude/worktrees"
 BUILTIN_BASE="$PROJECT_DIR/.claude/worktrees"
-WORKTREE_BASE_REAL=$(realpath -m "$WORKTREE_BASE" 2>/dev/null || echo "")
-BUILTIN_BASE_REAL=$(realpath -m "$BUILTIN_BASE" 2>/dev/null || echo "")
+WORKTREE_BASE_REAL=$(portable_realpath_m "$WORKTREE_BASE" 2>/dev/null || echo "")
+BUILTIN_BASE_REAL=$(portable_realpath_m "$BUILTIN_BASE" 2>/dev/null || echo "")
 for WT_BASE in "$WORKTREE_BASE" "$BUILTIN_BASE"; do
     if [ -d "$WT_BASE" ]; then
         for wt_dir in "$WT_BASE"/*/; do
@@ -39,7 +43,7 @@ for WT_BASE in "$WORKTREE_BASE" "$BUILTIN_BASE"; do
             # Skip symlinks to prevent following them into unrelated directories
             [ -L "$wt_dir" ] && continue
             # Canonicalize and verify path is under allowed bases
-            wt_real=$(realpath -m "$wt_dir" 2>/dev/null || echo "")
+            wt_real=$(portable_realpath_m "$wt_dir" 2>/dev/null || echo "")
             [ -n "$wt_real" ] || continue
             [[ "$wt_real" == "$WORKTREE_BASE_REAL/"* ]] || \
             [[ "$wt_real" == "$BUILTIN_BASE_REAL/"* ]] || continue

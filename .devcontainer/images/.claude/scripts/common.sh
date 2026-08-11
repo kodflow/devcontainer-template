@@ -288,3 +288,69 @@ portable_timeout() {
 
     return $rc
 }
+
+# Acquire an advisory lock, on any platform.
+# flock(1) is util-linux and simply absent on macOS, where `if flock -w 1 9`
+# evaluated false and left the guarded block unexecuted — silently disabling the
+# critical section rather than merely leaving it unserialised. mkdir is atomic on
+# every POSIX filesystem, so it serves as the primitive without the dependency.
+# Usage: portable_lock_acquire <lockfile> [timeout_seconds]
+portable_lock_acquire() {
+    local lock="$1.d"
+    local timeout="${2:-1}"
+    local waited=0
+
+    # Reclaim a lock orphaned by a killed process, or it wedges the section
+    # permanently — flock releases on exit, a lock directory does not.
+    if [ -d "$lock" ]; then
+        local age
+        age=$(( $(date +%s) - $(stat -c %Y "$lock" 2>/dev/null \
+                                || stat -f %m "$lock" 2>/dev/null || echo 0) ))
+        [ "$age" -gt 300 ] && rmdir "$lock" 2>/dev/null
+    fi
+
+    while ! mkdir "$lock" 2>/dev/null; do
+        [ "$waited" -ge "$timeout" ] && return 1
+        sleep 1
+        waited=$((waited + 1))
+    done
+    return 0
+}
+
+# Release a lock taken with portable_lock_acquire.
+# Usage: portable_lock_release <lockfile>
+portable_lock_release() {
+    rmdir "$1.d" 2>/dev/null || true
+}
+
+# Canonicalise a path that need not exist, on any platform.
+# BSD realpath (macOS) rejects -m, so `realpath -m "$p" || echo ""` yielded an
+# empty string; callers guarding on `[ -n "$path" ]` then skipped their own
+# safety check silently. This never returns empty: it resolves the deepest
+# existing ancestor, re-appends the remainder, and falls back to the input.
+# Usage: real=$(portable_realpath_m "/maybe/missing/path")
+portable_realpath_m() {
+    local p="$1"
+    local out
+
+    if out=$(realpath -m "$p" 2>/dev/null) && [ -n "$out" ]; then
+        printf '%s\n' "$out"
+        return 0
+    fi
+
+    local head="$p" tail="" parent base
+    while [ ! -e "$head" ]; do
+        tail="$(basename "$head")${tail:+/$tail}"
+        parent="$(dirname "$head")"
+        [ "$parent" = "$head" ] && break
+        head="$parent"
+    done
+
+    base="$(cd "$head" 2>/dev/null && pwd -P)" || { printf '%s\n' "$p"; return 0; }
+
+    if [ -n "$tail" ]; then
+        printf '%s/%s\n' "${base%/}" "$tail"
+    else
+        printf '%s\n' "$base"
+    fi
+}

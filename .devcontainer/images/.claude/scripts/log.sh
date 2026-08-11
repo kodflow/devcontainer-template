@@ -22,6 +22,10 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh disable=SC1091
+[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
+
 # === Configuration ===
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 LOGS_BASE="$PROJECT_DIR/.claude/logs"
@@ -54,7 +58,12 @@ redact_secrets() {
 set +o pipefail
 INPUT="$(cat 2>/dev/null)"
 set -o pipefail
-INPUT="${INPUT:-{}}"
+# NOT `INPUT="${INPUT:-{}}"`: bash closes the expansion at the first `}`, so that
+# reads as `${INPUT:-{}` plus a literal `}` and appends a stray brace to every
+# NON-empty input. The JSON then failed to parse, each `jq ... || echo` fallback
+# fired on top of jq's own output, and the final `jq -n` produced nothing — so
+# the hook exited 0 having written no log entry at all, on every platform.
+[ -z "$INPUT" ] && INPUT="{}"
 
 # Fail gracefully if no input or empty
 if [[ -z "$INPUT" ]] || [[ "$INPUT" == "{}" ]]; then
@@ -227,10 +236,16 @@ EVENT=$(jq -n -c \
         transcript_path: $transcript
     }' 2>/dev/null) || exit 0
 
-# === Write with flock (concurrent hooks safe) ===
+# === Write under a lock (concurrent hooks safe) ===
+#
+# Previously `flock -x -w 3 9 || exit 0`. flock(1) is absent on macOS, so that
+# line failed and the `|| exit 0` discarded every log event on the host — the
+# hook appeared to run while writing nothing at all. Now the lock is advisory:
+# if it cannot be taken, still write, since an interleaved append beats no
+# session log. JSONL append of a single line is atomic enough for that.
 (
-    # Try to acquire lock with timeout (don't block forever)
-    flock -x -w 3 9 || exit 0
+    portable_lock_acquire "$SESSION_LOG.lock" 3
+    LOCK_HELD=$?
 
     # Append to JSONL
     printf '%s\n' "$EVENT" >> "$SESSION_LOG"
@@ -259,6 +274,7 @@ EVENT=$(jq -n -c \
     # Atomic move
     mv "$TMP_CHECKPOINT" "$CHECKPOINT" 2>/dev/null || rm -f "$TMP_CHECKPOINT"
 
-) 9>"$LOCKFILE" 2>/dev/null
+    [ "$LOCK_HELD" -eq 0 ] && portable_lock_release "$SESSION_LOG.lock"
+) 2>/dev/null
 
 exit 0

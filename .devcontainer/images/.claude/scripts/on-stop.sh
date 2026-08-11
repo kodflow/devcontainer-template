@@ -36,28 +36,33 @@ STOP_COUNT=0
 MAX_STOP_ATTEMPTS=3
 STALE_SECONDS=300  # 5 minutes
 
-# Atomic read-increment-write with flock to prevent race conditions.
-# If lock cannot be acquired within 1s, skip increment (fail-open).
-{
-    if flock -w 1 9; then
-        if [ -f "$STOP_COUNTER_FILE" ]; then
-            FILE_AGE=$(( $(date +%s) - $(stat -c %Y "$STOP_COUNTER_FILE" 2>/dev/null || stat -f %m "$STOP_COUNTER_FILE" 2>/dev/null || echo "0") ))
-            if [ "$FILE_AGE" -gt "$STALE_SECONDS" ]; then
-                rm -f "$STOP_COUNTER_FILE"
-            else
-                STOP_COUNT=$(cat "$STOP_COUNTER_FILE" 2>/dev/null || echo "0")
-            fi
+# Atomic read-increment-write, serialised to prevent race conditions.
+# If the lock cannot be acquired within 1s, skip the increment (fail-open).
+#
+# Uses portable_lock_acquire rather than flock(1): flock is util-linux and is
+# absent on macOS, where `if flock -w 1 9` evaluated false and the counter was
+# never incremented — leaving this circuit breaker permanently disarmed on the
+# host, which is precisely where an infinite stop-hook loop hurts most.
+if portable_lock_acquire "${STOP_COUNTER_FILE}.lock" 1; then
+    if [ -f "$STOP_COUNTER_FILE" ]; then
+        FILE_AGE=$(( $(date +%s) - $(stat -c %Y "$STOP_COUNTER_FILE" 2>/dev/null || stat -f %m "$STOP_COUNTER_FILE" 2>/dev/null || echo "0") ))
+        if [ "$FILE_AGE" -gt "$STALE_SECONDS" ]; then
+            rm -f "$STOP_COUNTER_FILE"
+        else
+            STOP_COUNT=$(cat "$STOP_COUNTER_FILE" 2>/dev/null || echo "0")
         fi
-        STOP_COUNT=$((STOP_COUNT + 1))
-        printf '%d' "$STOP_COUNT" > "$STOP_COUNTER_FILE" 2>/dev/null || true
     fi
-} 9>"${STOP_COUNTER_FILE}.lock"
+    STOP_COUNT=$((STOP_COUNT + 1))
+    printf '%d' "$STOP_COUNT" > "$STOP_COUNTER_FILE" 2>/dev/null || true
+    portable_lock_release "${STOP_COUNTER_FILE}.lock"
+fi
 
 # If we've tried too many times, force clean exit (skip all hooks)
 if [ "$STOP_COUNT" -ge "$MAX_STOP_ATTEMPTS" ]; then
     echo -e "\033[1;31m⚠️  CIRCUIT-BREAKER: stop hook looped ${STOP_COUNT}/${MAX_STOP_ATTEMPTS} — forcing exit to break infinite loop\033[0m" >&2
     rm -f "$STOP_COUNTER_FILE"
-    # Keep .lock file intact to preserve flock inode semantics for concurrent waiters
+    # Leave the lock behind: portable_lock_acquire reclaims a stale one by age,
+    # and removing it here would race a concurrent waiter.
     exit 0
 fi
 
