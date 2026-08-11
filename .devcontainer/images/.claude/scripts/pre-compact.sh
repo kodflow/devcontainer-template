@@ -19,7 +19,7 @@ if command -v jq &>/dev/null && [ -n "$INPUT" ]; then
     CUSTOM_INSTRUCTIONS=$(printf '%s' "$INPUT" | jq -r '.custom_instructions // ""' 2>/dev/null || echo "")
 fi
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")
 BRANCH_SAFE=$(printf '%s' "$BRANCH" | tr '/ ' '__')
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")

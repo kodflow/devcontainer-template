@@ -20,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
 
 BASE="${1:-main}"
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 [ -d "$PROJECT_DIR" ] || exit 0
 
 PROJECT_ROOT=$(find_project_root "$PROJECT_DIR" "$PROJECT_DIR" 2>/dev/null)

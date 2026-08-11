@@ -26,7 +26,7 @@ if [ -n "$TEAMMATE" ]; then
 fi
 
 # JSONL logging for consistency with other hooks
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 LOG_DIR="$PROJECT_DIR/.claude/logs"
 mkdir -p "$LOG_DIR" 2>/dev/null || true
 

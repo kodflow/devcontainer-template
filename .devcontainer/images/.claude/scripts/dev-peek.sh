@@ -11,7 +11,7 @@
 set +e
 
 BASE_BRANCH="${1:-main}"
-PROJECT_DIR="${2:-${CLAUDE_PROJECT_DIR:-/workspace}}"
+PROJECT_DIR="${2:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 cd "$PROJECT_DIR" 2>/dev/null || exit 0
 
 # --- Changed files vs base ---

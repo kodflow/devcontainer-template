@@ -32,7 +32,7 @@ if [[ "$FILE" == *".claude/contexts/"* ]] || \
    [[ "$FILE" == */plans/* ]] || \
    [[ "$FILE" == *.md ]] || \
    [[ "$FILE" == /tmp/* ]] || \
-   [[ "$FILE" == /home/vscode/.claude/* ]]; then
+   [[ "$FILE" == "$HOME"/.claude/* ]]; then
     exit 0
 fi
 

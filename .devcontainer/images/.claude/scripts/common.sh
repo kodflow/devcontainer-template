@@ -205,7 +205,7 @@ load_local_override() {
 # Usage: CHANGED=$(get_branch_changed_files [base_branch] [project_dir])
 get_branch_changed_files() {
     local base="${1:-main}"
-    local project_dir="${2:-${CLAUDE_PROJECT_DIR:-/workspace}}"
+    local project_dir="${2:-${CLAUDE_PROJECT_DIR:-$PWD}}"
     (
         cd "$project_dir" 2>/dev/null || return
         local current_branch
@@ -220,4 +220,137 @@ get_branch_changed_files() {
             git diff --cached --name-only 2>/dev/null
         } | sort -u
     )
+}
+
+# Run a command under a wall-clock budget, on any platform.
+# GNU coreutils `timeout` ships in the devcontainer but NOT on stock macOS, where
+# the bare call died with "command not found" — silently voiding the time bound
+# and returning 127 as if the command itself had failed. Prefer the real binary
+# (or homebrew's gtimeout), else fall back to a background watchdog.
+# Usage: portable_timeout <seconds> <command> [args...]
+# Returns the command's exit code, or 124 when the watchdog killed it.
+portable_timeout() {
+    local secs="$1"
+    shift
+
+    if command -v timeout >/dev/null 2>&1; then
+        timeout -k 5 "$secs" "$@"
+        return $?
+    fi
+    if command -v gtimeout >/dev/null 2>&1; then
+        gtimeout -k 5 "$secs" "$@"
+        return $?
+    fi
+
+    # Job control puts the command in its own process group, so the watchdog can
+    # signal the whole tree. Without it a background job shares this shell's
+    # group and `kill -- -$pid` would signal the caller too.
+    local had_monitor=0
+    case "$-" in *m*) had_monitor=1 ;; esac
+    set -m
+
+    local fired
+    fired=$(mktemp 2>/dev/null) || fired=""
+
+    "$@" &
+    local cmd_pid=$!
+
+    # The watchdog MUST NOT inherit stdout: call sites capture output via $(...),
+    # and a subshell holding the pipe open would stall the substitution for the
+    # full budget even after the command finished.
+    #
+    # TERM alone is not a time bound: a command that traps or ignores it would
+    # leave `wait` blocked forever, and children of a wrapper like `make` would
+    # outlive it. Signal the group, then escalate to KILL after a grace period.
+    (
+        sleep "$secs"
+        [ -n "$fired" ] && echo 1 > "$fired"
+        kill -TERM -- "-$cmd_pid" 2>/dev/null || kill -TERM "$cmd_pid" 2>/dev/null
+        sleep 5
+        kill -KILL -- "-$cmd_pid" 2>/dev/null || kill -KILL "$cmd_pid" 2>/dev/null
+    ) >/dev/null 2>&1 &
+    local watch_pid=$!
+
+    local rc=0
+    wait "$cmd_pid" 2>/dev/null || rc=$?
+
+    [ "$had_monitor" -eq 1 ] || set +m
+
+    kill -TERM "$watch_pid" 2>/dev/null
+    wait "$watch_pid" 2>/dev/null || true
+
+    # A command can exit 143 on its own, so the exit code cannot tell us whether
+    # the watchdog fired — only the flag file can.
+    if [ -n "$fired" ] && [ -s "$fired" ]; then
+        rc=124
+    fi
+    [ -n "$fired" ] && rm -f "$fired"
+
+    return $rc
+}
+
+# Acquire an advisory lock, on any platform.
+# flock(1) is util-linux and simply absent on macOS, where `if flock -w 1 9`
+# evaluated false and left the guarded block unexecuted — silently disabling the
+# critical section rather than merely leaving it unserialised. mkdir is atomic on
+# every POSIX filesystem, so it serves as the primitive without the dependency.
+# Usage: portable_lock_acquire <lockfile> [timeout_seconds]
+portable_lock_acquire() {
+    local lock="$1.d"
+    local timeout="${2:-1}"
+    local waited=0
+
+    # Reclaim a lock orphaned by a killed process, or it wedges the section
+    # permanently — flock releases on exit, a lock directory does not.
+    if [ -d "$lock" ]; then
+        local age
+        age=$(( $(date +%s) - $(stat -c %Y "$lock" 2>/dev/null \
+                                || stat -f %m "$lock" 2>/dev/null || echo 0) ))
+        [ "$age" -gt 300 ] && rmdir "$lock" 2>/dev/null
+    fi
+
+    while ! mkdir "$lock" 2>/dev/null; do
+        [ "$waited" -ge "$timeout" ] && return 1
+        sleep 1
+        waited=$((waited + 1))
+    done
+    return 0
+}
+
+# Release a lock taken with portable_lock_acquire.
+# Usage: portable_lock_release <lockfile>
+portable_lock_release() {
+    rmdir "$1.d" 2>/dev/null || true
+}
+
+# Canonicalise a path that need not exist, on any platform.
+# BSD realpath (macOS) rejects -m, so `realpath -m "$p" || echo ""` yielded an
+# empty string; callers guarding on `[ -n "$path" ]` then skipped their own
+# safety check silently. This never returns empty: it resolves the deepest
+# existing ancestor, re-appends the remainder, and falls back to the input.
+# Usage: real=$(portable_realpath_m "/maybe/missing/path")
+portable_realpath_m() {
+    local p="$1"
+    local out
+
+    if out=$(realpath -m "$p" 2>/dev/null) && [ -n "$out" ]; then
+        printf '%s\n' "$out"
+        return 0
+    fi
+
+    local head="$p" tail="" parent base
+    while [ ! -e "$head" ]; do
+        tail="$(basename "$head")${tail:+/$tail}"
+        parent="$(dirname "$head")"
+        [ "$parent" = "$head" ] && break
+        head="$parent"
+    done
+
+    base="$(cd "$head" 2>/dev/null && pwd -P)" || { printf '%s\n' "$p"; return 0; }
+
+    if [ -n "$tail" ]; then
+        printf '%s/%s\n' "${base%/}" "$tail"
+    else
+        printf '%s\n' "$base"
+    fi
 }

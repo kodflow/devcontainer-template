@@ -33,7 +33,7 @@ case "$NOTIFICATION_TYPE" in
 esac
 
 # Append to notification log for external monitoring
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 LOG_DIR="$PROJECT_DIR/.claude/logs"
 mkdir -p "$LOG_DIR" 2>/dev/null || true
 

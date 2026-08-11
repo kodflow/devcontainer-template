@@ -7,7 +7,7 @@ set -euo pipefail
 
 INPUT=$(cat)
 FILE=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""')
-FEATURES_DB="/workspace/.claude/features.json"
+FEATURES_DB="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/features.json"
 
 # Skip if no file edited or no features.json
 [ -z "$FILE" ] && exit 0
