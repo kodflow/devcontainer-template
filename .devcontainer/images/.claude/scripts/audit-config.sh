@@ -16,7 +16,7 @@ if ! command -v jq &>/dev/null; then
 fi
 
 CLAUDE_DIR="$HOME/.claude"
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 # --- Agents ---
 AGENT_COUNT=$(find "$CLAUDE_DIR/agents" -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')

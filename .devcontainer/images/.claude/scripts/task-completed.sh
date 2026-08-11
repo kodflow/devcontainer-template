@@ -9,6 +9,10 @@
 
 set +e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh disable=SC1091
+[ -f "$SCRIPT_DIR/common.sh" ] && . "$SCRIPT_DIR/common.sh"
+
 INPUT="$(cat 2>/dev/null || true)"
 if [ -z "$INPUT" ] || ! command -v jq &>/dev/null; then
     exit 0
@@ -22,7 +26,7 @@ TEAMMATE_NAME=$(printf '%s' "$INPUT" | jq -r '.teammate_name // ""' 2>/dev/null 
 TEAM_NAME=$(printf '%s' "$INPUT" | jq -r '.team_name // ""' 2>/dev/null || echo "")
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-/workspace}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached")
 BRANCH_SAFE=$(printf '%s' "$BRANCH" | tr '/ ' '__')
 
@@ -51,13 +55,19 @@ if [ "$CAP" != "NONE" ] && [ -n "$TEAM_NAME" ] && [ -n "$TASK_ID" ]; then
     if [ -f "$REGISTRY" ]; then
         TMP=$(mktemp)
         NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-        (flock -x 200
-            jq -c \
-                --arg id "$TASK_ID" \
-                --arg now "$NOW" \
-                'if .id == $id and .status == "active" then .status = "completed" | .completed_at = $now else . end' \
-                "$REGISTRY" > "$TMP" 2>/dev/null && mv "$TMP" "$REGISTRY"
-        ) 200>"${REGISTRY}.lock"
+        # Serialise the read-modify-write. flock(1) is absent on macOS, where the
+        # call failed silently and left this rewrite racing concurrent writers.
+        # Still perform the update if the lock cannot be taken: an unserialised
+        # transition beats dropping it, which is the prior behaviour on Linux.
+        portable_lock_acquire "${REGISTRY}.lock" 5
+        LOCKED=$?
+        jq -c \
+            --arg id "$TASK_ID" \
+            --arg now "$NOW" \
+            'if .id == $id and .status == "active" then .status = "completed" | .completed_at = $now else . end' \
+            "$REGISTRY" > "$TMP" 2>/dev/null && mv "$TMP" "$REGISTRY"
+        rm -f "$TMP" 2>/dev/null || true
+        [ "$LOCKED" -eq 0 ] && portable_lock_release "${REGISTRY}.lock"
     fi
 fi
 
