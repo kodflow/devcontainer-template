@@ -40,7 +40,7 @@ ARG RTK_VERSION=v0.38.0
 # curl's exit status fails the layer immediately. Hadolint DL4006.
 RUN echo "Installing rtk ${RTK_VERSION}..." && \
     RTK_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-gnu" || echo "x86_64-unknown-linux-musl") && \
-    curl -fsSL "https://github.com/rtk-ai/rtk/releases/download/${RTK_VERSION}/rtk-${RTK_ARCH}.tar.gz" \
+    curl -fsSL --retry 5 --retry-delay 5 "https://github.com/rtk-ai/rtk/releases/download/${RTK_VERSION}/rtk-${RTK_ARCH}.tar.gz" \
       -o /tmp/rtk.tar.gz && \
     tar xzf /tmp/rtk.tar.gz -C /usr/local/bin rtk && \
     rm -f /tmp/rtk.tar.gz
@@ -181,12 +181,15 @@ RUN --mount=type=secret,id=github_token \
     ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "amd64") && \
     mkdir -p ~/.local/bin && \
     GITHUB_TOKEN=$(cat /run/secrets/github_token 2>/dev/null || true) && \
-    SL_TAG=$(curl -fsSL --retry 3 --retry-delay 2 ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} "https://api.github.com/repos/kodflow/status-line/releases/latest" | jq -r '.tag_name') && \
+    SL_RELEASE=$(curl -fsSL --retry 5 --retry-delay 5 ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} "https://api.github.com/repos/kodflow/status-line/releases/latest") && \
+    SL_TAG=$(printf '%s' "$SL_RELEASE" | jq -r '.tag_name') && \
     [ -n "$SL_TAG" ] && [ "$SL_TAG" != "null" ] && \
     echo "Installing status-line (${SL_TAG})..." && \
-    curl -fsSL --retry 3 --retry-delay 2 "https://github.com/kodflow/status-line/releases/download/${SL_TAG}/status-line-linux-${ARCH}" \
+    SL_BIN_URL=$(printf '%s' "$SL_RELEASE" | jq -r --arg n "status-line-linux-${ARCH}" '.assets[] | select(.name == $n) | .url') && \
+    SL_SHA_URL=$(printf '%s' "$SL_RELEASE" | jq -r --arg n "status-line-linux-${ARCH}.sha256" '.assets[] | select(.name == $n) | .url') && \
+    curl -fsSL --retry 5 --retry-delay 5 -H "Accept: application/octet-stream" ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} "$SL_BIN_URL" \
       -o ~/.local/bin/status-line && \
-    curl -fsSL --retry 3 --retry-delay 2 "https://github.com/kodflow/status-line/releases/download/${SL_TAG}/status-line-linux-${ARCH}.sha256" \
+    curl -fsSL --retry 5 --retry-delay 5 -H "Accept: application/octet-stream" ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} "$SL_SHA_URL" \
       -o /tmp/status-line.sha256 && \
     sed -i "s|status-line-linux-${ARCH}|$HOME/.local/bin/status-line|" /tmp/status-line.sha256 && \
     sha256sum -c /tmp/status-line.sha256 && rm -f /tmp/status-line.sha256 && \
