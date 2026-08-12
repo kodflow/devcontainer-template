@@ -38,9 +38,12 @@ ARG RTK_VERSION=v0.38.0
 # curl + successful tar (e.g., empty body extracts cleanly to nothing)
 # would silently produce an image without rtk. Splitting the steps means
 # curl's exit status fails the layer immediately. Hadolint DL4006.
-RUN echo "Installing rtk ${RTK_VERSION}..." && \
+RUN --mount=type=secret,id=github_token \
+    echo "Installing rtk ${RTK_VERSION}..." && \
     RTK_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-gnu" || echo "x86_64-unknown-linux-musl") && \
-    curl -fsSL --retry 5 --retry-delay 5 "https://github.com/rtk-ai/rtk/releases/download/${RTK_VERSION}/rtk-${RTK_ARCH}.tar.gz" \
+    GITHUB_TOKEN=$(cat /run/secrets/github_token 2>/dev/null || true) && \
+    RTK_URL=$(curl -fsSL --retry 5 --retry-delay 5 ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} "https://api.github.com/repos/rtk-ai/rtk/releases/tags/${RTK_VERSION}" | jq -r --arg n "rtk-${RTK_ARCH}.tar.gz" '"'"'.assets[] | select(.name == $n) | .url'"'"') && \
+    curl -fsSL --retry 5 --retry-delay 5 -H "Accept: application/octet-stream" ${GITHUB_TOKEN:+-H "Authorization: token ${GITHUB_TOKEN}"} "$RTK_URL" \
       -o /tmp/rtk.tar.gz && \
     tar xzf /tmp/rtk.tar.gz -C /usr/local/bin rtk && \
     rm -f /tmp/rtk.tar.gz
