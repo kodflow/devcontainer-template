@@ -203,15 +203,21 @@ sync_go() {
     local tool installed upstream major_pin
     # Atomic install for ktn-linter (goreleaser tarball, not a Go module path).
     # Writes to a sibling .download path then renames — protects against a
-    # half-fetched payload if curl is interrupted mid-stream. Falls back to
-    # `go install …/cmd/ktn-linter` if the release CDN 404s (asset-naming
-    # drift) or times out. Returns non-zero only when both paths fail.
+    # half-fetched payload if curl is interrupted mid-stream.
+    #
+    # Binaries are served from the public distribution repository: the
+    # source repository (kodflow/ktn-linter) is private, so resolving
+    # releases there 404s for every unauthenticated container build. No
+    # `go install` fallback either: the source module is private too, so it
+    # would fail on authentication and bury the real cause (a CDN blip, or
+    # an asset name that drifted again) under a misleading Go toolchain
+    # error — better to return non-zero and let the caller say so plainly.
     install_ktn_linter() {
         local target="${GOPATH}/bin/ktn-linter"
         local tmp_tgz="${target}.download.tgz"
         local tmp_bin="${target}.download"
         if curl -fsSL --connect-timeout 10 --max-time 60 \
-                "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter_linux_${GO_ARCH}.tar.gz" \
+                "https://github.com/kodflow/ktn/releases/latest/download/ktn-linter_linux_${GO_ARCH}.tar.gz" \
                 -o "$tmp_tgz" 2>/dev/null \
             && tar -xzf "$tmp_tgz" -C "$(dirname "$tmp_bin")" ktn-linter 2>/dev/null \
             && mv -f "$(dirname "$tmp_bin")/ktn-linter" "$tmp_bin" \
@@ -221,10 +227,6 @@ sync_go() {
             return 0
         fi
         rm -f "$tmp_tgz" "$tmp_bin"
-        if command -v go >/dev/null 2>&1 \
-            && go install "github.com/kodflow/ktn-linter/cmd/ktn-linter@latest" 2>/dev/null; then
-            return 0
-        fi
         return 1
     }
 
@@ -243,8 +245,10 @@ sync_go() {
                 # every container rebuild — `command -v` short-circuited the
                 # install path even when a newer release was available. Mirrors
                 # the GO_TOOL_REPOS pattern (#330) but with direct asset download.
+                # Probes the public mirror, not the (private) source repo — same
+                # reason install_ktn_linter downloads from there.
                 installed=$(installed_tool_version ktn-linter)
-                upstream=$(upstream_latest_version "kodflow/ktn-linter")
+                upstream=$(upstream_latest_version "kodflow/ktn")
                 if [ -z "$upstream" ]; then
                     # Network/rate-limit failure: keep an existing binary, only
                     # install when truly missing (best-effort cold-start path).
