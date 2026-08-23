@@ -327,11 +327,17 @@ set -e
 # Release asset is goreleaser-style `ktn-linter_linux_<arch>.tar.gz` containing
 # the binary at the tarball root. The legacy hyphenated raw-binary URL never
 # existed as a published asset — that 404 broke every container build because
-# no go-install fallback was wired (issue #324 follow-up). The `cmd/ktn-linter`
-# fallback covers a Releases-CDN blip or future asset-naming skew.
+# no go-install fallback was wired (issue #324 follow-up).
+# Binaries are served from the public distribution repository: the source
+# repository (kodflow/ktn-linter) is private, so resolving releases there
+# 404s for every unauthenticated container build. No `go install` fallback:
+# the source module is private too, so it would fail on authentication and
+# bury the real cause (a CDN blip, or an asset name that drifted again)
+# under a misleading Go toolchain error. An empty package makes
+# install_go_tool report the download failure itself.
 spawn_tool "ktn-linter" \
-    "https://github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter_linux_${GO_ARCH}.tar.gz" \
-    "github.com/kodflow/ktn-linter/cmd/ktn-linter" \
+    "https://github.com/kodflow/ktn/releases/latest/download/ktn-linter_linux_${GO_ARCH}.tar.gz" \
+    "" \
     "tar.gz"
 
 # Bazel tooling — same release ships both binaries.
