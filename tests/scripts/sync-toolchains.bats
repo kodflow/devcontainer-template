@@ -85,15 +85,19 @@ teardown() {
     ! grep -qE 'go install "\$\{?tool\}?@latest"' "$SYNC_SH"
 }
 
-@test "sync_go installs ktn-linter from the goreleaser release tarball (with go install fallback)" {
+@test "sync_go installs ktn-linter from the goreleaser release tarball via the public mirror" {
     # The hyphenated raw-binary URL never existed as a published asset and
     # 404'd every container build (#371). Asset is goreleaser-style:
     # `ktn-linter_linux_<arch>.tar.gz` with the binary at the tarball root.
-    # A `go install …/cmd/ktn-linter` fallback covers CDN blips / asset
-    # rename drift so a single 404 cannot abort the entire Go feature.
-    grep -qF 'github.com/kodflow/ktn-linter/releases/latest/download/ktn-linter_linux_' "$SYNC_SH"
+    # Served from the public mirror (kodflow/ktn): the source repository is
+    # private, so an anonymous container build 404s resolving releases there
+    # — and a `go install` fallback can't rescue that either, since the
+    # source module is private too. No fallback: a failed download is
+    # reported as exactly that.
+    grep -qF 'github.com/kodflow/ktn/releases/latest/download/ktn-linter_linux_' "$SYNC_SH"
     grep -qF '.tar.gz' "$SYNC_SH"
-    grep -qF 'github.com/kodflow/ktn-linter/cmd/ktn-linter@latest' "$SYNC_SH"
+    ! grep -qF 'kodflow/ktn-linter/releases' "$SYNC_SH"
+    ! grep -qF 'go install "github.com/kodflow/ktn-linter/cmd/ktn-linter@latest"' "$SYNC_SH"
     ! grep -qF 'ktn-linter-linux-' "$SYNC_SH"
 }
 
@@ -102,7 +106,7 @@ teardown() {
     # masked a stale volume-cached binary even when a newer release shipped.
     # The new code probes upstream tag and reinstalls on mismatch — symmetric
     # with the GO_TOOL_REPOS path used for golangci-lint/gosec.
-    grep -qF 'upstream_latest_version "kodflow/ktn-linter"' "$SYNC_SH"
+    grep -qF 'upstream_latest_version "kodflow/ktn"' "$SYNC_SH"
     grep -q 'installed=\$(installed_tool_version ktn-linter)' "$SYNC_SH"
     # Drift branch: `elif [ "$installed" != "$upstream" ]` triggers reinstall.
     grep -qE 'elif \[ "\$installed" != "\$upstream" \]' "$SYNC_SH"

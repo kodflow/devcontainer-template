@@ -435,8 +435,9 @@ prompt: |
     b. local_version = `ktn-linter version 2>/dev/null | head -1` (parse
        `ktn-linter version X.Y.Z`). If output contains "dev" → dev_build=true.
     c. latest_tag = WebFetch
-       https://api.github.com/repos/kodflow/ktn-linter/releases/latest →
-       extract `.tag_name` (strip leading `v`).
+       https://api.github.com/repos/kodflow/ktn/releases/latest →
+       extract `.tag_name` (strip leading `v`). (Public mirror — the source
+       repository kodflow/ktn-linter is private and 404s anonymously.)
 
   STEP 2 — Decide
     - absent → INSTALL
@@ -451,10 +452,11 @@ prompt: |
         ~/.local/bin
         ~/bin
       mkdir -p $target_dir && ensure on $PATH
-      asset_url = https://github.com/kodflow/ktn-linter/releases/download/v{{latest_tag}}/ktn-linter-{{GOOS}}-{{GOARCH}}
-      curl -fsSL "$asset_url" -o /tmp/ktn-linter.new
-      chmod +x /tmp/ktn-linter.new
-      mv /tmp/ktn-linter.new $target_dir/ktn-linter
+      asset_url = https://github.com/kodflow/ktn/releases/download/v{{latest_tag}}/ktn-linter_{{GOOS}}_{{GOARCH}}.tar.gz
+      curl -fsSL "$asset_url" -o /tmp/ktn-linter.tar.gz
+      tar -xzf /tmp/ktn-linter.tar.gz -C /tmp ktn-linter
+      chmod +x /tmp/ktn-linter
+      mv /tmp/ktn-linter $target_dir/ktn-linter
     UPGRADE path:
       Prefer `ktn-linter upgrade` (atomic rename in same dir, ErrDevBuild aware).
       If that fails OR dev_build=true, fall back to INSTALL path with --force semantics.
