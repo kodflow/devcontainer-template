@@ -456,7 +456,11 @@ prompt: |
       curl -fsSL "$asset_url" -o /tmp/ktn-linter.tar.gz
       tar -xzf /tmp/ktn-linter.tar.gz -C /tmp ktn-linter
       chmod +x /tmp/ktn-linter
-      mv /tmp/ktn-linter $target_dir/ktn-linter
+      if [[ $target_dir == /usr/local/bin ]]; then
+        sudo -n mv /tmp/ktn-linter $target_dir/ktn-linter
+      else
+        mv /tmp/ktn-linter $target_dir/ktn-linter
+      fi
     UPGRADE path:
       Prefer `ktn-linter upgrade` (atomic rename in same dir, ErrDevBuild aware).
       If that fails OR dev_build=true, fall back to INSTALL path with --force semantics.

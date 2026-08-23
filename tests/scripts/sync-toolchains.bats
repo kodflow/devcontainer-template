@@ -97,8 +97,14 @@ teardown() {
     grep -qF 'github.com/kodflow/ktn/releases/latest/download/ktn-linter_linux_' "$SYNC_SH"
     grep -qF '.tar.gz' "$SYNC_SH"
     ! grep -qF 'kodflow/ktn-linter/releases' "$SYNC_SH"
-    ! grep -qF 'go install "github.com/kodflow/ktn-linter/cmd/ktn-linter@latest"' "$SYNC_SH"
     ! grep -qF 'ktn-linter-linux-' "$SYNC_SH"
+    # Scope the "no go install fallback" guarantee to the whole function body,
+    # not one exact literal — any spelling of a go-install call for any ktn
+    # package inside install_ktn_linter would equally defeat the point (the
+    # module is private, so it can never succeed for an anonymous build).
+    awk '/^    install_ktn_linter\(\) \{/,/^    \}/' "$SYNC_SH" > /tmp/install_ktn_linter_body.$$
+    ! grep -q 'go install' /tmp/install_ktn_linter_body.$$
+    rm -f /tmp/install_ktn_linter_body.$$
 }
 
 @test "sync_go auto-refreshes ktn-linter against upstream (no skip-if-installed)" {
