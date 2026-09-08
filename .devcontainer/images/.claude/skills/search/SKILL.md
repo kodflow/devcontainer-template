@@ -1,10 +1,19 @@
 ---
 name: search
-description: |
-  Documentation Research with RLM (Recursive Language Model) patterns.
-  LOCAL-FIRST: Searches internal docs (~/.claude/docs/) before external sources.
-  Cross-validates sources, generates .claude/contexts/{slug}.md, handles conflicts.
-  Use when: researching technologies, APIs, or best practices before implementation.
+description: >-
+  Research a technology, API or practice and write a plan-grade context file to
+  .claude/contexts/<slug>.md. Consults the local knowledge base first — but
+  treats it as dated evidence, not scripture: every document carries a `verified`
+  date, and a stale one is a hypothesis to confirm against the web rather than a
+  source to cite. Fans out over official documentation, cross-validates, resolves
+  conflicts, and writes the confirmed answer back into the local base so it stops
+  rotting. The output is shaped for /plan to consume directly.
+when_to_use: >-
+  Use before designing anything you do not already know cold — a new library,
+  an unfamiliar API, a protocol, a migration, a security mechanism — and any
+  time correctness depends on a current version rather than on memory.
+argument-hint: "<query> | --refresh <topic> | --append | --status | --list | --clear [--all]"
+model: opus
 allowed-tools:
   - "WebSearch(*)"
   - "WebFetch(*)"
@@ -12,41 +21,46 @@ allowed-tools:
   - "Glob(**/*)"
   - "Grep(**/*)"
   - "Write(.claude/contexts/*.md)"
+  - "Edit(.claude/contexts/*.md)"
+  - "Write(~/.claude/docs/**)"
+  - "Edit(~/.claude/docs/**)"
+  - "Bash(python3 ~/.claude/docs/reindex.py:*)"
+  - "Bash(jq:*)"
+  - "Bash(grep:*)"
+  - "Bash(ls:*)"
+  - "Bash(date:*)"
   - "Workflow(*)"
-  - "Task(*)"
-  - "AskUserQuestion(*)"
+  - "Agent(*)"
   - "mcp__context7__*"
-  - "mcp__github__issue_write"
+  - "AskUserQuestion"
 ---
 
-# Search - Documentation Research (RLM-Enhanced)
+# /search — research that produces a plannable answer
 
 $ARGUMENTS
 
-## Description
+The output is not a summary. It is the input `/plan` needs: version-pinned
+facts, the decisions that are actually open, the trade-off on each, the known
+pitfalls, and an explicit list of what is still unknown.
 
-Research with **LOCAL-FIRST** strategy and RLM patterns.
+## The local base is dated, not sacred
 
-### Priority: Validated local documentation
+`~/.claude/docs/` holds 152 validated documents. Each carries a `verified` date
+and a category TTL, indexed in `~/.claude/docs/INDEX.json`.
 
 ```
-~/.claude/docs/ (LOCAL)  →  Official sources (EXTERNAL)
-     ✓ Validated             ⚠ May be outdated
-     ✓ Consistent            ⚠ May contradict local
-     ✓ Immediate             ⚠ Requires validation
+verified age ≤ TTL       fresh    → citable as validated
+TTL < age ≤ 2×TTL        stale    → a hypothesis; confirm before citing
+age > 2×TTL              expired  → ignore as evidence; re-derive from the web
 ```
 
-**Applied RLM patterns:**
+This is the correction to the old "LOCAL > EXTERNAL, always" rule. A pattern's
+*shape* survives for years; its code examples, library recommendations and
+security advice do not. Treating a two-year-old security note as validated is
+how a research skill launders staleness into a plan.
 
-- **Local-First** - Consult `~/.claude/docs/` first
-- **Peek** - Quick preview before full analysis
-- **Grep** - Filter by keywords before semantic fetch
-- **Partition+Map** - Parallel multi-domain searches
-- **Summarize** - Progressive summarization of sources
-- **Conflict-Resolution** - Handle local/external contradictions
-- **Programmatic** - Structured context generation
-
-**Principle**: Local > External. Reliability > Quantity.
+Security and DevOps carry a 180-day TTL for that reason. Structural and
+behavioural patterns carry 1095.
 
 ---
 
@@ -54,216 +68,132 @@ Research with **LOCAL-FIRST** strategy and RLM patterns.
 
 | Pattern | Action |
 |---------|--------|
-| `<query>` | New search on the topic |
-| `--append` | Append to existing context (by slug) |
-| `--status` | Display current context |
-| `--list` | List all available contexts |
-| `--clear` | Delete specific context (by slug) |
-| `--clear --all` | Delete all context files |
-| `--help` | Display help |
-
----
+| `<query>` | Research the topic, write `.claude/contexts/<slug>.md` |
+| `--refresh <topic>` | Re-verify the matching local docs against the web and restamp them |
+| `--append` | Add to the existing context for this slug instead of replacing |
+| `--status` | Print the current context file |
+| `--list` | List available contexts, newest first |
+| `--clear [--all]` | Delete one context, or all of them |
+| `--help` | Print the help block and stop |
 
 ## --help
 
 ```
-═══════════════════════════════════════════════
-  /search - Documentation Research (RLM)
-═══════════════════════════════════════════════
+════════════════════════════════════════════════════════════════
+  /search — documentation research (freshness-aware, local-first)
+════════════════════════════════════════════════════════════════
 
 Usage: /search <query> [options]
 
-Options:
-  <query>           Search topic
-  --append          Append to existing context (by slug)
-  --status          Display current context
-  --list            List all available contexts
-  --clear           Delete specific context (by slug)
-  --clear --all     Delete all context files
-  --help            Display this help
+  <query>            Research the topic
+  --refresh <topic>  Re-verify local docs against the web, restamp them
+  --append           Extend the existing context
+  --status           Show the current context
+  --list             List contexts
+  --clear [--all]    Delete one / all contexts
+  --help             This help
 
-Output: .claude/contexts/{slug}.md
-  Slug generated from query keywords (lowercase, hyphens, max 40 chars)
-  Example: "OAuth2 JWT authentication" → oauth2-jwt-auth
+Output: .claude/contexts/<slug>.md   (slug = keywords, lowercase, ≤ 40 chars)
+        "OAuth2 JWT authentication" → oauth2-jwt-auth
 
-RLM Patterns (always applied):
-  1. Peek    - Quick preview of results
-  2. Grep    - Filter by keywords
-  3. Map     - 6 parallel searches
-  4. Synth   - Multi-source synthesis (3+ for HIGH)
-
-Examples:
-  /search OAuth2 with JWT
-  /search Kubernetes ingress --append
-  /search --status
+Local base: ~/.claude/docs/ — 152 docs, INDEX.json carries verified dates.
+            fresh → citable · stale → confirm first · expired → ignore
 
 Workflow:
-  /search <query> → iterate → EnterPlanMode
-═══════════════════════════════════════════════
+  /project → /warmup → /search <topic> → /plan → /refine → /goal
+════════════════════════════════════════════════════════════════
 ```
 
----
-
-## Official Sources (Whitelist)
-
-**ABSOLUTE RULE**: ONLY the following domains.
-
-### Languages
-| Language | Domains |
-|----------|---------|
-| Node.js | nodejs.org, developer.mozilla.org |
-| Python | docs.python.org, python.org |
-| Go | go.dev, pkg.go.dev |
-| Rust | rust-lang.org, doc.rust-lang.org |
-| Java | docs.oracle.com, openjdk.org |
-| C/C++ | cppreference.com, isocpp.org |
-| C# / .NET | learn.microsoft.com, dotnet.microsoft.com |
-| Ruby | ruby-lang.org, ruby-doc.org |
-| PHP | php.net |
-| Elixir | elixir-lang.org, hexdocs.pm |
-| Kotlin | kotlinlang.org |
-| Swift | swift.org, developer.apple.com |
-| Scala | scala-lang.org, docs.scala-lang.org |
-| Dart/Flutter | dart.dev, api.flutter.dev |
-| Perl | perldoc.perl.org |
-| Lua | lua.org |
-| R | r-project.org, cran.r-project.org |
-| Fortran | fortran-lang.org |
-| Ada | ada-lang.io, learn.adacore.com |
-| COBOL | gnucobol.sourceforge.io |
-| Pascal | freepascal.org, lazarus-ide.org |
-
-### Cloud & Infra
-
-| Service | Domains |
-|---------|---------|
-| AWS | docs.aws.amazon.com |
-| GCP | cloud.google.com |
-| Azure | learn.microsoft.com |
-| Docker | docs.docker.com |
-| Kubernetes | kubernetes.io |
-| Terraform | developer.hashicorp.com |
-| GitLab | docs.gitlab.com |
-| GitHub | docs.github.com |
-
-### Frameworks
-| Framework | Domains |
-|-----------|---------|
-| React | react.dev |
-| Vue | vuejs.org |
-| Next.js | nextjs.org |
-| FastAPI | fastapi.tiangolo.com |
-
-### Standards
-
-| Type | Domains |
-|------|---------|
-| Web | developer.mozilla.org, w3.org |
-| Security | owasp.org |
-| RFCs | rfc-editor.org, tools.ietf.org |
-
-### Blacklist
-
-- Blogs, Medium, Dev.to
-- Stack Overflow (except for problem identification)
-- Third-party tutorials, online courses
+**If `$ARGUMENTS` contains `--help`:** print the block and STOP.
 
 ---
 
-## Phase Reference
+## Phase map
 
-| Phase | Module | Description |
-|-------|--------|-------------|
-| 1.0-2.0 | Read `local.md` | Local-first search + decomposition |
-| 3.0-5.0, 8.0 | Read `parallel.md` | Parallel search + deep fetch + questions |
-| 6.0-7.0 | Read `validate.md` | Cross-reference + conflict resolution |
-| 9.0 | Read `generate.md` | Context file generation + management |
-
----
-
-## Execution Flow
-
-```
-Phase 1.0: Local Documentation (LOCAL-FIRST)
-  → LOCAL_COMPLETE? → Skip to Phase 9.0
-  → LOCAL_PARTIAL?  → Search only for gaps
-  → LOCAL_NONE?     → Full external search
-
-Phase 2.0: Decomposition (Peek + Grep)
-  → Extract keywords, identify domains
-
-Phase 3.0: Parallel Search (Partition + Map)
-  → Up to 6 Task agents in parallel
-
-Phase 4.0: Peek at Results
-  → Score relevance, filter < 5
-
-Phase 5.0: Deep Fetch (Summarization)
-  → Progressive summarization (3 levels)
-
-Phase 6.0: Cross-referencing
-  → Confidence scoring based on source count
-
-Phase 7.0: Conflict Resolution
-  → User resolution if local vs external conflict
-
-Phase 8.0: Questions (if ambiguity)
-
-Phase 9.0: Generate Context File
-  → .claude/contexts/{slug}.md
-```
+| Phase | Action | Module |
+|-------|--------|--------|
+| 0 | Classify the query — decides whether the web is mandatory | this file |
+| 1 | Local lookup via `INDEX.json`, with freshness | `local.md` |
+| 2 | Decompose into sub-queries and gaps | `local.md` |
+| 3-5 | Web fan-out, fetch, summarise | `parallel.md` |
+| 6-7 | Cross-validate, resolve conflicts | `validate.md` |
+| 8 | Ask the user only where a real ambiguity blocks the answer | `parallel.md` |
+| 9 | Write `.claude/contexts/<slug>.md` | `generate.md` |
+| 10 | Write confirmed findings back into `~/.claude/docs/` | `refresh.md` |
 
 ---
 
-## Workflow gateway (skills-cleanup C6)
+## Phase 0 — classify the query
 
-`/search` is a **gateway**, never a monolithic wrap. The local-first gate stays
-OUTSIDE the engine; the `research` Workflow is the **mandatory** engine for the
-web complement.
+The classification, not a coverage percentage, decides whether the web runs.
 
-> **MANDATORY — Workflow is not optional.** Whenever the local-first gate does
-> NOT short-circuit (`LOCAL_PARTIAL` / `LOCAL_NONE`), `/search` MUST invoke
-> `Workflow({ name: 'research', … })`. There is **no `primitives.json` gate** on
-> this path: the previous "accelerator, only if present" wording was a bug — the
-> probe never emitted a `Workflow` key, so the gate was unsatisfiable and the
-> engine never ran. Doing the web research inline with ad-hoc `Task`/`WebSearch`
-> calls instead of the Workflow is a **skill violation** — and so is declaring
-> `LOCAL_COMPLETE` for an internal/codebase topic (no `~/.claude/docs/` match) to
-> dodge the engine. `LOCAL_COMPLETE` is valid ONLY when you can cite the matched
-> validated-doc files; otherwise the engine runs. See `local.md`
-> `3_evaluate_coverage` / `anti_escape_hatch`.
+| Class | Example | Web |
+|-------|---------|-----|
+| **VERSIONED** — depends on a current release, API, CVE or default | "Go 1.26 loop semantics", "is X still maintained", "OAuth2 for a SPA in 2026" | **MANDATORY**, always, even at 100% local coverage |
+| **CONCEPTUAL** — a pattern's shape, a trade-off, a definition | "when to use CQRS", "saga vs 2PC" | Skippable **only** when every matched doc is `fresh` |
+| **INTERNAL** — this repository's own code or history | "how does our auth middleware work" | No web. This is not a `/search` — read the code, or use `Explore` |
+
+Anything naming a version, a date, a library, a vulnerability, a price or a
+default is VERSIONED. When unsure, it is VERSIONED — the cost of one extra web
+pass is minutes; the cost of planning against a stale API is a rewrite.
+
+**INTERNAL queries exit here** with a one-line redirect. `/search` researches the
+world outside the repository; it is not a code reader, and dressing up a source
+read as "research" produces a context file with no citable sources.
+
+---
+
+## Phase 1 gate — what may be skipped
 
 ```
 /search <query>
   │
-  ├─ Phase 0  local-first gate (in-skill, NO engine)
-  │     Grep/Read ~/.claude/docs/ + docs/*.md
-  │     ├─ LOCAL_COMPLETE → early-exit: write .claude/contexts/<slug>.md from local, STOP
-  │     │                   (the ONLY path that legitimately skips the Workflow)
-  │     │                   VALID ONLY if you can CITE the matched ~/.claude/docs/
-  │     │                   files holding the answer. A "100% internal / codebase"
-  │     │                   topic has NO docs entry → it is NEVER LOCAL_COMPLETE.
-  │     │                   Answering from source code / reasoning = GAP, not local.
-  │     └─ LOCAL_PARTIAL / LOCAL_NONE → compute GAPS, then ALWAYS run the engine ↓
+  ├─ Phase 0 classify ── INTERNAL ──→ redirect, STOP
   │
-  ├─ engine (ALWAYS, whenever web complement is needed):
-  │     Workflow({ name: 'research', args: { query, gaps, whitelist } })
-  │       Scope → Search∥ → Fetch∥ → Verify(3-vote) → Synthesize   # writes NOTHING
-  │     returns { context_md, sources, confidence_map }
+  ├─ Phase 1 local lookup (INDEX.json)
+  │     ├─ CONCEPTUAL + coverage ≥ 80% + every match `fresh`
+  │     │      → LOCAL_COMPLETE: write the context from local, STOP
+  │     │        Valid ONLY when you name the matched files and their dates.
+  │     └─ anything else → compute GAPS, run the engine ↓
   │
-  └─ Phase 9.0  the SKILL writes .claude/contexts/<slug>.md (sole writer)
-                merging local findings + the cited workflow report.
+  ├─ engine (Workflow `research`)
+  │     Scope → Search∥ → Fetch∥ → Verify(3-vote) → Synthesize
+  │     returns { context_md, sources, confidence_map } — writes nothing
+  │
+  ├─ Phase 9  the SKILL writes .claude/contexts/<slug>.md   (sole writer)
+  │
+  └─ Phase 10 write confirmed findings back to ~/.claude/docs/, restamp
 ```
 
-**Degraded path (error-recovery only, NOT a routine gate):** the legacy parallel
-`Task`-agent path in `parallel.md` is used **only** if the `Workflow` tool
-call itself errors (genuinely unavailable in the runtime). It is a last-resort
-safety net for a broken environment — never the default, and never chosen by
-consulting `primitives.json`. If you fall back, say so explicitly in the output.
+`LOCAL_COMPLETE` requires **naming the matched files with their `verified`
+dates**. "I know this already" is not local coverage; neither is the project's
+own source code. If you cannot cite the documents, the engine runs.
 
-**Invariants:** the official-domain whitelist (above) is injected into the
-`research` workflow's Search prompts; the workflow itself never writes disk — the
-skill is the sole writer of `.claude/contexts/`.
+**Degraded path.** If the `Workflow` tool itself errors, fall back to the
+parallel `Agent` path in `parallel.md` — and say in the output that you did,
+so the result is not mistaken for an engine run.
+
+---
+
+## Source preference
+
+Ordered, not absolute. Prefer the highest tier that answers the question, and
+record the tier used against every claim in the context file.
+
+| Tier | Sources |
+|------|---------|
+| **1 — normative** | the project's own docs and spec; RFCs (`rfc-editor.org`, `datatracker.ietf.org`); standards bodies (`w3.org`, `owasp.org`, `unicode.org`); `developer.mozilla.org` |
+| **2 — first-party** | the maintainer's own site, repository, `CHANGELOG`, release notes, migration guide, ADRs, `pkg.go.dev` / `docs.rs` / `docs.python.org` and equivalents |
+| **3 — corroborating** | the maintainer's issue tracker and discussions, a CVE record, a benchmark whose method is published |
+| **4 — orientation only** | blogs, Stack Overflow, tutorials, LLM-generated pages |
+
+Tier 4 may be used to **find** a fact and never to **support** one: chase it to
+its tier 1-2 source, cite that, and drop the claim if the chase fails.
+
+The previous version of this skill hard-blocked everything outside a fixed
+domain list. That was worse, not stricter: it blocked a library's own GitHub
+release notes — the single most authoritative answer to "what changed" — while
+allowing a stale vendor page. Tier, not domain, is the test.
 
 ---
 
@@ -271,76 +201,49 @@ skill is the sole writer of `.claude/contexts/`.
 
 | Action | Status |
 |--------|--------|
-| Skip local documentation | **FORBIDDEN** |
-| Declare `LOCAL_COMPLETE` without citing matched `~/.claude/docs/` files | **FORBIDDEN** |
-| Use `LOCAL_COMPLETE` to skip the engine on an internal/codebase topic | **FORBIDDEN** |
-| Skip the `research` Workflow when gate ≠ `LOCAL_COMPLETE` | **FORBIDDEN** |
-| Ignore local/external conflict | **FORBIDDEN** |
-| Prefer external over local without validation | **FORBIDDEN** |
-| Non-official source | **FORBIDDEN** |
-| Skip decomposition | **FORBIDDEN** |
-| Sequential agents when parallelizable | **FORBIDDEN** |
-| Info without source | **FORBIDDEN** |
-
-**ABSOLUTE LOCAL-FIRST RULE:**
-
-```yaml
-local_first_rule:
-  priority: "LOCAL > EXTERNAL"
-  reason: "Local documentation is validated and consistent"
-
-  workflow:
-    1: "ALWAYS search in ~/.claude/docs/ first"
-    2: "IF local sufficient → use local only"
-    3: "IF conflict → ask the user"
-    4: "IF update needed → create GitHub issue"
-```
+| Skip the local lookup | **FORBIDDEN** |
+| `LOCAL_COMPLETE` without naming the matched files and dates | **FORBIDDEN** |
+| `LOCAL_COMPLETE` on a VERSIONED query | **FORBIDDEN** |
+| Cite a `stale`/`expired` doc as validated without web confirmation | **FORBIDDEN** |
+| Skip the engine when the gate did not short-circuit | **FORBIDDEN** |
+| Support a claim with a tier-4 source | **FORBIDDEN** |
+| State a version, default or limit without the source that says it | **FORBIDDEN** |
+| Present a single-source claim as confirmed | **FORBIDDEN** — mark it `single-source` |
+| Silently drop a conflict between sources | **FORBIDDEN** — record both, see `validate.md` |
+| Restamp `verified` on a doc you did not actually re-check | **FORBIDDEN** |
+| Write a context file with no "Open questions" section | **FORBIDDEN** — say "none" explicitly |
+| Answer from memory when a fetch failed | **FORBIDDEN** — report the gap |
 
 ---
 
-## Execution Examples
+## The output contract
 
-### Simple query
+`.claude/contexts/<slug>.md` must let `/plan` design without re-researching.
+Full template in `generate.md`; the required sections are:
 
-```
-/search "Go context package"
+| Section | Must contain |
+|---------|--------------|
+| **Answer** | the direct answer in ≤ 5 lines |
+| **Facts** | one row per claim: statement · source URL · tier · confidence |
+| **Versions** | every version, default and limit that the plan depends on |
+| **Decisions open** | each real choice, its options, and the trade-off — *not* a recommendation dressed as a fact |
+| **Pitfalls** | failure modes the sources actually document, with the citation |
+| **Conflicts** | where sources disagree, and which was believed and why |
+| **Open questions** | what remains unknown — explicitly `none` when nothing does |
+| **Local base** | docs consulted with their `verified` dates; docs restamped by Phase 10 |
 
-→ 1 concept, 1 domain (go.dev)
-→ Direct WebSearch + WebFetch
-→ Validation 3+ sources
-```
-
-### Complex query
-
-```
-/search "OAuth2 JWT authentication for REST API"
-
-→ 4 concepts, 3 domains
-→ 6 parallel Task agents
-→ Cross-reference fetch
-→ RLM synthesis (3+ sources for HIGH)
-```
-
-### Multi-domain query
-
-```
-/search "Kubernetes ingress controller comparison"
-
-→ 6 parallel Task agents
-→ Coverage: kubernetes.io, docs.docker.com, cloud.google.com
-→ Strict validation 3+ sources
-```
+A context file whose "Decisions open" section is empty on a genuinely open
+design question is a failed search: it means a preference was recorded as a
+finding.
 
 ---
 
-## Canonical workflow footer (PR5a — Skills Architecture v1.3)
+## Chain
 
 ```
-/search <query> → /plan → /review → /refine → /goal
+/project → /warmup → /search <topic> → /plan --context <slug> → /refine → /goal
 ```
 
-When implementation intent is detected (keywords in
-`generate.md` Phase 9.5), `/search` chains into `/plan` via
-`Skill(skill="plan", args="--context <slug>")`. From there
-`/plan --goal` chains `/review` (plan gate) then `/refine`. The legacy
-`→ EnterPlanMode` footer is removed.
+When the query carries clear implementation intent (`generate.md` Phase 9.5),
+offer the chain — `Skill(skill="plan", args="--context <slug>")` — rather than
+starting to implement.
