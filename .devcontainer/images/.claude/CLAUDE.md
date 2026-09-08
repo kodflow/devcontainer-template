@@ -58,7 +58,6 @@ review later.
 | `degraded` | `config-invalid` | `rtk config` exits non-zero (TOML parse error) |
 | `degraded` | `marker-missing` | `~/.claude/RTK.md` absent OR `@RTK.md` import absent from `~/.claude/CLAUDE.md` |
 
-**No semantic-embedding tooling.** `grepai`/`ollama` were dropped in 2026-04
 (high CPU/RAM cost, marginal benefit). Use targeted `Grep` + `Read` instead.
 
 **Version pin policy.** RTK is pinned in two places in lockstep
