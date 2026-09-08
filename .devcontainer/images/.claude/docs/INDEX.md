@@ -1,6 +1,6 @@
 # Knowledge base index
 
-Generated 2026-09-08 · 155 documents · 134 fresh, 21 stale, 0 expired.
+Generated 2026-09-08 · 155 documents · 136 fresh, 19 stale, 0 expired.
 
 `status` is `verified` age against the category TTL. **stale** and **expired** documents are hypotheses, not validated sources: `/search` must confirm them against the web before citing them, and `/search --refresh <topic>` restamps them.
 
@@ -233,8 +233,8 @@ Generated 2026-09-08 · 155 documents · 134 fresh, 21 stale, 0 expired.
 | [`abac`](security/abac.md) | Dynamic permissions based on subject, resource, and context attributes. | 2026-02-14 | **stale** |
 | [`api-keys`](security/api-keys.md) | Simple secret key authentication for APIs. | 2026-02-14 | **stale** |
 | [`input-validation`](security/input-validation.md) | Validate and sanitize all user input to prevent injections. | 2026-02-14 | **stale** |
-| [`jwt`](security/jwt.md) | Signed and self-contained tokens for stateless authentication. | 2026-02-14 | **stale** |
-| [`oauth2`](security/oauth2.md) | Authorization protocol for delegated access to resources. | 2026-02-14 | **stale** |
+| [`jwt`](security/jwt.md) | Signed and self-contained tokens for stateless authentication. | 2026-09-08 | fresh |
+| [`oauth2`](security/oauth2.md) | Authorization protocol for delegated access to resources. | 2026-09-08 | fresh |
 | [`rbac`](security/rbac.md) | Permissions based on roles assigned to users. | 2026-02-14 | **stale** |
 | [`secrets-management`](security/secrets-management.md) | Secure management of secrets, credentials, and encryption keys. | 2026-02-14 | **stale** |
 | [`session-auth`](security/session-auth.md) | Stateful server-side authentication with session cookies. | 2026-02-14 | **stale** |

@@ -246,6 +246,7 @@ routing:
   ".php":   "developer-specialist-php"
   ".scala": "developer-specialist-scala"
   ".cpp":   "developer-specialist-cpp"
+  ".zig":   "developer-specialist-zig"
   ".dart":  "developer-specialist-dart"
 ```
 
