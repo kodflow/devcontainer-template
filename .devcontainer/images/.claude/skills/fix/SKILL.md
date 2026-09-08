@@ -1,39 +1,39 @@
 ---
 name: fix
-description: >-
-  Open a defect and keep its trail. Records the bug where the project tracks
-  work — a note store when one is grafted onto the session, otherwise a GitLab or
-  GitHub issue — then cuts a branch named after the issue so forges and external
-  trackers link the two. Refuses to open a bug with no reproduction: observed
-  versus expected, and the steps that show it. Re-running on the same defect
-  appends what was learned as a comment, so the original symptom and the
-  investigation that followed stay readable side by side.
-when_to_use: >-
-  Use when existing behaviour is wrong — a crash, a wrong result, a regression, a
-  flaky test. For something the project does not do yet, use /feature. To
-  actually find the cause once the bug is opened, use /debug.
-argument-hint: "<what is broken> [--no-branch] [--local] [--status]"
+description: 'Open a defect and keep its trail. Records the bug where the project tracks work
+  — a note store when one is grafted onto the session, otherwise a GitLab or GitHub issue
+  — then cuts a branch named after the issue so forges and external trackers link the two.
+  Refuses to open a bug with no reproduction: observed versus expected, and the steps that
+  show it. Re-running on the same defect appends what was learned as a comment, so the original
+  symptom and the investigation that followed stay readable side by side.'
+when_to_use: Use when existing behaviour is wrong — a crash, a wrong result, a regression,
+  a flaky test. For something the project does not do yet, use /feature. To actually find
+  the cause once the bug is opened, use /debug.
+argument-hint: <what is broken> [--no-branch] [--local] [--status]
 model: opus
 allowed-tools:
-  - "Bash(git:*)"
-  - "Bash(gh:*)"
-  - "Bash(glab:*)"
-  - "Bash(curl:*)"
-  - "Bash(jq:*)"
-  - "Bash(bash:*)"
-  - "Bash(python3:*)"
-  - "Bash(date:*)"
-  - "Bash(mkdir:*)"
-  - "Bash(ls:*)"
-  - "Read(**/*)"
-  - "Glob(**/*)"
-  - "Grep(**/*)"
-  - "Write(.claude/issues/*.md)"
-  - "Edit(.claude/issues/*.md)"
-  - "mcp__github__*"
-  - "mcp__gitlab__*"
-  - "AskUserQuestion"
-  - "Skill(*)"
+- Bash(git:*)
+- Bash(gh:*)
+- Bash(glab:*)
+- Bash(curl:*)
+- Bash(jq:*)
+- Bash(bash:*)
+- Bash(python3:*)
+- Bash(date:*)
+- Bash(mkdir:*)
+- Bash(ls:*)
+- Read(**/*)
+- Glob(**/*)
+- Grep(**/*)
+- Write(.claude/issues/*.md)
+- Edit(.claude/issues/*.md)
+- mcp__github__*
+- mcp__gitlab__*
+- AskUserQuestion
+- Skill(*)
+- Agent(*)
+- mcp__context7__*
+- WebFetch(*)
 ---
 
 # /fix — open a defect, keep the trail
@@ -126,6 +126,48 @@ with `AskUserQuestion`, then:
 fix without proving one. A guess written into the issue body reads as fact to
 everyone who comes after.
 
+### 1.5 — Is it actually a defect?
+
+**Mandatory whenever the defect touches a technology with an installed
+specialist.** Route with `../_shared/specialists.md`; dispatch every match in one
+message.
+
+This is the highest-value check this skill makes. A large share of bug reports
+describe behaviour that is documented, intended, or a known constraint — and a
+report filed against documented behaviour costs whoever picks it up a full
+investigation to reach the manual.
+
+```
+A defect is about to be reported. Judge it in <your technology>.
+
+Observed:  <verbatim>
+Expected:  <verbatim, and what says so>
+Steps:     <verbatim>
+Version:   <the version or commit>
+
+Answer:
+1. Is the observed behaviour actually documented or intended in this version?
+   Cite the documentation either way — "this is documented" and "this
+   contradicts the documentation" are equally useful, and both need a source.
+2. Is it a known issue in this version? Check the release notes and the
+   tracker before anyone re-investigates it.
+3. Does the expectation itself hold? Sometimes the expectation is the bug.
+
+Return `consulted` and `unverified`. Do not diagnose the cause — that is
+/debug's job and it will not accept a fix without proving one.
+```
+
+Acting on the answer:
+
+- **documented behaviour** → do not open a defect. Say what the documentation
+  says, and offer `/feature` if the user wants it changed.
+- **known issue** → open it with the upstream reference, so nobody re-derives it.
+- **contradicts the documentation** → open it with that citation. A report
+  carrying the line it violates is one a maintainer can act on immediately.
+
+The specialist judges the *symptom*, never the cause. A diagnosis written into
+the body before `/debug` proved one reads as fact to everyone after.
+
 ### 2 — Show it before publishing
 
 ```
@@ -193,4 +235,7 @@ Everything in `../_shared/tracker.md` §5, plus:
 | Start fixing | **FORBIDDEN** — this skill opens work |
 | Drop a ruled-out hypothesis from the trail | **FORBIDDEN** — it has value |
 | Open a duplicate without searching | **FORBIDDEN** |
+| Publish without consulting the specialists the technology matched | **FORBIDDEN** |
+| Open a defect against behaviour a specialist showed is documented | **FORBIDDEN** — offer /feature |
+| Accept a technology claim with an empty `consulted` list | **FORBIDDEN** |
 | Branch over a dirty tree | **FORBIDDEN** |

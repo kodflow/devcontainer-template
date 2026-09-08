@@ -1,39 +1,39 @@
 ---
 name: feature
-description: >-
-  Open a piece of feature work and keep its trail. Records the feature where the
-  project actually tracks work — a note store when one is grafted onto the
-  session, otherwise a GitLab or GitHub issue — then cuts a branch named after
-  the issue so forges and external trackers link the two automatically. Run it
-  again on the same subject and it appends the new exchange as a comment instead
-  of duplicating anything, so the original understanding and every refinement
-  since stay readable side by side.
-when_to_use: >-
-  Use when starting work on something the project does not do yet, and again
-  each time the discussion sharpens what that thing is. For a defect in existing
-  behaviour use /fix instead.
-argument-hint: "<what the feature is> [--no-branch] [--local] [--status]"
+description: Open a piece of feature work and keep its trail. Records the feature where the
+  project actually tracks work — a note store when one is grafted onto the session, otherwise
+  a GitLab or GitHub issue — then cuts a branch named after the issue so forges and external
+  trackers link the two automatically. Run it again on the same subject and it appends the
+  new exchange as a comment instead of duplicating anything, so the original understanding
+  and every refinement since stay readable side by side.
+when_to_use: Use when starting work on something the project does not do yet, and again each
+  time the discussion sharpens what that thing is. For a defect in existing behaviour use
+  /fix instead.
+argument-hint: <what the feature is> [--no-branch] [--local] [--status]
 model: opus
 allowed-tools:
-  - "Bash(git:*)"
-  - "Bash(gh:*)"
-  - "Bash(glab:*)"
-  - "Bash(curl:*)"
-  - "Bash(jq:*)"
-  - "Bash(bash:*)"
-  - "Bash(python3:*)"
-  - "Bash(date:*)"
-  - "Bash(mkdir:*)"
-  - "Bash(ls:*)"
-  - "Read(**/*)"
-  - "Glob(**/*)"
-  - "Grep(**/*)"
-  - "Write(.claude/issues/*.md)"
-  - "Edit(.claude/issues/*.md)"
-  - "mcp__github__*"
-  - "mcp__gitlab__*"
-  - "AskUserQuestion"
-  - "Skill(*)"
+- Bash(git:*)
+- Bash(gh:*)
+- Bash(glab:*)
+- Bash(curl:*)
+- Bash(jq:*)
+- Bash(bash:*)
+- Bash(python3:*)
+- Bash(date:*)
+- Bash(mkdir:*)
+- Bash(ls:*)
+- Read(**/*)
+- Glob(**/*)
+- Grep(**/*)
+- Write(.claude/issues/*.md)
+- Edit(.claude/issues/*.md)
+- mcp__github__*
+- mcp__gitlab__*
+- AskUserQuestion
+- Skill(*)
+- Agent(*)
+- mcp__context7__*
+- WebFetch(*)
 ---
 
 # /feature — open feature work, keep the trail
@@ -122,6 +122,45 @@ with what you have and record the gaps under *Still open*.
 Ambition check, once, briefly: if the feature as described cannot be verified,
 say so and propose the smallest version that can. Then follow the user's call.
 
+### 1.5 — Have the specialists check it
+
+**Mandatory whenever the feature touches a technology with an installed
+specialist.** Route with `../_shared/specialists.md` and dispatch every match in
+one message.
+
+The brief:
+
+```
+A feature is about to be opened. Judge it in <your technology>, not in general.
+
+<what / why / acceptance / out of scope, verbatim>
+<the files or packages it will touch>
+
+Answer three things:
+1. Does the platform already provide this? Name the API, flag or built-in if so
+   — the cheapest feature is the one already written.
+2. Are the acceptance criteria checkable in this technology? A criterion nobody
+   can write a test for is the defect to catch now, not after implementation.
+3. What will bite? The version constraint, the footgun, the thing that looks
+   fine and is not.
+
+Return `consulted` (documentation you actually checked) and `unverified`
+(anything you could not confirm). A claim about this technology with an empty
+`consulted` list is a memory claim — mark it.
+```
+
+What comes back changes the issue before it is published:
+
+- **already provided** → say so and ask whether to continue. Opening work the
+  platform already does is the most expensive mistake available here, and it is
+  the cheapest to catch.
+- **an uncheckable criterion** → rewrite it until it is checkable, or record it
+  explicitly as a gap.
+- **a version constraint** → into the body, with the source that says so.
+
+Feature is prose, no technology named, no match: say so and continue. Do not
+manufacture a match to have someone to ask.
+
 ### 2 — Show it before publishing
 
 Print the exact title and body. Publishing is outward-facing and the body is what
@@ -189,4 +228,6 @@ Everything in `../_shared/tracker.md` §5, plus:
 | Start implementing | **FORBIDDEN** — this skill opens work, it does not do it |
 | Post a comment that adds nothing | **FORBIDDEN** — say "nothing new" |
 | Ask more than one round of questions | **FORBIDDEN** — one round, then proceed and record gaps |
+| Publish without consulting the specialists the technology matched | **FORBIDDEN** |
+| Accept a technology claim with an empty `consulted` list | **FORBIDDEN** — it is memory, not evidence |
 | Guess a note-store tool name | **FORBIDDEN** — absent means fall through to the forge |

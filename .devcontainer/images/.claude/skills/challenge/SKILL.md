@@ -1,42 +1,41 @@
 ---
 name: challenge
-description: >-
-  Put a plan through an adversarial debate before anyone builds it. Independent
-  reviewers argue the plan from contradictory angles — architecture, scepticism,
-  operations, and Codex from outside the Claude family when its CLI is installed
-  — for at most three rounds, and the plan is rewritten between rounds rather
-  than defended. Every difficulty the debate surfaces is put to you immediately
-  as a three-option question with a recommendation, so the plan is never
-  finished by guessing. The output is a /goal directive of at most 4000
-  characters, carrying an unticked task list and a runnable verifier per
-  acceptance criterion, mechanically validated before it is handed over.
-when_to_use: >-
-  Use once a plan exists and before it is executed — after /plan, /feature or
-  /fix, when the approach is still arguable, or when a previous attempt went
-  wrong and the plan is suspect. Not for a task whose steps are already obvious.
-argument-hint: "<plan slug|file|description> [--concurrency N] [--no-codex] [--dry-run]"
+description: 'Put a plan through an adversarial debate before anyone builds it. The panel
+  is never generic: three contradictory lenses — architecture, scepticism, operations — plus
+  every installed specialist whose technology the plan actually touches, and Codex from outside
+  the Claude family when its CLI answers. Specialists must cite the documentation they checked;
+  an objection resting on an unverified version claim is marked, not taken as fact. At most
+  three rounds, the plan rewritten between them rather than defended, and every difficulty
+  put to you immediately as a three-option question with a recommendation. Output: a /goal
+  directive of at most 4000 characters with an unticked task list and a runnable verifier
+  per acceptance criterion, mechanically validated.'
+when_to_use: Use once a plan exists and before it is executed — after /plan, /feature or /fix,
+  when the approach is still arguable, or when a previous attempt went wrong and the plan
+  is suspect. Not for a task whose steps are already obvious.
+argument-hint: <plan slug|file|description> [--concurrency N] [--no-codex] [--dry-run]
 model: opus
 allowed-tools:
-  - "Read(**/*)"
-  - "Glob(**/*)"
-  - "Grep(**/*)"
-  - "Bash(git:*)"
-  - "Bash(bash:*)"
-  - "Bash(python3:*)"
-  - "Bash(codex:*)"
-  - "Bash(command:*)"
-  - "Bash(wc:*)"
-  - "Bash(jq:*)"
-  - "Bash(date:*)"
-  - "Bash(mkdir:*)"
-  - "Write(.claude/plans/*.md)"
-  - "Write(.claude/goals/*.md)"
-  - "Edit(.claude/plans/*.md)"
-  - "Edit(.claude/goals/*.md)"
-  - "Agent(*)"
-  - "Workflow(*)"
-  - "AskUserQuestion"
-  - "mcp__context7__*"
+- Read(**/*)
+- Glob(**/*)
+- Grep(**/*)
+- Bash(git:*)
+- Bash(bash:*)
+- Bash(python3:*)
+- Bash(codex:*)
+- Bash(command:*)
+- Bash(wc:*)
+- Bash(jq:*)
+- Bash(date:*)
+- Bash(mkdir:*)
+- Write(.claude/plans/*.md)
+- Write(.claude/goals/*.md)
+- Edit(.claude/plans/*.md)
+- Edit(.claude/goals/*.md)
+- Agent(*)
+- Workflow(*)
+- AskUserQuestion
+- mcp__context7__*
+- WebFetch(*)
 ---
 
 # /challenge — debate the plan, lock the directive
@@ -53,6 +52,11 @@ Three things make it worth running instead of just thinking harder:
   context. A reviewer that shares your context agrees with you.
 - **The lenses contradict.** An architect and an operator want different things
   from the same plan; where they disagree is where the plan is actually weak.
+- **The specialists are mandatory, not optional.** Every installed specialist
+  whose technology the plan touches joins the panel, and each must cite the
+  documentation it checked before asserting how that technology behaves. A
+  generalist cannot tell you that the API you planned against moved two releases
+  ago; the specialist that just read the release notes can.
 - **Difficulty becomes a question, not an assumption.** The moment the debate
   cannot settle something, you are asked — immediately, not in a summary at the
   end.
@@ -168,6 +172,9 @@ in the room.
 | Ask a question without marking one option recommended | **FORBIDDEN** |
 | Drop an accepted objection without recording it | **FORBIDDEN** |
 | Claim Codex participated when its CLI is absent | **FORBIDDEN** — say who actually reviewed |
+| Run the panel without the specialists the plan's technology matched | **FORBIDDEN** — every match is dispatched |
+| Accept a technology objection whose `consulted` list is empty | **FORBIDDEN** — that is a memory claim, not evidence |
+| Leave a matched-but-uninstalled specialist unreported | **FORBIDDEN** — the plan went unreviewed from that angle |
 | Start implementing the plan | **FORBIDDEN** — this skill produces a directive |
 | Pad the directive toward 4000 characters | **FORBIDDEN** — shortest that carries the contract |
 
