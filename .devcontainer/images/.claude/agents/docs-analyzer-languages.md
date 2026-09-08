@@ -1,32 +1,23 @@
 ---
 name: docs-analyzer-languages
-teamRole: teammate
-teamSafe: true
-description: |
-  Docs analyzer: Language features inventory.
-  Analyzes .devcontainer/features/languages/ for tooling, versions, and conventions.
-  Returns condensed JSON to /tmp/docs-analysis/languages.json.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - SendMessage
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+description: 'Docs analyzer: Language features inventory. Analyzes .devcontainer/features/languages/ for
+  tooling, versions, and conventions. Returns condensed JSON to /tmp/docs-analysis/languages.json.'
+tools: Read, Glob, Grep, Bash, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet
 model: haiku
-context: fork
-allowed-tools:
-  - "Bash(wc:*)"
-  - "Bash(ls:*)"
-  - "Bash(cat:*)"
-  - "Bash(mkdir:*)"
-  - "Bash(tee:*)"
+color: purple
 ---
 
 # Languages Analyzer - Sub-Agent
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(wc:*)`
+- `Bash(ls:*)`
+- `Bash(cat:*)`
+- `Bash(mkdir:*)`
+- `Bash(tee:*)`
 
 ## Role
 

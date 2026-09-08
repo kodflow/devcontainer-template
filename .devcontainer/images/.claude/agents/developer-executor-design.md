@@ -1,36 +1,23 @@
 ---
 name: developer-executor-design
-teamRole: teammate
-teamSafe: true
-description: |
-  Design pattern and architecture analyzer. Detects antipatterns, DDD violations,
-  layering issues, and SOLID principle violations. Consults ~/.claude/docs/ for patterns
-  and cross-references with official documentation.
-  Returns condensed JSON with pattern references and fix recommendations.
-tools:
-  # Core analysis tools
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  # Documentation (local + remote)
-  - mcp__context7__resolve-library-id
-  - mcp__context7__query-docs
-  - WebFetch
-  - SendMessage
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+description: Design pattern and architecture analyzer. Detects antipatterns, DDD violations, layering
+  issues, and SOLID principle violations. Consults ~/.claude/docs/ for patterns and cross-references with
+  official documentation. Returns condensed JSON with pattern references and fix recommendations.
+tools: Read, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs, WebFetch,
+  SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet
 model: sonnet
-context: fork
-allowed-tools:
-  - "Bash(git diff:*)"
-  - "Bash(git log:*)"
-  - "Bash(wc -l:*)"
+color: blue
 ---
 
 # Design Checker - Sub-Agent
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(git diff:*)`
+- `Bash(git log:*)`
+- `Bash(wc -l:*)`
 
 ## Role
 

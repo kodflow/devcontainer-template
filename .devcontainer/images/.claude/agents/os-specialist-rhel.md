@@ -1,19 +1,11 @@
 ---
 name: os-specialist-rhel
-teamRole: teammate
-teamSafe: true
-description: |
-  RHEL/CentOS/Rocky/Alma specialist agent. Expert in dnf/yum, systemd, SELinux,
-  subscription-manager, and enterprise Linux lifecycle. Queries official documentation
-  for version-specific accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: RHEL/CentOS/Rocky/Alma specialist agent. Expert in dnf/yum, systemd, SELinux, subscription-manager,
+  and enterprise Linux lifecycle. Queries official documentation for version-specific accuracy. Returns
+  condensed JSON only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # RHEL/CentOS/Rocky/Alma - OS Specialist

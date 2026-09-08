@@ -1,40 +1,27 @@
 ---
 name: developer-executor-correctness
-teamRole: teammate
-teamSafe: true
-description: |
-  Algorithmic correctness analyzer. Detects invariant violations, state machine
-  issues, concurrency bugs, off-by-one errors, and error surfacing problems.
-  Returns condensed JSON with counterexamples and fix patches.
-  Uses Correctness Oracle Framework for systematic detection.
-tools:
-  # Core analysis tools
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  # Documentation (local + remote)
-  - mcp__context7__resolve-library-id
-  - mcp__context7__query-docs
-  - WebFetch
-  - SendMessage
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+description: Algorithmic correctness analyzer. Detects invariant violations, state machine issues, concurrency
+  bugs, off-by-one errors, and error surfacing problems. Returns condensed JSON with counterexamples and
+  fix patches. Uses Correctness Oracle Framework for systematic detection.
+tools: Read, Glob, Grep, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs, WebFetch,
+  SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet
 model: sonnet
-context: fork
-allowed-tools:
-  - "Bash(git diff:*)"
-  - "Bash(git log:*)"
-  - "Bash(go vet:*)"
-  - "Bash(staticcheck:*)"
-  - "Bash(mypy:*)"
-  - "Bash(pyright:*)"
-  - "Bash(tsc --noEmit:*)"
+color: blue
 ---
 
 # Correctness Checker - Sub-Agent
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(git diff:*)`
+- `Bash(git log:*)`
+- `Bash(go vet:*)`
+- `Bash(staticcheck:*)`
+- `Bash(mypy:*)`
+- `Bash(pyright:*)`
+- `Bash(tsc --noEmit:*)`
 
 ## Role
 

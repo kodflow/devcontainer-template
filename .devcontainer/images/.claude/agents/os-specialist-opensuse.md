@@ -1,21 +1,11 @@
 ---
 name: os-specialist-opensuse
-teamRole: teammate
-teamSafe: true
-description: |
-  openSUSE specialist agent. Expert in zypper, YaST, systemd, Btrfs snapshots,
-  and Leap/Tumbleweed release models. Queries official openSUSE documentation
-  for version-specific accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - SendMessage
-  - TaskUpdate
-  - Bash
-  - WebFetch
+description: openSUSE specialist agent. Expert in zypper, YaST, systemd, Btrfs snapshots, and Leap/Tumbleweed
+  release models. Queries official openSUSE documentation for version-specific accuracy. Returns condensed
+  JSON only.
+tools: Read, Glob, Grep, SendMessage, TaskUpdate, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # openSUSE - OS Specialist

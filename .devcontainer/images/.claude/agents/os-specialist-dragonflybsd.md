@@ -1,19 +1,11 @@
 ---
 name: os-specialist-dragonflybsd
-teamRole: teammate
-teamSafe: true
-description: |
-  DragonFly BSD specialist agent. Expert in pkg/dports, HAMMER2 filesystem,
-  virtual kernels, and high-performance BSD. Queries official DragonFly
-  documentation for accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: DragonFly BSD specialist agent. Expert in pkg/dports, HAMMER2 filesystem, virtual kernels,
+  and high-performance BSD. Queries official DragonFly documentation for accuracy. Returns condensed JSON
+  only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # DragonFly BSD - OS Specialist

@@ -1,50 +1,29 @@
 ---
 name: developer-specialist-review
-teamRole: lead
-teamSafe: true
-description: |
-  Code review specialist using RLM decomposition. Coordinates 5 sub-agents
-  (correctness, security, design, quality, shell) for comprehensive analysis.
-  Dispatches sub-agents in parallel via Task tool to avoid context accumulation.
-  Supports both GitHub PRs and GitLab MRs (auto-detected from git remote).
+description: Code review specialist using RLM decomposition. Coordinates 5 sub-agents (correctness, security,
+  design, quality, shell) for comprehensive analysis. Dispatches sub-agents in parallel via Task tool
+  to avoid context accumulation. Supports both GitHub PRs and GitLab MRs (auto-detected from git remote).
   Output is LOCAL ONLY - generates /plan file for /refine → /goal execution.
-tools:
-  # Core tools
-  - Read
-  - Glob
-  - Grep
-  - Task
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - Bash
-  # GitHub MCP (PR context)
-  - mcp__github__pull_request_read
-  - mcp__github__list_pull_requests
-  - mcp__github__add_issue_comment
-  # GitLab MCP (MR context)
-  - mcp__gitlab__get_merge_request
-  - mcp__gitlab__get_merge_request_changes
-  - mcp__gitlab__list_merge_request_notes
-  - mcp__gitlab__list_merge_request_discussions
-  - mcp__gitlab__list_merge_requests
-  - mcp__gitlab__create_merge_request_note
-  - mcp__gitlab__list_pipelines
-  # Documentation
-  - mcp__context7__resolve-library-id
-  - mcp__context7__query-docs
-  - SendMessage
-  - TaskGet
+tools: Read, Glob, Grep, Task, TaskCreate, TaskUpdate, TaskList, Bash, mcp__github__pull_request_read,
+  mcp__github__list_pull_requests, mcp__github__add_issue_comment, mcp__gitlab__get_merge_request, mcp__gitlab__get_merge_request_changes,
+  mcp__gitlab__list_merge_request_notes, mcp__gitlab__list_merge_request_discussions, mcp__gitlab__list_merge_requests,
+  mcp__gitlab__create_merge_request_note, mcp__gitlab__list_pipelines, mcp__context7__resolve-library-id,
+  mcp__context7__query-docs, SendMessage, TaskGet
 model: sonnet
-allowed-tools:
-  - "Bash(git diff:*)"
-  - "Bash(git status:*)"
-  - "Bash(git log:*)"
-  - "Bash(git remote:*)"
-  - "Bash(glab mr:*)"
+color: blue
 ---
 
 # Code Reviewer - Orchestrator Agent
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(git diff:*)`
+- `Bash(git status:*)`
+- `Bash(git log:*)`
+- `Bash(git remote:*)`
+- `Bash(glab mr:*)`
 
 ## Role
 

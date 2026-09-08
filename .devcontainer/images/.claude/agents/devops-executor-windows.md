@@ -1,25 +1,21 @@
 ---
 name: devops-executor-windows
-teamRole: teammate
-teamSafe: true
-description: |
-  Windows system administration router + executor. Detects Windows variant
-  and dispatches to os-specialist-windows-server or os-specialist-windows-desktop.
-  Invoked by devops-orchestrator for Windows operations.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - Task
+description: Windows system administration router + executor. Detects Windows variant and dispatches to
+  os-specialist-windows-server or os-specialist-windows-desktop. Invoked by devops-orchestrator for Windows
+  operations.
+tools: Read, Glob, Grep, Bash, Task
 model: haiku
-context: fork
-allowed-tools:
-  - "Bash(pwsh:*)"
-  - "Bash(powershell:*)"
+color: orange
 ---
 
 # Windows - System Administration Router + Specialist
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(pwsh:*)`
+- `Bash(powershell:*)`
 
 ## Role
 

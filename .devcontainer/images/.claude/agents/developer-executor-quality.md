@@ -1,38 +1,28 @@
 ---
 name: developer-executor-quality
-teamRole: teammate
-teamSafe: true
-description: |
-  Code quality analysis executor. Detects complexity issues, code smells,
-  style violations, and maintainability problems. Invoked by developer-specialist-review.
-  Returns condensed JSON results with commendations.
-tools:
-  # Core analysis tools
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - SendMessage
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+description: Code quality analysis executor. Detects complexity issues, code smells, style violations,
+  and maintainability problems. Invoked by developer-specialist-review. Returns condensed JSON results
+  with commendations.
+tools: Read, Glob, Grep, Bash, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet
 model: haiku
-context: fork
-allowed-tools:
-  # Linters and formatters
-  - "Bash(git diff:*)"
-  - "Bash(wc -l:*)"
-  - "Bash(eslint:*)"
-  - "Bash(pylint:*)"
-  - "Bash(golangci-lint:*)"
-  - "Bash(shellcheck:*)"
-  - "Bash(hadolint:*)"
-  - "Bash(prettier --check:*)"
-  - "Bash(ktn-linter:*)"
+color: blue
 ---
 
 # Quality Checker - Sub-Agent
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(git diff:*)`
+- `Bash(wc -l:*)`
+- `Bash(eslint:*)`
+- `Bash(pylint:*)`
+- `Bash(golangci-lint:*)`
+- `Bash(shellcheck:*)`
+- `Bash(hadolint:*)`
+- `Bash(prettier --check:*)`
+- `Bash(ktn-linter:*)`
 
 ## Role
 

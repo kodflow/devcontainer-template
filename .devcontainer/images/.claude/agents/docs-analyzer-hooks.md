@@ -1,32 +1,23 @@
 ---
 name: docs-analyzer-hooks
-teamRole: teammate
-teamSafe: true
-description: |
-  Docs analyzer: Lifecycle hooks and Claude hooks inventory.
-  Analyzes .devcontainer/hooks/ and .claude/scripts/ for triggers and actions.
-  Returns condensed JSON to /tmp/docs-analysis/hooks.json.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - SendMessage
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+description: 'Docs analyzer: Lifecycle hooks and Claude hooks inventory. Analyzes .devcontainer/hooks/
+  and .claude/scripts/ for triggers and actions. Returns condensed JSON to /tmp/docs-analysis/hooks.json.'
+tools: Read, Glob, Grep, Bash, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet
 model: haiku
-context: fork
-allowed-tools:
-  - "Bash(wc:*)"
-  - "Bash(ls:*)"
-  - "Bash(cat:*)"
-  - "Bash(mkdir:*)"
-  - "Bash(tee:*)"
+color: purple
 ---
 
 # Hooks Analyzer - Sub-Agent
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(wc:*)`
+- `Bash(ls:*)`
+- `Bash(cat:*)`
+- `Bash(mkdir:*)`
+- `Bash(tee:*)`
 
 ## Role
 

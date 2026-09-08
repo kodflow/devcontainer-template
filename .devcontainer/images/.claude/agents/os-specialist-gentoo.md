@@ -1,21 +1,10 @@
 ---
 name: os-specialist-gentoo
-teamRole: teammate
-teamSafe: true
-description: |
-  Gentoo Linux specialist agent. Expert in Portage/emerge, USE flags, ebuilds,
-  OpenRC/systemd, and source-based distribution. Queries official Gentoo wiki
-  for accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - SendMessage
-  - TaskUpdate
-  - Bash
-  - WebFetch
+description: Gentoo Linux specialist agent. Expert in Portage/emerge, USE flags, ebuilds, OpenRC/systemd,
+  and source-based distribution. Queries official Gentoo wiki for accuracy. Returns condensed JSON only.
+tools: Read, Glob, Grep, SendMessage, TaskUpdate, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # Gentoo Linux - OS Specialist

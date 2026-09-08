@@ -1,19 +1,11 @@
 ---
 name: developer-specialist-react
+description: React 19 specialist — JSX/TSX, hooks, React Server Components, Suspense boundaries, Concurrent
+  Mode. Routed when a node project declares a `react` dependency.
+tools: Read, Glob, Grep, Edit, Write, Bash, mcp__context7__*
 model: sonnet
 effort: medium
-description: >-
-  React 19 specialist — JSX/TSX, hooks, React Server Components, Suspense
-  boundaries, Concurrent Mode. Routed when a node project declares a
-  `react` dependency.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Edit
-  - Write
-  - Bash
-  - mcp__context7__*
+color: blue
 ---
 
 # React Specialist

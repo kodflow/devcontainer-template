@@ -1,20 +1,11 @@
 ---
 name: developer-specialist-playwright
+description: Playwright E2E specialist — browser automation, MCP integration, page object patterns, trace
+  analysis. Routed when `test_frameworks` includes `playwright` or `mcp__playwright__*` is available.
+tools: Read, Glob, Grep, Edit, Write, Bash, mcp__playwright__*, mcp__context7__*
 model: sonnet
 effort: high
-description: >-
-  Playwright E2E specialist — browser automation, MCP integration, page
-  object patterns, trace analysis. Routed when `test_frameworks`
-  includes `playwright` or `mcp__playwright__*` is available.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Edit
-  - Write
-  - Bash
-  - mcp__playwright__*
-  - mcp__context7__*
+color: blue
 ---
 
 # Playwright Specialist

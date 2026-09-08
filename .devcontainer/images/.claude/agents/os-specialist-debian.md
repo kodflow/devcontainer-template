@@ -1,19 +1,11 @@
 ---
 name: os-specialist-debian
-teamRole: teammate
-teamSafe: true
-description: |
-  Debian specialist agent. Expert in apt/dpkg, systemd, stable/testing/unstable
-  branches, and Debian policy. Queries official Debian documentation for
-  version-specific accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: Debian specialist agent. Expert in apt/dpkg, systemd, stable/testing/unstable branches, and
+  Debian policy. Queries official Debian documentation for version-specific accuracy. Returns condensed
+  JSON only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # Debian - OS Specialist

@@ -1,32 +1,22 @@
 ---
 name: developer-executor-shell
-teamRole: teammate
-teamSafe: true
-description: |
-  Shell script, Dockerfile, and CI/CD safety analyzer. Detects dangerous
-  patterns, missing safeguards, and configuration issues.
-  Uses deterministic pattern matching for efficient detection.
-  Returns condensed JSON results.
-tools:
-  # Core analysis tools
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - SendMessage
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+description: Shell script, Dockerfile, and CI/CD safety analyzer. Detects dangerous patterns, missing
+  safeguards, and configuration issues. Uses deterministic pattern matching for efficient detection. Returns
+  condensed JSON results.
+tools: Read, Glob, Grep, Bash, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet
 model: haiku
-context: fork
-allowed-tools:
-  - "Bash(git diff:*)"
-  - "Bash(shellcheck:*)"
-  - "Bash(hadolint:*)"
+color: blue
 ---
 
 # Shell Safety Checker - Sub-Agent
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(git diff:*)`
+- `Bash(shellcheck:*)`
+- `Bash(hadolint:*)`
 
 ## Role
 

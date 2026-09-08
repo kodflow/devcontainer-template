@@ -1,19 +1,10 @@
 ---
 name: os-specialist-arch
-teamRole: teammate
-teamSafe: true
-description: |
-  Arch Linux specialist agent. Expert in pacman, AUR, systemd, rolling releases,
-  and minimalist philosophy. Queries official Arch Wiki for accuracy.
-  Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: Arch Linux specialist agent. Expert in pacman, AUR, systemd, rolling releases, and minimalist
+  philosophy. Queries official Arch Wiki for accuracy. Returns condensed JSON only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # Arch Linux - OS Specialist

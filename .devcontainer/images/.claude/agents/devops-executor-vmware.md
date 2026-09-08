@@ -1,28 +1,24 @@
 ---
 name: devops-executor-vmware
-teamRole: teammate
-teamSafe: true
-description: |
-  VMware virtualization executor. Expert in vSphere, ESXi,
-  vCenter, and VMware tools. Invoked by devops-orchestrator.
-  Returns condensed JSON results with configurations and recommendations.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
+description: VMware virtualization executor. Expert in vSphere, ESXi, vCenter, and VMware tools. Invoked
+  by devops-orchestrator. Returns condensed JSON results with configurations and recommendations.
+tools: Read, Glob, Grep, Bash
 model: haiku
-context: fork
-allowed-tools:
-  - "Bash(govc:*)"
-  - "Bash(esxcli:*)"
-  - "Bash(vim-cmd:*)"
-  - "Bash(vmware-cmd:*)"
-  - "Bash(ovftool:*)"
-  - "Bash(packer:*)"
+color: orange
 ---
 
 # VMware - Virtualization Specialist
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(govc:*)`
+- `Bash(esxcli:*)`
+- `Bash(vim-cmd:*)`
+- `Bash(vmware-cmd:*)`
+- `Bash(ovftool:*)`
+- `Bash(packer:*)`
 
 ## Role
 

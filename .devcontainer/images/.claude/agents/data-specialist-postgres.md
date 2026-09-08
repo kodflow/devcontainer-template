@@ -1,19 +1,12 @@
 ---
 name: data-specialist-postgres
+description: PostgreSQL specialist — schema design, query optimisation, EXPLAIN analysis, index selection,
+  migration safety. Routed when `postgres` or `psql` binary is present, or when SQL files declare PostgreSQL
+  syntax.
+tools: Read, Glob, Grep, Edit, Write, Bash, mcp__context7__*
 model: sonnet
 effort: medium
-description: >-
-  PostgreSQL specialist — schema design, query optimisation, EXPLAIN
-  analysis, index selection, migration safety. Routed when `postgres` or
-  `psql` binary is present, or when SQL files declare PostgreSQL syntax.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Edit
-  - Write
-  - Bash
-  - mcp__context7__*
+color: cyan
 ---
 
 # PostgreSQL Specialist

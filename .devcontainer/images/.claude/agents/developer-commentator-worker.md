@@ -1,16 +1,11 @@
 ---
 name: developer-commentator-worker
-teamRole: teammate
-teamSafe: true
-description: >
-  Audit and fix code comments in a single file. Ensures comments explain WHY not WHAT,
-  functions have proper docstrings with params/types/return, and language conventions
-  are followed. Returns structured JSON.
-tools:
-  - Read
-  - Edit
-  - Grep
+description: Audit and fix code comments in a single file. Ensures comments explain WHY not WHAT, functions
+  have proper docstrings with params/types/return, and language conventions are followed. Returns structured
+  JSON.
+tools: Read, Edit, Grep
 model: haiku
+color: blue
 ---
 
 # Comment Auditor Worker

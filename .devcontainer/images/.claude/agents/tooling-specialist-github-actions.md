@@ -1,21 +1,12 @@
 ---
 name: tooling-specialist-github-actions
+description: GitHub Actions specialist — workflows under `.github/workflows/`, composite/reusable actions,
+  matrix builds, supply-chain hardening (pinned SHAs, OIDC, least-privilege tokens). Routed when the project
+  uses GitHub CI.
+tools: Read, Glob, Grep, Edit, Write, Bash, mcp__github__*, mcp__context7__*
 model: sonnet
 effort: medium
-description: >-
-  GitHub Actions specialist — workflows under `.github/workflows/`,
-  composite/reusable actions, matrix builds, supply-chain hardening
-  (pinned SHAs, OIDC, least-privilege tokens). Routed when the project
-  uses GitHub CI.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Edit
-  - Write
-  - Bash
-  - mcp__github__*
-  - mcp__context7__*
+color: yellow
 ---
 
 # GitHub Actions Specialist

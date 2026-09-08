@@ -1,19 +1,10 @@
 ---
 name: os-specialist-void
-teamRole: teammate
-teamSafe: true
-description: |
-  Void Linux specialist agent. Expert in xbps, runit, musl/glibc variants,
-  and independent rolling release. Queries official Void documentation
-  for accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: Void Linux specialist agent. Expert in xbps, runit, musl/glibc variants, and independent
+  rolling release. Queries official Void documentation for accuracy. Returns condensed JSON only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # Void Linux - OS Specialist

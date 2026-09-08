@@ -1,22 +1,11 @@
 ---
 name: developer-commentator
-teamRole: lead
-teamSafe: true
-description: >
-  Orchestrate comprehensive code comment auditing across a project.
-  Dispatches Haiku workers per file to ensure all comments explain WHY (not WHAT),
-  all functions have proper docstrings with params/types/return, and language
-  conventions are respected.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - Agent
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
+description: Orchestrate comprehensive code comment auditing across a project. Dispatches Haiku workers
+  per file to ensure all comments explain WHY (not WHAT), all functions have proper docstrings with params/types/return,
+  and language conventions are respected.
+tools: Read, Glob, Grep, Bash, Agent, TaskCreate, TaskUpdate, TaskList
 model: opus
+color: blue
 ---
 
 # Comment Auditor Orchestrator

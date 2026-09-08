@@ -1,19 +1,10 @@
 ---
 name: os-specialist-devuan
-teamRole: teammate
-teamSafe: true
-description: |
-  Devuan GNU/Linux specialist agent. Expert in apt/dpkg, sysvinit/OpenRC,
-  systemd-free Debian fork, and init freedom. Queries official Devuan
-  documentation for accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: Devuan GNU/Linux specialist agent. Expert in apt/dpkg, sysvinit/OpenRC, systemd-free Debian
+  fork, and init freedom. Queries official Devuan documentation for accuracy. Returns condensed JSON only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # Devuan GNU/Linux - OS Specialist

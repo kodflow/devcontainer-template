@@ -1,32 +1,23 @@
 ---
 name: docs-analyzer-mcp
-teamRole: teammate
-teamSafe: true
-description: |
-  Docs analyzer: MCP server configuration inventory.
-  Analyzes mcp.json and mcp.json.tpl for servers, tools, and auth.
-  Returns condensed JSON to /tmp/docs-analysis/mcp.json.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - SendMessage
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+description: 'Docs analyzer: MCP server configuration inventory. Analyzes mcp.json and mcp.json.tpl for
+  servers, tools, and auth. Returns condensed JSON to /tmp/docs-analysis/mcp.json.'
+tools: Read, Glob, Grep, Bash, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet
 model: haiku
-context: fork
-allowed-tools:
-  - "Bash(wc:*)"
-  - "Bash(ls:*)"
-  - "Bash(cat:*)"
-  - "Bash(mkdir:*)"
-  - "Bash(tee:*)"
+color: purple
 ---
 
 # MCP Analyzer - Sub-Agent
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(wc:*)`
+- `Bash(ls:*)`
+- `Bash(cat:*)`
+- `Bash(mkdir:*)`
+- `Bash(tee:*)`
 
 ## Role
 

@@ -1,19 +1,11 @@
 ---
 name: os-specialist-fedora
-teamRole: teammate
-teamSafe: true
-description: |
-  Fedora specialist agent. Expert in dnf5, systemd, SELinux, Flatpak,
-  and bleeding-edge Linux features. Queries official Fedora documentation
-  for version-specific accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: Fedora specialist agent. Expert in dnf5, systemd, SELinux, Flatpak, and bleeding-edge Linux
+  features. Queries official Fedora documentation for version-specific accuracy. Returns condensed JSON
+  only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # Fedora - OS Specialist

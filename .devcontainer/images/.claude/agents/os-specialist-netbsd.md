@@ -1,19 +1,10 @@
 ---
 name: os-specialist-netbsd
-teamRole: teammate
-teamSafe: true
-description: |
-  NetBSD specialist agent. Expert in pkgsrc/pkgin, rc.d, extreme portability,
-  and clean BSD design. Queries official NetBSD documentation for accuracy.
-  Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: NetBSD specialist agent. Expert in pkgsrc/pkgin, rc.d, extreme portability, and clean BSD
+  design. Queries official NetBSD documentation for accuracy. Returns condensed JSON only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # NetBSD - OS Specialist

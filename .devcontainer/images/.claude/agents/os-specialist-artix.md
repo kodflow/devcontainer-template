@@ -1,19 +1,10 @@
 ---
 name: os-specialist-artix
-teamRole: teammate
-teamSafe: true
-description: |
-  Artix Linux specialist agent. Expert in pacman, dinit/runit/s6/66,
-  systemd-free Arch fork, and init freedom. Queries official Artix wiki
-  for accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: Artix Linux specialist agent. Expert in pacman, dinit/runit/s6/66, systemd-free Arch fork,
+  and init freedom. Queries official Artix wiki for accuracy. Returns condensed JSON only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # Artix Linux - OS Specialist

@@ -1,19 +1,11 @@
 ---
 name: os-specialist-freebsd
-teamRole: teammate
-teamSafe: true
-description: |
-  FreeBSD specialist agent. Expert in pkg/ports, jails, ZFS, pf firewall,
-  and BSD-specific kernel. Queries official FreeBSD documentation
-  for version-specific accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: FreeBSD specialist agent. Expert in pkg/ports, jails, ZFS, pf firewall, and BSD-specific
+  kernel. Queries official FreeBSD documentation for version-specific accuracy. Returns condensed JSON
+  only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # FreeBSD - OS Specialist

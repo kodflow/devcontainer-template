@@ -1,21 +1,10 @@
 ---
 name: os-specialist-macos
-teamRole: teammate
-teamSafe: true
-description: |
-  macOS specialist agent. Expert in Homebrew, launchd, APFS, Gatekeeper,
-  and Darwin/XNU kernel. Queries official Apple developer documentation
-  for accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - SendMessage
-  - TaskUpdate
-  - Bash
-  - WebFetch
+description: macOS specialist agent. Expert in Homebrew, launchd, APFS, Gatekeeper, and Darwin/XNU kernel.
+  Queries official Apple developer documentation for accuracy. Returns condensed JSON only.
+tools: Read, Glob, Grep, SendMessage, TaskUpdate, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # macOS - OS Specialist

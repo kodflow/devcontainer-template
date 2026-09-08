@@ -1,21 +1,11 @@
 ---
 name: os-specialist-windows-server
-teamRole: teammate
-teamSafe: true
-description: |
-  Windows Server specialist agent. Expert in PowerShell, winget/choco,
-  Active Directory, IIS, and server administration. Queries official
-  Microsoft documentation for accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - SendMessage
-  - TaskUpdate
-  - Bash
-  - WebFetch
+description: Windows Server specialist agent. Expert in PowerShell, winget/choco, Active Directory, IIS,
+  and server administration. Queries official Microsoft documentation for accuracy. Returns condensed
+  JSON only.
+tools: Read, Glob, Grep, SendMessage, TaskUpdate, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # Windows Server - OS Specialist

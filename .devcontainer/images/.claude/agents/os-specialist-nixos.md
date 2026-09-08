@@ -1,19 +1,11 @@
 ---
 name: os-specialist-nixos
-teamRole: teammate
-teamSafe: true
-description: |
-  NixOS specialist agent. Expert in Nix package manager, declarative configuration,
-  flakes, generations, and reproducible builds. Queries official NixOS manual
-  for accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: NixOS specialist agent. Expert in Nix package manager, declarative configuration, flakes,
+  generations, and reproducible builds. Queries official NixOS manual for accuracy. Returns condensed
+  JSON only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # NixOS - OS Specialist

@@ -1,35 +1,26 @@
 ---
 name: docs-analyzer-architecture
-teamRole: lead
-teamSafe: true
-description: |
-  Docs analyzer: Deep architecture analysis with C4 diagrams.
-  Reads Phase 1A results from /tmp/docs-analysis/ for context.
-  Analyzes src/, APIs, data flows, transports, and scalability.
-  Returns condensed JSON to /tmp/docs-analysis/architecture.json.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - SendMessage
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+description: 'Docs analyzer: Deep architecture analysis with C4 diagrams. Reads Phase 1A results from
+  /tmp/docs-analysis/ for context. Analyzes src/, APIs, data flows, transports, and scalability. Returns
+  condensed JSON to /tmp/docs-analysis/architecture.json.'
+tools: Read, Glob, Grep, Bash, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet
 model: sonnet
-context: fork
-allowed-tools:
-  - "Bash(wc:*)"
-  - "Bash(ls:*)"
-  - "Bash(cat:*)"
-  - "Bash(mkdir:*)"
-  - "Bash(tee:*)"
-  - "Bash(tree:*)"
-  - "Bash(find:*)"
+color: purple
 ---
 
 # Architecture Analyzer - Sub-Agent
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(wc:*)`
+- `Bash(ls:*)`
+- `Bash(cat:*)`
+- `Bash(mkdir:*)`
+- `Bash(tee:*)`
+- `Bash(tree:*)`
+- `Bash(find:*)`
 
 ## Role
 

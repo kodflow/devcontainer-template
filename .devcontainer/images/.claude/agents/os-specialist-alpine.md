@@ -1,19 +1,11 @@
 ---
 name: os-specialist-alpine
-teamRole: teammate
-teamSafe: true
-description: |
-  Alpine Linux specialist agent. Expert in apk, OpenRC/s6, musl libc,
-  BusyBox, and minimal container images. Queries official Alpine wiki
-  for version-specific accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: Alpine Linux specialist agent. Expert in apk, OpenRC/s6, musl libc, BusyBox, and minimal
+  container images. Queries official Alpine wiki for version-specific accuracy. Returns condensed JSON
+  only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # Alpine Linux - OS Specialist

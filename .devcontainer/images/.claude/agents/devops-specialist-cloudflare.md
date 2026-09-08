@@ -1,19 +1,11 @@
 ---
 name: devops-specialist-cloudflare
+description: Cloudflare platform specialist — Workers, Pages, R2, KV, D1, Durable Objects, wrangler.toml.
+  Routed when `wrangler.toml` is present or `wrangler` is installed.
+tools: Read, Glob, Grep, Edit, Write, Bash, mcp__context7__*
 model: sonnet
 effort: medium
-description: >-
-  Cloudflare platform specialist — Workers, Pages, R2, KV, D1, Durable
-  Objects, wrangler.toml. Routed when `wrangler.toml` is present or
-  `wrangler` is installed.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Edit
-  - Write
-  - Bash
-  - mcp__context7__*
+color: orange
 ---
 
 # Cloudflare Specialist

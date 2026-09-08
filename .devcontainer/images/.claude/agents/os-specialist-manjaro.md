@@ -1,19 +1,10 @@
 ---
 name: os-specialist-manjaro
-teamRole: teammate
-teamSafe: true
-description: |
-  Manjaro Linux specialist agent. Expert in pacman/pamac, systemd, MHWD,
-  and curated rolling release model. Queries official Manjaro wiki
-  for accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: Manjaro Linux specialist agent. Expert in pacman/pamac, systemd, MHWD, and curated rolling
+  release model. Queries official Manjaro wiki for accuracy. Returns condensed JSON only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # Manjaro Linux - OS Specialist

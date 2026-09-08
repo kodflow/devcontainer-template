@@ -1,19 +1,11 @@
 ---
 name: os-specialist-openbsd
-teamRole: teammate
-teamSafe: true
-description: |
-  OpenBSD specialist agent. Expert in pkg_add, pf, pledge/unveil,
-  security-first design, and correct-by-default philosophy. Queries official
-  OpenBSD documentation for accuracy. Returns condensed JSON only.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - WebFetch
+description: OpenBSD specialist agent. Expert in pkg_add, pf, pledge/unveil, security-first design, and
+  correct-by-default philosophy. Queries official OpenBSD documentation for accuracy. Returns condensed
+  JSON only.
+tools: Read, Glob, Grep, Bash, WebFetch
 model: haiku
-context: fork
+color: green
 ---
 
 # OpenBSD - OS Specialist

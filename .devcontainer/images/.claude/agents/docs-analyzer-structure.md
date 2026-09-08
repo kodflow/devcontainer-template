@@ -1,34 +1,25 @@
 ---
 name: docs-analyzer-structure
-teamRole: teammate
-teamSafe: true
-description: |
-  Docs analyzer: Project structure mapper.
-  Maps directory tree, CLAUDE.md hierarchy, and entry points.
-  Returns condensed JSON to /tmp/docs-analysis/structure.json.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - SendMessage
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+description: 'Docs analyzer: Project structure mapper. Maps directory tree, CLAUDE.md hierarchy, and entry
+  points. Returns condensed JSON to /tmp/docs-analysis/structure.json.'
+tools: Read, Glob, Grep, Bash, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet
 model: haiku
-context: fork
-allowed-tools:
-  - "Bash(wc:*)"
-  - "Bash(ls:*)"
-  - "Bash(cat:*)"
-  - "Bash(mkdir:*)"
-  - "Bash(tee:*)"
-  - "Bash(tree:*)"
-  - "Bash(find:*)"
+color: purple
 ---
 
 # Structure Analyzer - Sub-Agent
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(wc:*)`
+- `Bash(ls:*)`
+- `Bash(cat:*)`
+- `Bash(mkdir:*)`
+- `Bash(tee:*)`
+- `Bash(tree:*)`
+- `Bash(find:*)`
 
 ## Role
 

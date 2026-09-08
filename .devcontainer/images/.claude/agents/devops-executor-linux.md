@@ -1,41 +1,36 @@
 ---
 name: devops-executor-linux
-teamRole: teammate
-teamSafe: true
-description: |
-  Linux system administration router + executor. Detects distro from
-  /etc/os-release and dispatches to the appropriate os-specialist-{distro}
-  agent. Falls back to generic Linux handling for unknown distros.
+description: Linux system administration router + executor. Detects distro from /etc/os-release and dispatches
+  to the appropriate os-specialist-{distro} agent. Falls back to generic Linux handling for unknown distros.
   Invoked by devops-orchestrator for Linux operations.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - Task
+tools: Read, Glob, Grep, Bash, Task
 model: haiku
-context: fork
-allowed-tools:
-  - "Bash(systemctl:*)"
-  - "Bash(journalctl:*)"
-  - "Bash(ss:*)"
-  - "Bash(ip:*)"
-  - "Bash(ps:*)"
-  - "Bash(top:*)"
-  - "Bash(df:*)"
-  - "Bash(free:*)"
-  - "Bash(lsof:*)"
-  - "Bash(iptables:*)"
-  - "Bash(nft:*)"
-  - "Bash(ufw:*)"
-  - "Bash(firewall-cmd:*)"
-  - "Bash(apt:*)"
-  - "Bash(dnf:*)"
-  - "Bash(yum:*)"
-  - "Bash(pacman:*)"
+color: orange
 ---
 
 # Linux - System Administration Router + Specialist
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(systemctl:*)`
+- `Bash(journalctl:*)`
+- `Bash(ss:*)`
+- `Bash(ip:*)`
+- `Bash(ps:*)`
+- `Bash(top:*)`
+- `Bash(df:*)`
+- `Bash(free:*)`
+- `Bash(lsof:*)`
+- `Bash(iptables:*)`
+- `Bash(nft:*)`
+- `Bash(ufw:*)`
+- `Bash(firewall-cmd:*)`
+- `Bash(apt:*)`
+- `Bash(dnf:*)`
+- `Bash(yum:*)`
+- `Bash(pacman:*)`
 
 ## Role
 

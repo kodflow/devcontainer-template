@@ -1,33 +1,24 @@
 ---
 name: docs-analyzer-patterns
-teamRole: teammate
-teamSafe: true
-description: |
-  Docs analyzer: Design patterns knowledge base inventory.
-  Analyzes ~/.claude/docs/ for pattern categories, counts, and templates.
-  Returns condensed JSON to /tmp/docs-analysis/patterns.json.
-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - SendMessage
-  - TaskCreate
-  - TaskUpdate
-  - TaskList
-  - TaskGet
+description: 'Docs analyzer: Design patterns knowledge base inventory. Analyzes ~/.claude/docs/ for pattern
+  categories, counts, and templates. Returns condensed JSON to /tmp/docs-analysis/patterns.json.'
+tools: Read, Glob, Grep, Bash, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet
 model: haiku
-context: fork
-allowed-tools:
-  - "Bash(wc:*)"
-  - "Bash(ls:*)"
-  - "Bash(cat:*)"
-  - "Bash(mkdir:*)"
-  - "Bash(tee:*)"
-  - "Bash(find:*)"
+color: purple
 ---
 
 # Patterns Analyzer - Sub-Agent
+
+## Command scope
+
+Restrict shell usage to these command families; anything outside is out of scope for this agent and must be handed back to the caller.
+
+- `Bash(wc:*)`
+- `Bash(ls:*)`
+- `Bash(cat:*)`
+- `Bash(mkdir:*)`
+- `Bash(tee:*)`
+- `Bash(find:*)`
 
 ## Role
 
