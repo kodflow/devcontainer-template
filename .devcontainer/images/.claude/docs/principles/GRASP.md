@@ -1,3 +1,11 @@
+---
+title: "GRASP Patterns"
+category: principles
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [1-information-expert, 2-creator, 3-controller, 4-low-coupling, 5-high-cohesion, 6-polymorphism, 7-pure-fabrication, 8-indirection, 9-protected-variations, GRASP, lang:go, principles, relationships-with-other-patterns, summary-table]
+---
+
 # GRASP Patterns
 
 General Responsibility Assignment Software Patterns - Craig Larman.

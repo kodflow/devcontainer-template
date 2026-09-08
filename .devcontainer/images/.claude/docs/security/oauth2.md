@@ -1,3 +1,11 @@
+---
+title: "OAuth 2.0 Flows"
+category: security
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [authorization-code-flow, available-flows, client-credentials-flow-m2m, lang:go, oauth2, recommended-libraries, security]
+---
+
 # OAuth 2.0 Flows
 
 > Authorization protocol for delegated access to resources.

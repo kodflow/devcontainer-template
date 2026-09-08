@@ -1,3 +1,11 @@
+---
+title: "MCP Context Optimization"
+category: devops
+verified: 2026-04-24   # /search --refresh restamps this
+ttl_days: 180
+tags: [1-use-mcpsearch-before-mcp-tools, 2-search-by-capability-not-tool-name, 3-batch-related-tool-searches, codacy-code-quality, context7-documentation, critical-tools-always-loaded, devops, github-repository-operations, gitlab-gitlab-operations, how-it-works, lang:yaml, mcp-optimization, monitoring, playwright-browser-automation, problem-context-window-bloat, server-specific-guidelines, token-budget-guidelines]
+---
+
 # MCP Context Optimization
 
 ## Problem: Context Window Bloat

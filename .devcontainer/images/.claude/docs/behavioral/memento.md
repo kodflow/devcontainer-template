@@ -1,3 +1,11 @@
+---
+title: "Memento"
+category: behavioral
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [advantages-disadvantages, anti-patterns-to-avoid, behavioral, complete-example, framework-implementations, lang:go, memento, problem-solved, tests]
+---
+
 # Memento
 
 > Capture and externalize an object's internal state to be able to restore it later.

@@ -1,3 +1,11 @@
+---
+title: "Decorator Pattern"
+category: structural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [concrete-use-cases, decorator, functional-decorator, intent, lang:go, stream-decorators, structural, unit-tests]
+---
+
 # Decorator Pattern
 
 > Add behaviors to an object dynamically without modifying its class.

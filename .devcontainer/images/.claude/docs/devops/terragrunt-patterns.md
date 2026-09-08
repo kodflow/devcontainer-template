@@ -1,3 +1,11 @@
+---
+title: "Terragrunt Patterns for Multi-Environment Infrastructure"
+category: devops
+verified: 2026-02-04   # /search --refresh restamps this
+ttl_days: 180
+tags: [1-state-management, 2-dependency-management, 3-security, 4-ci-cd-integration, advanced-patterns, apply-all-with-dependencies, apply-specific-component, component-configuration, devops, directory-structure, dynamic-provider-configuration, environment-specific-variables, execution-patterns, hooks-for-validation, infrastructure-terragrunt-hcl, kubernetes-driver-terragrunt-hcl, lang:bash, lang:hcl, lang:yaml, openstack-terragrunt-hcl, parallel-execution, recommended-layout, root-configuration, root-terragrunt-hcl, terragrunt-patterns]
+---
+
 # Terragrunt Patterns for Multi-Environment Infrastructure
 
 ## Overview

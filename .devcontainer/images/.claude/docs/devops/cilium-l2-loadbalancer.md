@@ -1,3 +1,11 @@
+---
+title: "Cilium L2 LoadBalancer Pattern"
+category: devops
+verified: 2026-02-04   # /search --refresh restamps this
+ttl_days: 180
+tags: [architecture, check-ip-pool-status, check-l2-policy-status, cilium-helm-values, cilium-l2-loadbalancer, configuration, creating-a-loadbalancer-service, debug-arp-announcements, devops, ip-pool-configuration, istio-ambient-compatibility, l2-announcement-policy-crd, lang:bash, lang:hcl, lang:yaml, multi-interface-network-definition, multi-interface-service, troubleshooting, verify-service-ip-assignment]
+---
+
 # Cilium L2 LoadBalancer Pattern
 
 ## Overview

@@ -1,96 +1,113 @@
 ---
 name: review
-description: |
-  Brutally rigorous, evidence-bound AI code review (RLM decomposition) for GitHub PRs,
-  GitLab MRs, or local diffs. Every FILE and every changed FUNCTION/HUNK gets a macro
-  (blast-radius / architecture / placement) and micro (line-level projection-simulation)
-  pass. No finding ships without file:line of real cited code + a category-appropriate
-  counterexample (repro / source->sink / interleaving / benchmark). Severity and
-  confidence are DECOUPLED: a high-severity low-confidence finding is NEVER dropped, only
-  routed to a gating "Needs Verification" tier. Deterministic tiers (linters/SAST/SCA/
-  secrets/IaC + build+test) run for real with captured exit codes; the tier table is
-  generated from captured output, not narrated. An EXTERNAL, non-LLM manifest verifier
-  recomputes hunks+symbols from git and INVALIDATES the run on mismatch — this is what
-  makes fake-pass mechanically detectable. Tool-absent is distinct from N/A. Cyclic:
-  /review --loop converges on correctness, not tone.
+description: 'Brutally rigorous, evidence-bound AI code review (RLM decomposition) for GitHub
+  PRs, GitLab MRs, or local diffs. Every FILE and every changed FUNCTION/HUNK gets a macro
+  (blast-radius / architecture / placement) and micro (line-level projection-simulation) pass.
+  No finding ships without file:line of real cited code + a category-appropriate counterexample
+  (repro / source->sink / interleaving / benchmark). Severity and confidence are DECOUPLED:
+  a high-severity low-confidence finding is NEVER dropped, only routed to a gating "Needs
+  Verification" tier. Deterministic tiers (linters/SAST/SCA/ secrets/IaC + build+test) run
+  for real with captured exit codes; the tier table is generated from captured output, not
+  narrated. An EXTERNAL, non-LLM manifest verifier recomputes hunks+symbols from git and INVALIDATES
+  the run on mismatch — this is what makes fake-pass mechanically detectable. Tool-absent
+  is distinct from N/A. Cyclic: /review --loop converges on correctness, not tone.'
+when_to_use: Use to review a GitHub PR, a GitLab MR, or a local diff with evidence-bound findings
+  — every finding cites real code at file:line plus a counterexample, and the deterministic
+  scanners actually run.
+argument-hint: '[<PR#>|<branch>|<path>] [--loop] [--plan <slug>]'
+model: opus
+context: fork
+background: false
 allowed-tools:
-  - "Bash(git:*)"
-  - "Bash(gh:*)"
-  - "Bash(glab:*)"
-  - "Bash(jq:*)"
-  - "Bash(rg:*)"
-  - "Bash(python3:*)"
-  - "Bash(mktemp:*)"
-  - "Bash(awk:*)"
-  - "Bash(sha256sum:*)"
-  - "Bash(bash ~/.claude/scripts/review-context.sh:*)"
-  - "Bash(bash ~/.claude/scripts/review-verify-manifest.sh:*)"
-  - "Bash(bash ~/.claude/scripts/review-canary.sh:*)"
-  - "Bash(bash ~/.claude/scripts/route-agent.sh:*)"
-  - "Bash(date:*)"
-  - "Bash(mkdir:*)"
-  - "Bash(printf:*)"
-  - "Bash(ast-grep:*)"
-  - "Bash(semgrep:*)"
-  - "Bash(gitleaks:*)"
-  - "Bash(trufflehog:*)"
-  - "Bash(detect-secrets:*)"
-  - "Bash(osv-scanner:*)"
-  - "Bash(trivy:*)"
-  - "Bash(govulncheck:*)"
-  - "Bash(golangci-lint:*)"
-  - "Bash(go vet:*)"
-  - "Bash(go build:*)"
-  - "Bash(go test:*)"
-  - "Bash(staticcheck:*)"
-  - "Bash(cargo clippy:*)"
-  - "Bash(cargo build:*)"
-  - "Bash(cargo test:*)"
-  - "Bash(ruff:*)"
-  - "Bash(mypy:*)"
-  - "Bash(pytest:*)"
-  - "Bash(eslint:*)"
-  - "Bash(tsc:*)"
-  - "Bash(npm:*)"
-  - "Bash(pnpm:*)"
-  - "Bash(clang-tidy:*)"
-  - "Bash(cppcheck:*)"
-  - "Bash(actionlint:*)"
-  - "Bash(hadolint:*)"
-  - "Bash(checkov:*)"
-  - "Bash(tflint:*)"
-  - "Bash(tfsec:*)"
-  - "Bash(ansible-lint:*)"
-  - "Bash(kube-linter:*)"
-  - "Bash(kubeconform:*)"
-  - "Bash(yamllint:*)"
-  - "Bash(sqlfluff:*)"
-  - "Bash(buf:*)"
-  - "Bash(rubocop:*)"
-  - "Bash(phpstan:*)"
-  - "Bash(detekt:*)"
-  - "Bash(swiftlint:*)"
-  - "Bash(shellcheck:*)"
-  - "Bash(coderabbit review:*)"
-  - "Bash(coderabbit auth:*)"
-  - "Bash(qodo:*)"
-  - "Bash(make:*)"
-  - "Read(**/*)"
-  - "Glob(**/*)"
-  - "Grep(**/*)"
-  - "mcp__github__*"
-  - "mcp__gitlab__*"
-  - "mcp__context7__*"
-  - "Task(*)"
-  - "TaskCreate(*)"
-  - "TaskUpdate(*)"
-  - "TaskList(*)"
-  - "TaskGet(*)"
+- Bash(git:*)
+- Bash(gh:*)
+- Bash(glab:*)
+- Bash(jq:*)
+- Bash(rg:*)
+- Bash(python3:*)
+- Bash(mktemp:*)
+- Bash(awk:*)
+- Bash(sha256sum:*)
+- Bash(bash ~/.claude/scripts/review-context.sh:*)
+- Bash(bash ~/.claude/scripts/review-verify-manifest.sh:*)
+- Bash(bash ~/.claude/scripts/review-canary.sh:*)
+- Bash(bash ~/.claude/scripts/route-agent.sh:*)
+- Bash(date:*)
+- Bash(mkdir:*)
+- Bash(printf:*)
+- Bash(ast-grep:*)
+- Bash(semgrep:*)
+- Bash(gitleaks:*)
+- Bash(trufflehog:*)
+- Bash(detect-secrets:*)
+- Bash(osv-scanner:*)
+- Bash(trivy:*)
+- Bash(govulncheck:*)
+- Bash(golangci-lint:*)
+- Bash(go vet:*)
+- Bash(go build:*)
+- Bash(go test:*)
+- Bash(staticcheck:*)
+- Bash(cargo clippy:*)
+- Bash(cargo build:*)
+- Bash(cargo test:*)
+- Bash(ruff:*)
+- Bash(mypy:*)
+- Bash(pytest:*)
+- Bash(eslint:*)
+- Bash(tsc:*)
+- Bash(npm:*)
+- Bash(pnpm:*)
+- Bash(clang-tidy:*)
+- Bash(cppcheck:*)
+- Bash(actionlint:*)
+- Bash(hadolint:*)
+- Bash(checkov:*)
+- Bash(tflint:*)
+- Bash(tfsec:*)
+- Bash(ansible-lint:*)
+- Bash(kube-linter:*)
+- Bash(kubeconform:*)
+- Bash(yamllint:*)
+- Bash(sqlfluff:*)
+- Bash(buf:*)
+- Bash(rubocop:*)
+- Bash(phpstan:*)
+- Bash(detekt:*)
+- Bash(swiftlint:*)
+- Bash(shellcheck:*)
+- Bash(coderabbit review:*)
+- Bash(coderabbit auth:*)
+- Bash(qodo:*)
+- Bash(make:*)
+- Read(**/*)
+- Glob(**/*)
+- Grep(**/*)
+- mcp__github__*
+- mcp__gitlab__*
+- mcp__context7__*
+- Task(*)
+- TaskCreate(*)
+- TaskUpdate(*)
+- TaskList(*)
+- TaskGet(*)
 ---
 
 # /review — Brutal, Evidence-Bound Code Review (RLM Architecture)
 
 $ARGUMENTS
+
+> **Runs forked.** This skill declares `context: fork` — it executes in an
+> isolated subagent context and only its final verdict reaches the conversation.
+> The deterministic tier runs, the macro/micro passes and the specialist fan-out
+> stay out of the main context, which is the whole point: a full review burns far
+> more context producing evidence than the verdict is worth carrying afterwards.
+>
+> Consequences you must respect: **there is no user to ask.** Every decision this
+> skill would have escalated must instead be resolved by this skill's own
+> severity and confidence rules, and reported in the verdict. When the run is INCONCLUSIVE, say so
+> as the verdict — never silently pick a side. `background: false` keeps it in the
+> foreground, so the caller waits for the result.
 
 > **Stance.** Adversarial toward the diff, never toward the author. Call bad code bad —
 > plainly, with proof. No politeness inflation, no "looks great overall," no LGTM. A

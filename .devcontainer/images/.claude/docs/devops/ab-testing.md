@@ -1,3 +1,11 @@
+---
+title: "A/B Testing"
+category: devops
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [ab-testing, advantages, architecture, client-side-usage, devops, disadvantages, experimentation-service, lang:go, metrics-tracking, real-world-examples, sample-size-calculation, tools]
+---
+
 # A/B Testing
 
 > Controlled experimentation to validate hypotheses with metrics.

@@ -1,3 +1,11 @@
+---
+title: "Queue-Based Load Leveling Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [cloud, cloud-services, go-example, implementation-with-rate-limiting, key-metrics, lang:go, pattern-comparison, queue-based-auto-scaling, queue-load-leveling]
+---
+
 # Queue-Based Load Leveling Pattern
 
 > Use a queue as a buffer to smooth out traffic spikes.

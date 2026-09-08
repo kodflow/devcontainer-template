@@ -1,3 +1,11 @@
+---
+title: "Pipes and Filters Pattern"
+category: messaging
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [asynchronous-pipeline-with-channels, base-implementation, complementary-patterns, error-handling, fundamental-concepts, lang:go, messaging, parallelization, pipes-filters, reusable-filters]
+---
+
 # Pipes and Filters Pattern
 
 > Composable message processing pipeline where each filter performs an independent transformation.

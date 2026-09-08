@@ -1,3 +1,11 @@
+---
+title: "Dead Letter Channel Pattern"
+category: messaging
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [base-implementation, consumer-with-retry-and-dlq, dead-letter, dlq-consumer-and-remediation, kafka-dlq-pattern, lang:go, messaging, monitoring-and-alerting, rabbitmq-dead-letter-configuration]
+---
+
 # Dead Letter Channel Pattern
 
 > Handle unprocessable messages via a dedicated queue to capture messages that fail after multiple processing attempts.

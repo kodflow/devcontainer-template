@@ -1,3 +1,11 @@
+---
+title: "Test Data Builder"
+category: testing
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [builder, builder-with-relationships, builder-with-validation, generic-builder, go-implementation-fluent-builder, lang:go, recommended-libraries, simple-factory-functions-alternative, testing]
+---
+
 # Test Data Builder
 
 > Fluent construction of test objects with sensible default values.

@@ -1,3 +1,11 @@
+---
+title: "Bounded Context Pattern"
+category: ddd
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [anti-corruption-layer-acl, bounded-context, context-definition, context-integration-via-events, context-map-relationships, context-mapping-patterns, ddd, lang:go, module-structure, recommended-libraries, shared-kernel]
+---
+
 # Bounded Context Pattern
 
 > Semantic boundary within which a domain model is defined and applicable, representing a linguistic boundary with unambiguous terminology.

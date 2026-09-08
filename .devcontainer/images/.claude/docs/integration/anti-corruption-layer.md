@@ -1,3 +1,11 @@
+---
+title: "Anti-Corruption Layer (ACL) Pattern"
+category: integration
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [acl-components, acl-for-external-api, adapter-for-the-legacy-system, anti-corruption-layer, domain-models-clean, facade-simplified-interface, integration, lang:go, legacy-model-what-we-receive, translator-acl-core]
+---
+
 # Anti-Corruption Layer (ACL) Pattern
 
 > Isolate the business domain from legacy or external systems to prevent model pollution.

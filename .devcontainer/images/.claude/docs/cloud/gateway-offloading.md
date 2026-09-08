@@ -1,3 +1,11 @@
+---
+title: "Gateway Offloading Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [benefits, cloud, gateway-configuration, gateway-offloading, go-example, lang:go, offloadable-functionality]
+---
+
 # Gateway Offloading Pattern
 
 > Offload shared functionality from services to the gateway.

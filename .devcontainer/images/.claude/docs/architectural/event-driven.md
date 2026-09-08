@@ -1,3 +1,11 @@
+---
+title: "Event-Driven Architecture"
+category: architectural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [advantages, architectural, architecture, choreography, commands-vs-events, disadvantages, domain-events, event-driven, event-driven-patterns, event-sourcing-event-driven, event-types, from-synchronous, implementation-with-kafka, integration-events, lang:go, migration-path, orchestration, real-world-examples]
+---
+
 # Event-Driven Architecture
 
 > Architecture where components communicate via asynchronous events.

@@ -1,3 +1,11 @@
+---
+title: "Role-Based Access Control (RBAC)"
+category: security
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [database-model, http-middleware, lang:go, rbac, recommended-libraries, role-hierarchy, security]
+---
+
 # Role-Based Access Control (RBAC)
 
 > Permissions based on roles assigned to users.

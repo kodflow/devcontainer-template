@@ -1,3 +1,11 @@
+---
+title: "Gateway Routing Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [a-b-testing, advanced-strategies, blue-green-deployment, circuit-breaker-integration, cloud, gateway-routing, go-example, lang:go, route-configuration, routing-types]
+---
+
 # Gateway Routing Pattern
 
 > Route requests to the appropriate backend services.

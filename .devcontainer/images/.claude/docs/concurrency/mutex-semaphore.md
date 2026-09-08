@@ -1,3 +1,11 @@
+---
+title: "Mutex and Semaphore"
+category: concurrency
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [advantages, common-patterns, complexity-and-trade-offs, concurrency, disadvantages, lang:go, mutex, mutex-semaphore, mutex-vs-semaphore, rate-limiter, resource-guard, semaphore, semaphore-with-golang-org-x-sync]
+---
+
 # Mutex and Semaphore
 
 Synchronization primitives for controlling access to shared resources.

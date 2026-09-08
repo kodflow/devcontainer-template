@@ -1,3 +1,11 @@
+---
+title: "Priority Queue Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [avoiding-starvation, cloud, consumer-with-priority, go-example, lang:go, priority-queue, real-world-use-cases, redis-implementation-go]
+---
+
 # Priority Queue Pattern
 
 > Process messages according to their priority rather than their arrival order.

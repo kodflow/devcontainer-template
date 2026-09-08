@@ -1,3 +1,11 @@
+---
+title: "State Pattern"
+category: behavioral
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [behavioral, intent, lang:go, state, state-machine-with-explicit-transitions, state-with-history, state-with-persistence, unit-tests]
+---
+
 # State Pattern
 
 > Allow an object to change its behavior when its state changes.

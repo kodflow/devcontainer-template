@@ -1,3 +1,11 @@
+---
+title: "Materialized View Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [cloud, db-implementation-go, go-example, lang:go, materialized-view, refresh-strategies, strategy-comparison]
+---
+
 # Materialized View Pattern
 
 > Pre-compute and store optimized views for frequent queries.

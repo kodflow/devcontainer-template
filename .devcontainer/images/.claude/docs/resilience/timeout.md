@@ -1,3 +1,11 @@
+---
+title: "Timeout Pattern"
+category: resilience
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [basic-timeout-with-context-context, hierarchical-timeout, http-client-with-timeout, lang:go, recommended-configuration, resilience, timeout, timeout-with-cleanup, timeout-with-deadline-propagation, types-of-timeouts]
+---
+
 # Timeout Pattern
 
 > Limit the wait time of an operation to prevent resource blocking.

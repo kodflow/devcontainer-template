@@ -1,3 +1,11 @@
+---
+title: "Mediator"
+category: behavioral
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [advantages-disadvantages, anti-patterns-to-avoid, behavioral, complete-example, framework-implementations, lang:go, mediator, problem-solved, tests]
+---
+
 # Mediator
 
 > Encapsulate interactions between objects for loose coupling.

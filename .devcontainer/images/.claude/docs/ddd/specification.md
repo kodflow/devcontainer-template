@@ -1,3 +1,11 @@
+---
+title: "Specification Pattern"
+category: ddd
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [ddd, lang:go, recommended-libraries, specification, usage-examples]
+---
+
 # Specification Pattern
 
 > Encapsulates composable and reusable business rules, separating the matching logic from the candidate object itself.

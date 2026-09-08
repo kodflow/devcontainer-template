@@ -1,3 +1,11 @@
+---
+title: "Contract Testing"
+category: testing
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [ci-cd-integration, consumer-test-pact-go, contract-testing, flexible-matching, lang:go, lang:yaml, provider-verification, recommended-libraries, schema-based-contracts-alternative, testing]
+---
+
 # Contract Testing
 
 > Verification of API contracts between services via consumer-driven tests.

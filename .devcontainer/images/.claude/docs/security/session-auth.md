@@ -1,3 +1,11 @@
+---
+title: "Session-Based Authentication"
+category: security
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [attack-protection, http-middleware, lang:go, recommended-libraries, redis-session-store, security, session-auth]
+---
+
 # Session-Based Authentication
 
 > Stateful server-side authentication with session cookies.

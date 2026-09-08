@@ -1,3 +1,11 @@
+---
+title: "Thread Pool"
+category: concurrency
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [advantages, basic-threadpool, complexity-and-trade-offs, concurrency, disadvantages, lang:go, thread-pool, threadpool-with-priority, threadpool-with-timeout-and-context, what-is-a-thread-pool]
+---
+
 # Thread Pool
 
 Pattern for managing a pool of workers to execute tasks in parallel.

@@ -1,3 +1,11 @@
+---
+title: "Lens Pattern"
+category: functional
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [functional, lang:go, lens, lens-laws, lens-vs-spread-operator, optic-types, recommended-libraries, typescript-implementation, usage-examples, using-effect-optics, using-monocle-ts]
+---
+
 # Lens Pattern
 
 > Composable getter/setter pair for manipulating nested data structures in a functional and immutable way.

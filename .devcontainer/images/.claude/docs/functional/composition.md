@@ -1,3 +1,11 @@
+---
+title: "Function Composition Pattern"
+category: functional
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [composition, composition-patterns, currying-for-composition, functional, kleisli-composition-monadic, lang:go, oop-vs-fp-comparison, partial-application, recommended-libraries, typescript-implementation, usage-examples, using-effect, using-fp-ts]
+---
+
 # Function Composition Pattern
 
 > Combining simple functions to build more complex functions - the output of one function becomes the input of the next.

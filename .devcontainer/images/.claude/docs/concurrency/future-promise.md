@@ -1,3 +1,11 @@
+---
+title: "Future / Promise"
+category: concurrency
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [advantages, basic-future-with-channels, cancellable-future, complexity-and-trade-offs, composition-patterns, concurrency, disadvantages, future-promise, future-with-timeout, lang:go, lazy-future, parallel-composition-all, promise-with-resolver, race-composition, sequential-composition, what-is-future-promise]
+---
+
 # Future / Promise
 
 Pattern representing a value that will be available in the future.

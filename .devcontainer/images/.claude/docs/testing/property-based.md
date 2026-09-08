@@ -1,3 +1,11 @@
+---
+title: "Property-Based Testing"
+category: testing
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [common-properties, domain-specific-generators, generators, gopter-basics, lang:go, property-based, rapid-alternative, recommended-libraries, shrinking, testing]
+---
+
 # Property-Based Testing
 
 > Generative tests that verify properties on random data.

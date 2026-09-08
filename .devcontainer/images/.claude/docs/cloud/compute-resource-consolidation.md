@@ -1,3 +1,11 @@
+---
+title: "Compute Resource Consolidation Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [cloud, compute-resource-consolidation, consolidation-metrics, consolidation-strategies, go-example, kubernetes-resource-management, lang:go, lang:yaml, time-based-consolidation]
+---
+
 # Compute Resource Consolidation Pattern
 
 > Optimize resource utilization by consolidating workloads.

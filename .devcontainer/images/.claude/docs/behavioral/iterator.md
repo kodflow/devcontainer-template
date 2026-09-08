@@ -1,3 +1,11 @@
+---
+title: "Iterator"
+category: behavioral
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [advantages-disadvantages, anti-patterns-to-avoid, behavioral, complete-example, framework-implementations, iterator, lang:go, problem-solved, tests]
+---
+
 # Iterator
 
 > Access elements of a collection without exposing its internal structure.

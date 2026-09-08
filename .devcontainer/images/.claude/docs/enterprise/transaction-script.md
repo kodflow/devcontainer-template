@@ -1,3 +1,11 @@
+---
+title: "Transaction Script"
+category: enterprise
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [characteristics, comparison-with-alternatives, concept, enterprise, lang:go, relationship-with-ddd, transaction-script]
+---
+
 # Transaction Script
 
 > "Organizes business logic by procedures where each procedure handles a single request from the presentation." - Martin Fowler, PoEAA

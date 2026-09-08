@@ -1,3 +1,11 @@
+---
+title: "Claim Check Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [claim-check, cloud, go-example, lang:go, lifecycle-management, problem-solved, s3-lifecycle-configuration, use-cases]
+---
+
 # Claim Check Pattern
 
 > Separate the message from its large payload via a reference.

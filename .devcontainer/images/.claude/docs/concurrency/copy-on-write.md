@@ -1,3 +1,11 @@
+---
+title: "Copy-on-Write (COW)"
+category: concurrency
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [1-undo-redo, advantages, advantages-and-disadvantages, concurrency, copy-on-write, cow-for-snapshots, disadvantages, immutable-list-cow, immutable-map, lang:go, typical-use-cases, what-is-copy-on-write]
+---
+
 # Copy-on-Write (COW)
 
 Optimization pattern deferring the copy until modification.

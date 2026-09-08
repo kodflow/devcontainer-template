@@ -1,3 +1,11 @@
+---
+title: "Prototype"
+category: creational
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [advantages-disadvantages, anti-patterns-to-avoid, complete-example, creational, framework-implementations, lang:go, problem-solved, prototype, tests]
+---
+
 # Prototype
 
 > Create new objects by cloning an existing instance rather than instantiating it.

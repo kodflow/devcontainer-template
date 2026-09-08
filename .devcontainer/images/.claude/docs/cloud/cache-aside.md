@@ -1,3 +1,11 @@
+---
+title: "Cache-Aside Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [cache-aside, cloud, go-example, lang:go, redis-implementation-go, ttl-strategies]
+---
+
 # Cache-Aside Pattern
 
 > Load data into the cache on demand from the data store.

@@ -1,3 +1,11 @@
+---
+title: "Feature Toggles / Feature Flags"
+category: devops
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [1-canary-release, 1-release-toggles-short-term, 2-experiment-toggles-a-b-testing, 2-ring-deployment, 3-ops-toggles-kill-switches, 4-permission-toggles, architecture, declarative-configuration, devops, feature-toggles, lang:go, lang:yaml, popular-tools, rollout-strategies, solution-toggle-with-expiration, the-problem-of-toggle-debt, toggle-cleanup, types-de-feature-toggles, what-is-a-feature-toggle]
+---
+
 # Feature Toggles / Feature Flags
 
 Techniques for enabling/disabling features without deployment.

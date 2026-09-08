@@ -1,3 +1,11 @@
+---
+title: "Health Check Pattern"
+category: resilience
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [health-check, health-check-interface, health-check-manager, http-endpoints, kubernetes-configuration, lang:go, lang:yaml, recommended-configuration, resilience, specific-health-checks, types-of-probes]
+---
+
 # Health Check Pattern
 
 > Verify a service's health to enable automatic detection and recovery.

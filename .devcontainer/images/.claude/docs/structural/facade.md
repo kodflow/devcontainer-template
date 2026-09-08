@@ -1,3 +1,11 @@
+---
+title: "Facade Pattern"
+category: structural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [api-client-facade, concrete-use-cases, e-commerce-facade, facade, facade-with-options, facade-with-subsystem-access, intent, lang:go, structural, unit-tests]
+---
+
 # Facade Pattern
 
 > Provide a simplified interface to a set of complex classes.

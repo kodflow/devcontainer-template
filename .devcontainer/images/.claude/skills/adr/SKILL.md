@@ -37,8 +37,8 @@ six months later nobody re-litigates a settled trade-off or silently violates it
 
 ## Location & numbering
 
-- ADRs live in `docs/adr/` as `NNNN-kebab-title.md` (zero-padded 4-digit, e.g.
-  `0007-buildkit-registry-cache.md`).
+- ADRs live in `docs/adr/` as **NNNN-kebab-title.md** (zero-padded 4-digit, e.g.
+  **0007-buildkit-registry-cache.md**).
 - Next number = highest existing + 1 (start at `0001`). Resolve with:
   ```bash
   ls docs/adr/[0-9]*.md 2>/dev/null | sed -E 's@.*/([0-9]+)-.*@\1@' | sort -n | tail -1

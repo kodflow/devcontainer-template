@@ -1,3 +1,11 @@
+---
+title: "Canary Deployment"
+category: devops
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [advantages, by-geographic-region, by-header-internal-testing, by-percentage-standard, canary, decision-metrics, devops, disadvantages, from-blue-green, implementation-with-argo-rollouts, lang:go, lang:yaml, migration-path, real-world-examples, rollout-phases, routing-strategies, to-progressive-delivery]
+---
+
 # Canary Deployment
 
 > Progressive deployment to a subset of users for validation.

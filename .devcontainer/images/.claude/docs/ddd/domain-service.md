@@ -1,3 +1,11 @@
+---
+title: "Domain Service Pattern"
+category: ddd
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [ddd, domain-service, domain-service-vs-application-service, lang:go, oop-vs-fp-comparison, recommended-libraries]
+---
+
 # Domain Service Pattern
 
 > Encapsulates domain logic that doesn't naturally fit within an Entity or Value Object, representing operations or business rules involving multiple objects.

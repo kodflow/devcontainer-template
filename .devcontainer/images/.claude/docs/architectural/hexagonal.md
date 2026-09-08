@@ -1,3 +1,11 @@
+---
+title: "Hexagonal Architecture (Ports & Adapters)"
+category: architectural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [adapter-implementation, advantages, architectural, disadvantages, domain-service, file-structure, frameworks-supporting-hexagonal, hexagonal, lang:go, port-interface, test-with-mock-adapter]
+---
+
 # Hexagonal Architecture (Ports & Adapters)
 
 > Isolate the business core from technical details.

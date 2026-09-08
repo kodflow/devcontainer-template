@@ -1,3 +1,11 @@
+---
+title: "Strangler Fig Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [anti-corruption-layer, bidirectional-sync-during-migration, cloud, feature-flags-for-migration, lang:go, migration-metrics, migration-phases, strangler-fig]
+---
+
 # Strangler Fig Pattern
 
 > Progressively migrate a legacy system by replacing it incrementally.

@@ -1,3 +1,11 @@
+---
+title: "Active Record"
+category: enterprise
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [active-record, characteristics, comparison-with-alternatives, concept, enterprise, lang:go, popular-frameworks, relationship-with-ddd]
+---
+
 # Active Record
 
 > "An object that wraps a row in a database table or view, encapsulates the database access, and adds domain logic on that data." - Martin Fowler, PoEAA

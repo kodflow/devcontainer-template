@@ -1,3 +1,11 @@
+---
+title: "Builder Pattern"
+category: creational
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [builder, creational, immutable-builder, intention, lang:go, modern-alternative-functional-options, unit-tests]
+---
+
 # Builder Pattern
 
 > Build complex objects step by step with a fluent interface.

@@ -1,3 +1,11 @@
+---
+title: "Scheduler-Agent-Supervisor Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [anti-patterns-to-avoid, cloud, complete-workflow, components, go-example, lang:go, scheduler-agent-supervisor]
+---
+
 # Scheduler-Agent-Supervisor Pattern
 
 > Coordinate distributed tasks with a centralized supervisor.

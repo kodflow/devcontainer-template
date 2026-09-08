@@ -135,7 +135,7 @@ Workflow:
 | Action | Status | Reason |
 |--------|--------|--------|
 | Skip Phase 1 (Peek) | **FORBIDDEN** | Hierarchy discovery is MANDATORY |
-| Modify .claude/commands/ | **FORBIDDEN** | Protected files |
+| Modify .claude/skills/ | **FORBIDDEN** | Protected files |
 | Delete CLAUDE.md | **FORBIDDEN** | Only updates allowed |
 | Ignore .gitignore | **FORBIDDEN** | Source of truth for exclusions |
 | Create CLAUDE.md in gitignored dir | **FORBIDDEN** | vendor/, node_modules/, etc. |

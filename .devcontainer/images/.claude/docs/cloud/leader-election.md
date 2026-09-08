@@ -1,3 +1,11 @@
+---
+title: "Leader Election Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [cloud, cloud-native-solutions, election-mechanisms, go-example-with-redis, lang:go, leader-election, usage-with-periodic-task-go]
+---
+
 # Leader Election Pattern
 
 > Coordinate actions by electing a leader among distributed instances.

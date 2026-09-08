@@ -1,3 +1,11 @@
+---
+title: "Gateway"
+category: enterprise
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [comparison-with-alternatives, concept, enterprise, gateway, lang:go, service-gateway-go-implementation, types-of-gateways]
+---
+
 # Gateway
 
 > "An object that encapsulates access to an external system or resource." - Martin Fowler, PoEAA

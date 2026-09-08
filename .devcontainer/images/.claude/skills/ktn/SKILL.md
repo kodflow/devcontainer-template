@@ -1,67 +1,82 @@
 ---
 name: ktn
-description: |
-  Autonomous health-and-heal for the ktn-linter MCP stack.
-  Dispatches 5 specialist agents in parallel: each verifies + fixes ONE concern
-  (binary version, mcp.json entry, .claude/settings.json hooks, daemon on :7717,
-  phase config). Idempotent: does nothing when the stack is already healthy,
-  prompts a session restart only when settings.json was actually modified.
-  Use when: a fresh container starts, a Claude session can't reach ktn-linter,
-  hooks misbehave, or you just want a one-command sanity check.
+description: 'Autonomous health-and-heal for the ktn-linter MCP stack. Dispatches 5 specialist
+  agents in parallel: each verifies + fixes ONE concern (binary version, mcp.json entry, .claude/settings.json
+  hooks, daemon on :7717, phase config). Idempotent: does nothing when the stack is already
+  healthy, prompts a session restart only when settings.json was actually modified. Use when:
+  a fresh container starts, a Claude session can''t reach ktn-linter, hooks misbehave, or
+  you just want a one-command sanity check.'
+when_to_use: Use when a session cannot reach ktn-linter, its hooks misbehave, a fresh container
+  starts, or you want a one-command sanity check of the ktn stack.
+argument-hint: '[--check] [--phases <spec>] [--scope <diff|all>] [--restart]'
+model: opus
+context: fork
+background: false
 allowed-tools:
-  - "Read(**/*)"
-  - "Write(.claude/settings.json)"
-  - "Write(mcp.json)"
-  - "Write(.ktn-linter.yaml)"
-  - "Edit(.claude/settings.json)"
-  - "Edit(mcp.json)"
-  - "Edit(.ktn-linter.yaml)"
-  - "Bash(curl:*)"
-  - "Bash(jq:*)"
-  - "Bash(command:*)"
-  - "Bash(which:*)"
-  - "Bash(ktn-linter:*)"
-  - "Bash(pkill:*)"
-  - "Bash(pgrep:*)"
-  - "Bash(kill:*)"
-  - "Bash(ss:*)"
-  - "Bash(lsof:*)"
-  - "Bash(readlink:*)"
-  - "Bash(stat:*)"
-  - "Bash(cut:*)"
-  - "Bash(nohup:*)"
-  - "Bash(uname:*)"
-  - "Bash(chmod:*)"
-  - "Bash(mv:*)"
-  - "Bash(mkdir:*)"
-  - "Bash(sleep:*)"
-  - "Bash(sort:*)"
-  - "Bash(test:*)"
-  - "Bash([:*)"
-  - "Bash(echo:*)"
-  - "Bash(cat:*)"
-  - "Bash(head:*)"
-  - "Bash(sed:*)"
-  - "Bash(make:*)"
-  - "Bash(rtk:*)"
-  - "Bash(grep:*)"
-  - "Bash(rg:*)"
-  - "Bash(find:*)"
-  - "Bash(ls:*)"
-  - "Glob(**/*)"
-  - "Grep(**/*)"
-  - "WebFetch(api.github.com/*)"
-  - "WebFetch(github.com/*)"
-  - "mcp__github__get_latest_release"
-  - "Task(*)"
-  - "TaskCreate(*)"
-  - "TaskUpdate(*)"
-  - "TaskList(*)"
+- Read(**/*)
+- Write(.claude/settings.json)
+- Write(mcp.json)
+- Write(.ktn-linter.yaml)
+- Edit(.claude/settings.json)
+- Edit(mcp.json)
+- Edit(.ktn-linter.yaml)
+- Bash(curl:*)
+- Bash(jq:*)
+- Bash(command:*)
+- Bash(which:*)
+- Bash(ktn-linter:*)
+- Bash(pkill:*)
+- Bash(pgrep:*)
+- Bash(kill:*)
+- Bash(ss:*)
+- Bash(lsof:*)
+- Bash(readlink:*)
+- Bash(stat:*)
+- Bash(cut:*)
+- Bash(nohup:*)
+- Bash(uname:*)
+- Bash(chmod:*)
+- Bash(mv:*)
+- Bash(mkdir:*)
+- Bash(sleep:*)
+- Bash(sort:*)
+- Bash(test:*)
+- Bash([:*)
+- Bash(echo:*)
+- Bash(cat:*)
+- Bash(head:*)
+- Bash(sed:*)
+- Bash(make:*)
+- Bash(rtk:*)
+- Bash(grep:*)
+- Bash(rg:*)
+- Bash(find:*)
+- Bash(ls:*)
+- Glob(**/*)
+- Grep(**/*)
+- WebFetch(api.github.com/*)
+- WebFetch(github.com/*)
+- mcp__github__get_latest_release
+- Task(*)
+- TaskCreate(*)
+- TaskUpdate(*)
+- TaskList(*)
 ---
 
 # /ktn — Autonomous ktn-linter MCP Lifecycle
 
 $ARGUMENTS
+
+> **Runs forked.** This skill declares `context: fork` — the five-agent dispatch,
+> the daemon probing and the binary checks all happen in an isolated context, and
+> only the final health dashboard comes back. That is a large amount of probe
+> output for a short answer.
+>
+> Consequences you must respect: **there is no user to prompt mid-run.** The
+> session-restart prompt in Phase 3 becomes a line in the returned dashboard, not
+> an interactive question. Anything this skill would have asked before doing must
+> either be safe to do unattended (it is idempotent by contract) or be reported as
+> "not done, needs your go". `background: false` keeps it in the foreground.
 
 > One command. Multiple parallel agents. Zero ceremony when everything is OK.
 > Designed to be invoked blindly: `/ktn` is safe to run any time — it reads the

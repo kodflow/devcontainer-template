@@ -1,3 +1,11 @@
+---
+title: "Blue-Green Deployment"
+category: devops
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [advantages, blue-green, database-management, deployment-workflow, devops, disadvantages, from-rolling-update, kubernetes-implementation, lang:bash, lang:go, lang:yaml, migration-path, option-1-shared-database-simple, option-2-separate-databases-with-sync, pre-deployment-checklist, real-world-examples, switch-script, to-canary]
+---
+
 # Blue-Green Deployment
 
 > Two identical environments enabling instant switchover.

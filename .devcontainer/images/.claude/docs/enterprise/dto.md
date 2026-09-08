@@ -1,3 +1,11 @@
+---
+title: "Data Transfer Object (DTO)"
+category: enterprise
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [assembler-pattern, comparison-with-alternatives, concept, decision-guide, dto, dtos-vs-domain-objects, enterprise, lang:go, objectives, security-classification, tag-convention, values]
+---
+
 # Data Transfer Object (DTO)
 
 > "An object that carries data between processes in order to reduce the number of method calls." - Martin Fowler, PoEAA

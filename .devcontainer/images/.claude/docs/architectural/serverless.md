@@ -1,3 +1,11 @@
+---
+title: "Serverless Architecture"
+category: architectural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [advantages, api-pattern, architectural, aws-lambda-implementation, basic-handler, cold-start-mitigation, disadvantages, event-driven-handler, fan-out-pattern, from-serverless-scale-out, infrastructure-as-code-sam, lang:go, lang:yaml, migration-path, real-world-examples, saga-pattern-step-functions, serverless, serverless-patterns, to-serverless, typical-aws-architecture]
+---
+
 # Serverless Architecture
 
 > Architecture where infrastructure is managed by the cloud provider, billed per usage.

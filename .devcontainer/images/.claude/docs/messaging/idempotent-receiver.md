@@ -1,3 +1,11 @@
+---
+title: "Idempotent Receiver Pattern"
+category: messaging
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [base-implementation, decision-table, error-cases, id-generation-strategies, idempotent-receiver, lang:go, messaging, postgresql-implementation, redis-implementation, with-rabbitmq-kafka]
+---
+
 # Idempotent Receiver Pattern
 
 > Guarantee unique processing despite duplicate messages by storing identifiers of already processed messages.

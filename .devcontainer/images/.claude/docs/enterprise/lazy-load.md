@@ -1,3 +1,11 @@
+---
+title: "Lazy Load"
+category: enterprise
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [batch-loading-dataloader-pattern, concept, enterprise, four-variants, ghost-pattern, lang:go, lazy-initialization, lazy-load, value-holder, variant-comparison]
+---
+
 # Lazy Load
 
 > "An object that doesn't contain all of the data you need but knows how to get it." - Martin Fowler, PoEAA

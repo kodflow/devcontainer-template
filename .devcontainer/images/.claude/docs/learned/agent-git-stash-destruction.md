@@ -1,11 +1,11 @@
 ---
-name: agent-git-stash-destruction
+title: "Agents With Full Bash Access Destroy Git Working Tree via git stash"
 category: learned
-extracted: 2026-04-26T11:00:00+02:00
-confidence: 0.98
-trigger: "Avant de spawner des agents avec accès Bash sur un repo git"
-source: session — 6h de travail perdu sur ktn-linter fix/linter-feedback
+verified: 2026-04-26   # /search --refresh restamps this
+ttl_days: 365
+tags: [agent-git-stash-destruction, evidence, exemple-de-prompt-agent-s-r, git-operations-strictly-forbidden, lang:bash, lang:python, learned, scope, verification]
 ---
+
 # Agents With Full Bash Access Destroy Git Working Tree via git stash
 
 ## Problem

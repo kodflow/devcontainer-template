@@ -1,3 +1,11 @@
+---
+title: "Template Method"
+category: behavioral
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [advantages-disadvantages, anti-patterns-to-avoid, behavioral, complete-example, framework-implementations, lang:go, problem-solved, template-method, tests]
+---
+
 # Template Method
 
 > Define the skeleton of an algorithm, delegating steps to subclasses.

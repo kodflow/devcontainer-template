@@ -1,3 +1,11 @@
+---
+title: "Secrets Management"
+category: security
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [aws-secrets-manager, encryption-at-rest, environment-variables-basic, hashicorp-vault-integration, lang:go, lang:yaml, recommended-libraries, secret-rotation, secrets-management, security]
+---
+
 # Secrets Management
 
 > Secure management of secrets, credentials, and encryption keys.

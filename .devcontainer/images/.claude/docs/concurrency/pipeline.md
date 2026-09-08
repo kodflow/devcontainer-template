@@ -1,3 +1,11 @@
+---
+title: "Pipeline"
+category: concurrency
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [advantages, basic-pipeline, complexity-and-trade-offs, concurrency, disadvantages, fan-out-fan-in-pattern, lang:go, parallel-pipeline, pipeline, pipeline-with-error-handling, pipeline-with-streaming-channels, what-is-a-pipeline]
+---
+
 # Pipeline
 
 Pattern for processing through sequential, potentially parallel stages.

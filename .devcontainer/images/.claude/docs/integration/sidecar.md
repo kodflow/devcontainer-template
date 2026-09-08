@@ -1,3 +1,11 @@
+---
+title: "Sidecar Pattern"
+category: integration
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [common-use-cases, comparison-with-alternatives, init-container-for-config, integration, kubernetes-implementation, lang:go, lang:yaml, local-sidecar-for-development, logging-sidecar, proxy-sidecar-envoy, sidecar, sidecar-usage, vault-agent-sidecar-secrets]
+---
+
 # Sidecar Pattern
 
 > Deploy auxiliary components in a separate container to provide cross-cutting features.

@@ -1,3 +1,11 @@
+---
+title: "Splitter-Aggregator Pattern"
+category: messaging
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [aggregator-implementation, aggregator-pattern, aggregator-schema, complementary-patterns, complete-example, decision-table, error-cases, lang:go, messaging, schema, splitter-aggregator, splitter-pattern]
+---
+
 # Splitter-Aggregator Pattern
 
 Split a composite message into parts and recombine them.

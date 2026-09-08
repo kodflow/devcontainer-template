@@ -1,3 +1,11 @@
+---
+title: "Option / Maybe Pattern"
+category: functional
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [functional, lang:go, oop-vs-fp-comparison, option, option-vs-either, recommended-libraries, typescript-implementation, usage-examples, using-effect, using-fp-ts]
+---
+
 # Option / Maybe Pattern
 
 > Type representing an optional value - either a value exists (Some) or it does not (None), eliminating null errors at compile time.

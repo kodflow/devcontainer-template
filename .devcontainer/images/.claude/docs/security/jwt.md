@@ -1,3 +1,11 @@
+---
+title: "JSON Web Tokens (JWT)"
+category: security
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [http-middleware, jwt, lang:go, recommended-libraries, refresh-token-rotation, security, signing-algorithms, standard-claims]
+---
+
 # JSON Web Tokens (JWT)
 
 > Signed and self-contained tokens for stateless authentication.

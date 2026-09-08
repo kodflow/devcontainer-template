@@ -1,3 +1,11 @@
+---
+title: "Value Object Pattern"
+category: ddd
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [ddd, lang:go, oop-vs-fp-comparison, recommended-libraries, value-object]
+---
+
 # Value Object Pattern
 
 > Immutable domain object defined entirely by its attributes, with no conceptual identity.

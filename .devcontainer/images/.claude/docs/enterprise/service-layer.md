@@ -1,3 +1,11 @@
+---
+title: "Service Layer"
+category: enterprise
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [comparison-with-alternatives, concept, enterprise, lang:go, responsibilities, service-layer, service-layer-vs-domain-service]
+---
+
 # Service Layer
 
 > "Defines an application's boundary with a layer of services that establishes a set of available operations and coordinates the application's response in each operation." - Martin Fowler, PoEAA

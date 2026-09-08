@@ -108,16 +108,16 @@ Send all five in one message (independent, no shared writes). Each returns a
 
 - All four `review/{dimensions,deterministic,graph,manifest}.md` exist and are
   non-empty.
-- Cross-consistency with `review.md`: every module `review.md` references in its
-  phase map exists; the verifier's 5 checks named in `review.md` match
-  `manifest.md`'s contract. Report drift; heal only trivial path typos.
+- Cross-consistency with `../review/SKILL.md`: every module `../review/SKILL.md` references in its
+  phase map exists; the verifier's 5 checks named in `../review/SKILL.md` match
+  `../review/manifest.md`'s contract. Report drift; heal only trivial path typos.
 
 ### Concern 3 — Scanner matrix (deterministic tiers)
 
-- Probe each deterministic tool the `deterministic.md` matrix expects:
+- Probe each deterministic tool the `../review/deterministic.md` matrix expects:
   `semgrep gitleaks trufflehog detect-secrets osv-scanner trivy ast-grep
   golangci-lint staticcheck govulncheck ruff mypy eslint shellcheck actionlint
-  hadolint checkov` (extend from `deterministic.md`).
+  hadolint checkov` (extend from `../review/deterministic.md`).
 - Emit a `ran|absent` table. **Absent is not failure** — `/review` degrades
   cleanly (caps confidence, never silent-pass) and reports coverage %.
 - **On-demand install (heal action, closes the #392 gap without bloating the
@@ -146,7 +146,7 @@ Send all five in one message (independent, no shared writes). Each returns a
 
 - `route-agent.sh` present + executable; `routing-table.jsonl` readable + valid
   JSONL (each line parses).
-- Every language specialist referenced by `review.md` / `dimensions.md` resolves
+- Every language specialist referenced by `../review/SKILL.md` / `../review/dimensions.md` resolves
   to an existing `agents/<name>.md` with valid frontmatter (reuse the
   `route-agent.sh --dry-run` path). Report any dangling reference.
 

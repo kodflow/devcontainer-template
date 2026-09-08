@@ -1,3 +1,11 @@
+---
+title: "Attribute-Based Access Control (ABAC)"
+category: security
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [abac, dynamic-attribute-resolution, example-policies, http-middleware, lang:go, recommended-libraries, security]
+---
+
 # Attribute-Based Access Control (ABAC)
 
 > Dynamic permissions based on subject, resource, and context attributes.

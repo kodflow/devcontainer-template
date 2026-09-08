@@ -1,3 +1,11 @@
+---
+title: "Lazy Loading"
+category: performance
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [1-virtual-proxy, 2-ghost-object, 3-lazy-collection, advantages, complexity-and-trade-offs, disadvantages, lang:go, lazy-async, lazy-load, lazy-value-struct-if-reset-is-needed, lazy-with-reset, pattern-variants, performance, what-is-lazy-loading]
+---
+
 # Lazy Loading
 
 Pattern deferring resource initialization until its first use.

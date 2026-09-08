@@ -366,19 +366,19 @@ apply_devcontainer_tarball() {
     fi
 
     # Commands (top-level)
-    if [ -d "$src/.devcontainer/images/.claude/commands" ]; then
+    if [ -d "$src/.devcontainer/images/.claude/skills" ]; then
         mkdir -p "$UPDATE_TARGET/commands"
         safe_glob_copy "$src/~/.claude/skills/*.md" "$UPDATE_TARGET/commands"
         echo "  ✓ commands"
     fi
 
     # Command sub-modules (subdirectories)
-    if [ -d "$src/.devcontainer/images/.claude/commands" ]; then
+    if [ -d "$src/.devcontainer/images/.claude/skills" ]; then
         while IFS= read -r -d '' subdir; do
             local rel="${subdir#$src/.devcontainer/images/.claude/}"
             mkdir -p "$UPDATE_TARGET/$rel"
             safe_glob_copy "$subdir/*.md" "$UPDATE_TARGET/$rel"
-        done < <(find "$src/.devcontainer/images/.claude/commands" -mindepth 1 -type d -print0 2>/dev/null)
+        done < <(find "$src/.devcontainer/images/.claude/skills" -mindepth 1 -type d -print0 2>/dev/null)
         echo "  ✓ command sub-modules"
     fi
 

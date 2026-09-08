@@ -1,3 +1,11 @@
+---
+title: "Ring Buffer (Circular Buffer)"
+category: performance
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [1-audio-video-buffer, 2-log-history, 3-rolling-window-metrics, 4-limited-undo-redo, advantages, basic-ringbuffer, complexity-and-trade-offs, disadvantages, lang:go, lock-free-ring-buffer-multi-thread, performance, ring-buffer, ringbuffer-with-overwrite, use-cases, what-is-a-ring-buffer]
+---
+
 # Ring Buffer (Circular Buffer)
 
 High-performance circular data structure for continuous streams.

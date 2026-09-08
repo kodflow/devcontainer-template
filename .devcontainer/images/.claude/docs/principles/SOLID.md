@@ -1,3 +1,11 @@
+---
+title: "SOLID Principles"
+category: principles
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [SOLID, d-dependency-inversion-principle-dip, l-liskov-substitution-principle-lsp, lang:go, o-open-closed-principle-ocp, principles, the-5-principles, visual-summary]
+---
+
 # SOLID Principles
 
 5 fundamental principles of object-oriented programming by Robert C. Martin.

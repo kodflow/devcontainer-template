@@ -1,3 +1,11 @@
+---
+title: "Test Containers"
+category: testing
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [basic-setup, ci-configuration, docker-compose, lang:go, lang:yaml, network-and-volume, pre-built-modules, recommended-libraries, reusable-containers, test-containers, test-isolation, testing, wait-strategies]
+---
+
 # Test Containers
 
 > Real infrastructure in Docker containers for integration tests.

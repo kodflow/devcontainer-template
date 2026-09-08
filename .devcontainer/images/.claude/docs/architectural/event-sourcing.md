@@ -1,3 +1,11 @@
+---
+title: "Event Sourcing"
+category: architectural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [advantages, aggregate, architectural, architecture, complementary-patterns, disadvantages, event-sourcing, event-store, events, from-crud, lang:go, migration-path, projections, real-world-examples]
+---
+
 # Event Sourcing
 
 > Persist state as a sequence of events instead of a snapshot.

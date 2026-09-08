@@ -1,3 +1,11 @@
+---
+title: "Input Validation & Sanitization"
+category: security
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [input-validation, lang:go, recommended-libraries, request-validation-middleware, sanitization, schema-validation, security, sql-injection-prevention, xss-prevention]
+---
+
 # Input Validation & Sanitization
 
 > Validate and sanitize all user input to prevent injections.

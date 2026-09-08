@@ -1,3 +1,11 @@
+---
+title: "Microservices Architecture"
+category: architectural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [architectural, associated-patterns, characteristics, checklist-before-adoption, circuit-breaker, communication, distributed-monolith, lang:go, microservice-structure, microservices, migration-from-monolith, saga-pattern, service-discovery, shared-database]
+---
+
 # Microservices Architecture
 
 > Decompose an application into independent, separately deployable services.

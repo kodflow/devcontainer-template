@@ -1,3 +1,11 @@
+---
+title: "CQRS - Command Query Responsibility Segregation"
+category: architectural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [advantages, architectural, command, complete-example, cqrs, cqrs-levels, disadvantages, lang:go, projection-sync-read-model, query]
+---
+
 # CQRS - Command Query Responsibility Segregation
 
 > Separate read and write models.

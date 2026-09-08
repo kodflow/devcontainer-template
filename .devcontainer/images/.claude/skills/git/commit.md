@@ -83,7 +83,7 @@ decompose_workflow:
       prefix: "test"
 
     docs:
-      patterns: ["*.md", "docs/**", "**/CLAUDE.md", ".claude/commands/*.md"]
+      patterns: ["*.md", "docs/**", "**/CLAUDE.md", ".claude/skills/**/*.md"]
       prefix: "docs"
 
     config:
@@ -382,10 +382,10 @@ execute_workflow:
         on_failure: |
           If tracked files remain unstaged after git add -A:
           → Add them explicitly with git add <file>
-          → NEVER ignore modifications to tracked files (CLAUDE.md, .claude/commands/, hooks/)
+          → NEVER ignore modifications to tracked files (CLAUDE.md, .claude/skills/, hooks/)
     rules:
       - "ALWAYS use git add -A (never selective staging by filename)"
-      - "git add -A automatically includes: CLAUDE.md, .devcontainer/, .claude/commands/"
+      - "git add -A automatically includes: CLAUDE.md, .devcontainer/, .claude/skills/"
       - "git add -A automatically excludes: .env, mcp.json, .claude/* (except gitignore exceptions)"
       - "Check git diff --name-only after staging — if non-empty, there is a problem"
       - "If a tracked file should NOT be committed → git restore <file> BEFORE staging, not after"

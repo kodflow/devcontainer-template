@@ -1,3 +1,11 @@
+---
+title: "Rolling Update"
+category: devops
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [advantages, aggressive-faster, automatic-rollback, comparison-with-other-strategies, configuration-kubernetes, conservative-safe-default, detailed-workflow, devops, disadvantages, error-handling, essential-health-checks, lang:bash, lang:go, lang:yaml, maxsurge-maxunavailable-strategies, migration-path, proportional-large-deployments, real-world-examples, rolling-update, to-blue-green, to-canary]
+---
+
 # Rolling Update
 
 > Progressive update of instances without service interruption.
