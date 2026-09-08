@@ -74,6 +74,23 @@ if [ -n "$VAGUE" ]; then
   fi
 fi
 
+# --- model allocation ---------------------------------------------------------
+# A directive that does not say who runs what runs everything on the
+# orchestrator: a worker inherits the main-loop model unless told otherwise, so
+# silence here is the expensive default, not a neutral one.
+CONS=$(section CONSTRAINTS)
+if printf '%s' "$CONS" | grep -qE '^[[:space:]]*Models:'; then
+  if printf '%s' "$CONS" | grep -qE 'Models:.*<[A-Za-z_]'; then
+    bad "CONSTRAINTS Models: line still carries a placeholder — resolve it with detect-models.sh"
+  elif ! printf '%s' "$CONS" | grep -qiE 'never inherit'; then
+    bad "CONSTRAINTS Models: line does not state that workers never inherit the orchestrator model"
+  else
+    ok "model allocation stated and resolved"
+  fi
+else
+  bad "CONSTRAINTS carries no 'Models:' line — see _shared/model-policy.md"
+fi
+
 # --- unresolved placeholders --------------------------------------------------
 PH=$(grep -oE '<[A-Za-z_ -]{3,}>|\bTBD\b|\bTODO\b|\bXXX\b|\bFIXME\b|\.\.\.' "$F" | sort -u | tr '\n' ' ')
 [ -n "$PH" ] && bad "unresolved placeholder(s): ${PH}" || ok "no placeholders"

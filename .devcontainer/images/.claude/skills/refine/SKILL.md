@@ -1,29 +1,31 @@
 ---
 name: refine
-description: |
-  Skills Architecture v1.6 — proof-bearing goal contract generator with
-  three entry modes (auto-detected from arguments). FULL mode reads
-  .claude/contexts/<slug>.md + .claude/plans/<slug>.md and runs 4-10
-  review lenses. BARE mode skips lens dispatch and structures a
-  free-form description. FROM-CONTRACT mode re-compacts an existing
-  goal contract. ALWAYS emits a predictable square-prompt directive
-  with the same 7-section shape (CONTEXT, OBJECTIVE, SCOPE,
-  CONSTRAINTS, ACCEPTANCE, VERIFY, STOP) so a vague input like
-  "fix ca" never reaches the goal state — synthesis rejects vague
-  verbs and forces binary measurable acceptance criteria paired 1:1
-  with verifiers. The /goal directive has a 4000-char ceiling (hard
-  tool limit); /refine aims for the minimum viable length that
-  preserves the contract, never pads to fill the budget.
+description: Skills Architecture v1.6 — proof-bearing goal contract generator with three entry
+  modes (auto-detected from arguments). FULL mode reads .claude/contexts/<slug>.md + .claude/plans/<slug>.md
+  and runs 4-10 review lenses. BARE mode skips lens dispatch and structures a free-form description.
+  FROM-CONTRACT mode re-compacts an existing goal contract. ALWAYS emits a predictable square-prompt
+  directive with the same 7-section shape (CONTEXT, OBJECTIVE, SCOPE, CONSTRAINTS, ACCEPTANCE,
+  VERIFY, STOP) so a vague input like "fix ca" never reaches the goal state — synthesis rejects
+  vague verbs and forces binary measurable acceptance criteria paired 1:1 with verifiers.
+  The /goal directive has a 4000-char ceiling (hard tool limit); /refine aims for the minimum
+  viable length that preserves the contract, never pads to fill the budget.
+when_to_use: Use to turn a plan or a loose description into a /goal contract with binary acceptance
+  criteria paired 1:1 with verifiers, so the goal state cannot be reached by a vague claim
+  of success.
+argument-hint: <slug> | "<description>" [--bare] [--full <slug>] [--lenses light|full]
+model: opus
 allowed-tools:
-  - "Read(**/*)"
-  - "Glob(**/*)"
-  - "Grep(**/*)"
-  - "Task(*)"
-  - "Agent(*)"
-  - "TaskCreate(*)"
-  - "TaskUpdate(*)"
-  - "Write(.claude/goals/*.md)"
-  - "mcp__context7__*"
+- Read(**/*)
+- Glob(**/*)
+- Grep(**/*)
+- Task(*)
+- Agent(*)
+- TaskCreate(*)
+- TaskUpdate(*)
+- Write(.claude/goals/*.md)
+- mcp__context7__*
+- Bash(bash ~/.claude/skills/_shared/scripts/detect-models.sh:*)
+- Bash(jq:*)
 ---
 
 $ARGUMENTS
@@ -218,3 +220,34 @@ in every case; the actual directive length is the minimum viable.
 No explicit mode flag needed in normal usage — the skill detects from
 the argument shape + disk state. Flags exist only for edge cases where
 you want to override the default detection.
+
+---
+
+## Model allocation (mandatory, not negotiable)
+
+Read `../_shared/model-policy.md` and resolve the tiers **before** writing the
+plan:
+
+```bash
+bash ~/.claude/skills/_shared/scripts/detect-models.sh
+```
+
+Every plan carries the allocation, in one line under its constraints:
+
+```
+Models: orchestrator <CLAUDE_TOP> @high · code workers Opus @high ·
+        review workers Opus @xhigh · mechanical workers Sonnet @low ·
+        workers never inherit the orchestrator model · worktree isolation
+        wherever workers write concurrently.
+```
+
+Three rules the plan may not weaken:
+
+- **Resolve, never hardcode.** A hardcoded top model is wrong the day a better
+  one ships.
+- **Never let a worker inherit.** On a top-tier orchestrator that silently runs
+  every worker at the top rate — the single most expensive mistake available.
+- **The orchestrator never does the work.** If it is editing, the allocation has
+  collapsed.
+
+A plan that omits, reworders or weakens this is rejected and rewritten.

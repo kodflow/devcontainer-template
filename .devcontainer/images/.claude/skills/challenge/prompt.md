@@ -29,6 +29,9 @@ Out: <what it must not touch — the boundary the debate settled>
 ## CONSTRAINTS
 <Rules that bind the work: constraint-ledger MUSTs it touches, decisions taken
 during the debate, and anything the user answered. One line each.>
+Models: orchestrator <CLAUDE_TOP> @high · code workers Opus @high · review
+workers Opus @xhigh · mechanical Sonnet @low · workers never inherit · worktree
+isolation where workers write concurrently.
 
 ## ACCEPTANCE
 1. <binary, checkable statement>
@@ -61,6 +64,12 @@ exits 0 is.
 support, as needed* — each is a way to reach the goal state without anything
 being true. The validator greps for them and fails the file when they appear
 inside ACCEPTANCE.
+
+**The model allocation line is mandatory.** Resolve it with
+`~/.claude/skills/_shared/scripts/detect-models.sh` and write the resolved id,
+not the placeholder. `../_shared/model-policy.md` owns the rule; the validator
+rejects a directive whose CONSTRAINTS carry no `Models:` line, because a plan
+that does not say who runs what will silently run everything on the orchestrator.
 
 **No placeholders.** `<name>`, `TBD`, `TODO`, `...` — the directive is the
 handover; an unresolved placeholder means the debate did not finish.

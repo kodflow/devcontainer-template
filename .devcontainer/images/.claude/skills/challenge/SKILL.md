@@ -36,6 +36,7 @@ allowed-tools:
 - AskUserQuestion
 - mcp__context7__*
 - WebFetch(*)
+- Bash(bash ~/.claude/skills/_shared/scripts/detect-models.sh:*)
 ---
 
 # /challenge — debate the plan, lock the directive

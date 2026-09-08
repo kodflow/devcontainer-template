@@ -166,30 +166,30 @@ parallel_exploration:
   agents:
     # PR7 — Skills Architecture v1.3: 4 explorers routed via route-agent.sh
     # phase=explore. Default to per-language specialist via agent_template;
-    # docs-analyzer-patterns handles the local KB consult.
+    # The local KB is a flat markdown tree: Grep/Read it directly.
     - task: "backend-explorer"
-      type: "docs-analyzer-architecture"   # was Explore
+      type: "Explore"    # read-only; returns conclusions, not file dumps
       prompt: |
         Analyze backend for: {description}
         Find: related files, existing patterns, dependencies
         Return: {files[], patterns[], recommendations[]}
 
     - task: "frontend-explorer"
-      type: "docs-analyzer-commands"       # was Explore
+      type: "Explore"
       prompt: |
         Analyze frontend for: {description}
         Find: components, state, API calls
         Return: {files[], components[], state_management}
 
     - task: "test-explorer"
-      type: "docs-analyzer-agents"         # was Explore
+      type: "Explore"
       prompt: |
         Analyze tests for: {description}
         Find: existing coverage, test patterns
         Return: {coverage, patterns[], gaps[]}
 
     - task: "patterns-consultant"
-      type: "docs-analyzer-patterns"       # was Explore (local KB)
+      type: "Explore"    # local KB under ~/.claude/docs/
       prompt: |
         Consult ~/.claude/docs/ for: {description}
         Find: applicable design patterns

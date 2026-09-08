@@ -1,23 +1,29 @@
 ---
 name: plan
-description: |
-  Enter Claude Code planning mode with RLM decomposition.
-  Analyzes codebase, designs approach, creates step-by-step plan.
-  Use when: starting a new feature, refactoring, or complex task.
+description: 'Enter Claude Code planning mode with RLM decomposition. Analyzes codebase, designs
+  approach, creates step-by-step plan. Use when: starting a new feature, refactoring, or complex
+  task.'
+when_to_use: Use before implementing anything non-trivial — a feature, a refactor, a migration.
+  Produces a step-by-step plan in .claude/plans/, validated against the project's constraint
+  ledger.
+argument-hint: <description> [--context[=<slug>]] [--goal [--fast]] [--auto]
+model: opus
 allowed-tools:
-  - "Read(**/*)"
-  - "Glob(**/*)"
-  - "Grep(**/*)"
-  - "mcp__context7__*"
-  - "Task(*)"
-  - "WebFetch(*)"
-  - "WebSearch(*)"
-  - "mcp__github__*"
-  - "mcp__playwright__*"
-  - "Write(.claude/plans/*.md)"
-  - "Write(.claude/contexts/*.md)"
-  - "ExitPlanMode(*)"
-  - "Skill(*)"
+- Read(**/*)
+- Glob(**/*)
+- Grep(**/*)
+- mcp__context7__*
+- Task(*)
+- WebFetch(*)
+- WebSearch(*)
+- mcp__github__*
+- mcp__playwright__*
+- Write(.claude/plans/*.md)
+- Write(.claude/contexts/*.md)
+- ExitPlanMode(*)
+- Skill(*)
+- Bash(bash ~/.claude/skills/_shared/scripts/detect-models.sh:*)
+- Bash(jq:*)
 ---
 
 # /plan - Claude Code Planning Mode (RLM Architecture)
@@ -248,6 +254,37 @@ implementation action until the plan is approved by the user.
 This applies to EVERY task regardless of perceived simplicity.
 Anti-pattern: "This is too simple to need a plan" — EVERY task gets a plan.
 ```
+
+---
+
+## Model allocation (mandatory, not negotiable)
+
+Read `../_shared/model-policy.md` and resolve the tiers **before** writing the
+plan:
+
+```bash
+bash ~/.claude/skills/_shared/scripts/detect-models.sh
+```
+
+Every plan carries the allocation, in one line under its constraints:
+
+```
+Models: orchestrator <CLAUDE_TOP> @high · code workers Opus @high ·
+        review workers Opus @xhigh · mechanical workers Sonnet @low ·
+        workers never inherit the orchestrator model · worktree isolation
+        wherever workers write concurrently.
+```
+
+Three rules the plan may not weaken:
+
+- **Resolve, never hardcode.** A hardcoded top model is wrong the day a better
+  one ships.
+- **Never let a worker inherit.** On a top-tier orchestrator that silently runs
+  every worker at the top rate — the single most expensive mistake available.
+- **The orchestrator never does the work.** If it is editing, the allocation has
+  collapsed.
+
+A plan that omits, reworders or weakens this is rejected and rewritten.
 
 ## Guardrails (ABSOLUTE)
 

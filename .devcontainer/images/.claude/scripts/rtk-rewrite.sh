@@ -57,39 +57,58 @@ case "$CMD" in NO_RTK=*) exit 0 ;; esac
 # NOT for `head -40 file` — the short-form path skips the check and rewrites to
 # `rtk read --max-lines`, which strips comments. Any command whose exact bytes
 # matter is filtered here, before rtk is consulted at all.
-# Strip leading VAR=value assignments and env/command wrappers before reading
-# the command name. `OUT=x head -40 f` and `env FOO=1 cat f` both name a fidelity
-# read, and both slipped past a naive "first word" test.
-_rest=${CMD#"${CMD%%[![:space:]]*}"}
-while :; do
-  _w=${_rest%%[[:space:]]*}
-  case "$_w" in
-    [A-Za-z_]*=*|env|command|builtin|nohup|time|exec)
-      _next=${_rest#*[[:space:]]}
-      [ "$_next" = "$_rest" ] && break
-      _rest=${_next#"${_next%%[![:space:]]*}"} ;;
-    *) break ;;
+# Fidelity guard.
+#
+# rtk's read command strips comments (measured: 632 lines in, 385 out), so a
+# rewritten `cat` hands the agent a file it cannot safely edit from. Anything
+# whose exact bytes matter is filtered here, before rtk is consulted.
+#
+# Every SEGMENT of a compound command is checked, not just the first: rtk
+# rewrites sub-commands, so `echo hi; cat f.go` would otherwise have its `cat`
+# rewritten while the guard looked only at `echo`. One protected segment
+# protects the whole line — rewriting half a pipeline is not worth the risk.
+#
+# Each segment also has leading VAR=value assignments and env/command/time-style
+# wrappers stripped before its name is read: `OUT=x head -c 300 "$OUT"` names a
+# fidelity read, and so does `env FOO=1 cat f`.
+_protected=0
+_scan() {
+  _seg=${1#"${1%%[![:space:]]*}"}
+  while :; do
+    _w=${_seg%%[[:space:]]*}
+    case "$_w" in
+      [A-Za-z_]*=*|env|command|builtin|nohup|time|exec|sudo|sg)
+        _next=${_seg#*[[:space:]]}
+        [ "$_next" = "$_seg" ] && break
+        _seg=${_next#"${_next%%[![:space:]]*}"} ;;
+      *) break ;;
+    esac
+  done
+  _name=${_seg%%[[:space:]]*}
+  _name=${_name##*/}
+  case "$_name" in
+    cat|head|tail|sed|awk|diff|patch|sha256sum|sha1sum|md5sum|base64|xxd|od|strings|cmp)
+      _protected=1 ;;
+    find)
+      case " $_seg " in
+        *" -not "*|*" -exec "*|*" -execdir "*|*" -o "*|*" -delete "*|*" -prune "*|*" -printf "*|*" -print0 "*)
+          _protected=1 ;;
+      esac ;;
+  esac
+}
+
+# Split on ; && || | and newline, then scan each segment.
+_rest=$CMD
+while [ -n "$_rest" ]; do
+  case "$_rest" in
+    *"&&"*) _scan "${_rest%%&&*}"; _rest=${_rest#*&&} ;;
+    *"||"*) _scan "${_rest%%||*}"; _rest=${_rest#*||} ;;
+    *";"*)  _scan "${_rest%%;*}";  _rest=${_rest#*;} ;;
+    *"|"*)  _scan "${_rest%%|*}";  _rest=${_rest#*|} ;;
+    *)      _scan "$_rest"; _rest="" ;;
   esac
 done
-FIRST=${_rest%%[[:space:]]*}
-FIRST=${FIRST##*/}
-case "$FIRST" in
-  cat|head|tail|sed|awk|diff|patch|sha256sum|sha1sum|md5sum|base64|xxd|od|strings|cmp)
-    exit 0 ;;
-esac
-
-# `rtk find` rejects compound predicates outright:
-#   "rtk find does not support compound predicates or actions (e.g. -not, -exec)"
-# It fails loudly rather than losing data, so this is a cost guard, not a safety
-# one: rewriting such a command guarantees a failed call and a retry. Same for
-# grep/git invocations that pipe into something expecting native formatting.
-case "$FIRST" in
-  find)
-    case " $CMD " in
-      *" -not "*|*" -exec "*|*" -execdir "*|*" -o "*|*" -delete "*|*" -prune "*|*" -printf "*|*" -print0 "*)
-        exit 0 ;;
-    esac ;;
-esac
+[ "$_protected" -eq 1 ] && exit 0
 
 REWRITTEN=$(rtk rewrite "$CMD" 2>/dev/null) || exit 0
 [ -z "$REWRITTEN" ] && exit 0
