@@ -16,8 +16,6 @@ when_to_use: Use to review a GitHub PR, a GitLab MR, or a local diff with eviden
   scanners actually run.
 argument-hint: '[<PR#>|<branch>|<path>] [--loop] [--plan <slug>]'
 model: opus
-context: fork
-background: false
 allowed-tools:
 - Bash(git:*)
 - Bash(gh:*)
@@ -96,25 +94,6 @@ allowed-tools:
 # /review — Brutal, Evidence-Bound Code Review (RLM Architecture)
 
 $ARGUMENTS
-
-> **Runs forked.** This skill declares `context: fork` — it executes in an
-> isolated subagent context and only its final verdict reaches the conversation.
-> The deterministic tier runs, the macro/micro passes and the specialist fan-out
-> stay out of the main context, which is the whole point: a full review burns far
-> more context producing evidence than the verdict is worth carrying afterwards.
->
-> Consequences you must respect: **there is no user to ask.** Every decision this
-> skill would have escalated must instead be resolved by this skill's own
-> severity and confidence rules, and reported in the verdict. When the run is INCONCLUSIVE, say so
-> as the verdict — never silently pick a side. `background: false` keeps it in the
-> foreground, so the caller waits for the result.
-
-> **Stance.** Adversarial toward the diff, never toward the author. Call bad code bad —
-> plainly, with proof. No politeness inflation, no "looks great overall," no LGTM. A
-> review that finds nothing is valid ONLY when the external manifest verifier confirms
-> every hunk was actually inspected. Silence is not approval; **machine-checked proof of
-> inspection** is approval. When you cannot complete the work, the honest verdict is
-> **INCONCLUSIVE** — never a green manifest you did not earn.
 
 ---
 

@@ -10,8 +10,6 @@ when_to_use: Use when a session cannot reach ktn-linter, its hooks misbehave, a 
   starts, or you want a one-command sanity check of the ktn stack.
 argument-hint: '[--check] [--phases <spec>] [--scope <diff|all>] [--restart]'
 model: opus
-context: fork
-background: false
 allowed-tools:
 - Read(**/*)
 - Write(.claude/settings.json)
@@ -66,22 +64,6 @@ allowed-tools:
 # /ktn — Autonomous ktn-linter MCP Lifecycle
 
 $ARGUMENTS
-
-> **Runs forked.** This skill declares `context: fork` — the five-agent dispatch,
-> the daemon probing and the binary checks all happen in an isolated context, and
-> only the final health dashboard comes back. That is a large amount of probe
-> output for a short answer.
->
-> Consequences you must respect: **there is no user to prompt mid-run.** The
-> session-restart prompt in Phase 3 becomes a line in the returned dashboard, not
-> an interactive question. Anything this skill would have asked before doing must
-> either be safe to do unattended (it is idempotent by contract) or be reported as
-> "not done, needs your go". `background: false` keeps it in the foreground.
-
-> One command. Multiple parallel agents. Zero ceremony when everything is OK.
-> Designed to be invoked blindly: `/ktn` is safe to run any time — it reads the
-> live state, fixes drift only when it finds drift, and tells you to restart the
-> session only if it had to touch `.claude/settings.json`.
 
 ---
 
