@@ -1,27 +1,30 @@
 ---
 name: update
-description: |
-  DevContainer Environment Update from official template.
-  Profile-aware: auto-detects infrastructure projects and syncs from both templates.
-  Uses git tarball (1 API call per source) instead of per-file curl.
-  Use when: syncing local devcontainer with latest template improvements.
+description: 'DevContainer Environment Update from official template. Profile-aware: auto-detects
+  infrastructure projects and syncs from both templates. Uses git tarball (1 API call per
+  source) instead of per-file curl. Use when: syncing local devcontainer with latest template
+  improvements.'
+when_to_use: Use to sync a project's devcontainer with the upstream template — checking what
+  drifted, or applying the update.
+argument-hint: '[--check] [--component hooks|skills|agents|lifecycle]'
+model: sonnet
 allowed-tools:
-  - "Bash(curl:*)"
-  - "Bash(git:*)"
-  - "Bash(jq:*)"
-  - "Read(**/*)"
-  - "Write(.devcontainer/**/*)"
-  - "Write(modules/**/*)"
-  - "Write(stacks/**/*)"
-  - "Write(ansible/**/*)"
-  - "Write(packer/**/*)"
-  - "Write(ci/**/*)"
-  - "Write(tests/**/*)"
-  - "WebFetch(*)"
-  - "Glob(**/*)"
-  - "Grep(**/*)"
-  - "mcp__context7__*"
-  - "Task(*)"
+- Bash(curl:*)
+- Bash(git:*)
+- Bash(jq:*)
+- Read(**/*)
+- Write(.devcontainer/**/*)
+- Write(modules/**/*)
+- Write(stacks/**/*)
+- Write(ansible/**/*)
+- Write(packer/**/*)
+- Write(ci/**/*)
+- Write(tests/**/*)
+- WebFetch(*)
+- Glob(**/*)
+- Grep(**/*)
+- mcp__context7__*
+- Task(*)
 ---
 
 # Update - DevContainer Environment Update

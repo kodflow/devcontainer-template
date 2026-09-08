@@ -17,7 +17,8 @@ LOCAL_DISPATCH=$(bash "$ROUTER" --skill /search --phase local \
 Each dispatch returns `{subagent_type, resolved_model, effort}`. Hand
 those values to the `Task` primitive — agents handle language-specific
 documentation (Go: go.dev, Python: docs.python.org, Node: nodejs.org)
-plus the local Design-Patterns KB via `docs-analyzer-patterns`.
+plus the local Design-Patterns KB, read directly with Grep/Read over
+`~/.claude/docs/` (it is a flat markdown tree — no agent needed).
 
 Legacy `Explore`-based dispatch (kept for unrouted contexts):
 

@@ -1,17 +1,20 @@
 ---
 name: debug
-description: |
-  Systematic, root-cause-first debugging. Enforces a no-fix-without-root-cause
-  contract: reproduce, isolate, prove the cause, then fix and verify. Stops and
-  questions the architecture after repeated failed fixes instead of thrashing.
+description: 'Systematic, root-cause-first debugging. Enforces a no-fix-without-root-cause
+  contract: reproduce, isolate, prove the cause, then fix and verify. Stops and questions
+  the architecture after repeated failed fixes instead of thrashing.'
+when_to_use: Use for a bug whose cause is not obvious — a flaky test, an intermittent failure,
+  a wrong result with no exception. Not for a compile error or a stack trace that already
+  names the line.
+argument-hint: <symptom> [--loop]
 model: opus
 allowed-tools:
-  - "Read(**/*)"
-  - "Glob(**/*)"
-  - "Grep(**/*)"
-  - "Bash(*)"
-  - "Edit(**/*)"
-  - "Agent(*)"
+- Read(**/*)
+- Glob(**/*)
+- Grep(**/*)
+- Bash(*)
+- Edit(**/*)
+- Agent(*)
 ---
 
 # /debug - Systematic Root-Cause Debugging

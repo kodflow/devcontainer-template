@@ -1,27 +1,29 @@
 ---
 name: git
-description: |
-  Workflow Git Automation with RLM decomposition.
-  Handles branch management, conventional commits, and CI validation.
-  Use when: committing changes, creating PRs/MRs, or merging with CI checks.
-  Supports GitHub (PRs) and GitLab (MRs) - auto-detected from git remote.
+description: 'Workflow Git Automation with RLM decomposition. Handles branch management, conventional
+  commits, and CI validation. Use when: committing changes, creating PRs/MRs, or merging with
+  CI checks. Supports GitHub (PRs) and GitLab (MRs) - auto-detected from git remote.'
+when_to_use: Use to commit, open a PR/MR, watch CI to green, or merge. Handles branch naming,
+  conventional commits, and the pre-push quality gate.
+argument-hint: --commit | --watch | --merge | --finish [--branch <name>] [--no-pr]
+model: opus
 allowed-tools:
-  - "Bash(git:*)"
-  - "Bash(gh:*)"
-  - "Bash(glab:*)"
-  - "mcp__github__*"
-  - "mcp__gitlab__*"
-  - "Read(**/*)"
-  - "Write(.env)"
-  - "Edit(.env)"
-  - "Glob(**/*)"
-  - "Grep(**/*)"
-  - "Task(*)"
-  - "TaskCreate(*)"
-  - "TaskUpdate(*)"
-  - "TaskList(*)"
-  - "TaskGet(*)"
-  - "AskUserQuestion(*)"
+- Bash(git:*)
+- Bash(gh:*)
+- Bash(glab:*)
+- mcp__github__*
+- mcp__gitlab__*
+- Read(**/*)
+- Write(.env)
+- Edit(.env)
+- Glob(**/*)
+- Grep(**/*)
+- Task(*)
+- TaskCreate(*)
+- TaskUpdate(*)
+- TaskList(*)
+- TaskGet(*)
+- AskUserQuestion(*)
 ---
 
 # /git - Workflow Git Automation (RLM Architecture)

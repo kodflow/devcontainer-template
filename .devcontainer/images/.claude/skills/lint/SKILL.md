@@ -1,24 +1,26 @@
 ---
 name: lint
-description: |
-  Multi-language intelligent linting with RLM decomposition.
-  Auto-detects project language(s) and dispatches to the appropriate workflow.
-  Go projects with ktn-linter: 148 rules across 8 phases with Agent Teams.
-  Other languages: lint-fix-iterate loop with language-specific tools.
-  Makefile-first: uses `make lint` when available.
+description: 'Multi-language intelligent linting with RLM decomposition. Auto-detects project
+  language(s) and dispatches to the appropriate workflow. Go projects with ktn-linter: 148
+  rules across 8 phases with Agent Teams. Other languages: lint-fix-iterate loop with language-specific
+  tools. Makefile-first: uses `make lint` when available.'
+when_to_use: Use to run the project's linters and fix what they find. Prefers `make lint`
+  when a Makefile defines it; otherwise detects the language and picks the right toolchain.
+argument-hint: '[path] [--fix] [--strict]'
+model: opus
 allowed-tools:
-  - "Read(**/*)"
-  - "Glob(**/*)"
-  - "mcp__context7__*"
-  - "Grep(**/*)"
-  - "Write(**/*)"
-  - "Edit(**/*)"
-  - "Bash(*)"
-  - "Task(*)"
-  - "TaskCreate(*)"
-  - "TaskUpdate(*)"
-  - "TaskList(*)"
-  - "TaskGet(*)"
+- Read(**/*)
+- Glob(**/*)
+- mcp__context7__*
+- Grep(**/*)
+- Write(**/*)
+- Edit(**/*)
+- Bash(*)
+- Task(*)
+- TaskCreate(*)
+- TaskUpdate(*)
+- TaskList(*)
+- TaskGet(*)
 ---
 
 # /lint - Multi-Language Intelligent Linting (RLM Architecture)

@@ -1,18 +1,20 @@
 ---
 name: adr
-description: |
-  Capture Architecture Decision Records. Detects decision moments, writes
-  docs/adr/NNNN-title.md from a MADR-style template, maintains the index, and
-  links the decision back to the code/PR. The template captures patterns and
-  contracts but never the *why* — this fills that gap.
+description: Capture Architecture Decision Records. Detects decision moments, writes docs/adr/NNNN-title.md
+  from a MADR-style template, maintains the index, and links the decision back to the code/PR.
+  The template captures patterns and contracts but never the *why* — this fills that gap.
+when_to_use: Use the moment a decision is made that a future maintainer would ask 'why' about
+  — a technology chosen over an alternative, a boundary drawn, a constraint accepted. Also
+  when reviewing a change whose rationale is not in the code.
+argument-hint: '[--new "<title>"] [--list] [--link <id>]'
 model: sonnet
 allowed-tools:
-  - "Read(**/*)"
-  - "Glob(**/*)"
-  - "Grep(**/*)"
-  - "Edit(docs/adr/**)"
-  - "Write(docs/adr/**)"
-  - "Bash(*)"
+- Read(**/*)
+- Glob(**/*)
+- Grep(**/*)
+- Edit(docs/adr/**)
+- Write(docs/adr/**)
+- Bash(*)
 ---
 
 # /adr - Architecture Decision Records
@@ -38,7 +40,7 @@ six months later nobody re-litigates a settled trade-off or silently violates it
 ## Location & numbering
 
 - ADRs live in `docs/adr/` as **NNNN-kebab-title.md** (zero-padded 4-digit, e.g.
-  **0007-buildkit-registry-cache.md**).
+  `docs/adr/0007-buildkit-registry-cache.md` (example)).
 - Next number = highest existing + 1 (start at `0001`). Resolve with:
   ```bash
   ls docs/adr/[0-9]*.md 2>/dev/null | sed -E 's@.*/([0-9]+)-.*@\1@' | sort -n | tail -1

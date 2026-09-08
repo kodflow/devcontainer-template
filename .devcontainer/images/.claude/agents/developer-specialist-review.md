@@ -234,20 +234,21 @@ output:
 
 ```yaml
 routing:
-  ".go":    "developer-specialist-go"
-  ".py":    "developer-specialist-python"
-  ".java":  "developer-specialist-java"
-  ".kt":    "developer-specialist-kotlin"
-  ".ts":    "developer-specialist-nodejs"
-  ".js":    "developer-specialist-nodejs"
-  ".rs":    "developer-specialist-rust"
-  ".rb":    "developer-specialist-ruby"
-  ".ex":    "developer-specialist-elixir"
-  ".php":   "developer-specialist-php"
-  ".scala": "developer-specialist-scala"
-  ".cpp":   "developer-specialist-cpp"
-  ".zig":   "developer-specialist-zig"
-  ".dart":  "developer-specialist-dart"
+  ".go":                    "developer-specialist-go"
+  ".py":                    "developer-specialist-python"
+  ".ts|.tsx|.js|.mjs|.cjs": "developer-specialist-nodejs"
+  ".jsx|.tsx (React)":      "developer-specialist-react"
+  ".rs":                    "developer-specialist-rust"
+  ".c|.h":                  "developer-specialist-c"
+  ".cc|.cpp|.hpp":          "developer-specialist-cpp"
+  ".zig":                   "developer-specialist-zig"
+  ".sh|Dockerfile|CI":      "developer-executor-shell"
+  ".sql|migrations":        "data-specialist-postgres"
+  ".yml under .github/":    "tooling-specialist-github-actions"
+
+# No specialist exists for any other language on this host. Review such a file
+# yourself against its official style guide and say in the finding that no
+# specialist backed it — never dispatch to an agent that is not in this table.
 ```
 
 ## Cyclic Integration

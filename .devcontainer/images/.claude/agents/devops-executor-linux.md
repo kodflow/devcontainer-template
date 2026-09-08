@@ -47,24 +47,9 @@ detect_distro:
   routing_table:
     debian: os-specialist-debian
     ubuntu: os-specialist-ubuntu
-    fedora: os-specialist-fedora
-    rhel: os-specialist-rhel
-    centos: os-specialist-rhel
-    rocky: os-specialist-rhel
-    almalinux: os-specialist-rhel
-    arch: os-specialist-arch
+    linuxmint: os-specialist-ubuntu
     alpine: os-specialist-alpine
-    opensuse-leap: os-specialist-opensuse
-    opensuse-tumbleweed: os-specialist-opensuse
-    void: os-specialist-void
-    devuan: os-specialist-devuan
-    artix: os-specialist-artix
-    gentoo: os-specialist-gentoo
-    nixos: os-specialist-nixos
-    manjaro: os-specialist-manjaro
-    kali: os-specialist-kali
-    slackware: os-specialist-slackware
-    fallback: "Handle directly using generic Linux knowledge below"
+    fallback: "Handle directly using the generic Linux knowledge below (no specialist agent exists for other distros on this host)"
 
   dispatch_pattern: |
     1. Read /etc/os-release (or context from caller)
@@ -92,13 +77,13 @@ Task(subagent_type="os-specialist-debian", prompt="Install nginx and configure a
 
 ## Distro Coverage
 
-| Family | Distributions |
-|--------|---------------|
-| **Debian** | Debian, Ubuntu, Mint |
-| **RHEL** | RHEL, CentOS, Rocky, Alma, Fedora |
-| **Arch** | Arch, Manjaro |
-| **SUSE** | openSUSE, SLES |
-| **Alpine** | Alpine Linux |
+| Family | Distributions | Handling |
+|--------|---------------|----------|
+| **Debian** | Debian, Ubuntu, Mint | Dedicated specialist agent |
+| **Alpine** | Alpine Linux | Dedicated specialist agent |
+| **RHEL** | RHEL, CentOS, Rocky, Alma, Fedora | Generic fallback (dnf/yum sections below) |
+| **Arch** | Arch, Manjaro | Generic fallback (pacman section below) |
+| **SUSE** | openSUSE, SLES | Generic fallback (zypper) |
 
 ## Best Practices Enforced
 

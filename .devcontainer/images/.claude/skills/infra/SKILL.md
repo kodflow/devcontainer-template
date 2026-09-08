@@ -1,18 +1,21 @@
 ---
 name: infra
-description: |
-  Infrastructure automation with Terraform/Terragrunt.
-  Dispatches to DevOps specialist agents for cloud-specific analysis.
+description: Infrastructure automation with Terraform/Terragrunt. Dispatches to DevOps specialist
+  agents for cloud-specific analysis.
+when_to_use: 'Use for Terraform, OpenTofu or Terragrunt work: planning a change, reading a
+  plan critically, validating, or documenting modules.'
+argument-hint: --init | --plan | --apply | --validate | --docs [--module <path>]
+model: opus
 allowed-tools:
-  - "Read(**/*)"
-  - "Glob(**/*)"
-  - "mcp__context7__*"
-  - "Grep(**/*)"
-  - "Write(**/*)"
-  - "Edit(**/*)"
-  - "Bash(*)"
-  - "Task(*)"
-  - "AskUserQuestion(*)"
+- Read(**/*)
+- Glob(**/*)
+- mcp__context7__*
+- Grep(**/*)
+- Write(**/*)
+- Edit(**/*)
+- Bash(*)
+- Task(*)
+- AskUserQuestion(*)
 ---
 
 # /infra - Infrastructure Automation (Terraform/Terragrunt)
@@ -138,10 +141,6 @@ Lead: `devops-orchestrator`. Spawn cloud specialists only for clouds detected in
 
 ```text
 TaskCreate × N (where N ≤ 5, only for present clouds):
-  cloud-aws         → using devops-specialist-aws         (if aws provider detected)
-  cloud-gcp         → using devops-specialist-gcp         (if google provider detected)
-  cloud-azure       → using devops-specialist-azure       (if azurerm provider detected)
-  cloud-cloudflare  → using devops-specialist-cloudflare  # PR7 + PR2b — wrangler.toml or cloudflare provider
   cloud-hashicorp   → using devops-specialist-hashicorp   (if vault/consul/nomad detected)
 ```
 

@@ -379,3 +379,143 @@ validity_rules:                    # verbatim from the binding spec Phase 8
 
 The manifest is not paperwork — it is the single artifact the external verifier reads to
 decide whether the run is allowed to say APPROVE.
+
+---
+
+# Phase 8 execution — running the external verifier
+
+The schema above is inert until this runs. `review-verify-manifest.sh` is a
+non-LLM program: it recomputes hunks, symbols and `diff_hash` from git and
+invalidates the run on mismatch. **Branch hard on its exit code** — narrating
+the result and proceeding to APPROVE is the precise failure this stage exists
+to make impossible.
+
+## Phase 8 — Coverage Manifest + EXTERNAL Verifier (proof-of-work, mandatory)
+
+The run emits a machine-readable manifest file AND runs a non-LLM verifier that gates
+APPROVE. The model may not self-attest coverage.
+
+**Step 0 — get the authoritative diff facts (do NOT compute them yourself).**
+The RTK PreToolUse hook rewrites your `git diff`, so a hash you compute by hand
+diverges from what the verifier recomputes internally and every run goes
+INCONCLUSIVE. Ask the verifier for the canonical numbers and copy them verbatim:
+
+```bash
+# For a PR/branch review use the real head sha; for a local dirty tree use the
+# sentinel HEAD=WORKTREE (reviews uncommitted tracked changes vs $BASE).
+RTK_BYPASS=1 bash ~/.claude/scripts/review-verify-manifest.sh \
+  --repo "$PROJECT_DIR" --base "$BASE" --head "${HEAD:-WORKTREE}" --print-facts
+# -> {"diff_hash":"…","hunks_total":N,"head":"…"}  copy both into the manifest
+```
+
+```yaml
+coverage_manifest:                # written to .claude/review-manifest-{ts}.json
+  diff_hash: <sha>                # COPY from --print-facts (canonical, RTK-safe)
+  base: <sha>  head: <sha|WORKTREE>
+  canary: passed|failed           # mirrors canary_artifact.detected
+  canary_artifact: ".claude/review-canary-<ts>.json"   # C6: REAL artifact path; verifier READS it and requires detected==true
+  hunks_total: <n>                # COPY from --print-facts; verifier re-asserts
+  files:
+    - path: <file>
+      file_class: <enum>
+      hunks: <n>                  # C4: sum(files[].hunks) MUST equal hunks_total
+      macro_pass: true
+      # micro_pass for a CODE file MUST be true — "N/A"/"deferred" are REJECTED for code.
+      # Only generated|vendored|binary|lockfile|rename(pure)|docs may use "N/A (<class> — <justification>)".
+      # low-risk non-code under TRIAGE may use "deferred(<reason>)"; a code file may NOT.
+      micro_pass: true|"N/A (<class> — <justification>)"|"deferred(<reason>)"
+      dimensions: {correctness: checked, security: checked, ..., portability: N/A}
+      symbols_inspected: ["<pkg.Func@file:line>", ...]   # PER-FILE; MUST ⊇ this file's verifier-extracted symbols
+  tiers: [{tool, status, exit, findings}, ...]           # generated from _table.tsv
+  blast_radius_done: true
+  change_coupling_done: true
+  doc_sync:                       # Phase 5.7 — verifier RECOMPUTES required CLAUDE.md set
+    claude_md:                    # one entry per touched-dir + ancestor (repo root => "CLAUDE.md")
+      - {path: "CLAUDE.md", status: "updated"}        # status in {updated, created, current}
+      # ... <dir>/CLAUDE.md for every touched dir AND its ancestors up to repo root ...
+    docs:                         # stale human docs impacted by the diff (informational)
+      - {path: "docs/architecture.md", status: "updated"}
+  uninspected: []                 # MUST be empty for a valid APPROVE
+```
+
+Then invoke the external verifier (must pass):
+
+```bash
+RTK_BYPASS=1 bash ~/.claude/scripts/review-verify-manifest.sh \
+  --repo "$PROJECT_DIR" --base "$BASE" --head "${HEAD:-WORKTREE}" \
+  --manifest ".claude/review-manifest-${TS}.json" --det "$DET"
+VERIFIER_EXIT=$?                  # capture immediately (C8)
+
+# C8: HARD-BRANCH on the exit code. Never narrate it and proceed to APPROVE.
+if [ "$VERIFIER_EXIT" -ne 0 ]; then
+  echo "VERIFIER: FAIL (exit=$VERIFIER_EXIT) -> verdict INVALID/INCONCLUSIVE; APPROVE is impossible."
+  VERDICT="INCONCLUSIVE"         # consumed by Phase 9 synthesis; abort any APPROVE path
+else
+  echo "VERIFIER: PASS (exit=0) -> coverage proven (NOT quality; see Core Doctrine §8)."
+fi
+```
+
+The branch is binding: `VERIFIER_EXIT != 0` forces `VERDICT=INCONCLUSIVE` (or INVALID) and
+Phase 9 may not emit a 0–5 merge score in that state. A bare `echo` of the exit code is
+NOT compliant — the verdict must mechanically follow the exit code.
+
+The verifier has **FOUR exit codes** — do not collapse them to "0 vs nonzero":
+
+| Exit | Meaning | Verdict consequence |
+|------|---------|---------------------|
+| `0` | **PASS** — manifest internally + git-consistent | APPROVE permitted (other gates still apply) |
+| `1` | **INVALID** — a coverage/integrity check failed (diff_hash, symbol set, tier `.out`, class coverage) | verdict cannot be APPROVE -> INVALID; emit INCONCLUSIVE and surface the failed check |
+| `2` | **not-approve-eligible** — manifest is well-formed but the run is not APPROVE-eligible (`uninspected != []`, canary not `detected`) | verdict cannot be APPROVE -> emit INCONCLUSIVE |
+| `3` | **usage** — bad/missing CLI arguments | not a verdict; fix the invocation and re-run |
+
+The `-ne 0` guard above is the safe superset (1/2/3 all block APPROVE); when reporting,
+name the specific code so INVALID (1), not-approve-eligible (2), and usage (3) are never
+conflated.
+
+`$HEAD` is a real sha for PR/branch reviews; for a local review of an uncommitted
+tree pass `--head WORKTREE` (BASE...working-tree). The verifier pins one canonical
+diff command (`git -c core.autocrlf=false -c diff.renames=true -c diff.noprefix=false diff`)
+so its numbers match `--print-facts` exactly (C5: identical flags everywhere).
+
+The verifier (authored as a project script) does, with git+jq+python3 (all present):
+1. Recompute `diff_hash` and `hunks_total` from the canonical diff; assert equal to the
+   manifest values (which you copied from `--print-facts`).
+2. Extract changed symbols from diff hunk headers + signature lines; assert
+   `symbols_inspected` ⊇ that set (under-enumeration FAILS).
+3. Assert each `tiers[]` entry maps to a real captured `.out` file in `$DET` and that
+   exit/findings match the parsed values (fabricated tier numbers FAIL).
+4. Assert no `code`/`config`/`iac` file has `macro_pass=false` or missing `micro_pass`;
+   additionally a `code` file with `micro_pass` of `"N/A …"` or `"deferred …"` FAILS
+   (only generated|vendored|binary|lockfile|rename|docs may use N/A; only low-risk non-code
+   may use deferred).
+5. Assert `uninspected == []` for any APPROVE-eligible run, and OPEN the
+   `canary_artifact` file and require `detected == true` (a bare `canary: passed` string in
+   the manifest is NOT sufficient — C6).
+6. **doc-sync (structural, exit 1):** recompute the required CLAUDE.md set (every touched
+   directory + ALL ancestors to the repo root; repo root => `CLAUDE.md`) from the diff and
+   assert each path appears in `doc_sync.claude_md[]` with status in
+   `{updated,created,current}`. A missing or wrong-status required CLAUDE.md FAILS the run
+   as INVALID — so the loop cannot converge while a touched-folder CLAUDE.md is unsynced.
+
+```yaml
+validity_rules:
+  - "Verifier exit 0 -> PASS (APPROVE permitted, other gates still apply); exit 1 -> INVALID;
+     exit 2 -> not-approve-eligible (emit INCONCLUSIVE); exit 3 -> usage error (fix invocation).
+     Any nonzero exit blocks APPROVE."
+  - "Any code/config/iac file with macro_pass=false OR micro_pass false/missing -> INVALID."
+  - "A code file whose micro_pass is 'N/A' or 'deferred' -> INVALID (code must be truly micro-passed)."
+  - "canary_artifact.detected != true (read from the file, not the manifest string) -> INVALID."
+  - "doc_sync: any required CLAUDE.md (touched dir + ancestors to repo root) absent from
+     doc_sync.claude_md[] or with status not in {updated,created,current} -> INVALID."
+  - "Empty findings array is valid ONLY with verifier-pass + canary detected==true + per-dimension positive statement per file."
+  - "An applicable deterministic tier with status=absent lowers confidence and is named, but does not alone force INVALID; status=failed with findings is hard-blocking."
+```
+
+---
+
+## Severity, confidence, and anti-theater rules
+
+Severity and confidence are **decoupled**: a high-severity low-confidence
+finding is never dropped, only routed to the gating "Needs Verification"
+tier. The scoring model and the hard anti-theater rules are in `contract.md` —
+read it before assigning any severity or writing the verdict.

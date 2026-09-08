@@ -28,15 +28,11 @@ agent_dispatch:
 
       finops:
         condition: "--plan OR --apply"
-        agent: "devops-specialist-finops"
         focus: "Cost estimation, waste detection, right-sizing"
 
       cloud_specialist:
         condition: "provider detected"
         routing:
-          aws: "devops-specialist-aws"
-          google: "devops-specialist-gcp"
-          azurerm: "devops-specialist-azure"
         focus: "Provider-specific best practices, service limits"
 
       os_specialist:
@@ -56,7 +52,8 @@ agent_dispatch:
 ```
 # Single message with 3 parallel Task calls:
 Task(subagent_type="devops-specialist-infrastructure", prompt="Validate Terraform modules in /workspace/terraform/")
-Task(subagent_type="devops-specialist-aws", prompt="Review AWS provider config and resource best practices")
+# No cloud specialist installed — analyse the provider block inline and
+# cite the provider docs you fetched.
 Task(subagent_type="devops-specialist-security", prompt="Run security analysis on Terraform code")
 ```
 
@@ -99,3 +96,10 @@ Task(subagent_type="devops-specialist-security", prompt="Run security analysis o
 ```
 /infra --docs
 ```
+
+## Cloud providers
+
+No cloud-provider specialist agent is installed on this host (no cloud
+account is configured). When a provider block is detected, handle it
+directly: read the IaC, consult the provider's own documentation with
+WebFetch, and state in the output that no specialist backed the analysis.

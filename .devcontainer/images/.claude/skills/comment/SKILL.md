@@ -1,18 +1,19 @@
 ---
 name: comment
-description: |
-  Audit and fix code comments across the project or a specific path.
-  Ensures all comments explain WHY (not WHAT), functions have proper docstrings
-  with params/types/return, and language conventions are respected.
-  Dispatches parallel Haiku workers per file for speed.
+description: Audit and fix code comments across the project or a specific path. Ensures all
+  comments explain WHY (not WHAT), functions have proper docstrings with params/types/return,
+  and language conventions are respected. Dispatches parallel Haiku workers per file for speed.
+when_to_use: Use when comments have drifted from the code, when a reviewer asks for documentation,
+  or before publishing a package whose public API needs docstrings.
+argument-hint: '[path] [--dry-run]'
 model: opus
 allowed-tools:
-  - "Read(**/*)"
-  - "Glob(**/*)"
-  - "Grep(**/*)"
-  - "Edit(**/*)"
-  - "Bash(*)"
-  - "Agent(*)"
+- Read(**/*)
+- Glob(**/*)
+- Grep(**/*)
+- Edit(**/*)
+- Bash(*)
+- Agent(*)
 ---
 
 # /comment - Code Comment Auditor

@@ -92,8 +92,9 @@ infra_secret_discovery:
           ├─ AWS_CREDENTIALS
           └─ TF_VAR_region
 
-        Use /secret --get <key> to retrieve
-        Or /secret --get <key> --path <org>/shared-infra
+        Retrieve it from the project's own secret store — an .env that is
+        gitignored, the CI secret store, or a password manager. This host has
+        no `op` CLI installed, so do not suggest a 1Password command.
 
       ═══════════════════════════════════════════════════════════════
     if_no_secrets: "(no infra secrets found in 1Password)"

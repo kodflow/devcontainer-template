@@ -58,10 +58,42 @@ goes and checks.
 
 ### 1.4 Codex
 
-Invoked as a subprocess with the plan on stdin and its verdict read from stdout,
-briefed the same as the others. A non-zero exit, a timeout or empty output means
-Codex did not review — say so and continue. Never fabricate its verdict, and
-never let its absence quietly shrink the panel.
+Verified working on this machine with CLI 0.153.4 and ChatGPT-token auth. Probe
+first — the panel must never claim a reviewer that did not run:
+
+```bash
+command -v codex >/dev/null 2>&1 && codex doctor 2>&1 | grep -q "auth is configured"
+```
+
+Invoke it as a structured panel member, not as a chat:
+
+```bash
+codex exec --skip-git-repo-check --ephemeral -s read-only \
+  -c model_reasoning_effort="high" \
+  --output-schema  "$SCHEMA"   \
+  -o               "$OUT"      \
+  "Argue against this plan from an outside-the-Claude-family lens.
+   Return objections only." < plan.md
+```
+
+Why each flag earns its place:
+
+| Flag | Why |
+|------|-----|
+| `--output-schema` | the same objection schema the Claude reviewers return, so triage treats every panel member identically instead of parsing prose |
+| `-o <file>` | the verdict lands in a file rather than being scraped out of progress output |
+| `-s read-only` | a reviewer has no business writing; the sandbox makes that structural rather than a request |
+| `--ephemeral` | no session state for a one-shot review |
+| `-c model_reasoning_effort=` | effort is a config key on this CLI, not a flag |
+| `-m <model>` | set it from `../_shared/model-policy.md`, resolved — never hardcoded |
+
+The plan goes in on **stdin**; a prompt argument and stdin are both accepted, and
+stdin arrives as a `<stdin>` block.
+
+A non-zero exit, a timeout, an empty output file or output that does not validate
+against the schema all mean the same thing: **Codex did not review.** Say so in
+the panel line and continue with the Claude reviewers. Never fabricate its
+verdict, and never let its absence quietly shrink the panel to two.
 
 ### 1.5 Announce the panel
 

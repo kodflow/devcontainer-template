@@ -13,6 +13,11 @@ manifest present — never on the prose of a description alone.
 ls ~/.claude/agents/*.md | xargs -n1 basename | sed 's/\.md$//'
 ```
 
+The table below is the routing this template ships with. **It is not a claim
+that every one of these agents is installed** — a consumer may have pruned the
+languages it does not build. Check the listing above, dispatch what is there,
+and report a matched row whose agent is absent rather than passing over it.
+
 | Evidence | Specialist |
 |---|---|
 | `.go`, `go.mod`, `go.work` | `developer-specialist-go` |
@@ -33,6 +38,36 @@ ls ~/.claude/agents/*.md | xargs -n1 basename | sed 's/\.md$//'
 | auth, crypto, input handling, a trust boundary **in code** | `developer-executor-security` |
 | secrets in config, image/dependency CVEs, compliance **in infrastructure** | `devops-specialist-security` |
 | systemd units, packaging, host configuration | `devops-executor-linux` |
+| `.java`, `pom.xml`, `build.gradle` | `developer-specialist-java` |
+| `.kt` `.kts` | `developer-specialist-kotlin` |
+| `.cs`, `.csproj` | `developer-specialist-csharp` |
+| `.vb`, `.vbproj` | `developer-specialist-vbnet` |
+| `.rb`, `Gemfile` | `developer-specialist-ruby` |
+| `.php`, `composer.json` | `developer-specialist-php` |
+| `.scala`, `build.sbt` | `developer-specialist-scala` |
+| `.ex` `.exs`, `mix.exs` | `developer-specialist-elixir` |
+| `.dart`, `pubspec.yaml` | `developer-specialist-dart` |
+| `.swift`, `Package.swift` | `developer-specialist-swift` |
+| `.pl` `.pm`, `cpanfile` | `developer-specialist-perl` |
+| `.lua`, `.rockspec` | `developer-specialist-lua` |
+| `.r` `.R`, `DESCRIPTION` | `developer-specialist-r` |
+| `.m` (MATLAB/Octave) | `developer-specialist-matlab` |
+| `.f90` `.f95` `.f03`, `fpm.toml` | `developer-specialist-fortran` |
+| `.adb` `.ads`, `alire.toml` | `developer-specialist-ada` |
+| `.pas` `.pp`, `.lpi` | `developer-specialist-pascal` |
+| `.cob` `.cbl` | `developer-specialist-cobol` |
+| `.s` `.asm` | `developer-specialist-assembly` |
+| Playwright tests, `playwright.config.*` | `developer-specialist-playwright` |
+| an AWS provider or service | `devops-specialist-aws` |
+| a Google Cloud provider or service | `devops-specialist-gcp` |
+| an Azure provider or service | `devops-specialist-azure` |
+| `wrangler.toml`, Workers/Pages/R2/KV/D1 | `devops-specialist-cloudflare` |
+| cost, budget, right-sizing, waste | `devops-specialist-finops` |
+| a BSD host | `devops-executor-bsd` |
+| a macOS host | `devops-executor-osx` |
+| a Windows host | `devops-executor-windows` |
+| QEMU/KVM, libvirt, cloud-init | `devops-executor-qemu` |
+| vSphere, ESXi, vCenter | `devops-executor-vmware` |
 
 Several rows can match at once, and then **every match is dispatched**. A change
 touching Go, Kubernetes and a workflow file gets three specialists, not the one

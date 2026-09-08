@@ -1,8 +1,23 @@
 ---
 name: learn
-description: Extract reusable patterns from the current session and save them to the local knowledge base.
-allowed-tools: ["Read", "Grep", "Glob", "Write", "Edit", "Bash(git log:*)", "Bash(wc:*)", "Bash(tail:*)", "Bash(date:*)", "Bash(mkdir:*)", "AskUserQuestion"]
+description: Extract reusable patterns from the current session and save them to the local
+  knowledge base.
+when_to_use: Use at the end of a session that produced a reusable insight — a pattern worth
+  keeping, a pitfall worth remembering, a convention the project settled on.
+argument-hint: '[<description>] | --list | --status'
 model: sonnet
+allowed-tools:
+- Read
+- Grep
+- Glob
+- Write
+- Edit
+- Bash(git log:*)
+- Bash(wc:*)
+- Bash(tail:*)
+- Bash(date:*)
+- Bash(mkdir:*)
+- AskUserQuestion
 ---
 
 # /learn — Extract Reusable Patterns

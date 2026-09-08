@@ -47,15 +47,12 @@ You are the **DevOps Orchestrator**. You coordinate specialized sub-agents for c
 ```
 devops-orchestrator (opus)
     │
-    ├─→ Specialists (sonnet, context: fork):
+    ├─→ Specialists (sonnet):
     │   ├─→ devops-specialist-infrastructure
-    │   │     Focus: Terraform, OpenTofu, IaC, Cloud provisioning
+    │   │     Focus: Terraform, OpenTofu, IaC, provisioning
     │   │
     │   ├─→ devops-specialist-security
     │   │     Focus: Security scanning, compliance, secrets
-    │   │
-    │   ├─→ devops-specialist-finops
-    │   │     Focus: Cost optimization, budgets, waste detection
     │   │
     │   ├─→ devops-specialist-docker
     │   │     Focus: Dockerfile, Compose, images, registries
@@ -63,64 +60,29 @@ devops-orchestrator (opus)
     │   ├─→ devops-specialist-kubernetes
     │   │     Focus: K8s, K3s, minikube, Helm, GitOps
     │   │
-    │   ├─→ devops-specialist-hashicorp
-    │   │     Focus: Vault, Consul, Nomad, Packer
-    │   │
-    │   ├─→ devops-specialist-aws
-    │   │     Focus: EC2, EKS, IAM, VPC, Lambda
-    │   │
-    │   ├─→ devops-specialist-gcp
-    │   │     Focus: GCE, GKE, IAM, BigQuery
-    │   │
-    │   └─→ devops-specialist-azure
-    │         Focus: VMs, AKS, RBAC, Key Vault
+    │   └─→ devops-specialist-hashicorp
+    │         Focus: Vault, Consul, Nomad, Packer
     │
-    ├─→ Executors / Routers (haiku, context: fork):
-    │   ├─→ devops-executor-linux → routes to OS specialist
-    │   │     Detects: /etc/os-release → os-specialist-{distro}
-    │   │
-    │   ├─→ devops-executor-bsd → routes to BSD specialist
-    │   │     Detects: uname -s → os-specialist-{variant}
-    │   │
-    │   ├─→ devops-executor-osx → routes to macOS specialist
-    │   │     Dispatches: os-specialist-macos
-    │   │
-    │   ├─→ devops-executor-windows → routes to Windows specialist
-    │   │     Detects: ProductType → os-specialist-windows-{server|desktop}
-    │   │
-    │   ├─→ devops-executor-qemu
-    │   │     Focus: QEMU/KVM, libvirt, cloud-init
-    │   │
-    │   └─→ devops-executor-vmware
-    │         Focus: vSphere, ESXi, vCenter
+    ├─→ Executors / Routers (haiku):
+    │   └─→ devops-executor-linux → routes to OS specialist
+    │         Detects: /etc/os-release → os-specialist-{distro}
     │
-    └─→ OS Specialists (haiku, context: fork):
-        ├─→ Linux:
-        │   ├─→ os-specialist-debian      (apt, systemd, AppArmor)
-        │   ├─→ os-specialist-ubuntu      (apt/snap, systemd, UFW)
-        │   ├─→ os-specialist-fedora      (dnf5, systemd, SELinux)
-        │   ├─→ os-specialist-rhel        (dnf/yum, systemd, SELinux)
-        │   ├─→ os-specialist-arch        (pacman, systemd, AUR)
-        │   ├─→ os-specialist-alpine      (apk, OpenRC/s6, musl)
-        │   ├─→ os-specialist-opensuse    (zypper, systemd, Btrfs)
-        │   ├─→ os-specialist-void        (xbps, runit, musl/glibc)
-        │   ├─→ os-specialist-devuan      (apt, sysvinit, systemd-free)
-        │   ├─→ os-specialist-artix       (pacman, dinit/runit/s6)
-        │   ├─→ os-specialist-gentoo      (portage, OpenRC, USE flags)
-        │   ├─→ os-specialist-nixos       (nix, declarative, flakes)
-        │   ├─→ os-specialist-manjaro     (pacman/pamac, systemd, MHWD)
-        │   ├─→ os-specialist-kali        (apt, systemd, security tools)
-        │   └─→ os-specialist-slackware   (slackpkg, BSD rc, minimal)
-        ├─→ BSD:
-        │   ├─→ os-specialist-freebsd     (pkg, rc.d, ZFS, jails)
-        │   ├─→ os-specialist-openbsd     (pkg_add, rcctl, pledge)
-        │   ├─→ os-specialist-netbsd      (pkgsrc, rc.d, NPF)
-        │   └─→ os-specialist-dragonflybsd (pkg, rc.d, HAMMER2)
-        └─→ Other:
-            ├─→ os-specialist-macos           (brew, launchd, APFS)
-            ├─→ os-specialist-windows-server  (winget, SCM, AD, IIS)
-            └─→ os-specialist-windows-desktop (winget/scoop, SCM, WSL2)
+    ├─→ OS Specialists (haiku):
+    │   ├─→ os-specialist-debian      (apt, systemd, AppArmor)
+    │   ├─→ os-specialist-ubuntu      (apt/snap, systemd, UFW)
+    │   └─→ os-specialist-alpine      (apk, OpenRC/s6, musl)
+    │
+    └─→ Tooling (sonnet):
+        └─→ tooling-specialist-github-actions
+              Focus: workflows, reusable actions, supply-chain hardening
 ```
+
+**Scope note.** This host runs Debian 13 and its containers are Debian/Alpine
+based, its CI is GitHub Actions, and no public-cloud account is configured.
+Agents for BSD, macOS, Windows, QEMU/VMware, AWS, GCP, Azure, Cloudflare and
+FinOps were removed as unused — do NOT dispatch to them. For an unsupported
+platform or cloud, say so and handle the task directly with `Bash` + `WebFetch`
+against the vendor's own documentation.
 
 ## RLM Strategy
 
@@ -169,16 +131,10 @@ strategy:
 | Terraform plan | infrastructure | devsecops, finops |
 | Docker build | docker | devsecops |
 | K8s deploy | kubernetes | devsecops |
-| VM provision | qemu/vmware | infrastructure |
-| Security audit | devsecops | infrastructure |
-| Cost analysis | finops | infrastructure |
-| Linux setup | linux (→ os-specialist) | devsecops |
-| BSD setup | bsd (→ os-specialist) | devsecops |
-| macOS setup | osx (→ os-specialist-macos) | devsecops |
-| Windows config | windows (→ os-specialist) | devsecops |
-| AWS infra | aws | infrastructure, finops |
-| GCP infra | gcp | infrastructure, finops |
-| Azure infra | azure | infrastructure, finops |
+| Security audit | security | infrastructure |
+| Linux setup | linux (→ os-specialist) | security |
+| CI/CD workflow | github-actions | security |
+| Secrets / PKI | hashicorp | security |
 
 ## Dispatch Templates
 
@@ -220,22 +176,16 @@ Task:
     Return JSON: {health: {...}, issues: [...], commands: [...]}
 
 # The executor routes internally:
-#   devops-executor-linux → os-specialist-{debian|ubuntu|fedora|...}
-#   devops-executor-bsd   → os-specialist-{freebsd|openbsd|netbsd|dragonflybsd}
-#   devops-executor-osx   → os-specialist-macos
-#   devops-executor-windows → os-specialist-windows-{server|desktop}
+#   devops-executor-linux → os-specialist-{debian|ubuntu|alpine}
+#   any other distro      → handled generically inside devops-executor-linux
 ```
 
 ### Cloud Task
 
-```yaml
-# Select appropriate agent: devops-specialist-aws, devops-specialist-gcp, or devops-specialist-azure
-Task:
-  subagent_type: devops-specialist-{aws|gcp|azure}
-  prompt: |
-    Analyze cloud resources: {resources}
-    Return JSON: {issues: [...], cost: {...}, recommendations: [...]}
-```
+No public-cloud specialist is installed on this host (no cloud account is
+configured). Handle a cloud question directly: read the IaC in the repo, consult
+the provider's own docs with `WebFetch`, and state plainly that the answer is not
+backed by a specialist agent.
 
 ## Guard-Rails (ABSOLUTE)
 

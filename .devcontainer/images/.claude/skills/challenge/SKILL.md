@@ -21,7 +21,6 @@ allowed-tools:
 - Bash(git:*)
 - Bash(bash:*)
 - Bash(python3:*)
-- Bash(codex:*)
 - Bash(command:*)
 - Bash(wc:*)
 - Bash(jq:*)
@@ -37,6 +36,8 @@ allowed-tools:
 - mcp__context7__*
 - WebFetch(*)
 - Bash(bash ~/.claude/skills/_shared/scripts/detect-models.sh:*)
+- Bash(codex exec:*)
+- Bash(codex doctor:*)
 ---
 
 # /challenge — debate the plan, lock the directive
