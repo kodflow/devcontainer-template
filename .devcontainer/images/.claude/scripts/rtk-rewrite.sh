@@ -57,7 +57,21 @@ case "$CMD" in NO_RTK=*) exit 0 ;; esac
 # NOT for `head -40 file` — the short-form path skips the check and rewrites to
 # `rtk read --max-lines`, which strips comments. Any command whose exact bytes
 # matter is filtered here, before rtk is consulted at all.
-FIRST=${CMD%% *}
+# Strip leading VAR=value assignments and env/command wrappers before reading
+# the command name. `OUT=x head -40 f` and `env FOO=1 cat f` both name a fidelity
+# read, and both slipped past a naive "first word" test.
+_rest=${CMD#"${CMD%%[![:space:]]*}"}
+while :; do
+  _w=${_rest%%[[:space:]]*}
+  case "$_w" in
+    [A-Za-z_]*=*|env|command|builtin|nohup|time|exec)
+      _next=${_rest#*[[:space:]]}
+      [ "$_next" = "$_rest" ] && break
+      _rest=${_next#"${_next%%[![:space:]]*}"} ;;
+    *) break ;;
+  esac
+done
+FIRST=${_rest%%[[:space:]]*}
 FIRST=${FIRST##*/}
 case "$FIRST" in
   cat|head|tail|sed|awk|diff|patch|sha256sum|sha1sum|md5sum|base64|xxd|od|strings|cmp)
