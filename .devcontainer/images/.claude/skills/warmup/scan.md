@@ -21,32 +21,36 @@ peek_workflow:
       depth 2+: subdirectories
 
   3_detect_project:
-    action: "Identify the project type"
+    action: "Identify the project type from its build manifest"
     tools: [Glob]
     patterns:
-      - "go.mod" → Go
-      - "package.json" → Node.js
-      - "Cargo.toml" → Rust
-      - "pyproject.toml" → Python
-      - "*.tf" → Terraform
-      - "pom.xml" → Java (Maven)
-      - "build.gradle" → Java/Kotlin (Gradle)
-      - "build.sbt" → Scala
-      - "mix.exs" → Elixir
-      - "composer.json" → PHP
-      - "Gemfile" → Ruby
-      - "pubspec.yaml" → Dart/Flutter
-      - "CMakeLists.txt" → C/C++ (CMake)
-      - "*.csproj" → C# (.NET)
-      - "Package.swift" → Swift
-      - "DESCRIPTION" → R
-      - "cpanfile" → Perl
-      - "*.rockspec" → Lua
-      - "fpm.toml" → Fortran
-      - "alire.toml" → Ada
-      - "*.cob" → COBOL
-      - "*.lpi" → Pascal
-      - "*.vbproj" → VB.NET
+      - "go.mod"           -> Go
+      - "package.json"     -> Node.js / TypeScript
+      - "Cargo.toml"       -> Rust
+      - "pyproject.toml"   -> Python
+      - "requirements.txt" -> Python (legacy)
+      - "build.zig"        -> Zig
+      - "CMakeLists.txt"   -> C / C++ (CMake)
+      - "Makefile"         -> C / C++ / generic (check for CC/CXX)
+      - "*.tf"             -> Terraform / OpenTofu
+      - "Chart.yaml"       -> Helm
+      - "docker-compose.y*ml" -> Docker Compose
+      - ".github/workflows/" -> GitHub Actions
+    on_no_match: |
+      Report "unknown project type" and continue. Do NOT infer a stack from
+      file extensions alone -- a repo of .sh and .md files is a scripts repo,
+      not a mis-detected build.
+    multi_language: |
+      Several manifests may match; report every one. A repo with go.mod AND
+      package.json is a Go service with a web front end, not an ambiguity.
+
+  4_locate_ledger:
+    action: "Find the constraint ledger written by /project"
+    check:
+      - "CLAUDE.md            -> grep '^### C-[0-9]'"
+      - ".claude/constraints.md"
+    output: [ledger_path, active_constraint_count, superseded_count]
+    absent: "Report 'no ledger' and suggest /project. Never synthesise one."
 ```
 
 **Output Phase 1:**
@@ -65,6 +69,8 @@ peek_workflow:
     depth 2 : /.devcontainer/features/CLAUDE.md
     ...
 
+  Constraints: <n> active, <n> superseded  (<ledger_path> | none)
+
   Strategy: Funnel (root → leaves, decreasing detail)
 
 ═══════════════════════════════════════════════════════════════
@@ -72,69 +78,7 @@ peek_workflow:
 
 ---
 
-## Phase 1.5: Feature Context (Conditional)
-
-```yaml
-phase_1.5_features:
-  condition: ".claude/features.json exists"
-  action: |
-    Read .claude/features.json
-    IF version == 1: note "Schema v1 detected — run /feature to auto-migrate to v2"
-    IF version == 2: run infer_hierarchy (see /feature Hierarchy Inference)
-  output: |
-    Inject active features as hierarchy tree:
-      F001  [L0] DDD Architecture       | completed
-      ├─ F002  [L1] HTTP Server         | in_progress
-      └─ F003  [L1] Database layer      | completed
-    Orphans (level > 0 with no parent) shown with ⚠ warning.
-```
 
 ---
 
-## Phase 3.0: Parallelize (Analysis by Domain)
-
-```yaml
-parallel_analysis:
-  mode: "PARALLEL (single message, 4 Task calls)"
-
-  agents:
-    - task: "source-analyzer"
-      type: "docs-analyzer-structure"     # PR4 — routed via route-agent.sh, replaces generic Explore
-      scope: "src/"
-      prompt: |
-        Analyze the source code structure:
-        - Main packages/modules
-        - Detected architectural patterns
-        - Attention points (TODO, FIXME, HACK)
-        Return: {packages[], patterns[], attention_points[]}
-
-    - task: "config-analyzer"
-      type: "docs-analyzer-structure"     # PR4 — routed via route-agent.sh, replaces generic Explore
-      scope: ".devcontainer/"
-      prompt: |
-        Analyze the DevContainer configuration:
-        - Installed features
-        - Configured services
-        - Available MCP servers
-        Return: {features[], services[], mcp_servers[]}
-
-    - task: "test-analyzer"
-      type: "docs-analyzer-structure"     # PR4 — routed via route-agent.sh, replaces generic Explore
-      scope: "tests/ OR **/*_test.go OR **/*.test.ts"
-      prompt: |
-        Analyze the test coverage:
-        - Test files found
-        - Test patterns used
-        Return: {test_files[], patterns[], coverage_estimate}
-
-    - task: "docs-analyzer"
-      type: "docs-analyzer-structure"     # PR4 — routed via route-agent.sh, replaces generic Explore
-      scope: "~/.claude/docs/"
-      prompt: |
-        Analyze the knowledge base:
-        - Available pattern categories
-        - Number of patterns per category
-        Return: {categories[], pattern_count}
-```
-
-**IMPORTANT**: Launch all 4 agents in ONE SINGLE message.
+Phase 3.0 lives in `read.md` — it runs after the funnel read, not here.

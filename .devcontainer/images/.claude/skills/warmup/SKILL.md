@@ -1,46 +1,50 @@
 ---
 name: warmup
-description: |
-  Project context pre-loading with RLM decomposition.
-  Reads CLAUDE.md hierarchy using funnel strategy (root → leaves).
-  Use when: starting a session, preparing for complex tasks, or updating documentation.
+description: >-
+  Pre-load a project's context before working on it. Discovers the CLAUDE.md
+  hierarchy and reads it root-to-leaves (funnel), loads the constraint ledger
+  written by /project, explores source, config, tests and docs in parallel, and
+  emits one consolidated briefing. `--update` refreshes and creates the CLAUDE.md
+  files themselves, enforcing the line thresholds.
+when_to_use: >-
+  Use at the start of a session in an unfamiliar or long-idle repository, before
+  a complex task, after switching projects, and with --update after a structural
+  change that made the documentation stale.
+argument-hint: "[--update] [--dry-run] [--constraints]"
+model: opus
 allowed-tools:
   - "Read(**/*)"
   - "Glob(**/*)"
-  - "mcp__context7__*"
   - "Grep(**/*)"
-  - "Write(**/*)"
-  - "Edit(**/*)"
-  - "Task(*)"
-  - "TaskCreate(*)"
-  - "TaskUpdate(*)"
-  - "TaskList(*)"
-  - "TaskGet(*)"
+  - "Write(**/CLAUDE.md)"
+  - "Write(.claude/constraints.md)"
+  - "Edit(**/CLAUDE.md)"
+  - "Edit(.claude/constraints.md)"
   - "Bash(git:*)"
+  - "Bash(ls:*)"
+  - "Bash(wc:*)"
+  - "Bash(find:*)"
+  - "Bash(cat:*)"
+  - "Agent(*)"
+  - "mcp__context7__*"
 ---
 
-# /warmup - Project Context Pre-loading (RLM Architecture)
+# /warmup — project context pre-loading
 
 $ARGUMENTS
 
-## CONTEXT7 (RECOMMENDED)
+Load context first, act second. Every phase below exists to make the *next*
+task cheaper, so the output is a briefing — not code, not a plan, not a fix.
 
-Use `mcp__context7__resolve-library-id` + `mcp__context7__query-docs` to:
-- Validate CLAUDE.md conventions against current library documentation
-- Check for outdated API references in existing documentation
+## Method
 
----
-
-## Overview
-
-Project context pre-loading with **RLM** patterns:
-
-- **Peek** - Discover the CLAUDE.md hierarchy
-- **Funnel** - Funnel reading (root → leaves)
-- **Parallelize** - Parallel analysis by domain
-- **Synthesize** - Consolidated context ready to use
-
-**Principle**: Load context → Be more effective on tasks
+| Step | Pattern | Why |
+|------|---------|-----|
+| Peek | discover the CLAUDE.md hierarchy + project type | know the shape before reading |
+| Ledger | load the constraint ledger | rules beat inference |
+| Funnel | read root → leaves, detail decreasing with depth | general rules frame specific ones |
+| Parallelize | explore source / config / tests / knowledge base at once | four cheap reads, one round trip |
+| Synthesize | one consolidated briefing | context, not a transcript |
 
 ---
 
@@ -48,155 +52,172 @@ Project context pre-loading with **RLM** patterns:
 
 | Pattern | Action |
 |---------|--------|
-| (none) | Pre-load all project context |
-| `--update` | Update all CLAUDE.md + create missing ones |
-| `--dry-run` | Show what would be updated (with --update) |
-| `--help` | Display help |
-
----
+| *(none)* | Pre-load the full project context |
+| `--constraints` | Load and print the constraint ledger only — fast path, no exploration |
+| `--update` | Refresh every CLAUDE.md and create the missing ones |
+| `--update --dry-run` | Show what `--update` would change, write nothing |
+| `--help` | Print the help block and stop |
 
 ## --help
 
 ```
-═══════════════════════════════════════════════════════════════
-  /warmup - Project Context Pre-loading (RLM)
-═══════════════════════════════════════════════════════════════
+════════════════════════════════════════════════════════════════
+  /warmup — project context pre-loading
+════════════════════════════════════════════════════════════════
 
 Usage: /warmup [options]
 
-Options:
-  (none)            Pre-load complete context
-  --update          Update + create missing CLAUDE.md
-  --dry-run         Show changes (with --update)
-  --help            Display this help
+  (none)             Pre-load the complete context
+  --constraints      Constraint ledger only (fast path)
+  --update           Refresh + create missing CLAUDE.md
+  --update --dry-run Preview the changes, write nothing
+  --help             This help
 
-Line Thresholds (CLAUDE.md):
-  IDEAL       :   0-150 lines (simple directories)
-  ACCEPTABLE  : 151-200 lines (medium complexity)
-  WARNING     : 201-250 lines (review recommended)
-  CRITICAL    : 251-300 lines (must be condensed)
-  FORBIDDEN   :  301+ lines (split required)
+CLAUDE.md line thresholds:
+  IDEAL       0-150    no action
+  ACCEPTABLE  151-200  fine for a busy directory
+  WARNING     201-250  review at the next pass
+  CRITICAL    251-300  condensation mandatory
+  FORBIDDEN   301+     must be split
 
-Exclusions (STRICT .gitignore respect):
-  - vendor/, node_modules/, .git/
-  - All patterns from .gitignore are honored
-  - bin/, dist/, build/ (generated outputs)
-
-RLM Patterns:
-  1. Peek       - Discover the CLAUDE.md hierarchy
-  2. Funnel     - Funnel reading (root → leaves)
-  3. Parallelize - Analysis by domain
-  4. Synthesize - Consolidated context
-
-Examples:
-  /warmup                       Pre-load context
-  /warmup --update              Update + create missing
-  /warmup --update --dry-run    Preview changes
+Exclusions: .gitignore is authoritative, plus vendor/, node_modules/,
+.git/, bin/, dist/, build/, target/, zig-out/, zig-cache/.
 
 Workflow:
-  /warmup → /plan → /refine → /goal → /git
-
-═══════════════════════════════════════════════════════════════
+  /project → /warmup → /search → /plan → /refine → /goal → /git
+════════════════════════════════════════════════════════════════
 ```
 
-**IF `$ARGUMENTS` contains `--help`**: Display the help above and STOP.
+**If `$ARGUMENTS` contains `--help`:** print the block and STOP.
 
 ---
 
-## Quick Reference (Phase Dispatch)
+## Phase map
 
-### Normal Mode (Pre-loading)
-
-| Phase | Action | Module |
-|-------|--------|--------|
-| 1.0 | Peek (hierarchy discovery + project detection) | Read `scan.md` |
-| 1.5 | Feature context (conditional) | Read `scan.md` |
-| 2.0 | Funnel reading (root → leaves) | Read `read.md` |
-| 3.0 | Parallelize (4 agents: source, config, test, docs) | Read `read.md` |
-| 4.0 | Synthesize (consolidated context) | Read `read.md` |
-
-### Update Mode (--update)
+### Normal mode
 
 | Phase | Action | Module |
 |-------|--------|--------|
-| 1.0 | Full code scan (respecting .gitignore) | Read `update.md` |
-| 2.0 | Create missing CLAUDE.md files | Read `update.md` |
-| 3.0 | Obsolescence detection | Read `update.md` |
-| 4.0 | Generate updates | Read `update.md` |
-| 5.0 | Apply changes (interactive or dry-run) | Read `update.md` |
-| 7.0 | Learn (extract conventions) | Read `update.md` |
+| 1.0 | Peek — hierarchy discovery + project detection | `scan.md` |
+| 1.5 | Constraint ledger | `scan.md` |
+| 2.0 | Funnel read (root → leaves) | `read.md` |
+| 3.0 | Parallel exploration (source, config, tests, knowledge base) | `read.md` |
+| 4.0 | Synthesize the briefing | `read.md` |
 
-**To execute a phase**, read the corresponding module file for full instructions.
+### Update mode (`--update`)
+
+| Phase | Action | Module |
+|-------|--------|--------|
+| 1.0 | Full scan, honouring `.gitignore` | `update.md` |
+| 2.0 | Create the missing CLAUDE.md files | `update.md` |
+| 3.0 | Detect stale content | `update.md` |
+| 4.0 | Generate the updates | `update.md` |
+| 5.0 | Apply (interactive) or print (`--dry-run`) | `update.md` |
+| 7.0 | Learn — extract recurring conventions | `update.md` |
+
+Read a module when you reach its phase, not before.
 
 ---
 
-## Guardrails (ABSOLUTE)
+## Phase 1.5 — the constraint ledger
+
+The single highest-value thing to load, and the one an ordinary file read
+misses, because it is a *contract* rather than documentation.
+
+```bash
+ls .claude/constraints.md 2>/dev/null
+grep -n "^### C-[0-9]" CLAUDE.md .claude/constraints.md 2>/dev/null
+```
+
+`/project` writes this ledger: numbered `C-NNN` entries, each a MUST / MUST NOT /
+SHOULD rule with a verifier and an origin. When it exists:
+
+1. Read every **active** entry — an entry marked `*(superseded by C-NNN)*` is
+   history; read it only for the *why*, never as a current rule.
+2. Surface every `MUST` and `MUST NOT` in the briefing, by ID. These bound
+   everything the session may propose.
+3. Note which verifiers are commands. `/plan` and `/review` will run them.
+
+When there is no ledger, say so in one line and suggest `/project` — do not
+reconstruct a ledger by guessing from the code. Inferred rules that look
+authoritative are worse than none.
+
+Architecture constraints carry a `**Pattern:**` line pointing into
+`~/.claude/docs/`. Load the referenced doc lazily — only when the session's task
+actually touches that pattern.
+
+`--constraints` stops here and prints the ledger.
+
+---
+
+## Guardrails (absolute)
 
 | Action | Status | Reason |
 |--------|--------|--------|
-| Skip Phase 1 (Peek) | **FORBIDDEN** | Hierarchy discovery is MANDATORY |
-| Modify .claude/skills/ | **FORBIDDEN** | Protected files |
-| Delete CLAUDE.md | **FORBIDDEN** | Only updates allowed |
-| Ignore .gitignore | **FORBIDDEN** | Source of truth for exclusions |
-| Create CLAUDE.md in gitignored dir | **FORBIDDEN** | vendor/, node_modules/, etc. |
-| CLAUDE.md > 300 lines | **FORBIDDEN** | Must be split |
-| CLAUDE.md 251-300 lines | **CRITICAL** | Condensation MANDATORY |
-| CLAUDE.md 201-250 lines | **WARNING** | Review recommended |
-| Random reading | **FORBIDDEN** | Funnel (root→leaves) MANDATORY |
-| Implementation details | **FORBIDDEN** | Context, not code |
+| Skip Phase 1 (Peek) | **FORBIDDEN** | hierarchy discovery is the whole basis |
+| Skip Phase 1.5 when a ledger exists | **FORBIDDEN** | constraints outrank anything inferred |
+| Read out of funnel order | **FORBIDDEN** | leaf rules read wrong without the root |
+| Modify `~/.claude/skills/` | **FORBIDDEN** | warmup reads the project, not the harness |
+| Delete a CLAUDE.md | **FORBIDDEN** | update and split only |
+| Create a CLAUDE.md in a gitignored directory | **FORBIDDEN** | vendor/, node_modules/, build outputs |
+| Ignore `.gitignore` | **FORBIDDEN** | it is the source of truth for exclusions |
+| CLAUDE.md over 300 lines | **FORBIDDEN** | split it |
+| Paste implementation code into a CLAUDE.md | **FORBIDDEN** | context, not code |
+| Restate a superseded constraint as current | **FORBIDDEN** | check the supersede marker |
+| Start the task instead of reporting the briefing | **FORBIDDEN** | warmup loads; it does not act |
 
-**CLAUDE.md line thresholds:**
+### Line thresholds
 
 ```
-┌────────────┬─────────┬───────────────────────────────────────┐
-│   Level    │ Lines   │             Action                    │
-├────────────┼─────────┼───────────────────────────────────────┤
-│ IDEAL      │ 0-150   │ No action needed                      │
-├────────────┼─────────┼───────────────────────────────────────┤
-│ ACCEPTABLE │ 151-200 │ Medium directory, acceptable           │
-├────────────┼─────────┼───────────────────────────────────────┤
-│ WARNING    │ 201-250 │ Review recommended at next pass        │
-├────────────┼─────────┼───────────────────────────────────────┤
-│ CRITICAL   │ 251-300 │ Condensation MANDATORY                 │
-├────────────┼─────────┼───────────────────────────────────────┤
-│ FORBIDDEN  │ 301+    │ Must be split or restructured          │
-└────────────┴─────────┴───────────────────────────────────────┘
+┌────────────┬─────────┬────────────────────────────────────────┐
+│   Level    │ Lines   │ Action                                 │
+├────────────┼─────────┼────────────────────────────────────────┤
+│ IDEAL      │ 0-150   │ none                                   │
+│ ACCEPTABLE │ 151-200 │ fine for a busy directory              │
+│ WARNING    │ 201-250 │ review at the next pass                │
+│ CRITICAL   │ 251-300 │ condensation MANDATORY                 │
+│ FORBIDDEN  │ 301+    │ split or restructure                   │
+└────────────┴─────────┴────────────────────────────────────────┘
 ```
+
+A ledger that pushes `CLAUDE.md` past 250 lines moves to
+`.claude/constraints.md`, leaving only the always-applicable `MUST`s inline.
 
 ---
 
-## Workflow Integration
+## Chain
 
 ```
-/warmup                     # Pre-load context
+/project        establish the workspace and the ledger
     ↓
-/plan "feature X"           # Plan with context
+/warmup         load it                          ← you are here
     ↓
-/refine → /goal             # Refine into contract, then execute
+/search <topic> research what the ledger does not answer
     ↓
-/warmup --update            # Update documentation
+/plan           design within the constraints
     ↓
-/git --commit               # Commit changes
+/refine → /goal contract, then execution
+    ↓
+/git            commit
+    ↓
+/warmup --update  fold what changed back into the docs
 ```
 
-**Integration with other skills:**
-
-| Before /warmup | After /warmup |
-|----------------|---------------|
-| Container start | /plan, /review, /goal |
-| /init | Any complex task |
+| Before `/warmup` | After `/warmup` |
+|------------------|-----------------|
+| session or container start | `/plan`, `/review`, `/goal` |
+| `/project` | any non-trivial task |
 
 ---
 
-## Design Patterns Applied
+## Patterns applied
 
-| Pattern | Category | Usage |
-|---------|----------|-------|
-| Cache-Aside | Cloud | Check cache before loading |
-| Lazy Loading | Performance | Load by phases (funnel) |
-| Progressive Disclosure | DevOps | Increasing detail by depth |
+| Pattern | Category | Use |
+|---------|----------|-----|
+| Cache-Aside | cloud | check loaded context before re-reading |
+| Lazy Loading | performance | phase-by-phase funnel; pattern docs on demand |
+| Progressive Disclosure | devops | detail decreases with depth |
 
-**References:**
-- `~/.claude/docs/cloud/cache-aside.md`
-- `~/.claude/docs/performance/lazy-load.md`
-- `~/.claude/docs/devops/feature-toggles.md`
+References: `~/.claude/docs/cloud/cache-aside.md`,
+`~/.claude/docs/performance/lazy-load.md`,
+`~/.claude/docs/devops/feature-toggles.md`.
