@@ -33,7 +33,7 @@ while IFS= read -r f; do
     FILES=$(echo "$FILES" | jq --arg p "$f" --arg l "$lines" --arg lv "$level" \
         '. + [{"path": $p, "lines": ($l | tonumber), "level": ($lv | tonumber)}]')
 
-    if [ "$lines" -gt 200 ] 2>/dev/null; then
+    if [ "$lines" -gt 300 ] 2>/dev/null; then
         OVERSIZED=$(echo "$OVERSIZED" | jq --arg p "$f" '. + [$p]')
     fi
 done < <(find "$PROJECT_DIR" -name "CLAUDE.md" -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/.claude/worktrees/*" 2>/dev/null | sort)

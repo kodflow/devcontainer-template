@@ -68,7 +68,7 @@ Checks:
 
 Checks:
 - Count `CLAUDE.md` files under `/workspace/` recursively. Expect >= 5. Score: `min(count/6*100, 100)`.
-- For each CLAUDE.md over 200 lines: -10 points.
+- For each CLAUDE.md over 300 lines (beyond ACCEPTABLE, per `/warmup` thresholds): -10 points.
 - Count files in `~/.claude/docs/`. Expect >= 150. If < 150: subtract `(150 - count) / 3` points.
 - Cap minimum at 0.
 

@@ -190,8 +190,8 @@ update_generation:
     - <attention point detected in code>
 
   constraints:
-    max_lines: 200  # ACCEPTABLE threshold
-    critical_threshold: 300  # Must be condensed or split
+    max_lines: 300  # ACCEPTABLE threshold
+    critical_threshold: 1000  # Must be condensed or split, where either is possible
     no_implementation_details: true
     no_obsolete_info: true
     maintain_existing_structure: true
@@ -239,8 +239,8 @@ apply_workflow:
 
   validation:
     post_apply:
-      - "Verify file lines: IDEAL(0-150), ACCEPTABLE(151-200), WARNING(201-250), CRITICAL(251-300)"
-      - "Flag files > 300 lines as FORBIDDEN (must split)"
+      - "Verify file lines: IDEAL(0-150), ACCEPTABLE(151-300), WARNING(301-600), CRITICAL(601-1000)"
+      - "Flag files > 1000 lines as FORBIDDEN (must split) UNLESS the file CANNOT be split (a flat package with no child directory, or a project restricting .md filenames) AND its length is irreducible content rather than duplication — such a file is COMPLIANT at any size, and MUST record the reason in the document"
       - "Verify no obsolete references"
       - "Verify structure section matches reality"
       - "Verify timestamp injected in first line"
@@ -285,8 +285,8 @@ learn_workflow:
     constraints:
       - "Max 5 learnings per CLAUDE.md per update"
       - "Each learning = 1-2 lines max"
-      - "Respect line thresholds (150/200/250/300)"
-      - "If threshold exceeded → skip injection, warn user"
+      - "Respect line thresholds (150/300/600/1000)"
+      - "If FORBIDDEN exceeded → skip injection, warn user; a file COMPLIANT under the unsplittable exception still accepts learnings"
     format: "- **{pattern_name}**: {description} ({n} occurrences)"
 ```
 
