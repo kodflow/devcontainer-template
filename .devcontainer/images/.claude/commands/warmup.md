@@ -71,11 +71,17 @@ Options:
   --help            Display this help
 
 Line Thresholds (CLAUDE.md):
-  IDEAL       :   0-150 lines (simple directories)
-  ACCEPTABLE  : 151-200 lines (medium complexity)
-  WARNING     : 201-250 lines (review recommended)
-  CRITICAL    : 251-300 lines (must be condensed)
-  FORBIDDEN   :  301+ lines (split required)
+  IDEAL       :    0-150 lines (simple directories)
+  ACCEPTABLE  :  151-300 lines (medium complexity)
+  WARNING     :  301-600 lines (review recommended)
+  CRITICAL    : 601-1000 lines (condense or split IF EITHER IS POSSIBLE)
+  FORBIDDEN   :   1001+ lines (split required, UNLESS it cannot be split)
+
+  A file above CRITICAL that CANNOT be split — a flat package with no child
+  directory, or a project that restricts .md filenames — and whose length is
+  irreducible content rather than duplication is COMPLIANT. Record why in the
+  document. Condensing hand-written analysis to satisfy a line count is a net
+  loss.
 
 Exclusions (STRICT .gitignore respect):
   - vendor/, node_modules/, .git/
@@ -139,29 +145,38 @@ Workflow:
 | Delete CLAUDE.md | **FORBIDDEN** | Only updates allowed |
 | Ignore .gitignore | **FORBIDDEN** | Source of truth for exclusions |
 | Create CLAUDE.md in gitignored dir | **FORBIDDEN** | vendor/, node_modules/, etc. |
-| CLAUDE.md > 300 lines | **FORBIDDEN** | Must be split |
-| CLAUDE.md 251-300 lines | **CRITICAL** | Condensation MANDATORY |
-| CLAUDE.md 201-250 lines | **WARNING** | Review recommended |
+| CLAUDE.md > 1000 lines, splittable | **FORBIDDEN** | Must be split |
+| CLAUDE.md > 1000 lines, unsplittable + irreducible | **COMPLIANT** | Record the reason in the document |
+| CLAUDE.md 601-1000 lines | **CRITICAL** | Condense or split, if either is possible |
+| CLAUDE.md 301-600 lines | **WARNING** | Review recommended |
 | Random reading | **FORBIDDEN** | Funnel (root→leaves) MANDATORY |
 | Implementation details | **FORBIDDEN** | Context, not code |
 
 **CLAUDE.md line thresholds:**
 
 ```
-┌────────────┬─────────┬───────────────────────────────────────┐
-│   Level    │ Lines   │             Action                    │
-├────────────┼─────────┼───────────────────────────────────────┤
-│ IDEAL      │ 0-150   │ No action needed                      │
-├────────────┼─────────┼───────────────────────────────────────┤
-│ ACCEPTABLE │ 151-200 │ Medium directory, acceptable           │
-├────────────┼─────────┼───────────────────────────────────────┤
-│ WARNING    │ 201-250 │ Review recommended at next pass        │
-├────────────┼─────────┼───────────────────────────────────────┤
-│ CRITICAL   │ 251-300 │ Condensation MANDATORY                 │
-├────────────┼─────────┼───────────────────────────────────────┤
-│ FORBIDDEN  │ 301+    │ Must be split or restructured          │
-└────────────┴─────────┴───────────────────────────────────────┘
+┌────────────┬──────────┬──────────────────────────────────────┐
+│   Level    │  Lines   │                Action                │
+├────────────┼──────────┼──────────────────────────────────────┤
+│ IDEAL      │ 0-150    │ No action needed                     │
+├────────────┼──────────┼──────────────────────────────────────┤
+│ ACCEPTABLE │ 151-300  │ Medium directory, acceptable         │
+├────────────┼──────────┼──────────────────────────────────────┤
+│ WARNING    │ 301-600  │ Review recommended at next pass      │
+├────────────┼──────────┼──────────────────────────────────────┤
+│ CRITICAL   │ 601-1000 │ Condense or split IF POSSIBLE        │
+├────────────┼──────────┼──────────────────────────────────────┤
+│ FORBIDDEN  │ 1001+    │ Split, UNLESS it cannot be split     │
+└────────────┴──────────┴──────────────────────────────────────┘
 ```
+
+**A file that cannot be split is not in violation.** Splitting requires a child
+directory to hold the second document, and some projects restrict which .md
+filenames may exist at all. Where neither is available and the length is
+irreducible content — a design record, corpus results, derivations — the file
+is COMPLIANT above CRITICAL. Say so in the document so the next pass does not
+re-litigate it. Prefer splitting wherever a child directory does exist: the
+raised ceiling is not licence for every document to sprawl.
 
 ---
 

@@ -58,7 +58,7 @@ OVERSIZED="[]"
 while IFS= read -r f; do
     [ -z "$f" ] && continue
     lines=$(wc -l < "$f" 2>/dev/null | tr -d ' ')
-    if [ "$lines" -gt 200 ] 2>/dev/null; then
+    if [ "$lines" -gt 300 ] 2>/dev/null; then
         OVERSIZED=$(echo "$OVERSIZED" | jq --arg f "$f" --arg l "$lines" '. + [{"file": $f, "lines": ($l | tonumber)}]')
     fi
 done < <(find "$PROJECT_DIR" -name "CLAUDE.md" -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null)
