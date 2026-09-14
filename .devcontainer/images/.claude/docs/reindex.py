@@ -126,6 +126,19 @@ for path in sorted(ROOT.rglob("*.md")):
                  f"verified: {verified}   # /search --refresh restamps this",
                  f"ttl_days: {ttl}",
                  "tags: [" + ", ".join(fm["tags"]) + "]"]
+        # Everything else in the existing frontmatter is kept verbatim: a
+        # `sources:` block, a `superseded_by:` note, evidence a refresh pass
+        # recorded. Regenerating five fields is not a licence to drop the rest.
+        if fm_txt:
+            generated = {"title", "category", "verified", "ttl_days", "tags"}
+            keep, key = [], None
+            for ln in fm_txt.splitlines():
+                m = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*):", ln)
+                if m:
+                    key = m.group(1)
+                if key not in generated:
+                    keep.append(ln)
+            lines += keep
         path.write_text("---\n" + "\n".join(lines) + "\n---\n\n" + body.lstrip("\n"))
 
     entries.append({"path": str(path.relative_to(ROOT)), "name": name,

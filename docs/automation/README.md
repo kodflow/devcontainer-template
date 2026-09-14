@@ -4,37 +4,21 @@ The template automates code quality via two hook systems: DevContainer hooks (co
 
 ## Claude Code Hooks
 
-These hooks run automatically when Claude edits a file or executes a command. You don't need to do anything.
+These ship in the `kodflow-hooks` marketplace plugin, not in the image — `settings.json` has no `hooks` block. 15 events map to 5 scripts; hooks registered on the same event run in parallel, so each event gets exactly one script and the sequence lives inside it: gate → block → transform → observe, exiting at the first stage with nothing left to do.
 
-### Post-Edit Pipeline
+| Script | Events | What It Does |
+|--------|--------|---------------|
+| `on-tool.sh` | PreToolUse, PostToolUse, PostToolUseFailure | Git guard (no `--no-verify`, no AI attribution or `.claude/` path in commit messages, staged-secret scan, `--force` → `--force-with-lease`), protected-path blocking (`.claude/protected-paths`), the RTK rewrite (fidelity guard for `cat`/`head`/`tail`/`sed`/`diff`/`patch`, `NO_RTK=` opt-out), post-edit formatting, project-linter pre-check, logging |
+| `on-session.sh` | SessionStart, SessionEnd, PreCompact, ConfigChange | Post-compaction context restore, session log summary |
+| `on-user.sh` | UserPromptSubmit, Notification | Context injection (branch, latest plan/goal), terminal bell on idle/permission prompts |
+| `on-agent.sh` | SubagentStart, SubagentStop, TaskCreated, TaskCompleted, TeammateIdle | Standing rules injected into subagents, logging |
+| `on-stop.sh` | Stop | Project-linter verdict over HTTP, per-directory CLAUDE.md reminder (once per directory changed this session), terminal bell |
 
-Every time Claude writes or modifies a file:
+Every log line goes through `lib/event.jq` (one sanitization policy) to `.claude/logs/<branch>/session.jsonl` (gitignored). See the plugin's README for the full event table, what was removed (auto-approving permission hooks, worktree-create/remove hooks, the `task-created.sh` contract registry) and why, and measured per-hook latencies.
 
-```
-File modified
-    → format.sh (goimports, ruff, rustfmt, prettier...)
-    → lint.sh (golangci-lint, clippy, eslint, phpstan...)
-    → typecheck.sh (mypy, tsc, go vet...)
-    → test.sh (pytest, go test, cargo test, jest...)
-```
+### Post-Edit Formatting
 
-Each step first looks for a Makefile target (`make fmt`, `make lint`, `make test`), then falls back to the detected language's tool.
-
-### Security
-
-| Hook | When | What It Does |
-|------|------|--------------|
-| `pre-validate.sh` | Before write | Blocks editing of protected files (`node_modules/`, `.git/`, `vendor/`, `dist/`, `build/`, `.env`, `*.lock`) |
-| `security.sh` | Before commit | Scans staged files to detect secrets (detect-secrets, trivy, gitleaks) |
-| `commit-validate.sh` | Before commit | Blocks commit messages mentioning AI |
-
-### Session
-
-| Hook | When | What It Does |
-|------|------|--------------|
-| `session-init.sh` | Session start | Caches git metadata (`GH_ORG`, `GH_REPO`, `GH_BRANCH`) as env vars |
-| `post-compact.sh` | After compaction | Restores critical rules (MCP-first, available skills) in Claude context |
-| `on-stop.sh` | Session end | Session summary + terminal bell |
+Every time Claude writes or modifies a file, `on-tool.sh` (`PostToolUse`) formats it (goimports, ruff, rustfmt, prettier...), looking first for a Makefile target (`make fmt`/`make format`) then falling back to the detected language's tool. Lint, typecheck and test run at commit time, via the 7 quality scripts under `.devcontainer/images/.claude/scripts/` (`format.sh`, `lint.sh`, `typecheck.sh`, `test.sh`, `pre-commit-checks.sh`, `pre-commit-quality.sh`, `common.sh`) wired into `.githooks/pre-commit`.
 
 ## DevContainer Hooks (lifecycle)
 
@@ -60,7 +44,7 @@ sequenceDiagram
     C->>I: postCreate.sh
     I->>I: Git config, GPG, shell
     C->>I: postStart.sh
-    I->>I: MCP, RTK, VPN
+    I->>I: Marketplace plugins, MCP, RTK, VPN
     C->>I: postAttach.sh<br/>Welcome message
 ```
 
@@ -69,7 +53,7 @@ sequenceDiagram
 | `initialize.sh` | 1x (host) | Creates `.env`, validates features, pulls latest image |
 | `onCreate.sh` | 1x | Creates cache directories |
 | `postCreate.sh` | 1x (guarded) | Configures git, GPG, creates `~/.devcontainer-env.sh` |
-| `postStart.sh` | Every start | Restores Claude from `/etc/claude-defaults/`, generates `mcp.json`, initializes RTK rewrite hook, connects VPN, caches ZSH completions, generates dynamic p10k segments |
+| `postStart.sh` | Every start | Restores `scripts/`/`docs/`/`templates/`/`settings.json` from `/etc/claude-defaults/` and cleans legacy `commands/`/`agents/`/`workflows/`, registers the kodflow marketplace and installs/updates its 5 plugins (fail-open when offline — warning, cached plugins keep working), generates `mcp.json`, runs `rtk init -g --no-patch` and strips any leftover rtk hook entry from `settings.json` (the plugin owns the `PreToolUse` rewrite), connects VPN, caches ZSH completions, generates dynamic p10k segments |
 | `postAttach.sh` | Every IDE attach | Displays the welcome message |
 
 !!! info "Non-blocking"
@@ -77,7 +61,7 @@ sequenceDiagram
 
 ## MCP Servers
 
-7 MCP servers are automatically configured by `postStart.sh` from the `mcp.json.tpl` template:
+5 MCP servers are assembled by `postStart.sh`: GitHub and GitLab from the `mcp.json.tpl` template, the rest merged from image fragments (`/etc/mcp/fragments/`) and feature fragments (`/etc/mcp/features/`):
 
 | Server | What It Provides | Auth Required |
 |--------|------------------|---------------|

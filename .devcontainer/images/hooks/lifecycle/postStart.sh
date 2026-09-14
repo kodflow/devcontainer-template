@@ -60,7 +60,10 @@ resolve_vault_id() {
 # Step functions
 # ============================================================================
 
-# Restore Claude commands/scripts from image defaults OR host installation
+# Restore the image-owned Claude files: quality scripts, the knowledge base,
+# templates and settings. Skills, agents and hooks are not restored from the
+# image any more — they come from the kodflow marketplace (next step), so the
+# container runs exactly what the workstation runs.
 # Priority:
 #   1. Host installation ($HOME/.claude/ with .template-version)
 #   2. Image defaults (/etc/claude-defaults/)
@@ -86,15 +89,12 @@ step_restore_claude_config() {
     # Ensure base directory exists
     mkdir -p "$HOME/.claude"
 
-    # CLEAN commands, scripts, agents, docs and workflows to avoid legacy pollution
-    # Only these directories are managed by the image - sessions/plans are user data
+    # CLEAN what older images used to install here. commands/, agents/ and
+    # workflows/ are legacy: a copy left behind would run beside the marketplace
+    # plugins (a bare-name agent next to its plugin twin, a second hook script
+    # firing in parallel). scripts/ and docs/ are re-copied below.
+    # sessions/plans are user data and are never touched.
     rm -rf "$HOME/.claude/commands" "$HOME/.claude/scripts" "$HOME/.claude/agents" "$HOME/.claude/docs" "$HOME/.claude/workflows"
-
-    # Restore commands (fresh copy from image)
-    if [ -d "$CLAUDE_DEFAULTS/commands" ]; then
-        mkdir -p "$HOME/.claude/commands"
-        cp -r "$CLAUDE_DEFAULTS/commands/"* "$HOME/.claude/commands/" 2>/dev/null || true
-    fi
 
     # Restore scripts (fresh copy from image)
     if [ -d "$CLAUDE_DEFAULTS/scripts" ]; then
@@ -103,25 +103,10 @@ step_restore_claude_config() {
         chmod -R 755 "$HOME/.claude/scripts/"
     fi
 
-    # Restore agents (fresh copy from image)
-    if [ -d "$CLAUDE_DEFAULTS/agents" ]; then
-        mkdir -p "$HOME/.claude/agents"
-        cp -r "$CLAUDE_DEFAULTS/agents/"* "$HOME/.claude/agents/" 2>/dev/null || true
-        chmod -R 755 "$HOME/.claude/agents/"
-    fi
-
     # Restore docs (Design Patterns Knowledge Base - fresh copy from image)
     if [ -d "$CLAUDE_DEFAULTS/docs" ]; then
         mkdir -p "$HOME/.claude/docs"
         cp -r "$CLAUDE_DEFAULTS/docs/"* "$HOME/.claude/docs/" 2>/dev/null || true
-    fi
-
-    # Restore workflows (Workflow-tool scripts, e.g. research.js - fresh copy from image)
-    # WHY: /search hard-depends on Workflow({name:'research'}); without this the
-    # named workflow is unresolvable at runtime in consumer containers.
-    if [ -d "$CLAUDE_DEFAULTS/workflows" ]; then
-        mkdir -p "$HOME/.claude/workflows"
-        cp -r "$CLAUDE_DEFAULTS/workflows/"* "$HOME/.claude/workflows/" 2>/dev/null || true
     fi
 
     # Restore templates (Documentation and C4 templates - fresh copy from image)
@@ -138,46 +123,56 @@ step_restore_claude_config() {
     log_success "Claude configuration restored from image defaults"
 }
 
-# Migrate stale ~/.claude/settings.json references to the legacy
-# rtk-rewrite.sh hook (removed in #341/#349 in favor of the native
-# `rtk hook claude` invocation, with rtk-hook-claude.sh as the fail-open
-# wrapper from #348). Existing consumers whose settings.json predates the
-# change still point at the deleted script, producing a noisy
-# `PreToolUse:Bash hook error: rtk-rewrite.sh: not found` on every Bash call.
+# Install the kodflow marketplace plugins: every skill, agent and lifecycle
+# hook the container runs. One source of truth shared with the workstation;
+# the image carries none of it. Needs the network once — afterwards the
+# plugin cache under ~/.claude/plugins survives restarts, and `update` is a
+# no-op when the marketplace is unreachable.
 #
-# The migration is in-place and minimal: only the offending command path is
-# rewritten. JSON shape, comments, and other entries are left untouched.
-# Idempotent: re-running on an already-migrated file is a no-op.
-step_rtk_settings_migration() {
-    local settings="$HOME/.claude/settings.json"
-    local wrapper="$HOME/.claude/scripts/rtk-hook-claude.sh"
-    local legacy="$HOME/.claude/scripts/rtk-rewrite.sh"
+# Fail-open: a container without plugins is degraded, not broken. The warning
+# says what to run when the network is back.
+KODFLOW_MARKETPLACE_URL="https://github.com/kodflow/claude-marketplace.git"
+KODFLOW_PLUGINS="kodflow-workflow kodflow-review kodflow-devops kodflow-specialists kodflow-hooks"
 
-    [ -f "$settings" ] || return 0
-    # Fixed-string match against the full $HOME-derived legacy path so the
-    # gate doesn't trigger for unrelated `rtk-rewrite.sh` mentions or for a
-    # different user's path that we wouldn't actually substitute.
-    grep -qF "$legacy" "$settings" 2>/dev/null || return 0
-
-    if [ ! -x "$wrapper" ]; then
-        log_warning "rtk settings migration: $wrapper missing; leaving stale rtk-rewrite.sh reference (will retry next start)"
+step_marketplace_install() {
+    if ! command -v claude >/dev/null 2>&1; then
+        log_warning "marketplace: claude CLI not on PATH — skills, agents and hooks not installed"
         return 0
     fi
-
-    # Linux GNU sed and macOS BSD sed disagree on `sed -i` arity. Use a
-    # tempfile + mv to stay portable across both. Only log success after the
-    # rewrite actually changed bytes — otherwise we report a migration that
-    # didn't happen (e.g., when paths diverge across users).
-    local tmp
-    tmp=$(mktemp) || return 0
-    if sed "s|${legacy}|${wrapper}|g" "$settings" > "$tmp" \
-        && ! cmp -s "$settings" "$tmp" \
-        && mv "$tmp" "$settings"; then
-        log_success "rtk settings migration: rtk-rewrite.sh → rtk-hook-claude.sh in $settings"
+    if claude plugin marketplace list 2>/dev/null | grep -q 'kodflow$'; then
+        claude plugin marketplace update kodflow >/dev/null 2>&1 \
+            && log_info "marketplace: kodflow refreshed" \
+            || log_warning "marketplace: refresh failed (offline?) — keeping the cached copy"
     else
-        rm -f "$tmp"
-        log_warning "rtk settings migration: sed failed or no change in $settings; leaving file untouched"
+        if ! claude plugin marketplace add "$KODFLOW_MARKETPLACE_URL" >/dev/null 2>&1; then
+            log_warning "marketplace: cannot reach $KODFLOW_MARKETPLACE_URL — nothing installed. Re-run: claude plugin marketplace add $KODFLOW_MARKETPLACE_URL"
+            return 0
+        fi
+        log_info "marketplace: kodflow registered"
     fi
+    local p installed=0 missing=""
+    for p in $KODFLOW_PLUGINS; do
+        if claude plugin install "$p@kodflow" >/dev/null 2>&1 || claude plugin update "$p@kodflow" >/dev/null 2>&1; then
+            installed=$((installed + 1))
+        else
+            missing="$missing $p"
+        fi
+    done
+    [ -z "$missing" ] && log_success "marketplace: $installed plugins installed (skills, agents, hooks)" \
+                      || log_warning "marketplace: $installed installed, missing:$missing — claude plugin install <name>@kodflow"
+
+    # Codex gets the same skills and agents, from the same commit.
+    if command -v codex >/dev/null 2>&1; then
+        local cache="$HOME/.cache/kodflow-marketplace"
+        if [ -d "$cache/.git" ]; then git -C "$cache" pull -q --ff-only >/dev/null 2>&1 || true
+        else git clone -q --depth 1 "$KODFLOW_MARKETPLACE_URL" "$cache" >/dev/null 2>&1 || true; fi
+        if [ -f "$cache/scripts/install.sh" ] && bash "$cache/scripts/install.sh" --codex >/dev/null 2>&1; then
+            log_success "marketplace: Codex skills and agents installed"
+        else
+            log_warning "marketplace: Codex mirror not installed (see $cache/scripts/install.sh --codex)"
+        fi
+    fi
+    return 0
 }
 
 # Ensure Claude directories exist (volume mount point)
@@ -1302,12 +1297,12 @@ connect_pptp() {
 # Every failure path here:
 #   1) returns 0 (non-blocking),
 #   2) writes ~/.claude/logs/<branch>/rtk-mode.json with mode=degraded + reason
-#      so /audit and session-init.sh's probe can surface the deviation,
+#      so /audit can surface the deviation,
 #   3) emits log_warning so the operator sees the deviation in postStart logs.
 #
-# CLAUDE_HOOKS_BOOTSTRAP=1 is exported around the curl/tar/jq calls so
-# session-init.sh's probe_rtk_mode skips its own emission during boot
-# (avoids confusing transient state with steady-state degradation).
+# CLAUDE_HOOKS_BOOTSTRAP=1 is exported around the curl/tar/jq calls so a
+# hook probing rtk during boot does not mistake transient state for
+# steady-state degradation.
 init_rtk() {
     # Helper: write the rtk-mode.json snapshot consumed by /audit + probe.
     # Resolves the branch-scoped log dir lazily (postStart's GH_BRANCH may
@@ -1433,26 +1428,38 @@ init_rtk() {
 
 # --- Bootstrap canonical Claude memory via upstream `rtk init` ---
 #
-# `rtk init -g --auto-patch` (rtk >= 0.38) is upstream-supported and provably
-# byte-safe against arbitrary user content in ~/.claude/CLAUDE.md (only adds
-# `@RTK.md` if absent). We run it unconditionally and let upstream handle the
-# no-op when nothing needs touching. Format-stable shell-side: we never parse
-# the `--show` output (only display it for log/debug).
+# `rtk init -g --no-patch` writes ~/.claude/RTK.md and adds the `@RTK.md`
+# import to ~/.claude/CLAUDE.md when absent — byte-safe against arbitrary user
+# content, idempotent, so it runs unconditionally.
 #
-# Side effect: ensures the PreToolUse `rtk hook claude` entry is present in
-# ~/.claude/settings.json (the --auto-patch behavior).
+# It does NOT touch settings.json. The PreToolUse rewrite is the kodflow-hooks
+# plugin's job (on-tool.sh, transform stage); an rtk hook of its own would run
+# in parallel with it and rewrite the same command twice. Any such entry left
+# by an older image or a manual `rtk init -g` is removed below.
 step_rtk_claude_init() {
     if ! command -v rtk >/dev/null 2>&1; then
         log_warning "rtk-init: skipping (rtk not on PATH; init_rtk will retry next start)"
         return 0
     fi
     export CLAUDE_HOOKS_BOOTSTRAP=1
-    log_info "RTK claude init: pre-state ↓"
-    rtk init -g --show 2>&1 | sed 's/^/    /' || true
-    rtk init -g --auto-patch 2>&1 | sed 's/^/    /' || true
-    log_info "RTK claude init: post-state ↓"
-    rtk init -g --show 2>&1 | sed 's/^/    /' || true
+    # --no-patch: RTK.md and the @RTK.md import only. The PreToolUse rewrite
+    # is the kodflow-hooks plugin's job; a second rtk hook in settings.json
+    # would run in parallel with it and rewrite the same command twice.
+    rtk init -g --no-patch >/dev/null 2>&1 || true
     unset CLAUDE_HOOKS_BOOTSTRAP
+    # An rtk hook left in settings.json by an older image or by a manual
+    # `rtk init -g` is removed for the same reason.
+    local settings="$HOME/.claude/settings.json" tmp
+    if [ -f "$settings" ] && grep -qE '"command": *"[^"]*rtk[^"]*"' "$settings" 2>/dev/null && command -v jq >/dev/null 2>&1; then
+        tmp=$(mktemp) || return 0
+        if jq '(.hooks // {}) |= with_entries(.value |= map(.hooks |= map(select((.command // "") | test("rtk") | not)) | select(.hooks | length > 0)))' "$settings" > "$tmp" 2>/dev/null \
+           && mv "$tmp" "$settings"; then
+            log_success "RTK: removed the standalone rtk hook from settings.json (kodflow-hooks owns the rewrite)"
+        else
+            rm -f "$tmp"
+        fi
+    fi
+    log_info "RTK: $(rtk --version 2>/dev/null | head -1) — rewrite handled by kodflow-hooks (on-tool.sh)"
 }
 
 # --- Main VPN auto-connect orchestrator ---
@@ -1645,7 +1652,7 @@ step_cleanup_legacy_stubs() {
 run_step "Sync features dir"        step_sync_features
 run_step "Cleanup legacy stubs"     step_cleanup_legacy_stubs
 run_step "Restore Claude config"    step_restore_claude_config
-run_step "RTK settings migration"   step_rtk_settings_migration
+run_step "Marketplace plugins"      step_marketplace_install
 run_step "Init Claude dirs"         step_init_claude_dirs
 run_step "Shell env repair"         step_shell_env_repair
 run_step "Cache completions"        step_cache_completions

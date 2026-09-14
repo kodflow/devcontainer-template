@@ -2,7 +2,7 @@
 
 ## Overview
 
-The DevContainer Template is organized in 4 layers: the base Docker image, language features, Claude Code configuration, and automation hooks.
+The DevContainer Template is organized in 4 layers: the base Docker image, language features, Claude Code configuration, and the kodflow marketplace plugins (skills, agents, hooks).
 
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': {
@@ -37,9 +37,9 @@ flowchart TB
         end
 
         subgraph CLAUDE["Claude Code"]
-            CMD[17 commands<br/>/plan /do /review /git]
-            AGT[79 agents<br/>orchestrators → specialists → executors]
-            HK[8 Claude hooks<br/>format, lint, test, security]
+            CMD[19 skills<br/>/plan /refine /review /git<br/>kodflow-workflow/review/devops]
+            AGT[29 agents<br/>kodflow-specialists]
+            HK[5 hook scripts, 15 events<br/>kodflow-hooks]
         end
 
         subgraph MCP["MCP Servers"]
@@ -88,21 +88,27 @@ flowchart TB
     ├── Dockerfile.base        # Stable layer (apt, Cloud CLIs) — weekly
     ├── Dockerfile             # Dynamic layer (Claude, tools) — daily
     ├── mcp.json.tpl           # MCP template (tokens injected)
-    ├── rtk.config.toml        # RTK PreToolUse rewrite config
+    ├── rtk.config.toml        # RTK PreToolUse rewrite config (owned by kodflow-hooks)
     ├── hooks/                 # Real hooks (embedded in image)
     │   ├── shared/utils.sh    # 367 lines of utilities
     │   └── lifecycle/         # onCreate, postCreate, postStart
     └── .claude/
-        ├── commands/          # 17 commands (markdown)
-        ├── agents/            # 79 agents (markdown)
-        ├── scripts/           # 31 Claude hook scripts
+        ├── scripts/           # 7 quality scripts (format, lint, test, typecheck, pre-commit gate)
         ├── docs/              # 170+ design patterns
-        └── settings.json      # Claude Code config
+        ├── templates/
+        └── settings.json      # Claude Code config (no hooks block)
 ```
+
+Skills, agents and hooks are no longer embedded in the image — `postStart.sh`
+installs them at every container start from the public kodflow marketplace
+(`https://github.com/kodflow/claude-marketplace`): `kodflow-workflow`,
+`kodflow-review`, `kodflow-devops`, `kodflow-specialists`, `kodflow-hooks`.
+`commands/`, `agents/` and `workflows/` under `.claude/` are legacy paths that
+`postStart.sh` now cleans up so nothing runs beside its plugin twin.
 
 ## Agent System
 
-79 agents organized in a 3-level hierarchy:
+29 agents ship in the `kodflow-specialists` marketplace plugin (not in the image):
 
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': {
@@ -113,43 +119,39 @@ flowchart TB
   'textColor': '#d4d8e0'
 }}}%%
 flowchart TD
-    subgraph ORCH["Orchestrators (2 — opus)"]
+    subgraph ORCH["Orchestrators (2)"]
         DO[developer-orchestrator]
         OO[devops-orchestrator]
     end
 
-    subgraph SPEC["Specialists (34 — sonnet)"]
-        LS[25 languages<br/>Go, Python, Rust<br/>Java, C++, Ruby...]
-        IS[9 infrastructure<br/>AWS, Azure, GCP<br/>Docker, K8s, Security]
+    subgraph SPEC["Specialists (19)"]
+        LS[9 languages<br/>Go, Python, Rust<br/>C, C++, Node.js, React, Zig<br/>+ review]
+        IS[5 infrastructure<br/>Docker, Kubernetes<br/>HashiCorp, security]
+        OS[3 OS<br/>Debian, Ubuntu, Alpine]
+        DS[postgres, github-actions]
     end
 
-    subgraph EXEC["Executors (12 — haiku/opus)"]
-        DE[6 dev executors<br/>review, correctness, security<br/>design, quality, shell]
-        PE[6 platform executors<br/>Linux, macOS, BSD<br/>Windows, QEMU, VMware]
+    subgraph EXEC["Executors (6)"]
+        DE[correctness, design<br/>quality, security, shell]
+        PE[devops-executor-linux]
     end
 
-    subgraph DOCS["Documentation Analyzers (9 — haiku)"]
-        DA[languages, commands<br/>agents, hooks, mcp<br/>patterns, structure<br/>config, architecture]
+    subgraph CMT["Commentator (2)"]
+        DC[developer-commentator<br/>+ worker]
     end
 
     DO --> LS
     DO --> DE
+    DO --> DC
     OO --> IS
     OO --> PE
 ```
 
-| Level | Count | Model | Role |
-|-------|-------|-------|------|
-| Orchestrator | 2 | Opus | Decomposes the task, coordinates sub-agents |
-| Specialist | 34 | Sonnet | Expertise in a language or infrastructure domain |
-| Executor | 12 | Haiku/Opus | Targeted analysis (security, quality, correctness) |
-| Documentation Analyzer | 9 | Haiku/Sonnet | Codebase analysis for `/docs` |
-
-**How it's used**: when you type `/review`, the `developer-specialist-review` launches 5 executors in parallel. When you type `/plan`, the orchestrator consults the detected language specialist and the patterns in `~/.claude/docs/`.
+**How it's used**: `/review` launches `developer-specialist-review` plus the dev executors in parallel. `/plan` consults the detected language specialist and the patterns in `~/.claude/docs/`. Every specialist verifies claims against documentation rather than recalling them; a claim with an empty `consulted` list is marked as recall, not evidence.
 
 ## Lifecycle Hooks
 
-Lifecycle hooks are embedded in the Docker image at `/etc/devcontainer-hooks/lifecycle/`.
+Lifecycle hooks (container lifecycle, not Claude Code hooks) are embedded in the Docker image at `/etc/devcontainer-hooks/lifecycle/`.
 `devcontainer.json` calls them directly — no workspace stubs needed.
 
 Advantage: hooks update automatically when the image is rebuilt.
@@ -161,12 +163,19 @@ Advantage: hooks update automatically when the image is rebuilt.
 
 Only exception: `initialize.sh` runs on the host (before container build).
 
+`postStart.sh`'s `step_marketplace_install` also registers the kodflow
+marketplace and installs/updates its 5 plugins on every start — fail-open when
+offline: a warning, and the cached plugins keep working. The host installer
+(`.devcontainer/install.sh`, `install_marketplace`) and the devcontainer
+feature (`.devcontainer/features/claude/install.sh`) do the same for a
+workstation outside the container; Codex gets the same skills and agents via
+the marketplace's own `scripts/install.sh --codex`.
+
 ## Startup Restoration
 
-`postStart.sh` restores Claude files from `/etc/claude-defaults/` at each startup. This mechanism ensures that commands, agents and scripts are always up to date with the image, even if the `~/.claude` volume contains older versions.
+`postStart.sh` restores Claude files from `/etc/claude-defaults/` at each startup. This mechanism ensures that scripts, docs and templates are always up to date with the image, even if the `~/.claude` volume contains older versions. Skills, agents and hooks are not restored this way — they come from the marketplace plugins above; `postStart.sh` cleans up any legacy `commands/`, `agents/` or `workflows/` left under `~/.claude/` so nothing runs beside its plugin twin.
 
 Restored files:
-- `~/.claude/commands/` (17 commands)
-- `~/.claude/scripts/` (31 hook scripts)
-- `~/.claude/agents/` (79 agents)
+- `~/.claude/scripts/` (7 quality scripts)
 - `~/.claude/docs/` (170+ patterns)
+- `~/.claude/templates/`

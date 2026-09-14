@@ -41,8 +41,9 @@ run_install_rtk() {
         echo 'info() { echo "$@"; }'
         echo 'warn() { echo "$@"; }'
         echo 'log()  { echo "$@"; }'
-        # Slice the download_tools function and call it.
-        sed -n '651,747p' "$SCRIPT"
+        # Slice the download_tools function by its boundaries — line numbers
+        # move every time the installer changes above it.
+        awk '/^download_tools\(\) \{/,/^\}/' "$SCRIPT"
         echo "tool_count=0"
         echo "download_tools"
     } > "$runner"
@@ -108,10 +109,12 @@ run_install_rtk() {
 @test "code path: no '(optional)' fallbacks remain in the rtk install block" {
     # The previous fail-open behavior is gone. Any '(optional)' marker in the
     # rtk slice would be a regression toward the old silent-degradation path.
-    # Narrow the slice to JUST the rtk-install block (656..715); status-line
-    # at 716+ is intentionally still advisory and lives outside this contract.
-    run sed -n '656,715p' "${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh"
+    # The slice is download_tools() up to its status-line section, which is
+    # intentionally still advisory and lives outside this contract. Bounded by
+    # markers, not line numbers: the installer changes above it.
+    run bash -c "awk '/^download_tools\\(\\) \\{/,/^\\}/' '${BATS_TEST_DIRNAME}/../../.devcontainer/install.sh' | awk '/status-line/{exit} {print}'"
     [ "$status" -eq 0 ]
+    [[ "$output" == *"rtk"* ]]
     [[ "$output" != *"(optional"* ]]
 }
 

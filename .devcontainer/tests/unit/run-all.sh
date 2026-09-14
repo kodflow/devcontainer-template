@@ -254,68 +254,6 @@ test_list_team_agents() {
     [ $? -eq 1 ] && pass "missing dir → exit 1" || fail "missing dir should exit 1"
 }
 
-# =============================================================================
-# Test: task-created.sh end-to-end (functional)
-# =============================================================================
-test_task_created_hook() {
-    echo ""
-    echo "=== test-task-created-hook ==="
-
-    local orig_home="$HOME"
-    export HOME=/tmp/task-created-test-home
-    rm -rf "$HOME"
-    mkdir -p "$HOME/.claude/scripts"
-    cp /workspace/.devcontainer/images/.claude/scripts/team-mode-primitives.sh "$HOME/.claude/scripts/"
-    cp /workspace/.devcontainer/images/.claude/scripts/task-created.sh "$HOME/.claude/scripts/"
-    echo "TMUX" > "$HOME/.claude/.team-capability"
-
-    local HOOK="$HOME/.claude/scripts/task-created.sh"
-
-    # T1: empty subject → exit 2
-    local rc
-    echo '{"task_subject":""}' | bash "$HOOK" >/dev/null 2>&1
-    rc=$?
-    [ "$rc" = "2" ] && pass "empty subject → exit 2" || fail "empty subject (exit=$rc)"
-
-    # T2: missing contract → exit 0 advisory
-    jq -n '{task_subject:"s",task_description:"plain",team_name:"t1",task_id:"t1-001"}' | bash "$HOOK" >/dev/null 2>&1
-    rc=$?
-    [ "$rc" = "0" ] && pass "missing contract → exit 0 advisory" || fail "missing contract (exit=$rc)"
-
-    # T3: valid write → exit 0
-    local DESC='<!-- task-contract v1
-{"contract_version":1,"scope":"src/","access_mode":"write","owned_paths":["a.go"],"acceptance_criteria":["x"],"output_format":"diff","assignee":"alice","depends_on":[]}
--->'
-    jq -n --arg d "$DESC" '{task_subject:"s",task_description:$d,team_name:"t2",task_id:"t2-001",teammate_name:"alice"}' | bash "$HOOK" >/dev/null 2>&1
-    rc=$?
-    [ "$rc" = "0" ] && pass "valid write → exit 0" || fail "valid write (exit=$rc)"
-
-    # T4: collision → exit 2
-    local DESC2='<!-- task-contract v1
-{"contract_version":1,"scope":"src/","access_mode":"write","owned_paths":["a.go"],"acceptance_criteria":["x"],"output_format":"diff","assignee":"bob","depends_on":[]}
--->'
-    jq -n --arg d "$DESC2" '{task_subject:"s",task_description:$d,team_name:"t2",task_id:"t2-002",teammate_name:"bob"}' | bash "$HOOK" >/dev/null 2>&1
-    rc=$?
-    [ "$rc" = "2" ] && pass "write collision → exit 2" || fail "write collision (exit=$rc)"
-
-    # T5: read-only with empty owned_paths → exit 0
-    local DESC3='<!-- task-contract v1
-{"contract_version":1,"scope":"PR","access_mode":"read-only","owned_paths":[],"acceptance_criteria":["x"],"output_format":"report","assignee":"r","depends_on":[]}
--->'
-    jq -n --arg d "$DESC3" '{task_subject:"s",task_description:$d,team_name:"t3",task_id:"t3-001",teammate_name:"r"}' | bash "$HOOK" >/dev/null 2>&1
-    rc=$?
-    [ "$rc" = "0" ] && pass "read-only + empty owned_paths → exit 0" || fail "read-only empty (exit=$rc)"
-
-    # T6: capability NONE → exit 0 silent
-    echo "NONE" > "$HOME/.claude/.team-capability"
-    echo '{"task_subject":""}' | bash "$HOOK" >/dev/null 2>&1
-    rc=$?
-    [ "$rc" = "0" ] && pass "capability NONE → exit 0 (bypass)" || fail "capability NONE (exit=$rc)"
-
-    # Cleanup
-    export HOME="$orig_home"
-    rm -rf /tmp/task-created-test-home
-}
 
 # =============================================================================
 # Main
@@ -330,7 +268,6 @@ test_version_compare
 test_epoch_helpers
 test_capability_mapping
 test_list_team_agents
-test_task_created_hook
 
 echo ""
 echo "═══════════════════════════════════════════════"

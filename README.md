@@ -1,12 +1,12 @@
 # devcontainer-template
 
-Coquille DevContainer universelle fournissant un ecosysteme IA complet — 35 agents specialistes, 11 commandes slash, workflows auto-correctifs — pour bootstrapper et developper n'importe quel projet avec une qualite maximale. Fiabilite d'abord : les agents raisonnent en profondeur, recoupent les sources officielles, et s'auto-corrigent jusqu'a ce que le resultat respecte les standards.
+Coquille DevContainer universelle fournissant un ecosysteme IA complet — 29 agents specialistes et ~19 commandes slash fournis par le marketplace kodflow (5 plugins), workflows auto-correctifs — pour bootstrapper et developper n'importe quel projet avec une qualite maximale. Fiabilite d'abord : les agents raisonnent en profondeur, recoupent les sources officielles, et s'auto-corrigent jusqu'a ce que le resultat respecte les standards.
 
 ## Installation Rapide
 
 ### One-Liner (Machine Hôte ou Projet Existant)
 
-Installez Claude Code avec **TOUS les assets** (35 agents, 11 commands, 11 scripts, 155+ patterns) en une seule commande :
+Installez Claude Code avec les assets embarqués (scripts qualité, 155+ patterns) **et** enregistre le marketplace kodflow (agents, commandes slash, hooks) en une seule commande :
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kodflow/devcontainer-template/main/.devcontainer/install.sh | bash
@@ -14,13 +14,12 @@ curl -fsSL https://raw.githubusercontent.com/kodflow/devcontainer-template/main/
 
 **Ce qui est installé :**
 - ✅ Claude CLI (si pas déjà installé)
-- ✅ 35 agents spécialisés (Go, Python, Rust, Node.js, etc.)
-- ✅ 11 commandes slash (`/git`, `/review`, `/plan`, `/do`, etc.)
-- ✅ 11 scripts de hooks (security, lint, format, test)
+- ✅ Marketplace kodflow enregistré + 5 plugins installés : `kodflow-workflow`, `kodflow-review`, `kodflow-devops`, `kodflow-specialists` (29 agents), `kodflow-hooks` (5 scripts, 15 événements)
+- ✅ 7 scripts qualité embarqués dans l'image (`format.sh`, `lint.sh`, `test.sh`, `typecheck.sh`, `pre-commit-*.sh`)
 - ✅ 155+ design patterns (GoF, Cloud, DDD, Enterprise)
 - ✅ Outils additionnels (rtk, status-line)
 
-**Total :** 239 fichiers (~3.2MB) en 1-2 minutes
+Fail-open si le marketplace est injoignable : avertissement, les plugins déjà en cache continuent de fonctionner.
 
 **Installation minimale (sans documentation) :**
 
@@ -141,18 +140,17 @@ Configurez `OP_SERVICE_ACCOUNT_TOKEN` et les items correspondants dans votre vau
 
 ### ktn-linter & Claude Code Hooks
 
-Le template intègre `ktn-linter` comme serveur MCP **et** fournisseur de hooks Claude Code. Le template déclare 3 scripts wrapper qui appellent les endpoints HTTP de ktn-linter. Dégradation gracieuse si ktn-linter n'est pas en cours d'exécution.
+`ktn-linter` tourne comme serveur MCP **et** comme backend HTTP interrogé par le plugin `kodflow-hooks` (les hooks ne sont plus déclarés par le template). `on-tool.sh` et `on-stop.sh` sondent `127.0.0.1:$KTN_LINTER_PORT` (`/dev/tcp`, défaut 7717) et n'appellent l'API que si le port répond — dégradation gracieuse sinon.
 
-| Hook | Événement | Timeout | Rôle |
-|------|-----------|---------|------|
-| PreToolUse | Write/Edit | 5s | Contexte package avant édition |
-| PostToolUse | Write/Edit | 15s | Scan fichier + blocage si violation |
-| Stop | * | 30s | Validation finale des packages modifiés |
+| Hook | Événement | Endpoint | Rôle |
+|------|-----------|----------|------|
+| `on-tool.sh` | PreToolUse (Write/Edit) | `/hooks/pre-tool-use` | Pré-check, phases `KTN_PRE_PHASES` (défaut `structural,signatures`) |
+| `on-stop.sh` | Stop | `/hooks/stop` | Verdict sur les packages Go modifiés dans la session, phases `KTN_STOP_PHASES` (défaut `structural,signatures,logic,performance,modern,style,comment,tests`) ; un `decision:block` est transmis tel quel |
 
 **Vérification rapide :**
 
 ```bash
-which ktn-linter && curl -sf http://localhost:7717/health && echo "OK"
+which ktn-linter && curl -sf "http://localhost:${KTN_LINTER_PORT:-7717}/health" && echo "OK"
 ```
 
 Voir [docs/ktn-linter-integration.md](docs/ktn-linter-integration.md) pour le contrat complet.

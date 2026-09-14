@@ -4,15 +4,14 @@
 
 This document defines the integration between `devcontainer-template` and `ktn-linter` for Claude Code hooks and MCP server configuration.
 
-**Architecture: The template provides hook wrapper scripts, ktn-linter provides the runtime logic.**
+**Architecture: the `kodflow-hooks` marketplace plugin embeds ktn-linter calls in its own hook scripts, ktn-linter provides the runtime logic.**
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│                    TEMPLATE (devcontainer)                      │
-│  - ktn-linter calls embedded in existing hook scripts          │
-│  - pre-validate.sh, on-stop.sh                                 │
-│  - PostToolUse wired via project-level native HTTP hook        │
-│  - Graceful degradation if ktn-linter not running              │
+│              kodflow-hooks (marketplace plugin)                 │
+│  - ktn-linter calls embedded in on-tool.sh (PreToolUse) and    │
+│    on-stop.sh (Stop) — no PostToolUse call                     │
+│  - Graceful degradation if ktn-linter not running               │
 │  - MCP fragment system (requires_binary gate)                  │
 └──────────────────────────┬────────────────────────────────────┘
                            │ HTTP calls (localhost:7717)
@@ -32,7 +31,7 @@ This document defines the integration between `devcontainer-template` and `ktn-l
 |---------------|---------|
 | **Binary** | Installs ktn-linter (Go feature) |
 | **MCP registration** | Fragment at `/etc/mcp/features/go.mcp.json` with `requires_binary` gate |
-| **Hook integration** | ktn-linter calls embedded in `pre-validate.sh`, `on-stop.sh` (PostToolUse moved to project-level native HTTP hook — see images/CLAUDE.md, issue #344) |
+| **Hook integration** | Delegated to the `kodflow-hooks` marketplace plugin — ktn-linter calls embedded in `on-tool.sh` (PreToolUse) and `on-stop.sh` (Stop); no PostToolUse call |
 | **Graceful degradation** | Calls exit silently if ktn-linter is not running (curl fails → continue) |
 | **Permissions** | `Bash(ktn-linter:*)` pre-authorized in settings.json |
 
@@ -44,71 +43,50 @@ This document defines the integration between `devcontainer-template` and `ktn-l
 | **Lint logic** | ScanReport, severity ordering, phase grouping |
 | **Response format** | Returns `hookSpecificOutput` JSON or plain text |
 | **Session tracking** | Tracks edited packages via SessionID |
-| **No settings.json writes** | Template handles all hook declarations |
+| **No settings.json writes** | The `kodflow-hooks` plugin's `hooks.json` handles all hook declarations |
 
 ### Consumer project
 
 | Responsibility | Details |
 |---------------|---------|
-| **PostToolUse hook** | Wire the native HTTP hook in `.claude/settings.json` (matcher `Edit|Write|MultiEdit`, `type: "http"`, `url: http://localhost:7717/hooks/post-tool-use`, `timeout: 15`). See PostToolUse section below for the full snippet. |
-| **PreToolUse / Stop** | Zero manual configuration — embedded in `pre-validate.sh` / `on-stop.sh`. |
-| **Port override** | If you change the port: edit the literal URL in your `.claude/settings.json` AND set `KTN_LINTER_PORT` so the template scripts (`pre-validate.sh`, `on-stop.sh`) match. JSON settings do not perform shell expansion. |
+| **Zero manual configuration** | PreToolUse and Stop calls are embedded in `on-tool.sh` / `on-stop.sh` once the `kodflow-hooks` plugin is installed. |
+| **Port override** | Set `KTN_LINTER_PORT` so `on-tool.sh` / `on-stop.sh` match your ktn-linter server. |
 
 ## Hook Integration Points
 
-ktn-linter calls are embedded directly in existing template hook scripts — no separate files.
+ktn-linter calls are embedded directly in the `kodflow-hooks` plugin's two
+relevant scripts — no separate files, no PostToolUse call.
 
-### `pre-validate.sh` — PreToolUse (Write|Edit)
+### `on-tool.sh` — PreToolUse (Write|Edit|MultiEdit|NotebookEdit)
 
-After protected file validation, calls `/hooks/pre-tool-use` to surface existing package issues.
+After the protected-path check, probes `127.0.0.1:$KTN_LINTER_PORT` with a
+bash `/dev/tcp` check and, only if it answers, calls `/hooks/pre-tool-use` to
+surface existing package issues.
 
-- Skips non-code files (*.md, *.json, *.yaml, /tmp/*, .claude/*)
-- Curl timeout: 4s (within 5s hook timeout)
+- Skips non-code files (*.md, *.json, *.yaml, *.yml, *.toml, /tmp/*, .claude/*)
+- Curl timeout: 4s (within the hook's 15s timeout)
 - Phase scope: `structural,signatures` (override: `KTN_PRE_PHASES`)
-- Fail-open: continues silently if ktn-linter unreachable
+- Fail-open: nothing is called when the port doesn't answer; curl failure continues silently
 
-### PostToolUse (Write|Edit|MultiEdit) — project-level native HTTP hook
+### PostToolUse — no ktn-linter call
 
-`post-edit.sh` deliberately does NOT call `/hooks/post-tool-use`. A script-level
-curl would race with the project's native HTTP hook (Claude Code keeps only the
-*last* JSON of a hook chain, silently dropping `decision: "block"` payloads —
-issue #344). Consumers wire ktn-linter directly in their `.claude/settings.json`:
+`on-tool.sh`'s PostToolUse path formats the file and logs; it does not call
+ktn-linter. Lint feedback now happens at PreToolUse (structural/signatures,
+per edit) and at Stop (full phase set, session-scoped) instead.
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          { "type": "http", "url": "http://localhost:7717/hooks/post-tool-use", "timeout": 15 }
-        ]
-      }
-    ]
-  }
-}
-```
+### `on-stop.sh` — Stop
 
-The native hook speaks the Claude Code hook payload protocol directly (decision
-+ hookSpecificOutput) — no re-parse, no re-wrap. Phase scope falls through to
-ktn-linter's YAML config (`.ktn-linter.yaml`); per-request override via the
-project-level body is consumer-managed.
+Same port probe as PreToolUse; if the port answers, calls `/hooks/stop` for
+session-level validation before the turn ends.
 
-### `on-stop.sh` — Stop (*)
-
-Before session summary, calls `/hooks/stop` for session-level validation.
-
-- Adds `CLAUDE_SESSION_ID` to request payload
-- Curl timeout: 28s (within 30s hook timeout)
+- Curl timeout: 28s (within the hook's 45s timeout)
 - Phase scope: `structural,signatures,logic,performance,modern,style,comment,tests` (override: `KTN_STOP_PHASES`)
-- Outputs summary to stderr (visible to user)
-- Never blocks session stop
+- A `decision: "block"` response is passed through verbatim; otherwise its text joins the single Stop feedback document (alongside the session-scoped `project-linter lint` run and the per-directory CLAUDE.md reminder)
+- Never blocks session stop outright — only a `block` decision does, and that comes from ktn-linter itself
 
 ### Phase scope (per-request override, ktn-linter ≥ #190)
 
-Each script-backed hook (`pre-validate.sh`, `on-stop.sh`) injects an explicit `phases` field into the JSON request body, scoped to what the event-type actually needs to surface. The server's YAML config (`.ktn-linter.yaml`) is **not** consulted when `phases` is present — it acts as a per-request override. Empty/absent `phases` → YAML default (back-compat for servers pre-#190, which ignore the unknown field).
-
-> **Note:** PostToolUse runs through a project-level native HTTP hook (no script wrapper) and therefore **does not** inject `phases` — it forwards the request body unchanged to ktn-linter, which falls back to its YAML config.
+`on-tool.sh` (PreToolUse) and `on-stop.sh` (Stop) each inject an explicit `phases` field into the JSON request body, scoped to what the event-type actually needs to surface. The server's YAML config (`.ktn-linter.yaml`) is **not** consulted when `phases` is present — it acts as a per-request override. Empty/absent `phases` → YAML default (back-compat for servers pre-#190, which ignore the unknown field).
 
 Override per-project via env vars (comma-separated, no spaces):
 
@@ -116,9 +94,6 @@ Override per-project via env vars (comma-separated, no spaces):
 export KTN_PRE_PHASES=structural,signatures,modern
 export KTN_STOP_PHASES=structural,signatures,logic,performance,modern,style,comment,tests,health
 ```
-
-(`KTN_POST_PHASES` is no longer applicable — PostToolUse uses the project-level
-native HTTP hook, which forwards the body unchanged to ktn-linter's YAML config.)
 
 Defensive: if `jq` is missing, the scripts fall through to the raw `${INPUT:-{}}` body — server uses YAML default, no failure.
 
@@ -150,7 +125,6 @@ phases:
 | MCP `scan` tool | yes | diff by default; per-request `scope: "full"\|"diff"` override → full set from the same cached scan, no re-analysis |
 | MCP `dump` tool | yes (full) | whole-project enumeration |
 | HTTP `/scan` | yes | same per-request `scope` override |
-| PostToolUse hook | yes (diff, by design) | blocks only on in-diff issues |
 | `ktn-linter lint` (CLI) | no | always full (CI/audit path) |
 | `make lint` | no | wraps the CLI → full |
 
@@ -182,8 +156,9 @@ Agent wants to edit file.go
         │
         ▼
 ┌─ PreToolUse ──────────────────────────────┐
-│  pre-validate.sh    → protect files       │
-│  ktn-pre-tool-use.sh → package context    │  ← "3 existing warnings in this package"
+│  on-tool.sh → protect files, then          │
+│               package context (structural, │  ← "3 existing warnings in this package"
+│               signatures) if port answers  │
 └───────────────────────────────────────────┘
         │
         ▼
@@ -191,19 +166,18 @@ Agent wants to edit file.go
         │
         ▼
 ┌─ PostToolUse ─────────────────────────────┐
-│  post-edit.sh        → format file        │
-│  (project-level HTTP hook → lint scan)    │  ← "ERROR: unused variable line 42"
-│  log.sh (async)      → action logging     │
+│  on-tool.sh → format file, edited-file    │
+│               tracker, log (no ktn-linter │
+│               call)                       │
 └───────────────────────────────────────────┘
         │
-        ▼ (if blocked, agent must fix before continuing)
-        │
+        ▼
     ... more edits ...
         │
         ▼
 ┌─ Stop ────────────────────────────────────┐
-│  ktn-stop.sh  → session validation (30s)  │  ← "2 packages scanned, 0 violations"
-│  on-stop.sh   → terminal bell + summary   │
+│  on-stop.sh → session validation (full     │  ← "2 packages scanned, 0 violations"
+│               phase set) + terminal bell   │
 └───────────────────────────────────────────┘
 ```
 
@@ -211,9 +185,9 @@ Agent wants to edit file.go
 
 | Hook | Timeout | Curl | Rationale |
 |------|---------|------|-----------|
-| PreToolUse | 5s | 4s (`pre-validate.sh`) | Must be fast — quick HTTP call to cached package state |
-| PostToolUse | 15s | N/A — project-level native HTTP hook | Single file scan with 148 rules, must complete before agent proceeds |
-| Stop | 30s | 28s (`on-stop.sh`) | Full project scan of all modified packages, runs once at session end |
+| PreToolUse | 15s | 4s (`on-tool.sh`) | Must be fast — quick HTTP call to cached package state |
+| PostToolUse | 20s | N/A — no ktn-linter call | Formatting only; lint feedback moved to PreToolUse and Stop |
+| Stop | 45s | 28s (`on-stop.sh`) | Full project scan of packages touched this session, runs once at session end |
 
 ## Canonical Hooks Doctrine (Future)
 
@@ -223,14 +197,14 @@ ktn-linter hooks are evolving toward a canonical model based on `ScanReport`:
 |---------|-------------|
 | **ScanReport** | Canonical data structure for all lint results (findings, severity, phase, location) |
 | **HookSummary** | Text formatter that derives hook output from ScanReport |
-| **Severity-first** | PostToolUse shows critical/error first, then warnings |
+| **Severity-first** | Stop feedback shows critical/error first, then warnings |
 | **Phase ordering** | Results grouped by lint phase (syntax → semantics → style) |
 | **SessionStore** | Tracks which packages were edited during the session |
 | **Stop optimization** | Only scans packages touched during the session (via SessionID) |
 
 ### Forward compatibility
 
-The template hook calls are **endpoint-agnostic** — they forward the full hook input JSON to ktn-linter and relay the response. When ktn-linter evolves its response format (ScanReport v2, new fields), the scripts don't need to change.
+The `kodflow-hooks` plugin's hook calls are **endpoint-agnostic** — they forward the full hook input JSON to ktn-linter and relay the response. When ktn-linter evolves its response format (ScanReport v2, new fields), the scripts don't need to change.
 
 ### Health phase: `claude-rtk-hook` (proposed upstream)
 
@@ -240,14 +214,15 @@ The template hook calls are **endpoint-agnostic** — they forward the full hook
 > **no template-side change** — this section documents intent only.
 
 A new `health` phase (8) sub-rule that fires once at session end via the
-`/hooks/stop` endpoint. Reports the same RTK mode/reason that
-`session-init.sh probe_rtk_mode` emits at session start, so `Stop` events
-double-check the doctrine after a session of edits.
+`/hooks/stop` endpoint. Reports the same RTK mode/reason that `postStart.sh`
+records at container start, so `Stop` events double-check the doctrine after
+a session of edits.
 
 **Signal source.** The rule reads `~/.claude/logs/<branch>/rtk-mode.json`
-(written by `session-init.sh` and `postStart.sh init_rtk`); if absent, it
-re-runs the probe logic inline. The file schema is documented as a fixture
-in `tests/scripts/rtk-config-toml.bats` (runtime artifact, never committed).
+(written by `init_rtk` in `postStart.sh`, which only ever writes
+`mode=degraded` with a reason); if absent, RTK is healthy and the rule stays
+silent. The file schema is documented as a fixture in
+`tests/scripts/rtk-config-toml.bats` (runtime artifact, never committed).
 
 **Severity.** `info` — non-blocking, matches the project doctrine that
 runtime degradation is visible but never blocking. Could be elevated to
@@ -257,15 +232,14 @@ runtime degradation is visible but never blocking. Could be elevated to
 **Output (proposed).**
 
 ```text
-[health][claude-rtk-hook] mode=enforcing version=0.38.0
-[health][claude-rtk-hook] mode=advisory  reason=session-bypass
 [health][claude-rtk-hook] mode=degraded  reason=no-binary
-                          fix=`rtk init -g --auto-patch` (re-applies wiring)
+                          fix=reinstall rtk, then restart the container
 [health][claude-rtk-hook] mode=degraded  reason=config-invalid
                           fix=check ~/.config/rtk/config.toml schema
-[health][claude-rtk-hook] mode=degraded  reason=marker-missing
-                          fix=`rtk init -g --auto-patch` (re-creates RTK.md/@import)
 ```
+
+No line is emitted when `rtk-mode.json` is absent: the rewrite is then live
+in `on-tool.sh` and there is nothing to report.
 
 **Why it matters at session end.** A degraded mode mid-session means every
 `rtk discover` entry from that session is a savings miss — visible in /audit
@@ -293,7 +267,7 @@ Runtime (every container start):
 
 | Scenario | Behavior |
 |----------|----------|
-| Container rebuild (×10) | Scripts restored from image defaults, ktn-linter calls always present |
+| Container rebuild (×10) | `kodflow-hooks` plugin reinstalled/updated by `postStart.sh`, ktn-linter calls always present |
 | ktn-linter not installed | curl fails silently, rest of hook script runs normally |
 | ktn-linter not running | curl connection refused, rest of hook script runs normally |
 | ktn-linter running | Full lint integration active |
@@ -308,12 +282,8 @@ which ktn-linter && ktn-linter --version
 # 2. MCP server registered?
 jq '.mcpServers["ktn-linter"]' /workspace/mcp.json
 
-# 3. Hook scripts have ktn-linter integration?
-grep -l "ktn-linter" ~/.claude/scripts/{pre-validate,on-stop}.sh
-# 3b. PostToolUse wired at project level? (guard on hook type and optional .url
-# so a sibling type:"command" hook in the same array doesn't error the filter)
-jq '.hooks.PostToolUse[]?.hooks[]?
-    | select(.type == "http" and (.url? | test("ktn|7717")))' .claude/settings.json
+# 3. Hook scripts have ktn-linter integration? (kodflow-hooks plugin checkout)
+grep -l "ktn-linter" <marketplace-checkout>/plugins/kodflow-hooks/hooks/scripts/{on-tool,on-stop}.sh
 
 # 4. Server responding?
 curl -sf http://localhost:7717/health && echo "OK" || echo "Not running"
@@ -323,7 +293,7 @@ curl -sf http://localhost:7717/health && echo "OK" || echo "Not running"
 
 ### Change port
 
-Set `KTN_LINTER_PORT` environment variable (default: 7717). Read by the template scripts that still call ktn-linter directly (`pre-validate.sh`, `on-stop.sh`). PostToolUse runs through the project-level native HTTP hook, where the URL is hard-coded in `.claude/settings.json` — adjust the URL there if you change the port.
+Set `KTN_LINTER_PORT` environment variable (default: 7717). Read by `on-tool.sh` (PreToolUse) and `on-stop.sh` (Stop) in the `kodflow-hooks` plugin.
 
 ### Disable ktn-linter hooks only
 
@@ -333,7 +303,7 @@ Set the environment variable to a non-listening port:
 export KTN_LINTER_PORT=0
 ```
 
-Or edit the scripts to remove the ktn-linter sections (they will be restored on next container start).
+The port probe (`bash /dev/tcp`) then fails and neither script calls ktn-linter.
 
 ### Disable all hooks for an event
 
@@ -352,5 +322,5 @@ Override in `settings.local.json`:
 | `/lint` command fails | Binary not installed | Enable Go feature, rebuild container |
 | MCP server missing from mcp.json | Binary not in PATH | Check `which ktn-linter` |
 | Port conflict on 7717 | Another service using port | Set `KTN_LINTER_PORT=7718` |
-| PostToolUse timeout | Large file or slow scan | Check ktn-linter logs, consider timeout increase |
-| Hook scripts missing ktn-linter calls | Old version of scripts | Rebuild container or run `/update` |
+| Stop hook timeout | Large session, slow scan | Check ktn-linter logs, consider `KTN_STOP_PHASES` scope-down |
+| Hook scripts missing ktn-linter calls | Stale `kodflow-hooks` plugin version | Run `/update` to refresh the marketplace plugins |

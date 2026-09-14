@@ -1,22 +1,41 @@
-# RTK (Rust Token Killer) Configuration
-# Synced from /etc/rtk/config.toml at container start via postStart.sh
+# RTK (Rust Token Killer) configuration — see `rtk config` for the full default set.
+# Synced to ~/.config/rtk/config.toml at container start via postStart.sh (init_rtk),
+# hash-tracked so a user-edited copy is never overwritten.
 # See: https://github.com/rtk-ai/rtk
+#
+# Policy: rtk compresses SURVEY output (what is here? what changed? what failed?)
+# where lossy is fine, and NEVER touches FIDELITY reads (the exact bytes of a
+# file about to be edited).
+#
+# Measured on a 632-line Go file:
+# `rtk read` returned 385 lines — it strips comments. On the read path that
+# feeds an edit, that is silent information loss, and it would make the
+# /comment skill and developer-commentator agents "fix" comments that already
+# exist. Hence the exclusions below.
 
 [hooks]
-# Skip rewrite for safe-trivial builtins where rewrite is meaningless or
-# breaks shell semantics (cd/pwd/set/export are shell builtins; echo is a
-# trivial passthrough). Keep this list minimal: each addition weakens RTK's
-# default coverage. Per-project additions (e.g. make/terraform/helm) should
-# go into the project's local filters.toml, not here. See ~/.claude/RTK.md
-# for the full rationale.
-exclude_commands = ["cd", "pwd", "set", "export", "echo"]
+# Fidelity reads: the agent needs the real bytes, including comments.
+# Shell builtins: a rewrite of cd/export/set changes the shell's own state; echo is a trivial passthrough.
+exclude_commands = ["cd", "pwd", "set", "export", "echo", "cat", "head", "tail", "sed", "awk", "diff", "sha256sum", "md5sum", "base64", "xxd", "od"]
+
+[display]
+colors = true
+emoji = true
+max_width = 120
+
+[filters]
+ignore_dirs = [".git", "node_modules", "target", "__pycache__", ".venv", "vendor", "zig-out", "zig-cache", ".zig-cache"]
+ignore_files = ["*.lock", "*.min.js", "*.min.css", "*.sum"]
+
+[tracking]
+enabled = true
+history_days = 90
 
 [tee]
 enabled = true
 mode = "failures"
 max_files = 20
-# rtk ≥ 0.38 requires this field. 1 MB is sensible for tee-on-failure (longer
-# captures are usually a sign of a different problem). Override per-host via
-# ~/.config/rtk/config.toml after the postStart sync; the user-customized hash
-# tracking in init_rtk preserves overrides.
 max_file_size = 1048576
+
+[telemetry]
+enabled = false

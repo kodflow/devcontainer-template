@@ -14,9 +14,9 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 ├── .githooks/       # Git hooks (pre-commit: regenerate assets)
 ├── .claude/         # Workspace Claude overrides (settings.local.json, features.json)
 ├── docs/            # Documentation (plain markdown: vision, architecture, guides)
-├── src/             # All source code (created per project via /init)
-├── tests/           # Unit tests (created per project via /init)
-├── AGENTS.md        # Specialist agents specification (81 agents)
+├── src/             # All source code (created per project via /project)
+├── tests/           # Unit tests (created per project via /project)
+├── AGENTS.md        # Specialist agents specification (29 agents)
 └── CLAUDE.md        # This file
 ```
 
@@ -30,7 +30,7 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 
 ## How to Work
 
-1. **New project**: `/init` → conversational discovery → doc generation
+1. **New project**: `/project` → resolve/create the workspace → constraints recorded in CLAUDE.md
 2. **New feature**: `/plan "description"` → `/review` → `/refine` → `/goal` → `/git --commit`
 3. **Bug fix**: `/plan "description"` → `/review` → `/refine` → `/goal` → `/git --commit`
 4. **Code review**: `/review` → 3-tier review (agents + Qodo + CodeRabbit)
@@ -45,7 +45,7 @@ Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
 
 **Self-correction**: When linting or tests fail, agents fix and retry automatically.
 
-**Token efficiency**: RTK (`rtk hook claude` PreToolUse hook) auto-compresses Bash output for 60–90 % token savings. **Default is rtk-prefix every Bash call** — runtime is never blocking, but `session-init.sh` surfaces `[rtk] mode=… reason=…` when degraded so you see it. Bypass via `RTK_BYPASS=1` is first-class (advisory `session-bypass`, never conflated with degradation); single-call bypass = type without prefix and the miss surfaces in `rtk discover`. Use `rtk gain` for analytics. **No semantic-embedding tooling** (`grepai`/`ollama` were dropped in 2026-04 — high CPU/RAM cost, marginal benefit). Search with targeted `Grep` + `Read`.
+**Token efficiency**: RTK auto-compresses Bash output for 60–90 % token savings. The rewrite is not a standalone hook entry — it is the transform stage of `on-tool.sh` (`PreToolUse`, kodflow-hooks plugin), which runs after the git guard and before logging. A fidelity guard keeps `cat`/`head`/`tail`/`sed`/`diff`/`patch` byte-exact instead of rewriting them; the rewritten command still goes through the normal permission flow (no auto-approve). Prefix a line with `NO_RTK=` to skip the rewrite for that call. Use `rtk gain` for analytics. **No semantic-embedding tooling** (`grepai`/`ollama` were dropped in 2026-04 — high CPU/RAM cost, marginal benefit). Search with targeted `Grep` + `Read`.
 
 **Specialist agents**: Language conventions enforced by agents that know current stable versions.
 
@@ -66,7 +66,7 @@ If the CI bot says "no" and you have verified the code is correct, the CI is wro
 
 Ask before:
 - Deleting files in `.claude/` or `.devcontainer/`
-- Removing features from `.claude/commands/*.md`
+- Removing skills or agents from a kodflow plugin (they ship from the marketplace, not this repo — see `.devcontainer/images/CLAUDE.md`)
 - Removing hooks from `.devcontainer/hooks/`
 - Dropping database state, force-push, dependency downgrades
 
@@ -81,30 +81,23 @@ When refactoring: move content to separate files, preserve logic.
 
 Auto-detected by language marker (`go.mod`, `Cargo.toml`, `package.json`, etc.). Priority: Makefile targets, then language-specific commands.
 
-## Hooks (17 event types)
+## Hooks (15 events, 5 scripts)
 
-| Hook | Purpose |
-|------|---------|
-| SessionStart | Cache project metadata + compact recovery |
-| SessionEnd | Session cleanup |
-| UserPromptSubmit | Prompt tracking |
-| PreToolUse | Commit validate, security scan, RTK rewrite, logging |
-| PostToolUse | Format + lint, security, test, feature update, logging |
-| PostToolUseFailure | Failure diagnostics |
-| PermissionRequest | Permission logging |
-| SubagentStart/Stop | Agent lifecycle tracking |
-| Stop | Session summary + terminal bell + quality gate (lint/typecheck/test) |
-| TeammateIdle | Multi-agent coordination + pending-task enforcement |
-| TaskCreated | Task payload contract validation + file conflict advisory |
-| TaskCompleted | Async task completion + registry lifecycle transition |
-| ConfigChange | Configuration change tracking |
-| WorktreeCreate/Remove | Git worktree lifecycle |
-| PreCompact | Context preservation before compaction |
-| Notification | External monitoring notifications |
+Hooks ship in the `kodflow-hooks` marketplace plugin, not in the image — `settings.json` has no `hooks` block. Hooks registered on the same event run in parallel, so each event gets exactly one script and the ordering lives inside it: gate → block → transform → observe, exit at the first stage with nothing left to do.
+
+| Script | Events |
+|--------|--------|
+| `on-tool.sh` | PreToolUse, PostToolUse, PostToolUseFailure — git guard, protected paths, RTK rewrite, format/lint, project-linter pre-check, logging |
+| `on-session.sh` | SessionStart, SessionEnd, PreCompact, ConfigChange |
+| `on-user.sh` | UserPromptSubmit, Notification |
+| `on-agent.sh` | SubagentStart, SubagentStop, TaskCreated, TaskCompleted, TeammateIdle |
+| `on-stop.sh` | Stop — project-linter verdict, per-directory CLAUDE.md reminder, terminal bell |
+
+`PermissionRequest` auto-approval and `WorktreeCreate`/`WorktreeRemove` hooks were dropped (native `permissions.allow` and native worktree handling do this correctly; see the plugin's README for what else was removed and why).
 
 ## Agent Teams (experimental)
 
-Parallel multi-agent execution for 4 high-value skills (`/review`, `/plan`, `/infra`, `/test`). Each skill detects its runtime mode at invocation and branches:
+Parallel multi-agent execution for 3 high-value skills (`/review`, `/plan`, `/infra`). Each skill detects its runtime mode at invocation and branches:
 
 | Capability (persisted) | Runtime mode | Where |
 |---|---|---|
@@ -112,34 +105,21 @@ Parallel multi-agent execution for 4 high-value skills (`/review`, `/plan`, `/in
 | IN_PROCESS | TEAMS_INPROCESS | Shift+Down to cycle teammates |
 | NONE | SUBAGENTS | Legacy Task-tool dispatch |
 
-**Single source of truth:** `.devcontainer/images/.claude/commands/shared/team-mode.md`
-**Primitives:** `~/.claude/scripts/team-mode-primitives.sh` (`detect_runtime_mode`, `extract_task_contract`, `classify_terminal`, …)
+**Single source of truth:** `skills/_shared/team-mode.md` in the `kodflow-devops` marketplace plugin
+**Primitives:** `skills/_shared/scripts/team-mode-primitives.sh` in the same plugin (`detect_runtime_mode`, `extract_task_contract`, `classify_terminal`, …)
 **Capability file:** `~/.claude/.team-capability` (hint only — live probe is source of truth)
 **Install:** automatic via `install.sh`; opt-out with `install.sh --no-teams`
 **Runtime opt-out:** `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=0 /<skill>`
 **Debug:** `TEAM_MODE_DEBUG=1` → stderr decision logs
 **Kill switch:** `echo NONE > ~/.claude/.team-capability`
 
-Every team task embeds a `<!-- task-contract v1 ... -->` JSON block (contract_version, access_mode, owned_paths, acceptance_criteria, …). Parsed and validated by `task-created.sh` in advisory mode — strict only on explicit contract violations.
-
-## /secret - Secure Secret Management (1Password)
-
-```
-/secret --push DB_PASSWORD=mypass     # Store secret
-/secret --get DB_PASSWORD             # Retrieve secret
-/secret --list                        # List project secrets
-/secret --push KEY=val --path org/other  # Cross-project
-```
-
-**Path convention:** `<org>/<repo>/<key>` (auto-resolved from git remote)
-**Backend:** 1Password CLI (`op`) with `OP_SERVICE_ACCOUNT_TOKEN`
-**Integration:** `/init` (check), `/git` (scan), `/goal` (discover), `/infra` (TF_VAR_*)
+Every team task embeds a `<!-- task-contract v1 ... -->` JSON block (contract_version, access_mode, owned_paths, acceptance_criteria, …). `TaskCreated` is logged by `on-agent.sh`, not adjudicated — the old `task-created.sh` contract registry was dropped (it needed a capability file and primitives library nothing shipped, so it never ran).
 
 ## Documentation Hierarchy
 
 ```
 CLAUDE.md                    # This overview
-├── AGENTS.md                # Specialist agents (79 agents)
+├── AGENTS.md                # Specialist agents (29 agents)
 ├── docs/vision.md           # Objectives, success criteria
 ├── docs/architecture.md     # System design, components
 ├── docs/workflows.md        # Detailed workflows
@@ -149,34 +129,36 @@ CLAUDE.md                    # This overview
 │   ├── features/CLAUDE.md   # Language & tool features
 │   ├── hooks/CLAUDE.md      # Host-side hooks (initialize.sh only)
 │   └── images/CLAUDE.md     # Two-tier images (base + dynamic)
-└── .claude/commands/        # Slash commands (20 skills)
+└── kodflow marketplace      # Skills, agents, hooks (5 plugins, installed by postStart)
 ```
 
-Principle: More detail deeper in tree. Target < 200 lines each.
+Principle: More detail deeper in tree. Each file ≤ 1000 lines.
 
 ## Commands
 
+All skills below ship as marketplace plugins (`kodflow-workflow`, `kodflow-review`, `kodflow-devops`), installed by `postStart.sh` — not repository files.
+
 | Command | Purpose |
 |---------|---------|
-| `/init` | Conversational project discovery + doc generation |
+| `/project` | Resolve/create the workspace; record decisions as numbered constraints in CLAUDE.md |
 | `/plan` | Analyze codebase and design implementation approach |
+| `/challenge` | Adversarial debate of a plan (architecture/scepticism/ops lenses + specialists) before it's built |
+| `/refine` | Goal contract generator (10-lens analysis) |
 | `/review` | Code review (3-tier: agents + Qodo + CodeRabbit) |
 | `/git` | Conventional commits, branch management |
 | `/search` | Documentation research with official sources |
-| `/test` | E2E testing with Playwright MCP |
+| `/feature` | Open/track a feature (note store or GitLab/GitHub issue), branch, append-only trail |
+| `/fix` | Same as `/feature` for defects; refuses to open one with no repro |
 | `/lint` | Multi-language intelligent linting |
+| `/comment` | Audit and fix code comments (WHY not WHAT, docstrings) |
 | `/ktn` | Autonomous ktn-linter MCP lifecycle (binary, mcp.json, hooks, daemon, phases) |
 | `/infra` | Infrastructure automation (Terraform/Terragrunt) |
-| `/secret` | Secure secret management (1Password) |
-| `/vpn` | Multi-protocol VPN management |
+| `/audit` | Health check of this Claude Code install: skills, agents, hooks, scripts, MCP servers, KB freshness |
 | `/warmup` | Context pre-loading and CLAUDE.md update |
-| `/update` | DevContainer update from template |
+| `/update` | DevContainer update from template; also refreshes the marketplace plugins |
 | `/learn` | Extract reusable patterns from the current session into `~/.claude/docs/learned/` |
-| `/feature` | Feature tracking RTM (CRUD, audit, auto-learn) |
-| `/refine` | Skills Architecture v1.3 — goal contract generator (10-lens analysis) |
 | `/debug` | Systematic root-cause-first debugging (reproduce → isolate → prove → fix) |
 | `/adr` | Architecture Decision Records (docs/adr/NNNN-*.md + index), wired into `/plan` and `/git` |
-| `/review-doctor` | Health-and-heal the /review v2 stack (verifier, modules, scanners, routing, canary) |
 
 ### Canonical workflow (Skills Architecture v1.6)
 

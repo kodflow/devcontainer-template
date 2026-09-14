@@ -2,6 +2,53 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased] — Skills, agents and hooks from the marketplace (2026-09-14)
+
+### Changed
+
+- The image no longer carries skills, agents or Claude Code lifecycle hooks.
+  They are installed from the public kodflow marketplace
+  (`https://github.com/kodflow/claude-marketplace`) as five plugins —
+  `kodflow-workflow`, `kodflow-review`, `kodflow-devops`,
+  `kodflow-specialists`, `kodflow-hooks` — by `step_marketplace_install` in
+  `postStart.sh`, by `.devcontainer/install.sh` on a workstation, and by the
+  `claude` feature. One commit of the marketplace is what the workstation and
+  every container run; the template stops being a second copy that drifts.
+  Offline, the step warns and the cached plugins keep working.
+- Hooks: 24 scripts on 18 events become 5 scripts on 15 events
+  (`kodflow-hooks`), each a fixed gate → block → transform → observe sequence,
+  because hooks registered on the same event run in parallel and only a single
+  script can order them. The rtk rewrite no longer auto-approves the command
+  it rewrites; the git guard sees wrapped and compound forms; `--force` is
+  replaced token-wise; every persisted string goes through one sanitizer.
+  Measured per invocation: PreToolUse Bash 145 → 44 ms, PostToolUse Edit
+  103 → 37 ms.
+- `settings.json` in the image has no `hooks` block. `step_rtk_claude_init`
+  runs `rtk init -g --no-patch` and removes any standalone rtk hook it finds,
+  because the plugin owns the PreToolUse rewrite.
+- `.devcontainer/images/.claude/scripts/` keeps the seven quality scripts the
+  git `pre-commit` hook needs (`common.sh`, `format.sh`, `lint.sh`, `test.sh`,
+  `typecheck.sh`, `pre-commit-checks.sh`, `pre-commit-quality.sh`). The
+  knowledge base (`docs/`), `templates/` and `settings.json` still ship in the
+  image and are restored at every start.
+- CLAUDE.md ceiling raised from 300 to 1000 lines; the CLAUDE.md of every
+  directory a task changed is updated before the task ends (the Stop hook
+  reminds once per directory).
+
+### Removed
+
+- `.devcontainer/images/.claude/{skills,agents,commands,workflows}` and 49
+  hook and helper scripts (they live in the marketplace, the helpers under
+  each plugin's `skills/_shared/scripts/`).
+- Template-only skills `init`, `test`, `review-doctor`, `rtm`, `secret`,
+  `vpn` — superseded by `/project`, `/lint`, `/review`, `/search`, or
+  org-specific operations that do not belong in a public plugin.
+- `step_rtk_settings_migration` and the `rtk-hook-claude.sh` wrapper.
+- 29 test suites that asserted on the removed trees; the hooks are tested
+  in the marketplace (`scripts/tests/test_hooks.sh`, 57 cases).
+- `claude-assets.tar.gz` no longer contains `agents/` or `commands/`; it
+  gains `templates/`.
+
 ## [Unreleased] — Skills Architecture v1.5 (2026-05-20)
 
 ### Changed — v1.5 patch on top of v1.4

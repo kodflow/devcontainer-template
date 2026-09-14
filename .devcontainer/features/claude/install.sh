@@ -45,26 +45,42 @@ fi
 # 2. Create directories
 # ─────────────────────────────────────────────────────────────────────────────
 echo "→ Setting up $TARGET/.claude/..."
-mkdir -p "$TARGET/.claude/commands"
 mkdir -p "$TARGET/.claude/scripts"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. Download commands
+# 3. Skills, agents and hooks: the kodflow marketplace
 # ─────────────────────────────────────────────────────────────────────────────
-echo "→ Downloading commands..."
-for cmd in git search prompt; do
-    curl -sL "$BASE/.claude/commands/$cmd.md" -o "$TARGET/.claude/commands/$cmd.md" 2>/dev/null && echo "  ✓ /$cmd"
-done
+# Nothing is downloaded file by file any more. The five plugins carry every
+# skill, agent and lifecycle hook, at one commit, for the workstation and the
+# container alike.
+MARKETPLACE_URL="https://github.com/kodflow/claude-marketplace.git"
+if command -v claude &>/dev/null; then
+    echo "→ Installing kodflow marketplace plugins..."
+    if claude plugin marketplace list 2>/dev/null | grep -q 'kodflow$'; then
+        claude plugin marketplace update kodflow >/dev/null 2>&1 || echo "  ⚠ marketplace refresh failed (offline?)"
+    else
+        claude plugin marketplace add "$MARKETPLACE_URL" >/dev/null 2>&1 || echo "  ⚠ cannot reach $MARKETPLACE_URL"
+    fi
+    for p in kodflow-workflow kodflow-review kodflow-devops kodflow-specialists kodflow-hooks; do
+        if claude plugin install "$p@kodflow" >/dev/null 2>&1 || claude plugin update "$p@kodflow" >/dev/null 2>&1; then
+            echo "  ✓ $p"
+        else
+            echo "  ⚠ $p not installed"
+        fi
+    done
+else
+    echo "  ⚠ claude CLI absent — run later: claude plugin marketplace add $MARKETPLACE_URL"
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4. Download scripts (hooks) - requires standard or full bundle
+# 4. Download the quality scripts (git pre-commit gate) - standard or full bundle
 # ─────────────────────────────────────────────────────────────────────────────
 if [ "$BUNDLE_LEVEL" = "minimal" ]; then
     echo "→ Skipping scripts download (bundle=minimal)"
 else
 echo "→ Downloading scripts..."
 download_failed=0
-for script in format imports lint post-edit pre-validate git-guard test bash-validate post-compact on-stop notification session-init; do
+for script in common format lint test typecheck pre-commit-checks pre-commit-quality; do
     script_tmp="$(mktemp)"
     if curl -fsL --retry 2 "$BASE/.claude/scripts/$script.sh" -o "$script_tmp" 2>/dev/null; then
         install -m 0755 "$script_tmp" "$TARGET/.claude/scripts/$script.sh"
@@ -74,7 +90,7 @@ for script in format imports lint post-edit pre-validate git-guard test bash-val
     fi
     rm -f "$script_tmp"
 done
-[ "$download_failed" -eq 0 ] && echo "  ✓ hooks (format, lint, security...)" || echo "  ⚠ Some hooks failed to download"
+[ "$download_failed" -eq 0 ] && echo "  ✓ quality scripts (format, lint, test, typecheck, pre-commit)" || echo "  ⚠ Some scripts failed to download"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────

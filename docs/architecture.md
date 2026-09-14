@@ -15,7 +15,9 @@ Lifecycle hooks + language features
         |
 Claude Code + MCP servers (github, gitlab, context7 + feature fragments)
         |
-Specialist agents (25 language + 6 dev executor + 9 devops + 6 platform executor + 22 OS + 9 docs analyzers + 2 orchestrators)
+kodflow marketplace plugins (skills, agents, hooks — installed by postStart)
+        |
+Specialist agents (29 — kodflow-specialists plugin)
 ```
 
 ## Key Components
@@ -28,8 +30,9 @@ Specialist agents (25 language + 6 dev executor + 9 devops + 6 platform executor
 | Main image (dynamic) | `.devcontainer/images/Dockerfile` | Claude, tools (daily) |
 | Lifecycle hooks | `/etc/devcontainer-hooks/lifecycle/` | Startup automation (image-embedded) |
 | Language features | `.devcontainer/features/languages/` | Per-language installers |
-| Specialist agents | `.devcontainer/images/.claude/agents/` | AI agent definitions |
-| Slash commands | `.claude/commands/` | Workflow entry points |
+| Specialist agents | `kodflow-specialists` (marketplace plugin) | 29 AI agent definitions |
+| Skills (slash commands) | `kodflow-workflow` / `kodflow-review` / `kodflow-devops` (marketplace plugins) | Workflow entry points |
+| Hooks | `kodflow-hooks` (marketplace plugin) | 15 events, 5 scripts — no `hooks` block in image `settings.json` |
 | MCP template | `.devcontainer/images/mcp.json.tpl` | Server configuration |
 
 ## Data Flow
@@ -37,7 +40,7 @@ Specialist agents (25 language + 6 dev executor + 9 devops + 6 platform executor
 1. **Container creation** — VS Code reads `devcontainer.json`, builds and runs service
 2. **onCreate** — Provisions caches, injects CLAUDE.md, sets safe directories
 3. **postCreate** — Wires language managers (NVM, pyenv, rustup), creates aliases
-4. **postStart** — Restores Claude, injects secrets into `mcp.json`, validates setup
+4. **postStart** — Registers the kodflow marketplace and installs/updates its 5 plugins (fail-open if offline), restores Claude, injects secrets into `mcp.json`, validates setup
 5. **Development** — User invokes slash commands → orchestrators → specialists → output
 
 ## Agent Architecture
@@ -77,11 +80,11 @@ User intent (slash command)
 
 ### ktn-linter Integration Model
 
-ktn-linter has a dual role: **MCP server** (linting tools) and **hook provider** (PreToolUse/PostToolUse/Stop).
+ktn-linter has a dual role: **MCP server** (linting tools) and **hook provider** (PreToolUse/Stop; no PostToolUse call).
 
-- **Template responsibility**: installs binary, registers MCP fragment, declares hook wrapper scripts in `settings.json`
+- **Template responsibility**: installs binary, registers MCP fragment (`requires_binary` gate)
 - **ktn-linter responsibility**: HTTP server with lint logic, ScanReport formatting, severity ordering
-- **Integration**: 3 wrapper scripts (`ktn-*.sh`) call ktn-linter HTTP endpoints with graceful degradation
+- **Integration**: calls are embedded in the `kodflow-hooks` marketplace plugin's `on-tool.sh` (PreToolUse) and `on-stop.sh` (Stop) — no wrapper scripts in the template; graceful degradation if ktn-linter isn't running
 
 See [ktn-linter-integration.md](ktn-linter-integration.md) for the full contract.
 
