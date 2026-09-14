@@ -6,17 +6,23 @@ the only place to change.
 
 ## The table
 
-Route on **evidence** — a file that exists, a dependency that is declared, a
-manifest present — never on the prose of a description alone.
+Route on **evidence**. Evidence is a file that exists, a dependency that is
+declared, a manifest present — **or, for work not yet built, a technology the
+plan explicitly proposes adopting**, named with a version or a concrete API.
+
+That second form matters more than it looks. `/challenge` and `/feature` run
+*before* implementation, so requiring an existing artifact routes nothing at
+exactly the moment a specialist is most useful: a plan whose first line is "add
+a Postgres-backed session store" has no `.sql` file yet, and reviewing it
+without the database specialist is how a schema decision ships unexamined.
+
+What is still not evidence: the prose of a description with no technology named,
+and a passing mention ("could use Redis later"). A proposal must name the thing
+and commit to it.
 
 ```bash
 ls ~/.claude/agents/*.md | xargs -n1 basename | sed 's/\.md$//'
 ```
-
-The table below is the routing this template ships with. **It is not a claim
-that every one of these agents is installed** — a consumer may have pruned the
-languages it does not build. Check the listing above, dispatch what is there,
-and report a matched row whose agent is absent rather than passing over it.
 
 | Evidence | Specialist |
 |---|---|
@@ -28,7 +34,7 @@ and report a matched row whose agent is absent rather than passing over it.
 | `.c` `.h` | `developer-specialist-c` |
 | `.cc` `.cpp` `.hpp` `.cxx` | `developer-specialist-cpp` |
 | `.zig`, `build.zig`, `build.zig.zon` | `developer-specialist-zig` |
-| SQL, a migration, a schema change | `data-specialist-postgres` |
+| PostgreSQL specifically — `postgres`/`psql` present, a Postgres DSN, PG-dialect SQL | `data-specialist-postgres` |
 | `Dockerfile`, `docker-compose.y*ml` | `devops-specialist-docker` |
 | k8s manifests, `Chart.yaml`, Helm values | `devops-specialist-kubernetes` |
 | `.tf`, `.hcl`, Terragrunt | `devops-specialist-infrastructure` |
@@ -38,38 +44,16 @@ and report a matched row whose agent is absent rather than passing over it.
 | auth, crypto, input handling, a trust boundary **in code** | `developer-executor-security` |
 | secrets in config, image/dependency CVEs, compliance **in infrastructure** | `devops-specialist-security` |
 | systemd units, packaging, host configuration | `devops-executor-linux` |
-| `.java`, `pom.xml`, `build.gradle` | `developer-specialist-java` |
-| `.kt` `.kts` | `developer-specialist-kotlin` |
-| `.cs`, `.csproj` | `developer-specialist-csharp` |
-| `.vb`, `.vbproj` | `developer-specialist-vbnet` |
-| `.rb`, `Gemfile` | `developer-specialist-ruby` |
-| `.php`, `composer.json` | `developer-specialist-php` |
-| `.scala`, `build.sbt` | `developer-specialist-scala` |
-| `.ex` `.exs`, `mix.exs` | `developer-specialist-elixir` |
-| `.dart`, `pubspec.yaml` | `developer-specialist-dart` |
-| `.swift`, `Package.swift` | `developer-specialist-swift` |
-| `.pl` `.pm`, `cpanfile` | `developer-specialist-perl` |
-| `.lua`, `.rockspec` | `developer-specialist-lua` |
-| `.r` `.R`, `DESCRIPTION` | `developer-specialist-r` |
-| `.m` (MATLAB/Octave) | `developer-specialist-matlab` |
-| `.f90` `.f95` `.f03`, `fpm.toml` | `developer-specialist-fortran` |
-| `.adb` `.ads`, `alire.toml` | `developer-specialist-ada` |
-| `.pas` `.pp`, `.lpi` | `developer-specialist-pascal` |
-| `.cob` `.cbl` | `developer-specialist-cobol` |
-| `.s` `.asm` | `developer-specialist-assembly` |
-| Playwright tests, `playwright.config.*` | `developer-specialist-playwright` |
-| an AWS provider or service | `devops-specialist-aws` |
-| a Google Cloud provider or service | `devops-specialist-gcp` |
-| an Azure provider or service | `devops-specialist-azure` |
-| `wrangler.toml`, Workers/Pages/R2/KV/D1 | `devops-specialist-cloudflare` |
-| cost, budget, right-sizing, waste | `devops-specialist-finops` |
-| a BSD host | `devops-executor-bsd` |
-| a macOS host | `devops-executor-osx` |
-| a Windows host | `devops-executor-windows` |
-| QEMU/KVM, libvirt, cloud-init | `devops-executor-qemu` |
-| vSphere, ESXi, vCenter | `devops-executor-vmware` |
 
-Several rows can match at once, and then **every match is dispatched**. A change
+**Scope the evidence before matching.** Route on what the *change* touches, not
+on what the repository contains: a one-file Go change in a repo that also holds
+Terraform and Helm gets the Go specialist, not three. Repository-wide evidence
+produces repository-wide fan-out, which costs real quota and buries the finding
+that mattered.
+
+Several rows can match on a genuinely cross-cutting change, and then **every
+match is dispatched**, deduplicated by agent — one dispatch per specialist even
+when three rows point at it. A change
 touching Go, Kubernetes and a workflow file gets three specialists, not the one
 that felt most relevant.
 

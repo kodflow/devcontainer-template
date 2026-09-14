@@ -4,11 +4,11 @@ description: Code review specialist using RLM decomposition. Coordinates 5 sub-a
   design, quality, shell) for comprehensive analysis. Dispatches sub-agents in parallel via Task tool
   to avoid context accumulation. Supports both GitHub PRs and GitLab MRs (auto-detected from git remote).
   Output is LOCAL ONLY - generates /plan file for /refine → /goal execution.
-tools: Read, Glob, Grep, Task, TaskCreate, TaskUpdate, TaskList, Bash, mcp__github__pull_request_read,
-  mcp__github__list_pull_requests, mcp__github__add_issue_comment, mcp__gitlab__get_merge_request, mcp__gitlab__get_merge_request_changes,
+tools: Read, Edit, Write, Glob, Grep, Task, TaskCreate, TaskUpdate, TaskList, Bash, mcp__github__pull_request_read,
+  mcp__github__list_pull_requests, mcp__gitlab__get_merge_request, mcp__gitlab__get_merge_request_changes,
   mcp__gitlab__list_merge_request_notes, mcp__gitlab__list_merge_request_discussions, mcp__gitlab__list_merge_requests,
-  mcp__gitlab__create_merge_request_note, mcp__gitlab__list_pipelines, mcp__context7__resolve-library-id,
-  mcp__context7__query-docs, SendMessage, TaskGet, WebFetch
+  mcp__gitlab__list_pipelines, mcp__context7__resolve-library-id, mcp__context7__query-docs, SendMessage,
+  TaskGet, WebFetch
 model: sonnet
 color: blue
 ---
@@ -90,7 +90,11 @@ strategy:
     - Normalize all findings
     - Drop findings without evidence
     - Deduplicate by {impact}:{category}:{file}:{title}
-    - Promote 3+ MEDIUM → 1 HIGH umbrella
+    - Do NOT promote by count. Three unrelated MEDIUM findings are three
+      MEDIUM findings; severity tracks impact, not arithmetic. Raise an
+      umbrella finding only when the combined failure is itself worse than
+      its parts — and then state the shared mechanism that makes it so.
+      Counting up distorts the fix loop, which gates on CRITICAL/HIGH counts.
 
   5_synthesize:
     - Generate terminal report

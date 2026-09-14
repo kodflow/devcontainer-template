@@ -193,20 +193,34 @@ kind delete cluster
 
 ## Security Context Template
 
+`fsGroup` is a **Pod** field; `readOnlyRootFilesystem`, `allowPrivilegeEscalation`
+and `capabilities` are **container** fields. There is no single block that accepts
+all of them — a template mixing the two produces an invalid manifest, which is
+how a hardening step silently becomes a no-op.
+
 ```yaml
-securityContext:
-  runAsNonRoot: true
-  runAsUser: 1000
-  runAsGroup: 1000
-  fsGroup: 1000
-  readOnlyRootFilesystem: true
-  allowPrivilegeEscalation: false
-  seccompProfile:
-    type: RuntimeDefault
-  capabilities:
-    drop:
-      - ALL
+spec:
+  securityContext:            # Pod level
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: app
+      securityContext:        # container level
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        privileged: false
+        capabilities:
+          drop: ["ALL"]
 ```
+
+`runAsNonRoot`/`runAsUser`/`runAsGroup`/`seccompProfile` are valid at both
+levels; the container value wins where both are set. Verify against
+<https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>
+before quoting this — it is a cached shape, not a source.
 
 ## GitOps Patterns
 

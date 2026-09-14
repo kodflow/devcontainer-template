@@ -17,7 +17,10 @@ CHECK=0
 # Only skills with no Claude-specific binding. The rest stay Claude-side until
 # their provider-specific parts are abstracted — porting them as-is would ship
 # instructions naming tools Codex does not have.
-SKILLS="challenge project"
+# _shared carries the routing table and the model policy that the transposed
+# skills reference by relative path. Omitting it left ../_shared/specialists.md
+# dangling on the Codex side — the skill loaded and pointed at nothing.
+SKILLS="_shared challenge project"
 
 command -v python3 >/dev/null 2>&1 || { echo "python3 required" >&2; exit 2; }
 [ -d "$SRC" ] || { echo "no source skills at $SRC" >&2; exit 2; }
@@ -43,13 +46,14 @@ NEUTRALISE = [
 
 for name in names:
     s = src / name
-    if not (s / "SKILL.md").exists():
-        skipped.append(f"{name}: no SKILL.md"); continue
     d = dst / name
-    raw = (s / "SKILL.md").read_text()
-    end = raw.find("\n---\n", 4)
-    fm = yaml.safe_load(raw[4:end + 1]) or {}
-    body = raw[end + 5:]
+    if (s / "SKILL.md").exists():
+        raw = (s / "SKILL.md").read_text()
+        end = raw.find("\n---\n", 4)
+        fm = yaml.safe_load(raw[4:end + 1]) or {}
+        body = raw[end + 5:]
+    else:
+        fm, body = {}, ""   # a shared module directory: files only, no entrypoint
 
     # Codex frontmatter is name + description + metadata. when_to_use has no
     # equivalent field, so it is folded into the description rather than lost —
@@ -76,14 +80,42 @@ for name in names:
     body = body.replace("`$ARGUMENTS`", "the arguments").replace("$ARGUMENTS", "the arguments")
 
     new = "---\n" + yaml.safe_dump(out, sort_keys=False, allow_unicode=True, width=88).rstrip("\n") + "\n---\n" + body
+    # A skill with no SKILL.md (the shared module directory) still has content
+    # worth transposing, so the entrypoint is optional here.
     target = d / "SKILL.md"
-    if target.exists() and target.read_text() == new:
+    # No entrypoint in the source means there is nothing to compare, not a
+    # difference — otherwise a shared module directory reports drift forever.
+    entry_same = (not (s / "SKILL.md").exists()) or (target.exists() and target.read_text() == new)
+
+    # Comparing only the entrypoint skipped every sibling module and script:
+    # editing debate.md without touching SKILL.md synced nothing at all.
+    siblings_same = True
+    for extra in s.iterdir():
+        if extra.name == "SKILL.md":
+            continue
+        tgt = d / extra.name
+        if not tgt.exists():
+            siblings_same = False; break
+        if extra.is_file():
+            want = extra.read_text()
+            for pat, rep in NEUTRALISE:
+                want = re.sub(pat, rep, want)
+            if tgt.read_text() != want:
+                siblings_same = False; break
+        else:
+            src_files = sorted(x.relative_to(extra) for x in extra.rglob("*") if x.is_file())
+            dst_files = sorted(x.relative_to(tgt) for x in tgt.rglob("*") if x.is_file())
+            if src_files != dst_files:
+                siblings_same = False; break
+
+    if entry_same and siblings_same:
         continue
     if check:
         changed.append(f"{name}: would update"); continue
 
     d.mkdir(parents=True, exist_ok=True)
-    target.write_text(new)
+    if (s / "SKILL.md").exists():
+        target.write_text(new)
     for extra in s.iterdir():
         if extra.name == "SKILL.md":
             continue

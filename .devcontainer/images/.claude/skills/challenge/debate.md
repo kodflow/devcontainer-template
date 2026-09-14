@@ -31,12 +31,17 @@ pass as normal.
 
 ### 1.2 The full panel
 
+Every lens reviewer is a **review worker** under `../_shared/model-policy.md`,
+so all three take that role's tier and effort — not a cheaper one because the
+lens sounds lighter. An operator lens that misses a rollback hazard costs
+exactly what a correctness lens missing a race costs.
+
 | Reviewer | Lens | Model | Availability |
 |----------|------|-------|--------------|
-| **architect** | Is the shape right? Boundaries, coupling, what this makes hard later. | opus | always |
-| **sceptic** | What is assumed and unproven? Where does this fail? | opus | always |
-| **operator** | What happens at 3am? Rollback, migration, blast radius, observability. | sonnet | always |
-| **`<specialist>`** | Is this correct *in this technology*? Idiom, footgun, version reality. | its own | one per matched domain |
+| **architect** | Is the shape right? Boundaries, coupling, what this makes hard later. | review-worker tier | always |
+| **sceptic** | What is assumed and unproven? Where does this fail? | review-worker tier | always |
+| **operator** | What happens at 3am? Rollback, migration, blast radius, observability. | review-worker tier | always |
+| **`<specialist>`** | Is this correct *in this technology*? Idiom, footgun, version reality. | its own frontmatter — a specialist's model is part of its definition, and the policy does not override it | one per matched domain |
 | **codex** | An outside-the-family read of the same plan. | — | only when the CLI answers and not `--no-codex` |
 
 The three lenses are chosen to *conflict*: the architect wants the boundary, the
@@ -69,6 +74,7 @@ Invoke it as a structured panel member, not as a chat:
 
 ```bash
 codex exec --skip-git-repo-check --ephemeral -s read-only \
+  -m "$CODEX_MODEL" \
   -c model_reasoning_effort="high" \
   --output-schema  "$SCHEMA"   \
   -o               "$OUT"      \
@@ -101,7 +107,7 @@ Every run, before the first round:
 
 ```
 Plan touches: Go · Kubernetes · GitHub Actions
-Panel (6): architect (opus) · sceptic (opus) · operator (sonnet)
+Panel (6): architect · sceptic · operator   [review-worker tier, resolved]
          + developer-specialist-go · devops-specialist-kubernetes
          + tooling-specialist-github-actions
          codex: absent (CLI not installed)
@@ -147,7 +153,8 @@ Judge each objection against the plan and the codebase:
 |---------|---------|--------|
 | **accepted** | It is right; the plan changes | rewrite in 2.4 |
 | **rejected** | Provably wrong — cite what proves it | recorded, never silently dropped |
-| **needs the user** | Cannot be settled from the code or the plan | phase 2.3 |
+| **needs the user** | A real choice only the user can make — a trade-off, a priority, a scope call | phase 2.3 |
+| **unverified** | Nobody could reach the documentation that would settle it | recorded as an open uncertainty, **not** put to the user |
 
 A reviewer contradicting another is normal and often the most useful signal.
 Do not average them: pick, and say why.
@@ -191,14 +198,25 @@ what changed. Arguing back is how three rounds produce zero improvement.
 
 Stop at the first of:
 
-- a round produces **no accepted objection** — converged, and the remaining
-  rounds are not spent
+- a round produces **no accepted objection** *and* the plan was not rewritten
+  during it — only then is it converged. A round where the user's answers
+  changed the plan ends with a version nobody reviewed; that is not
+  convergence, and calling it so is how an unreviewed rewrite ships.
 - `N` rounds are done
 - the user answers a question in a way that invalidates the plan's premise —
   stop and say the plan needs redoing, do not patch around it
 
-Report the round count and why it stopped. A run that converged in one round is
-a better result than one that used all three, not a lazier one.
+Report the round count and **which of three states the plan ended in**:
+
+| State | Means |
+|-------|-------|
+| `converged` | last round raised no accepted objection and changed nothing |
+| `rewritten-unreviewed` | the last round changed the plan; no reviewer has seen that version |
+| `review-incomplete` | the round cap was reached with objections still open |
+
+Never report the last two as convergence. A run that converged in one round is a
+better result than one that used all three; a run that hit the cap is not a
+result at all, it is a plan that needs another pass.
 
 ## Recording
 

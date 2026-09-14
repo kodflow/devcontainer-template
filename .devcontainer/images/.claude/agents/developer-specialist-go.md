@@ -126,49 +126,45 @@ go_version_features:
 before_approval:
   1_fmt: "gofmt -s -l . returns empty"
   2_imports: "goimports -l . returns empty"
-  3_lint: "golangci-lint run --enable-all"
+  3_lint: "golangci-lint run  # v2: enable the set in .golangci.yml, not --enable-all (removed)"
   4_race: "go test -race ./... passes"
   5_vuln: "govulncheck ./... clean"
-  6_cover: "go test -cover >= 80%"
+  6_cover: |
+    go test -coverprofile=cover.out ./... &&
+    go tool cover -func=cover.out | awk '/^total:/{gsub("%","",$3); if ($3+0 < 80) exit 1}'
+    # an assertion is not a gate: this one exits non-zero below the threshold
 ```
 
-## .golangci.yml Template (Academic)
+## .golangci.yml Template
+
+golangci-lint v2 renamed the top-level keys. `enable-all` and the
+`--enable-all` flag are gone, `linters.default` replaces them, and settings
+moved under `linters.settings`. A v1 file against a v2 binary fails to load, so
+the mandatory lint gate never runs — which is worse than a lax gate, because it
+reports nothing rather than reporting less.
 
 ```yaml
+version: "2"
+
 linters:
-  enable-all: true
+  default: all
   disable:
-    - depguard
-    - execinquery
+    - depguard        # needs a policy this project does not define
+  settings:
+    gocyclo:
+      min-complexity: 15
+    dupl:
+      threshold: 100
 
-linters-settings:
-  gocyclo:
-    min-complexity: 10
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  misspell:
-    locale: US
-  lll:
-    line-length: 120
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-  funlen:
-    lines: 60
-    statements: 40
-  gocognit:
-    min-complexity: 15
-
-issues:
-  exclude-use-default: false
-  max-issues-per-linter: 0
-  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
 ```
+
+`execinquery` was removed from golangci-lint and must not be listed. Confirm the
+current key names against <https://golangci-lint.run/docs/product/migration-guide/>
+before copying this — it is a cached shape, not a source.
 
 ## Code Patterns (Required)
 
@@ -234,28 +230,52 @@ name := f.Name() // Safe - error was checked
 // }
 ```
 
-### testing/synctest (Go 1.25 - concurrent testing)
+### testing/synctest (concurrent testing on a virtual clock)
+
+`synctest.Test` takes `func(*testing.T)` — not `func(context.Context)`. And
+`synctest.Wait()` returns once every other goroutine in the bubble is *durably
+blocked*; it does not run the sleeping goroutine to completion. Reading the
+result straight after `Wait()` reads it before the store.
 
 ```go
-import "testing/synctest"
+import (
+    "sync"
+    "testing"
+    "testing/synctest"
+    "time"
+)
 
 func TestConcurrent(t *testing.T) {
-    synctest.Test(t, func(ctx context.Context) {
-        var result atomic.Int64
+    synctest.Test(t, func(t *testing.T) {
+        var (
+            mu     sync.Mutex
+            result int64
+        )
+        done := make(chan struct{})
 
         go func() {
-            time.Sleep(time.Second) // Virtual time
-            result.Store(42)
+            defer close(done)
+            time.Sleep(time.Second) // virtual: returns immediately in the bubble
+            mu.Lock()
+            result = 42
+            mu.Unlock()
         }()
 
-        synctest.Wait() // Wait for goroutines to block
+        <-done // synchronise on completion, not on "everything is blocked"
 
-        if result.Load() != 42 {
-            t.Error("expected 42")
+        mu.Lock()
+        defer mu.Unlock()
+        if result != 42 {
+            t.Fatalf("result = %d, want 42", result)
         }
     })
 }
 ```
+
+`synctest.Wait()` is the right tool when you need the bubble to settle *before*
+advancing time or asserting on an intermediate state — not as a substitute for
+waiting on a result. Check the contract at <https://pkg.go.dev/testing/synctest>;
+this API is recent and the signature has changed.
 
 ### new() with expressions (Go 1.26 - optional pointer fields)
 

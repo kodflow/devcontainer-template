@@ -47,17 +47,28 @@ not guess a model id: an invalid one fails the run at the first dispatch.
 | **Mechanical worker** | Sonnet | `low`–`medium` | Search, extract, classify, per-file transform. The answer is looked up, not reasoned to. |
 | **Bulk / triage worker** | Haiku | `low` | High volume, shallow judgement, throwaway output. |
 
-**The orchestrator is never a worker.** If the top model is doing the editing,
-the allocation has collapsed and the plan is not following this policy.
+**Set every worker's model explicitly.** The hazard this policy exists for is
+*silent inheritance*: a worker with no model set runs on the orchestrator's,
+which on a top-tier orchestrator means the whole swarm at the top rate with
+nothing in the output saying so.
+
+That is a rule about explicitness, not about which id appears where. A review
+worker that genuinely needs the top model may have it — say so and say why.
+What is forbidden is arriving there by omission, and putting the top model on
+work a cheaper tier finishes just as correctly.
 
 ### On "quality" meaning code, not cleverness
 
 A worker is judged on what it emits, not how interestingly it got there. When
 choosing between two tiers for a code-writing role, the question is *which
-produces code that needs fewer corrections*, not which reasons more impressively.
-That is why the code worker is Opus rather than the top model: past a point,
-additional reasoning changes the approach rather than the output, and a changed
-approach is not what a plan already debated wants.
+produces code that needs fewer corrections* — a question only measurement
+answers.
+
+The code worker starts a tier below the orchestrator as a **baseline to test**,
+not as a finding. The reasoning behind it — that past some point extra
+deliberation changes the approach rather than the output, and a plan already
+debated does not want its approach changed — is a hypothesis. It is stated here
+so it can be refuted, and §4 says how. Do not repeat it as established.
 
 ---
 
@@ -134,7 +145,7 @@ Two consequences worth holding:
 | Hardcode a model id instead of resolving it | **FORBIDDEN** |
 | Let a worker inherit the orchestrator's model | **FORBIDDEN** — set it explicitly, every time |
 | Put the orchestrator on anything below `CLAUDE_TOP` | **FORBIDDEN** |
-| Use the orchestrator model for a worker role | **FORBIDDEN** |
+| Assign a worker the top model without saying why that role needs it | **FORBIDDEN** — allowed, but never by default |
 | Fan out wide on Opus without saying what each worker decides | **FORBIDDEN** |
 | Parallel writers without worktree isolation | **FORBIDDEN** |
 | Read the local OpenAI model map as current | **FORBIDDEN** — confirm against the docs |
