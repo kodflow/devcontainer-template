@@ -1,11 +1,11 @@
 ---
-name: super-claude-auto-mode-fallback
+title: "super-claude: Auto Mode with Bypass Fallback"
 category: learned
-extracted: 2026-04-26T10:45:00Z
-confidence: 0.95
-trigger: "When updating super-claude() function or launch config for Claude Code"
-source: session
+verified: 2026-04-26   # /search --refresh restamps this
+ttl_days: 365
+tags: [evidence, files-to-update, lang:bash, learned, super-claude-auto-mode-fallback, why-auto-mode-is-better-than-bypass]
 ---
+
 # super-claude: Auto Mode with Bypass Fallback
 
 ## Problem

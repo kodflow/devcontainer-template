@@ -1,3 +1,11 @@
+---
+title: "YAGNI - You Aren't Gonna Need It"
+category: principles
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [1-security, 2-architecture-difficult-to-change, 3-public-api-contracts, YAGNI, architecture, code, configuration, exceptions, lang:go, principles, relationship-with-other-principles, workflow, yagni-violation-signals, yagni-vs-anticipation]
+---
+
 # YAGNI - You Aren't Gonna Need It
 
 > Never implement something before you actually need it.

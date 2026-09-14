@@ -1,3 +1,11 @@
+---
+title: "Singleton Pattern"
+category: creational
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [classic-structure, creational, decision-singleton-vs-di, dependency-injection-recommended, factory-with-scope, intention, lang:go, modern-alternatives, module-pattern-package-level-variables, singleton, singleton-with-configuration, singleton-with-lazy-initialization, thread-safe-singleton-with-sync-once, unit-tests, when-to-avoid, when-to-use-really, why-singleton-is-often-an-anti-pattern]
+---
+
 # Singleton Pattern
 
 > Guarantee a unique instance of a class with a global access point.

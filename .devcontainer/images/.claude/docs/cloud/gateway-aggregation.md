@@ -1,3 +1,11 @@
+---
+title: "Gateway Aggregation Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [cloud, error-handling-strategies, gateway-aggregation, go-example, lang:go, problem-solved]
+---
+
 # Gateway Aggregation Pattern
 
 > Aggregate multiple backend requests into a single client request.

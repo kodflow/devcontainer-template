@@ -1,3 +1,11 @@
+---
+title: "Message Channel Patterns"
+category: messaging
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [complementary-patterns, decision-table, error-cases, lang:go, message-channel, messaging, point-to-point-channel, pub-sub-error-handling, pub-sub-schema, publish-subscribe-channel, rabbitmq-kafka-implementation, schema, topic-filtering]
+---
+
 # Message Channel Patterns
 
 Communication channel patterns for messaging.

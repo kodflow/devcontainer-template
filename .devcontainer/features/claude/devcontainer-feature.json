@@ -1,8 +1,8 @@
 {
   "id": "claude",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "name": "Claude Code Integration",
-  "description": "Claude Code configuration with commands, hooks, MCP and marketplace",
+  "description": "Claude Code with the kodflow marketplace plugins (skills, agents, lifecycle hooks), quality scripts, MCP and status line",
   "documentationURL": "https://github.com/kodflow/devcontainer-template",
   "options": {
     "installClaude": {

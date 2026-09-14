@@ -1,3 +1,11 @@
+---
+title: "Domain Model"
+category: enterprise
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [comparison-with-alternatives, complete-go-implementation, concept, domain-model, enterprise, lang:go, rich-vs-anemic-domain-model]
+---
+
 # Domain Model
 
 > "An object model of the domain that incorporates both behavior and data." - Martin Fowler, PoEAA

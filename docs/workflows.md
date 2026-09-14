@@ -4,22 +4,22 @@
 
 | Task | Command |
 |------|---------|
-| Initialize project | `/init` |
+| Initialize project | `/project` |
 | New feature | `/plan "feature description"` |
 | Bug fix | `/plan "fix description"` |
 | Code review | `/review` |
 | Plan implementation | `/plan` |
-| Execute plan | `/do` |
+| Execute plan | `/refine` → `/goal <slug>` |
 | Commit changes | `/git --commit` |
 | Run tests | `make test` or language-specific |
 
 ## Project Initialization
 
 ```
-/init → detect template → discovery conversation → generate docs → validate environment
+/project → detect template → discovery conversation → generate docs → validate environment
 ```
 
-Run once after creating a project from this template. Produces vision, architecture, workflows, and agent configuration.
+Run once after creating a project from this template. Produces vision, architecture, workflows, and agent configuration; decisions are recorded as numbered constraints in CLAUDE.md.
 
 ## Feature Development
 
@@ -43,7 +43,9 @@ Same flow as features, uses `fix/` branch prefix and `fix(scope):` commits.
 
 ## Code Review Pipeline
 
-`/review` triggers 5 parallel analysis passes:
+`/review` is a 3-tier review: T1 agents, T2 Qodo (skipped when absent), T3
+CodeRabbit (auth-probed). T1 dispatches five cross-cutting executors in
+parallel, alongside the language specialists selected by file type:
 
 | Executor | Focus |
 |----------|-------|
@@ -87,13 +89,16 @@ Priority: Makefile targets → Language-specific commands
 2. **File discovery**: Glob
 3. **Read-then-understand**: Read full files; agents reason from context
 4. **Official docs**: context7 (`mcp__context7__*`) for library documentation
-5. **Token efficiency**: RTK PreToolUse hook auto-compresses Bash output
+5. **Token efficiency**: RTK rewrite (transform stage of `on-tool.sh`, `kodflow-hooks` plugin) auto-compresses Bash output
 
 ## Hooks
 
-| Hook | Action |
-|------|--------|
-| `pre-validate.sh` | Protect sensitive files |
-| `post-edit.sh` | Format + lint after edits |
-| `security.sh` | Secret detection |
-| `test.sh` | Run related tests |
+Hooks ship in the `kodflow-hooks` marketplace plugin (15 events, 5 scripts), not in the image — `settings.json` has no `hooks` block. Hooks on the same event run in parallel, so each event gets exactly one script and the ordering lives inside it: gate → block → transform → observe.
+
+| Script | Events | Action |
+|--------|--------|--------|
+| `on-tool.sh` | PreToolUse, PostToolUse, PostToolUseFailure | Git guard, protected paths, RTK rewrite, format/lint, project-linter pre-check, logging |
+| `on-session.sh` | SessionStart, SessionEnd, PreCompact, ConfigChange | Session lifecycle |
+| `on-user.sh` | UserPromptSubmit, Notification | Prompt/notification handling |
+| `on-agent.sh` | SubagentStart, SubagentStop, TaskCreated, TaskCompleted, TeammateIdle | Agent/task lifecycle logging |
+| `on-stop.sh` | Stop | Project-linter verdict, per-directory CLAUDE.md reminder |

@@ -1,3 +1,11 @@
+---
+title: "Terraform Documentation Patterns"
+category: devops
+verified: 2026-02-04   # /search --refresh restamps this
+ttl_days: 180
+tags: [1-comment-depth, 2-documentation-completeness, 3-naming-conventions, architecture, automation, comment-structure-convention, contributing, devops, docs-tfdocs-footer-md, docs-tfdocs-header-md, features, file-structure-convention, lang:hcl, lang:yaml, license, main-section-headers, makefile-integration, operational-notes-section, pre-commit-hook-for-terraform-docs, related-modules, resource-documentation, sub-section-headers, terraform-docs-configuration, terraform-docs-yml, terraform-documentation, v-locals-tf, v-variables-tf, variables-documentation]
+---
+
 # Terraform Documentation Patterns
 
 ## Overview

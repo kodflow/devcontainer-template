@@ -1,3 +1,11 @@
+---
+title: "Command Pattern"
+category: behavioral
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [behavioral, command, command-queue-asynchronous, intent, lang:go, macro-command-composite, transactional-command, unit-tests]
+---
+
 # Command Pattern
 
 > Encapsulate a request as an object to parameterize, log, or undo.

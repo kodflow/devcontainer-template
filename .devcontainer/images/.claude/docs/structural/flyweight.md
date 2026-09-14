@@ -1,3 +1,11 @@
+---
+title: "Flyweight"
+category: structural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [advantages-disadvantages, anti-patterns-to-avoid, complete-example, flyweight, framework-implementations, lang:go, problem-solved, structural, tests]
+---
+
 # Flyweight
 
 > Minimize memory by sharing data between similar objects.

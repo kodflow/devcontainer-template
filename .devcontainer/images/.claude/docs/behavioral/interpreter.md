@@ -1,3 +1,11 @@
+---
+title: "Interpreter"
+category: behavioral
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [advantages-disadvantages, anti-patterns-to-avoid, behavioral, complete-example, framework-implementations, interpreter, lang:go, problem-solved, tests]
+---
+
 # Interpreter
 
 > Define a grammar and an interpreter to evaluate expressions.

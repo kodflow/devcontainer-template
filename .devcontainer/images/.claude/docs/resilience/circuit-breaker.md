@@ -1,3 +1,11 @@
+---
+title: "Circuit Breaker Pattern"
+category: resilience
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [circuit-breaker, lang:go, libraries, recommended-configuration, resilience, states, usage-with-fallback]
+---
+
 # Circuit Breaker Pattern
 
 > Prevent cascading failures by stopping calls to a failing service.

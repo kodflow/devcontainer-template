@@ -1,3 +1,11 @@
+---
+title: "Composite"
+category: structural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [advantages-disadvantages, anti-patterns-to-avoid, complete-example, composite, framework-implementations, lang:go, problem-solved, structural, tests]
+---
+
 # Composite
 
 > Compose objects into trees to represent part-whole hierarchies.

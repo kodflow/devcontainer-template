@@ -1,3 +1,11 @@
+---
+title: "Test Fixtures"
+category: testing
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [composable-fixtures, embedded-test-data, fixture, fixture-struct-pattern, lang:go, recommended-libraries, scoped-fixtures-per-test-cleanup, testing, testmain-pattern, transaction-rollback-fixture]
+---
+
 # Test Fixtures
 
 > Shared configuration and data for tests.

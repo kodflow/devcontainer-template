@@ -1,3 +1,11 @@
+---
+title: "Repository (PoEAA)"
+category: enterprise
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [comparison-with-alternatives, concept, enterprise, key-principles, lang:go, repository]
+---
+
 # Repository (PoEAA)
 
 > "Mediates between the domain and data mapping layers using a collection-like interface for accessing domain objects." - Martin Fowler, PoEAA

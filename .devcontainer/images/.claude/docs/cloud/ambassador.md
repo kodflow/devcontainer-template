@@ -1,3 +1,11 @@
+---
+title: "Ambassador Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [ambassador, cloud, go-example, lang:go, lang:yaml, responsibilities, usage-with-kubernetes-sidecar, use-cases]
+---
+
 # Ambassador Pattern
 
 > Create proxy services to manage communications between clients and services.

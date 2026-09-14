@@ -1,3 +1,11 @@
+---
+title: "Service Mesh Pattern"
+category: integration
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [authorization-policy-security, components, destination-rule-load-balancing-tls, features, go-implementation-dapr, implementation-with-istio-kubernetes, installation, integration, lang:go, lang:yaml, namespace-configuration, observability-with-service-mesh, peer-authentication-mtls, service-mesh, solution-comparison, virtual-service-routing]
+---
+
 # Service Mesh Pattern
 
 > Dedicated infrastructure for inter-service communication with observability, security, and resilience.

@@ -1,3 +1,11 @@
+---
+title: "Repository Pattern (DDD)"
+category: ddd
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [ddd, in-memory-repository-testing, lang:go, oop-vs-fp-comparison, recommended-libraries, repository]
+---
+
 # Repository Pattern (DDD)
 
 > Mediator between the domain and data mapping layers, acting as an in-memory collection of domain objects.

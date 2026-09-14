@@ -1,4 +1,4 @@
-<!-- updated: 2026-04-24T10:50:00Z -->
+<!-- updated: 2026-09-14T00:00:00Z -->
 # Claude Code Core Rules
 
 ## 1.0 MCP-FIRST (MANDATORY)
@@ -16,57 +16,48 @@ MCP has pre-configured auth. NEVER ask for tokens if MCP is configured.
 **Build/CI: mandatory.** `install.sh` and the image Dockerfile hard-fail if
 RTK can't be installed — a container without RTK never reaches a user.
 
-**Runtime/session: doctrine, never blocking.** The `PreToolUse` Bash hook
-compresses output for 60–90 % token savings. If RTK is missing or
-misconfigured at runtime, every Bash call still runs; `session-init.sh`
-emits one `[rtk] mode=… reason=…` line per session and `/audit` surfaces
-the same mode, so degradation is **visible** but never **blocking**.
+**Runtime/session: doctrine, never blocking.** The rewrite is the transform
+stage of `on-tool.sh` (`PreToolUse` Bash, `kodflow-hooks` marketplace plugin,
+after the git guard and before logging), compressing output for 60–90 %
+token savings; the rewritten command still goes through the normal
+permission flow (no auto-approve). `settings.json` in the image carries no
+`hooks` block — the plugin owns the rewrite unconditionally, so there is no
+separate enable/disable entry to drift out of sync. `postStart.sh` runs
+`rtk init -g --no-patch` (RTK.md + the `@RTK.md` import only, never a hook
+entry) and strips any leftover rtk hook found in `settings.json` — left by
+an older image or a manual `rtk init -g` — so it never races the plugin's
+rewrite. If RTK itself is missing or its config is invalid at runtime,
+every Bash call still runs unrewritten: `init_rtk` in `postStart.sh` writes
+`~/.claude/logs/<branch>/rtk-mode.json` (`mode=degraded`, reason
+`no-binary` or `config-invalid`), so degradation is **visible** but never
+**blocking**.
 
-The non-blocking guarantee is implemented by `~/.claude/scripts/rtk-hook-claude.sh`,
-a fail-open wrapper that always exits 0 and always emits valid JSON on
-stdout. `settings.json` calls the wrapper, not `rtk` directly, so no rtk
-failure (binary missing, panic, removed subcommand, version drift) can
-ever propagate as a `PreToolUse` denial. Diagnostic stderr lands in
-`~/.claude/logs/<branch>/rtk-hook.log` for `/audit` visibility — never in
-the agent's chat. See issue #348 for the regression that motivated this
-layer; tests in `tests/scripts/rtk-hook-claude-wrapper.bats` lock the
-contract.
-
-**Bypass policy.** Set `RTK_BYPASS=1` for an explicit session-wide skip
-(probe reports `mode=advisory reason=session-bypass` — first-class signal,
-never conflated with degradation). For a single ad-hoc call, just type the
-command without the `rtk` prefix; it surfaces in `rtk discover` so you can
-review later.
+**Bypass.** Prefix a line with `NO_RTK=` to skip the rewrite for that call;
+it surfaces in `rtk discover` so you can review later.
 
 | Need | Tool |
 |------|------|
-| Git/test/build/lint output | `rtk` (auto via hook) — default for every Bash call |
+| Git/test/build/lint output | `rtk` (auto via `on-tool.sh`) — default for every Bash call |
 | Token savings analytics | `rtk gain` / `rtk gain --history` |
 | Find missed savings opportunities | `rtk discover` |
-| Verify hook + RTK.md + @RTK.md import | `rtk init -g --show` |
+| Verify RTK.md + @RTK.md import | `rtk init -g --show` |
 | Exact string / regex search | `Grep` |
 | Cross-file understanding | `Read` + `Grep` + Task agents |
 
-**Mode reference (probe in `session-init.sh`):**
+**Degraded reasons (`~/.claude/logs/<branch>/rtk-mode.json`, written by
+`init_rtk` in `postStart.sh`):**
 
-| Mode | Reason | Meaning |
-|------|--------|---------|
-| `enforcing` | (none) | Binary + RTK.md + @RTK.md import + hook entry + valid config + no bypass |
-| `advisory` | `session-bypass` | `RTK_BYPASS=1` set this session |
-| `advisory` | `hook-missing` | Binary + doctrine present but `~/.claude/settings.json` lacks the entry |
-| `degraded` | `no-binary` | `command -v rtk` fails |
-| `degraded` | `config-invalid` | `rtk config` exits non-zero (TOML parse error) |
-| `degraded` | `marker-missing` | `~/.claude/RTK.md` absent OR `@RTK.md` import absent from `~/.claude/CLAUDE.md` |
-
-**No semantic-embedding tooling.** `grepai`/`ollama` were dropped in 2026-04
-(high CPU/RAM cost, marginal benefit). Use targeted `Grep` + `Read` instead.
+| Reason | Meaning |
+|--------|---------|
+| `no-binary` | `command -v rtk` fails (install/download/checksum failure) |
+| `config-invalid` | `rtk config` exits non-zero (TOML parse error) |
 
 **Version pin policy.** RTK is pinned in two places in lockstep
 (`RTK_PINNED_VERSION` in `.devcontainer/install.sh` and `ARG RTK_VERSION`
 in `.devcontainer/images/Dockerfile`). Drift between the two fails CI via
 `tests/scripts/install-sh-rtk.bats`. Bump procedure: dedicated PR, both
 files in the same commit, run the full bats suite + manual smoke test
-(kill the rtk binary, confirm Bash still flows through the wrapper) in a
+(kill the rtk binary, confirm Bash still runs unrewritten and degraded) in a
 freshly built container. Never bump because "latest is newer" — bump
 because the new version was validated against this template.
 
@@ -104,37 +95,47 @@ Anchored regexes (`^[[:space:]]*plan:`, `\bplan[[:space:]]+\.claude`) keep
 false positives low — legitimate "plan ahead" in body text still passes.
 
 Enforced by two layers (defence-in-depth):
-- Layer 1: `git-guard.sh` (Claude PreToolUse Bash hook) — blocks commits
-  going through Claude's Bash tool, scanning `-m`/`-F`/`--amend`/rebase paths.
-  Also rejects `git commit --no-verify` and `git commit -n` so layer 2
-  cannot be bypassed from Claude's Bash tool.
+- Layer 1: `on-tool.sh` (`PreToolUse` Bash hook, `kodflow-hooks` marketplace
+  plugin, block stage) — blocks commits going through Claude's Bash tool,
+  scanning `-m`/`-F`/`--amend`/rebase paths. Also rejects
+  `git commit --no-verify` and `git commit -n` so layer 2 cannot be
+  bypassed from Claude's Bash tool.
 - Layer 2: `.githooks/commit-msg` — git-native, catches every other commit
   client (VS Code SCM, GitKraken, terminal outside Claude, CI scripts).
   Wired automatically by `step_git_hooks_path` in `postCreate.sh`.
 
 ## 5.0 SKILLS
 
+Skills ship from the public [kodflow marketplace](https://github.com/kodflow/claude-marketplace)
+(`kodflow-workflow`, `kodflow-review`, `kodflow-devops`), not from a
+`commands/` directory in this image.
+
 | Skill | Purpose |
 |-------|---------|
-| `/init` | Personalize + validate |
+| `/project` | Resolve/create the workspace, record decisions as constraints |
 | `/plan` | Planning mode |
-| `/goal` | **Harness builtin** (not a repository command file) — loops the agent on the directive condition emitted by `/refine` (from the contract `.claude/goals/<slug>.md`); no runtime state file |
-| `/review` | Code review (3 tiers: agents + Qodo + CodeRabbit) |
+| `/refine` | Goal contract generator (`.claude/goals/<slug>.md`) |
+| `/goal` | **Harness builtin** (not a repository command file) — loops the agent on the directive condition emitted by `/refine`; no runtime state file |
+| `/challenge` | Adversarial debate on a plan before anyone builds it |
+| `/review` | Code review (RLM decomposition + review bots) |
 | `/git` | Branch + commit + PR |
 | `/search` | Documentation research |
-| `/docs` | Deep project docs generation |
-| `/test` | E2E testing (Playwright) |
 | `/lint` | Multi-language intelligent linting |
 | `/ktn` | Autonomous ktn-linter MCP lifecycle (5 parallel agents) |
-| `/infra` | Infrastructure (Terraform) |
-| `/secret` | Secure secrets (1Password) |
-| `/vpn` | VPN management |
+| `/infra` | Infrastructure (Terraform/Terragrunt) |
+| `/audit` | Health check for this Claude Code installation |
 | `/warmup` | Context pre-loading |
 | `/update` | DevContainer update |
-| `/feature` | Feature tracking (RTM) |
+| `/feature` | Open/track a piece of feature work |
+| `/fix` | Open/track a defect |
 | `/debug` | Systematic root-cause-first debugging |
 | `/adr` | Architecture Decision Records (wired into `/plan`, `/git`) |
-| `/review-doctor` | Health-and-heal the /review v2 stack (5 parallel concerns) |
+| `/comment` | Audit and fix code comments |
+| `/learn` | Extract reusable patterns from the session |
+
+Skills that existed only in this template and are gone (superseded by the
+skills above, or out of scope for a public plugin): `/init`, `/test`,
+`/review-doctor`, `/feature` RTM mode, `/secret`, `/vpn`.
 
 ### Skill Classification
 
@@ -145,9 +146,9 @@ Enforced by two layers (defence-in-depth):
 
 ## 5.1 AGENT TEAMS
 
-Five skills migrate to parallel multi-agent execution when Claude Code supports it: `/review`, `/plan`, `/docs`, `/infra`, `/test`.
+Three skills migrate to parallel multi-agent execution when Claude Code supports it: `/review`, `/plan`, `/infra`.
 
-**Single source of truth:** `commands/shared/team-mode.md`
+**Single source of truth:** `skills/_shared/team-mode.md` in the `kodflow-devops` marketplace plugin
 
 ### Capability vs Runtime mode
 
@@ -157,20 +158,20 @@ Five skills migrate to parallel multi-agent execution when Claude Code supports 
 | `IN_PROCESS` | `TEAMS_INPROCESS` |
 | `NONE` | `SUBAGENTS` |
 
-The capability file is a **hint**; the live probe (`detect_runtime_mode` in `~/.claude/scripts/team-mode-primitives.sh`) is the **source of truth** and overrides on divergence.
+The capability file is a **hint**; the live probe (`detect_runtime_mode` in `skills/_shared/scripts/team-mode-primitives.sh`, same plugin) is the **source of truth** and overrides on divergence.
 
 ### NOT migrated
-`/git`, `/secret`, `/vpn`, `/update`, `/init`, `/warmup`, `/search`, `/feature`, `/lint` (sequential, conflict-prone, or already has its own team integration).
+`/git`, `/update`, `/warmup`, `/search`, `/feature`, `/fix`, `/lint`, `/adr`, `/comment`, `/learn`, `/debug`, `/ktn`, `/audit`, `/refine`, `/project`, `/challenge` (sequential, conflict-prone, or already has its own team integration).
 
 ### Task contract
-Every team task embeds a `<!-- task-contract v1 {...} -->` JSON block in `task_description`. See `shared/team-mode.md` §4 for the field rules. Parser: `extract_task_contract` in primitives library.
+Every team task embeds a `<!-- task-contract v1 {...} -->` JSON block in `task_description`. See `skills/_shared/team-mode.md` §4 for the field rules. Parser: `extract_task_contract` in primitives library.
 
 ### Hooks
-- `TaskCreated` → advisory validation + collision check (exit 2 on explicit write collision only)
-- `TaskCompleted` → registry lifecycle transition `active → completed`
-- `TeammateIdle` → pending-task enforcement (exit 2 if teammate has active tasks)
-
-All hooks are gated on `.team-capability != NONE` — instant kill switch available.
+`TaskCreated`, `TaskCompleted`, `TeammateIdle` are logged only (`on-agent.sh`,
+`kodflow-hooks` plugin). The former contract-registry validation, collision
+check and pending-task enforcement are gone — they needed a capability file
+and primitives library the plugin never shipped, so they never ran. Team
+tasks are logged, not adjudicated.
 
 ## 6.0 CONTEXT HIERARCHY
 
@@ -181,7 +182,7 @@ All hooks are gated on `.team-capability != NONE` — instant kill switch availa
 └── src/CLAUDE.md            # Source
 ```
 
-Each file < 200 lines. Read at session start.
+Each file ≤ 1000 lines. Read at session start.
 
 ## 7.0 GIT WORKFLOW
 
@@ -192,13 +193,17 @@ Never commit to main directly. Use `/git --commit` which:
 
 ## 8.0 SAFEGUARDS
 
-Ask before deleting: `.claude/`, `.devcontainer/`, commands, scripts, agents.
+Ask before deleting: `.claude/`, `.devcontainer/`, quality scripts, hooks in
+`.devcontainer/hooks/`, or skills/agents in a kodflow marketplace plugin
+(they ship from the marketplace, not this repo).
 When refactoring: move content, never delete logic.
 
 ## 9.0 CONTEXT RECOVERY
 
-On session start, check `/workspace/.claude/logs/<branch>/checkpoint.json`.
-If interrupted task found, resume from last action.
+Compaction recovery is Claude Code's own job now — there is no
+`checkpoint.json` or per-event snapshot to read on session start (dropped
+with the 24→5 hook consolidation; no reader ever consumed them). Session
+history: `/workspace/.claude/logs/<branch>/session.jsonl`.
 
 ## Quick Check
 
@@ -207,7 +212,7 @@ Before any action: MCP available? Tokens in env? On feature branch? CLAUDE.md re
 ### Question Discipline
 
 - During exploratory phases (brainstorming, init): ask ONE question at a time
-- Configuration phases (e.g. /init discovery) may batch related questions
+- Configuration phases (e.g. /project discovery) may batch related questions
 - Prefer multiple choice over open-ended
 
 @RTK.md

@@ -1,3 +1,11 @@
+---
+title: "Object Mother"
+category: testing
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [combining-with-builder, database-seeding-with-mothers, lang:go, object-mother, object-mother-with-relationships, recommended-libraries, scenario-based-mothers, testing]
+---
+
 # Object Mother
 
 > Centralized factory for pre-configured test objects.

@@ -1,3 +1,11 @@
+---
+title: "DRY - Don't Repeat Yourself"
+category: principles
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [DRY, accidental-coupling, anti-pattern-wet, code, configuration, documentation, lang:go, principles, rule-of-three, when-not-to-apply-dry]
+---
+
 # DRY - Don't Repeat Yourself
 
 > Every piece of knowledge must have a single, unambiguous representation within a system.

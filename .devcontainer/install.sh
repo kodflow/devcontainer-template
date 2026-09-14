@@ -52,7 +52,7 @@ Installation Location:
 What Gets Installed:
   - Claude CLI (if not already installed)
   - 82 specialist agents
-  - 20+ slash commands (/git, /review, /plan, etc.)
+  - skills, agents and lifecycle hooks from the kodflow marketplace (5 plugins)
   - 31 hook scripts (security, lint, format, etc.)
   - tmux (optional, enables Agent Teams split-pane mode)
   - 155+ design patterns (unless --minimal)
@@ -394,7 +394,6 @@ download_assets_archive() {
 
         # Make scripts executable
         chmod -R 755 "$target_dir/scripts/" 2>/dev/null || true
-        chmod -R 755 "$target_dir/agents/" 2>/dev/null || true
 
         return 0
     else
@@ -405,74 +404,39 @@ download_assets_archive() {
 }
 
 # ============================================================================
-# Download Agents (35 files)
+# Marketplace: skills, agents, hooks
 # ============================================================================
-download_agents() {
-    local target_dir="$1"
-    mkdir -p "$target_dir/agents"
-
-    echo "→ Downloading agents..."
-
-    # Discover via GitHub API (uses GITHUB_TOKEN if available for higher rate limit)
-    local agents
-    agents=$(github_api_call "$API/.devcontainer/images/.claude/agents" | jq -r '.[].name' 2>/dev/null | grep '\.md$' || echo "")
-
-    if [ -z "$agents" ]; then
-        echo "  ⚠ Could not discover agents via API, using fallback"
-        # Fallback: known agents list (truncated for brevity)
-        agents="developer-orchestrator.md developer-specialist-go.md developer-specialist-python.md"
+# The only source of skills, agents and lifecycle hooks — the same five
+# plugins the devcontainer installs at postStart. Nothing under ~/.claude/
+# duplicates them: a local copy would run beside its plugin twin.
+install_marketplace() {
+    local url="https://github.com/kodflow/claude-marketplace.git"
+    echo "→ Installing kodflow marketplace plugins..."
+    if ! command -v claude >/dev/null 2>&1; then
+        echo "  ⚠ claude CLI not found — after installing it, run:"
+        echo "      claude plugin marketplace add $url"
+        echo "      claude plugin install kodflow-workflow@kodflow kodflow-review@kodflow kodflow-devops@kodflow kodflow-specialists@kodflow kodflow-hooks@kodflow"
+        return 0
     fi
-
-    local count=0
-    local failed=0
-
-    for agent in $agents; do
-        if safe_download "$BASE/.devcontainer/images/.claude/agents/$agent" "$target_dir/agents/$agent"; then
-            count=$((count + 1))
+    if claude plugin marketplace list 2>/dev/null | grep -q 'kodflow$'; then
+        claude plugin marketplace update kodflow >/dev/null 2>&1 || echo "  ⚠ marketplace refresh failed (offline?) — using the cached copy"
+    elif ! claude plugin marketplace add "$url" >/dev/null 2>&1; then
+        echo "  ⚠ cannot reach $url — plugins not installed; re-run this installer when online"
+        return 0
+    fi
+    local p n=0
+    for p in kodflow-workflow kodflow-review kodflow-devops kodflow-specialists kodflow-hooks; do
+        if claude plugin install "$p@kodflow" >/dev/null 2>&1 || claude plugin update "$p@kodflow" >/dev/null 2>&1; then
+            n=$((n + 1)); echo "  ✓ $p"
         else
-            failed=$((failed + 1))
+            echo "  ⚠ $p not installed"
         fi
     done
-
-    echo "  ✓ Downloaded $count agents"
-    [ $failed -gt 0 ] && echo "  ⚠ Failed: $failed agents" || true
+    echo "  ✓ $n/5 plugins"
 }
 
 # ============================================================================
-# Download Commands (11 files)
-# ============================================================================
-download_commands() {
-    local target_dir="$1"
-    mkdir -p "$target_dir/commands"
-
-    echo "→ Downloading commands..."
-
-    # Discover via GitHub API
-    local commands
-    commands=$(github_api_call "$API/.devcontainer/images/.claude/commands" | jq -r '.[].name' 2>/dev/null | grep '\.md$' || echo "")
-
-    if [ -z "$commands" ]; then
-        echo "  ⚠ Could not discover commands via API, using fallback"
-        commands="git.md review.md plan.md refine.md search.md update.md"
-    fi
-
-    local count=0
-    local failed=0
-
-    for cmd in $commands; do
-        if safe_download "$BASE/.devcontainer/images/.claude/commands/$cmd" "$target_dir/commands/$cmd"; then
-            count=$((count + 1))
-        else
-            failed=$((failed + 1))
-        fi
-    done
-
-    echo "  ✓ Downloaded $count commands"
-    [ $failed -gt 0 ] && echo "  ⚠ Failed: $failed commands" || true
-}
-
-# ============================================================================
-# Download Scripts (11 files)
+# Download Scripts (7 quality scripts: format, lint, test, typecheck, pre-commit)
 # ============================================================================
 download_scripts() {
     local target_dir="$1"
@@ -486,7 +450,7 @@ download_scripts() {
 
     if [ -z "$scripts" ]; then
         echo "  ⚠ Could not discover scripts via API, using fallback"
-        scripts="git-guard.sh format.sh lint.sh log.sh post-compact.sh post-edit.sh pre-commit-checks.sh pre-validate.sh test.sh typecheck.sh"
+        scripts="common.sh format.sh lint.sh test.sh typecheck.sh pre-commit-checks.sh pre-commit-quality.sh"
     fi
 
     local count=0
@@ -1176,20 +1140,15 @@ verify_installation() {
     fi
 
     # Count assets
-    local agent_count=0
-    local cmd_count=0
     local script_count=0
     local doc_count=0
 
-    [ -d "$target_dir/agents" ] && agent_count=$(find "$target_dir/agents" -name "*.md" 2>/dev/null | wc -l)
-    [ -d "$target_dir/commands" ] && cmd_count=$(find "$target_dir/commands" -name "*.md" 2>/dev/null | wc -l)
     [ -d "$target_dir/scripts" ] && script_count=$(find "$target_dir/scripts" -name "*.sh" 2>/dev/null | wc -l)
     [ -d "$target_dir/docs" ] && doc_count=$(find "$target_dir/docs" -name "*.md" 2>/dev/null | wc -l)
 
     echo "  Assets installed:"
-    echo "    Agents:   $agent_count / 82 expected"
-    echo "    Commands: $cmd_count / 20+ expected"
-    echo "    Scripts:  $script_count / 31 expected"
+    echo "    Scripts:  $script_count / 7 expected"
+    echo "    Plugins:  $(claude plugin list 2>/dev/null | grep -c '@kodflow' || echo 0) / 5 expected (kodflow marketplace)"
     if [ "$INSTALL_MINIMAL" = false ]; then
         echo "    Docs:     $doc_count / 155+ expected"
     else
@@ -1238,6 +1197,9 @@ main() {
     install_claude_cli
 
     echo ""
+    install_marketplace
+
+    echo ""
     install_tmux
 
     echo ""
@@ -1253,8 +1215,6 @@ main() {
     else
         # Fallback to individual API discovery
         echo "  → Using API discovery (slow path)"
-        download_agents "$TARGET_DIR"
-        download_commands "$TARGET_DIR"
         download_scripts "$TARGET_DIR"
         download_docs "$TARGET_DIR"
         download_configs "$TARGET_DIR"
@@ -1287,7 +1247,7 @@ main() {
     echo ""
     echo "  Installation directory: $TARGET_DIR"
     echo ""
-    echo "  Available commands:"
+    echo "  Available skills (kodflow marketplace):"
     echo "    /git      - Git workflow (commit, branch, PR)"
     echo "    /review   - AI-powered code review"
     echo "    /plan     - Planning mode"

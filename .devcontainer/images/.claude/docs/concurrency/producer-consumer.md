@@ -1,3 +1,11 @@
+---
+title: "Producer-Consumer"
+category: concurrency
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [advantages, basic-queue-with-channels, complexity-and-trade-offs, concurrency, disadvantages, distribution-patterns, fan-out-implementation, lang:go, multi-consumer-pattern, producer-consumer, what-is-producer-consumer]
+---
+
 # Producer-Consumer
 
 Pattern separating data production and consumption via a queue.

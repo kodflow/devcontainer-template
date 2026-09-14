@@ -1,3 +1,11 @@
+---
+title: "Modular Monolith"
+category: architectural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [advantages, architectural, comparison, composition-root, disadvantages, file-structure, from-classic-monolith, inter-module-communication, isolation-rules, lang:go, migration-path, modular-monolith, real-world-examples, to-microservices, via-internal-events, via-public-api]
+---
+
 # Modular Monolith
 
 > A monolith structured into independent modules with clear boundaries.

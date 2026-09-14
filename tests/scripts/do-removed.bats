@@ -28,5 +28,7 @@ setup() { REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/../.." && pwd)"; }
 @test "TestInstallShDropsDo" {
   cd "$REPO_ROOT"
   ! grep -q 'do.md' .devcontainer/install.sh
-  grep -q 'refine.md' .devcontainer/install.sh
+  # skills are no longer downloaded one file at a time: the installer
+  # registers the marketplace and installs the plugin that carries /refine
+  grep -q 'kodflow-workflow@kodflow' .devcontainer/install.sh
 }

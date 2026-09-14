@@ -1,3 +1,11 @@
+---
+title: "Immutable Infrastructure"
+category: devops
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [advantages, devops, disadvantages, docker-immutable-by-default, externalized-configuration, from-mutable-infrastructure, immutable-infrastructure, implementation-with-packer-terraform, lang:hcl, lang:yaml, migration-checklist, migration-path, packer-image-creation, pipeline-immutable, real-world-examples, terraform-deployment]
+---
+
 # Immutable Infrastructure
 
 > Replace servers instead of modifying them.

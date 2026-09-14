@@ -1,3 +1,11 @@
+---
+title: "Retry Pattern"
+category: resilience
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [backoff-strategies, lang:go, recommended-configuration, resilience, retry, retry-with-cancellation, retry-with-generics, retryable-errors]
+---
+
 # Retry Pattern
 
 > Automatically retry failed operations with exponential backoff and jitter.

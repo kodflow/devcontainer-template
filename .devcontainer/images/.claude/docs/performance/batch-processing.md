@@ -1,3 +1,11 @@
+---
+title: "Batch Processing"
+category: performance
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [1-time-based, 2-size-based, 3-hybrid-recommended, 4-backpressure, advantages, basic-batchprocessor, batch-processing, batching-strategies, batchprocessor-with-results, complexity-and-trade-offs, disadvantages, lang:go, performance, use-cases, what-is-batch-processing]
+---
+
 # Batch Processing
 
 Pattern for grouping operations to reduce overhead.

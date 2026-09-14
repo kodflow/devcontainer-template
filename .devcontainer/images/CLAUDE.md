@@ -24,29 +24,39 @@ Claude Code and MCP servers are included; languages added via features.
 │   ├── shared/utils.sh # Shared utilities
 │   └── lifecycle/      # onCreate, postCreate, postStart, etc.
 └── .claude/            # Claude Code configuration
-    ├── commands/       # Slash commands (17 skills)
-    ├── scripts/        # Hook scripts (31 scripts)
-    ├── agents/         # Agent definitions (79 agents)
+    ├── scripts/        # Quality scripts (7: common, format, lint, test,
+    │                   # typecheck, pre-commit-checks, pre-commit-quality)
     ├── docs/           # Design Patterns Knowledge Base (170+ patterns)
     ├── templates/      # Project/docs/terraform templates
-    └── settings.json   # Claude settings
+    └── settings.json   # Claude settings (permissions, env, statusLine — no hooks)
 ```
+
+Skills, agents and lifecycle hooks no longer ship here — they come from the
+public [kodflow marketplace](https://github.com/kodflow/claude-marketplace)
+(5 plugins: `kodflow-workflow`, `kodflow-review`, `kodflow-devops`,
+`kodflow-specialists`, `kodflow-hooks`), installed/updated at every container
+start by `postStart.sh` (`step_marketplace_install`, fail-open when offline —
+warning, cached plugins keep working). Same install for a workstation via
+`.devcontainer/install.sh` (`install_marketplace`) and the
+`.devcontainer/features/claude/install.sh` feature. Codex gets the same
+skills/agents via the marketplace's `scripts/install.sh --codex`.
 
 ## Container Paths (Runtime)
 
 | Source (Build) | Container Path | Backup Location |
 |----------------|----------------|-----------------|
-| `.claude/` | `/home/vscode/.claude/` | `/etc/claude-defaults/` |
-| `.claude/commands/` | `~/.claude/commands/` | `/etc/claude-defaults/commands/` |
+| `.claude/` | `~/.claude/` | `/etc/claude-defaults/` |
 | `.claude/scripts/` | `~/.claude/scripts/` | `/etc/claude-defaults/scripts/` |
-| `.claude/agents/` | `~/.claude/agents/` | `/etc/claude-defaults/agents/` |
 | `.claude/docs/` | `~/.claude/docs/` | `/etc/claude-defaults/docs/` |
 | `mcp.json.tpl` | `/etc/mcp/mcp.json.tpl` | - |
 | `hooks/` | `/etc/devcontainer-hooks/` | - |
 | `features/` (CI-staged) | `/etc/devcontainer-template/features/` | 3-way safe-synced to `.devcontainer/features/` |
 | `image-template-files.json` (CI-built) | `/etc/devcontainer-template/.template-files.json` | sha256 manifest powering the 3-way sync |
 
-**Note:** Claude files restored from `/etc/claude-defaults/` at each start via `postStart.sh`.
+**Note:** `scripts/`, `docs/`, `templates/`, `settings.json` and `.claude.json` restored from
+`/etc/claude-defaults/` at each start via `postStart.sh` (`step_restore_claude_config`), which
+also removes any leftover `commands/`, `agents/`, `workflows/` from older images so nothing runs
+beside its marketplace-plugin twin.
 Lifecycle hooks called directly from `devcontainer.json` → `/etc/devcontainer-hooks/` (no stubs).
 `.devcontainer/features/` is **3-way merged** from `/etc/devcontainer-template/features/` at every
 `postStart` (step `step_sync_features`, helper `shared/sync-features.sh`). Per-file protection
@@ -184,54 +194,56 @@ Core servers in `mcp.json.tpl` (GitHub, GitLab). Additional servers added via MC
 
 **Playwright capabilities** (when browser feature enabled): `core`, `pdf`, `testing`, `tracing` (headless mode)
 
-## Skills (Slash Commands)
+## Skills (kodflow marketplace)
 
-| Skill | Description |
-|-------|-------------|
-| `/init` | Project initialization check |
-| `/plan` | Planning mode for implementation strategy |
-| `/review` | AI-powered code review (3-tier: agents + Qodo + CodeRabbit) |
-| `/git` | Workflow Git automation (commit, push, PR, merge) |
-| `/search` | Documentation research with official sources |
-| `/docs` | Deep project documentation generation (multi-agent) |
-| `/test` | E2E testing with Playwright MCP |
-| `/lint` | Intelligent linting with ktn-linter (148 rules) |
-| `/ktn` | ktn-linter MCP lifecycle: install/upgrade binary, wire hooks, heal daemon, phase config (5 parallel agents) |
-| `/infra` | Infrastructure automation (Terraform/Terragrunt) |
-| `/secret` | Secure secret management (1Password + Vault-like paths) |
-| `/vpn` | Multi-protocol VPN management (OpenVPN, WireGuard, IPsec, PPTP) |
-| `/warmup` | Context pre-loading and CLAUDE.md update |
-| `/update` | DevContainer update from template |
-| `/feature` | Feature tracking (RTM) with --add, --edit, --del, --list, --checkup |
+Skills come from the marketplace, not from a commands/ directory in the image. Per plugin:
 
-## Hooks (31 scripts, 17 event types)
+| Plugin | Skills |
+|--------|--------|
+| `kodflow-workflow` | `/challenge`, `/feature`, `/fix`, `/git`, `/plan`, `/project`, `/refine`, `/search`, `/warmup` |
+| `kodflow-review` | `/adr`, `/comment`, `/debug`, `/learn`, `/lint`, `/review` |
+| `kodflow-devops` | `/audit`, `/infra`, `/ktn`, `/update` |
+| `kodflow-specialists` | 29 language/OS/devops agents (no skills) |
+| `kodflow-hooks` | lifecycle hooks only (no skills) |
 
-Core hooks (always active):
+Skills that existed only in this template and are gone (superseded by the skills above, or
+out of scope for a public plugin): `/init`, `/test`, `/review-doctor`, `/feature` RTM mode,
+`/secret`, `/vpn`.
 
-| Hook | Trigger | Action |
-|------|---------|--------|
-| `git-guard.sh` | PreToolUse (Bash) | Block AI commits + secret scan + force-with-lease |
-| `rtk hook claude` | PreToolUse (Bash) | Rewrite commands via RTK for token savings (native binary, replaces legacy `rtk-rewrite.sh`) |
-| `pre-validate.sh` | PreToolUse (Write/Edit) | Protect sensitive files |
-| `post-edit.sh` | PostToolUse (Write/Edit) | **Format only** (fast, ~100-500ms) |
-| `on-stop-quality.sh` | Stop (*) | **Batch lint + typecheck + test** (deduplicated) |
-| `on-stop.sh` | Stop (*) | Terminal bell + session summary |
-| `session-init.sh` | SessionStart (all) | Cache git metadata as env vars |
-| `post-compact.sh` | SessionStart (compact) | Restore RLM context rules |
-| `notification.sh` | Notification (*) | Terminal bell + notification log
+## Hooks (5 scripts, 15 events — kodflow-hooks plugin)
 
-Full inventory: See `.devcontainer/hooks/CLAUDE.md` and `CLAUDE.md` (root).
+One script per event, each a fixed sequence — gate → block → transform → observe — because
+hooks on the same event run in parallel and only one script can order them:
 
-**ktn-linter integration (embedded in existing hook scripts):**
+| Script | Events |
+|--------|--------|
+| `on-tool.sh` | PreToolUse, PostToolUse, PostToolUseFailure |
+| `on-session.sh` | SessionStart, SessionEnd, PreCompact, ConfigChange |
+| `on-user.sh` | UserPromptSubmit, Notification |
+| `on-agent.sh` | SubagentStart, SubagentStop, TaskCreated, TaskCompleted, TeammateIdle |
+| `on-stop.sh` | Stop |
 
-| Script | Endpoint | Timeout | Phase scope (default) | Env override | Purpose |
-|--------|----------|---------|-----------------------|--------------|---------|
-| `pre-validate.sh` | `/hooks/pre-tool-use` | 4s | `structural,signatures` (1–2) | `KTN_PRE_PHASES` | Pre-edit fast check — only naming/signature breaks block before the edit |
-| `on-stop.sh` | `/hooks/stop` | 28s | `structural,…,comment,tests` (1–8) | `KTN_STOP_PHASES` | Session-end report — includes test-quality phase |
+Plus `lib/event.jq` (one log sanitization policy) and `lib/format.sh` (formatter table).
+`on-tool.sh` carries the git guard (no `--no-verify`, no AI attribution, no `.claude/` path in
+messages, staged-secret scan, `--force` → `--force-with-lease`), the rtk rewrite (fidelity guard
+for cat/head/tail/sed/diff/patch, `NO_RTK=` opt-out, normal permission flow — no auto-approve),
+protected paths (`.claude/protected-paths`, one glob per line), the edit tracker and the
+formatter. `on-stop.sh` carries the project-linter gate and the reminder to update the CLAUDE.md
+of every directory changed this session (once per directory). `settings.json` in the image no
+longer has a hooks block. Log: `.claude/logs/<branch>/session.jsonl` (gitignored).
 
-The `phases` field is injected into the JSON request body via `jq` (per-request override; server YAML config is preserved for any consumer that doesn't pass `phases`). Servers pre-ktn-linter-#190 ignore the unknown field and fall back to YAML — back-compat safe. Override per-project via the `KTN_*_PHASES` env vars (comma-separated, no spaces). Graceful degradation: calls exit silently if ktn-linter is not running or `jq` is missing (raw `${INPUT:-{}}` is sent unchanged). See [docs/ktn-linter-integration.md](/workspace/docs/ktn-linter-integration.md).
+**ktn-linter integration (inside `on-tool.sh` / `on-stop.sh`):**
 
-**Per-edit lint (PostToolUse) — project-level recipe.** `post-edit.sh` deliberately does NOT curl `/hooks/post-tool-use`: Claude Code keeps only the *last* JSON emitted by a hook chain, so a script-level call would race with the native HTTP hook and silently drop `decision: "block"` payloads (issue #344). Consumers needing per-edit lint wire the HTTP hook directly in their project's `.claude/settings.json`:
+| Hook | Endpoint | Phase scope (default) | Env override | Purpose |
+|------|----------|-----------------------|--------------|---------|
+| `on-tool.sh` PreToolUse (Write/Edit) | `/hooks/pre-tool-use` | `structural,signatures` | `KTN_PRE_PHASES` | Pre-edit fast check — only naming/signature breaks block before the edit |
+| `on-stop.sh` Stop | `/hooks/stop` | `structural,signatures,logic,performance,modern,style,comment,tests` | `KTN_STOP_PHASES` | Session-end report — runs on the Go packages edited this session (tracker), never on a git diff |
+
+Called only when `http://127.0.0.1:$KTN_LINTER_PORT` answers (bash `/dev/tcp` probe; nothing is
+called otherwise). A Stop `decision:block` verdict passes through verbatim; otherwise the report
+joins the single Stop feedback document. See [docs/ktn-linter-integration.md](/workspace/docs/ktn-linter-integration.md).
+
+**Per-edit lint (PostToolUse) — project-level recipe.** `on-tool.sh` deliberately does NOT curl `/hooks/post-tool-use`: Claude Code keeps only the *last* JSON emitted by a hook chain, so a script-level call would race with the native HTTP hook and silently drop `decision: "block"` payloads (issue #344). Consumers needing per-edit lint wire the HTTP hook directly in their project's `.claude/settings.json`:
 
 ```json
 {

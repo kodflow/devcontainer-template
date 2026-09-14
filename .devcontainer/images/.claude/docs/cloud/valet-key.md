@@ -1,3 +1,11 @@
+---
+title: "Valet Key Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [azure-blob-storage-example-go, client-side-usage-go, cloud, complete-example-aws-s3-go, detailed-flow, lang:go, security, valet-key]
+---
+
 # Valet Key Pattern
 
 > Provide a temporary token for direct access to resources without going through the application.

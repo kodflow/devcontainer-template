@@ -1,3 +1,11 @@
+---
+title: "Backend for Frontend (BFF) Pattern"
+category: integration
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [bff, graphql-federation-as-an-alternative, integration, iot-bff, lang:go, mobile-bff, use-cases-by-platform, web-bff]
+---
+
 # Backend for Frontend (BFF) Pattern
 
 > A dedicated backend API for each client type (web, mobile, IoT).

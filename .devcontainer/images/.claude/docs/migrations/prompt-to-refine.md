@@ -1,3 +1,11 @@
+---
+title: "Migration: /prompt \u2192 /refine"
+category: migrations
+verified: 2026-05-21   # /search --refresh restamps this
+ttl_days: 365
+tags: [behaviour-map, code-references-to-update, migrations, prompt-to-refine, timeline, why, workflow-change]
+---
+
 # Migration: /prompt → /refine
 
 Skills Architecture v1.3 — PR5a deprecation, PR6 deletion.

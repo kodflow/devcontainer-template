@@ -1,3 +1,11 @@
+---
+title: "Factory Patterns"
+category: creational
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [abstract-factory, choose-abstract-factory, choose-factory-method, creational, factory, factory-method, factory-with-dependency-injection, factory-with-registry, intention, intention-abstract-factory, lang:go, modern-alternative-functions, modern-variants, simple-factory, simple-factory-non-gof-but-common, structure-abstract-factory, unit-tests]
+---
+
 # Factory Patterns
 
 > Delegate object creation to specialized methods or classes.

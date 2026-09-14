@@ -1,3 +1,11 @@
+---
+title: "Aggregate Pattern"
+category: ddd
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [aggregate, aggregate-design-rules, ddd, lang:go, recommended-libraries]
+---
+
 # Aggregate Pattern
 
 > Cluster of domain objects treated as a unit for data modifications, with a root Entity that controls access and maintains invariants.

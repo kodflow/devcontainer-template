@@ -1,3 +1,11 @@
+---
+title: "Layered Architecture (N-Tier)"
+category: architectural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [4-tier-with-integration, advantages, architectural, business-layer, classic-3-tier, disadvantages, file-structure, lang:go, layered, migration-path, onion-clean-architecture, persistence-layer, presentation-layer, real-world-examples, to-hexagonal, to-microservices]
+---
+
 # Layered Architecture (N-Tier)
 
 > Organize code into horizontal layers with distinct responsibilities.

@@ -1,3 +1,11 @@
+---
+title: "Test Doubles"
+category: testing
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [comparison-with-testify, dummy, fake, lang:go, mock, recommended-libraries, spy, stub, test-doubles, testing, types-of-test-doubles]
+---
+
 # Test Doubles
 
 > Substitution objects to isolate the code under test.

@@ -1,3 +1,11 @@
+---
+title: "Circuit Breaker Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [circuit-breaker, cloud, go-example, lang:go, libraries, recommended-configuration, states]
+---
+
 # Circuit Breaker Pattern
 
 > Prevent cascade failures in distributed systems.

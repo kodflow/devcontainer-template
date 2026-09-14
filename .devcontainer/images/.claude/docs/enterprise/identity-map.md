@@ -1,3 +1,11 @@
+---
+title: "Identity Map"
+category: enterprise
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [comparison-with-alternatives, concept, enterprise, identity-map, integration-with-repository, lang:go, objectives, session-scoped-identity-map]
+---
+
 # Identity Map
 
 > "Ensures that each object gets loaded only once by keeping every loaded object in a map. Looks up objects using the map when referring to them." - Martin Fowler, PoEAA

@@ -1,3 +1,11 @@
+---
+title: "Observer Pattern"
+category: behavioral
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [behavioral, classic-structure, intent, lang:go, modern-event-emitter-type-safe, observable-rxjs-like, observer, pubsub-decoupled, unit-tests]
+---
+
 # Observer Pattern
 
 > Define a one-to-many dependency between objects to notify changes.

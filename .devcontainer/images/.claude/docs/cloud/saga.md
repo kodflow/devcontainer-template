@@ -1,3 +1,11 @@
+---
+title: "Saga Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [1-choreography-events, 2-orchestration-coordinator, cloud, comparison, lang:go, problem-solved, saga, saga-class-implementation, solution-saga, two-approaches]
+---
+
 # Saga Pattern
 
 > Manage distributed transactions without 2PC.

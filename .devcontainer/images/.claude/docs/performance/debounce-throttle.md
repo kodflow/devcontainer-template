@@ -1,3 +1,11 @@
+---
+title: "Debounce and Throttle"
+category: performance
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [complexity-and-trade-offs, debounce, debounce-throttle, debounce-use-cases, debounce-with-options, lang:go, performance, throttle, throttle-use-cases, throttle-with-options, use-cases, visual-comparison, when-to-use-which]
+---
+
 # Debounce and Throttle
 
 Patterns for limiting function execution frequency.

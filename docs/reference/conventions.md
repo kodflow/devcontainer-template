@@ -55,12 +55,11 @@ If your project has a Makefile with these targets, the hooks use it. Otherwise, 
 
 ## Protected Files
 
-Claude hooks prevent accidental modification of:
+The `kodflow-hooks` marketplace plugin blocks writes to protected paths (default list, overridable via `.claude/protected-paths`, one glob per line):
 
-- `.devcontainer/` — container configuration
-- `.claude/scripts/` — hook scripts
-- `.env` — environment variables
-- `node_modules/`, `vendor/` — dependencies
-- `*.lock` — lock files
+- `node_modules/`, `vendor/`, `dist/`, `build/` — dependencies and build output
+- `.git/`
+- `.env*` — environment variables
+- `*.lock`, lockfiles, `go.sum`
 
 

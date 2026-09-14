@@ -1,3 +1,11 @@
+---
+title: "Cache Strategies"
+category: performance
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [cache-aside-lazy-loading, cache-strategies, decision-table, eviction-strategies, lang:go, lfu-least-frequently-used, lru-least-recently-used, performance, read-strategies, read-through, strategy-overview, write-around, write-behind-write-back, write-strategies, write-through]
+---
+
 # Cache Strategies
 
 Write and read strategies for cache systems.

@@ -1,3 +1,11 @@
+---
+title: "Domain Event Pattern"
+category: ddd
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [ddd, domain-event, event-handlers, event-sourcing-integration, lang:go, recommended-libraries]
+---
+
 # Domain Event Pattern
 
 > Captures something significant that happened in the domain - an immutable record of a past occurrence that domain experts care about.

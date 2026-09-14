@@ -44,17 +44,16 @@ fi
 echo "→ Generating Claude Code assets archive..."
 
 # Create tar.gz with relative paths
-# Contents: agents/, commands/, scripts/, docs/, settings.json
+# Contents: scripts/, docs/, templates/, settings.json — skills, agents and hooks come from the kodflow marketplace
 cd "$CLAUDE_DIR"
 
 tar -czf "$OUTPUT_FILE" \
     --exclude='*.pyc' \
     --exclude='__pycache__' \
     --exclude='.DS_Store' \
-    agents/ \
-    commands/ \
     scripts/ \
     docs/ \
+    templates/ \
     settings.json \
     2>/dev/null || {
         echo "Error: Failed to create archive"

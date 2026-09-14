@@ -1,3 +1,11 @@
+---
+title: "Object Pool"
+category: performance
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [advantages, complexity-and-trade-offs, disadvantages, lang:go, object-pool, performance, usage-example, what-is-the-object-pool]
+---
+
 # Object Pool
 
 Resource management pattern reusing expensive objects instead of recreating them.

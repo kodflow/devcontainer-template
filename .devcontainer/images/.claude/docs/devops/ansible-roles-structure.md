@@ -1,3 +1,11 @@
+---
+title: "Ansible Roles Structure Pattern"
+category: devops
+verified: 2026-02-04   # /search --refresh restamps this
+ttl_days: 180
+tags: [1-validation-first-pattern, 2-idempotency, 3-error-handling, 4-documentation, ansible-roles-structure, defaults-main-yml, devops, directory-structure, env-production-group-vars-all-config-yml, env-production-group-vars-all-vault-yml, group-variables-organization, handlers-main-yml, lang:yaml, meta-argument-specs-yml, role-template, tasks-configure-yml, tasks-main-yml, tasks-validate-yml-critical, templates-containers-service-container]
+---
+
 # Ansible Roles Structure Pattern
 
 ## Overview

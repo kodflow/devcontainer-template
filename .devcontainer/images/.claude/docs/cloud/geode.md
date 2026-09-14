@@ -1,3 +1,11 @@
+---
+title: "Geode Pattern (Geodes / Deployment Stamps)"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [cloud, geode, geode-components, go-example, infrastructure-as-code, lang:go, lang:hcl, replication-strategies]
+---
+
 # Geode Pattern (Geodes / Deployment Stamps)
 
 > Deploy identical units across multiple geographic regions.

@@ -1,3 +1,11 @@
+---
+title: "Either / Result Pattern"
+category: functional
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [domain-usage-examples, either, functional, lang:go, oop-vs-fp-comparison, recommended-libraries, typescript-implementation, using-effect, using-fp-ts]
+---
+
 # Either / Result Pattern
 
 > Type representing a success value (Right) or an error value (Left), providing type-safe error handling without exceptions.

@@ -1,3 +1,11 @@
+---
+title: "Actor Model"
+category: concurrency
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [actor-model, actor-system, advantages, basic-actor-with-channels, complexity-and-trade-offs, concurrency, disadvantages, example-counter-actor, lang:go, supervision-fault-tolerance, typed-actor-better-type-safety, what-is-the-actor-model]
+---
+
 # Actor Model
 
 Concurrency pattern based on isolated entities communicating via messages.

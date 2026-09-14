@@ -1,3 +1,11 @@
+---
+title: "Transactional Outbox Pattern"
+category: messaging
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [application-layer, base-implementation, failure-handling, lang:go, lang:sql, messaging, ordering-and-partitioning, outbox-relay-cdc-change-data-capture, outbox-relay-polling, outbox-table-schema, outbox-with-cleanup, problem-solved, transactional-outbox]
+---
+
 # Transactional Outbox Pattern
 
 > Guarantee message reliability by storing them in an outbox table within the same transaction as business data.

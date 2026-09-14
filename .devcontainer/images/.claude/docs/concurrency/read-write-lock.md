@@ -1,3 +1,11 @@
+---
+title: "Read-Write Lock"
+category: concurrency
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [advantages, complexity-and-trade-offs, concurrency, disadvantages, lang:go, read-write-lock, readwritelock-with-sync-rwmutex, strategy-comparison, use-case-thread-safe-cache, what-is-a-read-write-lock]
+---
+
 # Read-Write Lock
 
 Pattern allowing multiple simultaneous readers but a single exclusive writer.

@@ -1,3 +1,11 @@
+---
+title: "Strategy Pattern"
+category: behavioral
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [behavioral, intent, lang:go, strategy, strategy-with-functions, strategy-with-map, strategy-with-validation, unit-tests]
+---
+
 # Strategy Pattern
 
 > Define a family of interchangeable algorithms.

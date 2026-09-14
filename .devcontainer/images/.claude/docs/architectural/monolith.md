@@ -1,3 +1,11 @@
+---
+title: "Monolithic Architecture"
+category: architectural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [1-classic-monolith-to-avoid, 1-module-encapsulation, 2-communication-through-interfaces, 2-modular-monolith-recommended, 3-database-per-schema, advantages, architectural, disadvantages, lang:go, lang:sql, migration-to-microservices, modular-monolith-rules, module-coupling, monolith, monolith-types, recommended-structure]
+---
+
 # Monolithic Architecture
 
 > A single application containing all the business logic.

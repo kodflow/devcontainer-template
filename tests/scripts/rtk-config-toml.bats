@@ -30,18 +30,23 @@ teardown() {
     [[ "$output" != *"missing field"* ]]
 }
 
-@test "exclude_commands is exactly the safe-trivial builtins set" {
-    # Pin EXACT equality against the canonical list: cd, pwd, set, export, echo.
-    # Each is a shell builtin or trivial passthrough where rewrite is meaningless.
-    # Adding more here weakens RTK's default coverage — per-project additions
-    # belong in filters.toml, not this template.
+@test "exclude_commands is exactly the builtins plus the fidelity reads" {
+    # Pin EXACT equality. Two families, both deliberate:
+    #   - shell builtins / trivial passthroughs (cd, pwd, set, export, echo):
+    #     a rewrite is meaningless or changes the shell's own state;
+    #   - fidelity reads (cat, head, tail, sed, awk, diff, checksums, dumps):
+    #     `rtk read` strips comments, so a rewritten read hands the agent a
+    #     file it cannot safely edit from. The kodflow-hooks guard refuses the
+    #     same commands at hook level; excluding them here keeps `rtk` itself
+    #     honest when invoked directly.
+    # Anything else belongs in a project's filters.toml, not this template.
     run grep -E '^exclude_commands' "$TEMPLATE"
     [ "$status" -eq 0 ]
     # Strip the leading "exclude_commands = " and trailing whitespace, normalize
     # the array to a canonical compact form, and assert exact equality.
     local actual
     actual=$(printf '%s' "$output" | sed -E 's/^exclude_commands[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//')
-    local expected='["cd", "pwd", "set", "export", "echo"]'
+    local expected='["cd", "pwd", "set", "export", "echo", "cat", "head", "tail", "sed", "awk", "diff", "sha256sum", "md5sum", "base64", "xxd", "od"]'
     [ "$actual" = "$expected" ]
 }
 

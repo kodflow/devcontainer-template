@@ -1,3 +1,11 @@
+---
+title: "Vault Patterns for Infrastructure"
+category: devops
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [1-trust-domain-separation, 2-certificate-lifecycle, 3-audit-and-compliance, 4-key-security, agent-configuration-template-jinja2, certificate-role-configuration, complete-vso-module, devops, lang:hcl, multi-tier-pki-architecture, pki-infrastructure, pki-url-configuration, root-certificate-authority, vault-agent-podman-quadlet, vault-agent-with-approle, vault-patterns, vault-secrets-operator-vso-integration, vso-module-variables]
+---
+
 # Vault Patterns for Infrastructure
 
 ## Overview

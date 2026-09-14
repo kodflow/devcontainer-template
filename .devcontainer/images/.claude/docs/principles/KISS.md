@@ -1,3 +1,11 @@
+---
+title: "KISS - Keep It Simple, Stupid"
+category: principles
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [KISS, architecture, complexity-signals, conditional-logic, functions, lang:go, principles, relationship-with-other-principles, when-complexity-is-necessary]
+---
+
 # KISS - Keep It Simple, Stupid
 
 > Simplicity should be a key goal in design.

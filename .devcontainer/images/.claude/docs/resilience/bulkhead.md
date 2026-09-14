@@ -1,3 +1,11 @@
+---
+title: "Bulkhead Pattern"
+category: resilience
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [bulkhead, bulkhead-per-service, bulkhead-with-connection-pool, bulkhead-with-timeout-and-rejection, go-implementation-semaphore, lang:go, recommended-configuration, resilience, types-of-bulkhead]
+---
+
 # Bulkhead Pattern
 
 > Isolate resources to prevent a failure from spreading to the entire system.

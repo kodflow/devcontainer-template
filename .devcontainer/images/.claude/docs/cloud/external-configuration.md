@@ -1,3 +1,11 @@
+---
+title: "External Configuration Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [cloud, configuration-sources, external-configuration, go-example, kubernetes-configuration, lang:go, lang:yaml]
+---
+
 # External Configuration Pattern
 
 > Externalize configuration outside of deployed code.

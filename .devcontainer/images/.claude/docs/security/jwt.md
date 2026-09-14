@@ -1,3 +1,11 @@
+---
+title: "JSON Web Tokens (JWT)"
+category: security
+verified: 2026-09-08   # /search --refresh restamps this
+ttl_days: 180
+tags: [changelog, http-middleware, jwt, lang:go, recommended-libraries, refresh-token-rotation, security, signing-algorithms, standard-claims]
+---
+
 # JSON Web Tokens (JWT)
 
 > Signed and self-contained tokens for stateless authentication.
@@ -325,10 +333,21 @@ func (r *RefreshTokenRotation) revokeAllUserTokens(ctx context.Context, token st
 
 | Algo | Type | Recommendation |
 |------|------|----------------|
-| HS256 | Symmetric (HMAC) | Dev/simple apps |
+| HS256 | Symmetric (HMAC) | Single service that both signs and verifies. Never across a trust boundary — every verifier can also forge |
 | RS256 | Asymmetric (RSA) | Production, microservices |
-| ES256 | Asymmetric (ECDSA) | Better performance than RSA |
-| EdDSA | Asymmetric (Ed25519) | Modern, fast |
+| ES256 | Asymmetric (ECDSA) | Production; smaller keys and faster than RSA |
+| EdDSA | Asymmetric (Ed25519) | Production; modern, fast |
+| `none` | — | **Never.** RFC 8725 §3.1. `golang-jwt/v5` accepts it only when handed `jwt.UnsafeAllowNoneSignatureType` — do not |
+
+> **The Go examples below use HS256 for brevity.** That is the single-service
+> case only. Any token crossing a service boundary must be signed with an
+> asymmetric algorithm (RS256/ES256/EdDSA), because HS256 gives every verifier
+> the power to mint tokens.
+
+> **Always pin the algorithm on verification.** RFC 8725 §3.1: reject a token
+> whose header `alg` is not the one you expect, *before* verifying the signature.
+> The middleware below does this — the `unexpected signing method` check is not
+> optional defensive style, it is what blocks algorithm-confusion attacks.
 
 ## Recommended Libraries
 
@@ -420,6 +439,22 @@ type MinimalClaims struct {
 
 ## Sources
 
-- [JWT RFC 7519](https://datatracker.ietf.org/doc/html/rfc7519)
-- [JWT Best Practices RFC 8725](https://datatracker.ietf.org/doc/html/rfc8725)
-- [jwt.io](https://jwt.io/)
+- [RFC 7519 — JSON Web Token](https://datatracker.ietf.org/doc/html/rfc7519) — tier 1
+- [RFC 8725 — JWT Best Current Practices](https://datatracker.ietf.org/doc/html/rfc8725) (BCP 225) — tier 1
+- [RFC 9700 — OAuth 2.0 Security BCP](https://www.rfc-editor.org/info/rfc9700/) — tier 1, for token handling in OAuth flows
+- [golang-jwt/jwt/v5](https://pkg.go.dev/github.com/golang-jwt/jwt/v5) — tier 2
+
+## Changelog
+
+- **2026-09-08** — confirmed RFC 8725 is still the current BCP (BCP 225).
+  **In flight:** `draft-ietf-oauth-rfc8725bis-04` (2 March 2026) is intended to
+  obsolete and replace it; re-check before relying on any §-level citation here.
+  Two corrections applied: the algorithm table framed HS256 as merely "dev/simple",
+  which understated the trust-boundary problem; and the document's own Go examples
+  sign with HS256 while the table recommends asymmetric for production — that
+  contradiction is now called out instead of left for the reader to notice.
+  Added the `alg: none` row (`golang-jwt/v5` gates it behind
+  `jwt.UnsafeAllowNoneSignatureType`).
+  Sources: https://datatracker.ietf.org/doc/html/rfc8725 ·
+  https://datatracker.ietf.org/doc/draft-ietf-oauth-rfc8725bis/ ·
+  https://pkg.go.dev/github.com/golang-jwt/jwt/v5

@@ -1,3 +1,11 @@
+---
+title: "Process Manager Pattern"
+category: messaging
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [choreographed-saga, complementary-patterns, lang:go, messaging, orchestrated-saga-implementation, persistent-state-management, process-manager, saga-pattern, schema, workflow-schema]
+---
+
 # Process Manager Pattern
 
 Complex workflow orchestration and Saga pattern.

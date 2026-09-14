@@ -1,3 +1,11 @@
+---
+title: "DTO Tags Convention"
+category: conventions
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [conventions, decision-guide, direction, dto-tags, faq, go-examples, lang:go, lang:yaml, linter-rules, main-objective, recognized-suffixes, reference-matrix, security, tag-format, values]
+---
+
 # DTO Tags Convention
 
 > `dto:` tag for grouping DTO structs in the same file (exception to KTN-STRUCT-ONEFILE).

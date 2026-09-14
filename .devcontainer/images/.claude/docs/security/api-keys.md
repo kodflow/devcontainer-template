@@ -1,3 +1,11 @@
+---
+title: "API Keys Authentication"
+category: security
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [api-keys, http-middleware-with-rate-limiting, lang:go, recommended-libraries, scope-validation, security]
+---
+
 # API Keys Authentication
 
 > Simple secret key authentication for APIs.

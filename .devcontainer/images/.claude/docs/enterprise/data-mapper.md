@@ -1,3 +1,11 @@
+---
+title: "Data Mapper"
+category: enterprise
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [comparison-with-alternatives, concept, data-mapper, enterprise, key-principles, lang:go]
+---
+
 # Data Mapper
 
 > "A layer of Mappers that moves data between objects and a database while keeping them independent of each other and the mapper itself." - Martin Fowler, PoEAA

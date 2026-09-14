@@ -1,3 +1,11 @@
+---
+title: "Unit of Work"
+category: enterprise
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [comparison-with-alternatives, concept, enterprise, frameworks-and-orms, lang:go, relationship-with-ddd, responsibilities, unit-of-work, unit-of-work-with-repositories]
+---
+
 # Unit of Work
 
 > "Maintains a list of objects affected by a business transaction and coordinates the writing out of changes and the resolution of concurrency problems." - Martin Fowler, PoEAA

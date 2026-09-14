@@ -36,6 +36,7 @@ Hooks auto-update when the Docker image is rebuilt. No workspace stubs needed.
 | Service | Function | Description |
 |---------|----------|-------------|
 | Legacy cleanup | `step_cleanup_legacy_stubs` | Remove old workspace stubs |
+| Marketplace plugins | `step_marketplace_install` | Register `kodflow` marketplace, install/update the 5 plugins (kodflow-workflow, kodflow-review, kodflow-devops, kodflow-specialists, kodflow-hooks); fail-open offline (warning, cached plugins keep working) |
 | Shell env repair | `step_shell_env_repair` | v1→v3 upgrade, duplicate cleanup |
 | Completion cache | `step_cache_completions` | Pre-generate `~/.zsh_completions/` |
 | p10k segments | `step_generate_p10k_segments` | Dynamic `~/.p10k-segments.zsh` |

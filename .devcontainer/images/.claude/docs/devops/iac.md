@@ -1,3 +1,11 @@
+---
+title: "Infrastructure as Code (IaC)"
+category: devops
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [1-state-management, 2-variables-secrets, 3-modules, 4-validation, devops, iac, immutable-vs-mutable, lang:hcl, lang:yaml, structure-terraform, terraform-example, tools, workflow]
+---
+
 # Infrastructure as Code (IaC)
 
 > Manage infrastructure through versioned code.

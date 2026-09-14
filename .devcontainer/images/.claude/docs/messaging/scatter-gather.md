@@ -1,3 +1,11 @@
+---
+title: "Scatter-Gather Pattern"
+category: messaging
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [aggregation-strategies, base-implementation, error-cases, example-price-comparator, lang:go, messaging, scatter-gather, with-rabbitmq-kafka]
+---
+
 # Scatter-Gather Pattern
 
 > Distribute a request to multiple services in parallel and aggregate their responses according to a defined strategy.

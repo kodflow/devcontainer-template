@@ -1,3 +1,11 @@
+---
+title: "Monad Pattern"
+category: functional
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [core-monads, functional, lang:go, monad, recommended-libraries, typescript-implementation, usage-examples, using-effect, using-fp-ts]
+---
+
 # Monad Pattern
 
 > Design pattern for structuring programs generically while chaining operations with context (optionality, errors, async).

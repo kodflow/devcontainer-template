@@ -1,3 +1,11 @@
+---
+title: "Adapter Pattern"
+category: structural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [adapter, adapter-with-cache, concrete-use-cases, intent, lang:go, legacy-code-adapter, structural, third-party-api-adapter, two-way-adapter, unit-tests]
+---
+
 # Adapter Pattern
 
 > Convert the interface of a class into another interface expected by the client.

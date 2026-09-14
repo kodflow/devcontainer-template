@@ -1,3 +1,11 @@
+---
+title: "API Gateway Pattern"
+category: integration
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [api-aggregation, api-gateway, basic-gateway, configuration-and-usage, integration, lang:go, request-response-transformation, responsibilities, technologies]
+---
+
 # API Gateway Pattern
 
 > Single entry point for all clients, centralizing authentication, routing, and policies.

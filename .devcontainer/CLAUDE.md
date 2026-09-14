@@ -1,4 +1,4 @@
-<!-- updated: 2026-04-18T00:00:00Z -->
+<!-- updated: 2026-09-14T00:00:00Z -->
 # DevContainer Configuration
 
 ## Purpose
@@ -74,8 +74,9 @@ Example (`.devcontainer/devcontainer.local.json`):
 }
 ```
 
-Merge logic lives in `images/scripts/merge-devcontainer-json.mjs`, wired from
-`images/.claude/commands/update/apply.md` (`update_devcontainer_json_from_tarball`).
+Merge logic lives in `images/scripts/merge-devcontainer-json.mjs`, invoked by
+the `update` skill's apply phase (kodflow-devops plugin, kodflow marketplace —
+skills and agents no longer ship under `images/.claude/`).
 
 ## Features sync semantics (postStart)
 

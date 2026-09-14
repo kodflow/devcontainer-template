@@ -1,3 +1,11 @@
+---
+title: "Memoization"
+category: performance
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [advantages, async-memoize, classic-use-cases, complexity-and-trade-offs, derived-computations, disadvantages, expensive-parsing, fibonacci, lang:go, memoization, memoize-with-options, performance, simple-memoize, what-is-memoization]
+---
+
 # Memoization
 
 Pattern for caching function results to avoid recomputation.

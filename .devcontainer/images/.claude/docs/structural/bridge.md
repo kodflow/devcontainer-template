@@ -1,3 +1,11 @@
+---
+title: "Bridge"
+category: structural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [advantages-disadvantages, anti-patterns-to-avoid, bridge, complete-example, framework-implementations, lang:go, problem-solved, structural, tests]
+---
+
 # Bridge
 
 > Decouple an abstraction from its implementation so that they can vary independently.

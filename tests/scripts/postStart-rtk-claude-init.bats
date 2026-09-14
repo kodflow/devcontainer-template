@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
 # Tests for step_rtk_claude_init in postStart.sh.
-# Layer 3 of plan 2026-05-06-rtk-mandatory-install-and-claude-memory.
 #
-# Wraps `rtk init -g --auto-patch` (rtk >= 0.38) to install:
-#   - ~/.claude/RTK.md (slim mode)
-#   - @RTK.md import in ~/.claude/CLAUDE.md
-#   - "rtk hook claude" PreToolUse entry in ~/.claude/settings.json
+# Since the lifecycle hooks moved to the kodflow-hooks plugin, the PreToolUse
+# rewrite is the plugin's job. This step therefore runs `rtk init -g --no-patch`
+# (RTK.md + the @RTK.md import only) and REMOVES any rtk hook a previous image
+# or a manual `rtk init -g` left in settings.json — two rewriters on the same
+# event would run in parallel and rewrite the same command twice.
 #
 # Acceptance: idempotent (re-runs preserve user content byte-for-byte),
 # leaves the file structure intact when rtk is missing.
@@ -40,9 +40,9 @@ run_step() {
     "
 }
 
-# === Happy path: fresh ~/.claude/ → all three artifacts created ===
+# === Happy path: fresh ~/.claude/ → RTK.md + import, and no rtk hook ===
 
-@test "step_rtk_claude_init: fresh sandbox produces RTK.md + CLAUDE.md + settings.json with rtk hook entry" {
+@test "step_rtk_claude_init: fresh sandbox produces RTK.md + @RTK.md import, and no rtk hook in settings.json" {
     if ! command -v rtk >/dev/null 2>&1; then
         skip "rtk binary required"
     fi
@@ -50,13 +50,36 @@ run_step() {
     [ "$status" -eq 0 ]
     [ -f "$TEST_HOME/.claude/RTK.md" ]
     [ -f "$TEST_HOME/.claude/CLAUDE.md" ]
-    [ -f "$TEST_HOME/.claude/settings.json" ]
     grep -q '^@RTK.md' "$TEST_HOME/.claude/CLAUDE.md"
-    # Settings.json must declare the canonical PreToolUse → Bash → "rtk hook claude"
-    # entry — that's the contract `rtk init -g --auto-patch` provides and the one
-    # session-init.sh's probe checks for. A passing existence check is necessary
-    # but not sufficient; the file must carry the hook command literally.
-    grep -q '"rtk hook claude"' "$TEST_HOME/.claude/settings.json"
+    # The rewrite belongs to kodflow-hooks; settings.json must not carry a
+    # second one.
+    if [ -f "$TEST_HOME/.claude/settings.json" ]; then
+        ! grep -qE '"command": *"[^"]*rtk[^"]*"' "$TEST_HOME/.claude/settings.json"
+    fi
+}
+
+# === A stale rtk hook left by an older image is removed, other hooks kept ===
+
+@test "step_rtk_claude_init: removes a pre-existing rtk hook entry and keeps the others" {
+    if ! command -v rtk >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+        skip "rtk and jq required"
+    fi
+    cat > "$TEST_HOME/.claude/settings.json" <<'EOF'
+{
+  "permissions": {"allow": ["Bash(ls:*)"]},
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "rtk hook claude"}]},
+      {"matcher": "Write", "hooks": [{"type": "command", "command": "/opt/other-hook.sh"}]}
+    ]
+  }
+}
+EOF
+    run run_step
+    [ "$status" -eq 0 ]
+    ! grep -q 'rtk hook claude' "$TEST_HOME/.claude/settings.json"
+    grep -q '/opt/other-hook.sh' "$TEST_HOME/.claude/settings.json"
+    jq -e '.permissions.allow == ["Bash(ls:*)"]' "$TEST_HOME/.claude/settings.json" >/dev/null
 }
 
 # === Idempotency: re-running leaves the file byte-identical ===
@@ -141,13 +164,11 @@ EOF
     grep -q "skipping" "$TEST_TMPDIR/out" || grep -q "rtk not on PATH" "$TEST_TMPDIR/out"
 }
 
-# === Format-stability invariant: shell never parses --show output ===
+# === The step never patches settings.json through rtk ===
 
-@test "step_rtk_claude_init: --show is only displayed, never parsed" {
+@test "step_rtk_claude_init: never calls rtk init with --auto-patch" {
     run extract_step_fn
     [ "$status" -eq 0 ]
-    # No grep/awk/sed/jq parsing the --show output. Only `sed 's/^/    /'`
-    # for indentation, which doesn't extract semantic info.
-    [[ "$output" != *"jq -e"* ]]
-    [[ "$output" != *"awk '/\\[ok\\]/"* ]]
+    [[ "$output" != *"--auto-patch"* ]]
+    [[ "$output" == *"--no-patch"* ]]
 }

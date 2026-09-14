@@ -1,3 +1,11 @@
+---
+title: "Compensating Transaction Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [1-immediate-compensation, 2-deferred-compensation, 3-compensation-with-retry, cloud, compensating-transaction, compensation-patterns, difference-with-acid-rollback, example-travel-booking-go, go-example, lang:go]
+---
+
 # Compensating Transaction Pattern
 
 > Undo the effects of already-executed operations in a distributed workflow.

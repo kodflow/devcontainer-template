@@ -1,3 +1,11 @@
+---
+title: "Entity Pattern"
+category: ddd
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [ddd, entity, lang:go, oop-vs-fp-comparison, recommended-libraries]
+---
+
 # Entity Pattern
 
 > Domain object with a distinct identity that persists through time and different representations.

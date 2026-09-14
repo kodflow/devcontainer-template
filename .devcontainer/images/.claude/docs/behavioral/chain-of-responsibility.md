@@ -1,3 +1,11 @@
+---
+title: "Chain of Responsibility Pattern"
+category: behavioral
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [async-chain, behavioral, chain-of-responsibility, chain-with-explicit-next-function, chain-with-priority, intent, lang:go, unit-tests]
+---
+
 # Chain of Responsibility Pattern
 
 > Pass a request along a chain of handlers.

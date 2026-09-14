@@ -1,3 +1,11 @@
+---
+title: "Defensive Programming Patterns"
+category: principles
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [1-guard-clauses-early-return, 10-dependency-validation, 11-contract-design-by-contract, 2-assertion-precondition, 3-null-object-pattern, 5-default-values-pattern, 6-fail-fast-pattern, 7-input-validation-pattern, 8-type-narrowing-type-guards, 9-immutable-by-default, decision-table, defensive, lang:go, principles]
+---
+
 # Defensive Programming Patterns
 
 Patterns to protect code against errors and invalid data.

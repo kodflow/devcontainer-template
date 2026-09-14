@@ -1,3 +1,11 @@
+---
+title: "Branch by Abstraction"
+category: refactoring
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [advantages, advantages-vs-disadvantages, branch-by-abstraction, complete-example-database-migration, dark-launch, decision-table, disadvantages, lang:go, parallel-run, pattern-steps, refactoring, strangler-fig-pattern, the-problem-long-lived-feature-branches, what-is-branch-by-abstraction]
+---
+
 # Branch by Abstraction
 
 Pattern for progressively replacing one implementation with another without long-lived Git branches.

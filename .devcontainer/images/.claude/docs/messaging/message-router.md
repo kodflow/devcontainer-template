@@ -1,3 +1,11 @@
+---
+title: "Message Router Patterns"
+category: messaging
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [complementary-patterns, content-based-router, decision-table, dynamic-router, dynamic-router-implementation, dynamic-router-schema, lang:go, message-router, messaging, recipient-list, recipient-list-implementation, recipient-list-schema, resilient-router, schema]
+---
+
 # Message Router Patterns
 
 Dynamic message routing patterns.

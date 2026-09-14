@@ -1,3 +1,11 @@
+---
+title: "Proxy Pattern"
+category: structural
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [1-virtual-proxy-lazy-loading, 2-protection-proxy-access-control, 3-remote-proxy-rpc-api, 4-cache-proxy, 5-logging-proxy, advanced-variants, intent, lang:go, proxy, proxy-types, smart-reference-proxy, structural, unit-tests, validation-proxy]
+---
+
 # Proxy Pattern
 
 > Provide a substitute or placeholder to control access to an object.

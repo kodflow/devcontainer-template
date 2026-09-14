@@ -1,3 +1,11 @@
+---
+title: "Static Content Hosting Pattern"
+category: cloud
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [build-pipeline-integration, cache-invalidation, cache-strategies, cloud, cloud-services, go-configuration, lang:go, security-headers, static-content-hosting, upload-with-cache-metadata]
+---
+
 # Static Content Hosting Pattern
 
 > Serve static assets from a CDN or dedicated storage for performance and scalability.

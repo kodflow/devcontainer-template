@@ -1,3 +1,11 @@
+---
+title: "Visitor"
+category: behavioral
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 1095
+tags: [advantages-disadvantages, anti-patterns-to-avoid, behavioral, complete-example, framework-implementations, lang:go, problem-solved, tests, visitor]
+---
+
 # Visitor
 
 > Separate an algorithm from objects, allowing new operations to be added.

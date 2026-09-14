@@ -1,3 +1,11 @@
+---
+title: "GitOps"
+category: devops
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 180
+tags: [advantages, argo-cd-example, challenges, core-principles, devops, flux-example, gitops, lang:yaml, mono-repo, multi-repo, repo-structure, tools, workflow]
+---
+
 # GitOps
 
 > Git as source of truth for infrastructure and applications.

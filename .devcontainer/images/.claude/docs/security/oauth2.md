@@ -1,16 +1,30 @@
+---
+title: "OAuth 2.0 Flows"
+category: security
+verified: 2026-09-08   # /search --refresh restamps this
+ttl_days: 180
+tags: [authorization-code-flow, available-flows, changelog, client-credentials-flow-m2m, lang:go, oauth2, recommended-libraries, security]
+---
+
 # OAuth 2.0 Flows
 
 > Authorization protocol for delegated access to resources.
 
 ## Available Flows
 
-| Flow | Client | Usage |
-|------|--------|-------|
-| **Authorization Code** | Web apps (backend) | Secure standard |
-| **Authorization Code + PKCE** | SPAs, Mobile | Public clients |
+| Flow | Client | Status |
+|------|--------|--------|
+| **Authorization Code + PKCE** | Web apps, SPAs, Mobile | The standard. RFC 9700 requires PKCE on **every** authorization code flow — confidential clients included, not only public ones |
 | **Client Credentials** | Machine-to-machine | Services, APIs |
 | **Device Code** | CLI, TV, IoT | Input-limited devices |
-| **Implicit** | -- | DEPRECATED (use PKCE) |
+| **Implicit** | — | **Deprecated** — RFC 9700 §2.1.2 |
+| **Resource Owner Password Credentials** | — | **Deprecated** — RFC 9700 §2.4 |
+
+> **RFC 9700 (BCP 240, January 2025)** supersedes the advice in RFC 6819 and
+> tightens RFC 6749. Beyond the deprecations above it requires **exact** redirect
+> URI matching (no wildcard, no prefix match), recommends **PAR** (RFC 9126) for
+> high-security deployments, and recommends **sender-constrained tokens** —
+> DPoP (RFC 9449) or mTLS (RFC 8705) — wherever feasible.
 
 ## Authorization Code Flow
 
@@ -282,15 +296,18 @@ func (c *ClientCredentials) GetToken(ctx context.Context, scopes []string) (*Tok
 |---------|--------|----------|
 | No state parameter | CSRF attacks | Always generate a unique state |
 | Store tokens in localStorage | XSS exposure | HttpOnly cookies or memory |
-| Implicit flow in 2024 | Insecure | Migrate to PKCE |
-| Client secret in frontend | Secret exposed | PKCE for public clients |
+| Using the implicit grant | Deprecated; tokens leak via the URL fragment | Authorization Code + PKCE (RFC 9700 §2.1.2) |
+| Using the password grant | Deprecated; hands the AS credentials to the client | Authorization Code + PKCE (RFC 9700 §2.4) |
+| Wildcard or prefix redirect URI | Redirect hijack / mix-up | Exact string match only (RFC 9700 §2.1) |
+| Bearer token replay | A stolen token is usable anywhere | Sender-constrain it: DPoP (RFC 9449) or mTLS (RFC 8705) |
+| Client secret in frontend | Secret exposed | A browser/mobile client is public: PKCE, no secret |
 | No token refresh | Degraded UX | Implement refresh_token flow |
 
 ## When to Use
 
 | Scenario | Recommended Flow |
 |----------|-----------------|
-| Web app with backend | Authorization Code |
+| Web app with backend | Authorization Code + PKCE |
 | SPA (React, Vue, Angular) | Authorization Code + PKCE |
 | Mobile app | Authorization Code + PKCE |
 | CLI tool | Device Code |
@@ -305,6 +322,20 @@ func (c *ClientCredentials) GetToken(ctx context.Context, scopes []string) (*Tok
 
 ## Sources
 
-- [OAuth 2.0 RFC 6749](https://oauth.net/2/)
-- [OAuth 2.0 Security Best Practices](https://oauth.net/2/oauth-best-practice/)
-- [PKCE RFC 7636](https://oauth.net/2/pkce/)
+- [RFC 9700 — Best Current Practice for OAuth 2.0 Security](https://www.rfc-editor.org/info/rfc9700/) (BCP 240, Jan 2025) — tier 1
+- [RFC 6749 — The OAuth 2.0 Authorization Framework](https://datatracker.ietf.org/doc/html/rfc6749) — tier 1
+- [RFC 7636 — PKCE](https://datatracker.ietf.org/doc/html/rfc7636) — tier 1
+- [RFC 9126 — Pushed Authorization Requests](https://datatracker.ietf.org/doc/html/rfc9126) — tier 1
+- [RFC 9449 — DPoP](https://datatracker.ietf.org/doc/html/rfc9449) — tier 1
+- [oauth.net — Security Best Current Practice](https://oauth.net/2/oauth-best-practice/) — tier 2
+
+## Changelog
+
+- **2026-09-08** — refreshed against RFC 9700 (BCP 240, published January 2025),
+  which had not yet been reflected here. Three corrections: PKCE is now required
+  on **every** authorization code flow, not only for public clients; the resource
+  owner password credentials grant is formally deprecated alongside implicit;
+  redirect URI matching must be exact. Added PAR and sender-constrained tokens
+  (DPoP/mTLS) as recommended controls. The dated row "Implicit flow in 2024" was
+  replaced with the normative citation.
+  Source: https://www.rfc-editor.org/info/rfc9700/

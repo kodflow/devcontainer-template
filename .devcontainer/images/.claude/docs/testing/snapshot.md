@@ -1,3 +1,11 @@
+---
+title: "Snapshot Testing"
+category: testing
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 365
+tags: [api-response-snapshots, basic-snapshots-cupaloy, ci-cd-integration, custom-snapshotter-configuration, dynamic-value-handling, go-test-diff-alternative, lang:go, lang:yaml, named-snapshots, recommended-libraries, snapshot, table-driven-snapshot-tests, testing]
+---
+
 # Snapshot Testing
 
 > Capture and compare output with a saved reference.

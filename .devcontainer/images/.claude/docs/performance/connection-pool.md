@@ -1,3 +1,11 @@
+---
+title: "Connection Pool"
+category: performance
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [advantages, complexity-and-trade-offs, connection-pool, disadvantages, lang:go, performance, recommended-configuration, what-is-the-connection-pool]
+---
+
 # Connection Pool
 
 Pattern for managing reusable network connections (DB, HTTP, etc.).

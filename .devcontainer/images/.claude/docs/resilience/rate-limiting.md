@@ -1,3 +1,11 @@
+---
+title: "Rate Limiting Pattern"
+category: resilience
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 545
+tags: [algorithm-comparison, algorithms, distributed-rate-limiter-redis, http-middleware, lang:go, multi-level-rate-limiter, rate-limiting, resilience, sliding-window-implementation, token-bucket-implementation]
+---
+
 # Rate Limiting Pattern
 
 > Control request throughput to protect services against overload.

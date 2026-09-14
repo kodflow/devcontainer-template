@@ -1,3 +1,11 @@
+---
+title: "Message Translator Patterns"
+category: messaging
+verified: 2026-02-14   # /search --refresh restamps this
+ttl_days: 730
+tags: [complementary-patterns, content-enricher, content-filter, decision-table, enricher-implementation, enricher-schema, envelope-implementation, envelope-schema, envelope-wrapper, filter-implementation, filter-schema, lang:go, message-translator, messaging, schema]
+---
+
 # Message Translator Patterns
 
 Message transformation and enrichment patterns.
