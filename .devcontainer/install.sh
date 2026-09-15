@@ -1151,7 +1151,7 @@ verify_installation() {
 
     echo "  Assets installed:"
     echo "    Scripts:  $script_count / 7 expected"
-    echo "    Plugins:  $(claude plugin list 2>/dev/null | grep -c '@kodflow' || echo 0) / 5 expected (kodflow marketplace)"
+    echo "    Plugins:  $(claude plugin list 2>/dev/null | grep -c '@kodflow' || echo 0) / $(set -- $KODFLOW_PLUGINS; echo $#) expected (kodflow marketplace)"
     if [ "$INSTALL_MINIMAL" = false ]; then
         echo "    Docs:     $doc_count / 155+ expected"
     else
