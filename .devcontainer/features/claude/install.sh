@@ -61,7 +61,7 @@ if command -v claude &>/dev/null; then
     else
         claude plugin marketplace add "$MARKETPLACE_URL" >/dev/null 2>&1 || echo "  ⚠ cannot reach $MARKETPLACE_URL"
     fi
-    for p in kodflow-workflow kodflow-review kodflow-devops kodflow-specialists kodflow-hooks; do
+    for p in kodflow-workflow kodflow-review kodflow-devops kodflow-shell kodflow-specialists kodflow-hooks; do
         if claude plugin install "$p@kodflow" >/dev/null 2>&1 || claude plugin update "$p@kodflow" >/dev/null 2>&1; then
             echo "  ✓ $p"
         else
