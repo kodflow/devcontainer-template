@@ -1,0 +1,55 @@
+name: Prune Docker Images
+
+# Daily retention for the images docker-images.yml publishes: keep the last
+# 7 days, `latest`, the 3 most recent tagged builds and everything they
+# reference; delete the rest (see .github/scripts/prune-ghcr.sh). Each run
+# deletes at most 400 versions, so an existing backlog drains over a few days.
+
+on:
+  schedule:
+    # After the daily 04:00 build, so the new image is already the keep anchor.
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Delete for real (unchecked = dry run)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prune-images
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    # Unlike docker-images.yml, this one is pinned to the template on purpose:
+    # the packages are shared by every derived repository, so exactly one
+    # place may delete from them, and only the publishing repository holds
+    # the admin role the deletion needs.
+    if: github.repository == 'kodflow/devcontainer-template'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        package: [devcontainer-template, devcontainer-base]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Prune ${{ matrix.package }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLY: ${{ github.event_name == 'schedule' || inputs.apply }}
+        run: |
+          args=(--owner "${{ github.repository_owner }}" --package "${{ matrix.package }}")
+          [ "$APPLY" = "true" ] && args+=(--apply)
+          .github/scripts/prune-ghcr.sh "${args[@]}"

@@ -1,4 +1,4 @@
-<!-- updated: 2026-04-21T15:27:23Z -->
+<!-- updated: 2026-09-23T10:42:51Z -->
 # GitHub Actions Workflows
 
 ## Purpose
@@ -10,6 +10,7 @@ CI/CD automation for the devcontainer template.
 | File | Description |
 |------|-------------|
 | `docker-images.yml` | Build and push devcontainer images |
+| `prune-images.yml` | Daily retention of the images `docker-images.yml` publishes |
 | `publish-features.yml` | Publish Dev Container Features as OCI artifacts to GHCR |
 | `release.yml` | Create GitHub Release with claude-assets.tar.gz |
 | `tests.yml` | Run unit tests for hooks and scripts |
@@ -28,6 +29,15 @@ CI/CD automation for the devcontainer template.
 - **Tags**: latest, date, commit SHA
 - **Platforms**: linux/amd64, linux/arm64
 - **Cache busting**: Scheduled builds pass `CACHE_BUST_DYNAMIC=YYYY-MM-DD`
+
+## prune-images.yml
+
+- **Trigger**: Daily 05:30 UTC (after the 04:00 build), manual dispatch (dry run unless `apply`)
+- **Scope**: `devcontainer-template` and `devcontainer-base`, template repository only
+- **Keeps**: versions < 7 days, `latest`, the 3 most recent tagged builds, and every
+  per-platform manifest and attestation they reference (untagged, yet required by the tag)
+- **Deletes**: the rest, oldest first, at most 400 per package per run (GitHub throttles deletions)
+- **Script**: `.github/scripts/prune-ghcr.sh` (dry run by default, `--apply` to delete)
 
 ## publish-features.yml
 
