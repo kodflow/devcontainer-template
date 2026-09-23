@@ -71,13 +71,22 @@ jq -e 'any(.[]; .metadata.container.tags | index("latest"))' "$work/kept.json" >
 # Rule 4: pull each kept manifest and keep every digest it references.
 reg_token=$(curl -fsS -u "token:$token" "https://ghcr.io/token?scope=repository:$owner/$package:pull&service=ghcr.io" | jq -r '.token')
 accept="application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json"
-jq -r '.[].name' "$work/kept.json" > "$work/keep-digests"
-while IFS= read -r digest; do
-  curl -fsS -H "Authorization: Bearer $reg_token" -H "Accept: $accept" \
-    "https://ghcr.io/v2/$owner/$package/manifests/$digest" 2>/dev/null |
-    jq -r '(.manifests // [])[].digest' >> "$work/keep-digests" || true
-done < <(jq -r '.[].name' "$work/kept.json")
-sort -u "$work/keep-digests" -o "$work/keep-digests"
+# Walk the whole reference graph (an index may nest indexes). Any manifest
+# that cannot be read aborts the run: an incomplete keep set would delete the
+# per-platform images of a tag we meant to keep.
+jq -r '.[].name' "$work/kept.json" | sort -u > "$work/keep-digests"
+cp "$work/keep-digests" "$work/queue"
+while [ -s "$work/queue" ]; do
+  : > "$work/next"
+  while IFS= read -r digest; do
+    manifest=$(curl -fsS -H "Authorization: Bearer $reg_token" -H "Accept: $accept" \
+      "https://ghcr.io/v2/$owner/$package/manifests/$digest") ||
+      { echo "refusing: cannot read manifest $digest" >&2; exit 1; }
+    jq -r '(.manifests // [])[].digest' <<<"$manifest" >> "$work/next"
+  done < "$work/queue"
+  sort -u "$work/next" | comm -23 - "$work/keep-digests" > "$work/queue"
+  sort -u "$work/keep-digests" "$work/queue" -o "$work/keep-digests"
+done
 
 jq --rawfile keep "$work/keep-digests" '
   ($keep | split("\n") | map(select(length > 0))) as $k
