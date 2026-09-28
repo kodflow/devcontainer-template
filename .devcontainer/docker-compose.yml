@@ -70,6 +70,12 @@ services:
       # 1Password configuration
       - OP_CONFIG_DIR=/home/vscode/.config/op
       # Node.js / npm / yarn / pnpm / nvm
+      # NODE_EXTRA_CA_CERTS: Node ships its own CA bundle and ignores the system
+      # trust store, so npm and the MCP servers fail TLS against a corporate PKI
+      # even after update-ca-certificates. Set here rather than in /etc/profile.d
+      # because the MCP servers inherit this environment, not a login shell's.
+      # Harmless without a corporate CA: the bundle is then the public roots.
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
       - NVM_DIR=/usr/local/share/nvm
       - npm_config_cache=/home/vscode/.cache/npm
       - YARN_CACHE_FOLDER=/home/vscode/.cache/yarn

@@ -47,12 +47,25 @@ step_git_global_ignore() {
     local IGNORE_DIR="/home/vscode/.config/git"
     local IGNORE_FILE="$IGNORE_DIR/ignore"
     local MARKER="# managed-by: devcontainer-template"
+    local CERTS_PATTERN="**/.devcontainer/certs/"
 
     mkdir -p "$IGNORE_DIR" || { log_error "Failed to create $IGNORE_DIR"; return 1; }
 
-    # If file exists and already has our managed block, skip (idempotent)
+    # If file exists and already has our managed block, skip (idempotent) — but
+    # first top up patterns added to the template after that block was written.
+    # Without this, a container created before a pattern existed never gets it,
+    # since the marker alone says nothing about the block's contents.
     if [ -f "$IGNORE_FILE" ] && grep -qF "$MARKER" "$IGNORE_FILE" 2>/dev/null; then
-        log_info "Global gitignore already configured"
+        if grep -qF "$CERTS_PATTERN" "$IGNORE_FILE" 2>/dev/null; then
+            log_info "Global gitignore already configured"
+            return 0
+        fi
+        printf '\n# Corporate root CAs consumed by step_extra_ca_certs\n%s\n' \
+            "$CERTS_PATTERN" >> "$IGNORE_FILE" || {
+            log_error "Failed to append $CERTS_PATTERN to $IGNORE_FILE"
+            return 1
+        }
+        log_success "Global gitignore topped up ($CERTS_PATTERN)"
         return 0
     fi
 
@@ -71,6 +84,11 @@ mcp.json
 **/.env
 **/.env.*
 
+# Corporate root CAs consumed by step_extra_ca_certs. Scoped to that directory
+# on purpose: a blanket **/*.crt would hide the public certificates plenty of
+# projects legitimately track.
+**/.devcontainer/certs/
+
 # Credential files
 **/credentials.json
 **/service-account.json
@@ -86,14 +104,83 @@ IGNOREEOF
     log_success "Global gitignore configured ($IGNORE_FILE)"
 }
 
+# Install extra root CAs (corporate PKI) into the container trust store, so a
+# self-hosted GitLab / registry validates instead of needing GIT_SSL_NO_VERIFY.
+# Certificates are never committed: drop them in the gitignored directory below
+# (it lives under the already-mounted workspace, so no extra bind mount) and
+# every rebuild picks them up. Override the location with EXTRA_CA_CERTS_DIR.
+EXTRA_CA_CERTS_DIR="${EXTRA_CA_CERTS_DIR:-/workspace/.devcontainer/certs}"
+
+#: Own subdirectory rather than dropping files straight into the trust store:
+#: it is wiped and repopulated on every run, so a certificate removed from the
+#: source directory stops being trusted instead of lingering forever.
+EXTRA_CA_CERTS_DEST="/usr/local/share/ca-certificates/devcontainer-extra"
+
+# Note: NODE_EXTRA_CA_CERTS is NOT set here. Node ignores the system trust store,
+# but /etc/profile.d only reaches login shells while Claude Code and its MCP
+# servers inherit the compose environment — so it is set in docker-compose.yml,
+# where the whole container process tree actually sees it.
+step_extra_ca_certs() {
+    if [ ! -d "$EXTRA_CA_CERTS_DIR" ]; then
+        log_info "No extra CA directory ($EXTRA_CA_CERTS_DIR)"
+        return 0
+    fi
+
+    local certs=() cert dest
+    #: nullglob so an empty directory yields an empty array rather than the
+    #: literal patterns; collected up front so no early return leaks the option.
+    shopt -s nullglob
+    certs=("$EXTRA_CA_CERTS_DIR"/*.crt "$EXTRA_CA_CERTS_DIR"/*.pem)
+    shopt -u nullglob
+
+    sudo rm -rf "$EXTRA_CA_CERTS_DEST" || {
+        log_error "Failed to clear $EXTRA_CA_CERTS_DEST"
+        return 1
+    }
+
+    if [ "${#certs[@]}" -eq 0 ]; then
+        #: Still refresh: the wipe above may have dropped a certificate that was
+        #: trusted until now, and the bundle has to forget it.
+        sudo update-ca-certificates --fresh >/dev/null 2>&1
+        log_info "No certificates found in $EXTRA_CA_CERTS_DIR"
+        return 0
+    fi
+
+    sudo mkdir -p "$EXTRA_CA_CERTS_DEST" || {
+        log_error "Failed to create $EXTRA_CA_CERTS_DEST"
+        return 1
+    }
+
+    for cert in "${certs[@]}"; do
+        #: update-ca-certificates only reads *.crt, so a .pem keeps its full name
+        #: with .crt appended. Truncating the extension instead would map foo.crt
+        #: and foo.pem onto one destination and silently drop one of the two.
+        dest="$EXTRA_CA_CERTS_DEST/$(basename "$cert")"
+        [ "${dest%.crt}" = "$dest" ] && dest="$dest.crt"
+        sudo install -m 644 "$cert" "$dest" || {
+            log_error "Failed to install $(basename "$cert")"
+            return 1
+        }
+    done
+
+    sudo update-ca-certificates --fresh >/dev/null 2>&1 || {
+        log_error "update-ca-certificates failed"
+        return 1
+    }
+
+    log_success "${#certs[@]} extra CA certificate(s) installed"
+}
+
 # Conditionally disable SSL verification (for corporate proxies/self-signed certs)
-# Only applies when GIT_SSL_NO_VERIFY=1 is set in .env or environment
+# Only applies when GIT_SSL_NO_VERIFY=1 is set in .env or environment.
+# Prefer step_extra_ca_certs: trusting the corporate root CA keeps verification
+# on, where this switch turns it off for every host git talks to.
 step_git_ssl_config() {
     if [ "${GIT_SSL_NO_VERIFY:-0}" = "1" ]; then
         git config --global http.sslVerify false
-        log_success "Git SSL verification disabled (GIT_SSL_NO_VERIFY=1)"
+        log_warning "Git SSL verification DISABLED (GIT_SSL_NO_VERIFY=1) — prefer $EXTRA_CA_CERTS_DIR"
     else
-        log_info "Git SSL verification kept enabled (set GIT_SSL_NO_VERIFY=1 to disable)"
+        log_info "Git SSL verification kept enabled"
     fi
 }
 
@@ -568,6 +655,7 @@ step_mark_initialized() {
 # Git steps run every time (safe directory, SSL, GPG)
 run_step "Git safe directory"    step_git_safe_directory
 run_step "Git global gitignore"  step_git_global_ignore
+run_step "Extra CA certificates" step_extra_ca_certs
 run_step "Git SSL configuration" step_git_ssl_config
 run_step "Git identity"          step_git_identity
 run_step "GPG signing"           step_gpg_signing

@@ -159,3 +159,6 @@ out/
 .claude/logs/
 core.*
 .taskmaster/
+
+# Corporate root CAs dropped in for step_extra_ca_certs (never commit certs)
+.devcontainer/certs/
