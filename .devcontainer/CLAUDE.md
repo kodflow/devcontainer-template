@@ -101,14 +101,33 @@ Behind a corporate PKI (self-hosted GitLab, private registry), the container
 trust store only has the public `ca-certificates` bundle, so TLS fails. Drop the
 root CA in `.devcontainer/certs/` (`*.crt` or `*.pem`, **gitignored** — never
 commit a certificate) and `postCreate.sh::step_extra_ca_certs` installs it into
-`/usr/local/share/ca-certificates/`, runs `update-ca-certificates`, and writes
-`/etc/profile.d/extra-ca-certs.sh` exporting `NODE_EXTRA_CA_CERTS` — Node ships
-its own bundle and ignores the system store, so npm and the MCP servers would
-otherwise keep failing. Override the location with `EXTRA_CA_CERTS_DIR`.
+`/usr/local/share/ca-certificates/devcontainer-extra/`, then runs
+`update-ca-certificates --fresh`. Override the location with
+`EXTRA_CA_CERTS_DIR`. An absent or empty directory is a no-op.
 
-No directory, or an empty one, is a silent no-op. Prefer this over
-`GIT_SSL_NO_VERIFY=1`, which disables verification for every host git contacts
-instead of trusting one issuer; that switch now logs a `[WARNING]`.
+Three details that are easy to get wrong:
+
+- **The subdirectory is wiped on every run.** Copying alone would keep trusting
+  a certificate long after it was deleted from `.devcontainer/certs/`.
+- **A `.pem` keeps its full name plus `.crt`** (`foo.pem` → `foo.pem.crt`), since
+  `update-ca-certificates` reads only `*.crt`. Stripping the extension would map
+  `foo.crt` and `foo.pem` onto one destination and silently drop one of them.
+- **`NODE_EXTRA_CA_CERTS` is set in `docker-compose.yml`, not by this step.**
+  Node ignores the system trust store, and `/etc/profile.d` only reaches login
+  shells — Claude Code and its MCP servers inherit the compose environment.
+
+**`docker pull` is not covered.** With docker-outside-of-docker the daemon runs
+on the host, so a private registry needs the CA in the *host's*
+`/etc/docker/certs.d/<registry>/ca.crt`. Nothing inside the container can fix
+that.
+
+Consumer repos are protected too: `step_git_global_ignore` ignores
+`**/.devcontainer/certs/` container-wide, so a dropped certificate is unstageable
+even in a project that never copied this repo's `.gitignore`.
+
+Prefer all of this over `GIT_SSL_NO_VERIFY=1`, which disables verification for
+every host git contacts instead of trusting one issuer; that switch now logs a
+`[WARNING]`.
 
 ## .env propagation into git config
 

@@ -71,6 +71,11 @@ mcp.json
 **/.env
 **/.env.*
 
+# Corporate root CAs consumed by step_extra_ca_certs. Scoped to that directory
+# on purpose: a blanket **/*.crt would hide the public certificates plenty of
+# projects legitimately track.
+**/.devcontainer/certs/
+
 # Credential files
 **/credentials.json
 **/service-account.json
@@ -93,45 +98,64 @@ IGNOREEOF
 # every rebuild picks them up. Override the location with EXTRA_CA_CERTS_DIR.
 EXTRA_CA_CERTS_DIR="${EXTRA_CA_CERTS_DIR:-/workspace/.devcontainer/certs}"
 
+#: Own subdirectory rather than dropping files straight into the trust store:
+#: it is wiped and repopulated on every run, so a certificate removed from the
+#: source directory stops being trusted instead of lingering forever.
+EXTRA_CA_CERTS_DEST="/usr/local/share/ca-certificates/devcontainer-extra"
+
+# Note: NODE_EXTRA_CA_CERTS is NOT set here. Node ignores the system trust store,
+# but /etc/profile.d only reaches login shells while Claude Code and its MCP
+# servers inherit the compose environment — so it is set in docker-compose.yml,
+# where the whole container process tree actually sees it.
 step_extra_ca_certs() {
     if [ ! -d "$EXTRA_CA_CERTS_DIR" ]; then
         log_info "No extra CA directory ($EXTRA_CA_CERTS_DIR)"
         return 0
     fi
 
-    local count=0 cert dest
-    #: nullglob so an empty directory yields no iteration instead of the
-    #: literal pattern; the shell option is scoped to this subshell step.
+    local certs=() cert dest
+    #: nullglob so an empty directory yields an empty array rather than the
+    #: literal patterns; collected up front so no early return leaks the option.
     shopt -s nullglob
-    for cert in "$EXTRA_CA_CERTS_DIR"/*.crt "$EXTRA_CA_CERTS_DIR"/*.pem; do
-        #: update-ca-certificates only reads *.crt, and a .pem holding PEM data
-        #: is the same bytes under another name — rename rather than convert.
-        dest="/usr/local/share/ca-certificates/$(basename "${cert%.*}").crt"
-        sudo install -m 644 "$cert" "$dest" || {
-            log_error "Failed to install $(basename "$cert")"
-            return 1
-        }
-        count=$((count + 1))
-    done
+    certs=("$EXTRA_CA_CERTS_DIR"/*.crt "$EXTRA_CA_CERTS_DIR"/*.pem)
     shopt -u nullglob
 
-    if [ "$count" -eq 0 ]; then
+    sudo rm -rf "$EXTRA_CA_CERTS_DEST" || {
+        log_error "Failed to clear $EXTRA_CA_CERTS_DEST"
+        return 1
+    }
+
+    if [ "${#certs[@]}" -eq 0 ]; then
+        #: Still refresh: the wipe above may have dropped a certificate that was
+        #: trusted until now, and the bundle has to forget it.
+        sudo update-ca-certificates --fresh >/dev/null 2>&1
         log_info "No certificates found in $EXTRA_CA_CERTS_DIR"
         return 0
     fi
 
-    sudo update-ca-certificates >/dev/null 2>&1 || {
+    sudo mkdir -p "$EXTRA_CA_CERTS_DEST" || {
+        log_error "Failed to create $EXTRA_CA_CERTS_DEST"
+        return 1
+    }
+
+    for cert in "${certs[@]}"; do
+        #: update-ca-certificates only reads *.crt, so a .pem keeps its full name
+        #: with .crt appended. Truncating the extension instead would map foo.crt
+        #: and foo.pem onto one destination and silently drop one of the two.
+        dest="$EXTRA_CA_CERTS_DEST/$(basename "$cert")"
+        [ "${dest%.crt}" = "$dest" ] && dest="$dest.crt"
+        sudo install -m 644 "$cert" "$dest" || {
+            log_error "Failed to install $(basename "$cert")"
+            return 1
+        }
+    done
+
+    sudo update-ca-certificates --fresh >/dev/null 2>&1 || {
         log_error "update-ca-certificates failed"
         return 1
     }
 
-    #: Node ships its own CA bundle and ignores the system store entirely, so
-    #: npm/MCP servers keep failing TLS unless pointed at the merged bundle.
-    echo 'export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt' \
-        | sudo tee /etc/profile.d/extra-ca-certs.sh >/dev/null
-    sudo chmod 644 /etc/profile.d/extra-ca-certs.sh
-
-    log_success "$count extra CA certificate(s) installed (+ NODE_EXTRA_CA_CERTS)"
+    log_success "${#certs[@]} extra CA certificate(s) installed"
 }
 
 # Conditionally disable SSL verification (for corporate proxies/self-signed certs)
