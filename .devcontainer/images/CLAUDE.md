@@ -175,10 +175,12 @@ those servers inherit the compose environment rather than a login shell's.
 
 The directory lives under the already-mounted workspace — no extra bind mount,
 no host path assumed — and is gitignored both here and container-wide via
-`step_git_global_ignore`, so no certificate enters this public repo or a consumer
-project. Absent or empty directory: silent no-op. `docker pull` is out of scope
-(the daemon runs on the host). Full rationale and the `GIT_SSL_NO_VERIFY`
-comparison in [.devcontainer/CLAUDE.md](/workspace/.devcontainer/CLAUDE.md).
+`step_git_global_ignore`, so certificates stay out of this public repo and out of
+consumer projects by default (a default, not a safeguard: `git add -f` overrides
+it and an already-tracked certificate stays tracked). Absent or empty directory:
+silent no-op. `docker pull` is out of scope (the daemon runs on the host). Full
+rationale and the `GIT_SSL_NO_VERIFY` comparison in
+[.devcontainer/CLAUDE.md](/workspace/.devcontainer/CLAUDE.md).
 
 ## MCP Servers (Runtime)
 

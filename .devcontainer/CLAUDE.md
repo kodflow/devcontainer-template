@@ -121,9 +121,11 @@ on the host, so a private registry needs the CA in the *host's*
 `/etc/docker/certs.d/<registry>/ca.crt`. Nothing inside the container can fix
 that.
 
-Consumer repos are protected too: `step_git_global_ignore` ignores
-`**/.devcontainer/certs/` container-wide, so a dropped certificate is unstageable
-even in a project that never copied this repo's `.gitignore`.
+Consumer repos get the same default: `step_git_global_ignore` ignores
+`**/.devcontainer/certs/` container-wide, so a dropped certificate is ignored
+even in a project that never copied this repo's `.gitignore`. It is a default,
+not a safeguard — `git add -f` still stages one, and a certificate already
+tracked in a repo stays tracked.
 
 Prefer all of this over `GIT_SSL_NO_VERIFY=1`, which disables verification for
 every host git contacts instead of trusting one issuer; that switch now logs a

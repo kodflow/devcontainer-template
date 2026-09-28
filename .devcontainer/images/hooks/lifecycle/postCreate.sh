@@ -47,12 +47,25 @@ step_git_global_ignore() {
     local IGNORE_DIR="/home/vscode/.config/git"
     local IGNORE_FILE="$IGNORE_DIR/ignore"
     local MARKER="# managed-by: devcontainer-template"
+    local CERTS_PATTERN="**/.devcontainer/certs/"
 
     mkdir -p "$IGNORE_DIR" || { log_error "Failed to create $IGNORE_DIR"; return 1; }
 
-    # If file exists and already has our managed block, skip (idempotent)
+    # If file exists and already has our managed block, skip (idempotent) — but
+    # first top up patterns added to the template after that block was written.
+    # Without this, a container created before a pattern existed never gets it,
+    # since the marker alone says nothing about the block's contents.
     if [ -f "$IGNORE_FILE" ] && grep -qF "$MARKER" "$IGNORE_FILE" 2>/dev/null; then
-        log_info "Global gitignore already configured"
+        if grep -qF "$CERTS_PATTERN" "$IGNORE_FILE" 2>/dev/null; then
+            log_info "Global gitignore already configured"
+            return 0
+        fi
+        printf '\n# Corporate root CAs consumed by step_extra_ca_certs\n%s\n' \
+            "$CERTS_PATTERN" >> "$IGNORE_FILE" || {
+            log_error "Failed to append $CERTS_PATTERN to $IGNORE_FILE"
+            return 1
+        }
+        log_success "Global gitignore topped up ($CERTS_PATTERN)"
         return 0
     fi
 
