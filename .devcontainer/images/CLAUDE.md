@@ -163,17 +163,22 @@ Management commands (`nvm use`, `pyenv install`) trigger lazy-load on first call
 
 `hooks/lifecycle/postCreate.sh::step_extra_ca_certs` installs any `*.crt`/`*.pem`
 found in `/workspace/.devcontainer/certs` (override: `EXTRA_CA_CERTS_DIR`) into
-`/usr/local/share/ca-certificates/`, runs `update-ca-certificates`, then writes
-`/etc/profile.d/extra-ca-certs.sh` exporting `NODE_EXTRA_CA_CERTS`.
+`/usr/local/share/ca-certificates/devcontainer-extra/` — its own subdirectory,
+wiped and repopulated on each run so a deleted certificate stops being trusted —
+then runs `update-ca-certificates --fresh`.
 
-That last part is not redundant: **Node ships its own CA bundle and ignores the
-system store**, so npm and every Node-based MCP server below keep failing TLS
-against a private PKI even after `update-ca-certificates` succeeds.
+**`NODE_EXTRA_CA_CERTS` is set in `docker-compose.yml`, not by that step.** Node
+ships its own CA bundle and ignores the system store, so npm and every Node-based
+MCP server below keep failing TLS against a private PKI even after
+`update-ca-certificates` succeeds — and `/etc/profile.d` would not help, because
+those servers inherit the compose environment rather than a login shell's.
 
 The directory lives under the already-mounted workspace — no extra bind mount,
-no host path assumed — and is gitignored, so no certificate ever enters this
-public repo. Absent or empty directory: silent no-op. Full rationale and the
-`GIT_SSL_NO_VERIFY` comparison in [.devcontainer/CLAUDE.md](/workspace/.devcontainer/CLAUDE.md).
+no host path assumed — and is gitignored both here and container-wide via
+`step_git_global_ignore`, so no certificate enters this public repo or a consumer
+project. Absent or empty directory: silent no-op. `docker pull` is out of scope
+(the daemon runs on the host). Full rationale and the `GIT_SSL_NO_VERIFY`
+comparison in [.devcontainer/CLAUDE.md](/workspace/.devcontainer/CLAUDE.md).
 
 ## MCP Servers (Runtime)
 
