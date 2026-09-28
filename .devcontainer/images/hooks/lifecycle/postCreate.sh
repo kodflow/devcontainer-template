@@ -86,14 +86,64 @@ IGNOREEOF
     log_success "Global gitignore configured ($IGNORE_FILE)"
 }
 
+# Install extra root CAs (corporate PKI) into the container trust store, so a
+# self-hosted GitLab / registry validates instead of needing GIT_SSL_NO_VERIFY.
+# Certificates are never committed: drop them in the gitignored directory below
+# (it lives under the already-mounted workspace, so no extra bind mount) and
+# every rebuild picks them up. Override the location with EXTRA_CA_CERTS_DIR.
+EXTRA_CA_CERTS_DIR="${EXTRA_CA_CERTS_DIR:-/workspace/.devcontainer/certs}"
+
+step_extra_ca_certs() {
+    if [ ! -d "$EXTRA_CA_CERTS_DIR" ]; then
+        log_info "No extra CA directory ($EXTRA_CA_CERTS_DIR)"
+        return 0
+    fi
+
+    local count=0 cert dest
+    #: nullglob so an empty directory yields no iteration instead of the
+    #: literal pattern; the shell option is scoped to this subshell step.
+    shopt -s nullglob
+    for cert in "$EXTRA_CA_CERTS_DIR"/*.crt "$EXTRA_CA_CERTS_DIR"/*.pem; do
+        #: update-ca-certificates only reads *.crt, and a .pem holding PEM data
+        #: is the same bytes under another name — rename rather than convert.
+        dest="/usr/local/share/ca-certificates/$(basename "${cert%.*}").crt"
+        sudo install -m 644 "$cert" "$dest" || {
+            log_error "Failed to install $(basename "$cert")"
+            return 1
+        }
+        count=$((count + 1))
+    done
+    shopt -u nullglob
+
+    if [ "$count" -eq 0 ]; then
+        log_info "No certificates found in $EXTRA_CA_CERTS_DIR"
+        return 0
+    fi
+
+    sudo update-ca-certificates >/dev/null 2>&1 || {
+        log_error "update-ca-certificates failed"
+        return 1
+    }
+
+    #: Node ships its own CA bundle and ignores the system store entirely, so
+    #: npm/MCP servers keep failing TLS unless pointed at the merged bundle.
+    echo 'export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt' \
+        | sudo tee /etc/profile.d/extra-ca-certs.sh >/dev/null
+    sudo chmod 644 /etc/profile.d/extra-ca-certs.sh
+
+    log_success "$count extra CA certificate(s) installed (+ NODE_EXTRA_CA_CERTS)"
+}
+
 # Conditionally disable SSL verification (for corporate proxies/self-signed certs)
-# Only applies when GIT_SSL_NO_VERIFY=1 is set in .env or environment
+# Only applies when GIT_SSL_NO_VERIFY=1 is set in .env or environment.
+# Prefer step_extra_ca_certs: trusting the corporate root CA keeps verification
+# on, where this switch turns it off for every host git talks to.
 step_git_ssl_config() {
     if [ "${GIT_SSL_NO_VERIFY:-0}" = "1" ]; then
         git config --global http.sslVerify false
-        log_success "Git SSL verification disabled (GIT_SSL_NO_VERIFY=1)"
+        log_warning "Git SSL verification DISABLED (GIT_SSL_NO_VERIFY=1) — prefer $EXTRA_CA_CERTS_DIR"
     else
-        log_info "Git SSL verification kept enabled (set GIT_SSL_NO_VERIFY=1 to disable)"
+        log_info "Git SSL verification kept enabled"
     fi
 }
 
@@ -568,6 +618,7 @@ step_mark_initialized() {
 # Git steps run every time (safe directory, SSL, GPG)
 run_step "Git safe directory"    step_git_safe_directory
 run_step "Git global gitignore"  step_git_global_ignore
+run_step "Extra CA certificates" step_extra_ca_certs
 run_step "Git SSL configuration" step_git_ssl_config
 run_step "Git identity"          step_git_identity
 run_step "GPG signing"           step_gpg_signing

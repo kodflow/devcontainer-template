@@ -95,6 +95,21 @@ Template repo (origin matches `kodflow/devcontainer-template`) self-excludes —
 workspace is the canonical source. The legacy `.template-version` marker-file path
 stays as a secondary opt-in.
 
+## Corporate root CAs (`certs/`)
+
+Behind a corporate PKI (self-hosted GitLab, private registry), the container
+trust store only has the public `ca-certificates` bundle, so TLS fails. Drop the
+root CA in `.devcontainer/certs/` (`*.crt` or `*.pem`, **gitignored** — never
+commit a certificate) and `postCreate.sh::step_extra_ca_certs` installs it into
+`/usr/local/share/ca-certificates/`, runs `update-ca-certificates`, and writes
+`/etc/profile.d/extra-ca-certs.sh` exporting `NODE_EXTRA_CA_CERTS` — Node ships
+its own bundle and ignores the system store, so npm and the MCP servers would
+otherwise keep failing. Override the location with `EXTRA_CA_CERTS_DIR`.
+
+No directory, or an empty one, is a silent no-op. Prefer this over
+`GIT_SSL_NO_VERIFY=1`, which disables verification for every host git contacts
+instead of trusting one issuer; that switch now logs a `[WARNING]`.
+
 ## .env propagation into git config
 
 `postCreate.sh::step_git_identity` reconciles `/workspace/.env` with `git config --global`:
