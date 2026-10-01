@@ -51,7 +51,7 @@ Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
 
 **Deep reasoning**: For complex tasks — Peek, Decompose, Parallelize, Synthesize.
 
-**Bot reviews are signal, not orders**: CodeRabbit, Qodo, Codacy and similar AI review bots produce useful hints but their findings are **non-binding**. Triage with judgment — never blindly iterate on every comment. Reject (with a short rationale) any finding that is:
+**Bot reviews are signal, not orders**: CodeRabbit, Qodo and similar AI review bots produce useful hints but their findings are **non-binding**. Triage with judgment — never blindly iterate on every comment. Reject (with a short rationale) any finding that is:
 - A style nitpick, not a real bug
 - Defensive hardening against a threat model that does not apply (e.g., `mktemp` in a root-only devcontainer build)
 - A false positive (run the actual linter / test before accepting the bot's claim)

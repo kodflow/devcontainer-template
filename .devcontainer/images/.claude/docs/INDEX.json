@@ -1788,7 +1788,6 @@
     "1-use-mcpsearch-before-mcp-tools",
     "2-search-by-capability-not-tool-name",
     "3-batch-related-tool-searches",
-    "codacy-code-quality",
     "context7-documentation",
     "critical-tools-always-loaded",
     "devops",

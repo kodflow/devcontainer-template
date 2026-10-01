@@ -3,7 +3,7 @@ title: "MCP Context Optimization"
 category: devops
 verified: 2026-04-24   # /search --refresh restamps this
 ttl_days: 180
-tags: [1-use-mcpsearch-before-mcp-tools, 2-search-by-capability-not-tool-name, 3-batch-related-tool-searches, codacy-code-quality, context7-documentation, critical-tools-always-loaded, devops, github-repository-operations, gitlab-gitlab-operations, how-it-works, lang:yaml, mcp-optimization, monitoring, playwright-browser-automation, problem-context-window-bloat, server-specific-guidelines, token-budget-guidelines]
+tags: [1-use-mcpsearch-before-mcp-tools, 2-search-by-capability-not-tool-name, 3-batch-related-tool-searches, context7-documentation, critical-tools-always-loaded, devops, github-repository-operations, gitlab-gitlab-operations, how-it-works, lang:yaml, mcp-optimization, monitoring, playwright-browser-automation, problem-context-window-bloat, server-specific-guidelines, token-budget-guidelines]
 ---
 
 # MCP Context Optimization
@@ -101,16 +101,6 @@ MCPSearch(query="create pull request")
 - `fork_repository`
 - `create_repository`
 - `delete_file`
-
-### codacy (Code Quality)
-
-**High-frequency tools:**
-- `codacy_cli_analyze` - Local analysis
-- `codacy_list_repository_issues` - List issues
-
-**Low-frequency tools (defer):**
-- `codacy_setup_repository`
-- `codacy_list_organizations`
 
 ### playwright (Browser Automation)
 
