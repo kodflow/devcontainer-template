@@ -59,24 +59,6 @@ jobs:
                bats tests/**/*.bats
           echo "kcov exited with $?"
 
-      - name: Upload coverage to Codacy
-        if: always()
-        continue-on-error: true
-        run: |
-          REPORT=$(find ./coverage -name 'cobertura.xml' -type f 2>/dev/null | head -1)
-          if [ -n "$REPORT" ]; then
-            echo "Found coverage report: $REPORT"
-            bash <(curl -Ls https://coverage.codacy.com/get.sh) report \
-              --project-token "${{ secrets.CODACY_PROJECT_TOKEN }}" \
-              -r "$REPORT" \
-              --partial || true
-          else
-            echo "No coverage report found, sending final signal only"
-          fi
-          # Always send final signal so Codacy posts the status check
-          bash <(curl -Ls https://coverage.codacy.com/get.sh) final \
-            --project-token "${{ secrets.CODACY_PROJECT_TOKEN }}" || true
-
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
