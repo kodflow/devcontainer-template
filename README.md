@@ -1,6 +1,6 @@
 # devcontainer-template
 
-Coquille DevContainer universelle fournissant un ecosysteme IA complet — 29 agents specialistes et ~19 commandes slash fournis par le marketplace kodflow (5 plugins), workflows auto-correctifs — pour bootstrapper et developper n'importe quel projet avec une qualite maximale. Fiabilite d'abord : les agents raisonnent en profondeur, recoupent les sources officielles, et s'auto-corrigent jusqu'a ce que le resultat respecte les standards.
+Coquille DevContainer universelle fournissant un ecosysteme IA complet — 29 agents specialistes et ~19 commandes slash fournis par le marketplace kodflow (6 plugins), workflows auto-correctifs — pour bootstrapper et developper n'importe quel projet avec une qualite maximale. Fiabilite d'abord : les agents raisonnent en profondeur, recoupent les sources officielles, et s'auto-corrigent jusqu'a ce que le resultat respecte les standards.
 
 ## Installation Rapide
 
@@ -14,7 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/kodflow/devcontainer-template/main/
 
 **Ce qui est installé :**
 - ✅ Claude CLI (si pas déjà installé)
-- ✅ Marketplace kodflow enregistré + 5 plugins installés : `kodflow-workflow`, `kodflow-review`, `kodflow-devops`, `kodflow-specialists` (29 agents), `kodflow-hooks` (5 scripts, 15 événements)
+- ✅ Marketplace kodflow enregistré + 6 plugins installés : `kodflow-workflow`, `kodflow-review`, `kodflow-devops`, `kodflow-shell` (`super-claude` sur le PATH, sélecteur de sessions), `kodflow-specialists` (29 agents), `kodflow-hooks` (5 scripts, 15 événements)
 - ✅ 7 scripts qualité embarqués dans l'image (`format.sh`, `lint.sh`, `test.sh`, `typecheck.sh`, `pre-commit-*.sh`)
 - ✅ 155+ design patterns (GoF, Cloud, DDD, Enterprise)
 - ✅ Outils additionnels (rtk, status-line)

@@ -129,7 +129,7 @@ CLAUDE.md                    # This overview
 │   ├── features/CLAUDE.md   # Language & tool features
 │   ├── hooks/CLAUDE.md      # Host-side hooks (initialize.sh only)
 │   └── images/CLAUDE.md     # Two-tier images (base + dynamic)
-└── kodflow marketplace      # Skills, agents, hooks (5 plugins, installed by postStart)
+└── kodflow marketplace      # Skills, agents, hooks (6 plugins, installed by postStart)
 ```
 
 Principle: More detail deeper in tree. Each file ≤ 1000 lines.

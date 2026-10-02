@@ -29,6 +29,9 @@ setup() { REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/../.." && pwd)"; }
   cd "$REPO_ROOT"
   ! grep -q 'do.md' .devcontainer/install.sh
   # skills are no longer downloaded one file at a time: the installer
-  # registers the marketplace and installs the plugin that carries /refine
-  grep -q 'kodflow-workflow@kodflow' .devcontainer/install.sh
+  # registers the marketplace and installs the plugin that carries /refine.
+  # The names live in one list now, so assert the list names it and that the
+  # loop installs each name from the kodflow marketplace.
+  grep -q 'KODFLOW_PLUGINS=.*kodflow-workflow' .devcontainer/install.sh
+  grep -q 'plugin install "$p@kodflow"' .devcontainer/install.sh
 }

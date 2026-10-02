@@ -164,7 +164,7 @@ Advantage: hooks update automatically when the image is rebuilt.
 Only exception: `initialize.sh` runs on the host (before container build).
 
 `postStart.sh`'s `step_marketplace_install` also registers the kodflow
-marketplace and installs/updates its 5 plugins on every start — fail-open when
+marketplace and installs/updates its 6 plugins on every start — fail-open when
 offline: a warning, and the cached plugins keep working. The host installer
 (`.devcontainer/install.sh`, `install_marketplace`) and the devcontainer
 feature (`.devcontainer/features/claude/install.sh`) do the same for a

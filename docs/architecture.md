@@ -40,7 +40,7 @@ Specialist agents (29 — kodflow-specialists plugin)
 1. **Container creation** — VS Code reads `devcontainer.json`, builds and runs service
 2. **onCreate** — Provisions caches, injects CLAUDE.md, sets safe directories
 3. **postCreate** — Wires language managers (NVM, pyenv, rustup), creates aliases
-4. **postStart** — Registers the kodflow marketplace and installs/updates its 5 plugins (fail-open if offline), restores Claude, injects secrets into `mcp.json`, validates setup
+4. **postStart** — Registers the kodflow marketplace and installs/updates its 6 plugins (fail-open if offline), restores Claude, injects secrets into `mcp.json`, validates setup
 5. **Development** — User invokes slash commands → orchestrators → specialists → output
 
 ## Agent Architecture
