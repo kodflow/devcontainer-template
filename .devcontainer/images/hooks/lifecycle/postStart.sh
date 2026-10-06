@@ -132,7 +132,7 @@ step_restore_claude_config() {
 # Fail-open: a container without plugins is degraded, not broken. The warning
 # says what to run when the network is back.
 KODFLOW_MARKETPLACE_URL="https://github.com/kodflow/claude-marketplace.git"
-KODFLOW_PLUGINS="kodflow-workflow kodflow-review kodflow-devops kodflow-specialists kodflow-hooks"
+KODFLOW_PLUGINS="kodflow-workflow kodflow-review kodflow-devops kodflow-shell kodflow-specialists kodflow-hooks"
 
 step_marketplace_install() {
     if ! command -v claude >/dev/null 2>&1; then
