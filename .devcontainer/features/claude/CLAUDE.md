@@ -32,8 +32,9 @@ This feature leverages Claude's native capabilities:
 
 Settings are stored in `~/.claude/settings.json`.
 MCP servers configured in `mcp.json` (generated at runtime from `mcp.json.tpl` + feature fragments in `/etc/mcp/features/`).
-`mcp.json.tmpl` here is an empty template only: no file named `mcp.json` or
-`.mcp.json` is ever tracked by git, because the rendered config carries tokens.
+`mcp.json.tmpl` here is a template only. `.gitignore` makes git ignore
+`mcp.json` and `.mcp.json` by default, because the rendered config can carry
+tokens: never force-add (`git add -f`) a rendered one.
 
 ## See Also
 
