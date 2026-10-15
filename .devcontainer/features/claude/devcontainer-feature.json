@@ -12,7 +12,11 @@
     },
     "bundle": {
       "type": "string",
-      "enum": ["minimal", "standard", "full"],
+      "enum": [
+        "minimal",
+        "standard",
+        "full"
+      ],
       "default": "full",
       "description": "Configuration bundle to install"
     },
@@ -22,5 +26,7 @@
       "description": "Enable custom statusline"
     }
   },
-  "installsAfter": ["ghcr.io/devcontainers/features/common-utils"]
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/common-utils"
+  ]
 }

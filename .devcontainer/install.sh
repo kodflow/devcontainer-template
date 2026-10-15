@@ -52,7 +52,7 @@ Installation Location:
 What Gets Installed:
   - Claude CLI (if not already installed)
   - 82 specialist agents
-  - skills, agents and lifecycle hooks from the kodflow marketplace (5 plugins)
+  - skills, agents and lifecycle hooks from the kodflow marketplace (6 plugins)
   - 31 hook scripts (security, lint, format, etc.)
   - tmux (optional, enables Agent Teams split-pane mode)
   - 155+ design patterns (unless --minimal)
@@ -406,16 +406,18 @@ download_assets_archive() {
 # ============================================================================
 # Marketplace: skills, agents, hooks
 # ============================================================================
-# The only source of skills, agents and lifecycle hooks — the same five
-# plugins the devcontainer installs at postStart. Nothing under ~/.claude/
+# The only source of skills, agents and lifecycle hooks — the same plugins
+# the devcontainer installs at postStart. Nothing under ~/.claude/
 # duplicates them: a local copy would run beside its plugin twin.
+KODFLOW_PLUGINS="kodflow-workflow kodflow-review kodflow-devops kodflow-shell kodflow-specialists kodflow-hooks"
+
 install_marketplace() {
     local url="https://github.com/kodflow/claude-marketplace.git"
     echo "→ Installing kodflow marketplace plugins..."
     if ! command -v claude >/dev/null 2>&1; then
         echo "  ⚠ claude CLI not found — after installing it, run:"
         echo "      claude plugin marketplace add $url"
-        echo "      claude plugin install kodflow-workflow@kodflow kodflow-review@kodflow kodflow-devops@kodflow kodflow-specialists@kodflow kodflow-hooks@kodflow"
+        echo "      claude plugin install $(printf '%s@kodflow ' $KODFLOW_PLUGINS)"
         return 0
     fi
     if claude plugin marketplace list 2>/dev/null | grep -q 'kodflow$'; then
@@ -424,15 +426,16 @@ install_marketplace() {
         echo "  ⚠ cannot reach $url — plugins not installed; re-run this installer when online"
         return 0
     fi
-    local p n=0
-    for p in kodflow-workflow kodflow-review kodflow-devops kodflow-specialists kodflow-hooks; do
+    local p n=0 total=0
+    for p in $KODFLOW_PLUGINS; do
         if claude plugin install "$p@kodflow" >/dev/null 2>&1 || claude plugin update "$p@kodflow" >/dev/null 2>&1; then
             n=$((n + 1)); echo "  ✓ $p"
         else
             echo "  ⚠ $p not installed"
         fi
     done
-    echo "  ✓ $n/5 plugins"
+    for p in $KODFLOW_PLUGINS; do total=$((total + 1)); done
+    echo "  ✓ $n/$total plugins"
 }
 
 # ============================================================================
@@ -1148,7 +1151,7 @@ verify_installation() {
 
     echo "  Assets installed:"
     echo "    Scripts:  $script_count / 7 expected"
-    echo "    Plugins:  $(claude plugin list 2>/dev/null | grep -c '@kodflow' || echo 0) / 5 expected (kodflow marketplace)"
+    echo "    Plugins:  $(claude plugin list 2>/dev/null | grep -c '@kodflow' || echo 0) / $(set -- $KODFLOW_PLUGINS; echo $#) expected (kodflow marketplace)"
     if [ "$INSTALL_MINIMAL" = false ]; then
         echo "    Docs:     $doc_count / 155+ expected"
     else

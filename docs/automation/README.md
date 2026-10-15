@@ -53,7 +53,7 @@ sequenceDiagram
 | `initialize.sh` | 1x (host) | Creates `.env`, validates features, pulls latest image |
 | `onCreate.sh` | 1x | Creates cache directories |
 | `postCreate.sh` | 1x (guarded) | Configures git, GPG, creates `~/.devcontainer-env.sh` |
-| `postStart.sh` | Every start | Restores `scripts/`/`docs/`/`templates/`/`settings.json` from `/etc/claude-defaults/` and cleans legacy `commands/`/`agents/`/`workflows/`, registers the kodflow marketplace and installs/updates its 5 plugins (fail-open when offline — warning, cached plugins keep working), generates `mcp.json`, runs `rtk init -g --no-patch` and strips any leftover rtk hook entry from `settings.json` (the plugin owns the `PreToolUse` rewrite), connects VPN, caches ZSH completions, generates dynamic p10k segments |
+| `postStart.sh` | Every start | Restores `scripts/`/`docs/`/`templates/`/`settings.json` from `/etc/claude-defaults/` and cleans legacy `commands/`/`agents/`/`workflows/`, registers the kodflow marketplace and installs/updates its 6 plugins (fail-open when offline — warning, cached plugins keep working), generates `mcp.json`, runs `rtk init -g --no-patch` and strips any leftover rtk hook entry from `settings.json` (the plugin owns the `PreToolUse` rewrite), connects VPN, caches ZSH completions, generates dynamic p10k segments |
 | `postAttach.sh` | Every IDE attach | Displays the welcome message |
 
 !!! info "Non-blocking"
