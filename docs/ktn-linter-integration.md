@@ -29,7 +29,7 @@ This document defines the integration between `devcontainer-template` and `ktn-l
 
 | Responsibility | Details |
 |---------------|---------|
-| **Binary** | Installs ktn-linter (Go feature) |
+| **Binary** | Installs `ktn-linter` and `ktn-hook` from the same release archive, sha256-checked against that release's `checksums.txt` (Go feature at build time, `sync-toolchains.sh` at onCreate). `ktn-hook` is optional: an archive older than v1.46.0 lacks it and only warns |
 | **MCP registration** | Fragment at `/etc/mcp/features/go.mcp.json` with `requires_binary` gate |
 | **Hook integration** | Delegated to the `kodflow-hooks` marketplace plugin — ktn-linter calls embedded in `on-tool.sh` (PreToolUse) and `on-stop.sh` (Stop); no PostToolUse call |
 | **Graceful degradation** | Calls exit silently if ktn-linter is not running (curl fails → continue) |
@@ -251,7 +251,7 @@ when the operator is most likely to act.
 ```
 Build time:
   .devcontainer/features/languages/go/install.sh
-    → downloads ktn-linter binary
+    → downloads ktn-linter + ktn-hook (sha256-verified archive)
     → writes /etc/mcp/features/go.mcp.json
 
 Runtime (every container start):
