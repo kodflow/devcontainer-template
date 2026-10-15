@@ -224,6 +224,79 @@ spawn_tool() {
     set -e
 }
 
+# ktn-linter release installer: verified download of `ktn-linter_linux_<arch>.tar.gz`
+# and installation of BOTH binaries it carries.
+#
+# Usage: install_ktn_release <release_base_url> <go_arch> <dest_dir>
+#
+# - The archive is checked against `checksums.txt` of the SAME release (sha256)
+#   before anything is extracted; a missing entry or a mismatch is a hard
+#   failure, never a warning: an unverified binary is not installed.
+# - `ktn-hook` sits next to `ktn-linter` in the archive since v1.46.0, and
+#   `ktn-linter hook install` writes the absolute path of the `ktn-hook` found
+#   beside `ktn-linter` — so both go to the same directory, same mode. An
+#   archive without `ktn-hook` (release < v1.46.0) is a warning only:
+#   `ktn-linter hook doctor` reports the missing binary, the linter still works.
+# - `checksums.txt.sig` is NOT verified here: the image ships no tool that can
+#   check it, and no trusted copy of the public key. The sha256 check guards
+#   against a corrupted or truncated download, not against a compromised
+#   release.
+install_ktn_release() {
+    local base=$1 arch=$2 dest=$3
+    local asset="ktn-linter_linux_${arch}.tar.gz"
+    local work expected actual bin
+
+    work=$(mktemp -d) || { err "ktn-linter: mktemp failed"; return 1; }
+
+    if ! curl -fsSL --connect-timeout 10 --max-time 120 "${base}/${asset}" -o "${work}/${asset}"; then
+        err "ktn-linter: download failed: ${base}/${asset}"
+        rm -rf "$work"; return 1
+    fi
+    if ! curl -fsSL --connect-timeout 10 --max-time 30 "${base}/checksums.txt" -o "${work}/checksums.txt"; then
+        err "ktn-linter: checksums.txt download failed: ${base}/checksums.txt — refusing an unverified archive"
+        rm -rf "$work"; return 1
+    fi
+
+    # goreleaser format: "<sha256>  <file>" (a "*" before the name = binary mode).
+    expected=$(awk -v f="$asset" '$2 == f || $2 == "*" f { print $1; exit }' "${work}/checksums.txt")
+    if [[ -z "$expected" ]]; then
+        err "ktn-linter: ${asset} has no entry in checksums.txt — refusing an unverified archive"
+        rm -rf "$work"; return 1
+    fi
+    if ! actual=$(sha256sum "${work}/${asset}" | awk '{ print $1 }') || [[ "$actual" != "$expected" ]]; then
+        err "ktn-linter: sha256 mismatch for ${asset} (expected ${expected}, got ${actual:-none})"
+        rm -rf "$work"; return 1
+    fi
+
+    mkdir -p "${work}/x" "$dest"
+    if ! tar -xzf "${work}/${asset}" -C "${work}/x"; then
+        err "ktn-linter: cannot extract ${asset}"
+        rm -rf "$work"; return 1
+    fi
+    if [[ ! -f "${work}/x/ktn-linter" ]]; then
+        err "ktn-linter: ${asset} carries no ktn-linter binary"
+        rm -rf "$work"; return 1
+    fi
+    if [[ ! -f "${work}/x/ktn-hook" ]]; then
+        warn "ktn-hook absent from ${asset} (release older than v1.46.0?) — installing ktn-linter alone; 'ktn-linter hook doctor' will report it"
+    fi
+
+    # Write beside the target then rename: a half-copied binary never sits
+    # under its real name.
+    for bin in ktn-linter ktn-hook; do
+        [[ -f "${work}/x/${bin}" ]] || continue
+        if ! install -m 0755 "${work}/x/${bin}" "${dest}/${bin}.download" \
+            || ! mv -f "${dest}/${bin}.download" "${dest}/${bin}"; then
+            err "ktn-linter: cannot install ${bin} into ${dest}"
+            rm -f "${dest}/${bin}.download"; rm -rf "$work"; return 1
+        fi
+    done
+
+    rm -rf "$work"
+    ok "ktn-linter installed (sha256 verified)$([[ -x "${dest}/ktn-hook" ]] && echo ', with ktn-hook')"
+    return 0
+}
+
 # Fetch latest versions (non-fatal: empty string on rate-limit/timeout, retries 3x)
 step fetch-tool-versions begin
 GOLANGCI_VERSION=$(get_github_latest_version_or_empty "golangci/golangci-lint")
@@ -333,12 +406,28 @@ set -e
 # 404s for every unauthenticated container build. No `go install` fallback:
 # the source module is private too, so it would fail on authentication and
 # bury the real cause (a CDN blip, or an asset name that drifted again)
-# under a misleading Go toolchain error. An empty package makes
-# install_go_tool report the download failure itself.
-spawn_tool "ktn-linter" \
-    "https://github.com/kodflow/ktn/releases/latest/download/ktn-linter_linux_${GO_ARCH}.tar.gz" \
-    "" \
-    "tar.gz"
+# under a misleading Go toolchain error; install_ktn_release reports the
+# download failure itself.
+#
+# The `latest` tag is resolved ONCE (from the redirect, which costs no API
+# quota) so the archive and checksums.txt come from the same release even if
+# a new one is published between the two downloads. If the redirect cannot be
+# read, both fall back to `latest/download` — a release landing in between
+# then fails the checksum, loudly, rather than installing a mismatched pair.
+KTN_RELEASES="https://github.com/kodflow/ktn/releases"
+KTN_TAG=$(curl -fsSLI --connect-timeout 10 --max-time 30 -o /dev/null -w '%{url_effective}' \
+    "${KTN_RELEASES}/latest" 2>/dev/null | sed -n 's|.*/releases/tag/||p' || true)
+if [[ -n "$KTN_TAG" ]]; then
+    KTN_BASE="${KTN_RELEASES}/download/${KTN_TAG}"
+else
+    KTN_BASE="${KTN_RELEASES}/latest/download"
+fi
+set +e
+( trap - ERR; \
+  echo -e "${YELLOW}Installing ktn-linter ${KTN_TAG:-latest}...${NC}" && \
+  install_ktn_release "$KTN_BASE" "$GO_ARCH" "$GOPATH/bin" ) &
+TOOL_PIDS[ktn-linter]=$!
+set -e
 
 # Bazel tooling — same release ships both binaries.
 if [[ -n "$BUILDTOOLS_VERSION" ]]; then
@@ -376,8 +465,10 @@ done
 # the Claude Code lint hooks (golangci-lint, gofumpt, goimports) and the MCP
 # server binary (ktn-linter). A missing critical tool is a hard error: ship a
 # broken container and we reproduce exactly issue #324.
+# ktn-hook is optional on purpose: a release older than v1.46.0 does not ship
+# it, and ktn-linter works without it (only `hook install` needs it).
 CRITICAL_TOOLS=("golangci-lint" "gofumpt" "goimports" "ktn-linter")
-OPTIONAL_TOOLS=("gosec" "gotestsum" "buildifier" "buildozer" "govulncheck")
+OPTIONAL_TOOLS=("gosec" "gotestsum" "buildifier" "buildozer" "govulncheck" "ktn-hook")
 
 missing_critical=()
 for tool in "${CRITICAL_TOOLS[@]}"; do
@@ -524,7 +615,7 @@ echo "  - ${GO_INSTALLED}"
 echo "  - Go Modules (package manager)"
 echo ""
 echo "Development tools:"
-for _tool in golangci-lint gosec gofumpt goimports gotestsum ktn-linter buildifier buildozer; do
+for _tool in golangci-lint gosec gofumpt goimports gotestsum ktn-linter ktn-hook buildifier buildozer; do
     if command -v "$_tool" &>/dev/null; then
         echo "  - $_tool (installed)"
     else

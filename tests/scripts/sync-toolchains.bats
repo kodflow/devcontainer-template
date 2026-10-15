@@ -94,8 +94,9 @@ teardown() {
     # — and a `go install` fallback can't rescue that either, since the
     # source module is private too. No fallback: a failed download is
     # reported as exactly that.
-    grep -qF 'github.com/kodflow/ktn/releases/latest/download/ktn-linter_linux_' "$SYNC_SH"
-    grep -qF '.tar.gz' "$SYNC_SH"
+    grep -qF 'https://github.com/kodflow/ktn/releases}"' "$SYNC_SH"
+    grep -qF 'base="${releases}/latest/download"' "$SYNC_SH"
+    grep -qF 'asset="ktn-linter_linux_${GO_ARCH}.tar.gz"' "$SYNC_SH"
     ! grep -qF 'kodflow/ktn-linter/releases' "$SYNC_SH"
     ! grep -qF 'ktn-linter-linux-' "$SYNC_SH"
     # Scope the "no go install fallback" guarantee to the whole function body,
@@ -129,15 +130,16 @@ teardown() {
         | grep -qE 'if \[ -z "\$installed" \]'
 }
 
-@test "sync_go writes ktn-linter binary atomically (tarball + extract + sibling rename)" {
+@test "sync_go writes ktn-linter binary atomically (verified tarball + sibling rename)" {
     # Without a temp+extract+rename, a curl killed mid-stream leaves a
     # half-written executable that subsequent runs treat as "installed" —
-    # permanent drift. New shape: download tarball to .download.tgz, extract
-    # to .download, chmod +x, then `mv -f` onto the final target.
-    grep -qE 'tmp_tgz="\$\{?target\}?\.download\.tgz"' "$SYNC_SH"
-    grep -qE 'tmp_bin="\$\{?target\}?\.download"' "$SYNC_SH"
-    grep -qF 'tar -xzf "$tmp_tgz"' "$SYNC_SH"
-    grep -qE 'mv -f "\$tmp_bin" "\$target"' "$SYNC_SH"
+    # permanent drift. Shape: download tarball + checksums.txt to a temp dir,
+    # verify sha256, extract there, install to <bin>.download, then `mv -f`
+    # onto the final target. Behaviour is exercised in ktn-release-install.bats.
+    grep -qF 'sha256sum "${work}/${asset}"' "$SYNC_SH"
+    grep -qF 'tar -xzf "${work}/${asset}"' "$SYNC_SH"
+    grep -qF 'install -m 0755 "${work}/x/${bin}" "${GOPATH}/bin/${bin}.download"' "$SYNC_SH"
+    grep -qF 'mv -f "${GOPATH}/bin/${bin}.download" "${GOPATH}/bin/${bin}"' "$SYNC_SH"
 }
 
 @test "sync_go preserves the existing tarball/binary-cache layout" {

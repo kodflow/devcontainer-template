@@ -201,9 +201,22 @@ sync_go() {
     # short-circuit and skip Go sync entirely.
     local failed=0
     local tool installed upstream major_pin
-    # Atomic install for ktn-linter (goreleaser tarball, not a Go module path).
-    # Writes to a sibling .download path then renames — protects against a
-    # half-fetched payload if curl is interrupted mid-stream.
+    # Verified install for ktn-linter (goreleaser tarball, not a Go module
+    # path) — mirror of install_ktn_release in the Go feature's install.sh.
+    #
+    # Usage: install_ktn_linter [X.Y.Z]   (no version = releases/latest)
+    #
+    # - The archive is checked against checksums.txt of the SAME release
+    #   (sha256) before extraction; a missing entry or a mismatch fails the
+    #   install. The version comes from the upstream probe when known, so
+    #   both files are fetched from one tag. checksums.txt.sig is not
+    #   verified: the image has no tool for it and no trusted public key.
+    # - ktn-hook ships beside ktn-linter since v1.46.0, and `ktn-linter hook
+    #   install` writes the absolute path of the ktn-hook found next to
+    #   ktn-linter: both land in ${GOPATH}/bin, mode 0755. An archive without
+    #   ktn-hook (release < v1.46.0) is a warning, not a failure.
+    # - Each binary is written to a sibling .download path then renamed, so
+    #   an interrupted copy never sits under the real name.
     #
     # Binaries are served from the public distribution repository: the
     # source repository (kodflow/ktn-linter) is private, so resolving
@@ -213,21 +226,44 @@ sync_go() {
     # an asset name that drifted again) under a misleading Go toolchain
     # error — better to return non-zero and let the caller say so plainly.
     install_ktn_linter() {
-        local target="${GOPATH}/bin/ktn-linter"
-        local tmp_tgz="${target}.download.tgz"
-        local tmp_bin="${target}.download"
-        if curl -fsSL --connect-timeout 10 --max-time 60 \
-                "https://github.com/kodflow/ktn/releases/latest/download/ktn-linter_linux_${GO_ARCH}.tar.gz" \
-                -o "$tmp_tgz" 2>/dev/null \
-            && tar -xzf "$tmp_tgz" -C "$(dirname "$tmp_bin")" ktn-linter 2>/dev/null \
-            && mv -f "$(dirname "$tmp_bin")/ktn-linter" "$tmp_bin" \
-            && chmod +x "$tmp_bin" \
-            && mv -f "$tmp_bin" "$target"; then
-            rm -f "$tmp_tgz"
-            return 0
+        local version="${1:-}"
+        local releases="${KTN_RELEASES_URL:-https://github.com/kodflow/ktn/releases}"
+        local asset="ktn-linter_linux_${GO_ARCH}.tar.gz"
+        local base work expected actual bin
+        if [ -n "$version" ]; then
+            base="${releases}/download/v${version}"
+        else
+            base="${releases}/latest/download"
         fi
-        rm -f "$tmp_tgz" "$tmp_bin"
-        return 1
+        work=$(mktemp -d) || return 1
+        if ! curl -fsSL --connect-timeout 10 --max-time 60 "${base}/${asset}" -o "${work}/${asset}" 2>/dev/null \
+            || ! curl -fsSL --connect-timeout 10 --max-time 30 "${base}/checksums.txt" -o "${work}/checksums.txt" 2>/dev/null; then
+            echo "    ktn-linter: download of ${asset} or checksums.txt failed (${base})"
+            rm -rf "$work"; return 1
+        fi
+        expected=$(awk -v f="$asset" '$2 == f || $2 == "*" f { print $1; exit }' "${work}/checksums.txt")
+        actual=$(sha256sum "${work}/${asset}" 2>/dev/null | awk '{ print $1 }')
+        if [ -z "$expected" ] || [ "$actual" != "$expected" ]; then
+            echo "    ktn-linter: sha256 check failed for ${asset} (expected ${expected:-no entry}, got ${actual:-none})"
+            rm -rf "$work"; return 1
+        fi
+        mkdir -p "${work}/x"
+        if ! tar -xzf "${work}/${asset}" -C "${work}/x" 2>/dev/null || [ ! -f "${work}/x/ktn-linter" ]; then
+            echo "    ktn-linter: ${asset} cannot be extracted or carries no ktn-linter"
+            rm -rf "$work"; return 1
+        fi
+        if [ ! -f "${work}/x/ktn-hook" ]; then
+            echo "    ktn-hook: absent from ${asset} (release older than v1.46.0?) — 'ktn-linter hook doctor' will report it"
+        fi
+        for bin in ktn-linter ktn-hook; do
+            [ -f "${work}/x/${bin}" ] || continue
+            if ! install -m 0755 "${work}/x/${bin}" "${GOPATH}/bin/${bin}.download" \
+                || ! mv -f "${GOPATH}/bin/${bin}.download" "${GOPATH}/bin/${bin}"; then
+                rm -f "${GOPATH}/bin/${bin}.download"; rm -rf "$work"; return 1
+            fi
+        done
+        rm -rf "$work"
+        return 0
     }
 
     for tool in golangci-lint gosec gofumpt gotestsum goimports ktn-linter; do
@@ -258,7 +294,16 @@ sync_go() {
                     fi
                 elif [ "$installed" != "$upstream" ]; then
                     echo "    ktn-linter: ${installed:-none} → ${upstream}"
-                    install_ktn_linter || failed=1
+                    install_ktn_linter "$upstream" || failed=1
+                elif [ ! -x "${GOPATH}/bin/ktn-hook" ]; then
+                    # Volume cached before ktn-hook was installed: same
+                    # version, so the drift branch never fires. Reinstall the
+                    # pair from the same tag. Against a release that does not
+                    # ship ktn-hook this repeats on each onCreate, warning
+                    # each time — harmless, and no longer the case since
+                    # v1.46.0 is the oldest `latest` this can see.
+                    echo "    ktn-hook: missing beside ktn-linter ${installed} — reinstalling ${upstream}"
+                    install_ktn_linter "$upstream" || failed=1
                 fi
                 ;;
             *)
