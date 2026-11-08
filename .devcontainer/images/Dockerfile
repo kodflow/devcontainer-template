@@ -4,7 +4,7 @@
 # Development Image (Dynamic Layer — rebuilt daily)
 # =============================================================================
 # Extends the stable base image with frequently-updated tools:
-# Claude Code, rtk, kubectl, helm, CodeRabbit, Qodo, etc.
+# Claude Code, rtk, kubectl, helm, CodeRabbit, etc.
 #
 # Base image (devcontainer-base) contains: system deps, Cloud CLIs, PPA tools,
 # Oh My Zsh. It is rebuilt weekly via Dockerfile.base.
@@ -164,17 +164,6 @@ RUN mkdir -p "$HOME/.local/bin" && \
       echo "CodeRabbit CLI binary missing after attempt $attempt, retrying in $((attempt * 5))s..." >&2; \
       sleep $((attempt * 5)); \
     done
-
-# =============================================================================
-# Qodo Command CLI (AI-powered code review + agents)
-# =============================================================================
-# hadolint ignore=DL3003,DL4006,SC2086
-RUN NODE_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "arm64" || echo "x64") && \
-    NODE_VERSION=$(curl -fsSL https://nodejs.org/dist/index.json | jq -r '[.[] | select(.lts != false)][0].version') && \
-    curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" | tar xJ -C /tmp && \
-    export PATH="/tmp/node-${NODE_VERSION}-linux-${NODE_ARCH}/bin:$PATH" && \
-    npm install -g --prefix="$HOME/.local" @qodo/command@latest && \
-    rm -rf "/tmp/node-${NODE_VERSION}-linux-${NODE_ARCH}"
 
 # =============================================================================
 # User Tools (status-line, xdg-open)

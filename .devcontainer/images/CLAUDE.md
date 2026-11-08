@@ -140,7 +140,7 @@ run_test() {
 | Container | Docker (via feature), kubectl, Helm |
 | Network | ping, dig, nmap, traceroute, mtr, tcpdump, netcat, whois, iperf3, net-tools |
 | VPN | OpenVPN, WireGuard, StrongSwan (IPsec), PPTP |
-| Code Quality | ShellCheck, CodeRabbit, Qodo, RTK |
+| Code Quality | ShellCheck, CodeRabbit, RTK |
 | Shell | Zsh (default `$SHELL`) + Oh My Zsh + Powerlevel10k |
 
 ## Shell Startup Optimization (v3)
