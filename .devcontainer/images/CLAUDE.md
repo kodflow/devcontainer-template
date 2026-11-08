@@ -33,8 +33,8 @@ Claude Code and MCP servers are included; languages added via features.
 
 Skills, agents and lifecycle hooks no longer ship here — they come from the
 public [kodflow marketplace](https://github.com/kodflow/claude-marketplace)
-(5 plugins: `kodflow-workflow`, `kodflow-review`, `kodflow-devops`,
-`kodflow-specialists`, `kodflow-hooks`), installed/updated at every container
+(6 plugins: `kodflow-workflow`, `kodflow-review`, `kodflow-devops`,
+`kodflow-shell`, `kodflow-specialists`, `kodflow-hooks`), installed/updated at every container
 start by `postStart.sh` (`step_marketplace_install`, fail-open when offline —
 warning, cached plugins keep working). Same install for a workstation via
 `.devcontainer/install.sh` (`install_marketplace`) and the
