@@ -223,7 +223,7 @@ Skills come from the marketplace, not from a commands/ directory in the image. P
 
 | Plugin | Skills |
 |--------|--------|
-| `kodflow-workflow` | `/challenge`, `/feature`, `/fix`, `/git`, `/plan`, `/project`, `/refine`, `/search`, `/warmup` |
+| `kodflow-workflow` | `/challenge`, `/feature`, `/fix`, `/plan`, `/project`, `/refine`, `/search`, `/warmup` |
 | `kodflow-review` | `/adr`, `/comment`, `/debug`, `/learn`, `/lint`, `/review` |
 | `kodflow-devops` | `/audit`, `/infra`, `/ktn`, `/update` |
 | `kodflow-specialists` | 29 language/OS/devops agents (no skills) |

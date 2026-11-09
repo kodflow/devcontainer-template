@@ -1248,7 +1248,6 @@ main() {
     echo "  Installation directory: $TARGET_DIR"
     echo ""
     echo "  Available skills (kodflow marketplace):"
-    echo "    /git      - Git workflow (commit, branch, PR)"
     echo "    /review   - AI-powered code review"
     echo "    /plan     - Planning mode"
     echo "    /refine   - Goal contract generator"

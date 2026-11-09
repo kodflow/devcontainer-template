@@ -14,7 +14,7 @@ fallback, `unknown` defers the decision to the calling skill.
 ## Per-primitive
 
 ### Monitor
-- Required by: `/git --watch` (W5b), `/do:loop` (W1), `/test`/`/infra` long-run (W8)
+- Required by: `/do:loop` (W1), `/test`/`/infra` long-run (W8)
 - Probe: `jq -e '.tools[] | select(.name=="Monitor")' <schema>`
 - Fallback: inline polling loop with `sleep` — slower, no event semantics
 - Acceptance test: `TestClaudePrimitiveAvailability_Monitor`
@@ -53,7 +53,7 @@ fallback, `unknown` defers the decision to the calling skill.
 - Acceptance test: `TestClaudePrimitiveAvailability_EnterPlanMode`
 
 ### PushNotification
-- Required by: PR5b (`/do` loop, `/git --merge`), PR8 (long-op terminal states)
+- Required by: PR5b (`/do` loop), PR8 (long-op terminal states)
 - Probe: `jq -e '.tools[] | select(.name=="PushNotification")' <schema>`
 - Fallback: stderr `[BELL]` line only
 - Acceptance test: `TestClaudePrimitiveAvailability_PushNotification`
@@ -101,13 +101,13 @@ fallback, `unknown` defers the decision to the calling skill.
 - Acceptance test: `TestClaudePrimitiveAvailability_TaskUpdate`
 
 ### mcp__github__*
-- Required by: PR1 (`/git --merge` via `mcp__github__merge_pull_request`), PR8 (`/feature --gh-sync`)
+- Required by: PR8 (`/feature --gh-sync`)
 - Probe: `jq -e '.mcpServers.github' .mcp.json`
 - Fallback: `gh` CLI (current behavior of legacy skills)
 - Acceptance test: `TestClaudePrimitiveAvailability_McpGithub`
 
 ### mcp__gitlab__*
-- Required by: PR1 (`/git --merge` GitLab path) — auto-detected from remote
+- Required by: GitLab remotes — auto-detected from remote
 - Probe: `jq -e '.mcpServers.gitlab' .mcp.json`
 - Fallback: `glab` CLI
 - Acceptance test: `TestClaudePrimitiveAvailability_McpGitlab`

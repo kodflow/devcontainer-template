@@ -118,7 +118,6 @@ Skills ship from the public [kodflow marketplace](https://github.com/kodflow/cla
 | `/goal` | **Harness builtin** (not a repository command file) — loops the agent on the directive condition emitted by `/refine`; no runtime state file |
 | `/challenge` | Adversarial debate on a plan before anyone builds it |
 | `/review` | Code review (RLM decomposition + review bots) |
-| `/git` | Branch + commit + PR |
 | `/search` | Documentation research |
 | `/lint` | Multi-language intelligent linting |
 | `/ktn` | Autonomous ktn-linter MCP lifecycle (5 parallel agents) |
@@ -129,7 +128,7 @@ Skills ship from the public [kodflow marketplace](https://github.com/kodflow/cla
 | `/feature` | Open/track a piece of feature work |
 | `/fix` | Open/track a defect |
 | `/debug` | Systematic root-cause-first debugging |
-| `/adr` | Architecture Decision Records (wired into `/plan`, `/git`) |
+| `/adr` | Architecture Decision Records (wired into `/plan`) |
 | `/comment` | Audit and fix code comments |
 | `/learn` | Extract reusable patterns from the session |
 
@@ -141,7 +140,7 @@ skills above, or out of scope for a public plugin): `/init`, `/test`,
 
 | Type | Skills | Rule |
 |------|--------|------|
-| **Rigid** | `/review`, `/git`, hooks | Absolute discipline, no shortcuts |
+| **Rigid** | `/review`, hooks | Absolute discipline, no shortcuts |
 | **Flexible** | `/plan`, `/search`, `/refine` | Adapt depth to context |
 
 ## 5.1 AGENT TEAMS
@@ -161,7 +160,7 @@ Three skills migrate to parallel multi-agent execution when Claude Code supports
 The capability file is a **hint**; the live probe (`detect_runtime_mode` in `skills/_shared/scripts/team-mode-primitives.sh`, same plugin) is the **source of truth** and overrides on divergence.
 
 ### NOT migrated
-`/git`, `/update`, `/warmup`, `/search`, `/feature`, `/fix`, `/lint`, `/adr`, `/comment`, `/learn`, `/debug`, `/ktn`, `/audit`, `/refine`, `/project`, `/challenge` (sequential, conflict-prone, or already has its own team integration).
+`/update`, `/warmup`, `/search`, `/feature`, `/fix`, `/lint`, `/adr`, `/comment`, `/learn`, `/debug`, `/ktn`, `/audit`, `/refine`, `/project`, `/challenge` (sequential, conflict-prone, or already has its own team integration).
 
 ### Task contract
 Every team task embeds a `<!-- task-contract v1 {...} -->` JSON block in `task_description`. See `skills/_shared/team-mode.md` §4 for the field rules. Parser: `extract_task_contract` in primitives library.
@@ -186,10 +185,7 @@ Each file ≤ 1000 lines. Read at session start.
 
 ## 7.0 GIT WORKFLOW
 
-Never commit to main directly. Use `/git --commit` which:
-1. Creates branch
-2. Commits with conventional format
-3. Opens PR
+Never commit to main directly: commit on a branch with a conventional message, then open a PR.
 
 ## 8.0 SAFEGUARDS
 

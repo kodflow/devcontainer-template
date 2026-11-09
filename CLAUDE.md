@@ -31,8 +31,8 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 ## How to Work
 
 1. **New project**: `/project` → resolve/create the workspace → constraints recorded in CLAUDE.md
-2. **New feature**: `/plan "description"` → `/review` → `/refine` → `/goal` → `/git --commit`
-3. **Bug fix**: `/plan "description"` → `/review` → `/refine` → `/goal` → `/git --commit`
+2. **New feature**: `/plan "description"` → `/review` → `/refine` → `/goal`
+3. **Bug fix**: `/plan "description"` → `/review` → `/refine` → `/goal`
 4. **Code review**: `/review` → 3-tier review (agents + Qodo + CodeRabbit)
 
 Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
@@ -145,7 +145,6 @@ All skills below ship as marketplace plugins (`kodflow-workflow`, `kodflow-revie
 | `/challenge` | Adversarial debate of a plan (architecture/scepticism/ops lenses + specialists) before it's built |
 | `/refine` | Goal contract generator (10-lens analysis) |
 | `/review` | Code review (3-tier: agents + Qodo + CodeRabbit) |
-| `/git` | Conventional commits, branch management |
 | `/search` | Documentation research with official sources |
 | `/feature` | Open/track a feature (note store or GitLab/GitHub issue), branch, append-only trail |
 | `/fix` | Same as `/feature` for defects; refuses to open one with no repro |
@@ -158,7 +157,7 @@ All skills below ship as marketplace plugins (`kodflow-workflow`, `kodflow-revie
 | `/update` | DevContainer update from template; also refreshes the marketplace plugins |
 | `/learn` | Extract reusable patterns from the current session into `~/.claude/docs/learned/` |
 | `/debug` | Systematic root-cause-first debugging (reproduce → isolate → prove → fix) |
-| `/adr` | Architecture Decision Records (docs/adr/NNNN-*.md + index), wired into `/plan` and `/git` |
+| `/adr` | Architecture Decision Records (docs/adr/NNNN-*.md + index), wired into `/plan` |
 
 ### Canonical workflow (Skills Architecture v1.6)
 
