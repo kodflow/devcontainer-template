@@ -185,7 +185,7 @@ Each file ≤ 1000 lines. Read at session start.
 
 ## 7.0 GIT WORKFLOW
 
-Never commit to main directly: commit on a branch with a conventional message, then open a PR. Run `~/.claude/scripts/pre-commit-quality.sh main` first: it must pass before the commit.
+Never commit to main directly: commit on a branch with a conventional message, then open a PR. Stage new files (`git add`), then run `~/.claude/scripts/pre-commit-quality.sh <base>` with `<base>` the PR target ref, fetched locally (e.g. `origin/main`); it must pass before the commit. If the ref is unavailable, run the full lint and test suites instead.
 
 ## 8.0 SAFEGUARDS
 
