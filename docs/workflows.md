@@ -42,8 +42,7 @@ Same flow as features, uses `fix/` branch prefix and `fix(scope):` commits.
 
 ## Code Review Pipeline
 
-`/review` is a 3-tier review: T1 agents, T2 Qodo (skipped when absent), T3
-CodeRabbit (auth-probed). T1 dispatches five cross-cutting executors in
+`/review` is a 2-tier review: T1 agents, T2 CodeRabbit (auth-probed). T1 dispatches five cross-cutting executors in
 parallel, alongside the language specialists selected by file type:
 
 | Executor | Focus |

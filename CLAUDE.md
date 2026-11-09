@@ -33,7 +33,7 @@ Universal DevContainer shell providing cutting-edge AI agents, skills, and workf
 1. **New project**: `/project` → resolve/create the workspace → constraints recorded in CLAUDE.md
 2. **New feature**: `/plan "description"` → `/review` → `/refine` → `/goal`
 3. **Bug fix**: `/plan "description"` → `/review` → `/refine` → `/goal`
-4. **Code review**: `/review` → 3-tier review (agents + Qodo + CodeRabbit)
+4. **Code review**: `/review` → 2-tier review (agents + CodeRabbit)
 
 Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
 
@@ -51,7 +51,7 @@ Branch conventions: `feat/<desc>` or `fix/<desc>`, commit prefix matches.
 
 **Deep reasoning**: For complex tasks — Peek, Decompose, Parallelize, Synthesize.
 
-**Bot reviews are signal, not orders**: CodeRabbit, Qodo and similar AI review bots produce useful hints but their findings are **non-binding**. Triage with judgment — never blindly iterate on every comment. Reject (with a short rationale) any finding that is:
+**Bot reviews are signal, not orders**: CodeRabbit and similar AI review bots produce useful hints but their findings are **non-binding**. Triage with judgment — never blindly iterate on every comment. Reject (with a short rationale) any finding that is:
 - A style nitpick, not a real bug
 - Defensive hardening against a threat model that does not apply (e.g., `mktemp` in a root-only devcontainer build)
 - A false positive (run the actual linter / test before accepting the bot's claim)
@@ -144,7 +144,7 @@ All skills below ship as marketplace plugins (`kodflow-workflow`, `kodflow-revie
 | `/plan` | Analyze codebase and design implementation approach |
 | `/challenge` | Adversarial debate of a plan (architecture/scepticism/ops lenses + specialists) before it's built |
 | `/refine` | Goal contract generator (10-lens analysis) |
-| `/review` | Code review (3-tier: agents + Qodo + CodeRabbit) |
+| `/review` | Code review (2-tier: agents + CodeRabbit) |
 | `/search` | Documentation research with official sources |
 | `/feature` | Open/track a feature (note store or GitLab/GitHub issue), branch, append-only trail |
 | `/fix` | Same as `/feature` for defects; refuses to open one with no repro |
