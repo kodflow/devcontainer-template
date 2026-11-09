@@ -323,7 +323,7 @@ step_gpg_signing() {
         # the no-keys and intent-key-missing paths. Qodo #368 review.
         git config --global --unset commit.gpgsign 2>/dev/null || true
         git config --global --unset tag.forceSignAnnotated 2>/dev/null || true
-        log_info "No GPG key found for email '$git_email' — declare GPG_SIGNINGKEY in $env_file or configure GPG signing manually"
+        log_info "No GPG key found for email '$git_email' — declare GPG_SIGNINGKEY in $env_file, then rerun /etc/devcontainer-hooks/lifecycle/postCreate.sh (postCreateCommand runs only once)"
     fi
 }
 

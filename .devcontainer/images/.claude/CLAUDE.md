@@ -185,7 +185,7 @@ Each file ≤ 1000 lines. Read at session start.
 
 ## 7.0 GIT WORKFLOW
 
-Never commit to main directly: commit on a branch with a conventional message, then open a PR.
+Never commit to main directly: commit on a branch with a conventional message, then open a PR. Run `~/.claude/scripts/pre-commit-quality.sh main` first: it must pass before the commit.
 
 ## 8.0 SAFEGUARDS
 

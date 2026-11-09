@@ -22,6 +22,7 @@ flowchart TD
     F -->|Yes| G["/review"]
     G --> H{Issues found?}
     H -->|Yes| E
+    H -->|No| I["Commit on a branch and open a PR"]
 ```
 
 ## New Feature
